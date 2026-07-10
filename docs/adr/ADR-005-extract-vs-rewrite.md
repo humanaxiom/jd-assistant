@@ -1,6 +1,6 @@
 # ADR-005: Extract vs. Rewrite Strategy for hris JD Modules
 
-**Status:** Proposed — human approves before Phase 1
+**Status:** Accepted — 2026-07-10 (project owner approved starting Phase 1)
 **Date:** 2026-07-10
 **Source:** `docs/audit/hris-reuse-map.md` (Phase 0 task 0.1)
 
