@@ -3,7 +3,8 @@
 **Created:** 2026-07-10 (Phase 0 · Task 0.2)
 **Source (READ-ONLY):** `C:\repos\hris\fixtures\SFU_JDs` (14,565-doc corpus)
 **Selection rationale:** `docs/audit/archive-census.md`
-**Count:** 44 documents
+**Count:** 40 documents (binary outliers — a bloated 89 MB `.rtf`, plus the `.tif`, `.serv`,
+and a redundant `.rtf` — were dropped; they don't belong in git and aren't useful fixtures)
 
 This is a **stratified** sample of the SFU JD archive, curated to exercise every ingestion
 and dedup edge case in one small, reviewable set. Per the `CLAUDE.md` invariant *"FIXTURES
@@ -37,7 +38,7 @@ Ollama-only inference still applies to all JD content.
 | Dedup cases | 1 exact-dup cluster (pos `00000293`, Rec Services), 1 long revision chain (pos `00124799`, 4 versions incl. multi-ID bundle + caret-joined IDs) |
 | Parse difficulty | Easy (`.docx`/`.txt`/`.rtf`), hard-legacy (`.doc`), unrecoverable (`.tif` OCR, `.serv` opaque) |
 
-## Manifest (44 files)
+## Manifest (40 files)
 
 Era legend: **OLD** = pre-2010 paper-derived template · **TRAN** = 2010–2018 transition ·
 **NEW** = 2019+ standardized `JDFN` template.
@@ -60,13 +61,9 @@ Era legend: **OLD** = pre-2010 paper-derived template · **TRAN** = 2010–2018 
 | `19980120_00000293_Asst_to_Director,_Rec_Services.doc` | OLD | Assistant | Dup-cluster head (unique hash) |
 | `19980120_00000293_Asst_to_Director,_Rec_Services.doc.doc` | OLD | Assistant | Exact-content dup, stacked `.doc.doc` |
 | `19980120_00000293_Assistant_to_the_Director,_Rec_Services.doc.doc` | OLD | Assistant | Exact-content dup w/ title variant |
-| `19980120_19980120_00000293_Asst_to_Director,_Rec_Services.rtf` | OLD | Assistant | Same position as `.rtf`, doubled-date name |
 | `20040301_06983.txt` | OLD | (id-only) | `.txt` stub, id-only filename edge case |
 | `20060327_Sec_to_Director_REM.txt` | OLD | Secretary | Tiny `.txt` oddity, no position ID |
-| `20000601_00031286_Coord_Prof_Prog_Jun2000.rtf` | OLD | Coordinator | `.rtf` format, antiword-parseable |
 | `20060716_Manager,_Acad___Admin.Serv,Public_Policy.doc.doc.doc` | OLD | Manager | Triple-stacked `.doc.doc.doc` accidental dup |
-| `19920507_30411_PC.tif` | OLD | (scanned) | HARD: scanned image, needs OCR |
-| `20060224_00000328_Manager,_A_183C39.serv` | OLD | Manager | HARD: non-standard `.serv` extension |
 | `20090701_00102072_Clerk,_Gr_4.docm` | TRAN | Clerk | Macro-enabled `.docm`, only one in corpus |
 | `20120827_Temp._Pos.__112172,_Faculty_of_Education,_Aug._24,_2012.dot` | TRAN | (template) | `.dot` Word template, free-form name |
 | `20100515_00001604_JDFN_APSA_20100515.docx` | TRAN | APSA | Earliest `JDFN` new-template naming (2010) |
