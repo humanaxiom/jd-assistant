@@ -1,0 +1,75 @@
+# jd-bank — project invariants
+
+## What this is
+JD Bank: dedup + harmonization + composer over the SFU JD archive.
+Repo: C:\repos\JD-Assistant (standalone project repo — see docs/adr/ADR-004-repo-placement.md).
+Plan: docs/plan.md. Rulebook: docs/rulebook/sfu-jd-standards.txt.
+
+## Read on every session
+harness-claude-code/CLAUDE.md — base harness rules (gates, git workflow, TDD order, code
+rules) apply here in full. They are vendored in-repo; do not re-open inherited ADR-002
+(Postgres/Neo4j split) or ADR-003 (offline Ollama).
+
+Also read HANDOFF.md for current phase/state. Paths: `C:\repos\agent-harnesses-v2` is the
+**live upstream harness** — this repo vendors a copy of it (kept in sync; subagents subsystem
+reconciled 2026-07-10, see ADR-004). `C:\repos\jdbank` is STALE (abandoned v1 attempt). The
+live project repo is `C:\repos\JD-Assistant`.
+
+## Subagents subsystem (from the harness)
+`core/src/agents/` provides a Planner→Tester→Coder(loop)→Reviewer→Security→Docs pipeline
+(`orchestrator.py`, dispatched via the `run_pipeline` arq job). Reviewer approval + security
+pass are merge-blocking. Claude Code subagent definitions live in
+`harness-claude-code/.claude/agents/`. To activate them (and the `.claude/settings.json`
+hooks: no-commit-to-main, ruff auto-fix) for sessions run from the repo root, a root
+`.claude/` is required — not yet set up.
+
+## Non-negotiables
+1. HUMAN APPROVAL: canonical JDs are drafts until an HR reviewer explicitly approves.
+   Nothing auto-publishes. Gate overrides require a written reason in the audit log.
+2. RULEBOOK AS DATA: gates, word lists, verb lists, KSA modifiers, restricted titles
+   live in versioned YAML/JSON under src/jd_core/rules/ — never hardcoded in logic.
+3. VALIDATOR AS ORACLE: tests on LLM-touching code assert validator post-state,
+   never verbatim model text.
+4. TDD + GATES: failing test first. Every rulebook gate has a failing-fixture test and
+   a passing-fixture test. make gates must be green before any commit.
+5. LOCAL-FIRST: inference via Ollama only. JD content never leaves this machine. Incumbent
+   names are normalized out of canonical JDs at ingestion as a RULEBOOK quality step
+   (describe the role, not the person) — NOT a resume-grade privacy gate. These are JDs, not
+   resumes.
+6. PROVENANCE: every canonical JD traces to sources, cluster, validation reports, and
+   reviewer actions. Audit log is append-only.
+7. FIXTURES ARE SACRED: fixtures/golden/ and fixtures/labels/ change only via reviewed
+   PRs. Every pilot bug becomes a regression fixture.
+8. DOCKER-ONLY (ADR-006): all code, tests, gates, linters, and migrations run in Docker.
+   NO host Python/venv/pip/pre-commit. `make gates` runs the FULL suite (incl. integration
+   via testcontainers) in the one-shot `gates` compose service — self-contained, CI-identical.
+   Testing is non-negotiable and has no host fallback. Only Ollama runs on host metal.
+   See DEVELOPER_GUIDE_1.md.
+
+## Neo4j — roles, do not conflate
+- Harness agent memory (day 1, via docker compose): lineage graph + vector artifact store.
+  Query with /memory-query before implementing anything.
+- JD content vectors (MVP): JD document + section embeddings live in Neo4j's vector index
+  (768-dim cosine). This is the retrieval store for dedup Tier-3, search, and clustering —
+  NOT pgvector.
+- JD Bank domain overlap graph (Phase 7, deferred): role/duty overlap graph. NOT in MVP.
+
+## External read-only paths
+- C:\repos\hris — extract modules from here; never modify
+- C:\repos\hris\fixtures\SFU_JDs — JD archive; read-only during Phase 0
+
+## Known open flags
+- Territorial acknowledgement wording: verify against SFU's current official text before
+  any external distribution. Phase 6 sign-off task — blocks publish, not development.
+- Footer wording lives in a single config constant — never inline it.
+- Stale `jdbank` path references linger in older notes — scrub on a chore branch, not
+  mid-feature. (`agent-harnesses-v2` is NOT stale — it is the live upstream harness.)
+
+## Stack
+Python 3.11+ · FastAPI · **PostgreSQL 16 (all relational/transactional SQL)** · **Neo4j
+(vector index — 768-dim cosine, `nomic-embed-text` — + graph memory)** · **Redis + arq
+(queues only)** · Ollama · pytest / ruff / black / mypy --strict
+Infrastructure: docker compose (postgres, neo4j, redis, api, worker) + Ollama on host metal
+**No pgvector.** Vectors live in Neo4j per inherited ADR-002. Postgres is the relational
+ledger; Neo4j is the vector + graph store; Redis is the arq broker. Do not reintroduce
+pgvector (older HANDOFF/plan stack lines that mention it are stale — see ADR-005 §Architecture).

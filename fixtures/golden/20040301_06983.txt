@@ -1,0 +1,23 @@
+--------------------------------- Job Profiles -----------------------------
+                                                      Last Update   04/18/06
+Job Code         06983B8B1  SECRETARY GR. 6           AUTHORIZED
+Rpt to Job Code  00328
+Profiled By      S                   Date 03/01/04    Form #               1
+DIVISION    VPA     FACULTY     ARTS    DEPT_SCH    A230    SECTION     MB
+
+ Responsibility      Effort                 28   A              43   C
+    1    C              15   B              29   A              44   C
+    2    B              16   C              30   C              45   C
+    3    B              17   B              31   A              46   B
+    4    B              18   C              32   A              47   B
+    5    A              19   B              33   C              48   C
+    6    A              20   C              34   C              49   C
+    7    C              21   C              35   B              50   B
+    8    B              22   C              36   B              51   B
+    9    C              23   A              37   A              52   B
+    10   B              24   A              38   A              53   B
+    11   C        Working Conditions        39   C              54   C
+    12   D              25   B         Skill & Knowledge        55   A
+    13   B              26   A              40   D              56   A
+    14   B              27   B              41   B              57   B
+                                            42   C              58   B
