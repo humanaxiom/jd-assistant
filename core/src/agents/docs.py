@@ -18,7 +18,8 @@ Given a summary of implemented changes, produce documentation updates.
 
 RULES:
 - ADRs go in docs/adr/NNN-title.md with sections:
-  Status / Date / Context / Decision / Architecture Diagram (Mermaid) / Consequences / Alternatives Considered
+  Status / Date / Context / Decision / Architecture Diagram (Mermaid) /
+  Consequences / Alternatives Considered
 - Architecture diagrams are Mermaid, in docs/diagrams/ or embedded in ADRs
 - Update README sections only when behaviour or interfaces changed
 - Only touch files under docs/ or README.md — never src/ or tests/

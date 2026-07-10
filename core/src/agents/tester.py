@@ -20,7 +20,8 @@ RULES:
 - Cover: happy path, edge cases, error cases; parametrize where natural
 - Mock ALL external I/O (Ollama, Postgres, Neo4j, Redis) in unit tests
 - Full type annotations; tests must satisfy ruff/black/mypy --strict
-- Tests go in tests/unit/test_<module>.py (or tests/integration/ if the spec demands real stores)
+- Tests go in tests/unit/test_<module>.py (or tests/integration/ if the
+  spec demands real stores)
 - NEVER write implementation code — only tests
 - Aim for >= 5 tests per public class/function
 
@@ -35,8 +36,7 @@ Output every file as:
 
         try:
             text, tokens = await self._complete(
-                f"{memory_ctx}Spec:\n{input_.task}\n\n"
-                "Write the failing tests now."
+                f"{memory_ctx}Spec:\n{input_.task}\n\n" "Write the failing tests now."
             )
             artifacts = self._extract_test_files(text)
             if not artifacts:

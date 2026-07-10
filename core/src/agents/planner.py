@@ -53,7 +53,9 @@ HARD RULES:
             data = json.loads(text.strip().removeprefix("```json").removesuffix("```"))
             plan = self._validate(data)
             output = self._ok(
-                input_, plan, plan.reasoning,
+                input_,
+                plan,
+                plan.reasoning,
                 artifacts={"plan.json": json.dumps(data, indent=2)},
                 tokens=tokens,
             )

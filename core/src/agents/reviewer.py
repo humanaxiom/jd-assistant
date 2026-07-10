@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 from src.agents.base import AgentInput, AgentOutput, BaseAgent
 
 
-class Severity(str, Enum):
-    CRITICAL = "critical"   # blocks merge
-    MAJOR = "major"         # must fix before merge
-    MINOR = "minor"         # should fix
-    NIT = "nit"             # optional
+class Severity(StrEnum):
+    CRITICAL = "critical"  # blocks merge
+    MAJOR = "major"  # must fix before merge
+    MINOR = "minor"  # should fix
+    NIT = "nit"  # optional
 
 
 @dataclass
@@ -34,7 +34,8 @@ class Review:
     @property
     def blocking(self) -> list[Finding]:
         return [
-            f for f in self.findings
+            f
+            for f in self.findings
             if f.severity in (Severity.CRITICAL, Severity.MAJOR)
         ]
 
@@ -88,7 +89,9 @@ approved=true ONLY if there are zero critical and zero major findings."""
                 review.approved = False
 
             output = self._ok(
-                input_, review, review.summary,
+                input_,
+                review,
+                review.summary,
                 artifacts={"review.json": json.dumps(data, indent=2)},
                 tokens=tokens,
             )

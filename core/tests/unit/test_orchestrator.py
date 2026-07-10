@@ -18,8 +18,11 @@ def make_plan(subtasks: list[Subtask]) -> Plan:
 
 def ok_output(agent_id: str, result: object = None) -> AgentOutput:
     return AgentOutput(
-        task_id="T", agent_id=agent_id, success=True,
-        result=result, reasoning="ok",
+        task_id="T",
+        agent_id=agent_id,
+        success=True,
+        result=result,
+        reasoning="ok",
     )
 
 
@@ -52,11 +55,13 @@ def test_cycle_detection_raises(orch: Orchestrator) -> None:
 
 @pytest.mark.asyncio
 async def test_reviewer_rejection_blocks_pipeline(orch: Orchestrator) -> None:
-    plan = make_plan([
-        Subtask(id="t1", agent="tester", task="tests", depends_on=[]),
-        Subtask(id="t2", agent="reviewer", task="review", depends_on=["t1"]),
-        Subtask(id="t3", agent="docs", task="docs", depends_on=["t2"]),
-    ])
+    plan = make_plan(
+        [
+            Subtask(id="t1", agent="tester", task="tests", depends_on=[]),
+            Subtask(id="t2", agent="reviewer", task="review", depends_on=["t1"]),
+            Subtask(id="t3", agent="docs", task="docs", depends_on=["t2"]),
+        ]
+    )
     rejected = Review(approved=False, summary="major issues")
 
     orch._planner.run = AsyncMock(return_value=ok_output("planner", plan))  # type: ignore[method-assign]
@@ -78,8 +83,12 @@ async def test_reviewer_rejection_blocks_pipeline(orch: Orchestrator) -> None:
 async def test_planner_failure_blocks_pipeline(orch: Orchestrator) -> None:
     orch._planner.run = AsyncMock(  # type: ignore[method-assign]
         return_value=AgentOutput(
-            task_id="T", agent_id="planner", success=False,
-            result=None, reasoning="", error="bad json",
+            task_id="T",
+            agent_id="planner",
+            success=False,
+            result=None,
+            reasoning="",
+            error="bad json",
         )
     )
     result = await orch.run("T", "spec")
@@ -89,10 +98,12 @@ async def test_planner_failure_blocks_pipeline(orch: Orchestrator) -> None:
 
 @pytest.mark.asyncio
 async def test_full_green_pipeline(orch: Orchestrator) -> None:
-    plan = make_plan([
-        Subtask(id="t1", agent="tester", task="tests", depends_on=[]),
-        Subtask(id="t2", agent="reviewer", task="review", depends_on=["t1"]),
-    ])
+    plan = make_plan(
+        [
+            Subtask(id="t1", agent="tester", task="tests", depends_on=[]),
+            Subtask(id="t2", agent="reviewer", task="review", depends_on=["t1"]),
+        ]
+    )
     orch._planner.run = AsyncMock(return_value=ok_output("planner", plan))  # type: ignore[method-assign]
     orch._agents["tester"].run = AsyncMock(return_value=ok_output("tester", ["f"]))  # type: ignore[method-assign]
     orch._agents["reviewer"].run = AsyncMock(  # type: ignore[method-assign]

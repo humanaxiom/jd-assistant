@@ -1,91 +1,72 @@
-# 🧰 AI Agent Harness v2 — Offline-First Monorepo
+# JD Bank
 
-> Shared Python core (FastAPI + Neo4j + Postgres + arq + Flask) with three thin AI-tool harness layers: **Claude Code**, **Codex**, and **GitHub Copilot**. Inference runs on **Ollama on bare metal**; everything else runs in Docker.
+> Dedup + harmonization + composer over the SFU Job Description archive. Offline-first Python
+> stack (FastAPI · Neo4j · Postgres · Redis/arq · Flask) driven by AI subagents through
+> **Claude Code**. Inference runs on **Ollama on bare metal**; **everything else runs in Docker**.
+
+Built on the v2 agent harness (upstream `C:\repos\agent-harnesses-v2`, vendored here — ADR-004).
+
+**Start here:** [`DEVELOPER_GUIDE_1.md`](DEVELOPER_GUIDE_1.md) (onboarding + workflow) ·
+[`docs/plan.md`](docs/plan.md) (build plan) · [`CLAUDE.md`](CLAUDE.md) (project invariants) ·
+[`docs/adr/`](docs/adr/) (decisions).
 
 ---
 
-## Why a monorepo now
-
-v1 shipped three duplicated repos in different languages. v2 converges on one Python core because the stack is identical regardless of which AI tool drives development. Each tool gets its own instruction layer (`CLAUDE.md`, `AGENTS.md`, `copilot-instructions.md`) pointing at the same code, gates, and CI.
-
----
-
-## System Architecture
+## System architecture
 
 ```mermaid
 graph TB
     subgraph Metal["🔩 Bare Metal (Host)"]
         OL[Ollama<br/>:11434]
     end
-
     subgraph Docker["🐳 Docker Compose"]
         subgraph AppTier["App Tier"]
             API[FastAPI<br/>:8000]
             FE[Flask Frontend<br/>:5000]
-            WK[arq Worker<br/>async tasks]
+            WK[arq Worker]
         end
         subgraph DataTier["Data Tier"]
-            PG[(PostgreSQL<br/>transactions)]
-            NEO[(Neo4j<br/>graph + vector)]
+            PG[(PostgreSQL<br/>all SQL)]
+            NEO[(Neo4j<br/>graph + vectors)]
             RD[(Redis<br/>arq queue)]
         end
     end
-
     FE -->|REST| API
     API --> PG
     API --> NEO
     API -->|enqueue| RD
     WK -->|dequeue| RD
-    WK --> PG
-    WK --> NEO
+    WK --> PG & NEO
     API & WK -->|host.docker.internal:11434| OL
-
     style Metal fill:#2D3436,color:#fff
     style AppTier fill:#1F6FEB,color:#fff
     style DataTier fill:#F59F00,color:#fff
 ```
 
-**Data responsibilities**
-
-| Store | Role |
-|---|---|
-| **PostgreSQL** | Transactional data: task records, run ledger, audit log, users |
-| **Neo4j** | Agent memory graph + vector indexes (embeddings via Ollama `nomic-embed-text`) |
-| **Redis** | arq task queue + result backend |
+**Storage (ADR-002):** PostgreSQL = all relational/transactional data; Neo4j = graph memory +
+vector index (768-dim cosine, `nomic-embed-text`) — JD embeddings live here, **not** pgvector;
+Redis = arq queue.
 
 ---
 
-## Agent Memory Graph (Neo4j)
+## Subagent pipeline
 
-```mermaid
-graph LR
-    T[Task] -->|DECOMPOSED_INTO| S[Subtask]
-    S -->|EXECUTED_BY| A[Agent]
-    S -->|PRODUCED| AR[Artifact]
-    AR -->|EMBEDDED_AS| V[Vector Index<br/>artifact_embeddings]
-    R[Run] -->|OF_TASK| T
-    R -->|GATE_RESULT| G[GateResult]
-    A -->|LEARNED| N[Note]
-```
+**planner → tester → coder(loop) → reviewer + security → docs**, implemented in
+`core/src/agents/` and driven by Claude Code (`harness-claude-code/.claude/agents/`).
 
-Vector index `artifact_embeddings` (768-dim, cosine) enables semantic retrieval of prior agent outputs — agents query "have we solved something like this before?" before implementing.
+| Subagent | Python class | Claude Code def |
+|---|---|---|
+| Planner | `PlannerAgent` — JSON plan, TDD-order validated | `planner.md` |
+| Tester | `TesterAgent` — failing tests only, `tests/` allowlist | `tester.md` |
+| Coder | `CoderAgent` in `ReviewLoop` — iterate ≤5 then escalate | `coder.md` |
+| Reviewer | `ReviewerAgent` — severity findings, **merge-blocking** | `reviewer.md` |
+| Security | `SecurityAgent` — injection/secrets/traversal/egress audit, **merge-blocking** | `security.md` |
+| Docs | `DocsAgent` — ADR + Mermaid, `docs/` allowlist | `docs.md` |
 
----
-
-## Subagent Roster
-
-The pipeline is **planner → tester → coder(loop) → reviewer + security → docs**, implemented three ways that share the same Python core:
-
-| Subagent | Python class (`core/src/agents/`) | Claude Code (`.claude/agents/`) | Codex (AGENTS.md role) | Copilot skill |
-|---|---|---|---|---|
-| Planner | `PlannerAgent` — JSON plan, TDD-order validated | `planner.md` | planner | `/plan` |
-| Tester | `TesterAgent` — failing tests only, tests/ allowlist | `tester.md` | tester | `/test` |
-| Coder | `CoderAgent` in `ReviewLoop` — iterate ≤5 then escalate | `coder.md` | coder | `/implement` |
-| Reviewer | `ReviewerAgent` — severity findings, merge-blocking | `reviewer.md` | reviewer | `/review` |
-| Security | `SecurityAgent` — injection/secrets/traversal/egress audit | `security.md` | security | `/security` |
-| Docs | `DocsAgent` — ADR + Mermaid, docs/ allowlist | `docs.md` | docs | `/docs` |
-
-The **Orchestrator** (`core/src/agents/orchestrator.py`) resolves subtask dependencies topologically, runs the coder inside the iterate-until-green loop, and hard-blocks the pipeline on reviewer rejection or security failure. Runs execute async via arq (`run_pipeline` job) and land lineage in Neo4j.
+The **Orchestrator** (`core/src/agents/orchestrator.py`) resolves subtask dependencies
+topologically, runs the coder inside the iterate-until-green loop, and hard-blocks on reviewer
+rejection or security failure. Runs execute async via arq (`run_pipeline` job) and land lineage
+in Neo4j.
 
 ```mermaid
 sequenceDiagram
@@ -96,9 +77,8 @@ sequenceDiagram
     participant R as Reviewer
     participant S as Security
     participant D as Docs
-
     O->>P: task spec
-    P-->>O: validated plan (tester<coder enforced)
+    P-->>O: validated plan (tester before coder)
     O->>T: write failing tests
     T-->>O: RED confirmed
     O->>C: implement
@@ -106,7 +86,7 @@ sequenceDiagram
         C->>C: fix exact failures
     end
     C-->>O: GREEN
-    par merge-blocking checks
+    par merge-blocking
         O->>R: review diff
         O->>S: security audit
     end
@@ -118,117 +98,86 @@ sequenceDiagram
 
 ---
 
-## Review-Iterate Loop (non-negotiable gates)
+## Gates (non-negotiable) — Docker-only (ADR-006)
 
-```mermaid
-stateDiagram-v2
-    [*] --> Branch : git checkout -b agent/&lt;task-id&gt;-&lt;slug&gt;
-    Branch --> Tests : TestAgent writes failing tests
-    Tests --> Red : gates run — must be RED
-    Red --> Implement : CoderAgent
-    Implement --> Gates : run all gates
-    Gates --> Review : ALL GREEN
-    Gates --> Implement : any RED (max 5 iterations)
-    Implement --> Escalate : 5 failures → human
-    Review --> Docs : ReviewAgent approves
-    Review --> Implement : review findings
-    Docs --> PR : open PR to main
-    PR --> [*] : CI green + human merge
-```
-
-**Gates (all must pass, enforced locally by `make gates` and in CI):**
+`make gates` runs the full suite in the one-shot `gates` compose service (self-contained,
+CI-identical — no host Python):
 
 1. `ruff check` — lint
 2. `black --check` — format
 3. `mypy --strict` — types (no unjustified `# type: ignore`)
-4. `pytest tests/unit` — unit tests
-5. `pytest tests/integration` — integration (real Postgres + Neo4j + Redis via testcontainers)
-6. Coverage ≥ **80%**
-7. Branch name matches `agent/<task-id>-<slug>` or `feat|fix|chore/<slug>`
+4. `pytest tests/unit` + `pytest tests/integration` (real Postgres + Neo4j via testcontainers)
+5. Coverage ≥ **80%** (measured across the full suite)
+6. Branch name matches `agent/<task-id>-<slug>` or `feat|fix|chore/<slug>`
+
+A single red gate = the work is not done. Never weaken a test, add an unjustified
+`# type: ignore`, or lower the coverage bar to get green.
 
 ---
 
-## Git Branch Workflow
+## Git workflow
+
+- Agents work on `agent/*` branches; `main` is protected (PR + green CI + human approval).
+- Commit story: `red:` → `green:` → `refactor:` → `docs:`.
+- Human approval is invariant: canonical JDs are drafts until an HR reviewer approves.
 
 ```mermaid
 gitGraph
-    commit id: "main"
-    branch agent/T42-rate-limiter
+    commit id: "baseline"
+    branch agent/p1-foundation
     commit id: "red: failing tests"
     commit id: "green: implementation"
-    commit id: "refactor + docs"
+    commit id: "docs: ADR + diagrams"
     checkout main
-    merge agent/T42-rate-limiter tag: "CI green"
+    merge agent/p1-foundation tag: "CI green"
 ```
-
-- Agents only ever commit to `agent/*` branches
-- `main` is protected: PR + green CI + human approval required
-- Pre-commit hooks run ruff/black/mypy/fast-tests before any commit lands
 
 ---
 
-## Repository Layout
+## Repository layout
 
 ```
-agent-harnesses-v2/
-├── core/                          # THE shared application
+JD-Assistant/
+├── core/                          # THE shared application (Python)
 │   ├── src/
-│   │   ├── api/                   # FastAPI app + routes
-│   │   ├── agents/                # BaseAgent, Planner, Coder, Tester, Reviewer
-│   │   ├── memory/                # Neo4j graph memory + vector retrieval
-│   │   ├── models/                # SQLAlchemy (Postgres) + Pydantic schemas
-│   │   ├── worker/                # arq task queue workers
-│   │   └── gates/                 # Gate runner + review loop
-│   ├── frontend/                  # Flask app (dashboard for runs/gates)
+│   │   ├── jd_core/               # (Phase 1+) parse, validate, bias, titles, KSA, scrub
+│   │   ├── jd_bank/               # (Phase 1+) ingest, dedup, cluster, harmonize, review, composer
+│   │   ├── api/  agents/  memory/  models/  worker/  gates/   # harness core
+│   ├── frontend/                  # Flask dashboard
 │   ├── db/migrations/             # Alembic (Postgres) + Cypher (Neo4j)
-│   ├── tests/{unit,integration,e2e}/
-│   └── scripts/
-├── harness-claude-code/           # CLAUDE.md + .claude/ commands
-├── harness-codex/                 # AGENTS.md + .codex/ tasks
-├── harness-copilot/               # copilot-instructions.md + skills
-├── docs/{adr,diagrams}/
-├── .github/workflows/ci.yml
-├── docker-compose.yml
-├── Makefile
-└── .pre-commit-config.yaml
+│   └── tests/{unit,integration}/
+├── harness-claude-code/           # CLAUDE.md base rules + .claude/ (subagents, settings)
+├── docs/{adr,audit,rulebook}/  docs/plan.md
+├── fixtures/{golden,labels}/      # SFU JD golden sample + dedup label set
+├── CLAUDE.md  HANDOFF.md  DEVELOPER_GUIDE_1.md
+├── docker-compose.yml  Makefile  .pre-commit-config.yaml
 ```
 
 ---
 
-## Quick Start
+## Quick start
 
 ```bash
-# 0. Prereq on host: Ollama running on metal
-ollama serve &
+# 0. Host prereq: Ollama on metal
+OLLAMA_HOST=0.0.0.0 ollama serve &
 ollama pull qwen2.5-coder:14b nomic-embed-text
 
-# 1. Bring up the stack
+# 1. Bring up the stack (everything but Ollama)
 docker compose up -d          # postgres, neo4j, redis, api, worker, frontend
 
-# 2. Run migrations
-make migrate                  # alembic upgrade head + cypher migrations
+# 2. Migrations + git pre-commit hook
+make migrate
+make hook-install
 
-# 3. Run the full gate suite (what agents run every iteration)
+# 3. Gates (runs in Docker; no host Python)
 make gates
 
-# 4. Open the dashboard
-open http://localhost:5000
-
-# 5. Pick your AI tool and symlink its instruction layer
-make use-claude               # or: make use-codex / make use-copilot
+# 4. Dashboard → http://localhost:5000   ·   Neo4j → http://localhost:7474
 ```
 
-`make use-<tool>` symlinks the tool's instruction file to the repo root (e.g. `CLAUDE.md → harness-claude-code/CLAUDE.md`) so the tool picks it up automatically.
+Full workflow, first-feature walkthrough, and troubleshooting: [`DEVELOPER_GUIDE_1.md`](DEVELOPER_GUIDE_1.md).
 
----
-
-## Ollama Connectivity from Docker
-
-Containers reach the host's Ollama via `host.docker.internal:11434` (mapped in compose with `extra_hosts` for Linux). All agent code takes `OLLAMA_BASE_URL` — no cloud API is required at runtime. The OpenAI-compatible endpoint (`/v1`) is used so agent code is portable if you later swap to vLLM.
-
----
-
-## Environment Variables
+## Environment variables
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -239,4 +188,4 @@ Containers reach the host's Ollama via `host.docker.internal:11434` (mapped in c
 | `NEO4J_URI` | `bolt://neo4j:7687` | Neo4j |
 | `REDIS_URL` | `redis://redis:6379/0` | arq queue |
 | `MAX_REVIEW_ITERATIONS` | `5` | Review-loop cap before escalation |
-| `COVERAGE_THRESHOLD` | `80` | CI/gate coverage minimum |
+| `COVERAGE_THRESHOLD` | `80` | Gate coverage minimum |

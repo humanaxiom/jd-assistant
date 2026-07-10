@@ -81,9 +81,7 @@ class CoderAgent:
         """
         import re
 
-        pattern = re.compile(
-            r"```[a-z]*\s+path=([^\s`]+)\n(.*?)```", re.DOTALL
-        )
+        pattern = re.compile(r"```[a-z]*\s+path=([^\s`]+)\n(.*?)```", re.DOTALL)
         count = 0
         for match in pattern.finditer(model_output):
             path, content = match.group(1), match.group(2)

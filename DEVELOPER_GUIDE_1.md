@@ -2,7 +2,7 @@
 
 > From `git clone` to your first agent-built feature merged to `main`. Offline-first Python
 > stack (FastAPI · **Neo4j** · Postgres · Redis · arq · Flask) driven by AI subagents through
-> Claude Code (or Codex / Copilot). **Everything runs in Docker — there is no host Python.**
+> Claude Code. **Everything runs in Docker — there is no host Python.**
 >
 > This guide is also the **golden-standard template** for new projects on this harness
 > (see §13). JD Bank is the reference implementation.
@@ -125,18 +125,10 @@ If any step fails, stop and fix it before continuing.
 
 ---
 
-## 4. Pick your AI harness
+## 4. Claude Code
 
-JD Bank is developed primarily with **Claude Code**, but all three tools drive the same Python
-core. `make use-*` symlinks the tool's instruction file to the repo root so it's auto-discovered.
-
-```bash
-make use-claude       # symlinks CLAUDE.md → harness-claude-code/CLAUDE.md
-make use-codex        # symlinks AGENTS.md → harness-codex/AGENTS.md
-make use-copilot      # symlinks .github/copilot-instructions.md
-```
-
-### Claude Code (primary)
+JD Bank is driven by **Claude Code** (the harness's Codex and Copilot layers were removed — this
+is a Claude-only project).
 
 ```bash
 npm install -g @anthropic-ai/claude-code   # if not installed
@@ -145,21 +137,14 @@ cd JD-Assistant && claude
 
 The six subagents in `harness-claude-code/.claude/agents/` (planner, tester, coder, reviewer,
 security, docs) plus `.claude/settings.json` (blocks commits to `main`; auto-runs
-`ruff --fix` **in the api container** after every write) are the harness's Claude Code layer.
+`ruff --fix` **in the api container** after every write) are the Claude Code layer.
 
 > **Activation note:** to make those subagent definitions and hooks active for sessions run
 > from the **repo root**, the `.claude/` directory must be at the root. Point it at the harness
-> layer once: `ln -s harness-claude-code/.claude .claude` (or `make use-claude` + copy). Until
-> then the defs are vendored but inert at root — confirm with `/agents` inside a session.
-
-### Codex
-
-Reads `AGENTS.md`; task files live in `harness-codex/.codex/tasks/*.task.md`.
-
-### Copilot
-
-VS Code + Copilot Agent Mode; instructions load from `.github/copilot-instructions.md`, skills
-from `.github/copilot-instructions/`.
+> layer once: `ln -s harness-claude-code/.claude .claude`. Until then the defs are vendored but
+> inert at root — confirm with `/agents` inside a session. (Do not run a `make use-*` symlink of
+> `CLAUDE.md` — the root `CLAUDE.md` here is the project invariants file, not the harness base
+> rules, which it references.)
 
 ---
 
@@ -373,8 +358,7 @@ On-demand gates for a branch: `curl -s -X POST "http://localhost:8000/gates/run?
 1. `core/src/agents/rulebook.py` extends `BaseAgent`; `agent_id = "rulebook"`.
 2. Add to `VALID_AGENTS` in `planner.py`; register in `Orchestrator._agents`.
 3. If merge-blocking, add the check in `Orchestrator.run` alongside reviewer/security.
-4. Claude Code: `harness-claude-code/.claude/agents/rulebook.md` (YAML frontmatter).
-   Codex: role in `AGENTS.md`. Copilot: `.github/copilot-instructions/rulebook-skill.md`.
+4. Add the Claude Code definition: `harness-claude-code/.claude/agents/rulebook.md` (YAML frontmatter).
 5. Unit-test the agent + orchestrator dispatch + planner acceptance.
 
 **Add a gate** (e.g. `bandit`): add to `GATE_COMMANDS` in `core/src/gates/runner.py`, to the
@@ -481,7 +465,6 @@ so the golden standard converges.
 | Migrations | `make migrate` |
 | Install git hook | `make hook-install` |
 | Shell in container | `make shell` (`docker compose exec api bash`) |
-| Switch harness | `make use-claude` / `use-codex` / `use-copilot` |
 | Similar prior work | `curl "localhost:8000/memory/similar?q=..."` |
 | Task lineage | `curl "localhost:8000/tasks/<id>/lineage"` |
 | Worker logs | `docker compose logs -f worker` |

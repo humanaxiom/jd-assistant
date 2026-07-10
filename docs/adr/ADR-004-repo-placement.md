@@ -23,7 +23,8 @@ Path reconciliation (updated 2026-07-10): earlier session notes referenced the r
 `C:\repos\jdbank` and the harness as `C:\repos\agent-harnesses-v2`.
 - **`C:\repos\agent-harnesses-v2` — LIVE.** This is the authoritative **upstream harness**
   (regenerated in full by Fable 5). `C:\repos\JD-Assistant` vendors a copy of it under
-  `core/`, `harness-claude-code/`, `harness-codex/`, `harness-copilot/`. (An earlier draft
+  `core/` and `harness-claude-code/` (the Codex and Copilot layers were dropped — Claude-only
+  project). (An earlier draft
   of this ADR wrongly stated this path did not exist — corrected here.)
 - **`C:\repos\jdbank` — STALE.** An abandoned v1-TypeScript attempt; not the project repo.
 - **`C:\repos\JD-Assistant` — the live project repo** (this one).

@@ -57,9 +57,7 @@ class Orchestrator:
             AgentInput(task_id=task_id, task=task_spec)
         )
         if not plan_output.success:
-            return PipelineResult(
-                task_id, False, None, blocked_by="planner"
-            )
+            return PipelineResult(task_id, False, None, blocked_by="planner")
         plan: Plan = plan_output.result
         logger.info("Plan %s: %d subtasks", plan.plan_id, len(plan.subtasks))
 

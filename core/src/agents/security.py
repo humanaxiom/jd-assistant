@@ -10,8 +10,8 @@ from src.agents.base import AgentInput, AgentOutput, BaseAgent
 
 @dataclass
 class SecurityFinding:
-    category: str        # injection | secrets | authz | input-validation | dos | crypto
-    severity: str        # critical | high | medium | low
+    category: str  # injection | secrets | authz | input-validation | dos | crypto
+    severity: str  # critical | high | medium | low
     file: str
     message: str
     remediation: str
@@ -54,15 +54,14 @@ passed=false if any critical or high finding exists."""
             )
             data = json.loads(text.strip().removeprefix("```json").removesuffix("```"))
             findings = [SecurityFinding(**f) for f in data.get("findings", [])]
-            has_blocking = any(
-                f.severity in ("critical", "high") for f in findings
-            )
+            has_blocking = any(f.severity in ("critical", "high") for f in findings)
             report = SecurityReport(
                 passed=bool(data["passed"]) and not has_blocking,
                 findings=findings,
             )
             output = self._ok(
-                input_, report,
+                input_,
+                report,
                 reasoning=f"{len(findings)} finding(s); passed={report.passed}",
                 artifacts={"security-report.json": json.dumps(data, indent=2)},
                 tokens=tokens,

@@ -16,10 +16,10 @@ class Base(AsyncAttrs, DeclarativeBase):
     pass
 
 
-class TaskStatus(str, enum.Enum):
+class TaskStatus(enum.StrEnum):
     PENDING = "pending"
     PLANNING = "planning"
-    RED = "red"            # failing tests written
+    RED = "red"  # failing tests written
     ITERATING = "iterating"  # coder loop running
     REVIEW = "review"
     ESCALATED = "escalated"
@@ -27,7 +27,7 @@ class TaskStatus(str, enum.Enum):
     FAILED = "failed"
 
 
-class GateStatus(str, enum.Enum):
+class GateStatus(enum.StrEnum):
     GREEN = "green"
     RED = "red"
     SKIPPED = "skipped"
