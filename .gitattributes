@@ -1,0 +1,27 @@
+# Normalize line endings to LF in the repo (cross-platform / golden standard).
+# Critical: shell scripts, Makefile, and Dockerfiles run inside Linux containers —
+# CRLF would break them. Force LF regardless of the developer's OS.
+* text=auto eol=lf
+
+*.py     text eol=lf
+*.sh     text eol=lf
+*.md     text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.json   text eol=lf
+*.toml   text eol=lf
+*.cypher text eol=lf
+*.j2     text eol=lf
+Makefile   text eol=lf
+Dockerfile text eol=lf
+*.html   text eol=lf
+
+# Binary fixtures — never apply line-ending or text filters (would corrupt them).
+*.doc  binary
+*.docx binary
+*.docm binary
+*.dot  binary
+*.rtf  binary
+*.tif  binary
+*.serv binary
+*.pdf  binary
