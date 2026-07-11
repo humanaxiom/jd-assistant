@@ -1422,6 +1422,47 @@ decisions:
       the behaviour, it does not change it.
     status: open
 
+  # ═══ TITLES: THE SENIORITY LADDER ═══════════════════════════════════════════
+
+  - id: HR-059
+    question: >-
+      What are SFU's job-title seniority levels — the ladder every title is
+      classified onto (and, later, compared and de-duplicated by)?
+    config:
+      file: titles.yaml
+      path: titles.families
+    current_default:
+      - vp
+      - chief
+      - director
+      - manager
+      - lead
+      - associate
+      - assistant
+    provenance: hris_calibration
+    why_it_matters: >-
+      hris shipped this ladder claiming it as "SFU's official title ladder (Toolkit
+      p18-19)". IT IS NOT IN THE RULEBOOK. docs/rulebook/sfu-jd-standards.txt has no
+      title-family ladder at all: `chief` does not appear anywhere in it, and the
+      only occurrence of "VP" (Part 3.5) lists VP as a RESTRICTED title — a title
+      you may not use — not as a seniority family. So the seven rungs below are an
+      inherited guess, and the guess is load-bearing: the ladder is the seniority
+      dimension of title classification, it will normalize titles for dedup Tier-3
+      (deciding whether "Manager, Research" and "Research Lead" are the same role),
+      and it drives the composer's facets. A missing rung is not a cosmetic gap — a
+      ladder with no `supervisor` or `coordinator` rung cannot classify those
+      titles at all, and they fall to `unmapped`. This is HR-029's problem (nine
+      coded terms SFU never published, shipped as if it had) in the title dimension.
+    impact_if_changed: >-
+      Config only — add, remove or reorder rungs in titles.yaml. Nothing here blocks
+      approval; no gate reads it. But HR should either point us at the real SFU
+      ladder (the Job Titling Guide / Toolkit p18-19, which this repo does not
+      hold), confirm these seven, or replace them. NOTE the SEPARATE functional
+      dimension (assistant / coordinator / analyst / officer / specialist /
+      consultant / manager / associate director / director / executive) IS
+      rulebook-sourced — Part 3.3's Application Table — and is not in question here.
+    status: open
+
 # ═════════════════════════════════════════════════════════════════════════════
 # TRIVIAL — on the decision surface, deliberately NOT a decision for HR.
 #
