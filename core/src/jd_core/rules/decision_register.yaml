@@ -2025,6 +2025,506 @@ decisions:
     status: open
 
 # ═════════════════════════════════════════════════════════════════════════════
+# JD-TO-JD COMPARISON (comparison.yaml) — similarity, clustering, drift.
+#
+# ⚠ PROVENANCE, UP FRONT: every entry below is `hris_calibration`. SFU publishes no
+# similarity formula, no clone score, no cluster threshold and no drift metric —
+# `docs/rulebook/sfu-jd-standards.txt` contains none of it. Two come close and still
+# do not clear the `sfu_rulebook` bar, and the distinction is the whole point of the
+# provenance column (HR-029 / HR-059 are the same lesson):
+#
+#   * the DRIFT ESCALATIONS (HR-100, HR-101). hris cited them to "SFU's re-evaluation
+#     criteria, Toolkit p26" — via docs/rulebook/sfu-reference.md §5, which is hris's
+#     own extract, not the rulebook. The shipped rulebook has NO re-evaluation
+#     criteria at all: only l.22, "Major revisions can trigger re-evaluation", which
+#     quantifies nothing. The intent is plausibly SFU's; the numbers are ours.
+#   * the CLONE SCORE (HR-093). The Toolkit's cloning rule is an IDENTITY check
+#     (identical duties + supervisor + title + qualifications). hris approximated it
+#     with a cosine. A score is not an identity check.
+#
+# NOTHING READS THESE YET (Phase 3 will). They are registered now, before the feature
+# that needs them, so they cannot arrive as undeclared defaults inside a feature PR.
+# ═════════════════════════════════════════════════════════════════════════════
+
+  - id: HR-082
+    question: >-
+      Are these the education levels JD Bank recognises, in this order —
+      high school < associate < bachelors < masters < phd?
+    config:
+      file: comparison.yaml
+      path: comparison.education_ladder
+    current_default: [high_school, associate, bachelors, masters, phd]
+    provenance: hris_calibration
+    why_it_matters: >-
+      This is the ONE education ladder in the rulebook, and it is an ordinal scale, not
+      a list: a rung's position IS its value. Drift reads an education change off it
+      (HR-100's sibling escalation) and similarity measures how far apart two roles sit
+      on it. hris held the same fact twice — a name->ordinal dict in drift.py and a
+      tuple in similarity.py — with nothing keeping them in step. Re-ordering it, or
+      inserting a rung, silently re-scales both. SFU's rulebook names no education
+      ladder; it requires the minimum education be STATED (Part 5), not that it be
+      graded.
+    impact_if_changed: >-
+      Config only, but it re-scales two metrics at once. Adding a rung (e.g. a
+      professional designation) also widens the ladder, which shrinks every education
+      distance in `seniority_closeness` — a JD Bank-wide effect from a one-line edit.
+      Each rung needs a matching cue list (HR-083); the loader refuses a rung with no
+      cues.
+    status: open
+
+  - id: HR-083
+    question: >-
+      Which words in a free-text qualification place it on each rung of the education
+      ladder — and is "degree", with no adjective, a bachelors?
+    config:
+      file: comparison.yaml
+      path: comparison.education_text_cues
+    current_default:
+      high_school: ["high school", high-school, "secondary school"]
+      associate: [associate, diploma]
+      bachelors: [bachelor, bsc, b.sc, undergraduate, baccalaureate, degree]
+      masters: [master, msc, m.sc, mba]
+      phd: [phd, ph.d, doctora, dphil]
+    provenance: hris_calibration
+    why_it_matters: >-
+      These substrings are how a written requirement ("Master's degree in a related
+      discipline") becomes a rung. The cues are tried MOST-SENIOR FIRST — derived from
+      the ladder, not written down separately — which is the only reason that example
+      reads as `masters` and not as the generic `degree` -> `bachelors` rung. Two
+      judgement calls are baked in: bare "degree" counts as a bachelors (an SFU JD
+      that says "university degree" gets a rung it never asked for), and "diploma" is
+      an associate (SFU's own usage varies). An unrecognised requirement yields NO
+      level, and drift then never escalates on it — deliberately conservative.
+    impact_if_changed: >-
+      Config only. Note the cross-file guard: `hay_signals.yaml`'s education cues
+      (`edu_high` / `edu_mid`) must all appear here, so DELETING a cue that Hay also
+      reads is a LOAD ERROR, not a silent Know-How regression.
+    status: open
+
+  - id: HR-084
+    question: How much of the JD-similarity score is the summary-embedding cosine?
+    config:
+      file: comparison.yaml
+      path: comparison.weight_vector
+    current_default: 0.45
+    provenance: hris_calibration
+    why_it_matters: >-
+      `sim = 0.45*vector + 0.45*skills + 0.10*seniority`. hris rebalanced the embedding
+      DOWN to parity with skills because on real JDs the summary embedding mostly
+      captures generic institutional tone — every "university admin" JD reads alike —
+      so an embedding-led score over-merges. That was a judgement about the HRIS corpus,
+      made against a skill graph JD Bank does not have; it has never been checked
+      against SFU's archive.
+    impact_if_changed: >-
+      The three weights must sum to 1.0 (the loader enforces it), so moving one means
+      moving another. Every threshold below (HR-092, HR-093, HR-095) is calibrated
+      against THIS mix — retuning the weights invalidates them.
+    status: open
+
+  - id: HR-085
+    question: How much of the JD-similarity score is idf-weighted skill overlap?
+    config:
+      file: comparison.yaml
+      path: comparison.weight_skill
+    current_default: 0.45
+    provenance: hris_calibration
+    why_it_matters: >-
+      Skills carry EQUAL weight to the embedding — the deliberate anti-over-merge
+      choice (see HR-084). In JD Bank this weight currently multiplies a number nothing
+      can compute: a parsed SFU JD has no skill set, no skill ontology and no idf
+      corpus. Phase 3 has to build all three before this weight means anything, and
+      whatever it builds them from will change what "skill overlap" IS.
+    impact_if_changed: >-
+      Must be re-decided WITH the Phase-3 skill representation, not before it. Weights
+      must sum to 1.0.
+    status: open
+
+  - id: HR-086
+    question: >-
+      How much of the JD-similarity score is seniority (experience + education)
+      closeness?
+    config:
+      file: comparison.yaml
+      path: comparison.weight_seniority
+    current_default: 0.1
+    provenance: hris_calibration
+    why_it_matters: >-
+      The tie-break term: 10% of the score. It is what stops a Coordinator and a
+      Director with identical skill vocabulary scoring as the same role — and at 0.10
+      it barely does. SFU cares a great deal about level (the whole Hay method is about
+      level), so a 10% weight may be far too low; it is also the term whose inputs are
+      most often missing, and a missing input scores 0.7 (HR-090) rather than 0.
+    impact_if_changed: >-
+      Raising it makes the score more level-sensitive and less likely to merge a junior
+      and a senior variant of one role — probably desirable for SFU, and testable
+      against the archive in Phase 3. Weights must sum to 1.0.
+    status: open
+
+  - id: HR-087
+    question: >-
+      When two skills are not the same but belong to the same ontology family
+      (postgresql / mysql), what fraction of an exact match do they earn?
+    config:
+      file: comparison.yaml
+      path: comparison.family_weight
+    current_default: 0.5
+    provenance: hris_calibration
+    why_it_matters: >-
+      Half credit. It decides how generously the scorer treats "similar but not the
+      same" expertise, which for JDs is precisely the interesting case (a JD asking for
+      Tableau vs one asking for Power BI). Too generous and unrelated roles merge; too
+      strict and genuinely redundant JDs never cluster.
+    impact_if_changed: >-
+      Config only. Meaningless until Phase 3 supplies a skill ontology — and the
+      ontology's own granularity will matter more than this number.
+    status: open
+
+  - id: HR-088
+    question: >-
+      Which ontology families are so generic that sharing one is worth nothing —
+      currently "other" and "domain"?
+    config:
+      file: comparison.yaml
+      path: comparison.non_matchable_families
+    current_default: [domain, other]
+    provenance: hris_calibration
+    why_it_matters: >-
+      The catch-all families. Without this exclusion every skill pair that fell into
+      the ontology's junk drawer would earn HR-087's partial credit, and the skill
+      component would drift towards "everything overlaps a bit".
+    impact_if_changed: >-
+      Config only. The names must match the Phase-3 ontology's own family names — a
+      typo silently re-enables credit for the junk drawer, which is why the value is
+      pinned here rather than left as a set literal in Python.
+    status: open
+
+  - id: HR-089
+    question: >-
+      Which title words are ignored when two titles are compared for sameness — is
+      "Senior Developer II" the same title as "Developer"?
+    config:
+      file: comparison.yaml
+      path: comparison.title_stopwords
+    current_default:
+      - "1"
+      - "2"
+      - "3"
+      - "4"
+      - "5"
+      - assistant
+      - associate
+      - i
+      - ii
+      - iii
+      - intern
+      - iv
+      - jr
+      - junior
+      - lead
+      - principal
+      - senior
+      - sr
+      - staff
+      - trainee
+      - v
+    provenance: hris_calibration
+    why_it_matters: >-
+      Yes, today: every one of these tokens is DISCARDED before titles are compared, so
+      "Senior Developer II" and "Developer" are one title, and a cluster of them reports
+      one distinct title, not three. That is exactly what SFU's harmonization wants for
+      the *skills* comparison — and exactly wrong for reporting, because SFU's own
+      Part 3.6 says "Senior" is reserved for roles supervising junior roles in the same
+      area. The word carries meaning; the normalizer throws it away.
+    impact_if_changed: >-
+      Config only, but it moves BOTH the same-title flag in the clone verdict and the
+      `distinct_titles` metric a cluster reports. Dropping `principal` (or adding
+      `head`) silently re-groups every title in the archive. Note this list is NOT the
+      seniority ladder in titles.yaml (HR-059) — different vocabulary, different job:
+      discarded here, classified there.
+    status: open
+
+  - id: HR-090
+    question: >-
+      When a JD does not state an experience bar or an education level, how close do we
+      assume the two roles are — currently 0.7 out of 1?
+    config:
+      file: comparison.yaml
+      path: comparison.unknown_signal_closeness
+    current_default: 0.7
+    provenance: hris_calibration
+    why_it_matters: >-
+      A pure guess, and it fires constantly: a JD Bank JD has NO structured education
+      level or years bar at all, so on today's data every seniority comparison would
+      take this default on both halves and score exactly 0.7. High enough not to punish
+      a JD for what it does not say; low enough not to reward it. Nobody has validated
+      that 0.7 is the right neutral.
+    impact_if_changed: >-
+      Config only, but it is the most-taken branch in `seniority_closeness`. Setting it
+      to 0.0 would treat silence as maximum distance (punishing terse JDs); 1.0 would
+      treat silence as agreement (merging everything).
+    status: open
+
+  - id: HR-091
+    question: >-
+      How many years of experience apart must two roles be before they count as
+      completely different in seniority?
+    config:
+      file: comparison.yaml
+      path: comparison.experience_span_years
+    current_default: 10.0
+    provenance: hris_calibration
+    why_it_matters: >-
+      hris divided the year gap by a hardcoded 10.0, so a 2-year role and a 12-year role
+      score ZERO on experience closeness, while 2 and 7 score 0.5. Ten years is a whole
+      career stage; for SFU's grade structure the meaningful distance may be far
+      shorter.
+    impact_if_changed: >-
+      Config only. Narrowing it makes experience a sharper discriminator (fewer merges
+      across levels); widening it makes it nearly inert.
+    status: open
+
+  - id: HR-092
+    question: >-
+      How similar must two JDs be before we show one as a "similar role" at all
+      (the noise floor)?
+    config:
+      file: comparison.yaml
+      path: comparison.sim_threshold
+    current_default: 0.6
+    provenance: hris_calibration
+    why_it_matters: >-
+      Two jobs: it is the floor below which a neighbour is not surfaced to a human, AND
+      it is one of the two inputs to the derived cluster threshold (HR-096) — raise it
+      above 0.80 and clustering tightens with it. It is also the score above which a
+      different-title/different-department match is called a NEW JOB needing Hay
+      evaluation (`clone_verdict`), which is a recommendation to Compensation.
+    impact_if_changed: >-
+      Too low and reviewers drown in weak matches; too high and real redundancy is never
+      surfaced. This is the number Phase 2.5's archive baseline should be used to
+      calibrate — it cannot be judged in the abstract.
+    status: open
+
+  - id: HR-093
+    question: >-
+      At what similarity score do we call two JDs a CLONE (identical role, no
+      re-evaluation needed)?
+    config:
+      file: comparison.yaml
+      path: comparison.clone_threshold
+    current_default: 0.92
+    provenance: hris_calibration
+    why_it_matters: >-
+      The most consequential number in this file, because its verdict goes to
+      Compensation: "clone" means no Hay re-evaluation. SFU's actual cloning rule
+      (Toolkit p10, via sfu-reference.md §4) is an IDENTITY check — identical duties AND
+      supervisor AND title AND qualifications — and hris replaced it with a 0.92 cosine
+      plus same-title plus same-department. A score can be 0.92 while the duties differ.
+      This is an approximation of a rule SFU wrote precisely, and it is ours.
+    impact_if_changed: >-
+      Advisory today (nothing calls it). Before it is EVER shown to a reviewer, the
+      honest fix may be to stop approximating: check the identity conditions SFU
+      actually names, and use the score only to shortlist candidates.
+    status: open
+
+  - id: HR-094
+    question: >-
+      How much DISTINCTIVE skill overlap must two JDs share before they may be merged
+      into one cluster?
+    config:
+      file: comparison.yaml
+      path: comparison.min_cluster_skill_overlap
+    current_default: 0.3
+    provenance: hris_calibration
+    why_it_matters: >-
+      The gate that stops JDs merging on generic tone alone: sharing only ubiquitous
+      skills (communication, MS Office — low idf) falls below it; sharing distinctive
+      skills clears it. Without it, connected-components clustering on embedding-led
+      similarity collapses into one giant blob.
+    impact_if_changed: >-
+      Config only, and NOTHING READS IT YET — the Phase-3 edge builder will. It is
+      registered now precisely so it does not arrive as an undeclared default inside
+      that PR. It depends entirely on an idf corpus that does not exist yet.
+    status: open
+
+  - id: HR-095
+    question: >-
+      How strong must an edge be to merge two JDs into a redundancy cluster (the floor,
+      independent of the noise floor)?
+    config:
+      file: comparison.yaml
+      path: comparison.cluster_threshold_floor
+    current_default: 0.8
+    provenance: hris_calibration
+    why_it_matters: >-
+      A precision call: cluster only on STRONG edges, well above the per-JD "show me
+      similar" floor of 0.60, because clustering merges roles and a false merge produces
+      a canonical JD that describes two different jobs. Connected components is
+      transitive, so one bad edge can chain two clusters together — the threshold is the
+      only thing holding that back (with HR-094).
+    impact_if_changed: >-
+      This is THE lever on how much of the archive gets harmonized. Lower it and clusters
+      grow (and over-merge); raise it and the Bank finds no redundancy to consolidate.
+      Phase 3 must justify it against the real corpus, not inherit it.
+    status: open
+
+  - id: HR-096
+    question: >-
+      DERIVED — the effective cluster threshold: max(sim_threshold,
+      cluster_threshold_floor). Is a derived-not-duplicated threshold the right shape?
+    config:
+      file: comparison.yaml
+      path: comparison.cluster_threshold
+    current_default: 0.8
+    provenance: hris_calibration
+    why_it_matters: >-
+      hris wrote `CLUSTER_THRESHOLD = max(SIM_THRESHOLD, 0.80)`: the cluster threshold is
+      never allowed below the noise floor. Shipping the ANSWER (0.80) as a third YAML key
+      would be two knobs holding one value with nothing keeping them in step — the exact
+      `max_listed` landmine on the backlog. So it is computed, and this entry pins the
+      computed value: raise HR-092 (the noise floor) above 0.80 and the effective cluster
+      threshold moves with it, and this register entry breaks the build until HR is told.
+    impact_if_changed: >-
+      Not directly settable — it changes only when HR-092 or HR-095 changes. It is on the
+      register because the number REVIEWERS care about is the effective one, and because
+      it is the tripwire proving the two knobs stayed in step.
+    status: open
+
+  - id: HR-097
+    question: Is a pair of near-duplicate JDs already a "cluster", or does it take three?
+    config:
+      file: comparison.yaml
+      path: comparison.min_cluster_size
+    current_default: 2
+    provenance: hris_calibration
+    why_it_matters: >-
+      A singleton has nothing to be redundant WITH, so it is not a cluster — that much is
+      definitional. Whether a mere PAIR is worth harmonizing into a canonical JD is not:
+      it is an HR judgement about where the Bank's effort goes, and hris settled it with
+      an inline `>= 2`.
+    impact_if_changed: >-
+      Config only. Raising it to 3 hides every two-JD redundancy from the Bank — which may
+      be most of the archive's real duplication (two departments with the same
+      Coordinator role).
+    status: open
+
+  - id: HR-098
+    question: >-
+      How much can a posting's skill set diverge from its canonical role before the drift
+      is called MINOR?
+    config:
+      file: comparison.yaml
+      path: comparison.drift_minor_at
+    current_default: 0.25
+    provenance: hris_calibration
+    why_it_matters: >-
+      A Jaccard distance of 0.25 — one skill added to a set of three. hris tuned this
+      conservatively (prefer calling a borderline case "minor" over crying "major"). SFU's
+      rulebook has no skill-churn metric at all: it says a JD should be reviewed annually
+      and that "major revisions can trigger re-evaluation" (l.22), and quantifies nothing.
+    impact_if_changed: >-
+      Config only; drift is ADVISORY and blocks nothing (it flags a posting worth a second
+      look at review time). Nothing reads it yet — a JD Bank JD has no skill set.
+    status: open
+
+  - id: HR-099
+    question: >-
+      And at what divergence is a posting's drift MAJOR — i.e. worth a re-evaluation
+      conversation?
+    config:
+      file: comparison.yaml
+      path: comparison.drift_major_at
+    current_default: 0.5
+    provenance: hris_calibration
+    why_it_matters: >-
+      Half the skill set changed. It is the number that decides which postings appear on
+      a reviewer's "these have drifted" list, so it sets the review workload. The loader
+      enforces minor < major.
+    impact_if_changed: >-
+      Config only; advisory. Same caveat as HR-098 — this is a metric SFU never published.
+    status: open
+
+  - id: HR-100
+    question: >-
+      How many years may a posting's experience bar move from its canonical role's before
+      it counts as a change to the technical knowledge required?
+    config:
+      file: comparison.yaml
+      path: comparison.material_years_delta
+    current_default: 2
+    provenance: hris_calibration
+    why_it_matters: >-
+      SFU's re-evaluation criteria (as hris recorded them from Toolkit p26 — NOT in the
+      rulebook this repo ships) make "qualifications that change the technical knowledge
+      required" a major trigger in its own right, whatever the skills did. hris keyed that
+      on two signals and QUANTIFIED one of them itself: a >= 2-year move. SFU does not
+      quantify it anywhere. The 2 is ours.
+    impact_if_changed: >-
+      Config only; advisory. An escalation fires only when BOTH sides state a number, so a
+      missing requirement never manufactures drift.
+    status: open
+
+  - id: HR-101
+    question: >-
+      Is a change of MORE THAN 5 direct reports a material change of supervisory scope?
+    config:
+      file: comparison.yaml
+      path: comparison.material_reports_delta
+    current_default: 5
+    provenance: hris_calibration
+    why_it_matters: >-
+      This is the entry most likely to be mistaken for an SFU standard, so: hris cited it
+      to "SFU's explicit supervisory-scope threshold (Toolkit p23-24)", and the rulebook
+      in this repo contains NO such rule — no re-evaluation criteria at all. The only
+      direct-reports number in it is Part 2G's drafting advice to state an "approximate
+      range only (e.g. up to 10 direct reports)". The threshold may well be SFU's; we
+      cannot show it from what we hold, so it is registered as inherited calibration and
+      NOT as a rulebook transcription (the HR-029 / HR-059 rule).
+    impact_if_changed: >-
+      Config only; advisory. If SFU confirms the Toolkit rule, this entry becomes
+      `ratified` with a source — that is the win condition, and it needs the Toolkit PDF,
+      not a code change.
+    status: open
+
+  - id: HR-102
+    question: >-
+      How is a years-of-experience requirement read out of free text — is "3+ years" a 3?
+    config:
+      file: comparison.yaml
+      path: comparison.experience_years_pattern
+    current_default: '(\d{1,2})\s*\+?\s*year'
+    provenance: hris_calibration
+    why_it_matters: >-
+      The regex takes the FIRST year-count it finds, so "3 to 5 years" reads as 3 (the
+      minimum — defensible) and "5 years in a role requiring 2 years of supervision" reads
+      as 5 (the first, not the relevant one). It is capped at two digits. This is a
+      heuristic feeding HR-100's escalation, and it is data so that fixing it is a config
+      change, not a code change.
+    impact_if_changed: >-
+      Config only; advisory. Text that names no number yields no signal and never
+      escalates.
+    status: open
+
+  - id: HR-103
+    question: >-
+      How is a direct-reports count read out of a free-text supervisory statement?
+    config:
+      file: comparison.yaml
+      path: comparison.supervisory_reports_pattern
+    current_default: \b(\d{1,3})\b
+    provenance: hris_calibration
+    why_it_matters: >-
+      The first small integer ANYWHERE in the supervisory statement. "Supervises 4
+      coordinators" -> 4; "manages a team of 8" -> 8; "supervises 2 FTE across 3
+      campuses" -> 2 (right, by luck); "supervises staff in 3 buildings" -> 3 (wrong).
+      hris documented it as a heuristic and so do we. It feeds HR-101's escalation, which
+      is the drift signal that maps most directly to an SFU re-evaluation trigger — so its
+      false positives matter.
+    impact_if_changed: >-
+      Config only; advisory. A qualitative statement ("supervises the comms team") names no
+      number and never escalates, which is the conservative half of the design.
+    status: open
+
+# ═════════════════════════════════════════════════════════════════════════════
 # TRIVIAL — on the decision surface, deliberately NOT a decision for HR.
 #
 # The coverage check (loader.check_register) demands that EVERY parameter on the
@@ -2344,3 +2844,19 @@ trivial:
       behaviour>"). The prefixes are HR-054; severity-floor promotion is pinned by
       HR-057.
     covered_by: HR-054
+
+  # --- comparison: version stamps, not policy ---------------------------------
+  - config: {file: comparison.yaml, path: comparison.sim_version}
+    reason: >-
+      An IDENTITY stamp, not a decision: what a persisted neighbour/cluster was scored
+      BY, so an old row stays reconcilable after the formula moves. It decides nothing
+      about a JD — every parameter it stamps (the weights, the thresholds) is its own
+      register entry, HR-084 … HR-096. It lives in this file rather than in Python
+      precisely because bumping it is the same edit as retuning what it describes.
+  - config: {file: comparison.yaml, path: comparison.cluster_algo}
+    reason: >-
+      The same stamp for clustering: which algorithm produced a cluster
+      (`connected_components`; Louvain is the documented fallback if it over-merges on
+      the real archive). Naming the algorithm in data does not SELECT it — the code
+      implements connected components — so switching would be a code change plus this
+      stamp, and the numbers that decide what actually merges are HR-094 … HR-097.

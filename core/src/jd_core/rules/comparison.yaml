@@ -1,0 +1,169 @@
+# JD-to-JD comparison: similarity, clustering, drift — RULEBOOK AS DATA (CLAUDE.md §2).
+#
+# The calibration behind three pure modules: `bank/similarity.py` (how alike are two
+# JDs, and is the second a clone or a new job?), `bank/clustering.py` (which JDs form
+# a redundancy cluster?) and `bank/drift.py` (how far has a posting diverged from its
+# canonical role?).
+#
+# ⚠ PROVENANCE — NOT SFU-PUBLISHED. EVERY number below is `hris_calibration`
+# (HR-082 … HR-103). SFU publishes no similarity formula, no clone score, no cluster
+# threshold and no drift metric; `docs/rulebook/sfu-jd-standards.txt` contains none of
+# these words. Two of them come closest and STILL do not clear the bar:
+#
+#   * the drift escalations (an education-level change; a > 5 direct-reports change).
+#     hris cited them to "SFU Toolkit p26 / sfu-reference.md §5" and the shipped
+#     rulebook contains NO re-evaluation criteria at all — only l.22, "Major revisions
+#     can trigger re-evaluation", which quantifies nothing. The intent is plausibly
+#     SFU's; the NUMBERS are ours. Registered `hris_calibration`, exactly like the nine
+#     invented coded terms (HR-029) and the seniority ladder (HR-059). Do not dress
+#     them up as an SFU standard.
+#   * the cloning rule. sfu-reference.md §4 cites Toolkit p10 for "identical duties +
+#     supervisor + title + qualifications"; hris APPROXIMATED that as a 0.92 cosine.
+#     A score is not an identity check. Ours.
+#
+# hris: packages/pipeline/src/pipeline/bank/{similarity,clustering,drift}.py.
+#
+# NOT WIRED TO ANYTHING (yet). The similarity/drift maths takes a skill ontology and
+# an idf corpus that JD Bank does not have — see the module docstrings. The values are
+# landed, tested and registered; Phase 3 (dedup & clustering) is where they first
+# decide something. Registering them now is the point: they must not arrive as
+# undeclared defaults inside a feature PR.
+version: jd_rules_sfu_v3
+
+# ── Version stamps ───────────────────────────────────────────────────────────
+# Identity, not policy: what a persisted neighbour/cluster was produced BY. Bump
+# `sim_version` whenever a weight, a threshold or the formula below changes, so an
+# old row stays reconcilable.
+sim_version: jd_sim_v2
+# Connected components is the deliberate Iteration-1 choice: simple + explainable.
+# If it over-merges on the real archive (one giant blob), Louvain is the documented
+# fallback — and bumping this stamp is then a data edit, not a code edit.
+cluster_algo: connected_components
+
+# ── Education: ONE ladder for the whole rulebook ─────────────────────────────
+# hris kept this fact TWICE — `drift._EDU_ORDINAL` (a name -> ordinal dict) and
+# `similarity._EDU_ORDER` (a tuple whose index IS that ordinal) — with nothing keeping
+# them in step. They are one fact and they get one home. The ordinal a rung carries is
+# its INDEX here (high_school 0 … phd 4), so drift's ordinals and similarity's ordinal
+# closeness cannot disagree, and re-ordering the ladder moves both at once.
+education_ladder: [high_school, associate, bachelors, masters, phd]
+
+# Free-text cues that place an education requirement on the ladder. Lower-cased
+# SUBSTRING matches, deliberately small and conservative: an unrecognised requirement
+# yields *no* level, and drift never escalates on a level it could not read.
+#
+# The TRY ORDER is derived, not written down: most-senior rung first (the reverse of
+# the ladder), which is what makes "Master's degree" a masters and not the generic
+# "degree" -> bachelors rung. hris wrote that sequence out by hand next to the ladder —
+# a second knob holding the same fact.
+education_text_cues:
+  high_school: ["high school", high-school, "secondary school"]
+  associate: [associate, diploma]
+  bachelors: [bachelor, bsc, b.sc, undergraduate, baccalaureate, degree]
+  masters: [master, msc, m.sc, mba]
+  phd: [phd, ph.d, doctora, dphil]
+
+# ── Similarity: sim = w_vec*vector + w_skill*skills + w_sen*seniority ────────
+# Title-agnostic BY CONSTRUCTION: titles are not a term of the score, so "Software
+# Engineer" and "Applications Programmer" can be the same role. The weights must sum
+# to 1.0 (the loader enforces it) — that is what makes the score a 0-1 number the
+# thresholds below can be compared against.
+#
+# Skills weigh as much as the embedding because on real JDs the summary embedding
+# captures generic tone (every "university admin" JD looks alike), so distinctive
+# skill agreement has to carry equal weight to avoid over-merging. That was an hris
+# judgement about the HRIS corpus — it has never been checked against SFU's archive.
+weight_vector: 0.45
+weight_skill: 0.45
+weight_seniority: 0.10
+
+# Only surface a neighbour at or above this overall similarity (the noise floor).
+sim_threshold: 0.60
+# Near-identical -> reads as a true clone (needs no re-evaluation). An APPROXIMATION
+# of the Toolkit's cloning rule, which is an identity check, not a score.
+clone_threshold: 0.92
+# Minimum idf-weighted skill overlap for two JDs to be CLUSTERED (merged). Sharing
+# only ubiquitous skills (low idf) falls below it; sharing distinctive skills clears
+# it. Read by the Phase-3 edge builder — nothing calls it yet.
+min_cluster_skill_overlap: 0.30
+
+# Partial credit when two skills share an ontology family but are not identical:
+# `postgresql` vs `mysql` earns half of an exact match.
+family_weight: 0.5
+# Catch-all ontology families that grant NO family credit — being "some other skill"
+# together is not evidence of anything.
+non_matchable_families: [other, domain]
+
+# Tokens stripped from a title before it is compared — seniority/level markers, so
+# "Senior Developer II" and "Developer" normalise to one stem. Note the overlap with
+# `titles.yaml :: family_keywords` is NOT a duplicated fact: these tokens are DISCARDED
+# here and CLASSIFIED there ("senior" is a stopword but no family; "director" is a
+# family but never a stopword). Two vocabularies, two jobs.
+title_stopwords:
+  - senior
+  - sr
+  - junior
+  - jr
+  - lead
+  - principal
+  - staff
+  - associate
+  - assistant
+  - intern
+  - trainee
+  - i
+  - ii
+  - iii
+  - iv
+  - v
+  - "1"
+  - "2"
+  - "3"
+  - "4"
+  - "5"
+
+# What an UNKNOWN signal is worth on the 0-1 seniority scale — an absent experience
+# bar, or an education level that is not on the ladder. 0.7 is a guess: high enough
+# not to punish a JD for what it does not say, low enough not to reward it.
+unknown_signal_closeness: 0.7
+# How many years apart two roles must be before experience closeness bottoms out at 0
+# (hris divided the year gap by a hardcoded 10.0).
+experience_span_years: 10.0
+
+# ── Clustering ───────────────────────────────────────────────────────────────
+# The cluster threshold is DERIVED, never stored: `max(sim_threshold, floor)` — see
+# `Comparison.cluster_threshold`. Shipping the answer (0.80) as a third key would be
+# two knobs holding one value with nothing keeping them in step (the `max_listed`
+# landmine). Cluster only on strong edges (well above the per-JD "show me similar"
+# floor) to favour precision.
+cluster_threshold_floor: 0.80
+# Fewer members than this and it is not a redundancy cluster. A singleton has nothing
+# to be redundant WITH; whether a mere PAIR is worth harmonizing is an HR call.
+min_cluster_size: 2
+
+# ── Drift: how far a posting has diverged from its canonical role ────────────
+# Skill-set Jaccard-distance cutoffs (0 = identical skill sets, 1 = disjoint). Tuned
+# conservatively — prefer calling a borderline case "minor" over crying "major".
+drift_minor_at: 0.25
+drift_major_at: 0.50
+
+# On top of skill churn, a change to the TECHNICAL KNOWLEDGE REQUIRED escalates drift
+# to "major" on its own. Each escalation fires only when BOTH sides state a value and
+# they differ, so a missing or unparseable requirement never manufactures drift.
+#
+# A material move of the experience bar, in years (>= this many).
+material_years_delta: 2
+# A material change of supervisory scope, in direct reports (MORE than this many).
+material_reports_delta: 5
+
+# The first explicit year-count in a free-text experience requirement ("5 years",
+# "3+ years"). No number -> no signal.
+experience_years_pattern:
+  pattern: '(\d{1,2})\s*\+?\s*year'
+  ignore_case: true
+# The first direct-reports count in a free-text supervisory statement ("supervises 4
+# coordinators" -> 4; "manages a team of 8" -> 8). A qualitative statement ("supervises
+# the comms team") names no number -> no signal. Heuristic: the first small integer.
+supervisory_reports_pattern:
+  pattern: '\b(\d{1,3})\b'
+  ignore_case: false

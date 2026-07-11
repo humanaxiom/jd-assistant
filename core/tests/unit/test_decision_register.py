@@ -436,6 +436,7 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         "coded_terms",
         "titles",
         "hay_signals",
+        "comparison",
         "rule_catalog",
         "patterns",
         "qualifications",
@@ -456,6 +457,7 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         "action_verbs",
         "markers",
         "hay_signals",
+        "comparison",
     ],
 )
 def test_every_field_of_a_flat_rule_file_is_on_the_surface(
@@ -578,6 +580,10 @@ def test_the_flat_surface_files_are_exactly_the_ones_with_no_containers(
     hand_enumerated = set(_OFF_SURFACE) - {"decision_register"}
     flat = described - set(_OFF_SURFACE)
     assert "hay_signals" in flat
+    # ...and `comparison.yaml` (2.4c) was shaped the same way, for the same reason:
+    # ~22 similarity/clustering/drift decision parameters, every one of them visible
+    # to `check_register` the moment it is declared, with no enumerator change.
+    assert "comparison" in flat
     assert flat.isdisjoint(hand_enumerated)
 
 
@@ -702,6 +708,174 @@ def test_the_title_dimensions_are_registered_with_honest_provenance(
     for path in ("titles.functions", "titles.function_keywords"):
         assert by_path[path].provenance == "sfu_rulebook", path
         assert by_path[path].source_part == "Part 3.3", path
+
+
+# --- the 2.4c parameters: similarity, clustering, drift -----------------------
+
+
+def test_retuning_a_similarity_weight_breaks_the_build(tmp_path: Path) -> None:
+    """hris hardcoded ``_W_VEC = 0.45``. Now it is a number in YAML — and moving it
+    tells HR, because every threshold in the file is calibrated against this mix."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "comparison.yaml",
+        lambda d: d.update({"weight_vector": 0.8, "weight_skill": 0.1}),
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-084" in problem for problem in problems), problems
+
+
+def test_moving_the_clone_threshold_breaks_the_build(tmp_path: Path) -> None:
+    """The number whose verdict goes to Compensation ("clone" = no re-evaluation)."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path, "comparison.yaml", lambda d: d.__setitem__("clone_threshold", 0.85)
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-093" in problem for problem in problems), problems
+
+
+def test_moving_the_drift_escalation_thresholds_breaks_the_build(
+    tmp_path: Path,
+) -> None:
+    """The two hris presented as SFU's re-evaluation criteria and the rulebook does not
+    contain (HR-100 / HR-101). If SFU ever ratifies them, that is a register edit."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "comparison.yaml",
+        lambda d: d.update({"material_years_delta": 3, "material_reports_delta": 10}),
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-100" in problem for problem in problems), problems
+    assert any("HR-101" in problem for problem in problems), problems
+
+
+def test_editing_the_education_ladder_breaks_the_build(tmp_path: Path) -> None:
+    """The ladder is an ordinal scale shared by drift and similarity: inserting a rung
+    re-scales both. One home, one register entry, one tripwire."""
+    _write_valid_rules(tmp_path)
+
+    def _insert_rung(data: dict[str, Any]) -> None:
+        data["education_ladder"] = [
+            "high_school",
+            "certificate",
+            "associate",
+            "bachelors",
+            "masters",
+            "phd",
+        ]
+        data["education_text_cues"]["certificate"] = ["certificate"]
+
+    _patch(tmp_path, "comparison.yaml", _insert_rung)
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-082" in problem for problem in problems), problems
+
+
+def test_teaching_the_education_parser_a_new_cue_breaks_the_build(
+    tmp_path: Path,
+) -> None:
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "comparison.yaml",
+        lambda d: d["education_text_cues"]["masters"].append("llm"),
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-083" in problem for problem in problems), problems
+
+
+def test_dropping_a_title_stopword_breaks_the_build(tmp_path: Path) -> None:
+    """A one-word edit that silently re-groups every title in the archive."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "comparison.yaml",
+        lambda d: d["title_stopwords"].remove("principal"),
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-089" in problem for problem in problems), problems
+
+
+def test_editing_the_supervisory_reports_regex_breaks_the_build(
+    tmp_path: Path,
+) -> None:
+    """It feeds the > 5-direct-reports escalation, so its false positives are policy."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "comparison.yaml",
+        lambda d: d["supervisory_reports_pattern"].__setitem__(
+            "pattern", r"\b(\d{1,2})\b"
+        ),
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-103" in problem for problem in problems), problems
+
+
+def test_the_derived_cluster_threshold_is_pinned_and_cannot_drift(
+    tmp_path: Path,
+) -> None:
+    """The ``max_listed`` landmine, closed and proved.
+
+    ``cluster_threshold`` is DERIVED — ``max(sim_threshold, cluster_threshold_floor)``
+    — so there is no second key holding 0.80 to fall out of step with. But the register
+    still pins the *effective* number (HR-096), which means it also serves as the
+    tripwire on the derivation itself: raise the noise floor above the cluster floor and
+    the effective threshold moves even though ``cluster_threshold_floor`` did not, and
+    the build says so. Two register entries move (HR-092, the knob; HR-096, the effect)
+    — which is exactly the honest report.
+    """
+    _write_valid_rules(tmp_path)
+    _patch(tmp_path, "comparison.yaml", lambda d: d.__setitem__("sim_threshold", 0.9))
+    retuned = load_rules(tmp_path)
+    assert retuned.comparison.cluster_threshold == 0.9  # followed the noise floor
+    problems = check_register(retuned)
+    assert any("HR-092" in problem for problem in problems), problems
+    assert any("HR-096" in problem for problem in problems), problems
+
+
+def test_the_comparison_defaults_are_registered_as_nobodys_standard(
+    rules: Rules,
+) -> None:
+    """Provenance honesty, again (HR-029 / HR-059 / the Hay lesson). EVERY parameter in
+    ``comparison.yaml`` is `hris_calibration`: SFU publishes no similarity formula, no
+    clone score, no cluster threshold and no drift metric. The two that come closest —
+    the education-change and > 5-direct-reports escalations — were cited by hris to
+    "SFU Toolkit p26", and the rulebook this repo ships contains no re-evaluation
+    criteria at all. So: not one entry here may claim a `source_part`."""
+    register = rules.decision_register
+    comparison = [d for d in register.decisions if d.config.file == "comparison.yaml"]
+    assert len(comparison) >= 20, "comparison.yaml is barely registered"
+    for decision in comparison:
+        assert decision.provenance == "hris_calibration", decision.id
+        assert decision.source_part is None, decision.id
+        assert decision.status == "open", decision.id
+
+
+def test_the_hay_and_comparison_education_cues_cannot_drift_apart(
+    tmp_path: Path,
+) -> None:
+    """The duplicate-VOCABULARY guard (the 2.4b pattern, applied to 2.4c).
+
+    ``hay_signals.yaml`` says which education reads as graduate (``edu_high``); the cues
+    it names — ``master``, ``doctora`` — are the rulebook's education vocabulary, which
+    now lives in ``comparison.yaml``. Rename one there and the Know-How signal would
+    silently stop scoring a PhD: no load error, no failing test, gates green. So the
+    subset relation is enforced at LOAD, exactly like the Hay modifiers against the
+    rulebook's own KSA scales.
+    """
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "comparison.yaml",
+        lambda d: d["education_text_cues"].__setitem__(
+            "phd", ["phd", "ph.d", "doctoral", "dphil"]  # was "doctora"
+        ),
+    )
+    with pytest.raises(RulesError, match="education ladder"):
+        load_rules(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -868,6 +1042,11 @@ def test_the_decision_surface_enumerates_every_family_completely(
     for field in type(rules.hay_signals).model_fields:
         if field != "version":
             assert f"hay_signals.{field}" in surface
+
+    # every similarity weight, threshold, ladder, stop-word list and drift cutoff
+    for field in type(rules.comparison).model_fields:
+        if field != "version":
+            assert f"comparison.{field}" in surface
 
     # every catalogued rule's severity
     for spec in rules.rule_catalog.rules:
