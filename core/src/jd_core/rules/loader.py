@@ -36,7 +36,7 @@ from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
-from typing import Annotated, Any, Final, TypeVar, get_args
+from typing import Annotated, Any, Final, Literal, TypeVar, cast, get_args
 
 import yaml
 from pydantic import (
@@ -50,11 +50,24 @@ from pydantic import (
     model_validator,
 )
 
-from src.jd_core.models.quality import JDGrade, JDIssueSeverity
+from src.jd_core.models.quality import (
+    JDGrade,
+    JDIssueCategory,
+    JDIssueSeverity,
+    SFUSection,
+)
 
 _PACKAGE: Final = __package__ or "src.jd_core.rules"
 
 _SEVERITIES: Final[frozenset[str]] = frozenset(get_args(JDIssueSeverity))
+_CATEGORIES: Final[frozenset[str]] = frozenset(get_args(JDIssueCategory))
+_SECTIONS: Final[frozenset[str]] = frozenset(get_args(SFUSection))
+
+#: Who raises a rule: a deterministic gate here, or the (Phase 5) LLM pass.
+RuleOwner = Literal["deterministic", "llm"]
+
+#: The cross-cutting checklist bucket — labelled, but not a template section.
+GENERAL_SECTION: Final[SFUSection] = "general"
 
 
 class RulesError(RuntimeError):
@@ -101,6 +114,10 @@ def _compile_regex(value: Any) -> re.Pattern[str]:
 FrozenStrMap = Annotated[Mapping[str, str], AfterValidator(_freeze)]
 FrozenRankMap = Annotated[Mapping[str, int], AfterValidator(_freeze)]
 FrozenPenaltyMap = Annotated[Mapping[JDIssueSeverity, float], AfterValidator(_freeze)]
+FrozenLabelMap = Annotated[Mapping[SFUSection, str], AfterValidator(_freeze)]
+FrozenFallbackMap = Annotated[
+    Mapping[JDIssueCategory, SFUSection], AfterValidator(_freeze)
+]
 Regex = Annotated[re.Pattern[str], PlainValidator(_compile_regex)]
 
 
@@ -186,6 +203,21 @@ class CodedTerms(_RuleFile):
             raise ValueError(f"coded term(s) {overlap} appear in both severity tiers")
         return self
 
+    @property
+    def tiers(self) -> tuple[tuple[JDIssueSeverity, Mapping[str, str]], ...]:
+        """The lexicon's tiers, most severe first, as ``(severity, terms)`` pairs.
+
+        Each tier's *name is its severity*: a validator never names a severity,
+        it reads the one the YAML filed the term under (CLAUDE.md §2). Tier
+        fields are declared worst-first, which is the order findings are emitted
+        in.
+        """
+        return tuple(
+            (cast(JDIssueSeverity, name), cast(Mapping[str, str], getattr(self, name)))
+            for name in type(self).model_fields
+            if name in _SEVERITIES
+        )
+
 
 class Qualifications(_RuleFile):
     """Qualification / KSA rules (``qualifications.yaml``)."""
@@ -234,6 +266,8 @@ class RestrictedTitle(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     key: str = Field(min_length=1)
+    # The catalogued gate a match raises (cross-checked against the catalog).
+    rule_id: str = Field(min_length=1)
     phrase: str = Field(min_length=1)
     # Non-null only when the restriction is checkable from the JD alone.
     reserved_for_employee_group: str | None = None
@@ -316,6 +350,128 @@ class Scoring(_RuleFile):
         return self.fallback_grade
 
 
+class RuleSpec(BaseModel):
+    """One deterministic gate's catalogued metadata + copy.
+
+    The catalog — not the validator — owns a rule's ``category``, ``section``,
+    ``default_severity`` and its message / recommendation wording. Validators
+    supply only the computed values a template interpolates.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    rule_id: str = Field(min_length=1, max_length=64)
+    category: JDIssueCategory
+    section: SFUSection
+    source_part: str = Field(min_length=1)  # the guide part, e.g. "Part 2B"
+    default_severity: JDIssueSeverity
+    title: str = Field(min_length=1)
+    owner: RuleOwner = "deterministic"
+    #: variant name -> template (``default`` unless a gate has several phrasings)
+    messages: FrozenStrMap
+    recommendations: FrozenStrMap
+
+    @model_validator(mode="after")
+    def _copy_is_complete(self) -> RuleSpec:
+        if not self.messages:
+            raise ValueError(f"rule {self.rule_id!r} has no message templates")
+        if set(self.messages) != set(self.recommendations):
+            raise ValueError(
+                f"rule {self.rule_id!r}: messages and recommendations must carry "
+                f"the same variant keys, got {sorted(self.messages)} vs "
+                f"{sorted(self.recommendations)}"
+            )
+        for key, template in {**self.messages, **self.recommendations}.items():
+            if not template.strip():
+                raise ValueError(f"rule {self.rule_id!r}: variant {key!r} is empty")
+        return self
+
+    def render(self, variant: str, context: Mapping[str, Any]) -> tuple[str, str]:
+        """The ``(message, recommendation)`` for ``variant``, interpolated.
+
+        Raises:
+            RulesError: the variant is unknown, or a template names a placeholder
+                the caller did not supply — both are rulebook/validator drift and
+                must fail loudly rather than emit a half-rendered finding.
+        """
+        try:
+            message = self.messages[variant]
+            recommendation = self.recommendations[variant]
+        except KeyError as exc:
+            raise RulesError(
+                f"rule {self.rule_id!r} has no message variant {variant!r}; "
+                f"known: {sorted(self.messages)}"
+            ) from exc
+        try:
+            return message.format(**context), recommendation.format(**context)
+        except (KeyError, IndexError) as exc:
+            raise RulesError(
+                f"rule {self.rule_id!r} variant {variant!r}: template placeholder "
+                f"{exc} was not supplied"
+            ) from exc
+
+
+class RuleCatalog(_RuleFile):
+    """The rule catalog + checklist presentation data (``rule_catalog.yaml``)."""
+
+    rules: tuple[RuleSpec, ...] = Field(min_length=1)
+    #: the SFU template sections, in template order ("general" is not one of them)
+    section_order: tuple[SFUSection, ...] = Field(min_length=1)
+    section_labels: FrozenLabelMap
+    #: where an *uncatalogued* (LLM) finding lands, by its category
+    category_fallback_section: FrozenFallbackMap
+
+    @model_validator(mode="after")
+    def _catalog_is_consistent(self) -> RuleCatalog:
+        ids = [spec.rule_id for spec in self.rules]
+        duplicates = sorted({rid for rid in ids if ids.count(rid) > 1})
+        if duplicates:
+            raise ValueError(f"duplicate rule_id(s): {duplicates}")
+
+        if GENERAL_SECTION in self.section_order:
+            raise ValueError(
+                f"{GENERAL_SECTION!r} is the cross-cutting bucket, not a template "
+                f"section: it must not appear in section_order"
+            )
+        if len(set(self.section_order)) != len(self.section_order):
+            raise ValueError("section_order must not repeat a section")
+
+        unlabelled = _SECTIONS - set(self.section_labels)
+        if unlabelled:
+            raise ValueError(f"section_labels is missing {sorted(unlabelled)}")
+
+        uncovered = _CATEGORIES - set(self.category_fallback_section)
+        if uncovered:
+            raise ValueError(
+                f"category_fallback_section must cover every JDIssueCategory; "
+                f"missing {sorted(uncovered)}"
+            )
+        return self
+
+    @property
+    def by_id(self) -> Mapping[str, RuleSpec]:
+        """Every rule, keyed by ``rule_id`` (the lookup validators use)."""
+        return _freeze({spec.rule_id: spec for spec in self.rules})
+
+    def spec(self, rule_id: str) -> RuleSpec:
+        """The rule ``rule_id``, or :class:`RulesError` if it is not catalogued."""
+        try:
+            return self.by_id[rule_id]
+        except KeyError as exc:
+            raise RulesError(f"unknown rule_id {rule_id!r}") from exc
+
+    def section_for(self, category: JDIssueCategory, rule_id: str | None) -> SFUSection:
+        """The SFU section a finding belongs to: its rule's section when
+        catalogued, else the category fallback (an LLM finding)."""
+        if rule_id is not None and rule_id in self.by_id:
+            return self.by_id[rule_id].section
+        return self.category_fallback_section.get(category, GENERAL_SECTION)
+
+    def label(self, section: SFUSection) -> str:
+        """The human label for ``section`` (validated to exist at load)."""
+        return self.section_labels[section]
+
+
 class Rules(BaseModel):
     """The whole validated rulebook — one frozen object, one ``version``."""
 
@@ -330,6 +486,20 @@ class Rules(BaseModel):
     patterns: Patterns
     titles: Titles
     scoring: Scoring
+    rule_catalog: RuleCatalog
+
+    @model_validator(mode="after")
+    def _restricted_titles_are_catalogued(self) -> Rules:
+        catalogued = set(self.rule_catalog.by_id)
+        unknown = sorted(
+            t.rule_id for t in self.titles.restricted if t.rule_id not in catalogued
+        )
+        if unknown:
+            raise ValueError(
+                f"titles.yaml names rule_id(s) absent from rule_catalog.yaml: "
+                f"{unknown}"
+            )
+        return self
 
 
 # --- loading -----------------------------------------------------------------
@@ -343,6 +513,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     ("patterns.yaml", "patterns", Patterns),
     ("titles.yaml", "titles", Titles),
     ("scoring.yaml", "scoring", Scoring),
+    ("rule_catalog.yaml", "rule_catalog", RuleCatalog),
 )
 
 #: Every YAML file that makes up the rulebook, in load order.
@@ -409,7 +580,7 @@ def load_rules(directory: Path | None = None) -> Rules:
     payload: dict[str, Any] = {"version": versions.pop(), **parsed}
     try:
         return Rules.model_validate(payload)
-    except ValidationError as exc:  # pragma: no cover - defensive
+    except ValidationError as exc:
         raise RulesError(f"Invalid rulebook: {exc}") from exc
 
 

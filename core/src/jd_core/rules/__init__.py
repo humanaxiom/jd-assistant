@@ -17,6 +17,7 @@ version.
 """
 
 from src.jd_core.rules.loader import (
+    GENERAL_SECTION,
     RULE_FILES,
     ActionVerbs,
     CodedTerms,
@@ -25,8 +26,11 @@ from src.jd_core.rules.loader import (
     Patterns,
     Qualifications,
     RestrictedTitle,
+    RuleCatalog,
+    RuleOwner,
     Rules,
     RulesError,
+    RuleSpec,
     Scoring,
     Thresholds,
     Titles,
@@ -35,6 +39,7 @@ from src.jd_core.rules.loader import (
 )
 
 __all__ = [
+    "GENERAL_SECTION",
     "RULE_FILES",
     "ActionVerbs",
     "CodedTerms",
@@ -43,6 +48,9 @@ __all__ = [
     "Patterns",
     "Qualifications",
     "RestrictedTitle",
+    "RuleCatalog",
+    "RuleOwner",
+    "RuleSpec",
     "Rules",
     "RulesError",
     "Scoring",

@@ -6,6 +6,8 @@
 # validator cannot verify, so they are advisory (`severity: info`).
 #
 # `severity` must be one of the JDIssueSeverity literal (jd_core.models.quality).
+# `rule_id` names the catalogued gate (rule_catalog.yaml) the match raises — the
+# loader rejects a rule_id that is not in the catalog.
 #
 # provenance:
 #   rulebook: docs/rulebook/sfu-jd-standards.txt — Part 3.5 (restricted titles)
@@ -17,16 +19,19 @@ version: jd_rules_sfu_v3
 
 restricted:
   - key: executive_director
+    rule_id: SFU-AUTH-TITLE-EXEC-DIR
     phrase: executive director
     reserved_for_employee_group: apex
     severity: low
     note: Reserved for APEX-classified roles.
   - key: registrar
+    rule_id: SFU-AUTH-TITLE-REGISTRAR
     phrase: registrar
     reserved_for_employee_group: null
     severity: info
     note: Reserved for registrarial roles within AVPSI Student Services.
   - key: human_resources
+    rule_id: SFU-AUTH-TITLE-HR
     phrase: human resources
     reserved_for_employee_group: null
     severity: info
