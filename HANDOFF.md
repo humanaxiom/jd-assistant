@@ -121,15 +121,45 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
 
 ## Next up
 
-- **2.4** — land remaining EXTRACT modules per ADR-005 (hris tests are the behavioural spec).
 - **2.5** — archive baseline: run the validator across the parsed archive → quality dashboard
   data. **This is what ratifies (or kills) the score floor of 60.** Expect HR-058 (see above) to
-  distort it — account for that before drawing conclusions.
-- **Phase 3** — dedup & clustering.
+  distort it — account for that before drawing conclusions. **Settle `rules_version` first** (see
+  backlog): 2.5 pins baseline numbers to a version string that currently tracks nothing.
+- **Phase 3** — dedup & clustering. **This is where 2.4c's trio gets wired up.** `similarity`,
+  `clustering` and `drift` landed as pure, tested, *uncalled* functions: `skill_overlap` needs a
+  skill ontology + idf corpus, `seniority_closeness` needs an education enum + years bar, and a
+  `ParsedJD` has none of them. Phase 3 must design the `ParsedJD → signals` adapter (where do
+  skills come from? proposal: `qualifications` where `kind ∈ {knowledge, skill, ability}`) against
+  the real archive corpus. That is a **new decision** — it wants an ADR, and register entries.
+  Note `families={}` degrades `skill_overlap` to plain idf-weighted Jaccard vs hris's ontology-aware
+  scoring; record that when it lands.
+- **Deferred EXTRACT modules** (plan already assigns them): `export.py` → 5.4 (needs `reportlab`, a
+  new dep, plus SFU styling hris never implemented, plus the open territorial-ack flag); prompts
+  (`sfu_jd_extract` / `jd_harmonize` / `jd_quality`) → 4.2 (no LLM client or prompt loader exists;
+  the golden test needs host Ollama, which the self-contained `gates` container cannot reach);
+  `jd_import_service` → 5 (composer upload; would force PyMuPDF back after 1.3 dropped the PDF path).
 
 ---
 
 ## Backlog (real, recorded — fold into cleanup PRs as they come up)
+
+- **`comparison.cluster_algo` can lie** (`rules/comparison.yaml`). It accepts any non-empty string:
+  set it to `louvain` and clusters get *stamped* `louvain` while `build_clusters` still runs
+  connected components — a provenance falsehood (non-negotiable #6) in whatever Phase 3 persists.
+  Make it a `Literal["connected_components"]`, or have the loader check it against the algorithms
+  actually implemented, so a data-only "switch" fails loudly. Harmless today (nothing persists
+  clusters yet) — **fix before Phase 3 writes a cluster row.**
+- **Boundary tests for the comparison cutoffs.** `clone_threshold` (0.92), `material_years_delta`
+  (2) and individual `title_stopwords` are pinned *by value* but are behaviourally invisible — the
+  ported hris tests probe far from the cutoff (clone at 0.95; a delta of 3 against a bar of 2). The
+  "move the number → something goes red" standard holds via the by-value pins, but a boundary test
+  (`clone_verdict(0.92)` is a clone, `clone_verdict(0.9199)` is not) would make *behaviour* the
+  oracle rather than the assertion.
+- **HR-082** should name the divergence it papers over: the rulebook (l.238) *does* enumerate
+  education levels — "Diploma, Bachelor's, Master's, PhD" — a 4-item list that differs from our
+  5-rung ladder (we add `high_school`; we say `associate` where SFU says `Diploma`). HR-083 already
+  owns the diploma/associate mismatch; HR-082 should mention SFU's list is shorter and differently
+  named, since an HR reviewer ratifying the ladder will want to know.
 
 - **`bank/render.py` → `parse_jd` round trip is lossy** (documented in the module docstring and
   pinned by `test_render_to_parse_is_documented_lossy_exactly_where_it_says_it_is`). Every section
