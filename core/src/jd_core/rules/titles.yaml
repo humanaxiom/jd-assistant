@@ -1,4 +1,9 @@
-# SFU restricted job titles — RULEBOOK AS DATA (CLAUDE.md §2).
+# SFU job titles — RULEBOOK AS DATA (CLAUDE.md §2).
+#
+# TWO tables live here:
+#   `restricted` — title phrases SFU reserves (Part 3.5). RULEBOOK-SOURCED.
+#   `families`   — the seniority ladder used to classify a title. NOT in the
+#                  rulebook (see the provenance warning on it below). HR-059.
 #
 # A title phrase (matched casefolded, as a substring of the JD title) that SFU
 # reserves for a specific context. `reserved_for_employee_group` is non-null only
@@ -16,6 +21,29 @@
 #     ("executive director" -> employee_group must be apex, severity low;
 #     "registrar" and "human resources" -> severity info, context not checkable)
 version: jd_rules_sfu_v3
+
+# The seniority ladder a job title is classified onto, senior -> junior. Consumed
+# by the title-family classifier (jd_core.models.bank.TitleFamily is this list,
+# plus the explicit "unmapped" state) and, later, by title normalization in
+# dedup Tier-3 and by the composer's facets.
+#
+# ⚠ PROVENANCE — NOT SFU-PUBLISHED. hris's schema called this "SFU's official
+# title ladder (Toolkit p18-19)". docs/rulebook/sfu-jd-standards.txt contains no
+# such ladder: `chief` never appears in it, and the single occurrence of "VP"
+# (Part 3.5) lists VP as a RESTRICTED title, not a family. The ladder is
+# hris_calibration — an inherited default nobody at SFU has ratified — and it is
+# registered as `open` (HR-059). Same class of unfalsifiable-SFU-claim as HR-029.
+# It is the *seniority* dimension only; the *functional* dimension (analyst /
+# officer / coordinator …) IS rulebook-sourced (Part 3.3 Application Table) and
+# lands with the classifier.
+families:
+  - vp
+  - chief
+  - director
+  - manager
+  - lead
+  - associate
+  - assistant
 
 restricted:
   - key: executive_director

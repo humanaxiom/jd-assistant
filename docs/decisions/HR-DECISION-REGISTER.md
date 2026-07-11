@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v3` · **58 decisions** (58 open · 0 ratified · 0 deferred) · 55 parameters explicitly exempted as trivial · 110 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v3` · **59 decisions** (59 open · 0 ratified · 0 deferred) · 55 parameters explicitly exempted as trivial · 111 parameters on the decision surface, all accounted for.
 
 ## What this is
 
@@ -74,6 +74,7 @@ Every policy call JD Bank currently makes **by default**, because SFU HR has not
 | [HR-056](#hr-056) | Must every JD's Relationships section open with SFU's standard sentence, verbatim? | `establishes and maintains relationships and alliances` | SFU rulebook |
 | [HR-057](#hr-057) | Which rules are severe enough that their mere presence blocks approval — whatever the score, and without being named in any gate? | `SFU-COMP-DUTIES`, `SFU-COMP-QUALS`, `SFU-COMP-SUMMARY` | our invention |
 | [HR-058](#hr-058) | SFU's mandatory, "do not edit" About SFU paragraph contains the word "compassionate" — which our lexicon flags as a coded term. Every compliant JD is penalised. What should give? | `"caring"` | hris calibration |
+| [HR-059](#hr-059) | What are SFU's job-title seniority levels — the ladder every title is classified onto (and, later, compared and de-duplicated by)? | *7 entries — see below* | hris calibration |
 
 ### Our invention — nobody has ratified these
 
@@ -442,6 +443,14 @@ Carried over from the hris pipeline's calibration (`jd_rules_sfu_v3`). SFU publi
 - **Where the default came from:** hris calibration
 - **Why it matters:** SFU's pre-populated About-SFU block reads "We are unconventional, fearless, COMPASSIONATE, approachable and ready." The template says do not edit it. Our lexicon files "compassionate" at `medium` — one of the nine terms that are NOT on SFU's own published list (HR-029). Measured on a clean JD: WITHOUT the About-SFU paragraph, score 91.5 / grade A, no coded-term finding. WITH it — i.e. exactly as SFU mandates — score 81.5 / grade B, one `medium` coded-term finding. A JD is penalised 10 points for obeying SFU, and penalised again (SFU-COMP-ABOUT) if it leaves the paragraph out. It cannot win. This is almost certainly the highest-frequency false positive in the system, and because it fires on nearly every compliant JD it systematically DEPRESSES THE WHOLE ARCHIVE BASELINE — the very baseline the score floor (HR-001) is supposed to be ratified against. Ratify HR-001 with this fixed, or the floor is calibrated against a 10-point artefact.
 - **If it changes:** Three ways out, all config: drop "compassionate" from the lexicon (it is not SFU's term anyway); demote it to `low`; or exclude the About-SFU boilerplate from the lexicon's scan (a validator scope change — NOT free, see HR-041 for the same shape of problem). Left as-is deliberately: this register documents the behaviour, it does not change it.
+
+#### HR-059 — What are SFU's job-title seniority levels — the ladder every title is classified onto (and, later, compared and de-duplicated by)?
+
+- **We ship:** `vp`, `chief`, `director`, `manager`, `lead`, `associate`, `assistant`
+- **Configured in:** `titles.yaml` → `titles.families`
+- **Where the default came from:** hris calibration
+- **Why it matters:** hris shipped this ladder claiming it as "SFU's official title ladder (Toolkit p18-19)". IT IS NOT IN THE RULEBOOK. docs/rulebook/sfu-jd-standards.txt has no title-family ladder at all: `chief` does not appear anywhere in it, and the only occurrence of "VP" (Part 3.5) lists VP as a RESTRICTED title — a title you may not use — not as a seniority family. So the seven rungs below are an inherited guess, and the guess is load-bearing: the ladder is the seniority dimension of title classification, it will normalize titles for dedup Tier-3 (deciding whether "Manager, Research" and "Research Lead" are the same role), and it drives the composer's facets. A missing rung is not a cosmetic gap — a ladder with no `supervisor` or `coordinator` rung cannot classify those titles at all, and they fall to `unmapped`. This is HR-029's problem (nine coded terms SFU never published, shipped as if it had) in the title dimension.
+- **If it changes:** Config only — add, remove or reorder rungs in titles.yaml. Nothing here blocks approval; no gate reads it. But HR should either point us at the real SFU ladder (the Job Titling Guide / Toolkit p18-19, which this repo does not hold), confirm these seven, or replace them. NOTE the SEPARATE functional dimension (assistant / coordinator / analyst / officer / specialist / consultant / manager / associate director / director / executive) IS rulebook-sourced — Part 3.3's Application Table — and is not in question here.
 
 ### From SFU's published rulebook — but read the caveats
 

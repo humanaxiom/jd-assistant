@@ -122,6 +122,45 @@ HEADING_PATTERNS: dict[SectionKey, list[tuple[HeadingEra, str]]] = {
     ],
 }
 
+# ── Canonical emitted headings (what jd_core WRITES, not what it reads) ─────
+# The one heading text this system emits for each section — used by
+# :mod:`src.jd_core.bank.render` to compose a JD from a canonical role.
+#
+# It lives *here*, beside the patterns that parse headings, on purpose. The
+# heading set and its order are one rulebook fact; a renderer holding its own
+# copy is a second source of truth for it (CLAUDE.md #2), and the two WILL
+# drift. They already did: the first port of the renderer emitted
+# ``PROBLEM SOLVING & LEVEL OF SUPERVISION``, which the PROBLEM_SOLVING pattern
+# (``… (?: AND LEVEL OF SUPERVISION)?``) does not ``fullmatch`` — so re-parsing a
+# rendered JD silently dropped its entire Problem Solving section.
+#
+# Every value below must ``match_heading()`` back to its own key; the renderer's
+# suite asserts exactly that, so this can never regress unnoticed.
+CANONICAL_HEADING: dict[SectionKey, str] = {
+    SectionKey.IDENTIFICATION: "IDENTIFICATION",
+    SectionKey.ABOUT_SFU: "ABOUT SIMON FRASER UNIVERSITY",
+    SectionKey.POSITION_SUMMARY: "POSITION SUMMARY",
+    SectionKey.DUTIES: "DUTIES AND RESPONSIBILITIES",
+    SectionKey.DECISION_MAKING: "IMPACT OF DECISION MAKING",
+    SectionKey.PROBLEM_SOLVING: "PROBLEM SOLVING AND LEVEL OF SUPERVISION",
+    SectionKey.RELATIONSHIPS: "RELATIONSHIPS",
+    SectionKey.QUALIFICATIONS: "QUALIFICATIONS",
+    SectionKey.FOOTER: "TERRITORIAL ACKNOWLEDGEMENT AND EDI COMMITMENT",
+    SectionKey.ADDITIONAL_CONTEXT: "ADDITIONAL CONTEXTUAL INFORMATION",
+}
+
+# The Relationships section's sub-labels — the same contract one level down: what
+# the renderer WRITES inside the section must be what ``_structure_relationships``
+# READS (``segmenter._REL_LABEL_RE``). hris wrote ``Internal:`` / ``External:``,
+# which that reader does not recognise, so on re-parse every internal and external
+# connection was silently refiled as *supervisory* prose. Proved by the render
+# suite's ``parse_jd`` round trip, not by inspection.
+CANONICAL_REL_LABEL: dict[str, str] = {
+    "supervisory": "Supervisory",
+    "internal": "Internal connections",
+    "external": "External connections",
+}
+
 # Flattened, compiled, in SECTION_ORDER priority — the matcher iterates this.
 _COMPILED: list[tuple[SectionKey, HeadingEra, re.Pattern[str]]] = [
     (section, era, re.compile(pat, re.IGNORECASE))

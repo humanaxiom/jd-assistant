@@ -282,9 +282,19 @@ class RestrictedTitle(BaseModel):
 
 
 class Titles(_RuleFile):
-    """Restricted job titles (``titles.yaml``)."""
+    """Job-title rules (``titles.yaml``): the restricted phrases SFU reserves,
+    and the seniority ladder a title is classified onto.
+
+    ``families`` is **not** rulebook-sourced (see the warning in the YAML and
+    HR-059) — it is inherited hris calibration, held here as data so it can be
+    changed without touching code, and pinned by the register so it cannot be
+    changed without telling HR.
+    """
 
     restricted: tuple[RestrictedTitle, ...] = Field(min_length=1)
+    #: Seniority ladder, senior -> junior. The vocabulary of
+    #: :class:`~src.jd_core.models.bank.TitleFamily` (plus ``"unmapped"``).
+    families: tuple[str, ...] = Field(min_length=1)
 
     @field_validator("restricted")
     @classmethod
@@ -1225,7 +1235,9 @@ def decision_surface(rules: Rules) -> frozenset[str]:
     * ``scoring.yaml`` — the scale, the per-severity penalties, the decay, the
       grade bands.
     * ``coded_terms.yaml`` — each severity tier of the lexicon.
-    * ``titles.yaml`` — each restricted title's severity and reserved group.
+    * ``titles.yaml`` — each restricted title's severity and reserved group, and
+      the seniority ``families`` ladder (which rungs exist *is* the
+      classification policy, and the ladder is not SFU's — HR-059).
     * ``rule_catalog.yaml`` — each rule's ``default_severity``, **and** the derived
       set of rules that sit at or above a severity floor
       (:attr:`RuleCatalog.rules_by_severity`). Severity is not merely a score
@@ -1293,6 +1305,9 @@ def decision_surface(rules: Rules) -> frozenset[str]:
     for title in rules.titles.restricted:
         paths.add(f"titles.{title.key}.severity")
         paths.add(f"titles.{title.key}.reserved_for_employee_group")
+    # The seniority ladder: which rungs exist IS the classification policy (a
+    # ladder without `lead` cannot classify a lead), and it is not SFU's — HR-059.
+    paths.add("titles.families")
 
     paths |= {
         f"rule_catalog.{spec.rule_id}.default_severity"
