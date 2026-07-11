@@ -40,11 +40,13 @@ gates-integration: ## Integration tests only (testcontainers), in the gates runn
 	docker compose run --rm gates pytest tests/integration --timeout=300 -q
 
 # ── Migrations (already Docker) ────────────────────────────────────────────
-migrate:          ## Postgres (alembic) + Neo4j (cypher)
+# Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).
+# Neo4j constraints + vector indexes via each cypher file piped into cypher-shell.
+migrate:          ## Postgres (alembic) + Neo4j (cypher: 001 core, 002 JD vectors)
 	docker compose exec api alembic upgrade head
-	docker compose exec neo4j cypher-shell -u neo4j -p harnesspass \
-		-f /migrations/001_init.cypher || \
-		cat core/db/migrations/001_init.cypher | \
+	cat core/db/migrations/001_init.cypher | \
+		docker compose exec -T neo4j cypher-shell -u neo4j -p harnesspass
+	cat core/db/migrations/002_jd_vectors.cypher | \
 		docker compose exec -T neo4j cypher-shell -u neo4j -p harnesspass
 
 # ── Git pre-commit hook (Docker-only; replaces the host pre-commit framework) ─
