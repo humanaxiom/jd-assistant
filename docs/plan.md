@@ -50,7 +50,7 @@ containers; only Ollama runs on host metal. Onboarding + workflow: `DEVELOPER_GU
 ## 1. Target architecture
 
 Standalone repo (ADR-004). Python packages live under the existing `core/src/` tree (package
-`agent-harness-core`), alongside the vendored harness modules (`agents`, `gates`, `memory`,
+`jd-bank-core`), alongside the vendored harness modules (`agents`, `gates`, `memory`,
 `worker`, `api`, `models`). JD Bank adds:
 
 ```
@@ -240,27 +240,33 @@ Human gate: approve ADR-005 before Phase 1.
 
 **Exit:** full archive ingests and parses with a metrics report (parse rate, confidence).
 
-### Phase 2 — Validation engine (rulebook as code) — COMPLETE-pending-review
-- **2.1** ✅ MERGED (PR #6, `43f29db`) — rules-as-data: 11 versioned YAML files under
+### Phase 2 — Validation engine (rulebook as code) — COMPLETE (2.1–2.4 merged); 2.5 next
+- **2.1** ✅ MERGED (PR #6, `43f29db`) — rules-as-data: 8 versioned YAML files under
   `core/src/jd_core/rules/` + typed loader (`get_rules()`), replacing hris `jd_rules.py` tables.
 - **2.2** ✅ MERGED (PR #7, `9eaa39d`) — section validators (29 catalogued rules, each with a
   failing + passing fixture), porting hris `jd_rules.py` (#4) + `rule_catalog.py` (#5); emits
   `ValidationIssue{code, severity, section, evidence, recommendation}`.
-- **2.3** 🔶 OPEN PR #8 (`036c205`), awaiting review — gate runner: "never approve if…" → 14
-  gates (12 overridable, 2 non-overridable), boolean + reasons.
-- **HR decision register** (added mid-phase, not in the original plan) — 🔶 OPEN PR #9, stacked
-  on #8 — 58 decisions (all `open`) recording every non-trivial default for SFU HR to ratify;
-  build-enforced against the live config. See `docs/decisions/HR-DECISION-REGISTER.md`.
-- **2.4** Not started — land remaining EXTRACT modules into `jd_core` per ADR-005; keep hris
-  tests as the spec.
+- **2.3** ✅ MERGED (PR #8, `5b8d954`) — gate runner: "never approve if…" → 14 gates (12
+  overridable, 2 non-overridable), boolean + reasons.
+- **HR decision register** (added mid-phase, not in the original plan) — ✅ MERGED (PR #9,
+  `c519bed`) — 58 decisions (all `open`) recording every non-trivial default for SFU HR to
+  ratify; build-enforced against the live config. See `docs/decisions/HR-DECISION-REGISTER.md`.
+- **2.4** ✅ MERGED — remaining EXTRACT modules landed into `jd_core` per ADR-005, keeping hris
+  tests as the spec: **2.4a** bank value objects + provenance + render (PR #11, `43435a7`),
+  **2.4b** title classifier + Hay signals (PR #12, `b71868a`), **2.4c** similarity + clustering
+  + drift (PR #13, `58fc7d2`). Two new rule files (`hay_signals.yaml`, `comparison.yaml`) grew
+  the decision register from 58 to 103 decisions. All 16 EXTRACT-mapped hris modules are now
+  ported or explicitly deferred (`export.py` → 5.4, prompt templates → 4.2, `jd_import_service`
+  → 5). `similarity`/`clustering`/`drift` landed as pure, tested functions deliberately not yet
+  wired to a `ParsedJD` — that adapter is Phase 3 work.
 - **2.5** Not started — archive baseline: run the validator over the parsed archive → quality
   dashboard data. This ratifies (or kills) the score floor of 60 set in 2.3/register HR-001.
 
-**Merge order for open work: #8 then #9** (#9 retargets its base to `main` once #8 merges).
-Test suite at HEAD of the stack: 638 passing, coverage 96.92%, all in Docker via `make gates`.
+Test suite at HEAD: 864 passing, coverage 97.11%, all in Docker via `make gates`.
 
 **Exit (met, pending HR ratification of the register):** validator passes the rulebook test
-suite; gate runner + decision register land. Baseline report (2.5) still outstanding.
+suite; gate runner + decision register + 2.4 EXTRACT modules land. Baseline report (2.5) still
+outstanding.
 
 ### Phase 3 — Dedup & clustering
 - **3.1** Tier 1 exact-dup + report (NEW). Early quantified win (~13.5% of corpus).

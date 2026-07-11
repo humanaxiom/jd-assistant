@@ -1,4 +1,4 @@
-# JD Bank / Agent Harness v2 — developer interface
+# JD Bank — developer interface (built on Agent Harness v2)
 # DOCKER-ONLY (ADR-006): no host Python. `make` is a task-runner that invokes Docker;
 # all project code, tests, and linters run INSIDE the `api` container (source is
 # bind-mounted at /app, so no rebuild is needed after edits). Run `make up` first.
