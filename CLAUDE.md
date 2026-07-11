@@ -16,7 +16,7 @@ Two docs to know:
   subagent at. Reviewers are always Opus; never downgrade a faithful port, rulebook/policy
   semantics, a security-touching diff, or anything changing a decision parameter.
 - `docs/decisions/HR-DECISION-REGISTER.md` — generated register of every non-trivial rulebook
-  default (58 entries, all `open` — SFU HR has ratified nothing yet). **Standing rule: any
+  default (103 entries, all `open` — SFU HR has ratified nothing yet). **Standing rule: any
   non-trivial metric/rule must be YAML-configurable and registered in the same PR; if a default
   looks wrong, register it as `open`, don't quietly patch it.**
 

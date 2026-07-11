@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await app.state.engine.dispose()
 
 
-app = FastAPI(title="Agent Harness API", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="JD Bank API", version="2.0.0", lifespan=lifespan)
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
