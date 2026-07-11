@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v3` · **59 decisions** (59 open · 0 ratified · 0 deferred) · 55 parameters explicitly exempted as trivial · 111 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v3` · **81 decisions** (81 open · 0 ratified · 0 deferred) · 56 parameters explicitly exempted as trivial · 134 parameters on the decision surface, all accounted for.
 
 ## What this is
 
@@ -75,6 +75,28 @@ Every policy call JD Bank currently makes **by default**, because SFU HR has not
 | [HR-057](#hr-057) | Which rules are severe enough that their mere presence blocks approval — whatever the score, and without being named in any gate? | `SFU-COMP-DUTIES`, `SFU-COMP-QUALS`, `SFU-COMP-SUMMARY` | our invention |
 | [HR-058](#hr-058) | SFU's mandatory, "do not edit" About SFU paragraph contains the word "compassionate" — which our lexicon flags as a coded term. Every compliant JD is penalised. What should give? | `"caring"` | hris calibration |
 | [HR-059](#hr-059) | What are SFU's job-title seniority levels — the ladder every title is classified onto (and, later, compared and de-duplicated by)? | *7 entries — see below* | hris calibration |
+| [HR-060](#hr-060) | When a job title carries TWO seniority words — "Associate Director" is both an associate and a director — which one decides the family? | *7 entries — see below* | hris calibration |
+| [HR-061](#hr-061) | Which title words signal each seniority family? | *7 entries — see below* | hris calibration |
+| [HR-062](#hr-062) | SFU writes a supervisory title as "Manager, Laboratory Operations" and a non-supervisory one as "Laboratory Operations Manager" (Part 3.4). WHICH families, written first and followed by a comma, actually signal supervision? | *5 entries — see below* | hris calibration |
+| [HR-063](#hr-063) | What are the functional title types — SFU's Job-Title Application Table? | *10 entries — see below* | SFU rulebook |
+| [HR-064](#hr-064) | "Executive Director" and "Associate Director" both contain "Director". Which functional type wins? | *10 entries — see below* | hris calibration |
+| [HR-065](#hr-065) | Which words in a title map it onto each functional type? | *10 entries — see below* | SFU rulebook |
+| [HR-066](#hr-066) | Which words in a JD's education requirement mean "graduate-level"? | `phd`, `doctora`, `master` | hris calibration |
+| [HR-067](#hr-067) | Which words in a JD's education requirement mean "undergraduate"? | `bachelor`, `undergraduate`, `degree` | hris calibration |
+| [HR-068](#hr-068) | Which language in the Problem Solving section signals independent, non-routine thinking? | *14 entries — see below* | hris calibration |
+| [HR-069](#hr-069) | Which language in the Problem Solving section signals routine, closely supervised work — and should it really SUBTRACT? | *8 entries — see below* | hris calibration |
+| [HR-070](#hr-070) | Which language in the Impact of Decision Making section signals freedom to act and magnitude of impact? | *15 entries — see below* | hris calibration |
+| [HR-071](#hr-071) | Which Toolkit skill modifiers count as "advanced" depth for the Know-How signal? | `advanced`, `expert` | hris calibration |
+| [HR-072](#hr-072) | Which Toolkit knowledge modifiers count as top-level knowledge? | `excellent` | hris calibration |
+| [HR-073](#hr-073) | How much is each Know-How signal worth? | *7 entries — see below* | hris calibration |
+| [HR-074](#hr-074) | How many advanced skills is "many", and how many qualification kinds is "broad"? | `advanced_skills_for_many` → 3; `qualification_kinds_for_broad` → 4 | hris calibration |
+| [HR-075](#hr-075) | At what Know-How score does a role read as moderate, and at what score high? | `moderate` → 3.0; `high` → 5.0 | hris calibration |
+| [HR-076](#hr-076) | How much is each Problem-Solving signal worth — and how much does routine language cost? | `section_item` → 0.5; `challenge_hit` → 1.0; `routine_hit` → -1.0 | hris calibration |
+| [HR-077](#hr-077) | How many Problem Solving entries are worth scoring before length stops counting? | `section_items_scored` → 3 | hris calibration |
+| [HR-078](#hr-078) | At what Problem-Solving score does a role read as moderate, and at what score high? | `moderate` → 1.5; `high` → 3.0 | hris calibration |
+| [HR-079](#hr-079) | How much is each Accountability signal worth? | `section_item` → 0.5; `autonomy_hit` → 1.0; `supervisory_scope` → 2.0; `external_breadth` → 1.0 | hris calibration |
+| [HR-080](#hr-080) | How many Impact-of-Decision-Making entries are scored, and how many external relationships count as "breadth of impact"? | `section_items_scored` → 3; `external_for_breadth` → 3 | hris calibration |
+| [HR-081](#hr-081) | At what Accountability score does a role read as moderate, and at what score high? | `moderate` → 2.0; `high` → 4.0 | hris calibration |
 
 ### Our invention — nobody has ratified these
 
@@ -452,6 +474,166 @@ Carried over from the hris pipeline's calibration (`jd_rules_sfu_v3`). SFU publi
 - **Why it matters:** hris shipped this ladder claiming it as "SFU's official title ladder (Toolkit p18-19)". IT IS NOT IN THE RULEBOOK. docs/rulebook/sfu-jd-standards.txt has no title-family ladder at all: `chief` does not appear anywhere in it, and the only occurrence of "VP" (Part 3.5) lists VP as a RESTRICTED title — a title you may not use — not as a seniority family. So the seven rungs below are an inherited guess, and the guess is load-bearing: the ladder is the seniority dimension of title classification, it will normalize titles for dedup Tier-3 (deciding whether "Manager, Research" and "Research Lead" are the same role), and it drives the composer's facets. A missing rung is not a cosmetic gap — a ladder with no `supervisor` or `coordinator` rung cannot classify those titles at all, and they fall to `unmapped`. This is HR-029's problem (nine coded terms SFU never published, shipped as if it had) in the title dimension.
 - **If it changes:** Config only — add, remove or reorder rungs in titles.yaml. Nothing here blocks approval; no gate reads it. But HR should either point us at the real SFU ladder (the Job Titling Guide / Toolkit p18-19, which this repo does not hold), confirm these seven, or replace them. NOTE the SEPARATE functional dimension (assistant / coordinator / analyst / officer / specialist / consultant / manager / associate director / director / executive) IS rulebook-sourced — Part 3.3's Application Table — and is not in question here.
 
+#### HR-060 — When a job title carries TWO seniority words — "Associate Director" is both an associate and a director — which one decides the family?
+
+- **We ship:** `vp`, `chief`, `manager`, `director`, `lead`, `assistant`, `associate`
+- **Configured in:** `titles.yaml` → `titles.family_match_order`
+- **Where the default came from:** hris calibration
+- **Why it matters:** The classifier tries the families in THIS order and the first keyword that matches wins. That makes the order a policy statement, not an implementation detail, and it is deliberately NOT the seniority ladder of HR-059: `manager` is tried before `director`, which is the *entire* reason "Associate Director, Advancement" classifies as a manager rather than a director. Likewise `assistant` before `associate`. Shuffle two rungs and real titles change family with no other edit anywhere. hris buried this ordering in a Python tuple with a one-line comment; SFU has never been asked whether an Associate Director is a manager.
+- **If it changes:** Config only. Reordering changes which family a *multi-keyword* title lands in — it cannot change a title that carries only one family keyword. Nothing blocks approval on it (no gate reads the family); it feeds titling advice, and will feed title normalization for dedup Tier-3 and the composer's facets.
+
+#### HR-061 — Which title words signal each seniority family?
+
+- **We ship:** `vp` → ['vice president', 'associate vice', ' avp ', ' vp ']; `chief` → ['chief', ' cio ', ' cfo ', ' cto ', ' ceo ', ' coo ']; `manager` → ['associate director', 'manager', 'supervisor']; `director` → ['director']; `lead` → ['team lead', ' lead ']; `assistant` → ['assistant']; `associate` → ['associate', 'representative']
+- **Configured in:** `titles.yaml` → `titles.family_keywords`
+- **Where the default came from:** hris calibration
+- **Why it matters:** This is the ladder of HR-059 made operational: a rung with no keyword can never be matched, and a word missing from a rung sends every title carrying it to `unmapped`. The list is small and inherited — `supervisor` is a manager, `representative` is an associate, and nothing here recognises `coordinator`, `officer`, `analyst` or `specialist` as a seniority at all (they are the FUNCTIONAL dimension, HR-063). The space-padded entries (" vp ", " cio ") match a whole word only; the unpadded ones are substrings, so "manager" also matches "Managerial Accountant".
+- **If it changes:** Config only. Adding a word makes titles carrying it classify into that family; removing one sends them to `unmapped` (visible, not silent). Advisory — no gate reads it.
+
+#### HR-062 — SFU writes a supervisory title as "Manager, Laboratory Operations" and a non-supervisory one as "Laboratory Operations Manager" (Part 3.4). WHICH families, written first and followed by a comma, actually signal supervision?
+
+- **We ship:** `chief`, `director`, `lead`, `manager`, `vp`
+- **Configured in:** `titles.yaml` → `titles.comma_supervisory_families`
+- **Where the default came from:** hris calibration
+- **Why it matters:** The comma FORMAT rule is SFU's (Part 3.4). The set of families it applies to is not: hris chose these five. It is the guard that stops "Software Developer, Platform" reading as a supervisory title, so it must exclude non-role prefixes — but it also decides that a `lead` supervises and an `associate` does not, which is a real HR judgement nobody made. Note `lead` is in the set even though SFU's own ladder does not exist (HR-059), so this compounds an unratified default with another one.
+- **If it changes:** Config only; advisory. It sets `TitleClassification.comma_supervisory`, which is surfaced to reviewers and (later) used to sanity-check a JD's Relationships section against its title. No gate reads it.
+
+#### HR-064 — "Executive Director" and "Associate Director" both contain "Director". Which functional type wins?
+
+- **We ship:** `executive`, `associate_director`, `director`, `manager`, `consultant`, `specialist`, `officer`, `analyst`, `coordinator`, `assistant`
+- **Configured in:** `titles.yaml` → `titles.function_match_order`
+- **Where the default came from:** hris calibration
+- **Why it matters:** The Application Table (HR-063) is SFU's; the ORDER its rows are tried in is not — hris chose it, and it is what resolves the overlaps. `executive` is tried first, so "Executive Director" is an executive (consistent with SFU reserving that title for APEX roles, Part 3.5 / SFU-AUTH-TITLE-EXEC-DIR); then `associate_director`, so "Associate Director" is not a director. Both readings are defensible and neither is written down by SFU. Reorder and titles change function.
+- **If it changes:** Config only, and only for titles carrying two function words. Advisory.
+
+#### HR-066 — Which words in a JD's education requirement mean "graduate-level"?
+
+- **We ship:** `phd`, `doctora`, `master`
+- **Configured in:** `hay_signals.yaml` → `hay_signals.edu_high`
+- **Where the default came from:** hris calibration
+- **Why it matters:** The single biggest contributor to the Know-How signal (HR-073 gives it 3.0 points, more than any other). Matched as substrings of the `education` qualifications only: "doctora" catches doctoral/doctorate, "master" catches master's — and also "Masters of the craft" or a "Mastercard" reconciliation duty, if either ever appeared in an education line.
+- **If it changes:** Config only. Advisory: it moves a Hay SIGNAL, never a grade and never a gate.
+
+#### HR-067 — Which words in a JD's education requirement mean "undergraduate"?
+
+- **We ship:** `bachelor`, `undergraduate`, `degree`
+- **Configured in:** `hay_signals.yaml` → `hay_signals.edu_mid`
+- **Where the default came from:** hris calibration
+- **Why it matters:** The fallback when no graduate cue is found (2.0 points, HR-073). Note `degree` is deliberately broad and will also match "Master's degree" — harmless only because the graduate cue is tested first. A JD saying "Diploma or equivalent" scores nothing here.
+- **If it changes:** Config only; advisory.
+
+#### HR-068 — Which language in the Problem Solving section signals independent, non-routine thinking?
+
+- **We ship:** `independent`, `judgment`, `judgement`, `novel`, `complex`, `ambiguous`, `unprecedented`, `analyze`, `analyse`, `evaluate`, `interpret`, `strategic`, `non-routine`, `creative`
+- **Configured in:** `hay_signals.yaml` → `hay_signals.ps_challenge`
+- **Where the default came from:** hris calibration
+- **Why it matters:** Each distinct phrase found adds a full point (HR-076) — more than the entire section is worth for existing — so a JD's Problem-Solving signal is close to a count of how many of these 14 words its author happened to use. It rewards a vocabulary, not a role: "Resolves novel, ambiguous, complex problems requiring independent judgment" scores 5 for one sentence. Both spellings of judgment/judgement and analyze/analyse are listed, so a JD using both would double-count.
+- **If it changes:** Config only; advisory. Adding words makes the signal easier to raise.
+
+#### HR-069 — Which language in the Problem Solving section signals routine, closely supervised work — and should it really SUBTRACT?
+
+- **We ship:** `routine`, `defined procedure`, `established procedure`, `under supervision`, `close supervision`, `step-by-step`, `prescribed`, `clearly defined`
+- **Configured in:** `hay_signals.yaml` → `hay_signals.ps_routine`
+- **Where the default came from:** hris calibration
+- **Why it matters:** These are the only NEGATIVE cues in the whole estimator (HR-076 weights each hit -1.0). A JD that accurately describes a junior role — "handles routine issues using established procedure, under close supervision" — is pushed to a low Problem-Solving signal, which is the intent; but the same words in a senior JD ("establishes the procedures others follow") are penalised just as hard, because the match is a bare substring with no sense of who is doing what. Note "under supervision" does NOT match "under close supervision" (the words are not adjacent) — "close supervision" is what catches it.
+- **If it changes:** Config only; advisory. Setting the weight to 0 (HR-076) neutralises the list without deleting it.
+
+#### HR-070 — Which language in the Impact of Decision Making section signals freedom to act and magnitude of impact?
+
+- **We ship:** `without approval`, `without prior approval`, `autonomous`, `independently`, `authority`, `approve`, `sign`, `budget`, `strategic`, `organization-wide`, `institution`, `significant impact`, `accountable`, `final decision`, `discretion`
+- **Configured in:** `hay_signals.yaml` → `hay_signals.acc_autonomy`
+- **Where the default came from:** hris calibration
+- **Why it matters:** The whole Accountability signal, one point per distinct phrase (HR-079). Known quirks HR should see rather than have hidden: `sign` is a substring, so it also fires on "design" and "significant"; `approve` fires on "requires approval from the Director", which is the OPPOSITE of autonomy; and `without approval` / `without prior approval` overlap, so "without prior approval" scores one, not two ("without approval" is not a substring of it). `institution` fires on the boilerplate word "institution" wherever it appears.
+- **If it changes:** Config only; advisory — this can never produce a grade.
+
+#### HR-071 — Which Toolkit skill modifiers count as "advanced" depth for the Know-How signal?
+
+- **We ship:** `advanced`, `expert`
+- **Configured in:** `hay_signals.yaml` → `hay_signals.advanced_skill_modifiers`
+- **Where the default came from:** hris calibration
+- **Why it matters:** SFU's Toolkit defines the skill modifier scale (basic / intermediate / advanced / expert). Which END of it counts as depth is hris's call: `intermediate` scores nothing today, so a JD requiring six intermediate skills reads as no more skilled than one requiring none.
+- **If it changes:** Config only; advisory.
+
+#### HR-072 — Which Toolkit knowledge modifiers count as top-level knowledge?
+
+- **We ship:** `excellent`
+- **Configured in:** `hay_signals.yaml` → `hay_signals.excellent_knowledge_modifiers`
+- **Where the default came from:** hris calibration
+- **Why it matters:** The knowledge scale is excellent / working / none. Only `excellent` scores (1.0, HR-073) — `working` knowledge contributes nothing at all.
+- **If it changes:** Config only; advisory.
+
+#### HR-073 — How much is each Know-How signal worth?
+
+- **We ship:** `education_graduate` → 3.0; `education_undergraduate` → 2.0; `many_advanced_skills` → 2.0; `some_advanced_skills` → 1.0; `excellent_knowledge` → 1.0; `supervisory_scope` → 1.0; `broad_qualifications` → 1.0
+- **Configured in:** `hay_signals.yaml` → `hay_signals.know_how_points`
+- **Where the default came from:** hris calibration
+- **Why it matters:** The weights that turn a JD into a Know-How score, which HR-075 then turns into low/moderate/high. Education dominates: a graduate degree alone (3.0) is worth as much as supervising staff PLUS excellent knowledge PLUS a broad qualification set (1.0 each), and it alone reaches the `moderate` cutoff. SFU has published no weighting at all — these seven numbers are somebody else's judgement about what makes a job senior.
+- **If it changes:** Config only; advisory. Changing a weight re-levels every JD's Know-How signal. Nothing blocks approval on it and no grade is ever derived from it.
+
+#### HR-074 — How many advanced skills is "many", and how many qualification kinds is "broad"?
+
+- **We ship:** `advanced_skills_for_many` → 3; `qualification_kinds_for_broad` → 4
+- **Configured in:** `hay_signals.yaml` → `hay_signals.know_how_counts`
+- **Where the default came from:** hris calibration
+- **Why it matters:** The two counting cliffs inside Know-How. 3 advanced/expert skills scores 2.0; 2 scores 1.0 — a one-skill difference halves the contribution. 4 distinct qualification kinds (of the six the template has: education, experience, knowledge, skill, ability, security) scores 1.0 for "breadth", which rewards a JD for filling in more sections as much as for the role being broader.
+- **If it changes:** Config only; advisory.
+
+#### HR-075 — At what Know-How score does a role read as moderate, and at what score high?
+
+- **We ship:** `moderate` → 3.0; `high` → 5.0
+- **Configured in:** `hay_signals.yaml` → `hay_signals.know_how_levels`
+- **Where the default came from:** hris calibration
+- **Why it matters:** The cutoffs that turn the score into the only thing a human sees. With HR-073's weights, `moderate` (3.0) is reached by a graduate degree ALONE, and `high` (5.0) needs roughly a graduate degree plus three advanced skills. Below 3.0 the role reads `low`. hris hardcoded these as `_level(score, mod=3, hi=5)` in a Python default argument.
+- **If it changes:** Config only; advisory — a Hay SIGNAL, never a Hay grade. Two levels may not share a cutoff, and every level except `low` (the floor) must have one, or the rulebook does not load.
+
+#### HR-076 — How much is each Problem-Solving signal worth — and how much does routine language cost?
+
+- **We ship:** `section_item` → 0.5; `challenge_hit` → 1.0; `routine_hit` → -1.0
+- **Configured in:** `hay_signals.yaml` → `hay_signals.problem_solving_points`
+- **Where the default came from:** hris calibration
+- **Why it matters:** A single challenge word (HR-068) is worth twice as much as an entire written Problem Solving entry, and a single routine word (HR-069) cancels a challenge word outright. That makes the Problem-Solving signal mostly a word count. The NEGATIVE weight is the only one in the estimator and is the strongest claim it makes: that describing supervision honestly is evidence of a less demanding role.
+- **If it changes:** Config only; advisory. Set `routine_hit` to 0.0 to keep the routine lexicon as evidence while removing its penalty.
+
+#### HR-077 — How many Problem Solving entries are worth scoring before length stops counting?
+
+- **We ship:** `section_items_scored` → 3
+- **Configured in:** `hay_signals.yaml` → `hay_signals.problem_solving_counts`
+- **Where the default came from:** hris calibration
+- **Why it matters:** Credit for merely HAVING a section, capped at 3 entries (1.5 points) so a JD cannot inflate its signal by padding the list. Length is not depth — but the cap also means the 4th genuinely distinct problem a role solves counts for nothing.
+- **If it changes:** Config only; advisory.
+
+#### HR-078 — At what Problem-Solving score does a role read as moderate, and at what score high?
+
+- **We ship:** `moderate` → 1.5; `high` → 3.0
+- **Configured in:** `hay_signals.yaml` → `hay_signals.problem_solving_levels`
+- **Where the default came from:** hris calibration
+- **Why it matters:** With HR-076's weights, a JD with three Problem Solving entries and no challenge vocabulary at all scores exactly 1.5 and reads `moderate` — the signal can be earned by writing three sentences. `high` needs three challenge words net of any routine language. hris hardcoded these as `mod=1.5, hi=3`.
+- **If it changes:** Config only; advisory.
+
+#### HR-079 — How much is each Accountability signal worth?
+
+- **We ship:** `section_item` → 0.5; `autonomy_hit` → 1.0; `supervisory_scope` → 2.0; `external_breadth` → 1.0
+- **Configured in:** `hay_signals.yaml` → `hay_signals.accountability_points`
+- **Where the default came from:** hris calibration
+- **Why it matters:** Supervising staff is worth 2.0 — twice any single autonomy phrase, and twice what supervision is worth to Know-How (HR-073 gives it 1.0). Whether "freedom to act" should be dominated by headcount at all is a real Hay question, and this answers it by default. External breadth (HR-080) adds a point for having enough external contacts listed.
+- **If it changes:** Config only; advisory. The Accountability signal never becomes an Accountability grade.
+
+#### HR-080 — How many Impact-of-Decision-Making entries are scored, and how many external relationships count as "breadth of impact"?
+
+- **We ship:** `section_items_scored` → 3; `external_for_breadth` → 3
+- **Configured in:** `hay_signals.yaml` → `hay_signals.accountability_counts`
+- **Where the default came from:** hris calibration
+- **Why it matters:** `external_for_breadth: 3` says a role dealing with three external parties has institution-scale impact and one dealing with two does not. It counts LIST ENTRIES, so a JD that writes "Vendors, government, and peer institutions" as a single line scores 0 while one that writes three lines scores 1 — the same role, formatted differently.
+- **If it changes:** Config only; advisory.
+
+#### HR-081 — At what Accountability score does a role read as moderate, and at what score high?
+
+- **We ship:** `moderate` → 2.0; `high` → 4.0
+- **Configured in:** `hay_signals.yaml` → `hay_signals.accountability_levels`
+- **Where the default came from:** hris calibration
+- **Why it matters:** With HR-079's weights, supervising staff alone (2.0) reaches `moderate` with no decision-making language whatsoever, and `high` (4.0) is two autonomy phrases away. hris hardcoded these as `mod=2, hi=4`.
+- **If it changes:** Config only; advisory.
+
 ### From SFU's published rulebook — but read the caveats
 
 The value is transcribed from SFU's own rulebook — but *how we act on it* (whether it merely costs score or actually blocks approval, and how widely we search for it) is still ours. Each entry says which part is SFU's.
@@ -560,6 +742,22 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 - **Why it matters:** A literal case-folded substring test. SFU's boilerplate, transcribed — but a JD that paraphrases it is flagged (SFU-GATE-REL-HEADER, `low`, non-blocking). The composer restores the boilerplate anyway, which is why this is a nudge rather than a bar.
 - **If it changes:** Score and checklist only.
 
+#### HR-063 — What are the functional title types — SFU's Job-Title Application Table?
+
+- **We ship:** `assistant`, `coordinator`, `analyst`, `officer`, `specialist`, `consultant`, `manager`, `associate_director`, `director`, `executive`
+- **Configured in:** `titles.yaml` → `titles.functions`
+- **Where the default came from:** SFU rulebook (Part 3.3)
+- **Why it matters:** The SECOND, independent title dimension: what the title *word* means, as against how senior it is. "Data Analyst" has no rung on the seniority ladder (family `unmapped`) but a perfectly clear function (`analyst`). Unlike the ladder of HR-059 this table IS SFU's — it is transcribed from the Total Comp Learning Series' Application Table — so the question for HR is not "is this right" but "is this still current, and is it complete". A missing row means every title using that word falls to `unmapped`.
+- **If it changes:** Config plus a one-line type change: `jd_core.models.bank.TitleFunction` is the type mirror of this list and the loader REFUSES TO START if the two disagree, so a row cannot be added to the YAML alone. Advisory — no gate reads it.
+
+#### HR-065 — Which words in a title map it onto each functional type?
+
+- **We ship:** `executive` → ['executive']; `associate_director` → ['associate director']; `director` → ['director']; `manager` → ['manager']; `consultant` → ['consultant']; `specialist` → ['specialist']; `officer` → ['officer']; `analyst` → ['analyst']; `coordinator` → ['coordinator']; `assistant` → ['assistant']
+- **Configured in:** `titles.yaml` → `titles.function_keywords`
+- **Where the default came from:** SFU rulebook (Part 3.3)
+- **Why it matters:** Each function is matched by its own name, so the keywords are a direct transcription of the Application Table's title words — that part is SFU's. What is NOT SFU's is that they are matched as bare substrings anywhere in the title: "Chief Information Officer" therefore reads as function `officer`, and any title containing "Assistant" reads as `assistant` however senior it is. HR should confirm the words; the matching strategy is ours to answer for.
+- **If it changes:** Config only; advisory. Every keyword must belong to a function that exists in HR-063 or the rulebook fails to load.
+
 ## Trivial — on the decision surface, deliberately not a decision
 
 The build requires every parameter on the decision surface to be either a decision above or an exemption here **with a reason**. Nothing can be silently skipped. `Covered by` means the parameter *is* a decision — just one that is pinned by the entry named, so changing it still breaks the build.
@@ -591,6 +789,7 @@ The build requires every parameter on the decision surface to be either a decisi
 | `gates.SFU-APPROVE-SUMMARY-LENGTH.rule_ids` | Which overridable gate a blocking rule is filed under determines only the reason copy shown to the reviewer. | HR-004 |
 | `gates.grade_order` | The ranking of the grade literals from worst to best. F < D < C < B < A is not a policy choice; where the floor sits on it is HR-002. | — |
 | `gates.severity_order` | The ranking of the severity literals from least to most severe. Any other order would be incoherent (it is not a policy choice that `high` outranks `low`); the choice of WHERE the floor sits on this ranking is HR-003. | — |
+| `hay_signals.evidence_cap` | How many evidence phrases one Hay factor's signal may CITE. Presentation only: the score is computed from every hit and the level is decided before the evidence list is truncated, so this cannot move a signal from low to high — it only shortens the "why". It is bounded by what `HayFactorSignal.evidence` accepts (the rulebook refuses to load if it exceeds that), and the substantive calls — which phrases count and what they are worth — are HR-066 … HR-081. | — |
 | `rule_catalog.SFU-AUTH-ABILITIES-OBSERVABLE.default_severity` | A `low` drafting nudge (an ability should read "Ability to <observable behaviour>"). The prefixes are HR-054; severity-floor promotion is pinned by HR-057. | HR-054 |
 | `rule_catalog.SFU-AUTH-SUMMARY-CONDITIONS.default_severity` | `medium`, and blocking by name (HR-004). The substantive question is the working-conditions word list (HR-046); severity-floor promotion is pinned by HR-057. | HR-046 |
 | `rule_catalog.SFU-AUTH-SUMMARY-INCUMBENT.default_severity` | `low`, but blocking by name (HR-004). The regex it fires on is HR-048; severity-floor promotion is pinned by HR-057. | HR-048 |

@@ -1,9 +1,15 @@
 # SFU job titles — RULEBOOK AS DATA (CLAUDE.md §2).
 #
-# TWO tables live here:
+# THREE tables live here:
 #   `restricted` — title phrases SFU reserves (Part 3.5). RULEBOOK-SOURCED.
-#   `families`   — the seniority ladder used to classify a title. NOT in the
-#                  rulebook (see the provenance warning on it below). HR-059.
+#   `families`*  — the SENIORITY ladder a title is classified onto, and the
+#                  keywords/match order that classify it. NOT in the rulebook
+#                  (see the provenance warning below). hris_calibration. HR-059.
+#   `functions`* — the FUNCTIONAL Application Table (what the title *word* means:
+#                  analyst / officer / coordinator …). RULEBOOK-SOURCED, Part 3.3.
+#
+# The two title dimensions are independent: "Data Analyst" is family `unmapped`
+# (no ladder keyword) but function `analyst`.
 #
 # A title phrase (matched casefolded, as a substring of the JD title) that SFU
 # reserves for a specific context. `reserved_for_employee_group` is non-null only
@@ -44,6 +50,123 @@ families:
   - lead
   - associate
   - assistant
+
+# The order the family keywords are TRIED IN — senior/most-specific first, FIRST
+# MATCH WINS. This is NOT the `families` ladder above: the ladder is seniority,
+# this is the tie-break policy for a title that carries two family keywords, and
+# the two deliberately disagree. `manager` is tried BEFORE `director` so that
+# "Associate Director, Advancement" classifies as manager (SFU groups Associate
+# Directors with managers) rather than director; `assistant` before `associate`
+# so "Executive Assistant" is an assistant. Shuffle this list and titles change
+# family — it is load-bearing, not presentation.
+# Every name here must also be a rung of `families` (the loader enforces it).
+family_match_order:
+  - vp
+  - chief
+  - manager
+  - director
+  - lead
+  - assistant
+  - associate
+
+# The title keywords that signal each family, matched as substrings of the title
+# space-normalised and wrapped in single spaces (" vp finance "). Short
+# abbreviations are therefore SPACE-PADDED so they match whole tokens only —
+# without the padding, "direc[tor]" would spuriously contain "cto".
+family_keywords:
+  vp: ["vice president", "associate vice", " avp ", " vp "]
+  chief: ["chief", " cio ", " cfo ", " cto ", " ceo ", " coo "]
+  manager: ["associate director", "manager", "supervisor"]
+  director: ["director"]
+  lead: ["team lead", " lead "]
+  assistant: ["assistant"]
+  associate: ["associate", "representative"]
+
+# Human-readable copy only — not a decision. `unmapped` is the explicit
+# no-match state and must be labelled too.
+family_labels:
+  vp: Vice President / Associate VP
+  chief: Chief Officer
+  director: Director
+  manager: Manager / Supervisor / Associate Director
+  lead: Lead / Team Lead
+  associate: Associate / Representative
+  assistant: Assistant
+  unmapped: Unmapped
+
+# The families whose title word, placed FIRST and followed by a comma, signals a
+# supervisory role: SFU's title-format rule (Part 3.4) writes a supervisory title
+# as "Manager, Laboratory Operations" and a non-supervisory one as "Laboratory
+# Operations Manager". Membership decides whether that comma form is read as a
+# supervision signal at all — "Software Developer, Platform" must not be.
+comma_supervisory_families:
+  - vp
+  - chief
+  - director
+  - manager
+  - lead
+
+# ── The FUNCTIONAL dimension: SFU's Job-Title Application Table ───────────────
+# What the title *word* means, independent of seniority. RULEBOOK-SOURCED:
+# docs/rulebook/sfu-jd-standards.txt Part 3.3 (Total Comp Learning Series,
+# Application Table). Unlike the seniority ladder above, this table IS SFU's.
+#
+# The function vocabulary, in Application-Table order. `jd_core.models.bank.
+# TitleFunction` is this list plus the explicit "unmapped" state.
+functions:
+  - assistant
+  - coordinator
+  - analyst
+  - officer
+  - specialist
+  - consultant
+  - manager
+  - associate_director
+  - director
+  - executive
+
+# The order the function keywords are TRIED IN — most-specific first, FIRST MATCH
+# WINS, and again NOT the vocabulary order above. `associate_director` must be
+# tried before `director` ("Associate Director, Advancement" is not a director)
+# and `executive` before both ("Executive Director" is an APEX executive title,
+# not a director). Load-bearing.
+function_match_order:
+  - executive
+  - associate_director
+  - director
+  - manager
+  - consultant
+  - specialist
+  - officer
+  - analyst
+  - coordinator
+  - assistant
+
+function_keywords:
+  executive: ["executive"]
+  associate_director: ["associate director"]
+  director: ["director"]
+  manager: ["manager"]
+  consultant: ["consultant"]
+  specialist: ["specialist"]
+  officer: ["officer"]
+  analyst: ["analyst"]
+  coordinator: ["coordinator"]
+  assistant: ["assistant"]
+
+# Copy only — the Application Table's own gloss of each function.
+function_labels:
+  assistant: Assistant — administrative/operational support
+  coordinator: Coordinator — coordinates processes & activities
+  analyst: Analyst — analysis & research
+  officer: Officer — subject-matter expertise
+  specialist: Specialist — subject-matter expertise
+  consultant: Consultant — advice & guidance
+  manager: Manager — manages people & processes
+  associate_director: Associate Director — supports a department
+  director: Director — directs a department
+  executive: Executive — executive leadership
+  unmapped: Unmapped
 
 restricted:
   - key: executive_director

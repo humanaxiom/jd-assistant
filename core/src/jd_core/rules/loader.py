@@ -33,11 +33,11 @@ import datetime as dt
 import importlib.resources
 import itertools
 import re
-from collections.abc import Mapping, Sequence, Set
+from collections.abc import Iterable, Mapping, Sequence, Set
 from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
-from typing import Annotated, Any, Final, Literal, TypeVar, cast, get_args
+from typing import Annotated, Any, Final, Literal, NamedTuple, TypeVar, cast, get_args
 
 import yaml
 from pydantic import (
@@ -51,6 +51,12 @@ from pydantic import (
     model_validator,
 )
 
+from src.jd_core.models.bank import (
+    HayFactorSignal,
+    HaySignalLevel,
+    TitleFamily,
+    TitleFunction,
+)
 from src.jd_core.models.quality import (
     JDGrade,
     JDIssueCategory,
@@ -64,6 +70,23 @@ _SEVERITIES: Final[frozenset[str]] = frozenset(get_args(JDIssueSeverity))
 _CATEGORIES: Final[frozenset[str]] = frozenset(get_args(JDIssueCategory))
 _SECTIONS: Final[frozenset[str]] = frozenset(get_args(SFUSection))
 _GRADES: Final[frozenset[str]] = frozenset(get_args(JDGrade))
+
+#: The explicit "no keyword matched" state of BOTH title dimensions. It is a
+#: member of the :data:`TitleFamily` / :data:`TitleFunction` vocabularies but
+#: never a *rung* of the ladder or a *row* of the Application Table — it is what
+#: you get when none of them matched, so it is labelled but has no keywords.
+UNMAPPED: Final[Literal["unmapped"]] = "unmapped"
+
+#: The Hay level a factor sits at when it clears no cutoff. Every OTHER level in
+#: :data:`~src.jd_core.models.bank.HaySignalLevel` must carry a score cutoff in
+#: ``hay_signals.yaml`` (``*_levels``); this one is the floor and must not.
+HAY_BASE_LEVEL: Final[HaySignalLevel] = "low"
+
+#: The levels that need a cutoff — derived, so adding a level to the vocabulary
+#: makes the rulebook demand a cutoff for it rather than silently ignoring it.
+_HAY_CUTOFF_LEVELS: Final[frozenset[str]] = frozenset(get_args(HaySignalLevel)) - {
+    HAY_BASE_LEVEL
+}
 
 #: Who raises a rule: a deterministic gate here, or the (Phase 5) LLM pass.
 RuleOwner = Literal["deterministic", "llm"]
@@ -281,20 +304,94 @@ class RestrictedTitle(BaseModel):
     note: str = ""
 
 
-class Titles(_RuleFile):
-    """Job-title rules (``titles.yaml``): the restricted phrases SFU reserves,
-    and the seniority ladder a title is classified onto.
+class _TitleDimension(NamedTuple):
+    """One title dimension's four tables, for the cross-consistency validator.
 
-    ``families`` is **not** rulebook-sourced (see the warning in the YAML and
-    HR-059) — it is inherited hris calibration, held here as data so it can be
-    changed without touching code, and pinned by the register so it cannot be
-    changed without telling HR.
+    The two mappings arrive as their KEY SETS: the validator asks only "do these
+    four tables describe the same set of names?", and ``Mapping`` is invariant in
+    its key type, so passing the mappings themselves would force both dimensions'
+    Literal keys down to ``str`` and lose the very typing this file just gained.
+    """
+
+    label: str
+    vocabulary: Sequence[str]
+    match_order: Sequence[str]
+    keyword_names: Set[str]
+    label_names: Set[str]
+
+
+def _no_repeats(label: str, names: Sequence[str]) -> None:
+    if len(set(names)) != len(names):
+        raise ValueError(f"{label} must not repeat a name; got {list(names)}")
+
+
+def _keywords_are_well_formed(
+    keywords: Mapping[str, tuple[str, ...]],
+) -> Mapping[str, tuple[str, ...]]:
+    """Every match keyword is a non-empty, lower-case cue.
+
+    Leading/trailing spaces are *deliberately* significant (``" vp "`` matches a
+    whole token in a space-padded title, ``"vp"`` would also match "development"),
+    so they are NOT stripped here — only an all-whitespace keyword is rejected.
+    """
+    for name, cues in keywords.items():
+        if not cues:
+            raise ValueError(f"{name!r} has no match keywords")
+        if len(set(cues)) != len(cues):
+            raise ValueError(f"{name!r} repeats a match keyword")
+        for cue in cues:
+            if not cue.strip():
+                raise ValueError(f"{name!r} has an empty match keyword")
+            if cue != cue.lower():
+                raise ValueError(f"match keyword {cue!r} ({name}) must be lowercase")
+    return keywords
+
+
+class Titles(_RuleFile):
+    """Job-title rules (``titles.yaml``): the restricted phrases SFU reserves, and
+    the two independent dimensions a title is classified onto.
+
+    * **Seniority** — the ``families`` ladder, the ``family_match_order`` the
+      keywords are tried in, and the ``family_keywords`` themselves. **Not**
+      rulebook-sourced (see the warning in the YAML and HR-059): inherited hris
+      calibration, held here as data so it can be changed without touching code,
+      and pinned by the register so it cannot be changed without telling HR.
+    * **Function** — SFU's Job-Title Application Table (Part 3.3). This one *is*
+      rulebook-sourced.
+
+    Both dimensions carry a ``*_match_order`` that is deliberately **not** the
+    vocabulary order: first match wins, so trying ``manager`` before ``director``
+    is what makes "Associate Director" a manager. Order is policy, so it is data,
+    and it is registered.
     """
 
     restricted: tuple[RestrictedTitle, ...] = Field(min_length=1)
     #: Seniority ladder, senior -> junior. The vocabulary of
-    #: :class:`~src.jd_core.models.bank.TitleFamily` (plus ``"unmapped"``).
-    families: tuple[str, ...] = Field(min_length=1)
+    #: :data:`~src.jd_core.models.bank.TitleFamily` (minus ``"unmapped"``).
+    families: tuple[TitleFamily, ...] = Field(min_length=1)
+    #: The families' keywords, in the order they are TRIED. Semantic — see above.
+    family_match_order: tuple[TitleFamily, ...] = Field(min_length=1)
+    #: family -> the title keywords that signal it (lower-cased substrings).
+    family_keywords: Annotated[
+        Mapping[TitleFamily, tuple[str, ...]], AfterValidator(_freeze)
+    ]
+    #: family -> human label. Copy, not a decision. Covers ``"unmapped"`` too.
+    family_labels: Annotated[Mapping[TitleFamily, str], AfterValidator(_freeze)]
+    #: The families for which the "Role, Descriptor" comma format (Part 3.4)
+    #: signals supervision.
+    comma_supervisory_families: frozenset[TitleFamily] = Field(min_length=1)
+
+    #: The functional Application Table's vocabulary, in table order. The
+    #: vocabulary of :data:`~src.jd_core.models.bank.TitleFunction` (minus
+    #: ``"unmapped"``).
+    functions: tuple[TitleFunction, ...] = Field(min_length=1)
+    #: The functions' keywords, in the order they are TRIED. Semantic.
+    function_match_order: tuple[TitleFunction, ...] = Field(min_length=1)
+    function_keywords: Annotated[
+        Mapping[TitleFunction, tuple[str, ...]], AfterValidator(_freeze)
+    ]
+    #: function -> the Application Table's gloss. Copy. Covers ``"unmapped"``.
+    function_labels: Annotated[Mapping[TitleFunction, str], AfterValidator(_freeze)]
 
     @field_validator("restricted")
     @classmethod
@@ -306,10 +403,263 @@ class Titles(_RuleFile):
             raise ValueError("restricted title keys must be unique")
         return titles
 
+    @field_validator("family_keywords", "function_keywords")
+    @classmethod
+    def _cues_are_well_formed(
+        cls, keywords: Mapping[str, tuple[str, ...]]
+    ) -> Mapping[str, tuple[str, ...]]:
+        return _keywords_are_well_formed(keywords)
+
+    @model_validator(mode="after")
+    def _dimensions_are_internally_consistent(self) -> Titles:
+        """Vocabulary, match order, keywords and labels describe the SAME set.
+
+        This is what stops the ladder and the classifier drifting apart: a rung
+        with no keywords could never be matched, a keyword list for a rung that is
+        not on the ladder would classify a title into a family the type does not
+        have, and a missing label would crash the classifier mid-JD. All three are
+        load errors, not runtime surprises.
+        """
+        dimensions: tuple[_TitleDimension, ...] = (
+            _TitleDimension(
+                "family",
+                self.families,
+                self.family_match_order,
+                set(self.family_keywords),
+                set(self.family_labels),
+            ),
+            _TitleDimension(
+                "function",
+                self.functions,
+                self.function_match_order,
+                set(self.function_keywords),
+                set(self.function_labels),
+            ),
+        )
+        for label, vocabulary, match_order, keyword_names, label_names in dimensions:
+            _no_repeats(f"{label} vocabulary", vocabulary)
+            _no_repeats(f"{label}_match_order", match_order)
+            if UNMAPPED in vocabulary:
+                raise ValueError(
+                    f"{UNMAPPED!r} is the explicit no-match state, not a {label} — "
+                    f"it must not appear in the {label} vocabulary"
+                )
+            names = set(vocabulary)
+            if set(match_order) != names:
+                raise ValueError(
+                    f"{label}_match_order must try every {label} exactly once; "
+                    f"got {sorted(set(match_order))} for {sorted(names)}"
+                )
+            if set(keyword_names) != names:
+                raise ValueError(
+                    f"{label}_keywords must give keywords for every {label} and no "
+                    f"other; got {sorted(keyword_names)} for {sorted(names)}"
+                )
+            if set(label_names) != names | {UNMAPPED}:
+                raise ValueError(
+                    f"{label}_labels must label every {label} plus {UNMAPPED!r}; "
+                    f"got {sorted(label_names)}"
+                )
+
+        unknown = sorted(self.comma_supervisory_families - set(self.families))
+        if unknown:
+            raise ValueError(
+                f"comma_supervisory_families names non-existent famil(ies) {unknown}"
+            )
+        return self
+
     @property
     def by_id(self) -> Mapping[str, RestrictedTitle]:
         """Every restricted title, keyed by its stable ``key``."""
         return _freeze({title.key: title for title in self.restricted})
+
+
+# --- advisory Hay-factor signals (hay_signals.yaml) ---------------------------
+
+FrozenPointsMap = Annotated[Mapping[str, float], AfterValidator(_freeze)]
+FrozenCountsMap = Annotated[Mapping[str, int], AfterValidator(_freeze)]
+FrozenLevelMap = Annotated[Mapping[HaySignalLevel, float], AfterValidator(_freeze)]
+
+#: The contribution each factor's score is built from. These key sets are the
+#: *schema* of the points tables — the estimator indexes them by these names, so a
+#: missing or unknown key is a load error rather than a ``KeyError`` mid-JD. The
+#: NUMBERS behind them are the calibration, and they are what HR decides.
+_KNOW_HOW_POINTS: Final[frozenset[str]] = frozenset(
+    {
+        "education_graduate",
+        "education_undergraduate",
+        "many_advanced_skills",
+        "some_advanced_skills",
+        "excellent_knowledge",
+        "supervisory_scope",
+        "broad_qualifications",
+    }
+)
+_KNOW_HOW_COUNTS: Final[frozenset[str]] = frozenset(
+    {"advanced_skills_for_many", "qualification_kinds_for_broad"}
+)
+_PROBLEM_SOLVING_POINTS: Final[frozenset[str]] = frozenset(
+    {"section_item", "challenge_hit", "routine_hit"}
+)
+_PROBLEM_SOLVING_COUNTS: Final[frozenset[str]] = frozenset({"section_items_scored"})
+_ACCOUNTABILITY_POINTS: Final[frozenset[str]] = frozenset(
+    {"section_item", "autonomy_hit", "supervisory_scope", "external_breadth"}
+)
+_ACCOUNTABILITY_COUNTS: Final[frozenset[str]] = frozenset(
+    {"section_items_scored", "external_for_breadth"}
+)
+
+
+def _exactly(name: str, keys: Set[str], required: Set[str]) -> None:
+    if set(keys) != set(required):
+        missing = sorted(set(required) - set(keys))
+        unknown = sorted(set(keys) - set(required))
+        raise ValueError(
+            f"{name} must define exactly {sorted(required)}; "
+            f"missing {missing}, unknown {unknown}"
+        )
+
+
+class HaySignalRules(_RuleFile):
+    """Calibration for the advisory Hay-factor signals (``hay_signals.yaml``).
+
+    Every table and every number here is ``hris_calibration`` — invented in hris,
+    never published by SFU (HR-066 … HR-081). They decide whether a JD reads as a
+    low / moderate / high signal on each Hay factor, so they are on the decision
+    surface, all of them.
+
+    What is **not** here, and cannot be: a Hay grade or point score. The charts are
+    proprietary and SFU publishes none; :class:`~src.jd_core.models.bank.HaySignals`
+    has no field to hold one. Adding a "grade" key to this file would configure
+    nothing.
+    """
+
+    #: How many evidence phrases one factor may cite. Presentation: the score is
+    #: computed *before* evidence is capped, so this cannot move a level.
+    evidence_cap: int = Field(gt=0)
+
+    advanced_skill_modifiers: frozenset[str] = Field(min_length=1)
+    excellent_knowledge_modifiers: frozenset[str] = Field(min_length=1)
+
+    edu_high: tuple[str, ...] = Field(min_length=1)
+    edu_mid: tuple[str, ...] = Field(min_length=1)
+    ps_challenge: tuple[str, ...] = Field(min_length=1)
+    ps_routine: tuple[str, ...] = Field(min_length=1)
+    acc_autonomy: tuple[str, ...] = Field(min_length=1)
+
+    know_how_points: FrozenPointsMap
+    know_how_counts: FrozenCountsMap
+    know_how_levels: FrozenLevelMap
+
+    problem_solving_points: FrozenPointsMap
+    problem_solving_counts: FrozenCountsMap
+    problem_solving_levels: FrozenLevelMap
+
+    accountability_points: FrozenPointsMap
+    accountability_counts: FrozenCountsMap
+    accountability_levels: FrozenLevelMap
+
+    @field_validator(
+        "advanced_skill_modifiers",
+        "excellent_knowledge_modifiers",
+        "edu_high",
+        "edu_mid",
+        "ps_challenge",
+        "ps_routine",
+        "acc_autonomy",
+    )
+    @classmethod
+    def _cues_are_lowercase(cls, cues: Iterable[str]) -> Iterable[str]:
+        for cue in cues:
+            if not cue.strip():
+                raise ValueError("lexicon cues must be non-empty")
+            if cue != cue.strip().lower():
+                raise ValueError(f"lexicon cue {cue!r} must be lowercase and stripped")
+        return cues
+
+    @model_validator(mode="after")
+    def _tables_carry_exactly_the_keys_the_estimator_reads(self) -> HaySignalRules:
+        _exactly("know_how_points", set(self.know_how_points), _KNOW_HOW_POINTS)
+        _exactly("know_how_counts", set(self.know_how_counts), _KNOW_HOW_COUNTS)
+        _exactly(
+            "problem_solving_points",
+            set(self.problem_solving_points),
+            _PROBLEM_SOLVING_POINTS,
+        )
+        _exactly(
+            "problem_solving_counts",
+            set(self.problem_solving_counts),
+            _PROBLEM_SOLVING_COUNTS,
+        )
+        _exactly(
+            "accountability_points",
+            set(self.accountability_points),
+            _ACCOUNTABILITY_POINTS,
+        )
+        _exactly(
+            "accountability_counts",
+            set(self.accountability_counts),
+            _ACCOUNTABILITY_COUNTS,
+        )
+        for name, counts in (
+            ("know_how_counts", self.know_how_counts),
+            ("problem_solving_counts", self.problem_solving_counts),
+            ("accountability_counts", self.accountability_counts),
+        ):
+            for key, value in counts.items():
+                if value < 1:
+                    raise ValueError(f"{name}.{key} must be >= 1, got {value}")
+        return self
+
+    @model_validator(mode="after")
+    def _every_level_above_the_floor_has_an_ordered_cutoff(self) -> HaySignalRules:
+        """Each factor scores a cutoff for every level except the floor (``low``).
+
+        Derived from :data:`~src.jd_core.models.bank.HaySignalLevel`, so adding a
+        level to the vocabulary makes the rulebook *demand* a cutoff for it in all
+        three factors rather than silently never awarding it.
+        """
+        for name, cutoffs in self.factor_levels.items():
+            _exactly(name, set(cutoffs), _HAY_CUTOFF_LEVELS)
+            ordered = sorted(cutoffs.values())
+            if len(set(ordered)) != len(ordered):
+                raise ValueError(f"{name}: two levels share a cutoff — {dict(cutoffs)}")
+        return self
+
+    @model_validator(mode="after")
+    def _the_evidence_cap_fits_the_signal_it_caps(self) -> HaySignalRules:
+        """A full evidence list is actually constructible.
+
+        Proved by construction at load (the same trick as
+        :meth:`GatePolicy._reason_templates_render`): raise ``evidence_cap`` above
+        what :class:`~src.jd_core.models.bank.HayFactorSignal` accepts and the
+        rulebook refuses to load, rather than every sufficiently-evidenced JD
+        blowing up in a ``ValidationError`` mid-estimate.
+        """
+        try:
+            HayFactorSignal(
+                factor="know_how",
+                level=HAY_BASE_LEVEL,
+                rationale="load-time probe",
+                evidence=[f"phrase {i}" for i in range(self.evidence_cap)],
+            )
+        except ValidationError as exc:
+            raise ValueError(
+                f"evidence_cap {self.evidence_cap} is more evidence than "
+                f"HayFactorSignal.evidence accepts: {exc}"
+            ) from exc
+        return self
+
+    @property
+    def factor_levels(self) -> Mapping[str, Mapping[HaySignalLevel, float]]:
+        """Each factor's score cutoffs, keyed by the YAML field they came from."""
+        return _freeze(
+            {
+                "know_how_levels": self.know_how_levels,
+                "problem_solving_levels": self.problem_solving_levels,
+                "accountability_levels": self.accountability_levels,
+            }
+        )
 
 
 class GradeBand(BaseModel):
@@ -989,6 +1339,7 @@ class Rules(BaseModel):
     markers: Markers
     patterns: Patterns
     titles: Titles
+    hay_signals: HaySignalRules
     scoring: Scoring
     rule_catalog: RuleCatalog
     gates: GatePolicy
@@ -1018,6 +1369,50 @@ class Rules(BaseModel):
                 f"gates.yaml blocks on rule_id(s) absent from rule_catalog.yaml: "
                 f"{unknown}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _hay_modifiers_exist_on_the_rulebooks_own_scales(self) -> Rules:
+        """The Hay estimator may only read modifiers the rulebook actually defines.
+
+        ``hay_signals.yaml`` names which Toolkit modifiers count as depth
+        (``advanced``/``expert`` skills, ``excellent`` knowledge). The *scales* those
+        names come from are SFU's and live in ``qualifications.yaml``
+        (``skill_modifiers``, ``knowledge_modifiers`` — rulebook Parts 5.2/5.1). Two
+        files, the same vocabulary, and nothing kept them in step: rename or re-case
+        a modifier in ``qualifications.yaml`` and every Know-How signal would
+        silently stop scoring — no load error, no failing test, gates green. Exactly
+        the ``max_listed`` duplicate-knob problem, but on a *registered* decision
+        parameter (HR-071 / HR-072).
+
+        So the subset relation is enforced here, at load, like every other cross-file
+        fact (a restricted title's ``rule_id`` must be catalogued; a blocking gate's
+        rules must exist). ``qualifications.yaml`` stays the single source of the
+        vocabulary; ``hay_signals.yaml`` only says which end of it means depth.
+        """
+        scales = (
+            (
+                "advanced_skill_modifiers",
+                self.hay_signals.advanced_skill_modifiers,
+                "skill_modifiers",
+                self.qualifications.skill_modifiers,
+            ),
+            (
+                "excellent_knowledge_modifiers",
+                self.hay_signals.excellent_knowledge_modifiers,
+                "knowledge_modifiers",
+                self.qualifications.knowledge_modifiers,
+            ),
+        )
+        for hay_field, chosen, qual_field, scale in scales:
+            unknown = sorted(chosen - scale)
+            if unknown:
+                raise ValueError(
+                    f"hay_signals.yaml {hay_field} names modifier(s) {unknown} that "
+                    f"are not on the rulebook's own scale "
+                    f"(qualifications.yaml {qual_field}: {sorted(scale)}). The Hay "
+                    f"estimator would score nothing for them."
+                )
         return self
 
     @model_validator(mode="after")
@@ -1197,16 +1592,23 @@ def live_value(rules: Rules, path: str) -> Any:
 
 
 #: Rule files whose EVERY field is a decision-surface parameter. These files are
-#: flat tables of matchers and limits — a word list, a regex, a threshold — and
-#: every one of them changes what the validators fire on. Enumerating them
-#: field-by-field means a new key in any of them is on the surface the moment it
-#: is added, with no enumerator change.
+#: flat tables of matchers, limits and weights — a word list, a regex, a
+#: threshold, a points table — and every one of them changes what the system
+#: decides about a JD. Enumerating them field-by-field means a new key in any of
+#: them is on the surface the moment it is added, with no enumerator change.
+#:
+#: ``hay_signals`` is deliberately kept **flat** (``know_how_points`` rather than
+#: ``know_how.points``) precisely so it can live here: a nested rule file would
+#: have to be hand-enumerated below, and a field added to it later would be
+#: invisible to :func:`check_register` — which is exactly how four rule files once
+#: went unregistered. Any new rule file should be shaped to qualify for this list.
 _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "thresholds",
     "patterns",
     "qualifications",
     "action_verbs",
     "markers",
+    "hay_signals",
 )
 
 
@@ -1219,7 +1621,7 @@ def decision_surface(rules: Rules) -> frozenset[str]:
     and the coverage check (:func:`check_register`) breaks the build until
     someone says whether HR must decide it.
 
-    **All ten rule files are walked.** The surface is everything that can change
+    **All eleven rule files are walked.** The surface is everything that can change
     what the system decides about a JD:
 
     * ``gates.yaml`` — the approval policy: each gate's overridability and the
@@ -1227,17 +1629,20 @@ def decision_surface(rules: Rules) -> frozenset[str]:
       (:attr:`GatePolicy.blocking_rule_ids`,
       :attr:`GatePolicy.non_overridable_gate_ids`).
     * ``thresholds`` / ``patterns`` / ``qualifications`` / ``action_verbs`` /
-      ``markers`` — every field. These are the matchers the validators fire on: a
-      regex, a banned phrase, an approved verb, a placeholder marker. Three of
-      them (``patterns.incumbent``, ``patterns.senior_title``,
-      ``qualifications.ksa_rank``) feed *blocking* gates, so a change to them is a
-      change to the approval bar.
+      ``markers`` / ``hay_signals`` — every field (:data:`_FLAT_SURFACE_FILES`).
+      These are the matchers the validators fire on and the weights the Hay
+      estimator scores with: a regex, a banned phrase, an approved verb, a
+      placeholder marker, a points table. Three of them (``patterns.incumbent``,
+      ``patterns.senior_title``, ``qualifications.ksa_rank``) feed *blocking*
+      gates, so a change to them is a change to the approval bar.
     * ``scoring.yaml`` — the scale, the per-severity penalties, the decay, the
       grade bands.
     * ``coded_terms.yaml`` — each severity tier of the lexicon.
     * ``titles.yaml`` — each restricted title's severity and reserved group, and
-      the seniority ``families`` ladder (which rungs exist *is* the
-      classification policy, and the ladder is not SFU's — HR-059).
+      **both** title dimensions in full: the vocabulary (which rungs/rows exist
+      *is* the classification policy), the keywords that land a title on each, and
+      the **match order** that resolves the overlaps. The seniority ladder is not
+      SFU's (HR-059); the functional Application Table is (Part 3.3).
     * ``rule_catalog.yaml`` — each rule's ``default_severity``, **and** the derived
       set of rules that sit at or above a severity floor
       (:attr:`RuleCatalog.rules_by_severity`). Severity is not merely a score
@@ -1245,7 +1650,8 @@ def decision_surface(rules: Rules) -> frozenset[str]:
       through :class:`SeverityFloorGate` without ever being named in a gate's
       ``rule_ids``. That is a second route to blocking, and it is on the surface.
 
-    Pure copy (messages, recommendations, titles, notes) is not on the surface.
+    Pure copy (messages, recommendations, titles, notes, the ``*_labels`` a
+    classifier renders) is not on the surface.
     """
     paths: set[str] = {
         # the two derived views of the whole policy: promoting/demoting ANY rule
@@ -1305,9 +1711,22 @@ def decision_surface(rules: Rules) -> frozenset[str]:
     for title in rules.titles.restricted:
         paths.add(f"titles.{title.key}.severity")
         paths.add(f"titles.{title.key}.reserved_for_employee_group")
-    # The seniority ladder: which rungs exist IS the classification policy (a
-    # ladder without `lead` cannot classify a lead), and it is not SFU's — HR-059.
-    paths.add("titles.families")
+    # Both title dimensions, in full. Which rungs/rows exist IS the classification
+    # policy (a ladder without `lead` cannot classify a lead); the KEYWORDS decide
+    # what lands on each; and the MATCH ORDER decides the overlaps — trying
+    # `manager` before `director` is the whole reason "Associate Director" is a
+    # manager. Shuffle the order and titles change family with no other edit, so
+    # the order is on the surface, not just the contents. The seniority half is
+    # not SFU's (HR-059); the functional half is (Part 3.3).
+    paths |= {
+        "titles.families",
+        "titles.family_match_order",
+        "titles.family_keywords",
+        "titles.comma_supervisory_families",
+        "titles.functions",
+        "titles.function_match_order",
+        "titles.function_keywords",
+    }
 
     paths |= {
         f"rule_catalog.{spec.rule_id}.default_severity"
@@ -1377,6 +1796,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     ("markers.yaml", "markers", Markers),
     ("patterns.yaml", "patterns", Patterns),
     ("titles.yaml", "titles", Titles),
+    ("hay_signals.yaml", "hay_signals", HaySignalRules),
     ("scoring.yaml", "scoring", Scoring),
     ("rule_catalog.yaml", "rule_catalog", RuleCatalog),
     ("gates.yaml", "gates", GatePolicy),

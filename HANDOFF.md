@@ -151,7 +151,30 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
 - Remove 4 **dead config values** nothing reads: `rule_catalog.SFU-LANG-CODED.default_severity`
   and the three `SFU-AUTH-TITLE-*.default_severity` (validators always override them).
 - `max_listed` exists **twice** as independent knobs holding the same value 5
-  (`thresholds.max_listed`, `gates.max_listed`) — nothing keeps them in step.
+  (`thresholds.max_listed`, `gates.max_listed`) — nothing keeps them in step. (2.4b hit the
+  same shape between `hay_signals.advanced_skill_modifiers` and
+  `qualifications.skill_modifiers` and **closed it with a `Rules`-level cross-file validator**
+  — use that as the pattern when closing `max_listed`.)
+- **Decision-surface enumerator, residual hole (narrow).** `_OFF_SURFACE` (in
+  `tests/unit/test_decision_register.py`) now forces every field of every rule file to be
+  either on the surface or exempted with a reason, and `_FLAT_SURFACE_FILES` puts flat files on
+  it automatically. But `test_the_decision_surface_walks_every_rule_file` only requires **≥1
+  path per file** — so a *new* partially-hand-enumerated rule file listed in neither
+  `_FLAT_SURFACE_FILES` nor `_OFF_SURFACE` could still hide a field. All current files are
+  covered; shape any new rule file **flat** so it qualifies for `_FLAT_SURFACE_FILES`.
+- **`make register-check` ≠ surface coverage.** `register-check` only diffs the committed
+  register Markdown against `decision_register.yaml`. The surface/coverage guarantees are
+  enforced by **`make gates`** (the `_OFF_SURFACE` guard test + `check_register` via
+  `get_rules`). Run both; never read a green `register-check` as "everything is registered".
+- **`rules_version` tracks nothing.** `jd_rules_sfu_v3` is stamped on every `ValidationReport`
+  as provenance (non-negotiable #6), but after 2.4b it denotes materially different rule
+  content than it did at 2.3 (two new tables + a whole new rule file). No bump was needed —
+  validator output is genuinely unchanged — but the string no longer distinguishes rulebooks.
+  Decide what it is for before Phase 2.5's archive baseline pins numbers to it.
+- **2.4a citation error (fold into a chore branch).** `models/bank.py` (the `TitleFamily`
+  warning) and HR-059 both say the rulebook's lone "VP" is a Part **3.5** restricted title. It
+  is actually Part **3.6**, in the working-titles "should not use" list. The *conclusion* (SFU
+  publishes no title ladder) is unaffected — only the citation is wrong.
 - `docs/rulebook/rulebook/` is a tracked **duplicate** of `docs/rulebook/` — scrub on a chore branch.
 - Root `.claude/` is NOT set up (harness subagent defs + no-commit-to-main / ruff hooks). An
   auto-generated `.claude/settings.json` (a permission allowlist Claude Code wrote itself) sits
