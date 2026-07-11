@@ -2,7 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends git curl \
+# antiword: offline extractor for legacy binary .doc (Word 97-2003) — the
+# census-validated path (python-docx cannot read binary .doc). LibreOffice is
+# deliberately NOT installed (too heavy); antiword is the minimal, validated tool.
+RUN apt-get update && apt-get install -y --no-install-recommends git curl antiword \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt requirements-dev.txt ./
