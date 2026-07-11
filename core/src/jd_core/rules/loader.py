@@ -662,6 +662,181 @@ class HaySignalRules(_RuleFile):
         )
 
 
+# --- JD-to-JD comparison (comparison.yaml) -----------------------------------
+
+FrozenCueMap = Annotated[Mapping[str, tuple[str, ...]], AfterValidator(_freeze)]
+
+
+class Comparison(_RuleFile):
+    """Calibration for similarity, clustering and drift (``comparison.yaml``).
+
+    Every number here is ``hris_calibration`` (HR-082 … HR-103): SFU publishes no
+    similarity formula, no clone score, no cluster threshold and no drift metric.
+    See the YAML header for the two that come closest — the drift escalations and
+    the cloning rule — and why they still do not clear the ``sfu_rulebook`` bar.
+
+    Two structural decisions the shape of this file *enforces*, both of them the
+    duplicate-knob landmine that ``max_listed`` is on the backlog for:
+
+    * :attr:`cluster_threshold` is **derived**, never stored. hris wrote
+      ``CLUSTER_THRESHOLD = max(SIM_THRESHOLD, 0.80)``; shipping the answer as a
+      third key would be two knobs holding one value with nothing keeping them in
+      step. Only the two things that are actually decided are data.
+    * :attr:`education_ladder` is the rulebook's **one** education ladder. hris
+      held it twice (``drift._EDU_ORDINAL``, ``similarity._EDU_ORDER``); a rung's
+      ordinal is now simply its index here, so drift's ordinals and similarity's
+      ordinal closeness cannot disagree. The order the free-text cues are TRIED in
+      is derived from it too (:attr:`education_text_rules`).
+    """
+
+    #: What a persisted neighbour/cluster was produced BY — identity, not policy.
+    sim_version: str = Field(min_length=1)
+    cluster_algo: str = Field(min_length=1)
+
+    #: Education levels, LOW -> HIGH. A rung's ordinal is its index (high_school 0).
+    education_ladder: tuple[str, ...] = Field(min_length=2)
+    #: rung -> the lower-cased substring cues that place a requirement on it.
+    education_text_cues: FrozenCueMap
+
+    #: sim = weight_vector*vector + weight_skill*skills + weight_seniority*seniority.
+    #: The three must sum to 1.0 — that is what makes the score a 0-1 number.
+    weight_vector: float = Field(ge=0.0, le=1.0)
+    weight_skill: float = Field(ge=0.0, le=1.0)
+    weight_seniority: float = Field(ge=0.0, le=1.0)
+
+    #: Only surface a neighbour at or above this overall similarity (noise floor).
+    sim_threshold: float = Field(ge=0.0, le=1.0)
+    #: Near-identical -> reads as a true clone. Must sit at or above the noise floor.
+    clone_threshold: float = Field(ge=0.0, le=1.0)
+    #: Minimum idf-weighted skill overlap for two JDs to be CLUSTERED (Phase 3).
+    min_cluster_skill_overlap: float = Field(ge=0.0, le=1.0)
+
+    #: Partial credit when two skills share an ontology family but are not identical.
+    family_weight: float = Field(ge=0.0, le=1.0)
+    #: Catch-all families that grant NO family credit.
+    non_matchable_families: frozenset[str] = Field(min_length=1)
+
+    #: Seniority/level tokens dropped before two titles are compared.
+    title_stopwords: frozenset[str] = Field(min_length=1)
+    #: What an unknown signal (no experience bar, an off-ladder education) is worth.
+    unknown_signal_closeness: float = Field(ge=0.0, le=1.0)
+    #: Years apart at which experience closeness bottoms out (hris divided by 10.0).
+    experience_span_years: float = Field(gt=0.0)
+
+    #: The floor the DERIVED cluster threshold cannot go below.
+    cluster_threshold_floor: float = Field(ge=0.0, le=1.0)
+    #: Fewer members than this and it is not a redundancy cluster.
+    min_cluster_size: int = Field(ge=2)
+
+    #: Skill-set Jaccard-distance cutoffs for the drift level.
+    drift_minor_at: float = Field(ge=0.0, le=1.0)
+    drift_major_at: float = Field(ge=0.0, le=1.0)
+    #: A material move of the experience bar, in years (>= this many).
+    material_years_delta: int = Field(ge=1)
+    #: A material change of supervisory scope, in direct reports (MORE than this).
+    material_reports_delta: int = Field(ge=0)
+
+    experience_years_pattern: Regex
+    supervisory_reports_pattern: Regex
+
+    @field_validator("non_matchable_families", "title_stopwords")
+    @classmethod
+    def _tokens_are_lowercase(cls, tokens: frozenset[str]) -> frozenset[str]:
+        for token in sorted(tokens):
+            if not token.strip():
+                raise ValueError("tokens must be non-empty")
+            if token != token.strip().lower():
+                raise ValueError(f"token {token!r} must be lowercase and stripped")
+        return tokens
+
+    @field_validator("education_text_cues")
+    @classmethod
+    def _cues_are_well_formed(
+        cls, cues: Mapping[str, tuple[str, ...]]
+    ) -> Mapping[str, tuple[str, ...]]:
+        return _keywords_are_well_formed(cues)
+
+    @model_validator(mode="after")
+    def _the_weights_are_a_weighted_average(self) -> Comparison:
+        """The three weights sum to 1.0.
+
+        Not decoration: ``score_job_similarity`` is compared against
+        :attr:`sim_threshold` and :attr:`clone_threshold`, which are 0-1 numbers. A
+        rulebook whose weights sum to 1.2 would silently move every threshold.
+        """
+        total = self.weight_vector + self.weight_skill + self.weight_seniority
+        if abs(total - 1.0) > 1e-9:
+            raise ValueError(
+                f"weight_vector + weight_skill + weight_seniority must sum to 1.0, "
+                f"got {total}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _the_thresholds_are_ordered(self) -> Comparison:
+        if self.drift_minor_at >= self.drift_major_at:
+            raise ValueError(
+                f"drift_minor_at ({self.drift_minor_at}) must be below drift_major_at "
+                f"({self.drift_major_at}) — otherwise no JD can ever be 'minor'"
+            )
+        if self.clone_threshold < self.sim_threshold:
+            raise ValueError(
+                f"clone_threshold ({self.clone_threshold}) must not sit below "
+                f"sim_threshold ({self.sim_threshold}) — a clone is, at minimum, a "
+                f"similar JD"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _the_ladder_and_its_cues_describe_the_same_rungs(self) -> Comparison:
+        """One ladder, one cue table. A rung with no cues could never be read out of
+        free text; cues for a rung that is not on the ladder would yield an ordinal
+        the ladder cannot name."""
+        _no_repeats("education_ladder", self.education_ladder)
+        for rung in self.education_ladder:
+            if rung != rung.strip().lower():
+                raise ValueError(f"education rung {rung!r} must be lowercase")
+        rungs = set(self.education_ladder)
+        if set(self.education_text_cues) != rungs:
+            raise ValueError(
+                f"education_text_cues must give cues for every rung of "
+                f"education_ladder and no other; got "
+                f"{sorted(self.education_text_cues)} for {sorted(rungs)}"
+            )
+        return self
+
+    @property
+    def cluster_threshold(self) -> float:
+        """The edge score two JDs must clear to be clustered — **derived**.
+
+        hris: ``CLUSTER_THRESHOLD = max(SIM_THRESHOLD, 0.80)``. Cluster only on
+        strong edges (well above the per-JD "show me similar" floor) to favour
+        precision — but never *below* that floor, whatever HR does to it. Computed,
+        so the two knobs cannot fall out of step; there is no third key holding the
+        answer.
+        """
+        return max(self.sim_threshold, self.cluster_threshold_floor)
+
+    @property
+    def education_text_rules(self) -> tuple[tuple[str, tuple[str, ...]], ...]:
+        """``(rung, cues)`` in the order they are TRIED — most senior rung first.
+
+        Derived from :attr:`education_ladder` (reversed), not written down a second
+        time. It is what makes "Master's degree" a *masters* rather than the generic
+        "degree" -> *bachelors* rung: first match wins, seniors go first.
+        """
+        return tuple(
+            (rung, self.education_text_cues[rung])
+            for rung in reversed(self.education_ladder)
+        )
+
+    def education_ordinal(self, rung: str | None) -> int | None:
+        """``rung``'s position on the ladder, or ``None`` if it is not a rung."""
+        if rung is None or rung not in self.education_ladder:
+            return None
+        return self.education_ladder.index(rung)
+
+
 class GradeBand(BaseModel):
     """A grade's lower score cutoff (``score >= min_score`` -> ``grade``)."""
 
@@ -1340,6 +1515,7 @@ class Rules(BaseModel):
     patterns: Patterns
     titles: Titles
     hay_signals: HaySignalRules
+    comparison: Comparison
     scoring: Scoring
     rule_catalog: RuleCatalog
     gates: GatePolicy
@@ -1412,6 +1588,43 @@ class Rules(BaseModel):
                     f"are not on the rulebook's own scale "
                     f"(qualifications.yaml {qual_field}: {sorted(scale)}). The Hay "
                     f"estimator would score nothing for them."
+                )
+        return self
+
+    @model_validator(mode="after")
+    def _hay_education_cues_are_on_the_rulebooks_own_education_ladder(self) -> Rules:
+        """The Hay estimator's education cues come from the rulebook's ONE ladder.
+
+        ``hay_signals.yaml`` says which education reads as *graduate* (``edu_high``)
+        and which as *undergraduate* (``edu_mid``). Those are cues — ``master``,
+        ``doctora``, ``bachelor``, ``degree`` — and the same cues appear again in
+        ``comparison.yaml`` (``education_text_cues``), which is where the rulebook's
+        education vocabulary now lives. Two files, one vocabulary, and nothing kept
+        them in step: rename ``doctora`` to ``doctoral`` in one and the other silently
+        stops reading a PhD — no load error, no failing test, gates green. The same
+        duplicate-vocabulary shape as
+        :meth:`_hay_modifiers_exist_on_the_rulebooks_own_scales` (2.4b), so it gets
+        the same treatment.
+
+        ``comparison.yaml`` owns the vocabulary; ``hay_signals.yaml`` only says which
+        end of it reads as depth. (The *tiering* is genuinely Hay's own — the ladder
+        has five rungs, Know-How scores two — so only the subset relation is enforced,
+        not a mapping.)
+        """
+        ladder_cues = {
+            cue for cues in self.comparison.education_text_cues.values() for cue in cues
+        }
+        for hay_field, chosen in (
+            ("edu_high", self.hay_signals.edu_high),
+            ("edu_mid", self.hay_signals.edu_mid),
+        ):
+            unknown = sorted(set(chosen) - ladder_cues)
+            if unknown:
+                raise ValueError(
+                    f"hay_signals.yaml {hay_field} names education cue(s) {unknown} "
+                    f"that are not on the rulebook's own education ladder "
+                    f"(comparison.yaml education_text_cues: {sorted(ladder_cues)}). "
+                    f"One of the two files has drifted."
                 )
         return self
 
@@ -1609,6 +1822,7 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "action_verbs",
     "markers",
     "hay_signals",
+    "comparison",
 )
 
 
@@ -1621,7 +1835,7 @@ def decision_surface(rules: Rules) -> frozenset[str]:
     and the coverage check (:func:`check_register`) breaks the build until
     someone says whether HR must decide it.
 
-    **All eleven rule files are walked.** The surface is everything that can change
+    **All twelve rule files are walked.** The surface is everything that can change
     what the system decides about a JD:
 
     * ``gates.yaml`` — the approval policy: each gate's overridability and the
@@ -1629,12 +1843,14 @@ def decision_surface(rules: Rules) -> frozenset[str]:
       (:attr:`GatePolicy.blocking_rule_ids`,
       :attr:`GatePolicy.non_overridable_gate_ids`).
     * ``thresholds`` / ``patterns`` / ``qualifications`` / ``action_verbs`` /
-      ``markers`` / ``hay_signals`` — every field (:data:`_FLAT_SURFACE_FILES`).
-      These are the matchers the validators fire on and the weights the Hay
-      estimator scores with: a regex, a banned phrase, an approved verb, a
-      placeholder marker, a points table. Three of them (``patterns.incumbent``,
-      ``patterns.senior_title``, ``qualifications.ksa_rank``) feed *blocking*
-      gates, so a change to them is a change to the approval bar.
+      ``markers`` / ``hay_signals`` / ``comparison`` — every field
+      (:data:`_FLAT_SURFACE_FILES`). These are the matchers the validators fire on,
+      the weights the Hay estimator scores with, and the thresholds the similarity /
+      clustering / drift maths compares against: a regex, a banned phrase, an
+      approved verb, a placeholder marker, a points table, a score cutoff. Three of
+      them (``patterns.incumbent``, ``patterns.senior_title``,
+      ``qualifications.ksa_rank``) feed *blocking* gates, so a change to them is a
+      change to the approval bar.
     * ``scoring.yaml`` — the scale, the per-severity penalties, the decay, the
       grade bands.
     * ``coded_terms.yaml`` — each severity tier of the lexicon.
@@ -1797,6 +2013,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     ("patterns.yaml", "patterns", Patterns),
     ("titles.yaml", "titles", Titles),
     ("hay_signals.yaml", "hay_signals", HaySignalRules),
+    ("comparison.yaml", "comparison", Comparison),
     ("scoring.yaml", "scoring", Scoring),
     ("rule_catalog.yaml", "rule_catalog", RuleCatalog),
     ("gates.yaml", "gates", GatePolicy),
