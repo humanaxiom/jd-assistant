@@ -1,0 +1,1009 @@
+"""The HR decision register — and the enforcement that keeps it honest.
+
+The register (``rules/decision_register.yaml``) records every policy call JD Bank
+makes *by default* because SFU HR has not made it. A prose register would rot
+silently, and a rotted register is worse than none: it makes an unratified default
+look ratified. So the register is **data**, and this suite is what stops it rotting.
+
+Four build-breaking properties, each with a fixture that proves it breaks:
+
+1. **Every ``config`` path resolves** against the real loaded rules — enforced at
+   *load* (:class:`RulesError`). Rename a config key and nothing starts.
+2. **Every ``current_default`` equals the live value.** Tune a threshold in YAML
+   without telling HR and the build fails. *This is what makes "review the config
+   against the register later" real.*
+3. **Coverage: every parameter on the decision surface is registered or explicitly
+   exempted.** The surface is enumerated *from the rules themselves*, so a gate,
+   threshold, penalty, band, lexicon tier, restricted title or rule severity added
+   later with neither → build fails. (Mirrors 2.3's
+   ``test_every_catalogued_rule_is_gated_or_explicitly_not``.)
+4. **The register cannot lie about itself:** ``ratified`` requires who/when/why,
+   ``open`` forbids it, ids are unique, and a malformed register is a clear
+   ``RulesError``.
+
+Plus: nobody may quietly *shrink* the decision surface to make (3) pass — the
+surface's own completeness is asserted against the rules, family by family.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+import io
+from pathlib import Path
+from typing import Any, get_args
+
+import pytest
+import yaml
+from pydantic import ValidationError
+
+from src.jd_core.rules import (
+    REGISTER_FILE,
+    RULE_FILES,
+    DecisionProvenance,
+    DecisionStatus,
+    Rules,
+    RulesError,
+    SeverityFloorGate,
+    assert_register_in_step,
+    check_register,
+    decision_surface,
+    get_rules,
+    live_value,
+    load_rules,
+    normalize_config_value,
+    resolve_config_path,
+)
+from src.jd_core.rules.render import check_markdown, main, render_register
+
+# --- fixtures / helpers -------------------------------------------------------
+
+_PKG_DIR = Path(__file__).resolve().parents[2] / "src" / "jd_core" / "rules"
+
+
+@pytest.fixture
+def rules() -> Rules:
+    return get_rules()
+
+
+def _write_valid_rules(directory: Path) -> None:
+    """Copy the shipped YAML into ``directory`` so a test can corrupt one file."""
+    for name in RULE_FILES:
+        (directory / name).write_text(
+            (_PKG_DIR / name).read_text(encoding="utf-8"), encoding="utf-8"
+        )
+
+
+def _patch(directory: Path, name: str, mutate: Any) -> None:
+    data = yaml.safe_load((directory / name).read_text(encoding="utf-8"))
+    mutate(data)
+    (directory / name).write_text(yaml.safe_dump(data), encoding="utf-8")
+
+
+def _decision(register: dict[str, Any], decision_id: str) -> dict[str, Any]:
+    for entry in register["decisions"]:
+        if entry["id"] == decision_id:
+            return dict(entry)
+    raise AssertionError(f"no decision {decision_id}")  # pragma: no cover
+
+
+def _patch_decision(directory: Path, decision_id: str, mutate: Any) -> None:
+    def _mutate(data: dict[str, Any]) -> None:
+        for entry in data["decisions"]:
+            if entry["id"] == decision_id:
+                mutate(entry)
+                return
+        raise AssertionError(f"no decision {decision_id}")  # pragma: no cover
+
+    _patch(directory, REGISTER_FILE, _mutate)
+
+
+def _gate(data: dict[str, Any], gate_id: str) -> dict[str, Any]:
+    """The LIVE gate dict inside ``data`` — callers mutate it in place."""
+    for gate in data["gates"]:
+        if gate["gate_id"] == gate_id:
+            gate_dict: dict[str, Any] = gate
+            return gate_dict
+    raise AssertionError(f"no gate {gate_id}")  # pragma: no cover
+
+
+# --- 1. every config path points at a live config key (enforced at LOAD) -------
+
+
+def test_the_register_ships_and_is_a_versioned_rule_file(rules: Rules) -> None:
+    assert REGISTER_FILE in RULE_FILES
+    assert (_PKG_DIR / REGISTER_FILE).is_file()
+    assert rules.decision_register.version == rules.version
+
+
+def test_every_config_path_resolves_against_the_live_rules(rules: Rules) -> None:
+    register = rules.decision_register
+    for decision in register.decisions:
+        resolve_config_path(rules, decision.config.path)  # raises if it does not
+    for exemption in register.trivial:
+        resolve_config_path(rules, exemption.config.path)
+
+
+def test_a_register_entry_naming_a_dead_config_key_fails_to_load(
+    tmp_path: Path,
+) -> None:
+    """The headline load-time guarantee: rename or delete a config key (or fat-finger
+    the register) and the process does not start."""
+    _write_valid_rules(tmp_path)
+    _patch_decision(
+        tmp_path,
+        "HR-001",
+        lambda d: d["config"].__setitem__(
+            "path", "gates.SFU-APPROVE-SCORE-FLOOR.minimum_score"
+        ),
+    )
+    with pytest.raises(RulesError, match="does not resolve"):
+        load_rules(tmp_path)
+
+
+def test_a_config_path_naming_an_unknown_gate_fails_to_load(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch_decision(
+        tmp_path,
+        "HR-001",
+        lambda d: d["config"].__setitem__("path", "gates.SFU-APPROVE-NOPE.min_score"),
+    )
+    with pytest.raises(RulesError, match="does not resolve"):
+        load_rules(tmp_path)
+
+
+def test_a_config_path_must_be_rooted_in_the_file_it_names(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch_decision(
+        tmp_path, "HR-001", lambda d: d["config"].__setitem__("file", "scoring.yaml")
+    )
+    with pytest.raises(RulesError, match="must start with"):
+        load_rules(tmp_path)
+
+
+def test_a_config_file_must_be_a_real_rule_file(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+
+    def _mutate(entry: dict[str, Any]) -> None:
+        entry["config"] = {"file": "invented.yaml", "path": "invented.thing"}
+
+    _patch_decision(tmp_path, "HR-001", _mutate)
+    with pytest.raises(RulesError, match="config.file"):
+        load_rules(tmp_path)
+
+
+def test_the_register_may_not_point_at_itself(tmp_path: Path) -> None:
+    """A register entry about the register would be circular — and meaningless."""
+    _write_valid_rules(tmp_path)
+
+    def _mutate(entry: dict[str, Any]) -> None:
+        entry["config"] = {
+            "file": REGISTER_FILE,
+            "path": "decision_register.version",
+        }
+
+    _patch_decision(tmp_path, "HR-001", _mutate)
+    with pytest.raises(RulesError, match="config.file"):
+        load_rules(tmp_path)
+
+
+# --- 2. every current_default equals the live value ---------------------------
+
+
+def test_every_current_default_equals_the_live_config_value(rules: Rules) -> None:
+    """THE point of the register. If someone tunes a threshold in YAML and does not
+    update the register, this fails and the build stops."""
+    for decision in sorted(rules.decision_register.decisions, key=lambda d: d.id):
+        actual = live_value(rules, decision.config.path)
+        assert actual == decision.current_default, (
+            f"{decision.id} ({decision.config}) says the default is "
+            f"{decision.current_default!r}, but the live value is {actual!r}. "
+            f"Update decision_register.yaml — SFU HR was told the other number."
+        )
+
+
+def test_the_shipped_register_is_in_step_with_the_shipped_rules(rules: Rules) -> None:
+    assert check_register(rules) == ()
+    assert_register_in_step(rules)
+
+
+def test_tuning_the_score_floor_without_the_register_breaks_the_build(
+    tmp_path: Path,
+) -> None:
+    """The scenario this whole task exists to prevent: someone quietly raises the
+    approval bar. The rules still *load* (a scratch policy may be explored), but the
+    register check — which `get_rules()` and `make gates` run — refuses it."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "gates.yaml",
+        lambda d: _gate(d, "SFU-APPROVE-SCORE-FLOOR").__setitem__("min_score", 70.0),
+    )
+    tuned = load_rules(tmp_path)
+    assert tuned.gates.by_id["SFU-APPROVE-SCORE-FLOOR"].min_score == 70.0
+
+    problems = check_register(tuned)
+    assert any("HR-001" in problem for problem in problems), problems
+    with pytest.raises(RulesError, match="out of step"):
+        assert_register_in_step(tuned)
+
+
+def test_updating_the_register_alongside_the_config_is_accepted(
+    tmp_path: Path,
+) -> None:
+    """...and the fix is a data edit, not a code change: update both YAML files and
+    the same tuned policy is accepted."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "gates.yaml",
+        lambda d: _gate(d, "SFU-APPROVE-SCORE-FLOOR").__setitem__("min_score", 70.0),
+    )
+    _patch_decision(
+        tmp_path,
+        "HR-001",
+        lambda d: d.update(
+            current_default=70.0,
+            status="ratified",
+            decided_by="SFU HR (Total Compensation)",
+            decided_on=dt.date(2026, 7, 10),
+            decision_note="Raised to 70 against the archive baseline.",
+        ),
+    )
+    tuned = load_rules(tmp_path)
+    assert check_register(tuned) == ()
+    assert tuned.decision_register.by_id["HR-001"].status == "ratified"
+
+
+def test_demoting_a_coded_term_without_the_register_breaks_the_build(
+    tmp_path: Path,
+) -> None:
+    """A lexicon tier is pinned by its key set: adding SFU's "supporting" (HR-029
+    records why it is omitted) cannot happen silently."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "coded_terms.yaml",
+        lambda d: d["medium"].__setitem__("supporting", '"clarify"'),
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-029" in problem for problem in problems), problems
+
+
+def test_promoting_a_rule_to_blocking_without_the_register_breaks_the_build(
+    tmp_path: Path,
+) -> None:
+    """The most important drift case: making a rule block approval. `blocking_rule_ids`
+    is a derived view of the WHOLE policy, so it does not matter which gate the rule is
+    added to — HR-004 catches it."""
+    _write_valid_rules(tmp_path)
+
+    def _promote(data: dict[str, Any]) -> None:
+        _gate(data, "SFU-APPROVE-KSA-ORDER")["rule_ids"].append("SFU-LANG-CODED")
+
+    _patch(tmp_path, "gates.yaml", _promote)
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-004" in problem for problem in problems), problems
+
+
+def test_making_a_gate_un_waivable_without_the_register_breaks_the_build(
+    tmp_path: Path,
+) -> None:
+    """Taking away a reviewer's discretion is a policy change (CLAUDE.md §1)."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "gates.yaml",
+        lambda d: _gate(d, "SFU-APPROVE-SCORE-FLOOR").__setitem__("overridable", False),
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-005" in problem for problem in problems), problems
+
+
+# --- 3. coverage: nothing on the decision surface is unaccounted for -----------
+
+
+def test_every_decision_surface_parameter_is_registered_or_explicitly_trivial(
+    rules: Rules,
+) -> None:
+    """No SILENT defaults. Every parameter that can change what the system decides
+    about a JD is either a decision SFU HR must make, or is explicitly declared not
+    to be one — with a reason. Mirrors 2.3's
+    ``test_every_catalogued_rule_is_gated_or_explicitly_not``."""
+    register = rules.decision_register
+    surface = decision_surface(rules)
+    accounted = register.registered_paths | register.exempt_paths
+    assert surface <= accounted, sorted(surface - accounted)
+
+
+def test_no_stale_trivial_exemptions(rules: Rules) -> None:
+    """A `trivial:` entry for something no longer on the surface is dead weight that
+    would silently absorb a future real decision at the same path."""
+    register = rules.decision_register
+    assert register.exempt_paths <= decision_surface(rules), sorted(
+        register.exempt_paths - decision_surface(rules)
+    )
+
+
+def test_a_new_gate_with_no_register_entry_fails_the_coverage_check(
+    tmp_path: Path,
+) -> None:
+    """Add a gate, forget to decide whether HR must ratify it → the build fails."""
+    _write_valid_rules(tmp_path)
+
+    def _add_gate(data: dict[str, Any]) -> None:
+        data["gates"].append(
+            {
+                "gate_id": "SFU-APPROVE-INVENTED",
+                "type": "score_floor",
+                "title": "An invented floor nobody registered",
+                "source_part": "Part 11.6",
+                "overridable": True,
+                "min_score": 88.0,
+                "reason": "The score {score:.1f} is below {min_score:.1f}.",
+            }
+        )
+
+    _patch(tmp_path, "gates.yaml", _add_gate)
+    problems = check_register(load_rules(tmp_path))
+    assert any("SFU-APPROVE-INVENTED.min_score" in p for p in problems), problems
+    assert any("SFU-APPROVE-INVENTED.overridable" in p for p in problems), problems
+
+
+def test_a_new_catalogued_rule_with_no_registered_severity_fails_coverage(
+    tmp_path: Path,
+) -> None:
+    """A rule's severity drives both the score and the severity floor — a new rule
+    must have its severity accounted for."""
+    _write_valid_rules(tmp_path)
+
+    def _add_rule(data: dict[str, Any]) -> None:
+        data["rules"].append(
+            {
+                "rule_id": "SFU-INVENTED-RULE",
+                "category": "structure",
+                "section": "duties",
+                "source_part": "Part 2C",
+                "default_severity": "high",
+                "title": "An invented rule nobody registered",
+                "owner": "deterministic",
+                "messages": {"default": "Something is wrong."},
+                "recommendations": {"default": "Fix it."},
+            }
+        )
+
+    _patch(tmp_path, "rule_catalog.yaml", _add_rule)
+    problems = check_register(load_rules(tmp_path))
+    assert any("SFU-INVENTED-RULE.default_severity" in p for p in problems), problems
+
+
+def test_a_path_that_is_both_registered_and_trivial_fails_to_load(
+    tmp_path: Path,
+) -> None:
+    """A parameter is a decision or it is not — declaring it both ways would let the
+    exemption quietly neutralise the entry."""
+    _write_valid_rules(tmp_path)
+
+    def _add_exemption(data: dict[str, Any]) -> None:
+        data["trivial"].append(
+            {
+                "config": {
+                    "file": "thresholds.yaml",
+                    "path": "thresholds.duties_max",
+                },
+                "reason": "This path is registered as HR-022, so this is a stale copy.",
+            }
+        )
+
+    _patch(tmp_path, REGISTER_FILE, _add_exemption)
+    with pytest.raises(RulesError, match="both registered and declared trivial"):
+        load_rules(tmp_path)
+
+
+def test_a_trivial_exemption_off_the_surface_is_reported(tmp_path: Path) -> None:
+    """...and an exemption for a real-but-not-decision-surface path is dead weight."""
+    _write_valid_rules(tmp_path)
+
+    def _add_exemption(data: dict[str, Any]) -> None:
+        data["trivial"].append(
+            {
+                # resolvable (it is a real key) but pure copy, so not on the surface
+                "config": {
+                    "file": "gates.yaml",
+                    "path": "gates.SFU-APPROVE-SCORE-FLOOR.title",
+                },
+                "reason": "Not on the decision surface at all — a stale exemption.",
+            }
+        )
+
+    _patch(tmp_path, REGISTER_FILE, _add_exemption)
+    problems = check_register(load_rules(tmp_path))
+    assert any("SFU-APPROVE-SCORE-FLOOR.title" in p for p in problems), problems
+
+
+# --- the surface itself cannot be quietly shrunk ------------------------------
+
+
+def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
+    """ALL TEN rule files are on the surface. An earlier version walked only six,
+    leaving patterns.yaml, qualifications.yaml, action_verbs.yaml and markers.yaml
+    invisible to the register — including three matchers that feed BLOCKING gates."""
+    surface = decision_surface(rules)
+    files_touched = {path.split(".")[0] for path in surface}
+    assert files_touched == {
+        "gates",
+        "thresholds",
+        "scoring",
+        "coded_terms",
+        "titles",
+        "rule_catalog",
+        "patterns",
+        "qualifications",
+        "action_verbs",
+        "markers",
+    }
+
+
+@pytest.mark.parametrize(
+    "file_field",
+    ["thresholds", "patterns", "qualifications", "action_verbs", "markers"],
+)
+def test_every_field_of_a_flat_rule_file_is_on_the_surface(
+    rules: Rules, file_field: str
+) -> None:
+    """These files are flat tables of matchers and limits — every key changes what
+    the validators fire on, so every key is a decision-surface parameter."""
+    surface = decision_surface(rules)
+    rule_file = getattr(rules, file_field)
+    for field in type(rule_file).model_fields:
+        if field != "version":
+            assert f"{file_field}.{field}" in surface
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "patterns.incumbent",  # -> SFU-AUTH-SUMMARY-INCUMBENT (blocking)
+        "patterns.senior_title",  # -> SFU-GATE-SENIOR-TITLE   (blocking)
+        "qualifications.ksa_rank",  # -> SFU-GATE-KSA-ORDER    (blocking)
+    ],
+)
+def test_the_matchers_behind_blocking_gates_are_accounted_for(
+    rules: Rules, path: str
+) -> None:
+    """These three feed BLOCKING gates: changing one changes the approval bar without
+    touching gates.yaml. They were entirely invisible to the register before."""
+    register = rules.decision_register
+    assert path in decision_surface(rules)
+    assert path in register.registered_paths | register.exempt_paths
+
+
+def test_changing_a_blocking_gates_matcher_breaks_the_build(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "patterns.yaml",
+        lambda d: d["incumbent"].__setitem__("pattern", r"\bmy\b"),
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-048" in problem for problem in problems), problems
+
+
+def test_editing_the_action_verb_glossary_breaks_the_build(tmp_path: Path) -> None:
+    """All 116 verbs are pinned: the glossary cannot be edited without HR being told."""
+    _write_valid_rules(tmp_path)
+    _patch(tmp_path, "action_verbs.yaml", lambda d: d["approved"].append("supports"))
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-055" in problem for problem in problems), problems
+
+
+# --- the SECOND route to blocking: the severity floor -------------------------
+
+
+def test_the_severity_floors_blocking_tiers_are_on_the_surface(rules: Rules) -> None:
+    """A rule blocks if a gate names it (HR-004) OR if its severity reaches the
+    severity floor (HR-003). The second route needs pinning too."""
+    surface = decision_surface(rules)
+    assert "rule_catalog.rules_by_severity.high" in surface
+    # below the floor, tier membership only moves the score — not on the surface
+    assert "rule_catalog.rules_by_severity.low" not in surface
+    assert rules.decision_register.registered_paths >= {
+        "rule_catalog.rules_by_severity.high"
+    }
+
+
+def test_promoting_a_nudge_to_the_severity_floor_breaks_the_build(
+    tmp_path: Path,
+) -> None:
+    """The hole the reviewer found. Promoting the *exempted* SFU-STRUCT-ACTION-VERB
+    from `low` to `high` used to leave the register clean — while making a
+    non-approved verb block approval through SFU-APPROVE-SEVERITY-FLOOR, with no
+    edit to gates.yaml at all."""
+    _write_valid_rules(tmp_path)
+
+    def _promote(data: dict[str, Any]) -> None:
+        for spec in data["rules"]:
+            if spec["rule_id"] == "SFU-STRUCT-ACTION-VERB":
+                spec["default_severity"] = "high"
+                return
+        raise AssertionError("rule not found")  # pragma: no cover
+
+    _patch(tmp_path, "rule_catalog.yaml", _promote)
+    promoted = load_rules(tmp_path)
+    # it really does now trip the severity floor...
+    floor = promoted.gates.by_id["SFU-APPROVE-SEVERITY-FLOOR"]
+    assert isinstance(floor, SeverityFloorGate)
+    assert "SFU-STRUCT-ACTION-VERB" in promoted.rule_catalog.rules_by_severity["high"]
+    # ...and the register now catches it
+    problems = check_register(promoted)
+    assert any("HR-057" in problem for problem in problems), problems
+
+
+def test_lowering_the_severity_floor_widens_the_surface(tmp_path: Path) -> None:
+    """The blocking tiers adjust themselves: drop the floor to `medium` and the
+    `medium` tier becomes a blocking tier, appears on the surface, and the build
+    fails until HR registers it."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "gates.yaml",
+        lambda d: _gate(d, "SFU-APPROVE-SEVERITY-FLOOR").__setitem__(
+            "min_severity", "medium"
+        ),
+    )
+    lowered = load_rules(tmp_path)
+    surface = decision_surface(lowered)
+    assert "rule_catalog.rules_by_severity.medium" in surface
+    assert "rule_catalog.rules_by_severity.high" in surface
+    problems = check_register(lowered)
+    assert any("rules_by_severity.medium" in p for p in problems), problems
+
+
+def test_the_decision_surface_enumerates_every_family_completely(
+    rules: Rules,
+) -> None:
+    """The coverage check is only as good as the surface it checks. This asserts the
+    surface is derived from the rules and complete — deleting a family from
+    ``decision_surface`` to make coverage pass fails here instead."""
+    surface = decision_surface(rules)
+
+    # the two derived views of the whole policy
+    assert "gates.blocking_rule_ids" in surface
+    assert "gates.non_overridable_gate_ids" in surface
+
+    # every gate: its overridability AND the parameter it measures
+    for gate in rules.gates.gates:
+        assert f"gates.{gate.gate_id}.overridable" in surface
+        measured = {
+            "blocking_rules": "rule_ids",
+            "severity_floor": "min_severity",
+            "score_floor": "min_score",
+            "grade_floor": "min_grade",
+        }[gate.type]
+        assert f"gates.{gate.gate_id}.{measured}" in surface
+
+    # every threshold
+    for field in type(rules.thresholds).model_fields:
+        if field != "version":
+            assert f"thresholds.{field}" in surface
+
+    # the scoring calibration: penalties, decay, bands, scale
+    for severity in rules.scoring.severity_penalty:
+        assert f"scoring.severity_penalty.{severity}" in surface
+    for band in rules.scoring.grade_bands:
+        assert f"scoring.grade_bands.{band.grade}.min_score" in surface
+    assert {
+        "scoring.severity_decay",
+        "scoring.max_score",
+        "scoring.min_score",
+        "scoring.fallback_grade",
+    } <= surface
+
+    # every coded-term severity tier
+    for severity, _terms in rules.coded_terms.tiers:
+        assert f"coded_terms.{severity}" in surface
+
+    # every restricted title
+    for title in rules.titles.restricted:
+        assert f"titles.{title.key}.severity" in surface
+        assert f"titles.{title.key}.reserved_for_employee_group" in surface
+
+    # every catalogued rule's severity
+    for spec in rules.rule_catalog.rules:
+        assert f"rule_catalog.{spec.rule_id}.default_severity" in surface
+
+
+def test_the_surface_grows_when_the_rules_grow(tmp_path: Path) -> None:
+    """The surface is enumerated FROM the rules, not from a hand-kept list."""
+    _write_valid_rules(tmp_path)
+    before = decision_surface(load_rules(tmp_path))
+
+    def _add_gate(data: dict[str, Any]) -> None:
+        data["gates"].append(
+            {
+                "gate_id": "SFU-APPROVE-INVENTED",
+                "type": "grade_floor",
+                "title": "An invented grade floor",
+                "source_part": "Part 11.6",
+                "overridable": True,
+                "min_grade": "B",
+                "reason": 'Grade "{grade}" is below "{min_grade}".',
+            }
+        )
+
+    _patch(tmp_path, "gates.yaml", _add_gate)
+    after = decision_surface(load_rules(tmp_path))
+    assert after - before == {
+        "gates.SFU-APPROVE-INVENTED.overridable",
+        "gates.SFU-APPROVE-INVENTED.min_grade",
+    }
+
+
+# --- 4. the register cannot lie about itself ----------------------------------
+
+
+def test_the_shipped_register_records_no_decision_as_made(rules: Rules) -> None:
+    """The honest current state: SFU HR has ratified nothing yet. Every entry is
+    `open`, and no entry claims a decider."""
+    for decision in rules.decision_register.decisions:
+        assert decision.status == "open", decision.id
+        assert decision.decided_by is None
+        assert decision.decided_on is None
+        assert decision.decision_note is None
+    assert rules.decision_register.by_status("ratified") == ()
+
+
+def test_decision_ids_are_unique_and_well_formed(rules: Rules) -> None:
+    ids = [d.id for d in rules.decision_register.decisions]
+    assert len(set(ids)) == len(ids)
+    assert all(d.startswith("HR-") and d[3:].isdigit() for d in ids)
+    assert set(rules.decision_register.by_id) == set(ids)
+
+
+def test_a_duplicate_decision_id_fails_to_load(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+
+    def _duplicate(data: dict[str, Any]) -> None:
+        clone = _decision(data, "HR-002")
+        clone["id"] = "HR-001"
+        clone["config"] = {
+            "file": "thresholds.yaml",
+            "path": "thresholds.evidence_context_window",
+        }
+        clone["current_default"] = 40
+        data["decisions"].append(clone)
+
+    _patch(tmp_path, REGISTER_FILE, _duplicate)
+    with pytest.raises(RulesError, match="duplicate decision id"):
+        load_rules(tmp_path)
+
+
+def test_a_malformed_decision_id_fails_to_load(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch_decision(tmp_path, "HR-001", lambda d: d.__setitem__("id", "SCORE_FLOOR"))
+    with pytest.raises(RulesError, match="id"):
+        load_rules(tmp_path)
+
+
+def test_a_duplicate_config_path_fails_to_load(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+
+    def _duplicate(data: dict[str, Any]) -> None:
+        clone = _decision(data, "HR-002")
+        clone["id"] = "HR-900"
+        clone["config"] = dict(_decision(data, "HR-001")["config"])
+        clone["current_default"] = 60.0
+        data["decisions"].append(clone)
+
+    _patch(tmp_path, REGISTER_FILE, _duplicate)
+    with pytest.raises(RulesError, match="duplicate registered config path"):
+        load_rules(tmp_path)
+
+
+def test_a_ratified_decision_must_record_who_decided_and_when(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch_decision(tmp_path, "HR-001", lambda d: d.__setitem__("status", "ratified"))
+    with pytest.raises(RulesError, match="ratified decision must record"):
+        load_rules(tmp_path)
+
+
+def test_an_open_decision_may_not_claim_a_decider(tmp_path: Path) -> None:
+    """An open decision carrying a decider is exactly the lie the register exists to
+    prevent."""
+    _write_valid_rules(tmp_path)
+    _patch_decision(
+        tmp_path, "HR-001", lambda d: d.__setitem__("decided_by", "somebody, probably")
+    )
+    with pytest.raises(RulesError, match="open decision must not record"):
+        load_rules(tmp_path)
+
+
+def test_a_deferred_decision_may_record_who_deferred_it(tmp_path: Path) -> None:
+    """Deferring is itself a decision — it may (but need not) record who made it."""
+    _write_valid_rules(tmp_path)
+    _patch_decision(
+        tmp_path,
+        "HR-016",
+        lambda d: d.update(
+            status="deferred",
+            decided_by="SFU HR",
+            decided_on=dt.date(2026, 7, 10),
+            decision_note="Revisit after the archive baseline.",
+        ),
+    )
+    loaded = load_rules(tmp_path)
+    assert loaded.decision_register.by_id["HR-016"].status == "deferred"
+    assert loaded.decision_register.by_status("deferred")[0].id == "HR-016"
+
+
+def test_rulebook_provenance_must_cite_a_source_part(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch_decision(
+        tmp_path,
+        "HR-001",
+        lambda d: d.__setitem__("provenance", "sfu_rulebook"),
+    )
+    with pytest.raises(RulesError, match="source_part"):
+        load_rules(tmp_path)
+
+
+def test_an_invented_default_may_not_claim_a_rulebook_source(tmp_path: Path) -> None:
+    """Citing a rulebook part for a number SFU never published is the single most
+    misleading thing this file could do."""
+    _write_valid_rules(tmp_path)
+    _patch_decision(
+        tmp_path, "HR-001", lambda d: d.__setitem__("source_part", "Part 11.6")
+    )
+    with pytest.raises(RulesError, match="source_part"):
+        load_rules(tmp_path)
+
+
+def test_a_trivial_exemption_must_state_a_real_reason(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        REGISTER_FILE,
+        lambda d: d["trivial"][0].__setitem__("reason", "n/a"),
+    )
+    with pytest.raises(RulesError, match="reason"):
+        load_rules(tmp_path)
+
+
+def test_a_dangling_covered_by_reference_fails_to_load(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        REGISTER_FILE,
+        lambda d: d["trivial"][2].__setitem__("covered_by", "HR-999"),
+    )
+    with pytest.raises(RulesError, match="covered_by"):
+        load_rules(tmp_path)
+
+
+def test_every_covered_by_names_a_real_decision(rules: Rules) -> None:
+    ids = set(rules.decision_register.by_id)
+    for exemption in rules.decision_register.trivial:
+        if exemption.covered_by is not None:
+            assert exemption.covered_by in ids, exemption.config.path
+
+
+def test_provenance_and_status_use_the_declared_vocabulary(rules: Rules) -> None:
+    provenances = set(get_args(DecisionProvenance))
+    statuses = set(get_args(DecisionStatus))
+    for decision in rules.decision_register.decisions:
+        assert decision.provenance in provenances
+        assert decision.status in statuses
+
+
+def test_the_register_is_frozen(rules: Rules) -> None:
+    with pytest.raises(ValidationError):
+        rules.decision_register.decisions[0].current_default = 1  # type: ignore[misc]
+
+
+# --- the config-path language -------------------------------------------------
+
+
+def test_a_path_resolves_a_scalar_field(rules: Rules) -> None:
+    assert resolve_config_path(rules, "thresholds.duties_max") == 5
+
+
+def test_a_path_resolves_a_gate_by_its_id(rules: Rules) -> None:
+    assert resolve_config_path(rules, "gates.SFU-APPROVE-SCORE-FLOOR.min_score") == 60.0
+
+
+def test_a_path_resolves_a_grade_band_by_its_grade(rules: Rules) -> None:
+    assert resolve_config_path(rules, "scoring.grade_bands.C.min_score") == 60.0
+
+
+def test_a_path_resolves_a_restricted_title_by_its_key(rules: Rules) -> None:
+    assert resolve_config_path(rules, "titles.executive_director.severity") == "low"
+
+
+def test_a_path_resolves_a_catalogued_rule_by_its_id(rules: Rules) -> None:
+    path = "rule_catalog.SFU-COMP-DECISION.default_severity"
+    assert resolve_config_path(rules, path) == "medium"
+
+
+def test_a_path_resolves_a_mapping_entry(rules: Rules) -> None:
+    assert resolve_config_path(rules, "scoring.severity_penalty.high") == 20.0
+
+
+def test_a_path_resolves_set_membership(rules: Rules) -> None:
+    """How a contested member of a 116-word glossary is pinned without inlining it."""
+    assert resolve_config_path(rules, "action_verbs.approved.accountable") is True
+    assert resolve_config_path(rules, "action_verbs.approved.zzz") is False
+
+
+def test_a_path_resolves_a_derived_policy_view(rules: Rules) -> None:
+    blocking = resolve_config_path(rules, "gates.blocking_rule_ids")
+    assert blocking == rules.gates.blocking_rule_ids
+    assert "SFU-COMP-SUMMARY" in blocking
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "thresholds.nope",
+        "gates.SFU-APPROVE-NOPE.min_score",
+        "scoring.severity_penalty.catastrophic",
+        "scoring.grade_bands.Z.min_score",
+        "thresholds.duties_max.nope",  # a scalar has no members
+        "scoring._RuleFile",  # private
+        "scoring.grade_for",  # a method is not a config value
+        "qualifications.banned_phrases.0",  # a plain list is not addressable by key
+    ],
+)
+def test_an_unresolvable_path_raises_a_clear_rules_error(
+    rules: Rules, path: str
+) -> None:
+    with pytest.raises(RulesError, match="does not resolve"):
+        resolve_config_path(rules, path)
+
+
+def test_normalization_is_the_comparison_contract(rules: Rules) -> None:
+    # a set -> its sorted members
+    assert live_value(rules, "qualifications.knowledge_modifiers") == [
+        "excellent",
+        "none",
+        "working",
+    ]
+    # a mapping -> the WHOLE mapping, keys AND values
+    assert live_value(rules, "qualifications.ksa_rank") == {
+        "knowledge": 0,
+        "skill": 1,
+        "ability": 2,
+    }
+    # a list -> file order
+    assert live_value(rules, "qualifications.banned_phrases") == [
+        "may include",
+        "assets",
+        "preferences",
+    ]
+    # a regex -> its pattern source
+    assert live_value(rules, "patterns.duty_allocation") == r"\((\d{1,3})\s*%\)"
+    # None survives
+    assert live_value(rules, "titles.registrar.reserved_for_employee_group") is None
+
+
+def test_a_mapping_pins_its_values_not_just_its_keys(tmp_path: Path) -> None:
+    """The KSA order is a mapping whose VALUES are the policy a blocking gate
+    enforces. A key-set comparison would let a permutation through."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "qualifications.yaml",
+        lambda d: d.__setitem__("ksa_rank", {"knowledge": 2, "skill": 1, "ability": 0}),
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-052" in problem for problem in problems), problems
+
+
+def test_a_path_that_stops_on_a_whole_object_is_rejected(rules: Rules) -> None:
+    """A register entry must name the parameter that is decided, not the object that
+    contains it — otherwise `current_default` could never be written down."""
+    with pytest.raises(RulesError, match="must name the parameter"):
+        normalize_config_value(
+            resolve_config_path(rules, "gates.SFU-APPROVE-SCORE-FLOOR"),
+            "gates.SFU-APPROVE-SCORE-FLOOR",
+        )
+    with pytest.raises(RulesError, match="list of objects"):
+        normalize_config_value(
+            resolve_config_path(rules, "scoring.grade_bands"), "scoring.grade_bands"
+        )
+
+
+# --- the human-readable view --------------------------------------------------
+
+
+def test_the_rendered_register_names_every_decision(rules: Rules) -> None:
+    markdown = render_register(rules)
+    for decision in rules.decision_register.decisions:
+        assert decision.id in markdown
+        assert decision.config.path in markdown
+
+
+def test_the_rendered_register_leads_with_what_nobody_ratified(rules: Rules) -> None:
+    """Our-invention entries are what HR most needs to see, so they come first."""
+    markdown = render_register(rules)
+    ours = markdown.index("Our invention")
+    inherited = markdown.index("Inherited hris calibration")
+    rulebook = markdown.index("From SFU's published rulebook")
+    assert ours < inherited < rulebook
+
+
+def test_the_rendered_register_lists_every_trivial_exemption_with_its_reason(
+    rules: Rules,
+) -> None:
+    markdown = render_register(rules)
+    for exemption in rules.decision_register.trivial:
+        assert exemption.config.path in markdown
+    assert "deliberately not a decision" in markdown
+
+
+def test_the_render_is_deterministic(rules: Rules) -> None:
+    """It is committed and drift-checked in CI, so it must be byte-stable."""
+    assert render_register(rules) == render_register(rules)
+
+
+def test_the_render_refuses_to_print_a_drifted_register(tmp_path: Path) -> None:
+    """The Markdown can never show HR a number that is not the one in force."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "gates.yaml",
+        lambda d: _gate(d, "SFU-APPROVE-SCORE-FLOOR").__setitem__("min_score", 70.0),
+    )
+    with pytest.raises(RulesError, match="out of step"):
+        render_register(load_rules(tmp_path))
+
+
+def test_the_render_main_writes_the_markdown_to_stdout(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main([]) == 0
+    printed = capsys.readouterr().out
+    assert printed.startswith("# SFU HR Decision Register")
+    assert printed == render_register(get_rules())
+
+
+# --- `make register-check`: the drift gate, run INSIDE the container ----------
+#
+# The `gates` service mounts only ./core, so docs/ is invisible to it — and the
+# Windows shell `make` uses has no `diff`/`mkdir -p`/`rm -f`. So the committed
+# Markdown is piped IN on stdin and compared here (ADR-006: the work is in the
+# container; the host only redirects).
+
+
+def test_check_markdown_accepts_a_freshly_rendered_document(rules: Rules) -> None:
+    assert check_markdown(render_register(rules), rules) == ()
+
+
+def test_check_markdown_reports_a_stale_document(rules: Rules) -> None:
+    stale = render_register(rules).replace("60.0", "70.0")
+    diff = check_markdown(stale, rules)
+    assert diff
+    assert any(line.startswith("-") for line in diff)
+
+
+def test_main_check_passes_on_a_fresh_document(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr("sys.stdin", io.StringIO(render_register(get_rules())))
+    assert main(["--check"]) == 0
+    assert "in step" in capsys.readouterr().out
+
+
+def test_main_check_fails_on_a_stale_document(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr("sys.stdin", io.StringIO("# not the register\n"))
+    assert main(["--check"]) == 1
+    captured = capsys.readouterr()
+    assert "STALE" in captured.err
+    assert "make register" in captured.err
+
+
+def test_main_rejects_an_unknown_argument(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert main(["--wat"]) == 2
+    assert "usage" in capsys.readouterr().err

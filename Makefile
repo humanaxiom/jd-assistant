@@ -2,7 +2,10 @@
 # DOCKER-ONLY (ADR-006): no host Python. `make` is a task-runner that invokes Docker;
 # all project code, tests, and linters run INSIDE the `api` container (source is
 # bind-mounted at /app, so no rebuild is needed after edits). Run `make up` first.
-.PHONY: up down gates gates-fast gates-integration migrate logs shell hook-install
+.PHONY: up down gates gates-fast gates-integration migrate logs shell hook-install \
+        register register-check
+
+REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
 up:               ## Start the full stack (Ollama must be running on host)
 	docker compose up -d
@@ -38,6 +41,23 @@ gates-fast:       ## Pre-commit subset (static + unit, no integration) — quick
 
 gates-integration: ## Integration tests only (testcontainers), in the gates runner
 	docker compose run --rm gates pytest tests/integration --timeout=300 -q
+
+# ── HR decision register (rules/decision_register.yaml -> Markdown for HR) ──
+# The register is DATA; the Markdown is a rendered VIEW of it, never hand-edited.
+# The `gates` container mounts only ./core, so docs/ is invisible inside it — but
+# ALL the work still happens in the container (ADR-006). The ONLY host-shell
+# constructs used are `>` and `<` redirection, which work identically in POSIX sh
+# and Windows cmd (no `mkdir -p` / `diff` / `rm`, which cmd does not have):
+#   register       : container renders to stdout      -> host `>` writes the file
+#   register-check : host `<` pipes the committed file -> container diffs it
+# `make gates` already enforces that the register matches the live RULES; these
+# targets keep the committed Markdown in step with the REGISTER.
+register:         ## Render the HR decision register -> docs/decisions/HR-DECISION-REGISTER.md
+	@docker compose run --rm -T gates python -m src.jd_core.rules.render > $(REGISTER_MD)
+	@echo "✅ wrote $(REGISTER_MD)"
+
+register-check:   ## Fail if the committed register Markdown is stale (CI drift gate)
+	@docker compose run --rm -T gates python -m src.jd_core.rules.render --check < $(REGISTER_MD)
 
 # ── Migrations (already Docker) ────────────────────────────────────────────
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).
