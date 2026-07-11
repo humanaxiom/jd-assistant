@@ -246,6 +246,19 @@ def test_the_seniority_ladder_is_rule_data_not_a_hardcoded_literal() -> None:
     assert get_args(TitleFamily) == (*ladder, "unmapped")
 
 
+def test_the_application_table_is_rule_data_not_a_hardcoded_literal() -> None:
+    """Same contract for the *functional* dimension. This table IS SFU's (rulebook
+    Part 3.3) — which changes its provenance (HR-063), not its status as data: the
+    classifier that reads it must read a versioned table, never a Python tuple. The
+    Literal is the type mirror, and the two are pinned together here.
+
+    ``Titles`` types the YAML field as ``tuple[TitleFunction, ...]``, so a row added
+    to the YAML that the Literal does not know about is a *load* error. This test
+    covers the other direction: a Literal widened without the YAML."""
+    table = tuple(get_rules().titles.functions)
+    assert get_args(TitleFunction) == (*table, "unmapped")
+
+
 # ---------- drift (advisory) ----------
 
 

@@ -1,0 +1,152 @@
+# Advisory Hay-factor signals — RULEBOOK AS DATA (CLAUDE.md §2).
+#
+# SFU classifies APSA/Excluded jobs with the Hay Guide Chart-Profile Method's
+# three factors — Know-How, Problem-Solving, Accountability. The point charts are
+# PROPRIETARY and SFU publishes none of them, so JD Bank never assigns a grade and
+# cannot: `jd_core.models.bank.HaySignals` has no field to put one in. What this
+# file calibrates is a transparent, evidence-cited low/moderate/high **signal**
+# per factor, to help Compensation *level* a role. Advisory. Never a grade.
+#
+# ⚠ PROVENANCE — NOT SFU-PUBLISHED. EVERY table and EVERY number below is
+# hris_calibration: it was invented in hris (packages/pipeline/src/pipeline/bank/
+# hay_signals.py, "deliberately small + auditable" lexicons) and no part of it
+# appears in docs/rulebook/sfu-jd-standards.txt. SFU has never seen these words or
+# these weights. They are registered `open` (HR-066 … HR-081) exactly like the
+# nine invented coded terms of HR-029 and the seniority ladder of HR-059 — do NOT
+# dress them up as an SFU standard.
+#
+# hris: packages/pipeline/src/pipeline/bank/hay_signals.py (_EDU_HIGH, _EDU_MID,
+#   _PS_CHALLENGE, _PS_ROUTINE, _ACC_AUTONOMY, and the scoring in _know_how /
+#   _problem_solving / _accountability).
+version: jd_rules_sfu_v3
+
+# How many evidence phrases one factor's signal may cite. Presentation only: it
+# cannot change a level (the score is computed before evidence is capped). Must
+# not exceed `HayFactorSignal.evidence`'s own max_length.
+evidence_cap: 12
+
+# ── Lexicons ─────────────────────────────────────────────────────────────────
+# Lower-cased SUBSTRING cues, matched against the joined text of the relevant JD
+# section. Substring, not word — "doctora" catches doctoral/doctorate, "master"
+# catches master's/masters, and (a known consequence) "sign" is inside "design".
+
+# Education that reads as graduate-level -> the top Know-How education signal.
+edu_high:
+  - phd
+  - doctora
+  - master
+
+# Education that reads as undergraduate -> the middle Know-How education signal.
+edu_mid:
+  - bachelor
+  - undergraduate
+  - degree
+
+# Problem Solving: language that signals independent, non-routine thinking.
+ps_challenge:
+  - independent
+  - judgment
+  - judgement
+  - novel
+  - complex
+  - ambiguous
+  - unprecedented
+  - analyze
+  - analyse
+  - evaluate
+  - interpret
+  - strategic
+  - non-routine
+  - creative
+
+# Problem Solving: language that signals routine/closely-supervised work. Each hit
+# SUBTRACTS from the Problem-Solving score (see problem_solving_points.routine_hit).
+ps_routine:
+  - routine
+  - defined procedure
+  - established procedure
+  - under supervision
+  - close supervision
+  - step-by-step
+  - prescribed
+  - clearly defined
+
+# Impact of Decision Making: language that signals freedom to act / magnitude of
+# impact -> the Accountability score.
+acc_autonomy:
+  - without approval
+  - without prior approval
+  - autonomous
+  - independently
+  - authority
+  - approve
+  - sign
+  - budget
+  - strategic
+  - organization-wide
+  - institution
+  - significant impact
+  - accountable
+  - final decision
+  - discretion
+
+# ── Qualification modifiers read as depth signals ────────────────────────────
+# These name modifiers from SFU's OWN scales, which live in qualifications.yaml
+# (`skill_modifiers`, `knowledge_modifiers` — rulebook Parts 5.2 / 5.1). That file
+# is the single source of the vocabulary; this one only says which END of it counts
+# as depth. The loader enforces the subset relation across the two files, so
+# renaming a modifier in qualifications.yaml is a LOAD ERROR here rather than a
+# Know-How signal that silently stops scoring.
+
+# A `skill` qualification carrying one of these modifiers counts as advanced.
+# (The scale is basic / intermediate / advanced / expert; `intermediate` scores 0.)
+advanced_skill_modifiers:
+  - advanced
+  - expert
+
+# A `knowledge` qualification carrying one of these counts as top-level knowledge.
+# (The scale is excellent / working / none; `working` scores 0.)
+excellent_knowledge_modifiers:
+  - excellent
+
+# ── Know-How: practical/technical depth + managerial scope ───────────────────
+# Points each signal contributes. The keys are the schema of the table (the
+# loader rejects a missing or unknown one); the NUMBERS are the calibration.
+know_how_points:
+  education_graduate: 3.0 # an edu_high hit in the education qualifications
+  education_undergraduate: 2.0 # else an edu_mid hit
+  many_advanced_skills: 2.0 # >= know_how_counts.advanced_skills_for_many
+  some_advanced_skills: 1.0 # else at least one
+  excellent_knowledge: 1.0 # an excellent-modifier knowledge qualification
+  supervisory_scope: 1.0 # Relationships names a supervisory scope
+  broad_qualifications: 1.0 # >= know_how_counts.qualification_kinds_for_broad
+know_how_counts:
+  advanced_skills_for_many: 3 # advanced/expert skills that read as "many"
+  qualification_kinds_for_broad: 4 # distinct qualification kinds that read as "broad"
+know_how_levels: # score >= cutoff -> that level; below all of them -> low
+  moderate: 3.0
+  high: 5.0
+
+# ── Problem-Solving: independence + complexity of the thinking described ─────
+problem_solving_points:
+  section_item: 0.5 # per Problem Solving entry, up to counts.section_items_scored
+  challenge_hit: 1.0 # per distinct ps_challenge phrase found
+  routine_hit: -1.0 # per distinct ps_routine phrase found (NEGATIVE)
+problem_solving_counts:
+  section_items_scored: 3 # entries beyond this add nothing (length is not depth)
+problem_solving_levels:
+  moderate: 1.5
+  high: 3.0
+
+# ── Accountability: freedom to act + magnitude of impact ─────────────────────
+accountability_points:
+  section_item: 0.5 # per Impact of Decision Making entry, capped as above
+  autonomy_hit: 1.0 # per distinct acc_autonomy phrase found
+  supervisory_scope: 2.0 # Relationships names a supervisory scope
+  external_breadth: 1.0 # >= counts.external_for_breadth external relationships
+accountability_counts:
+  section_items_scored: 3
+  external_for_breadth: 3 # external relationships that read as breadth of impact
+accountability_levels:
+  moderate: 2.0
+  high: 4.0

@@ -51,12 +51,18 @@ defaults, ``extra="forbid"``) — same behaviour, same validation.
 
 **Decision parameters.** Every *number* below is a bound on a value someone else
 computes (0–1 scores, 0–100 quality score, list caps), not a threshold anyone
-tunes. But one *vocabulary* here is a policy call wearing a type's clothes: the
-:data:`TitleFamily` seniority ladder, which hris passed off as SFU's and which is
-not in the rulebook. Its rungs are therefore DATA (``rules/titles.yaml ::
-families``, registered `open` as HR-059) and the Literal below is only the type
-mirror of them — pinned equal by ``tests/unit/test_bank_models.py``. Read the
-warning above it before touching it.
+tunes. But two *vocabularies* here are policy calls wearing a type's clothes:
+:data:`TitleFamily` (the seniority ladder, which hris passed off as SFU's and which
+is not in the rulebook — HR-059) and :data:`TitleFunction` (SFU's Application
+Table, which *is* — HR-063). Both are DATA (``rules/titles.yaml``); the Literals
+below are only their type mirrors, and the loader + ``tests/unit/test_bank_models``
+pin the two together in both directions. Read the warnings above them before
+touching them. The keywords and the *match order* that drive the classification are
+data too (HR-060 … HR-065) — see ``bank/title_family.py``.
+
+The Hay *calibration* (lexicons, weights, level cutoffs) is likewise data
+(``rules/hay_signals.yaml``, HR-066 … HR-081). What is deliberately absent from
+this module is any way to express a Hay **grade** — see :class:`HaySignals`.
 """
 
 from __future__ import annotations
@@ -204,6 +210,15 @@ class TitleFamilyResult(BaseModel):
 
 # The functional "Application Table" (Learning Series Part 3.3) — a SECOND
 # dimension distinct from the seniority ladder: what the title *word* means.
+#
+# Unlike the ladder above, this table IS SFU's: it is transcribed from the rulebook
+# (Part 3.3), so its provenance is `sfu_rulebook` (HR-063). That makes it *better
+# sourced*, not less of a rule: the rows, their keywords and the order they are
+# matched in are DATA (``rules/titles.yaml :: functions`` / ``function_keywords`` /
+# ``function_match_order``) and this Literal is only their type mirror. `Titles`
+# types the YAML field as `tuple[TitleFunction, ...]`, so a row in the YAML that
+# this Literal does not know about fails to LOAD; `tests/unit/test_bank_models.py`
+# pins the other direction.
 TitleFunction = Literal[
     "assistant",
     "coordinator",

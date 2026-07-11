@@ -30,7 +30,7 @@ from __future__ import annotations
 import datetime as dt
 import io
 from pathlib import Path
-from typing import Any, get_args
+from typing import Any, Final, get_args
 
 import pytest
 import yaml
@@ -424,7 +424,7 @@ def test_a_trivial_exemption_off_the_surface_is_reported(tmp_path: Path) -> None
 
 
 def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
-    """ALL TEN rule files are on the surface. An earlier version walked only six,
+    """EVERY rule file is on the surface. An earlier version walked only six,
     leaving patterns.yaml, qualifications.yaml, action_verbs.yaml and markers.yaml
     invisible to the register — including three matchers that feed BLOCKING gates."""
     surface = decision_surface(rules)
@@ -435,28 +435,273 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         "scoring",
         "coded_terms",
         "titles",
+        "hay_signals",
         "rule_catalog",
         "patterns",
         "qualifications",
         "action_verbs",
         "markers",
     }
+    # ...and that is every rule file there is, bar the register itself.
+    described = {name.removesuffix(".yaml") for name in RULE_FILES}
+    assert files_touched == described - {REGISTER_FILE.removesuffix(".yaml")}
 
 
 @pytest.mark.parametrize(
     "file_field",
-    ["thresholds", "patterns", "qualifications", "action_verbs", "markers"],
+    [
+        "thresholds",
+        "patterns",
+        "qualifications",
+        "action_verbs",
+        "markers",
+        "hay_signals",
+    ],
 )
 def test_every_field_of_a_flat_rule_file_is_on_the_surface(
     rules: Rules, file_field: str
 ) -> None:
-    """These files are flat tables of matchers and limits — every key changes what
-    the validators fire on, so every key is a decision-surface parameter."""
+    """These files are flat tables of matchers, limits and weights — every key
+    changes what the validators fire on or what the estimators score, so every key
+    is a decision-surface parameter."""
     surface = decision_surface(rules)
     rule_file = getattr(rules, file_field)
     for field in type(rule_file).model_fields:
         if field != "version":
             assert f"{file_field}.{field}" in surface
+
+
+#: Rule-file fields that are deliberately NOT decision-surface parameters *at their
+#: own path*, and why. Two honest kinds, and no third (mirroring `TrivialExemption`):
+#:
+#:   "container" — the field holds the objects whose *members* are enumerated on
+#:                 the surface individually (each gate, each band, each title).
+#:                 Changing one still moves a surface path.
+#:   "copy"      — presentation. Nothing about what the system DECIDES.
+#:
+#: This is the guard on the enumerator itself, and it is why the file exists: a
+#: field added to ANY rule file must appear on the surface or be named here, with a
+#: reason, in the SAME change. That is the hole through which four rule files once
+#: went unregistered — and, before 2.4b, through which a whole new rule file could.
+_OFF_SURFACE: Final[dict[str, dict[str, str]]] = {
+    "titles": {
+        "restricted": (
+            "container: each title's severity + reserved group is on the surface"
+        ),
+        "family_labels": "copy: the human label a classifier renders",
+        "function_labels": "copy: the Application Table's gloss",
+    },
+    "scoring": {
+        "grade_bands": "container: each band's min_score is on the surface",
+        "severity_penalty": "container: each severity's penalty is on the surface",
+    },
+    "rule_catalog": {
+        "rules": "container: each rule's default_severity is on the surface",
+        "section_order": "copy: the order sections are presented in the checklist",
+        "section_labels": "copy: the human label of each section",
+        "category_fallback_section": (
+            "copy: where an UNCATALOGUED (LLM) finding is filed for display. It "
+            "routes a finding to a section; it does not decide that the finding "
+            "exists, its severity, or whether it blocks. Pre-existing; not "
+            "introduced by 2.4b."
+        ),
+    },
+    "gates": {"gates": "container: each gate is enumerated on the surface"},
+    "decision_register": {
+        "decisions": "the register describes the OTHER files; it is not itself policy",
+        "trivial": "the register's own exemption list",
+    },
+}
+
+
+@pytest.mark.parametrize("file_field", sorted(_OFF_SURFACE))
+def test_no_rule_file_field_escapes_the_surface_unaccounted_for(
+    rules: Rules, file_field: str
+) -> None:
+    """**The enumerator's own coverage check** — the hole this task was told to close.
+
+    ``check_register`` only checks the paths ``decision_surface`` produces. So a new
+    YAML file, or a new field in an existing one, that the enumerator never walks is
+    invisible to the register AND THE BUILD STAYS GREEN with an unregistered policy
+    default inside it. (Adding ``hay_signals.yaml`` in 2.4b would have done exactly
+    that, silently, for sixteen invented Hay weights.)
+
+    So: every top-level field of every rule file must be either ON the surface or
+    named in ``_OFF_SURFACE`` with a reason. There is no third option, and the
+    enumerator cannot be shrunk to dodge it — the flat files are enumerated from
+    ``model_fields``, and this test fails the moment a field appears that nobody
+    classified.
+
+    **Which target enforces this: `make gates`, not `make register-check`.** They are
+    different checks and it matters:
+
+    * ``make register-check`` only diffs the committed Markdown against
+      ``decision_register.yaml``. A field hidden from the enumerator passes it.
+    * ``make gates`` runs this suite, which runs THIS test (and ``check_register``,
+      via ``get_rules``). That is what catches a hidden field.
+
+    Run both; do not read a green ``register-check`` as coverage.
+    """
+    surface = decision_surface(rules)
+    rule_file = getattr(rules, file_field)
+    for field in type(rule_file).model_fields:
+        if field == "version":
+            continue
+        on_surface = any(
+            path == f"{file_field}.{field}" or path.startswith(f"{file_field}.{field}.")
+            for path in surface
+        )
+        excused = _OFF_SURFACE[file_field].get(field)
+        assert on_surface or excused, (
+            f"{file_field}.{field} is neither on the decision surface nor listed in "
+            f"_OFF_SURFACE. Decide which it is — do not leave it invisible to the "
+            f"HR decision register."
+        )
+
+
+def test_the_off_surface_list_has_no_stale_entries(rules: Rules) -> None:
+    """The mirror image: an exemption for a field that no longer exists is dead
+    weight that would silently absorb a real future decision at the same name."""
+    for file_field, excused in _OFF_SURFACE.items():
+        fields = set(type(getattr(rules, file_field)).model_fields)
+        assert set(excused) <= fields, sorted(set(excused) - fields)
+
+
+def test_the_flat_surface_files_are_exactly_the_ones_with_no_containers(
+    rules: Rules,
+) -> None:
+    """A rule file is either flat (every field on the surface, automatically) or it
+    has containers/copy and must be hand-enumerated. `hay_signals.yaml` was shaped
+    flat ON PURPOSE so it lands in the first camp: a weight added to it tomorrow is
+    on the surface with no enumerator change at all."""
+    described = {name.removesuffix(".yaml") for name in RULE_FILES}
+    hand_enumerated = set(_OFF_SURFACE) - {"decision_register"}
+    flat = described - set(_OFF_SURFACE)
+    assert "hay_signals" in flat
+    assert flat.isdisjoint(hand_enumerated)
+
+
+def test_a_weight_cannot_be_smuggled_into_a_flat_rule_file(tmp_path: Path) -> None:
+    """The two halves of the flat-file guarantee, and why they close the loop:
+
+    * a key in the YAML that the model does not declare is rejected outright
+      (``extra="forbid"``) — proved here;
+    * a key the model DOES declare is on the decision surface automatically —
+      proved by ``test_every_field_of_a_flat_rule_file_is_on_the_surface``.
+
+    So there is no way to add a tunable number to ``hay_signals.yaml`` that
+    ``check_register`` cannot see. That is exactly the property the hand-enumerated
+    files (titles, gates, scoring, rule_catalog) do NOT have for free, which is why
+    ``_OFF_SURFACE`` above exists to guard them.
+    """
+    _write_valid_rules(tmp_path)
+    _patch(tmp_path, "hay_signals.yaml", lambda d: d.__setitem__("fudge_factor", 1.5))
+    with pytest.raises(RulesError):
+        load_rules(tmp_path)
+
+
+# --- the 2.4b parameters: proof each one actually breaks the build ------------
+
+
+def test_shuffling_the_title_match_order_breaks_the_build(tmp_path: Path) -> None:
+    """Order is a decision. Swapping `manager` and `director` reclassifies every
+    Associate Director at SFU — and it is a two-line YAML edit that touches no
+    threshold, no gate and no keyword. HR-060 pins the sequence itself."""
+    _write_valid_rules(tmp_path)
+
+    def _swap(data: dict[str, Any]) -> None:
+        order = list(data["family_match_order"])
+        i, j = order.index("manager"), order.index("director")
+        order[i], order[j] = order[j], order[i]
+        data["family_match_order"] = order
+
+    _patch(tmp_path, "titles.yaml", _swap)
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-060" in problem for problem in problems), problems
+
+
+def test_teaching_the_title_classifier_a_new_keyword_breaks_the_build(
+    tmp_path: Path,
+) -> None:
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "titles.yaml",
+        lambda d: d["family_keywords"]["lead"].append("principal"),
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-061" in problem for problem in problems), problems
+
+
+def test_retuning_a_hay_weight_breaks_the_build(tmp_path: Path) -> None:
+    """The landmine this file exists for: hris hardcoded ``score += 3`` for a graduate
+    degree. Now it is a number in YAML — and moving it tells HR."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "hay_signals.yaml",
+        lambda d: d["know_how_points"].__setitem__("education_graduate", 9.0),
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-073" in problem for problem in problems), problems
+
+
+def test_moving_a_hay_level_cutoff_breaks_the_build(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "hay_signals.yaml",
+        lambda d: d["accountability_levels"].__setitem__("high", 99.0),
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-081" in problem for problem in problems), problems
+
+
+def test_editing_a_hay_lexicon_breaks_the_build(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch(tmp_path, "hay_signals.yaml", lambda d: d["acc_autonomy"].append("gravitas"))
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-070" in problem for problem in problems), problems
+
+
+def test_the_hay_signal_defaults_are_registered_as_nobodys_standard(
+    rules: Rules,
+) -> None:
+    """Provenance honesty (the HR-029 lesson). EVERY hay_signals parameter is
+    `hris_calibration` — SFU publishes no Hay point charts and no scoring model, so
+    not one of these words or weights may be presented as an SFU standard."""
+    register = rules.decision_register
+    hay = [d for d in register.decisions if d.config.file == "hay_signals.yaml"]
+    assert hay, "hay_signals.yaml has no register entries at all"
+    for decision in hay:
+        assert decision.provenance == "hris_calibration", decision.id
+        assert decision.source_part is None, decision.id
+        assert decision.status == "open", decision.id
+
+
+def test_the_title_dimensions_are_registered_with_honest_provenance(
+    rules: Rules,
+) -> None:
+    """The seniority ladder and its keywords are NOT SFU's (HR-059/060/061/062); the
+    functional Application Table and its words ARE (HR-063/065, Part 3.3). The
+    register must say so, entry by entry — that distinction is the whole point of the
+    provenance column."""
+    by_path = {d.config.path: d for d in rules.decision_register.decisions}
+
+    for path in (
+        "titles.families",
+        "titles.family_match_order",
+        "titles.family_keywords",
+        "titles.comma_supervisory_families",
+        # the ORDER of the SFU table is still our tie-break, not SFU's
+        "titles.function_match_order",
+    ):
+        assert by_path[path].provenance == "hris_calibration", path
+        assert by_path[path].source_part is None, path
+
+    for path in ("titles.functions", "titles.function_keywords"):
+        assert by_path[path].provenance == "sfu_rulebook", path
+        assert by_path[path].source_part == "Part 3.3", path
 
 
 @pytest.mark.parametrize(
@@ -606,6 +851,23 @@ def test_the_decision_surface_enumerates_every_family_completely(
     for title in rules.titles.restricted:
         assert f"titles.{title.key}.severity" in surface
         assert f"titles.{title.key}.reserved_for_employee_group" in surface
+
+    # BOTH title dimensions, in full: the vocabulary, the keywords, and — the one a
+    # port is most likely to lose — the ORDER the keywords are tried in.
+    assert {
+        "titles.families",
+        "titles.family_match_order",
+        "titles.family_keywords",
+        "titles.comma_supervisory_families",
+        "titles.functions",
+        "titles.function_match_order",
+        "titles.function_keywords",
+    } <= surface
+
+    # every Hay lexicon, weight, count and level cutoff (the flat-file mechanism)
+    for field in type(rules.hay_signals).model_fields:
+        if field != "version":
+            assert f"hay_signals.{field}" in surface
 
     # every catalogued rule's severity
     for spec in rules.rule_catalog.rules:
