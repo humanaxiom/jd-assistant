@@ -1,0 +1,283 @@
+# SFU JD approval gates — "never approve if…" — RULEBOOK AS DATA (CLAUDE.md §2).
+#
+# This file IS the approval policy. Every parameter that participates in the
+# decision lives here: which rules are fatal, the severity floor, the score and
+# grade floors, whether a human reviewer may override a gate, and the copy each
+# blocked decision explains itself with. `quality/gates.py` is pure logic over
+# this data — changing the policy ("stop blocking on coded terms", "raise the
+# score floor to 70") is a YAML edit, never a code edit.
+#
+# WHAT A GATE IS NOT (CLAUDE.md §1 HUMAN APPROVAL): the runner never approves a
+# JD. `approved: true` means only that approval is *permitted* — a human still
+# has to press the button. `approved: false` means the button is disabled, and
+# every reason says which rulebook part disabled it. An `overridable` gate may be
+# waived by a reviewer, but ONLY with a written reason (the audit-log write lands
+# in Phase 4).
+#
+# provenance:
+#   rulebook: docs/rulebook/sfu-jd-standards.txt — Part 11.6 is SFU's own "never
+#     approve" list; Part 2 defines the mandatory template sections; Part 2H the
+#     minimum-not-desired qualification standard.
+#   rule_ids: every id below is cross-checked against rule_catalog.yaml at load —
+#     an unknown rule_id is a load error, not a silently dead gate.
+#
+# DEFAULT TO THE RULEBOOK, NOT TO OUR OWN LENIENCY.
+# Every deterministic rule that implements an SFU "never approve" condition is
+# gated here. Where a rule is known to over-fire, the gate is `overridable: true`
+# rather than absent: SFU says never approve, so the bar stands, and a reviewer
+# who judges it a false positive waives it WITH A WRITTEN REASON — which is
+# precisely the audit trail we want. Only two gates are non-overridable (a JD with
+# no summary/duties/quals, and a draft still full of template boilerplate): there
+# is nothing an override could reasonably say about either.
+#
+# CALIBRATION RATIONALE — the policy tensions the 2.2 validators surfaced:
+#   1. Summary length is two-sided. SFU names only the MAXIMUM ("150 words
+#      maximum"), so rule_catalog.yaml splits the check into
+#      SFU-STRUCT-SUMMARY-TOO-LONG (gated below) and -TOO-SHORT (NOT gated: a thin
+#      summary is our own `low` drafting nudge, not an SFU never-approve
+#      condition). It still costs score.
+#   2. Duty count is two-sided, likewise split into SFU-STRUCT-DUTIES-TOO-MANY /
+#      -TOO-FEW. NEITHER is gated today — see FOR HR TO DECIDE. The split means
+#      gating the over-run is a one-line YAML edit if HR wants it.
+#   3. Banned qualification phrases match the WHOLE raw text, so "capital assets"
+#      inside a duty trips a Qualifications gate. Gated (SFU explicitly bans
+#      advertising desired extras) and `overridable: true` for exactly that reason.
+#   4. The coded-term lexicon over-fires on ordinary JD boilerplate
+#      (`confidential`, `agreement`, `compassionate`). NOT gated: SFU-LANG-CODED is
+#      absent from every blocking set — the lexicon is an advisory tone check, and a
+#      JD must not be blocked from *review* by boilerplate. It still costs score and
+#      appears on the reviewer's checklist. If HR decides a coded term MUST block,
+#      add "SFU-LANG-CODED" to a gate's `rule_ids` — one line, no code change.
+#   5. The restricted-title rules cannot settle their own context from the JD alone
+#      (SFU-AUTH-TITLE-EXEC-DIR silently escapes when `employee_group` is unparsed;
+#      the other two are `info`). NOT gated — a check that cannot know whether it is
+#      right must not gate approval.
+#
+# FOR HR TO DECIDE — every condition we do NOT gate, stated explicitly. No silent
+# omissions: if a deterministic rule is absent from every `rule_ids` list below, it
+# is named here with the reason.
+#   a. SFU-LANG-CODED (coded/gendered terms) — not gated; over-fires (tension #4).
+#   b. SFU-AUTH-TITLE-EXEC-DIR / -REGISTRAR / -HR (restricted titles) — not gated;
+#      unverifiable from the JD alone (tension #5).
+#   c. SFU-STRUCT-SUMMARY-TOO-SHORT — not gated; not an SFU condition (tension #1).
+#   d. SFU-STRUCT-DUTIES-TOO-FEW / -TOO-MANY — not gated. "3-5" is a strong SFU
+#      steer, but duty granularity is an authoring judgement (one JD's 6 duties are
+#      another's 4), and gating it would block a large slice of the archive from
+#      review on a formatting call. HR to ratify: gate -TOO-MANY?
+#   e. SFU-COMP-DECISION / SFU-COMP-PROBLEM (missing Impact of Decision Making /
+#      Problem Solving) — not gated. Both are `medium` completeness gaps and Hay
+#      evaluation inputs; a JD missing them is incomplete but reviewable. HR to
+#      ratify: promote to blocking?
+#   f. SFU-COMP-RELATIONSHIPS / SFU-GATE-REL-HEADER (missing Relationships section /
+#      standardized header) — not gated; `low`, and the header is boilerplate the
+#      composer restores.
+#   g. SFU-STRUCT-ACTION-VERB / SFU-STRUCT-HOW-WHY, SFU-QUAL-SKILL-MODIFIER /
+#      -MODIFIER-VOCAB / -DEGREE-DISCIPLINE, SFU-AUTH-ABILITIES-OBSERVABLE — not
+#      gated; `low` drafting-quality nudges that feed the score, not the bar.
+#   h. The score floor (60.0) and grade floor (C) are OUR roll-up, not an SFU
+#      published number — ratify against the archive baseline (Phase 2.5).
+#   i. The territorial-acknowledgement WORDING is still an open flag (see
+#      CLAUDE.md): SFU-APPROVE-EDI-FOOTER below gates its *presence*, which is what
+#      we can check deterministically. Verifying the official text is a Phase-6
+#      sign-off task and blocks publish, not review.
+version: jd_rules_sfu_v3
+
+# JDIssueSeverity, least severe FIRST. The rank the severity floor compares
+# against; must cover every severity exactly once (the loader checks).
+severity_order:
+  - info
+  - low
+  - medium
+  - high
+
+# JDGrade, worst FIRST. The rank the grade floor compares against; must cover
+# every grade exactly once.
+grade_order:
+  - F
+  - D
+  - C
+  - B
+  - A
+
+# How many rule_ids / evidence snippets a single blocked reason may cite. A
+# badly-extracted archive document can fire the same rule many times; the reason
+# names a bounded sample, never the whole list (the runner must never raise).
+max_listed: 5
+
+gates:
+  # --- "never approve": the JD is not a JD ----------------------------------
+  - gate_id: SFU-APPROVE-MANDATORY-SECTIONS
+    type: blocking_rules
+    title: The mandatory SFU template sections are present
+    source_part: Part 2
+    overridable: false
+    # The three `high`-severity completeness rules. A JD with no purpose, no
+    # duties or no qualifications cannot be reviewed, let alone approved — there
+    # is nothing an override could reasonably say.
+    rule_ids:
+      - SFU-COMP-SUMMARY
+      - SFU-COMP-DUTIES
+      - SFU-COMP-QUALS
+    # placeholders: {count}, {rule_ids}
+    reason: >-
+      {count} mandatory SFU template section(s) are missing ({rule_ids}); a job
+      description without them cannot be approved.
+
+  - gate_id: SFU-APPROVE-NO-PLACEHOLDERS
+    type: blocking_rules
+    title: No unreplaced template placeholder text
+    source_part: Part 2
+    overridable: false
+    rule_ids:
+      - SFU-STRUCT-PLACEHOLDER
+    reason: >-
+      The draft still carries the template's own instructional text
+      ({rule_ids}); it is unfinished.
+
+  # --- SFU's own "never approve" list (Part 11.6) ----------------------------
+  - gate_id: SFU-APPROVE-DUTY-ALLOCATION
+    type: blocking_rules
+    title: Duty time-allocations total 100%
+    source_part: Part 11.6
+    # Overridable: the archive's %-allocations are frequently a formatting or
+    # extraction artefact rather than a real authoring error.
+    overridable: true
+    rule_ids:
+      - SFU-GATE-DUTY-PCT
+    reason: >-
+      Duty time-allocations do not total 100% ({rule_ids}) — an explicit SFU
+      "never approve" condition.
+
+  - gate_id: SFU-APPROVE-QUAL-MINIMUM
+    type: blocking_rules
+    title: Qualifications state the minimum, not desired extras
+    source_part: Part 2H
+    # Overridable (tension #3): the phrase match spans the whole document, so a
+    # duty that mentions "capital assets" can trip it. A reviewer waives it with
+    # a written reason, which is the audit trail we want.
+    overridable: true
+    rule_ids:
+      - SFU-QUAL-BANNED-PHRASE
+    reason: >-
+      The Qualifications advertise desired or optional extras rather than the
+      minimum requirement ({rule_ids}).
+
+  - gate_id: SFU-APPROVE-EDI-FOOTER
+    type: blocking_rules
+    title: The territorial acknowledgement and Employment Equity statement are present
+    source_part: Part 2
+    # Overridable: the footer is boilerplate the composer can restore, so a
+    # reviewer may waive it on a JD that is otherwise ready. CLAUDE.md flags the
+    # territorial acknowledgement as a PUBLISH blocker — this gate is why a
+    # footer-less JD can no longer be approved by default.
+    overridable: true
+    rule_ids:
+      - SFU-COMP-TERRITORIAL
+      - SFU-COMP-EDI
+    reason: >-
+      {count} mandatory footer statement(s) are missing ({rule_ids}); SFU requires
+      the territorial acknowledgement and the Employment Equity statement.
+
+  - gate_id: SFU-APPROVE-SUMMARY-CONDITIONS
+    type: blocking_rules
+    title: The Position Summary describes the role, not its working conditions
+    source_part: Part 2B
+    overridable: true
+    rule_ids:
+      - SFU-AUTH-SUMMARY-CONDITIONS
+    reason: >-
+      The Position Summary describes working conditions ({rule_ids}); it must state
+      the role's purpose.
+
+  - gate_id: SFU-APPROVE-SUMMARY-INCUMBENT
+    type: blocking_rules
+    title: The JD describes the position, not the incumbent
+    source_part: Part 2B
+    overridable: true
+    rule_ids:
+      - SFU-AUTH-SUMMARY-INCUMBENT
+    reason: >-
+      The Position Summary uses first-person / incumbent-focused language
+      ({rule_ids}); a JD describes the job, not the person.
+
+  - gate_id: SFU-APPROVE-SUMMARY-LENGTH
+    type: blocking_rules
+    title: The Position Summary is within the template's maximum length
+    source_part: Part 2B
+    overridable: true
+    # The MAXIMUM only — SFU names the over-run, not the under-run (tension #1).
+    rule_ids:
+      - SFU-STRUCT-SUMMARY-TOO-LONG
+    reason: >-
+      The Position Summary exceeds the template's maximum length ({rule_ids}).
+
+  - gate_id: SFU-APPROVE-KSA-ORDER
+    type: blocking_rules
+    title: Qualifications run Knowledge -> Skills -> Abilities
+    source_part: Part 5.4
+    overridable: true
+    rule_ids:
+      - SFU-GATE-KSA-ORDER
+    reason: >-
+      The Qualifications are not in Knowledge -> Skills -> Abilities order
+      ({rule_ids}).
+
+  - gate_id: SFU-APPROVE-QUAL-EQUIVALENT
+    type: blocking_rules
+    title: Qualifications offer an equivalent-combination path
+    source_part: Part 2H
+    # Overridable: the check is a literal phrase match, so a JD that words the
+    # equivalency differently can trip it.
+    overridable: true
+    rule_ids:
+      - SFU-QUAL-EQUIVALENT
+    reason: >-
+      The Qualifications offer no "equivalent combination" path ({rule_ids}) —
+      required so the bar does not exclude equivalently-qualified applicants.
+
+  - gate_id: SFU-APPROVE-SENIOR-TITLE
+    type: blocking_rules
+    title: A "Senior" title carries supervisory scope
+    source_part: Part 3.5
+    overridable: true
+    rule_ids:
+      - SFU-GATE-SENIOR-TITLE
+    reason: >-
+      The title reserves "Senior" but no supervisory scope is stated ({rule_ids}).
+
+  # --- floors: the roll-up bars ---------------------------------------------
+  - gate_id: SFU-APPROVE-SEVERITY-FLOOR
+    type: severity_floor
+    title: No high-severity findings outstanding
+    source_part: Part 11.6
+    overridable: true
+    # Never approve with any finding at this severity or above. Catches
+    # high-severity findings with no rule_id at all — i.e. the Phase-5 LLM pass.
+    min_severity: high
+    # placeholders: {count}, {rule_ids}, {min_severity}
+    reason: >-
+      {count} finding(s) at severity "{min_severity}" or above are outstanding
+      ({rule_ids}).
+
+  - gate_id: SFU-APPROVE-SCORE-FLOOR
+    type: score_floor
+    title: The quality score meets the approval floor
+    source_part: Part 11.6
+    overridable: true
+    # Deliberately aligned with the C grade band in scoring.yaml; the two floors
+    # are separate knobs and may be tuned apart.
+    min_score: 60.0
+    # placeholders: {score}, {min_score}
+    reason: >-
+      The quality score of {score:.1f} is below the approval floor of
+      {min_score:.1f}.
+
+  - gate_id: SFU-APPROVE-GRADE-FLOOR
+    type: grade_floor
+    title: The quality grade meets the approval floor
+    source_part: Part 11.6
+    overridable: true
+    min_grade: C
+    # placeholders: {grade}, {min_grade}
+    reason: >-
+      The quality grade "{grade}" is below the approval floor of "{min_grade}".

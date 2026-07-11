@@ -62,6 +62,7 @@ _PACKAGE: Final = __package__ or "src.jd_core.rules"
 _SEVERITIES: Final[frozenset[str]] = frozenset(get_args(JDIssueSeverity))
 _CATEGORIES: Final[frozenset[str]] = frozenset(get_args(JDIssueCategory))
 _SECTIONS: Final[frozenset[str]] = frozenset(get_args(SFUSection))
+_GRADES: Final[frozenset[str]] = frozenset(get_args(JDGrade))
 
 #: Who raises a rule: a deterministic gate here, or the (Phase 5) LLM pass.
 RuleOwner = Literal["deterministic", "llm"]
@@ -302,8 +303,14 @@ class GradeBand(BaseModel):
 
 
 class Scoring(_RuleFile):
-    """Severity penalties, decay, and grade bands (``scoring.yaml``)."""
+    """The score scale, severity penalties, decay, and grade bands
+    (``scoring.yaml``)."""
 
+    #: The perfect-JD baseline penalties are subtracted from, and the floor the
+    #: score bottoms out at. Calibration, therefore data — hris hardcoded the
+    #: baseline as a literal ``100.0`` in Python.
+    max_score: float = Field(gt=0.0, le=100.0)
+    min_score: float = Field(ge=0.0, lt=100.0)
     severity_penalty: FrozenPenaltyMap
     severity_decay: float = Field(ge=0.0, le=1.0)
     grade_bands: tuple[GradeBand, ...] = Field(min_length=1)
@@ -321,6 +328,20 @@ class Scoring(_RuleFile):
                 f"missing {sorted(missing)}"
             )
         return penalties
+
+    @model_validator(mode="after")
+    def _score_range_is_ordered(self) -> Scoring:
+        if self.min_score >= self.max_score:
+            raise ValueError("min_score must be less than max_score")
+        unreachable = [
+            b.grade for b in self.grade_bands if b.min_score > self.max_score
+        ]
+        if unreachable:
+            raise ValueError(
+                f"grade band(s) {unreachable} sit above max_score "
+                f"({self.max_score}) and can never be awarded"
+            )
+        return self
 
     @model_validator(mode="after")
     def _bands_are_ordered_and_complete(self) -> Scoring:
@@ -472,6 +493,202 @@ class RuleCatalog(_RuleFile):
         return self.section_labels[section]
 
 
+# --- approval gates (gates.yaml) ---------------------------------------------
+
+
+class _GateBase(BaseModel):
+    """What every approval gate carries, whatever it measures.
+
+    ``reason`` is a ``str.format`` template — the copy a blocked decision explains
+    itself with, in rulebook terms. It is validated against its gate type's
+    placeholder set **at load**, so the gate runner (a pure function over JD state
+    that must never raise) can always render it.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    gate_id: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1)
+    source_part: str = Field(min_length=1)  # the rulebook part the gate enforces
+    reason: str = Field(min_length=1)
+    #: May a human reviewer waive this gate? Per CLAUDE.md §1 an override always
+    #: requires a written reason; a non-overridable gate cannot be waived at all.
+    overridable: bool
+
+    def render(self, context: Mapping[str, Any]) -> str:
+        """``reason``, interpolated with the values the runner computed.
+
+        Raises:
+            RulesError: the template names a placeholder the runner does not
+                supply, or applies a format spec the value does not support. Both
+                are policy drift and are caught at load (see
+                :meth:`GatePolicy._reason_templates_render`), never mid-decision.
+        """
+        try:
+            return self.reason.format(**context)
+        except (KeyError, IndexError, ValueError) as exc:
+            raise RulesError(
+                f"gate {self.gate_id!r}: reason template placeholder {exc} is not "
+                f"one this gate can supply ({sorted(context)})"
+            ) from exc
+
+    def probe_context(self) -> dict[str, Any]:  # pragma: no cover - overridden
+        """A dummy context with exactly the placeholders this gate type supplies.
+
+        The load-time proof that ``reason`` renders. Subclasses must override.
+        """
+        raise NotImplementedError
+
+
+class BlockingRulesGate(_GateBase):
+    """Never approve if any of these catalogued rules fired ("never approve if…").
+
+    ``rule_ids`` is cross-checked against ``rule_catalog.yaml`` when the whole
+    rulebook is assembled — an unknown rule_id is a load error, not a gate that
+    silently never fires.
+    """
+
+    type: Literal["blocking_rules"]
+    rule_ids: tuple[str, ...] = Field(min_length=1)
+
+    @field_validator("rule_ids")
+    @classmethod
+    def _are_unique(cls, rule_ids: tuple[str, ...]) -> tuple[str, ...]:
+        if len(set(rule_ids)) != len(rule_ids):
+            raise ValueError("rule_ids must not repeat a rule")
+        return rule_ids
+
+    def probe_context(self) -> dict[str, Any]:
+        return {"count": 1, "rule_ids": "SFU-EXAMPLE"}
+
+
+class SeverityFloorGate(_GateBase):
+    """Never approve while any finding sits at ``min_severity`` or above.
+
+    Unlike a blocking-rule gate this also catches findings with no ``rule_id`` at
+    all — i.e. the Phase-5 LLM pass.
+    """
+
+    type: Literal["severity_floor"]
+    min_severity: JDIssueSeverity
+
+    def probe_context(self) -> dict[str, Any]:
+        return {
+            "count": 1,
+            "rule_ids": "SFU-EXAMPLE",
+            "min_severity": self.min_severity,
+        }
+
+
+class ScoreFloorGate(_GateBase):
+    """Never approve below this ``overall_score``."""
+
+    type: Literal["score_floor"]
+    min_score: float = Field(ge=0.0, le=100.0)
+
+    def probe_context(self) -> dict[str, Any]:
+        return {"score": 0.0, "min_score": self.min_score}
+
+
+class GradeFloorGate(_GateBase):
+    """Never approve below this :data:`JDGrade` (ranked by ``grade_order``)."""
+
+    type: Literal["grade_floor"]
+    min_grade: JDGrade
+
+    def probe_context(self) -> dict[str, Any]:
+        return {"grade": self.min_grade, "min_grade": self.min_grade}
+
+
+#: One gate, discriminated by its ``type`` — the set of things a policy can measure.
+GateSpec = Annotated[
+    BlockingRulesGate | SeverityFloorGate | ScoreFloorGate | GradeFloorGate,
+    Field(discriminator="type"),
+]
+
+
+class GatePolicy(_RuleFile):
+    """The approval policy (``gates.yaml``): "never approve if…", as data.
+
+    Every parameter the gate runner uses to reach a decision is here — the
+    blocking rule-id sets, the severity / score / grade floors, each gate's
+    overridability, its reason copy and its rulebook ``source_part``. Nothing in
+    :mod:`src.jd_core.quality.gates` decides anything this file does not say.
+    """
+
+    #: JDIssueSeverity, least severe first (the rank the severity floor uses).
+    severity_order: tuple[JDIssueSeverity, ...] = Field(min_length=1)
+    #: JDGrade, worst first (the rank the grade floor uses).
+    grade_order: tuple[JDGrade, ...] = Field(min_length=1)
+    #: How many rule_ids / evidence snippets one blocked reason may cite.
+    max_listed: int = Field(gt=0)
+    gates: tuple[GateSpec, ...] = Field(min_length=1)
+
+    @field_validator("severity_order")
+    @classmethod
+    def _ranks_every_severity(
+        cls, order: tuple[JDIssueSeverity, ...]
+    ) -> tuple[JDIssueSeverity, ...]:
+        if set(order) != _SEVERITIES or len(set(order)) != len(order):
+            raise ValueError(
+                f"severity_order must rank every JDIssueSeverity exactly once; "
+                f"got {list(order)}"
+            )
+        return order
+
+    @field_validator("grade_order")
+    @classmethod
+    def _ranks_every_grade(cls, order: tuple[JDGrade, ...]) -> tuple[JDGrade, ...]:
+        if set(order) != _GRADES or len(set(order)) != len(order):
+            raise ValueError(
+                f"grade_order must rank every JDGrade exactly once; got {list(order)}"
+            )
+        return order
+
+    @model_validator(mode="after")
+    def _gate_ids_are_unique(self) -> GatePolicy:
+        ids = [gate.gate_id for gate in self.gates]
+        duplicates = sorted({gid for gid in ids if ids.count(gid) > 1})
+        if duplicates:
+            raise ValueError(f"duplicate gate_id(s): {duplicates}")
+        return self
+
+    @model_validator(mode="after")
+    def _reason_templates_render(self) -> GatePolicy:
+        """Every gate's copy renders with the placeholders its type supplies.
+
+        Proving this at load is what lets the runner promise it never raises on a
+        JD: a template that names something the runner cannot compute is caught
+        here, not while deciding whether an HR reviewer may approve.
+        """
+        for gate in self.gates:
+            gate.render(gate.probe_context())
+        return self
+
+    @property
+    def by_id(self) -> Mapping[str, GateSpec]:
+        """Every gate, keyed by ``gate_id``."""
+        return _freeze({gate.gate_id: gate for gate in self.gates})
+
+    @property
+    def blocking_rule_ids(self) -> frozenset[str]:
+        """Every rule the policy will refuse to approve over ("never approve if…")."""
+        return frozenset(
+            rule_id
+            for gate in self.gates
+            if isinstance(gate, BlockingRulesGate)
+            for rule_id in gate.rule_ids
+        )
+
+    def severity_rank(self, severity: JDIssueSeverity) -> int:
+        """``severity``'s rank — higher is worse. Total, by construction."""
+        return self.severity_order.index(severity)
+
+    def grade_rank(self, grade: JDGrade) -> int:
+        """``grade``'s rank — higher is better. Total, by construction."""
+        return self.grade_order.index(grade)
+
+
 class Rules(BaseModel):
     """The whole validated rulebook — one frozen object, one ``version``."""
 
@@ -487,6 +704,7 @@ class Rules(BaseModel):
     titles: Titles
     scoring: Scoring
     rule_catalog: RuleCatalog
+    gates: GatePolicy
 
     @model_validator(mode="after")
     def _restricted_titles_are_catalogued(self) -> Rules:
@@ -497,6 +715,19 @@ class Rules(BaseModel):
         if unknown:
             raise ValueError(
                 f"titles.yaml names rule_id(s) absent from rule_catalog.yaml: "
+                f"{unknown}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _blocking_gates_are_catalogued(self) -> Rules:
+        """A gate that blocks on a rule nobody raises is a policy that silently
+        does nothing — the worst failure mode for an approval bar."""
+        catalogued = set(self.rule_catalog.by_id)
+        unknown = sorted(self.gates.blocking_rule_ids - catalogued)
+        if unknown:
+            raise ValueError(
+                f"gates.yaml blocks on rule_id(s) absent from rule_catalog.yaml: "
                 f"{unknown}"
             )
         return self
@@ -514,6 +745,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     ("titles.yaml", "titles", Titles),
     ("scoring.yaml", "scoring", Scoring),
     ("rule_catalog.yaml", "rule_catalog", RuleCatalog),
+    ("gates.yaml", "gates", GatePolicy),
 )
 
 #: Every YAML file that makes up the rulebook, in load order.

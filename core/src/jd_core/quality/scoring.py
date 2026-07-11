@@ -1,8 +1,11 @@
-"""Transparent JD quality score: 100 minus a severity-weighted penalty.
+"""Transparent JD quality score: a baseline minus a severity-weighted penalty.
 
 Ported from hris ``jd_rules.score_issues`` (calibration ``jd_rules_sfu_v3``). The
-calibration itself — the per-severity penalties, the decay factor, the grade bands
-— is rulebook data in ``rules/scoring.yaml``; this module is only the arithmetic.
+calibration itself — the score scale (``max_score`` / ``min_score``), the
+per-severity penalties, the decay factor, the grade bands — is rulebook data in
+``rules/scoring.yaml``; this module is only the arithmetic. The score feeds the
+gate runner's score floor, so hris's hardcoded ``100.0`` baseline is a *decision*
+parameter and lives in the YAML like every other one (CLAUDE.md §2).
 
 Why the decay: the old linear ``100 - Σpenalty`` floored a JD with many minor
 nudges to 0 exactly like one with several fatal gaps — it measured issue *count*,
@@ -29,8 +32,13 @@ def score_issues(
 
     Each severity tier's k-th (0-indexed) finding costs
     ``severity_penalty[tier] * severity_decay ** k``; the tier's total is the
-    geometric sum ``base * (1 - decay**n) / (1 - decay)``. The score floors at 0.
-    A ``decay`` of exactly 1.0 turns diminishing returns off (linear penalties).
+    geometric sum ``base * (1 - decay**n) / (1 - decay)``. Penalties come off the
+    rulebook's ``max_score`` and the result floors at its ``min_score``. A
+    ``decay`` of exactly 1.0 turns diminishing returns off (linear penalties).
+
+    The only numerals below are the neutral elements of that geometric series
+    (the ``1``s and the zero-penalty short-circuit) — every *calibration* number
+    is read from the table.
 
     ``scoring`` defaults to the shipped calibration; pass a different
     :class:`~src.jd_core.rules.Scoring` (still validated rulebook data) to tune or
@@ -52,5 +60,5 @@ def score_issues(
             # base * (1 + d + d^2 + ... + d^(n-1)) = base * (1 - d^n) / (1 - d)
             penalty += base * (1.0 - decay**n) / (1.0 - decay)
 
-    score = max(0.0, 100.0 - penalty)
+    score = max(table.min_score, table.max_score - penalty)
     return score, table.grade_for(score)
