@@ -10,10 +10,19 @@ harness-claude-code/CLAUDE.md — base harness rules (gates, git workflow, TDD o
 rules) apply here in full. They are vendored in-repo; do not re-open inherited ADR-002
 (Postgres/Neo4j split) or ADR-003 (offline Ollama).
 
-Also read HANDOFF.md for current phase/state. Paths: `C:\repos\agent-harnesses-v2` is the
-**live upstream harness** — this repo vendors a copy of it (kept in sync; subagents subsystem
-reconciled 2026-07-10, see ADR-004). `C:\repos\jdbank` is STALE (abandoned v1 attempt). The
-live project repo is `C:\repos\JD-Assistant`.
+Also read HANDOFF.md for current phase/state (it, not this file, tracks what is merged vs open).
+Two docs to know:
+- `docs/subagent-model-strategy.md` — which model tier (Opus/Sonnet/Haiku) to dispatch a
+  subagent at. Reviewers are always Opus; never downgrade a faithful port, rulebook/policy
+  semantics, a security-touching diff, or anything changing a decision parameter.
+- `docs/decisions/HR-DECISION-REGISTER.md` — generated register of every non-trivial rulebook
+  default (58 entries, all `open` — SFU HR has ratified nothing yet). **Standing rule: any
+  non-trivial metric/rule must be YAML-configurable and registered in the same PR; if a default
+  looks wrong, register it as `open`, don't quietly patch it.**
+
+Paths: `C:\repos\agent-harnesses-v2` is the **live upstream harness** — this repo vendors a copy
+of it (kept in sync; subagents subsystem reconciled 2026-07-10, see ADR-004). `C:\repos\jdbank`
+is STALE (abandoned v1 attempt). The live project repo is `C:\repos\JD-Assistant`.
 
 ## Subagents subsystem (from the harness)
 `core/src/agents/` provides a Planner→Tester→Coder(loop)→Reviewer→Security→Docs pipeline
