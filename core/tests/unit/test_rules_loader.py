@@ -252,6 +252,7 @@ def test_every_yaml_file_carries_the_same_version(rules: Rules) -> None:
         rules.patterns.version,
         rules.titles.version,
         rules.scoring.version,
+        rules.rule_catalog.version,
     }
     assert versions == {EXPECTED_VERSION}
 
@@ -702,6 +703,121 @@ def test_duplicate_restricted_title_keys_raise(tmp_path: Path) -> None:
     )
     with pytest.raises(RulesError, match="unique"):
         load_rules(tmp_path)
+
+
+# --- rule catalog (Phase 2.2 — the catalog is rule data too) ------------------
+
+
+def test_duplicate_rule_ids_raise(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "rule_catalog.yaml",
+        lambda d: d["rules"].append(dict(d["rules"][0])),
+    )
+    with pytest.raises(RulesError, match="duplicate rule_id"):
+        load_rules(tmp_path)
+
+
+def test_unknown_rule_category_raises(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "rule_catalog.yaml",
+        lambda d: d["rules"][0].__setitem__("category", "vibes"),
+    )
+    with pytest.raises(RulesError, match="category"):
+        load_rules(tmp_path)
+
+
+def test_unknown_rule_section_raises(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "rule_catalog.yaml",
+        lambda d: d["rules"][0].__setitem__("section", "nowhere"),
+    )
+    with pytest.raises(RulesError, match="section"):
+        load_rules(tmp_path)
+
+
+def test_message_and_recommendation_variants_must_agree(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "rule_catalog.yaml",
+        lambda d: d["rules"][0]["messages"].__setitem__("extra", "unmatched variant"),
+    )
+    with pytest.raises(RulesError, match="variant keys"):
+        load_rules(tmp_path)
+
+
+def test_general_may_not_be_a_template_section(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "rule_catalog.yaml",
+        lambda d: d["section_order"].append("general"),
+    )
+    with pytest.raises(RulesError, match="general"):
+        load_rules(tmp_path)
+
+
+def test_incomplete_category_fallback_map_raises(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "rule_catalog.yaml",
+        lambda d: d["category_fallback_section"].pop("clarity"),
+    )
+    with pytest.raises(RulesError, match="JDIssueCategory"):
+        load_rules(tmp_path)
+
+
+def test_incomplete_section_labels_raise(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "rule_catalog.yaml",
+        lambda d: d["section_labels"].pop("general"),
+    )
+    with pytest.raises(RulesError, match="section_labels"):
+        load_rules(tmp_path)
+
+
+def test_restricted_title_naming_an_uncatalogued_rule_raises(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "titles.yaml",
+        lambda d: d["restricted"][0].__setitem__("rule_id", "SFU-NOT-A-RULE"),
+    )
+    with pytest.raises(RulesError, match="rule_catalog"):
+        load_rules(tmp_path)
+
+
+def test_unknown_message_variant_raises(rules: Rules) -> None:
+    spec = rules.rule_catalog.spec("SFU-COMP-SUMMARY")
+    with pytest.raises(RulesError, match="variant"):
+        spec.render("nope", {})
+
+
+def test_unsupplied_placeholder_raises(rules: Rules) -> None:
+    spec = rules.rule_catalog.spec("SFU-STRUCT-SUMMARY-LENGTH")
+    with pytest.raises(RulesError, match="placeholder"):
+        spec.render("default", {})
+
+
+def test_spec_lookup_of_an_unknown_rule_raises(rules: Rules) -> None:
+    with pytest.raises(RulesError, match="unknown rule_id"):
+        rules.rule_catalog.spec("SFU-NOT-A-RULE")
+
+
+def test_coded_term_tiers_are_named_by_their_severity(rules: Rules) -> None:
+    tiers = rules.coded_terms.tiers
+    assert [severity for severity, _ in tiers] == ["medium", "low"]
+    assert dict(tiers[0][1]) == EXPECTED_CODED_MEDIUM
+    assert dict(tiers[1][1]) == EXPECTED_CODED_LOW
 
 
 @pytest.mark.parametrize(

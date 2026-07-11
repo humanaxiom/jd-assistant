@@ -1,0 +1,505 @@
+# SFU JD rule catalog — RULEBOOK AS DATA (CLAUDE.md §2).
+#
+# The 27 deterministic gates, keyed by a stable `rule_id`. For each: the SFU
+# template `section` it belongs to, the guide `source_part` it enforces, its
+# `category` (the SINGLE SOURCE OF TRUTH — validators derive each issue's
+# category from here), the `default_severity` it is raised at, its checklist
+# `title`, and its message / recommendation copy.
+#
+# The copy is data, not logic: `messages` and `recommendations` are keyed by a
+# variant name (`default` unless a gate has more than one phrasing, e.g. a duty
+# count that is too low vs too high). Templates are rendered with `str.format`;
+# available placeholders are the numeric thresholds from thresholds.yaml
+# (duties_min, duties_max, summary_min_words, summary_max_words) plus the
+# per-finding values the validator computes (documented per rule below).
+# `messages` and `recommendations` MUST carry the same variant keys.
+#
+# `category` / `section` / `default_severity` must be members of the JDIssueCategory
+# / SFUSection / JDIssueSeverity literals in jd_core.models.quality — the loader
+# rejects anything else.
+#
+# provenance:
+#   rulebook: docs/rulebook/sfu-jd-standards.txt (the `source_part` of each rule)
+#   hris: packages/pipeline/src/pipeline/quality/rule_catalog.py :: RuleSpec /
+#     RULE_CATALOG / SFU_SECTION_LABELS / SFU_SECTION_ORDER /
+#     _CATEGORY_FALLBACK_SECTION, and the message + suggestion strings passed to
+#     `_issue(...)` in jd_rules.py (RULES_VERSION "jd_rules_sfu_v3").
+version: jd_rules_sfu_v3
+
+rules:
+  # --- completeness: the mandatory template sections (Part 2) ----------------
+  - rule_id: SFU-COMP-SUMMARY
+    category: completeness
+    section: position_summary
+    source_part: Part 2B
+    default_severity: high
+    title: Position Summary present
+    owner: deterministic
+    messages:
+      default: No Position Summary section.
+    recommendations:
+      default: >-
+        Add a {summary_min_words}-{summary_max_words} word summary of the role's
+        purpose and primary duties.
+
+  - rule_id: SFU-COMP-DUTIES
+    category: completeness
+    section: duties
+    source_part: Part 2C
+    default_severity: high
+    title: Duties & Responsibilities present
+    owner: deterministic
+    messages:
+      default: No Duties & Responsibilities listed.
+    recommendations:
+      default: >-
+        List {duties_min}-{duties_max} major responsibilities, each starting with
+        an action verb.
+
+  - rule_id: SFU-COMP-DECISION
+    category: completeness
+    section: decision_making
+    source_part: Part 2D
+    default_severity: medium
+    title: Impact of Decision Making present
+    owner: deterministic
+    messages:
+      default: "No 'Impact of Decision Making' section (a Hay accountability input)."
+    recommendations:
+      default: >-
+        Give examples of decisions the role makes without supervisor approval.
+
+  - rule_id: SFU-COMP-PROBLEM
+    category: completeness
+    section: problem_solving
+    source_part: Part 2E
+    default_severity: medium
+    title: Problem Solving & Level of Supervision present
+    owner: deterministic
+    messages:
+      default: >-
+        No 'Problem Solving & Level of Supervision' section (a Hay problem-solving
+        input).
+    recommendations:
+      default: >-
+        Describe typical problems and the level of guidance the role receives.
+
+  - rule_id: SFU-COMP-RELATIONSHIPS
+    category: completeness
+    section: relationships
+    source_part: Part 2F
+    default_severity: low
+    title: Relationships present
+    owner: deterministic
+    messages:
+      default: No Relationships section.
+    recommendations:
+      default: State supervisory scope and key internal/external connections.
+
+  - rule_id: SFU-COMP-QUALS
+    category: completeness
+    section: qualifications
+    source_part: Part 2H
+    default_severity: high
+    title: Qualifications present
+    owner: deterministic
+    messages:
+      default: No Qualifications section.
+    recommendations:
+      default: >-
+        List minimum education, experience, knowledge, skills, and abilities.
+
+  - rule_id: SFU-COMP-ABOUT
+    category: completeness
+    section: about_sfu
+    source_part: Part 2
+    default_severity: low
+    title: About SFU boilerplate present
+    owner: deterministic
+    messages:
+      default: "The 'About SFU' boilerplate is missing."
+    recommendations:
+      default: Add the current About SFU block from the template.
+
+  - rule_id: SFU-COMP-TERRITORIAL
+    category: completeness
+    section: edi_footer
+    source_part: Part 2
+    default_severity: low
+    title: Territorial acknowledgement present
+    owner: deterministic
+    messages:
+      default: The territorial acknowledgement is missing.
+    recommendations:
+      default: >-
+        Add the territorial acknowledgement boilerplate from the template.
+
+  - rule_id: SFU-COMP-EDI
+    category: completeness
+    section: edi_footer
+    source_part: Part 2
+    default_severity: low
+    title: Employment Equity statement present
+    owner: deterministic
+    messages:
+      default: The Employment Equity statement is missing.
+    recommendations:
+      default: Add the Employment Equity boilerplate from the template.
+
+  # --- structure: the SFU format --------------------------------------------
+  - rule_id: SFU-STRUCT-SUMMARY-LENGTH
+    category: structure
+    section: position_summary
+    source_part: Part 2B
+    default_severity: low
+    title: Position Summary is 100-150 words
+    owner: deterministic
+    # placeholders: {words}
+    messages:
+      default: >-
+        Position Summary is {words} words; the template asks for
+        {summary_min_words}-{summary_max_words}.
+    recommendations:
+      default: >-
+        Tighten or expand the summary to the
+        {summary_min_words}-{summary_max_words} word range.
+
+  - rule_id: SFU-STRUCT-DUTIES-COUNT
+    category: structure
+    section: duties
+    source_part: Part 2C
+    default_severity: medium
+    title: 3-5 major duties
+    owner: deterministic
+    # placeholders: {count}
+    messages:
+      too_few: >-
+        Only {count} main duties; the template expects {duties_min}-{duties_max}
+        major responsibilities.
+      too_many: >-
+        {count} main duties; the template expects {duties_min}-{duties_max} -
+        combine related ones.
+    recommendations:
+      too_few: Add the missing major responsibilities (each action-verb led).
+      too_many: >-
+        Group related duties under a smaller set of major responsibilities.
+
+  - rule_id: SFU-STRUCT-ACTION-VERB
+    category: structure
+    section: duties
+    source_part: Glossary
+    default_severity: low
+    title: Duties start with an approved action verb
+    owner: deterministic
+    # placeholders: {verbs}
+    messages:
+      default: >-
+        Some duties don't start with an approved action verb ({verbs}).
+    recommendations:
+      default: Start each duty with a verb from the SFU action-verb glossary.
+
+  - rule_id: SFU-STRUCT-HOW-WHY
+    category: structure
+    section: duties
+    source_part: Part 2C
+    default_severity: low
+    title: Duties carry 'how and why' detail
+    owner: deterministic
+    # placeholders: {count}
+    messages:
+      default: "{count} duties have no 'how and why' detail."
+    recommendations:
+      default: >-
+        Add the supporting 'how and why' sub-points for each major duty.
+
+  - rule_id: SFU-STRUCT-PLACEHOLDER
+    category: structure
+    section: general
+    source_part: Part 2
+    default_severity: medium
+    title: No leftover template placeholder text
+    owner: deterministic
+    messages:
+      default: Template placeholder/instructional text appears unreplaced.
+    recommendations:
+      default: >-
+        Replace the template's guidance text with the role's actual content.
+
+  # --- qualification standards ----------------------------------------------
+  - rule_id: SFU-QUAL-SKILL-MODIFIER
+    category: qualification_standard
+    section: qualifications
+    source_part: Part 5
+    default_severity: low
+    title: Skills carry a proficiency modifier
+    owner: deterministic
+    # placeholders: {count}
+    messages:
+      default: "{count} skills lack a proficiency modifier."
+    recommendations:
+      default: Tag each skill basic / intermediate / advanced / expert.
+
+  - rule_id: SFU-QUAL-MODIFIER-VOCAB
+    category: qualification_standard
+    section: qualifications
+    source_part: Part 5
+    default_severity: low
+    title: Knowledge/skill modifiers use the Toolkit vocabulary
+    owner: deterministic
+    messages:
+      default: >-
+        Some knowledge/skills use a non-standard proficiency modifier.
+    recommendations:
+      default: >-
+        Use the Toolkit modifiers (knowledge: excellent/working; skill:
+        basic…expert).
+
+  - rule_id: SFU-QUAL-EQUIVALENT
+    category: qualification_standard
+    section: qualifications
+    source_part: Part 2H
+    default_severity: low
+    title: Qualifications offer an equivalent-combination path
+    owner: deterministic
+    messages:
+      default: "Qualifications don't offer an 'equivalent combination' path."
+    recommendations:
+      default: >-
+        Add 'or an equivalent combination of education, training and experience'.
+
+  - rule_id: SFU-QUAL-BANNED-PHRASE
+    category: qualification_standard
+    section: qualifications
+    source_part: Part 2H
+    default_severity: medium
+    title: Qualifications state the minimum, not desired extras
+    owner: deterministic
+    # placeholders: {phrase}
+    messages:
+      default: >-
+        Qualifications use "{phrase}" - state the minimum, not desired/optional
+        extras.
+    recommendations:
+      default: >-
+        Remove "may include / assets / preferences"; list only minimum
+        requirements.
+
+  - rule_id: SFU-QUAL-DEGREE-DISCIPLINE
+    category: qualification_standard
+    section: qualifications
+    source_part: Part 2H
+    default_severity: low
+    title: A degree names a discipline and allows related fields
+    owner: deterministic
+    messages:
+      default: >-
+        A degree requirement should name a discipline and allow related fields.
+    recommendations:
+      default: 'Specify the discipline + "or other relevant/related discipline".'
+
+  # --- inclusive language (whole document) ----------------------------------
+  - rule_id: SFU-LANG-CODED
+    category: inclusive_language
+    section: general
+    source_part: Part 6
+    default_severity: medium
+    title: No coded or gendered terms
+    owner: deterministic
+    # placeholders: {term}, {fix}. The severity is NOT the default: it comes from
+    # the coded_terms.yaml tier the term was found in (medium or low).
+    messages:
+      default: >-
+        The term "{term}" is coded or gendered and may deter applicants.
+    recommendations:
+      default: Replace it with {fix}.
+
+  # --- quality gates: SFU "never approve" (Part 11.6) -----------------------
+  - rule_id: SFU-GATE-DUTY-PCT
+    category: structure
+    section: duties
+    source_part: Part 11.6
+    default_severity: medium
+    title: Duty time-allocations total 100%
+    owner: deterministic
+    # placeholders: {total}
+    messages:
+      default: "Duty time-allocations total {total}%, not 100%."
+    recommendations:
+      default: "Adjust the per-duty (%) allocations so they sum to 100%."
+
+  - rule_id: SFU-GATE-KSA-ORDER
+    category: qualification_standard
+    section: qualifications
+    source_part: Part 5.4
+    default_severity: low
+    title: Qualifications run Knowledge -> Skills -> Abilities
+    owner: deterministic
+    messages:
+      default: Knowledge / Skills / Abilities are out of order.
+    recommendations:
+      default: >-
+        Order qualifications Knowledge, then Skills, then Abilities (K -> S -> A).
+
+  - rule_id: SFU-GATE-SENIOR-TITLE
+    category: structure
+    section: identification
+    source_part: Part 3.5
+    default_severity: low
+    title: "'Senior' prefix implies supervisory scope"
+    owner: deterministic
+    messages:
+      default: >-
+        The "Senior" prefix implies supervising junior roles, but no supervisory
+        scope is stated.
+    recommendations:
+      default: >-
+        Reserve "Senior" for roles supervising junior peers in the same area, or
+        state the supervisory scope.
+
+  - rule_id: SFU-GATE-REL-HEADER
+    category: completeness
+    section: relationships
+    source_part: Part 2F
+    default_severity: low
+    title: Standardized Relationships header present
+    owner: deterministic
+    messages:
+      default: The standardized Relationships header is missing.
+    recommendations:
+      default: >-
+        Add the standard Relationships paragraph ("Establishes and maintains
+        relationships and alliances…").
+
+  # --- authoring gates (Parts 2-3) ------------------------------------------
+  - rule_id: SFU-AUTH-SUMMARY-CONDITIONS
+    category: structure
+    section: position_summary
+    source_part: Part 2B
+    default_severity: medium
+    title: No working conditions in the Position Summary
+    owner: deterministic
+    messages:
+      default: The Position Summary describes working conditions.
+    recommendations:
+      default: >-
+        Move hours / on-call / housing / parking out; the summary states the
+        role's purpose, not its conditions.
+
+  - rule_id: SFU-AUTH-SUMMARY-INCUMBENT
+    category: structure
+    section: position_summary
+    source_part: Part 2B
+    default_severity: low
+    title: Position Summary describes the position, not the incumbent
+    owner: deterministic
+    messages:
+      default: >-
+        The Position Summary uses first-person / incumbent-focused language.
+    recommendations:
+      default: >-
+        Describe the position, not the person — avoid "my"/"I am"; use the role or
+        "the incumbent".
+
+  - rule_id: SFU-AUTH-ABILITIES-OBSERVABLE
+    category: qualification_standard
+    section: qualifications
+    source_part: Part 5.3
+    default_severity: low
+    title: Abilities read as observable behaviour
+    owner: deterministic
+    # placeholders: {count}
+    messages:
+      default: >-
+        {count} ability item(s) aren't phrased as observable behaviour.
+    recommendations:
+      default: 'Start each ability with "Ability to <observable behaviour>".'
+
+  # The three restricted titles below are matched from titles.yaml, which names
+  # the rule_id it raises. Keep the two files in step — the loader cross-checks.
+  - rule_id: SFU-AUTH-TITLE-EXEC-DIR
+    category: structure
+    section: identification
+    source_part: Part 3.5
+    default_severity: low
+    title: "'Executive Director' reserved for APEX"
+    owner: deterministic
+    # placeholders: {employee_group}
+    messages:
+      default: >-
+        The "Executive Director" title is reserved for APEX-classified roles.
+    recommendations:
+      default: >-
+        This role's group is {employee_group}; confirm APEX or choose another
+        title.
+
+  - rule_id: SFU-AUTH-TITLE-REGISTRAR
+    category: structure
+    section: identification
+    source_part: Part 3.5
+    default_severity: info
+    title: "'Registrar' reserved for Student Services"
+    owner: deterministic
+    messages:
+      default: >-
+        The "Registrar" title is reserved for registrarial roles in Student
+        Services.
+    recommendations:
+      default: Confirm the role sits within AVPSI Student Services, or retitle.
+
+  - rule_id: SFU-AUTH-TITLE-HR
+    category: structure
+    section: identification
+    source_part: Part 3.5
+    default_severity: info
+    title: "'Human Resources' reserved for SFU HR"
+    owner: deterministic
+    messages:
+      default: >-
+        The "Human Resources" title is reserved for roles within SFU HR.
+    recommendations:
+      default: 'Outside SFU HR, replace "Human Resources" with "personnel".'
+
+# --- section presentation ----------------------------------------------------
+
+# The 10 SFU template sections, in TEMPLATE ORDER. The cross-cutting "general"
+# bucket is deliberately absent: build_checklist appends it only when it holds
+# findings (inclusive language, placeholders, uncatalogued LLM findings).
+section_order:
+  - about_sfu
+  - identification
+  - position_summary
+  - duties
+  - decision_making
+  - problem_solving
+  - relationships
+  - qualifications
+  - edi_footer
+  - additional_context
+
+# Human labels for the checklist. Must cover every SFUSection, "general" included.
+section_labels:
+  about_sfu: About SFU
+  identification: Identification
+  position_summary: Position Summary
+  duties: Duties & Responsibilities
+  decision_making: Impact of Decision Making
+  problem_solving: Problem Solving & Level of Supervision
+  relationships: Relationships
+  qualifications: Qualifications
+  edi_footer: Territorial Acknowledgement & EDI
+  additional_context: Additional Contextual Information
+  general: General (whole document)
+
+# Where an issue with no catalogued rule_id (i.e. an LLM finding) lands, by its
+# category. Cross-cutting categories fall to "general". Must cover every
+# JDIssueCategory.
+category_fallback_section:
+  completeness: general
+  structure: general
+  qualification_standard: qualifications
+  matchability: general
+  over_specification: qualifications
+  keyword_stuffing: qualifications
+  seniority_mismatch: identification
+  inclusive_language: general
+  clarity: general
