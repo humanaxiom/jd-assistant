@@ -1,0 +1,22 @@
+"""Deterministic JD parser — clean text → segmented ``SFUJobDescription``.
+
+The Phase-1.4 parse step: a no-LLM section segmenter tolerant of both the OLD
+and NEW SFU JD templates, with per-section confidence. See
+:mod:`jd_core.parser.segmenter` for the algorithm and
+:mod:`jd_core.parser.headings` for the versioned heading-pattern data.
+"""
+
+from __future__ import annotations
+
+from src.jd_core.parser.headings import Era, SectionKey
+from src.jd_core.parser.segmenter import PARSER_VERSION, ParseResult, parse_jd
+from src.jd_core.parser.store import parse_and_store
+
+__all__ = [
+    "PARSER_VERSION",
+    "Era",
+    "ParseResult",
+    "SectionKey",
+    "parse_and_store",
+    "parse_jd",
+]
