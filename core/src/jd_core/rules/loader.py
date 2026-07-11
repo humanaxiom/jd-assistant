@@ -29,10 +29,11 @@ source extract is ``docs/rulebook/sfu-reference.md``, the rulebook itself is
 
 from __future__ import annotations
 
+import datetime as dt
 import importlib.resources
 import itertools
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence, Set
 from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
@@ -69,6 +70,9 @@ RuleOwner = Literal["deterministic", "llm"]
 
 #: The cross-cutting checklist bucket — labelled, but not a template section.
 GENERAL_SECTION: Final[SFUSection] = "general"
+
+#: The HR decision register — a rule file that describes the *other* rule files.
+REGISTER_FILE: Final[str] = "decision_register.yaml"
 
 
 class RulesError(RuntimeError):
@@ -292,6 +296,11 @@ class Titles(_RuleFile):
             raise ValueError("restricted title keys must be unique")
         return titles
 
+    @property
+    def by_id(self) -> Mapping[str, RestrictedTitle]:
+        """Every restricted title, keyed by its stable ``key``."""
+        return _freeze({title.key: title for title in self.restricted})
+
 
 class GradeBand(BaseModel):
     """A grade's lower score cutoff (``score >= min_score`` -> ``grade``)."""
@@ -473,6 +482,28 @@ class RuleCatalog(_RuleFile):
     def by_id(self) -> Mapping[str, RuleSpec]:
         """Every rule, keyed by ``rule_id`` (the lookup validators use)."""
         return _freeze({spec.rule_id: spec for spec in self.rules})
+
+    @property
+    def rules_by_severity(self) -> Mapping[str, tuple[str, ...]]:
+        """The rule ids at each severity — the *second route to blocking*.
+
+        A rule does not only block approval by being named in a gate's
+        ``rule_ids``: :class:`SeverityFloorGate` blocks on *any* finding at or
+        above its ``min_severity``, so raising a rule's ``default_severity`` to
+        the floor silently promotes it to blocking. Membership of these tiers is
+        therefore a policy fact, and the HR decision register pins the tiers that
+        reach the floor — demote or promote any rule across it and the build
+        fails.
+        """
+        by_severity: dict[str, list[str]] = {severity: [] for severity in _SEVERITIES}
+        for spec in self.rules:
+            by_severity[spec.default_severity].append(spec.rule_id)
+        return _freeze(
+            {
+                severity: tuple(sorted(rule_ids))
+                for severity, rule_ids in by_severity.items()
+            }
+        )
 
     def spec(self, rule_id: str) -> RuleSpec:
         """The rule ``rule_id``, or :class:`RulesError` if it is not catalogued."""
@@ -672,13 +703,28 @@ class GatePolicy(_RuleFile):
 
     @property
     def blocking_rule_ids(self) -> frozenset[str]:
-        """Every rule the policy will refuse to approve over ("never approve if…")."""
+        """Every rule the policy will refuse to approve over ("never approve if…").
+
+        A *derived* view of the whole policy, and the single most reviewable thing
+        in it: the HR decision register pins this set, so promoting or demoting
+        ANY rule — in any gate — breaks the build until the register says so.
+        """
         return frozenset(
             rule_id
             for gate in self.gates
             if isinstance(gate, BlockingRulesGate)
             for rule_id in gate.rule_ids
         )
+
+    @property
+    def non_overridable_gate_ids(self) -> frozenset[str]:
+        """The gates NO reviewer may waive, even with a written reason.
+
+        The other derived view the register pins: removing a reviewer's discretion
+        (or handing it back) is a policy change, and this is the one value that
+        moves whichever gate's ``overridable`` flag is flipped.
+        """
+        return frozenset(gate.gate_id for gate in self.gates if not gate.overridable)
 
     def severity_rank(self, severity: JDIssueSeverity) -> int:
         """``severity``'s rank — higher is worse. Total, by construction."""
@@ -687,6 +733,237 @@ class GatePolicy(_RuleFile):
     def grade_rank(self, grade: JDGrade) -> int:
         """``grade``'s rank — higher is better. Total, by construction."""
         return self.grade_order.index(grade)
+
+
+# --- the HR decision register (decision_register.yaml) -----------------------
+#
+# The register is DATA, not a document, for one reason: a prose register rots
+# silently, and a rotted register is worse than none — it *looks* like the policy
+# was ratified. As data it is cross-checked against the rules it describes:
+# `resolve_config_path` proves every entry still points at a live config key (at
+# load — a renamed key is a `RulesError`), and `check_register` proves every
+# `current_default` still equals the live value and every parameter on the
+# decision surface is either registered or explicitly exempted (at `get_rules`
+# and in the gate suite). Tuning a threshold without telling HR breaks the build.
+
+
+#: Where a shipped default came from. The single most useful column for HR: it
+#: separates "SFU already decided this, we transcribed it" from "we made it up".
+DecisionProvenance = Literal[
+    # Transcribed from SFU's published rulebook / Toolkit. `source_part` required.
+    "sfu_rulebook",
+    # Inherited from the hris pipeline's calibration (RULES_VERSION
+    # jd_rules_sfu_v3). Not an SFU-published number.
+    "hris_calibration",
+    # JD Bank's own default. Nobody has ratified it. These are what HR must look
+    # at first.
+    "our_invention",
+]
+
+#: Where a decision stands. `open` = we defaulted it; `ratified` = HR decided it;
+#: `deferred` = HR consciously postponed it (a decision in its own right).
+DecisionStatus = Literal["open", "ratified", "deferred"]
+
+#: The field a list-of-models is addressed by in a config path, in priority order
+#: — so a path names a gate/rule/title/grade by its stable id, never by a list
+#: index (which reordering the YAML would silently re-point).
+_IDENTITY_FIELDS: Final[tuple[str, ...]] = ("gate_id", "rule_id", "key", "grade")
+
+
+class ConfigRef(BaseModel):
+    """Where a decision is configured: the YAML file, and a dotted key path.
+
+    ``path`` is rooted at the :class:`Rules` field of the same name as the file's
+    stem (``gates.yaml`` -> ``gates.…``), and is resolved against the *real loaded
+    rules* by :func:`resolve_config_path`. It is deliberately expressive enough to
+    name the thing that is actually decided:
+
+    * ``thresholds.duties_max``                    — a scalar field
+    * ``gates.SFU-APPROVE-SCORE-FLOOR.min_score``  — a gate, by its ``gate_id``
+    * ``scoring.grade_bands.C.min_score``          — a band, by its ``grade``
+    * ``scoring.severity_penalty.high``            — a mapping entry
+    * ``coded_terms.low``                          — a whole lexicon tier
+    * ``action_verbs.approved.accountable``        — membership of a set (bool)
+    * ``gates.blocking_rule_ids``                  — a *derived* view: the whole
+      "never approve if…" set, so promoting or demoting ANY rule breaks the build
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    file: str = Field(min_length=1)
+    path: str = Field(min_length=1)
+
+    @field_validator("file")
+    @classmethod
+    def _is_a_rule_file(cls, name: str) -> str:
+        if name not in RULE_FILES or name == REGISTER_FILE:
+            raise ValueError(
+                f"config.file must be one of the rule files "
+                f"{sorted(set(RULE_FILES) - {REGISTER_FILE})}, got {name!r}"
+            )
+        return name
+
+    @model_validator(mode="after")
+    def _path_is_rooted_in_the_file(self) -> ConfigRef:
+        root = self.file.removesuffix(".yaml")
+        if self.path.split(".")[0] != root:
+            raise ValueError(
+                f"config path {self.path!r} must start with {root!r} — it names a "
+                f"key in {self.file}"
+            )
+        if any(not segment for segment in self.path.split(".")):
+            raise ValueError(f"config path {self.path!r} has an empty segment")
+        return self
+
+    def __str__(self) -> str:
+        return f"{self.file} :: {self.path}"
+
+
+class HRDecision(BaseModel):
+    """One policy call SFU HR must make — and what we ship until they do."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: str = Field(pattern=r"^HR-\d{3}$")
+    #: The decision, in HR's language — not the parameter's name.
+    question: str = Field(min_length=1)
+    config: ConfigRef
+    #: What we ship today. Cross-checked against the live value (`check_register`)
+    #: — this is what makes "review the config against the register" real.
+    current_default: Any = None
+    provenance: DecisionProvenance
+    #: The rulebook part the default is transcribed from. Required for — and only
+    #: meaningful for — `sfu_rulebook` provenance.
+    source_part: str | None = None
+    why_it_matters: str = Field(min_length=1)
+    impact_if_changed: str = Field(min_length=1)
+    status: DecisionStatus = "open"
+    decided_by: str | None = None
+    decided_on: dt.date | None = None
+    decision_note: str | None = None
+
+    @model_validator(mode="after")
+    def _provenance_cites_its_source(self) -> HRDecision:
+        if self.provenance == "sfu_rulebook" and not (self.source_part or "").strip():
+            raise ValueError(
+                f"{self.id}: provenance 'sfu_rulebook' must cite a source_part"
+            )
+        if self.provenance != "sfu_rulebook" and self.source_part is not None:
+            raise ValueError(
+                f"{self.id}: source_part is only meaningful for 'sfu_rulebook' "
+                f"provenance — {self.provenance!r} defaults are not in the rulebook"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _decision_fields_match_the_status(self) -> HRDecision:
+        """A ratified entry carries who decided, when, and what they said; an open
+        one must not (an open decision with a decider is a lie in the register)."""
+        decided = {
+            "decided_by": self.decided_by,
+            "decided_on": self.decided_on,
+            "decision_note": self.decision_note,
+        }
+        if self.status == "ratified":
+            missing = sorted(k for k, v in decided.items() if v is None)
+            if missing:
+                raise ValueError(
+                    f"{self.id}: a ratified decision must record {missing}"
+                )
+        elif self.status == "open":
+            present = sorted(k for k, v in decided.items() if v is not None)
+            if present:
+                raise ValueError(
+                    f"{self.id}: an open decision must not record {present} — "
+                    f"set status to 'ratified' or 'deferred'"
+                )
+        return self
+
+
+class TrivialExemption(BaseModel):
+    """A decision-surface parameter that is NOT a policy call at this path, and why.
+
+    The escape hatch that keeps the coverage check honest: it is explicit, it is
+    reviewed, and it must say *why*. A parameter that is neither registered nor
+    exempted breaks the build.
+
+    Two honest kinds of exemption, and no third:
+
+    * **not a decision at all** — presentation, or definitional given something
+      else (``scoring.fallback_grade`` is F because F is what sits below the last
+      band).
+    * **decided elsewhere** — ``covered_by`` names the register entry that pins
+      it. Each gate's ``overridable`` flag is a member of the un-waivable set that
+      HR-005 pins as a whole, so flipping any one of them still breaks the build;
+      registering all fourteen separately would only add noise.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    config: ConfigRef
+    reason: str = Field(min_length=30)
+    #: The HR-### entry that carries this decision, when it is decided elsewhere.
+    #: Validated against the register's ids — a dangling reference is a load error.
+    covered_by: str | None = Field(default=None, pattern=r"^HR-\d{3}$")
+
+
+class DecisionRegister(_RuleFile):
+    """The HR decision register (``decision_register.yaml``)."""
+
+    decisions: tuple[HRDecision, ...] = Field(min_length=1)
+    trivial: tuple[TrivialExemption, ...] = Field(default=())
+
+    @model_validator(mode="after")
+    def _ids_and_paths_are_unique(self) -> DecisionRegister:
+        ids = [d.id for d in self.decisions]
+        duplicates = sorted({i for i in ids if ids.count(i) > 1})
+        if duplicates:
+            raise ValueError(f"duplicate decision id(s): {duplicates}")
+
+        registered = [d.config.path for d in self.decisions]
+        exempt = [t.config.path for t in self.trivial]
+        both = sorted(set(registered) & set(exempt))
+        if both:
+            raise ValueError(
+                f"config path(s) {both} are both registered and declared trivial — "
+                f"a parameter is a decision or it is not"
+            )
+        for label, paths in (("registered", registered), ("trivial", exempt)):
+            repeats = sorted({p for p in paths if paths.count(p) > 1})
+            if repeats:
+                raise ValueError(f"duplicate {label} config path(s): {repeats}")
+
+        dangling = sorted(
+            {
+                t.covered_by
+                for t in self.trivial
+                if t.covered_by is not None and t.covered_by not in set(ids)
+            }
+        )
+        if dangling:
+            raise ValueError(
+                f"trivial exemption(s) name covered_by decision id(s) that do not "
+                f"exist: {dangling}"
+            )
+        return self
+
+    @property
+    def by_id(self) -> Mapping[str, HRDecision]:
+        return _freeze({d.id: d for d in self.decisions})
+
+    @property
+    def registered_paths(self) -> frozenset[str]:
+        """Every config path the register pins a ``current_default`` for."""
+        return frozenset(d.config.path for d in self.decisions)
+
+    @property
+    def exempt_paths(self) -> frozenset[str]:
+        """Every config path explicitly declared not-a-decision."""
+        return frozenset(t.config.path for t in self.trivial)
+
+    def by_status(self, status: DecisionStatus) -> tuple[HRDecision, ...]:
+        in_status = (d for d in self.decisions if d.status == status)
+        return tuple(sorted(in_status, key=lambda d: d.id))
 
 
 class Rules(BaseModel):
@@ -705,6 +982,7 @@ class Rules(BaseModel):
     scoring: Scoring
     rule_catalog: RuleCatalog
     gates: GatePolicy
+    decision_register: DecisionRegister
 
     @model_validator(mode="after")
     def _restricted_titles_are_catalogued(self) -> Rules:
@@ -732,6 +1010,347 @@ class Rules(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def _register_entries_point_at_live_config(self) -> Rules:
+        """Every register entry still names a real key in the real rules.
+
+        A renamed or deleted config key is caught **here**, at load — the register
+        can never quietly come to describe a parameter that no longer exists.
+        (Whether each ``current_default`` still *equals* the live value, and
+        whether the whole decision surface is accounted for, is
+        :func:`check_register` — enforced on the shipped rulebook by
+        :func:`get_rules` and by the gate suite. It is deliberately not enforced
+        here, so a scratch ``load_rules(directory)`` can still explore a tuned
+        policy without having to hand-edit the register first.)
+        """
+        register = self.decision_register
+        refs = [(d.id, d.config) for d in register.decisions] + [
+            ("trivial", t.config) for t in register.trivial
+        ]
+        for owner, ref in refs:
+            try:
+                resolve_config_path(self, ref.path)
+            except RulesError as exc:
+                raise ValueError(f"decision_register.yaml [{owner}]: {exc}") from exc
+        return self
+
+
+# --- config paths: addressing the rules the register talks about --------------
+
+
+def _identity_of(item: BaseModel) -> tuple[str, str] | None:
+    """The ``(field, value)`` a list item is addressed by, if it has one."""
+    for field in _IDENTITY_FIELDS:
+        if field in type(item).model_fields:
+            return field, str(getattr(item, field))
+    return None
+
+
+def _step(node: Any, segment: str, path: str, walked: str) -> Any:
+    """Walk one ``.``-separated segment of a config path. Raises RulesError."""
+
+    def fail(detail: str) -> RulesError:
+        return RulesError(
+            f"config path {path!r} does not resolve: {detail} (at {walked!r})"
+        )
+
+    if segment.startswith("_"):
+        raise fail(f"segment {segment!r} is private")
+
+    if isinstance(node, BaseModel):
+        model = type(node)
+        is_field = segment in model.model_fields
+        is_property = isinstance(getattr(model, segment, None), property)
+        if is_field or is_property:
+            value = getattr(node, segment)
+            if callable(value):
+                raise fail(f"{segment!r} is a method, not a config value")
+            return value
+        # A model that keys its members (`GatePolicy`, `RuleCatalog`, `Titles`) is
+        # addressable by them directly: `gates.SFU-APPROVE-SCORE-FLOOR.min_score`
+        # reads as the policy does, and names the gate by its stable id rather
+        # than by a list position the YAML could reorder.
+        keyed = getattr(node, "by_id", None)
+        if isinstance(keyed, Mapping):
+            members = cast(Mapping[str, Any], keyed)
+            if segment in members:
+                return members[segment]
+            raise fail(
+                f"{model.__name__} has no field or member {segment!r}; members: "
+                f"{sorted(members)}"
+            )
+        raise fail(
+            f"{model.__name__} has no {segment!r}; known fields: "
+            f"{sorted(model.model_fields)}"
+        )
+
+    if isinstance(node, Mapping):
+        if segment not in node:
+            raise fail(f"mapping has no key {segment!r}")
+        return node[segment]
+
+    # A set is addressed by MEMBERSHIP: `action_verbs.approved.accountable` is
+    # True/False. That is what lets the register pin a contested member of a big
+    # word list without inlining the whole list.
+    if isinstance(node, Set):
+        return segment in node
+
+    if isinstance(node, Sequence) and not isinstance(node, str | bytes):
+        items = list(node)
+        if not all(isinstance(item, BaseModel) for item in items):
+            raise fail("a list of plain values cannot be addressed by key")
+        for item in items:
+            identity = _identity_of(cast(BaseModel, item))
+            if identity is not None and identity[1] == segment:
+                return item
+        known = sorted(
+            i[1]
+            for i in (_identity_of(cast(BaseModel, item)) for item in items)
+            if i is not None
+        )
+        raise fail(f"no list item identified by {segment!r}; known: {known}")
+
+    raise fail(f"{type(node).__name__} cannot be addressed by {segment!r}")
+
+
+def resolve_config_path(rules: Rules, path: str) -> Any:
+    """The live value at ``path`` in ``rules``.
+
+    Raises:
+        RulesError: the path does not resolve — a register entry naming a config
+            key that no longer exists.
+    """
+    node: Any = rules
+    walked: list[str] = []
+    for segment in path.split("."):
+        node = _step(node, segment, path, ".".join(walked) or "<rules>")
+        walked.append(segment)
+    return node
+
+
+def normalize_config_value(value: Any, path: str) -> Any:
+    """A config value in the plain form the register writes it down in.
+
+    The comparison contract between ``current_default`` and the live rules:
+
+    * scalars (and ``None``) compare as themselves;
+    * a **set** compares as its sorted members (``["excellent","none","working"]``);
+    * a **mapping** compares as the whole mapping — keys *and* values. It is
+      tempting to compare only the key set (a lexicon "decision" looks like *which
+      terms are flagged*), but the values carry policy too: ``ksa_rank`` is a
+      mapping whose *values* are the Knowledge -> Skills -> Abilities order that a
+      blocking gate enforces, and permuting them while keeping the keys would slip
+      past a key-set comparison;
+    * a list/tuple of plain values compares as a list, in file order;
+    * a regex compares as its pattern source.
+
+    Raises:
+        RulesError: the path stops on a whole model (or a list of them) — the
+            register must name the parameter that is decided, not the object that
+            contains it.
+    """
+    if isinstance(value, BaseModel):
+        raise RulesError(
+            f"config path {path!r} names a whole {type(value).__name__}; a register "
+            f"entry must name the parameter that is decided (e.g. "
+            f"{path}.<field>)"
+        )
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    if isinstance(value, re.Pattern):
+        return cast(re.Pattern[str], value).pattern
+    if isinstance(value, Set):
+        return sorted(cast(Set[str], value))
+    if isinstance(value, Mapping):
+        entries = cast(Mapping[str, Any], value)
+        return {key: normalize_config_value(entries[key], path) for key in entries}
+    if isinstance(value, Sequence):
+        items = list(value)
+        if any(isinstance(item, BaseModel) for item in items):
+            raise RulesError(
+                f"config path {path!r} names a list of objects; address one of them "
+                f"by its id (e.g. {path}.<id>.<field>)"
+            )
+        return items
+    raise RulesError(  # pragma: no cover - defensive
+        f"config path {path!r} resolves to an unsupported type "
+        f"{type(value).__name__}"
+    )
+
+
+def live_value(rules: Rules, path: str) -> Any:
+    """The normalized live value at ``path`` — what a ``current_default`` must equal."""
+    return normalize_config_value(resolve_config_path(rules, path), path)
+
+
+# --- the decision surface: what MUST be registered or explicitly exempted ------
+
+
+#: Rule files whose EVERY field is a decision-surface parameter. These files are
+#: flat tables of matchers and limits — a word list, a regex, a threshold — and
+#: every one of them changes what the validators fire on. Enumerating them
+#: field-by-field means a new key in any of them is on the surface the moment it
+#: is added, with no enumerator change.
+_FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
+    "thresholds",
+    "patterns",
+    "qualifications",
+    "action_verbs",
+    "markers",
+)
+
+
+def decision_surface(rules: Rules) -> frozenset[str]:
+    """Every parameter of the loaded rules that carries a policy judgement.
+
+    Enumerated **from the rules themselves**, not from a hand-kept list — so a
+    gate, threshold, regex, word list, penalty, grade band, lexicon tier,
+    restricted title or catalogued rule added later shows up here automatically,
+    and the coverage check (:func:`check_register`) breaks the build until
+    someone says whether HR must decide it.
+
+    **All ten rule files are walked.** The surface is everything that can change
+    what the system decides about a JD:
+
+    * ``gates.yaml`` — the approval policy: each gate's overridability and the
+      parameter it measures, plus two *derived* views of the policy as a whole
+      (:attr:`GatePolicy.blocking_rule_ids`,
+      :attr:`GatePolicy.non_overridable_gate_ids`).
+    * ``thresholds`` / ``patterns`` / ``qualifications`` / ``action_verbs`` /
+      ``markers`` — every field. These are the matchers the validators fire on: a
+      regex, a banned phrase, an approved verb, a placeholder marker. Three of
+      them (``patterns.incumbent``, ``patterns.senior_title``,
+      ``qualifications.ksa_rank``) feed *blocking* gates, so a change to them is a
+      change to the approval bar.
+    * ``scoring.yaml`` — the scale, the per-severity penalties, the decay, the
+      grade bands.
+    * ``coded_terms.yaml`` — each severity tier of the lexicon.
+    * ``titles.yaml`` — each restricted title's severity and reserved group.
+    * ``rule_catalog.yaml`` — each rule's ``default_severity``, **and** the derived
+      set of rules that sit at or above a severity floor
+      (:attr:`RuleCatalog.rules_by_severity`). Severity is not merely a score
+      weight: a rule promoted to the floor's severity starts blocking approval
+      through :class:`SeverityFloorGate` without ever being named in a gate's
+      ``rule_ids``. That is a second route to blocking, and it is on the surface.
+
+    Pure copy (messages, recommendations, titles, notes) is not on the surface.
+    """
+    paths: set[str] = {
+        # the two derived views of the whole policy: promoting/demoting ANY rule
+        # moves the first, flipping ANY gate's overridability moves the second
+        "gates.blocking_rule_ids",
+        "gates.non_overridable_gate_ids",
+        "gates.max_listed",
+        "gates.severity_order",
+        "gates.grade_order",
+    }
+    for gate in rules.gates.gates:
+        paths.add(f"gates.{gate.gate_id}.overridable")
+        if isinstance(gate, BlockingRulesGate):
+            paths.add(f"gates.{gate.gate_id}.rule_ids")
+        elif isinstance(gate, SeverityFloorGate):
+            paths.add(f"gates.{gate.gate_id}.min_severity")
+            # ...and the THIRD route to blocking: every rule whose default
+            # severity already reaches this floor. Promote a `low` drafting nudge
+            # to `high` and it starts blocking approval without appearing in any
+            # gate's rule_ids — so the membership of each such tier is registered.
+            floor = rules.gates.severity_rank(gate.min_severity)
+            paths |= {
+                f"rule_catalog.rules_by_severity.{severity}"
+                for severity in rules.gates.severity_order
+                if rules.gates.severity_rank(severity) >= floor
+            }
+        elif isinstance(gate, ScoreFloorGate):
+            paths.add(f"gates.{gate.gate_id}.min_score")
+        elif isinstance(gate, GradeFloorGate):
+            paths.add(f"gates.{gate.gate_id}.min_grade")
+
+    # thresholds / patterns / qualifications / action_verbs / markers: every field
+    for file_field in _FLAT_SURFACE_FILES:
+        rule_file = cast(_RuleFile, getattr(rules, file_field))
+        paths |= {
+            f"{file_field}.{field}"
+            for field in type(rule_file).model_fields
+            if field != "version"
+        }
+
+    paths |= {
+        "scoring.max_score",
+        "scoring.min_score",
+        "scoring.severity_decay",
+        "scoring.fallback_grade",
+    }
+    paths |= {
+        f"scoring.severity_penalty.{sev}" for sev in rules.scoring.severity_penalty
+    }
+    paths |= {
+        f"scoring.grade_bands.{band.grade}.min_score"
+        for band in rules.scoring.grade_bands
+    }
+
+    paths |= {f"coded_terms.{severity}" for severity, _ in rules.coded_terms.tiers}
+
+    for title in rules.titles.restricted:
+        paths.add(f"titles.{title.key}.severity")
+        paths.add(f"titles.{title.key}.reserved_for_employee_group")
+
+    paths |= {
+        f"rule_catalog.{spec.rule_id}.default_severity"
+        for spec in rules.rule_catalog.rules
+    }
+    return frozenset(paths)
+
+
+def check_register(rules: Rules) -> tuple[str, ...]:
+    """Problems that make the register a lie. Empty tuple == in step.
+
+    Three ways the register can rot, all of them build-breaking:
+
+    1. **drift** — a ``current_default`` no longer equals the live value. Someone
+       tuned a threshold in YAML and did not tell HR.
+    2. **an unregistered parameter** — something on the decision surface is
+       neither a register entry nor an explicit ``trivial:`` exemption. Someone
+       added a gate/threshold/penalty and never decided whether HR must ratify it.
+    3. **a stale exemption** — a ``trivial:`` entry for a path that is not (or is
+       no longer) on the decision surface: dead weight that would silently absorb
+       a future real decision at the same path.
+    """
+    problems: list[str] = []
+    register = rules.decision_register
+
+    for decision in sorted(register.decisions, key=lambda d: d.id):
+        actual = live_value(rules, decision.config.path)
+        if actual != decision.current_default:
+            problems.append(
+                f"{decision.id}: current_default {decision.current_default!r} != live "
+                f"{actual!r} at {decision.config}. The config was changed without "
+                f"updating the HR decision register."
+            )
+
+    surface = decision_surface(rules)
+    accounted = register.registered_paths | register.exempt_paths
+    for path in sorted(surface - accounted):
+        problems.append(
+            f"{path} is on the decision surface but is neither a register entry nor "
+            f"an explicit `trivial:` exemption in decision_register.yaml."
+        )
+    for path in sorted(register.exempt_paths - surface):
+        problems.append(
+            f"{path} is declared trivial but is not on the decision surface — remove "
+            f"the stale exemption."
+        )
+    return tuple(problems)
+
+
+def assert_register_in_step(rules: Rules) -> None:
+    """:func:`check_register`, as a hard failure. Raises :class:`RulesError`."""
+    problems = check_register(rules)
+    if problems:
+        raise RulesError(
+            "The HR decision register is out of step with the rules it describes:\n  - "
+            + "\n  - ".join(problems)
+        )
+
 
 # --- loading -----------------------------------------------------------------
 
@@ -746,6 +1365,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     ("scoring.yaml", "scoring", Scoring),
     ("rule_catalog.yaml", "rule_catalog", RuleCatalog),
     ("gates.yaml", "gates", GatePolicy),
+    (REGISTER_FILE, "decision_register", DecisionRegister),
 )
 
 #: Every YAML file that makes up the rulebook, in load order.
@@ -821,5 +1441,17 @@ def get_rules() -> Rules:
     """The shipped rulebook — parsed once, cached, frozen.
 
     The single accessor every consumer (validators, gate runner, composer) uses.
+
+    The **shipped** rulebook must also be in step with its HR decision register
+    (:func:`assert_register_in_step`): every registered ``current_default`` still
+    equals the live value, and no parameter on the decision surface is
+    unaccounted for. A JD Bank process whose thresholds have drifted away from
+    what HR was told they are is validating against a policy nobody agreed to, so
+    it must not start.
+
+    Raises:
+        RulesError: the rulebook is malformed, or its register has drifted.
     """
-    return load_rules()
+    rules = load_rules()
+    assert_register_in_step(rules)
+    return rules

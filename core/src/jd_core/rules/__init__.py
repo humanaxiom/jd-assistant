@@ -18,14 +18,20 @@ version.
 
 from src.jd_core.rules.loader import (
     GENERAL_SECTION,
+    REGISTER_FILE,
     RULE_FILES,
     ActionVerbs,
     BlockingRulesGate,
     CodedTerms,
+    ConfigRef,
+    DecisionProvenance,
+    DecisionRegister,
+    DecisionStatus,
     GatePolicy,
     GateSpec,
     GradeBand,
     GradeFloorGate,
+    HRDecision,
     Markers,
     Patterns,
     Qualifications,
@@ -40,20 +46,38 @@ from src.jd_core.rules.loader import (
     SeverityFloorGate,
     Thresholds,
     Titles,
+    TrivialExemption,
+    assert_register_in_step,
+    check_register,
+    decision_surface,
     get_rules,
+    live_value,
     load_rules,
+    normalize_config_value,
+    resolve_config_path,
 )
+
+# NOTE: `src.jd_core.rules.render` is deliberately NOT re-exported here. It is the
+# register's *view* (and a `python -m` entry point the Makefile runs); importing it
+# from this package would make `-m` re-execute an already-imported module. Import it
+# directly: `from src.jd_core.rules.render import render_register`.
 
 __all__ = [
     "GENERAL_SECTION",
+    "REGISTER_FILE",
     "RULE_FILES",
     "ActionVerbs",
     "BlockingRulesGate",
     "CodedTerms",
+    "ConfigRef",
+    "DecisionProvenance",
+    "DecisionRegister",
+    "DecisionStatus",
     "GatePolicy",
     "GateSpec",
     "GradeBand",
     "GradeFloorGate",
+    "HRDecision",
     "Markers",
     "Patterns",
     "Qualifications",
@@ -68,6 +92,13 @@ __all__ = [
     "SeverityFloorGate",
     "Thresholds",
     "Titles",
+    "TrivialExemption",
+    "assert_register_in_step",
+    "check_register",
+    "decision_surface",
     "get_rules",
+    "live_value",
     "load_rules",
+    "normalize_config_value",
+    "resolve_config_path",
 ]

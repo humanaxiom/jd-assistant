@@ -1,0 +1,1734 @@
+# SFU HR DECISION REGISTER — RULEBOOK AS DATA (CLAUDE.md §2), and the ledger for
+# CLAUDE.md §1 (HUMAN APPROVAL: nothing about the approval bar is ours to settle).
+#
+# WHAT THIS IS
+# Every policy call JD Bank currently makes *by default* because SFU HR has not yet
+# made it. Each entry names the question in HR's language, the value we ship today,
+# EXACTLY where that value is configured, and — the column that matters most —
+# whether the default came from SFU's published rulebook, from the hris pipeline we
+# inherited, or from nobody but us.
+#
+# WHY IT IS DATA AND NOT A DOCUMENT
+# A prose register rots silently, and a rotted register is worse than none: it makes
+# an unratified default *look* ratified. This file is machine-checked against the
+# rules it describes, three ways, all build-breaking (see rules/loader.py):
+#
+#   1. every `config` path must RESOLVE against the real loaded rules — rename or
+#      delete a config key and the loader raises RulesError (loader: at load);
+#   2. every `current_default` must EQUAL the live value at that path — tune a
+#      threshold in YAML without telling HR and `get_rules()` and `make gates` fail
+#      (loader: `check_register`);
+#   3. every parameter on the DECISION SURFACE (enumerated from the rules
+#      themselves: each gate, threshold, penalty, grade band, coded-term tier,
+#      restricted title, and catalogued rule severity) must be either an entry
+#      below or an explicit `trivial:` exemption WITH A REASON — add a gate or a
+#      threshold and forget to decide, and the build fails.
+#
+# So: "review the config against the register later" is not a promise, it is a gate.
+# The human-readable view (docs/decisions/HR-DECISION-REGISTER.md) is RENDERED from
+# this file by `make register` and drift-checked in CI — never hand-edited.
+#
+# HOW TO CHANGE A DEFAULT (no code change, ever)
+#   1. edit the value in its rules YAML;
+#   2. update this register's `current_default` to match, and set `status: ratified`
+#      with `decided_by` / `decided_on` / `decision_note` if HR made the call.
+# Two data edits. Nothing in src/jd_core/quality/ is touched.
+#
+# FIELDS
+#   id               stable HR-###; never reused
+#   question         the decision, as HR would ask it
+#   config           file + dotted path into the loaded rules (loader resolves it)
+#   current_default  what we ship — cross-checked against the live value
+#   provenance       sfu_rulebook  (transcribed; MUST cite source_part)
+#                    hris_calibration (inherited from hris; NOT SFU-published)
+#                    our_invention (JD Bank's own default; nobody ratified it)
+#   status           open | ratified | deferred
+#                    ratified REQUIRES decided_by + decided_on + decision_note;
+#                    open FORBIDS them (an open decision with a decider is a lie).
+#
+# COMPARISON CONTRACT (what `current_default` is written as)
+#   scalar -> itself · set -> its sorted members · mapping -> the WHOLE mapping,
+#   keys and values (values carry policy too: `ksa_rank`'s values ARE the
+#   Knowledge -> Skills -> Abilities order that a blocking gate enforces) ·
+#   list -> file order · regex -> its pattern source · a set member ->
+#   `path.<member>` resolves to a bool, which is how a single contested entry in a
+#   116-word glossary is pinned without inlining the glossary twice.
+#
+# provenance of the register itself: the tensions recorded here surfaced while
+# building Phase 2.1 (rules-as-data), 2.2 (validators) and 2.3 (gate runner); the
+# "FOR HR TO DECIDE" prose in gates.yaml is their prose ancestor — this file is the
+# enforced version of it.
+version: jd_rules_sfu_v3
+
+decisions:
+  # ═══ THE APPROVAL BAR ═══════════════════════════════════════════════════════
+  # The four entries below are the whole "may a human approve this JD?" policy.
+  # None of the numbers is SFU's. Ratify these first.
+
+  - id: HR-001
+    question: >-
+      What quality score must a job description reach before an HR reviewer is
+      allowed to approve it?
+    config:
+      file: gates.yaml
+      path: gates.SFU-APPROVE-SCORE-FLOOR.min_score
+    current_default: 60.0
+    provenance: our_invention
+    why_it_matters: >-
+      This is the single number that decides how much of the archive is even
+      presentable for review. It is OUR roll-up of the rulebook, not a number SFU
+      published anywhere — SFU's rulebook names conditions ("never approve if…"),
+      never a score. We chose 60 to line up with the C grade band.
+    impact_if_changed: >-
+      Directly sets the size of the review queue. Raising it to 70 turns every
+      C-grade JD into a blocked draft; lowering it to 50 lets D-grade JDs through
+      to a reviewer. Should be ratified against the Phase-2.5 archive baseline
+      (what score does the median SFU JD actually get?), not in the abstract.
+    status: open
+
+  - id: HR-002
+    question: What quality grade must a job description reach before approval?
+    config:
+      file: gates.yaml
+      path: gates.SFU-APPROVE-GRADE-FLOOR.min_grade
+    current_default: C
+    provenance: our_invention
+    why_it_matters: >-
+      A second, independent floor next to the score floor (HR-001). The grade
+      letter is what a reviewer actually sees, so this is the bar in the language
+      the dashboard speaks. Also not an SFU number.
+    impact_if_changed: >-
+      Deliberately a separate knob from HR-001 and today aligned with it (grade C
+      starts at 60.0 — HR-015). They can be tuned apart, but if they disagree the
+      stricter one silently wins, which is confusing to a reviewer. Ratify them
+      together.
+    status: open
+
+  - id: HR-003
+    question: >-
+      At what finding severity does an outstanding problem make approval
+      impossible, regardless of score?
+    config:
+      file: gates.yaml
+      path: gates.SFU-APPROVE-SEVERITY-FLOOR.min_severity
+    current_default: high
+    provenance: our_invention
+    why_it_matters: >-
+      The backstop: any finding at this severity or worse blocks approval even if
+      the JD scores well. It is also the only gate that catches findings with no
+      rule id at all — i.e. the Phase-5 LLM pass. Today only three rules are
+      `high` (no summary / no duties / no qualifications).
+    impact_if_changed: >-
+      Lowering it to `medium` would block on missing Decision-Making, missing
+      Problem-Solving, banned qualification phrases, leftover placeholders and any
+      coded term flagged `medium` — a very large share of the archive at once.
+    status: open
+
+  - id: HR-004
+    question: >-
+      Which rulebook failures should make approval impossible — the "never approve
+      if…" list?
+    config:
+      file: gates.yaml
+      path: gates.blocking_rule_ids
+    current_default:
+      - SFU-AUTH-SUMMARY-CONDITIONS
+      - SFU-AUTH-SUMMARY-INCUMBENT
+      - SFU-COMP-DUTIES
+      - SFU-COMP-EDI
+      - SFU-COMP-QUALS
+      - SFU-COMP-SUMMARY
+      - SFU-COMP-TERRITORIAL
+      - SFU-GATE-DUTY-PCT
+      - SFU-GATE-KSA-ORDER
+      - SFU-GATE-SENIOR-TITLE
+      - SFU-QUAL-BANNED-PHRASE
+      - SFU-QUAL-EQUIVALENT
+      - SFU-STRUCT-PLACEHOLDER
+      - SFU-STRUCT-SUMMARY-TOO-LONG
+    provenance: our_invention
+    why_it_matters: >-
+      THE master list, and the most reviewable line in the whole system: it is the
+      complete set of rule failures that disable the approve button. The selection
+      is ours. Notably ABSENT and therefore NOT blocking today — each a live
+      question for HR: coded/gendered terms (SFU-LANG-CODED, HR-028/HR-029), a JD
+      with more than five duties (SFU-STRUCT-DUTIES-TOO-MANY, HR-036), a missing
+      Impact-of-Decision-Making or Problem-Solving section (HR-034/HR-035), and
+      the three restricted-title rules (HR-030/HR-032/HR-033).
+    impact_if_changed: >-
+      Adding one id to a gate's `rule_ids` promotes that rule to blocking with no
+      code change. This register entry is what makes such a promotion visible: the
+      build fails until this list is updated, so a rule can never quietly start —
+      or stop — blocking approval.
+    status: open
+
+  - id: HR-005
+    question: >-
+      Which gates may a reviewer NEVER waive, even with a written justification in
+      the audit log?
+    config:
+      file: gates.yaml
+      path: gates.non_overridable_gate_ids
+    current_default:
+      - SFU-APPROVE-MANDATORY-SECTIONS
+      - SFU-APPROVE-NO-PLACEHOLDERS
+    provenance: our_invention
+    why_it_matters: >-
+      Every other gate is overridable: a reviewer who judges a block to be a false
+      positive waives it WITH A WRITTEN REASON, which is exactly the audit trail
+      CLAUDE.md §1 asks for. These two are absolute — a JD with no summary, duties
+      or qualifications, and a draft still carrying the template's own
+      instructional text. We asserted that no override could reasonably speak to
+      either.
+    impact_if_changed: >-
+      Removing a gate from this set hands reviewers discretion they do not have
+      today; adding one takes discretion away. Flipping ANY gate's `overridable`
+      flag moves this list and breaks the build until HR is told.
+    status: open
+
+  - id: HR-006
+    question: >-
+      Which template sections are so essential that a job description without them
+      cannot be reviewed at all?
+    config:
+      file: gates.yaml
+      path: gates.SFU-APPROVE-MANDATORY-SECTIONS.rule_ids
+    current_default:
+      - SFU-COMP-SUMMARY
+      - SFU-COMP-DUTIES
+      - SFU-COMP-QUALS
+    provenance: our_invention
+    why_it_matters: >-
+      This is the un-waivable gate (HR-005), so its membership is the strongest
+      claim in the policy. SFU's Part 2 template makes ALL its sections mandatory;
+      restricting the absolute bar to these three is our call. Impact of Decision
+      Making and Problem Solving — both Hay evaluation inputs — are deliberately
+      NOT here (HR-034 / HR-035).
+    impact_if_changed: >-
+      Anything added here becomes un-waivable: no reviewer, no reason, no override.
+      A large slice of the legacy archive would become permanently un-approvable
+      until rewritten.
+    status: open
+
+  - id: HR-007
+    question: >-
+      Should a draft that still contains the template's own instructional text be
+      un-waivably blocked?
+    config:
+      file: gates.yaml
+      path: gates.SFU-APPROVE-NO-PLACEHOLDERS.rule_ids
+    current_default:
+      - SFU-STRUCT-PLACEHOLDER
+    provenance: our_invention
+    why_it_matters: >-
+      The second un-waivable gate (HR-005). It fires on the literal placeholder
+      markers in markers.yaml — and one of those markers is the phrase "action
+      verb" (HR-047). A real JD that happens to contain that phrase is therefore
+      blocked with NO override available. That combination is a trap worth HR's
+      attention.
+    impact_if_changed: >-
+      Making this gate overridable (or narrowing the marker list) would let a
+      reviewer waive a false positive. Leaving it as-is keeps genuinely unfinished
+      drafts out of review at the cost of the false positives in HR-047.
+    status: open
+
+  # ═══ SCORING CALIBRATION ════════════════════════════════════════════════════
+  # Inherited wholesale from the hris pipeline (RULES_VERSION jd_rules_sfu_v3).
+  # SFU publishes no scoring model at all — this entire section is a roll-up we
+  # invented in order to have a number to sort a 4,600-JD archive by.
+
+  - id: HR-008
+    question: How many points should a HIGH-severity problem cost a job description?
+    config:
+      file: scoring.yaml
+      path: scoring.severity_penalty.high
+    current_default: 20.0
+    provenance: hris_calibration
+    why_it_matters: >-
+      Sets what "high" means numerically. Three high-severity findings (missing
+      summary + duties + qualifications) take a JD from 100 to ~59 — just under the
+      approval floor (HR-001). The calibration and the floor were tuned to agree;
+      moving either alone breaks that agreement.
+    impact_if_changed: >-
+      Moves every score in the archive and therefore the whole grade distribution.
+    status: open
+
+  - id: HR-009
+    question: How many points should a MEDIUM-severity problem cost?
+    config:
+      file: scoring.yaml
+      path: scoring.severity_penalty.medium
+    current_default: 10.0
+    provenance: hris_calibration
+    why_it_matters: >-
+      The tier most SFU never-approve conditions sit in (duty percentages, banned
+      qualification phrases, leftover placeholders, most coded terms).
+    impact_if_changed: >-
+      Six medium findings currently cost ~28 points, not 60, because of the decay
+      factor (HR-012). Raising this without revisiting the decay changes that
+      arithmetic sharply.
+    status: open
+
+  - id: HR-010
+    question: How many points should a LOW-severity problem cost?
+    config:
+      file: scoring.yaml
+      path: scoring.severity_penalty.low
+    current_default: 5.0
+    provenance: hris_calibration
+    why_it_matters: >-
+      The drafting-nudge tier: action verbs, "how and why" detail, proficiency
+      modifiers, a thin summary. These are the findings the archive fires most.
+    impact_if_changed: >-
+      Because low-severity findings are common, this is the knob most likely to
+      move the median JD across the approval floor in either direction.
+    status: open
+
+  - id: HR-011
+    question: Should advisory (INFO) findings cost any score at all?
+    config:
+      file: scoring.yaml
+      path: scoring.severity_penalty.info
+    current_default: 0.0
+    provenance: hris_calibration
+    why_it_matters: >-
+      Zero, today: `info` findings appear on the reviewer's checklist but are
+      free. That is what makes the two unverifiable restricted-title checks
+      (Registrar, Human Resources — HR-032 / HR-033) harmless.
+    impact_if_changed: >-
+      Giving `info` a non-zero cost would make every advisory observation drag the
+      grade, including checks we KNOW cannot verify their own context.
+    status: open
+
+  - id: HR-012
+    question: >-
+      Should the second, third and fourth problem of the same severity cost less
+      than the first?
+    config:
+      file: scoring.yaml
+      path: scoring.severity_decay
+    current_default: 0.7
+    provenance: hris_calibration
+    why_it_matters: >-
+      Diminishing returns: the k-th finding in a tier costs penalty × 0.7^k, so a
+      tier can never cost more than penalty ÷ (1 − 0.7). A wall of minor nudges
+      therefore cannot alone force an F, while genuine high-severity failures
+      still drive a low grade. It is the reason a badly-extracted legacy document
+      does not automatically score zero.
+    impact_if_changed: >-
+      At 1.0 (no decay) a JD with ten low findings would score 50 and be blocked.
+      At 0.0 only the worst finding in each tier would count at all.
+    status: open
+
+  - id: HR-013
+    question: What score earns an A?
+    config:
+      file: scoring.yaml
+      path: scoring.grade_bands.A.min_score
+    current_default: 90.0
+    provenance: hris_calibration
+    why_it_matters: The grade letters are what HR sees on the dashboard and in reports.
+    impact_if_changed: Re-labels the archive; does not by itself change what is approvable.
+    status: open
+
+  - id: HR-014
+    question: What score earns a B?
+    config:
+      file: scoring.yaml
+      path: scoring.grade_bands.B.min_score
+    current_default: 75.0
+    provenance: hris_calibration
+    why_it_matters: The grade letters are what HR sees on the dashboard and in reports.
+    impact_if_changed: Re-labels the archive; does not by itself change what is approvable.
+    status: open
+
+  - id: HR-015
+    question: What score earns a C — and is C really the pass mark?
+    config:
+      file: scoring.yaml
+      path: scoring.grade_bands.C.min_score
+    current_default: 60.0
+    provenance: hris_calibration
+    why_it_matters: >-
+      This band is load-bearing: the grade floor (HR-002) is C and the score floor
+      (HR-001) is 60.0, so this number is where the two floors meet. It is the de
+      facto definition of "good enough to review".
+    impact_if_changed: >-
+      Changing it without changing HR-001 and HR-002 silently decouples the score
+      floor from the grade floor.
+    status: open
+
+  - id: HR-016
+    question: What score earns a D (rather than an F)?
+    config:
+      file: scoring.yaml
+      path: scoring.grade_bands.D.min_score
+    current_default: 40.0
+    provenance: hris_calibration
+    why_it_matters: >-
+      Both D and F are below the approval floor, so this line only affects how a
+      failing JD is *reported* — "needs work" vs "start over".
+    impact_if_changed: Cosmetic for approval; matters for how the archive triage reads.
+    status: open
+
+  - id: HR-017
+    question: Should a flawless job description score 100?
+    config:
+      file: scoring.yaml
+      path: scoring.max_score
+    current_default: 100.0
+    provenance: hris_calibration
+    why_it_matters: >-
+      The perfect-JD baseline every penalty is subtracted from, and therefore the
+      scale the approval floor (HR-001) and the grade bands are measured on. hris
+      hardcoded it as a literal in Python; it is data here precisely so it is
+      visible.
+    impact_if_changed: >-
+      Changing the top of the scale silently rescales HR-001, HR-002 and every
+      grade band at once. In practice: don't — tune the penalties and floors.
+    status: open
+
+  - id: HR-018
+    question: Should the score bottom out at 0, or can it go negative?
+    config:
+      file: scoring.yaml
+      path: scoring.min_score
+    current_default: 0.0
+    provenance: hris_calibration
+    why_it_matters: >-
+      The floor a saturating pile of findings stops at. Keeps a badly-extracted
+      legacy `.doc` from producing a meaningless −40.
+    impact_if_changed: Presentation of the worst documents only; nothing is approvable there anyway.
+    status: open
+
+  # ═══ THRESHOLDS ═════════════════════════════════════════════════════════════
+
+  - id: HR-019
+    question: >-
+      SFU's template says a Position Summary is 100–150 words. Should a SHORT
+      summary (under 100) be flagged at all — and should it ever block approval?
+    config:
+      file: thresholds.yaml
+      path: thresholds.summary_min_words
+    current_default: 100
+    provenance: sfu_rulebook
+    source_part: Part 2B
+    why_it_matters: >-
+      Note the asymmetry, which is the real question here. SFU states a MAXIMUM
+      ("100-150 words MAXIMUM") and its Part 11.6 never-approve list names only the
+      over-run. So the 100-word floor is rulebook text, but CHOOSING TO FIRE on it
+      is ours: SFU-STRUCT-SUMMARY-TOO-SHORT is a `low` advisory that costs score and
+      does NOT block (HR-038). A 60-word summary that says everything necessary is
+      penalised today.
+    impact_if_changed: >-
+      Raising it makes more of the archive score lower; setting the rule
+      non-firing would require removing the check, which is a rulebook question,
+      not a code one.
+    status: open
+
+  - id: HR-020
+    question: Is 150 words the hard maximum for a Position Summary?
+    config:
+      file: thresholds.yaml
+      path: thresholds.summary_max_words
+    current_default: 150
+    provenance: sfu_rulebook
+    source_part: Part 2B
+    why_it_matters: >-
+      This one IS an SFU never-approve condition, and we gate it: a summary over
+      150 words blocks approval (overridable). It is the only two-sided threshold
+      whose over-run blocks and whose under-run does not.
+    impact_if_changed: >-
+      Legacy JDs commonly run long. This threshold is a major driver of how many
+      archive documents are blocked on first pass.
+    status: open
+
+  - id: HR-021
+    question: >-
+      SFU says 3–5 major responsibilities. Should FEWER than 3 duties be flagged —
+      and should it block?
+    config:
+      file: thresholds.yaml
+      path: thresholds.duties_min
+    current_default: 3
+    provenance: sfu_rulebook
+    source_part: Part 2C
+    why_it_matters: >-
+      Rulebook text, but the same asymmetry as HR-019: SFU names the over-run as
+      the defect ("more than 3-5 main responsibilities"). Firing on the under-run
+      is our choice, and it is advisory only (HR-037).
+    impact_if_changed: >-
+      Duty granularity is an authoring judgement — one author's 2 duties are
+      another's 4. Blocking on this would be blocking on a formatting call.
+    status: open
+
+  - id: HR-022
+    question: Is 5 the maximum number of major duties?
+    config:
+      file: thresholds.yaml
+      path: thresholds.duties_max
+    current_default: 5
+    provenance: sfu_rulebook
+    source_part: Part 2C
+    why_it_matters: >-
+      Rulebook text. But see HR-036: exceeding it does NOT block approval today,
+      even though this is the side SFU actually names. That is the single biggest
+      "we defaulted to leniency" call in the policy.
+    impact_if_changed: >-
+      Gating the over-run (a one-line YAML edit — add SFU-STRUCT-DUTIES-TOO-MANY to
+      a gate's rule_ids) would block a large slice of the archive on a duty-count
+      technicality. HR to ratify.
+    status: open
+
+  - id: HR-023
+    question: >-
+      Duty time-allocations must total 100%. How much rounding slack do we allow at
+      the bottom?
+    config:
+      file: thresholds.yaml
+      path: thresholds.duty_allocation_total_min
+    current_default: 99
+    provenance: our_invention
+    why_it_matters: >-
+      SFU says 100%, full stop (Part 11.6, an explicit never-approve condition).
+      The 99–101 tolerance is a rounding window WE invented so that a JD whose
+      duties are 33/33/33 is not blocked over 1%.
+    impact_if_changed: >-
+      Tightening to exactly 100 would block every JD whose percentages were written
+      by hand and round; widening it lets genuinely wrong allocations through a
+      gate SFU explicitly named.
+    status: open
+
+  - id: HR-024
+    question: How much rounding slack at the top of the duty-percentage total?
+    config:
+      file: thresholds.yaml
+      path: thresholds.duty_allocation_total_max
+    current_default: 101
+    provenance: our_invention
+    why_it_matters: The upper half of the invented rounding window in HR-023.
+    impact_if_changed: See HR-023 — ratify the window as a pair.
+    status: open
+
+  - id: HR-025
+    question: >-
+      Should the "duties must total 100%" check run on a JD that lists only ONE
+      time allocation?
+    config:
+      file: thresholds.yaml
+      path: thresholds.duty_allocation_min_count
+    current_default: 2
+    provenance: our_invention
+    why_it_matters: >-
+      It does not today. The check only runs when at least two parenthesized "(NN%)"
+      allocations are present, so a JD with a single duty marked "(50%)" — an
+      obviously incomplete document — SILENTLY PASSES an SFU never-approve gate.
+      The threshold exists to avoid false positives on documents where extraction
+      found one stray percentage; the cost is this escape.
+    impact_if_changed: >-
+      Setting it to 1 closes the escape and will fire on legacy documents whose
+      extraction produced a single spurious "(100%)". Worth measuring against the
+      Phase-2.5 archive baseline before deciding.
+    status: open
+
+  - id: HR-026
+    question: >-
+      How many offending items should a single finding name before it says "and
+      others"?
+    config:
+      file: thresholds.yaml
+      path: thresholds.max_listed
+    current_default: 5
+    provenance: hris_calibration
+    why_it_matters: >-
+      Presentation, but not nothing: a JD with twelve non-approved action verbs
+      shows the reviewer five of them. The reviewer sees a partial list and may not
+      realise it is partial.
+    impact_if_changed: >-
+      Purely what the reviewer reads; changes no decision. Judged low-stakes, but
+      registered rather than waved through because it shapes what a human sees
+      before pressing approve.
+    status: open
+
+  - id: HR-027
+    question: >-
+      How many rule ids may a blocked-approval reason cite? (A second, independent
+      copy of HR-026.)
+    config:
+      file: gates.yaml
+      path: gates.max_listed
+    current_default: 5
+    provenance: hris_calibration
+    why_it_matters: >-
+      FOUND WHILE BUILDING THIS REGISTER: `max_listed` exists TWICE — once in
+      thresholds.yaml (used by the validators, HR-026) and once in gates.yaml (used
+      by the gate runner). They are independent knobs that happen to hold the same
+      number, and NOTHING keeps them in step. Registering both at least makes a
+      divergence visible.
+    impact_if_changed: >-
+      Presentation only, but the duplication is a maintenance trap: an editor who
+      changes "the" cap will likely change one of the two.
+    status: open
+
+  # ═══ INCLUSIVE LANGUAGE ═════════════════════════════════════════════════════
+
+  - id: HR-028
+    question: >-
+      Three words on SFU's own replace-list — "individual", "honest", "trust" — are
+      demoted to LOW severity here. Is that right?
+    config:
+      file: coded_terms.yaml
+      path: coded_terms.low
+    current_default:
+      he/she: '"they" or "the incumbent"'
+      his/her: '"their" or "the incumbent''s"'
+      honest: '"candid"'
+      individual: '"single"/"lone", or "position"/"role" (as "this individual")'
+      s/he: '"they" or "the incumbent"'
+      trust: '"reliable"'
+    provenance: our_invention
+    why_it_matters: >-
+      SFU's Part 6 lexicon lists these as terms to replace. We demoted them to
+      `low` because they over-fire on ordinary JD prose ("the individual is
+      responsible for…", "maintains the trust of stakeholders"), where a `medium`
+      finding would drag the grade on a false positive. That demotion is OUR call,
+      not SFU's. The generic pronouns (he/she, s/he, his/her) sit here too, though
+      those are unambiguous.
+    impact_if_changed: >-
+      Promoting them to `medium` doubles their score cost (HR-009 vs HR-010) and
+      would fire on a large share of the archive. Note also that NO coded term
+      blocks approval today (HR-004) — this is only about score and the reviewer's
+      checklist.
+    status: open
+
+  - id: HR-029
+    question: >-
+      NINE of these 31 "coded terms" are NOT on SFU's published list — we added
+      them. Does SFU HR adopt them, or should they go?
+    config:
+      file: coded_terms.yaml
+      path: coded_terms.medium
+    current_default:
+      actress: '"actor"'
+      aggressive: '"rapid", "intense", or "large"'
+      agreement: '"contract" or "partnership"'
+      ambitious: '"motivated"'
+      businessman: '"business person" or "executive"'
+      chairman: '"chair" or "chairperson"'
+      championing: '"advocating" or "promoting"'
+      compassionate: '"caring"'
+      competitive: '"tough" or "intense"'
+      confidential: '"restricted"'
+      craftsman: '"artisan" or "craftsperson"'
+      dominant: '"top"'
+      fireman: '"firefighter"'
+      foreman: '"foreperson"'
+      guru: '"specialist"'
+      in-kind: '"non-monetary"'
+      man-hours: '"work hours"'
+      mankind: '"humankind"'
+      manmade: '"artificial", "manufactured", or "synthetic"'
+      manpower: '"workforce" or "staffing"'
+      middleman: '"intermediary" or "go-between"'
+      ninja: '"expert"'
+      persistent: '"tenacious" or "continuing"'
+      policeman: '"police officer"'
+      repairman: '"technician" or "repairer"'
+      rockstar: '"skilled"'
+      salesman: '"sales representative"'
+      spokesman: '"spokesperson"'
+      stewardess: '"flight attendant"'
+      waitress: '"server"'
+      workman: '"worker"'
+    provenance: hris_calibration
+    why_it_matters: >-
+      DO NOT READ THIS LIST AS SFU POLICY. It is NOT a transcription of SFU's Part
+      6 lexicon, and labelling it as one (which an earlier draft of this register
+      did) would invite HR to rubber-stamp our own guesses as their published
+      standard. The gendered occupational nouns (chairman, foreman, policeman,
+      waitress, manpower, …) ARE SFU's. But NINE terms — aggressive, ambitious,
+      championing, competitive, compassionate, confidential, dominant, agreement,
+      in-kind — plus the three slang entries (rockstar, ninja, guru) do NOT appear
+      in SFU's Part 6 list. hris added them ("plus a few widely-recognised coded
+      terms") and we inherited them unexamined. Several over-fire badly on ordinary
+      JD prose: "handles confidential information" and "negotiates the agreement"
+      are flagged today. WORSE — see HR-058 — "compassionate" appears in SFU's OWN
+      mandatory About-SFU paragraph, so SFU's boilerplate trips our lexicon.
+    impact_if_changed: >-
+      Two separate calls. (a) The nine additions: adopt them as SFU policy, or drop
+      them. (b) The one deliberate OMISSION: SFU's list also carries "supporting",
+      which we do not flag (SFU marks it "vague — clarify" rather than a hard
+      replace, and it appears in almost every JD); adding it would fire on most of
+      the archive. Nothing here blocks approval today (HR-004) — it only costs
+      score and fills the reviewer's checklist.
+    status: open
+
+  # ═══ RESTRICTED TITLES ══════════════════════════════════════════════════════
+
+  - id: HR-030
+    question: >-
+      Should a job titled "Executive Director" that is NOT in the APEX group be
+      blocked — and should the check even run when the employee group is unknown?
+    config:
+      file: titles.yaml
+      path: titles.executive_director.severity
+    current_default: low
+    provenance: hris_calibration
+    why_it_matters: >-
+      Two problems, one entry. (a) The finding is only `low` and does not block
+      approval (HR-004), so a mis-titled Executive Director can be approved. (b)
+      Worse: THE CHECK SILENTLY PASSES WHEN `employee_group` IS UNPARSED — a legacy
+      JD whose group we could not extract escapes the restriction entirely, and
+      says nothing about having done so. Restricted titles are an SFU governance
+      rule (Part 3.5), so a rule that quietly no-ops is the wrong default.
+    impact_if_changed: >-
+      Blocking on it would mean blocking JDs whose employee group we cannot read —
+      a check that cannot know whether it is right should arguably not gate. The
+      real fix may be a third state ("cannot verify") rather than a severity bump.
+    status: open
+
+  - id: HR-031
+    question: Is "Executive Director" reserved for APEX-classified roles, and only those?
+    config:
+      file: titles.yaml
+      path: titles.executive_director.reserved_for_employee_group
+    current_default: apex
+    provenance: sfu_rulebook
+    source_part: Part 3.5
+    why_it_matters: >-
+      The only restricted title whose restriction is checkable from the JD alone
+      (the other two need organisational context — HR-032, HR-033). If the APEX
+      claim is wrong or out of date, the one title check that CAN fire is firing on
+      the wrong condition.
+    impact_if_changed: >-
+      Confirm against the current Job Titling Guide. Setting it to null would turn
+      this into a third unverifiable advisory.
+    status: open
+
+  - id: HR-032
+    question: >-
+      "Registrar" is reserved for AVPSI Student Services. We cannot verify that from
+      a JD — should we still say anything?
+    config:
+      file: titles.yaml
+      path: titles.registrar.severity
+    current_default: info
+    provenance: hris_calibration
+    why_it_matters: >-
+      `info` means: shown on the reviewer's checklist, costs zero score (HR-011),
+      blocks nothing. We chose to surface it as a prompt to a human rather than
+      pretend to adjudicate it.
+    impact_if_changed: >-
+      Any severity above `info` starts penalising JDs for a restriction the
+      validator cannot actually check.
+    status: open
+
+  - id: HR-033
+    question: >-
+      "Human Resources" is reserved for roles inside SFU HR (elsewhere: "personnel").
+      Same unverifiable-context problem — should we still say anything?
+    config:
+      file: titles.yaml
+      path: titles.human_resources.severity
+    current_default: info
+    provenance: hris_calibration
+    why_it_matters: >-
+      As HR-032. Note this rule fires on the SUBSTRING "human resources" in a
+      title, so "Human Resources Advisor" inside SFU HR — a correct title — is
+      flagged too. Harmless at `info`; not harmless at anything higher.
+    impact_if_changed: >-
+      Raising the severity would penalise SFU HR's own correctly-titled roles.
+    status: open
+
+  # ═══ WHAT COUNTS AS A DEFECT (rule severities that are live questions) ══════
+
+  - id: HR-034
+    question: >-
+      A JD with no "Impact of Decision Making" section is incomplete. Should it be
+      blocked from approval?
+    config:
+      file: rule_catalog.yaml
+      path: rule_catalog.SFU-COMP-DECISION.default_severity
+    current_default: medium
+    provenance: hris_calibration
+    why_it_matters: >-
+      It is NOT blocked today (absent from HR-004): `medium` costs 10 points and
+      appears on the checklist, but the JD is still approvable. The section is a
+      Hay evaluation input — a JD missing it cannot be properly evaluated for
+      classification, which is arguably a stronger reason to block than several
+      things we DO block on.
+    impact_if_changed: >-
+      Promoting to `high` would make it trip the severity floor (HR-003)
+      automatically; adding it to SFU-APPROVE-MANDATORY-SECTIONS would make it
+      un-waivable (HR-006). Either is a one-line YAML edit.
+    status: open
+
+  - id: HR-035
+    question: >-
+      Same question for "Problem Solving & Level of Supervision" — should a missing
+      section block approval?
+    config:
+      file: rule_catalog.yaml
+      path: rule_catalog.SFU-COMP-PROBLEM.default_severity
+    current_default: medium
+    provenance: hris_calibration
+    why_it_matters: >-
+      As HR-034: the other Hay input, also `medium`, also non-blocking today.
+      Decide the pair together.
+    impact_if_changed: See HR-034.
+    status: open
+
+  - id: HR-036
+    question: >-
+      SFU says a JD has 3–5 major duties. Should MORE THAN FIVE block approval?
+    config:
+      file: rule_catalog.yaml
+      path: rule_catalog.SFU-STRUCT-DUTIES-TOO-MANY.default_severity
+    current_default: medium
+    provenance: hris_calibration
+    why_it_matters: >-
+      This is the side of the duty-count rule that SFU actually names as the defect
+      ("more than 3-5 main responsibilities"), and we do NOT gate it (HR-004). We
+      defaulted to leniency because duty granularity is an authoring judgement and
+      gating it would block a large slice of the archive on a formatting call. That
+      is a reasonable position — but it is OUR position, not SFU's.
+    impact_if_changed: >-
+      Gating it costs one line in gates.yaml (add SFU-STRUCT-DUTIES-TOO-MANY to a
+      gate's rule_ids). Measure against the Phase-2.5 archive baseline first.
+    status: open
+
+  - id: HR-037
+    question: Should FEWER than three duties be a defect at all?
+    config:
+      file: rule_catalog.yaml
+      path: rule_catalog.SFU-STRUCT-DUTIES-TOO-FEW.default_severity
+    current_default: medium
+    provenance: hris_calibration
+    why_it_matters: >-
+      SFU names the over-run, not the under-run (HR-021). Firing at `medium` — the
+      same cost as a genuine SFU never-approve condition — on a JD that consolidated
+      its work into two well-written duties is our invention, and is arguably too
+      harsh relative to HR-036, which does not block at all.
+    impact_if_changed: >-
+      Demoting to `low` (5 points) would put it in line with the other drafting
+      nudges. Note the inconsistency: today a JD with 2 duties and a JD with 9
+      duties are penalised identically.
+    status: open
+
+  - id: HR-038
+    question: Should a Position Summary shorter than 100 words be a defect at all?
+    config:
+      file: rule_catalog.yaml
+      path: rule_catalog.SFU-STRUCT-SUMMARY-TOO-SHORT.default_severity
+    current_default: low
+    provenance: hris_calibration
+    why_it_matters: >-
+      The summary-length rule is split in two precisely so this question can be
+      answered separately (HR-019/HR-020): the over-run blocks approval, the
+      under-run is a `low` nudge that only costs score. Firing on the under-run at
+      all is our choice — SFU states a maximum.
+    impact_if_changed: >-
+      Low stakes on its own, but it is one of the most frequently-fired rules in
+      the archive, so it moves the median score.
+    status: open
+
+  - id: HR-039
+    question: >-
+      Is the territorial acknowledgement's WORDING correct — and is a missing
+      territorial acknowledgement really only a `low` finding?
+    config:
+      file: rule_catalog.yaml
+      path: rule_catalog.SFU-COMP-TERRITORIAL.default_severity
+    current_default: low
+    provenance: hris_calibration
+    why_it_matters: >-
+      CLAUDE.md's standing open flag, and the one entry here that blocks PUBLICATION
+      rather than development. TWO distinct gaps. (a) SEVERITY: a missing
+      acknowledgement is `low` (5 points) — yet it DOES block approval via the
+      EDI-footer gate, so a `low` finding is doing a `high` finding's job. (b)
+      WORDING: THE SYSTEM ONLY CHECKS PRESENCE, NEVER TEXT. There is no configured
+      canonical wording anywhere in the rulebook data — nothing verifies the JD
+      carries SFU's current official acknowledgement rather than an outdated or
+      paraphrased one. Deciding the wording implies ADDING a config key to hold it.
+    impact_if_changed: >-
+      Must be signed off against SFU's current official text before any external
+      distribution (Phase 6). Until then every "approved" JD carries an
+      unverified acknowledgement.
+    status: open
+
+  # ═══ CHECKS WHOSE SHAPE IS A JUDGEMENT CALL ═════════════════════════════════
+  # Not thresholds — the *definitions* the validators match on. Each one below is
+  # a place where a reasonable person could have written the check differently, and
+  # where the current shape produces a false positive we know about.
+
+  - id: HR-040
+    question: >-
+      SFU's knowledge tiers are EXCELLENT / WORKING / [NO MODIFIER]. We encode the
+      third as the literal word "none". Is that the right representation?
+    config:
+      file: qualifications.yaml
+      path: qualifications.knowledge_modifiers
+    current_default:
+      - excellent
+      - none
+      - working
+    provenance: hris_calibration
+    why_it_matters: >-
+      "[NO MODIFIER]" in the rulebook means *the absence of a modifier*. We model it
+      as a sentinel value `none`, which means a JD that literally writes "None
+      knowledge of Python" passes the modifier-vocabulary check, while a knowledge
+      item with genuinely no modifier depends on the parser emitting the sentinel.
+      A representation choice, made in hris, that SFU never made.
+    impact_if_changed: >-
+      Modelling absence as `null` instead would be a parser + validator change, not
+      a config edit — the one entry here where ratifying a change is NOT free.
+      Flagged so that is known before HR is asked.
+    status: open
+
+  - id: HR-041
+    question: >-
+      Should the banned-phrase check ("may include", "assets", "preferences") search
+      the WHOLE document, or only the Qualifications section?
+    config:
+      file: qualifications.yaml
+      path: qualifications.banned_phrases
+    current_default:
+      - may include
+      - assets
+      - preferences
+    provenance: sfu_rulebook
+    source_part: Part 2H
+    why_it_matters: >-
+      The phrases are SFU's (they signal *desired* rather than the *minimum*
+      needed). The SCOPE is ours, and it is wrong in a knowable way: the match runs
+      over the whole raw document, so a DUTY that mentions "capital assets" or
+      "manages physical assets" raises a QUALIFICATIONS gate and BLOCKS APPROVAL.
+      Every facilities, finance and property JD in the archive is a candidate. The
+      gate is overridable for exactly this reason — but a reviewer has to waive it
+      by hand, with a written reason, every time.
+    impact_if_changed: >-
+      Narrowing the scope to the Qualifications section removes a large class of
+      false blocks. Removing "assets" from the list would diverge from SFU's text.
+      This is the highest-frequency false block we know of.
+    status: open
+
+  - id: HR-042
+    question: >-
+      Must a JD contain the literal phrase "equivalent combination" — or is any
+      equivalency wording acceptable?
+    config:
+      file: qualifications.yaml
+      path: qualifications.equivalent_combination
+    current_default: equivalent combination
+    provenance: sfu_rulebook
+    source_part: Part 2H
+    why_it_matters: >-
+      SFU requires an equivalency path so the bar does not exclude
+      equivalently-qualified applicants — a genuine equity requirement, and it
+      BLOCKS approval. But the check is a literal case-folded substring: a JD that
+      says "or an equivalent mix of education and experience" is blocked despite
+      satisfying the requirement in substance.
+    impact_if_changed: >-
+      Accepting more wordings means either a list of accepted phrases or a regex —
+      both are config, no code change. Leaving it strict means reviewers waive it by
+      hand on correctly-written JDs.
+    status: open
+
+  - id: HR-043
+    question: >-
+      SFU's action-verb glossary lists "accountable" — an adjective, not a verb.
+      Should a duty be allowed to start with it?
+    config:
+      file: action_verbs.yaml
+      path: action_verbs.approved.accountable
+    current_default: true
+    provenance: sfu_rulebook
+    source_part: Glossary
+    why_it_matters: >-
+      It is in SFU's published glossary, so we kept it (fidelity over tidiness). The
+      consequence: "Accountable for the departmental budget" passes the
+      action-verb check, while "Accountable to the Director" — not a duty at all —
+      also passes. The glossary is SFU's to fix, not ours. CAVEAT ON THE
+      PROVENANCE: the glossary lives in the JD Toolkit, which is NOT among the
+      sources shipped in this repo (docs/rulebook/sfu-jd-standards.txt does not
+      contain it), so the citation is inherited from hris and CANNOT BE VERIFIED
+      FROM OUR OWN SOURCES. Confirming it is part of the decision.
+    impact_if_changed: >-
+      Removing it tightens the check but diverges from SFU's own glossary. Purely a
+      YAML edit either way.
+    status: open
+
+  - id: HR-044
+    question: Same for "responsible" — an adjective in SFU's action-verb glossary.
+    config:
+      file: action_verbs.yaml
+      path: action_verbs.approved.responsible
+    current_default: true
+    provenance: sfu_rulebook
+    source_part: Glossary
+    why_it_matters: >-
+      As HR-043. "Responsible for…" is the single most common opening in the legacy
+      archive, and SFU's glossary blesses it — while the same rulebook asks for
+      action-verb-led duties. Decide the pair with HR-043. The same provenance
+      caveat applies: the glossary is not among the sources shipped in this repo,
+      so the citation cannot be verified from them.
+    impact_if_changed: >-
+      Removing it would fire the action-verb rule on a very large share of the
+      archive at once.
+    status: open
+
+  - id: HR-045
+    question: >-
+      Should only PARENTHESIZED percentages — "(40%)" — count as duty time
+      allocations?
+    config:
+      file: patterns.yaml
+      path: patterns.duty_allocation
+    current_default: \((\d{1,3})\s*%\)
+    provenance: our_invention
+    why_it_matters: >-
+      Our pattern, not SFU's. A JD that writes "40% of time" or "40 percent"
+      without brackets contributes NOTHING to the total, so its allocations can
+      never fail the "must total 100%" gate — the JD escapes an SFU never-approve
+      condition through a formatting choice. Chosen to keep false positives low
+      (any bare "%" would sweep up "95% uptime").
+    impact_if_changed: >-
+      Loosening the pattern catches more real violations and more noise. Interacts
+      with HR-025 (a JD needs ≥2 matches before the gate runs at all).
+    status: open
+
+  - id: HR-046
+    question: >-
+      Should a Position Summary that mentions parking, housing or relocation be
+      BLOCKED from approval?
+    config:
+      file: markers.yaml
+      path: markers.working_conditions
+    current_default:
+      - on-call
+      - on call
+      - shift work
+      - evenings and weekends
+      - evening and weekend
+      - weekends and holidays
+      - standby
+      - stand-by
+      - housing
+      - parking
+      - relocation
+    provenance: our_invention
+    why_it_matters: >-
+      SFU's rule (Part 2B) is that the summary states the role's PURPOSE, not its
+      working conditions. This specific word list is ours, and it BLOCKS approval
+      (overridable). "housing", "parking" and "relocation" are the risky entries: a
+      Parking Services or Residence & Housing role whose summary names its own
+      domain is blocked by a rule about shift patterns.
+    impact_if_changed: >-
+      Removing the three domain-noun entries removes a class of false blocks that
+      falls hardest on exactly the units named. Adding entries widens a blocking
+      gate — do it knowingly.
+    status: open
+
+  - id: HR-047
+    question: >-
+      Should the phrase "action verb" appearing anywhere in a JD un-waivably block
+      it as an unfinished draft?
+    config:
+      file: markers.yaml
+      path: markers.placeholder
+    current_default:
+      - action verb
+      - how and why
+      - what by
+      - spell out acronyms
+      - provide a high level summary
+      - "____"
+      - "[insert"
+    provenance: our_invention
+    why_it_matters: >-
+      These are the fragments of the template's own instructional text that a writer
+      is supposed to delete. Finding one means the draft is unfinished — and that
+      gate is NON-OVERRIDABLE (HR-005/HR-007): no reviewer can waive it. But
+      "action verb", "how and why" and "what by" are ordinary English. A JD for a
+      writing-instruction role, or one whose Qualifications say "coaches staff on
+      how and why decisions are made", is permanently un-approvable until the words
+      are removed. The strictest gate in the system rests on the loosest markers.
+    impact_if_changed: >-
+      Either make the gate overridable (HR-007) or make the markers more specific
+      (e.g. require the template's full instructional sentence). Both are config
+      edits.
+    status: open
+
+  # ═══ THE MATCHERS BEHIND THE BLOCKING GATES ═════════════════════════════════
+  # A gate is only as good as the pattern it fires on. These are the regexes, word
+  # lists and orderings the validators actually match — three of them feed BLOCKING
+  # gates, so changing one changes the approval bar without touching gates.yaml.
+
+  - id: HR-048
+    question: >-
+      A JD is blocked for "incumbent-focused language" if its summary contains
+      "my", "myself" or "I am". Is that the right test?
+    config:
+      file: patterns.yaml
+      path: patterns.incumbent
+    current_default: \bmy\b|\bmyself\b|\bi am\b
+    provenance: our_invention
+    why_it_matters: >-
+      SFU's Part 2B rule ("describe the position, not the person") is real; this
+      three-word regex is our entire implementation of it, and it BLOCKS approval
+      (SFU-APPROVE-SUMMARY-INCUMBENT). It is both too narrow — "he is responsible
+      for…", the commonest incumbent-focused phrasing in the legacy archive, sails
+      through — and capable of false positives on "my" inside quoted text.
+    impact_if_changed: >-
+      Widening it blocks more of the archive; narrowing it makes a blocking gate
+      nearly inert. Either way the approval bar moves, with no change to gates.yaml.
+    status: open
+
+  - id: HR-049
+    question: >-
+      A "Senior" title with no stated supervisory scope is blocked. Should the test
+      be the bare word "senior" anywhere in the title?
+    config:
+      file: patterns.yaml
+      path: patterns.senior_title
+    current_default: \bsenior\b
+    provenance: our_invention
+    why_it_matters: >-
+      Blocking (SFU-APPROVE-SENIOR-TITLE). SFU Part 3.5 reserves "Senior" for roles
+      supervising junior peers — but the pattern matches the word ANYWHERE in the
+      title, so "Advisor, Senior Leadership Programs" or "Senior Citizens Programs
+      Coordinator" is blocked for having no supervisory scope. The rule is about a
+      title PREFIX; the pattern does not know that.
+    impact_if_changed: >-
+      Anchoring it to a leading "Senior" would remove a class of false blocks.
+      A config edit.
+    status: open
+
+  - id: HR-050
+    question: What counts as "a degree requirement" in a JD?
+    config:
+      file: patterns.yaml
+      path: patterns.degree_mention
+    current_default: \b(bachelor|master|phd|doctorate|degree)\b
+    provenance: hris_calibration
+    why_it_matters: >-
+      Triggers the check that a stated degree names a discipline and allows related
+      fields (SFU-QUAL-DEGREE-DISCIPLINE, `low`, non-blocking). Matching the bare
+      word "degree" anywhere means "a degree of independent judgement" in a duty
+      trips it.
+    impact_if_changed: Only score and the checklist; not the approval bar.
+    status: open
+
+  - id: HR-051
+    question: >-
+      What wordings count as "allows a related or relevant discipline"?
+    config:
+      file: patterns.yaml
+      path: patterns.related_discipline
+    current_default: (related|relevant)\s+(discipline|field)|or\s+other\s+relevant
+    provenance: hris_calibration
+    why_it_matters: >-
+      The other half of HR-050. A JD that says "…or a closely allied field" or
+      "…in a comparable area" satisfies the rulebook in substance but not this
+      pattern. Same shape of problem as the literal "equivalent combination" match
+      (HR-042) — but this one is advisory, not blocking.
+    impact_if_changed: Only score and the checklist.
+    status: open
+
+  - id: HR-052
+    question: >-
+      Qualifications must run Knowledge -> Skills -> Abilities. This mapping IS that
+      order. Is it right?
+    config:
+      file: qualifications.yaml
+      path: qualifications.ksa_rank
+    current_default:
+      knowledge: 0
+      skill: 1
+      ability: 2
+    provenance: sfu_rulebook
+    source_part: Part 5.4
+    why_it_matters: >-
+      The order is SFU's (Part 5.4) and it BLOCKS approval (SFU-APPROVE-KSA-ORDER).
+      Registered because it is the one place where the *values* of a config mapping
+      are the policy: permuting the ranks would silently invert what a blocking gate
+      enforces. Note it says nothing about education or experience items, which are
+      unranked and therefore never out of order.
+    impact_if_changed: >-
+      Changing a rank re-points a blocking gate. Ranking education/experience too
+      would extend the gate to items it ignores today.
+    status: open
+
+  - id: HR-053
+    question: Are BASIC / INTERMEDIATE / ADVANCED / EXPERT the only accepted skill levels?
+    config:
+      file: qualifications.yaml
+      path: qualifications.skill_modifiers
+    current_default:
+      - advanced
+      - basic
+      - expert
+      - intermediate
+    provenance: sfu_rulebook
+    source_part: Part 5.2
+    why_it_matters: >-
+      SFU's Toolkit vocabulary, transcribed. A skill tagged "proficient" or
+      "strong" — common in the archive — is flagged as non-standard
+      (SFU-QUAL-MODIFIER-VOCAB, `low`, non-blocking).
+    impact_if_changed: >-
+      Accepting synonyms reduces noise but diverges from the published vocabulary.
+      Score and checklist only.
+    status: open
+
+  - id: HR-054
+    question: >-
+      Must an ability literally start with "Ability to" / "Able to" to count as
+      observable behaviour?
+    config:
+      file: qualifications.yaml
+      path: qualifications.ability_prefixes
+    current_default:
+      - ability to
+      - able to
+    provenance: hris_calibration
+    why_it_matters: >-
+      SFU Part 5.3 gives the FORMAT 'Ability to [observable behavior]'. Our check is
+      a literal prefix test, so "Demonstrated ability to lead teams" — which is the
+      same thing, better written — is flagged (SFU-AUTH-ABILITIES-OBSERVABLE, `low`,
+      non-blocking).
+    impact_if_changed: Score and checklist only; not the approval bar.
+    status: open
+
+  - id: HR-055
+    question: >-
+      Is SFU's 116-verb action-verb glossary the right list — and should a duty that
+      starts with a good verb NOT on it be flagged?
+    config:
+      file: action_verbs.yaml
+      path: action_verbs.approved
+    current_default:
+      - accomplishes
+      - accountable
+      - accounts
+      - acknowledges
+      - acts
+      - adapts
+      - administers
+      - advises
+      - allocates
+      - analyzes
+      - applies
+      - approves
+      - arranges
+      - assemble
+      - assembles
+      - assesses
+      - assigns
+      - assists
+      - assures
+      - attends
+      - audits
+      - authorizes
+      - calculates
+      - carries
+      - checks
+      - collaborates
+      - communicates
+      - compiles
+      - composes
+      - computes
+      - conducts
+      - constructs
+      - contributes
+      - controls
+      - coordinates
+      - corrects
+      - counsels
+      - creates
+      - decides
+      - delegates
+      - demonstrates
+      - designs
+      - determines
+      - develops
+      - directs
+      - disciplines
+      - distributes
+      - drafts
+      - enforces
+      - ensures
+      - establishes
+      - estimates
+      - evaluates
+      - examines
+      - exercises
+      - facilitates
+      - forecasts
+      - formulates
+      - guides
+      - handles
+      - identifies
+      - implements
+      - initiates
+      - inspects
+      - instructs
+      - integrates
+      - interprets
+      - interviews
+      - investigates
+      - leads
+      - maintains
+      - manages
+      - measures
+      - monitors
+      - motivates
+      - negotiates
+      - observes
+      - operates
+      - organizes
+      - outlines
+      - oversees
+      - participates
+      - performs
+      - plans
+      - prepares
+      - processes
+      - programs
+      - promotes
+      - proposes
+      - provides
+      - purchases
+      - receives
+      - recommends
+      - records
+      - repairs
+      - reports
+      - represents
+      - requisitions
+      - researches
+      - resolves
+      - responsible
+      - reviews
+      - revises
+      - schedules
+      - screens
+      - selects
+      - services
+      - sorts
+      - suggests
+      - supervises
+      - tests
+      - trains
+      - transcribes
+      - transfers
+      - troubleshoots
+      - verifies
+    provenance: sfu_rulebook
+    source_part: Glossary
+    why_it_matters: >-
+      The glossary is a CLOSED list: a duty beginning with any verb outside it is
+      flagged (SFU-STRUCT-ACTION-VERB, `low`, non-blocking). Ordinary, perfectly
+      good verbs are absent — "supports", "delivers", "liaises", "administrates",
+      "writes", "edits", "responds", "escalates" — so well-written duties are
+      penalised for word choice. It also contains two adjectives (HR-043, HR-044)
+      and both "assemble" and "assembles". The whole list is pinned here so it
+      cannot be edited without SFU HR being told. Same provenance caveat as HR-043:
+      the glossary is in the JD Toolkit, which is not shipped in this repo.
+    impact_if_changed: >-
+      Adding verbs reduces a very common false positive; removing any tightens it.
+      Score and checklist only today — but if SFU-STRUCT-ACTION-VERB were ever
+      gated (HR-004) or promoted to the severity floor (HR-057), this list would
+      become the approval bar.
+    status: open
+
+  - id: HR-056
+    question: >-
+      Must every JD's Relationships section open with SFU's standard sentence,
+      verbatim?
+    config:
+      file: markers.yaml
+      path: markers.relationships_header
+    current_default: establishes and maintains relationships and alliances
+    provenance: sfu_rulebook
+    source_part: Part 2F
+    why_it_matters: >-
+      A literal case-folded substring test. SFU's boilerplate, transcribed — but a
+      JD that paraphrases it is flagged (SFU-GATE-REL-HEADER, `low`, non-blocking).
+      The composer restores the boilerplate anyway, which is why this is a nudge
+      rather than a bar.
+    impact_if_changed: Score and checklist only.
+    status: open
+
+  # ═══ THE SECOND ROUTE TO BLOCKING ═══════════════════════════════════════════
+
+  - id: HR-057
+    question: >-
+      Which rules are severe enough that their mere presence blocks approval —
+      whatever the score, and without being named in any gate?
+    config:
+      file: rule_catalog.yaml
+      path: rule_catalog.rules_by_severity.high
+    current_default:
+      - SFU-COMP-DUTIES
+      - SFU-COMP-QUALS
+      - SFU-COMP-SUMMARY
+    provenance: our_invention
+    why_it_matters: >-
+      THERE ARE TWO ROUTES TO BLOCKING, NOT ONE. A rule blocks if it is named in a
+      gate's rule_ids (pinned by HR-004) — OR if its severity reaches the severity
+      floor (HR-003, currently `high`), because SFU-APPROVE-SEVERITY-FLOOR blocks on
+      *any* finding at or above it. So raising a `low` drafting nudge like
+      SFU-STRUCT-ACTION-VERB to `high` would silently make a non-approved verb block
+      a JD, with no edit to gates.yaml at all. This entry pins the membership of
+      every tier that reaches the floor, so that promotion cannot happen quietly.
+    impact_if_changed: >-
+      Anything added to this list starts blocking approval. Note the list adjusts
+      itself: if HR lowers the severity floor (HR-003) to `medium`, the `medium`
+      tier becomes a blocking tier too, appears on the decision surface, and the
+      build fails until it is registered here as well.
+    status: open
+
+  # ═══ SFU'S OWN BOILERPLATE FAILS SFU'S OWN LEXICON ══════════════════════════
+
+  - id: HR-058
+    question: >-
+      SFU's mandatory, "do not edit" About SFU paragraph contains the word
+      "compassionate" — which our lexicon flags as a coded term. Every compliant JD
+      is penalised. What should give?
+    config:
+      file: coded_terms.yaml
+      path: coded_terms.medium.compassionate
+    current_default: '"caring"'
+    provenance: hris_calibration
+    why_it_matters: >-
+      SFU's pre-populated About-SFU block reads "We are unconventional, fearless,
+      COMPASSIONATE, approachable and ready." The template says do not edit it. Our
+      lexicon files "compassionate" at `medium` — one of the nine terms that are NOT
+      on SFU's own published list (HR-029). Measured on a clean JD: WITHOUT the
+      About-SFU paragraph, score 91.5 / grade A, no coded-term finding. WITH it —
+      i.e. exactly as SFU mandates — score 81.5 / grade B, one `medium` coded-term
+      finding. A JD is penalised 10 points for obeying SFU, and penalised again
+      (SFU-COMP-ABOUT) if it leaves the paragraph out. It cannot win. This is almost
+      certainly the highest-frequency false positive in the system, and because it
+      fires on nearly every compliant JD it systematically DEPRESSES THE WHOLE
+      ARCHIVE BASELINE — the very baseline the score floor (HR-001) is supposed to
+      be ratified against. Ratify HR-001 with this fixed, or the floor is calibrated
+      against a 10-point artefact.
+    impact_if_changed: >-
+      Three ways out, all config: drop "compassionate" from the lexicon (it is not
+      SFU's term anyway); demote it to `low`; or exclude the About-SFU boilerplate
+      from the lexicon's scan (a validator scope change — NOT free, see HR-041 for
+      the same shape of problem). Left as-is deliberately: this register documents
+      the behaviour, it does not change it.
+    status: open
+
+# ═════════════════════════════════════════════════════════════════════════════
+# TRIVIAL — on the decision surface, deliberately NOT a decision for HR.
+#
+# The coverage check (loader.check_register) demands that EVERY parameter on the
+# decision surface is either an entry above or an exemption here WITH A REASON.
+# Nothing may be silently skipped. Two honest kinds of exemption:
+#   * not a decision at all (presentation, or definitional given something else);
+#   * decided elsewhere — `covered_by` names the entry that pins it (validated).
+# ═════════════════════════════════════════════════════════════════════════════
+trivial:
+  # --- gates: rankings and presentation ---------------------------------------
+  - config: {file: gates.yaml, path: gates.severity_order}
+    reason: >-
+      The ranking of the severity literals from least to most severe. Any other
+      order would be incoherent (it is not a policy choice that `high` outranks
+      `low`); the choice of WHERE the floor sits on this ranking is HR-003.
+
+  - config: {file: gates.yaml, path: gates.grade_order}
+    reason: >-
+      The ranking of the grade literals from worst to best. F < D < C < B < A is
+      not a policy choice; where the floor sits on it is HR-002.
+
+  # --- gates: overridability. The un-waivable SET is pinned by HR-005, so
+  # flipping ANY of these flags moves that set and breaks the build. Registering
+  # all fourteen separately would add noise, not enforcement.
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-MANDATORY-SECTIONS.overridable}
+    reason: A member of the un-waivable gate set, which is pinned as a whole.
+    covered_by: HR-005
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-NO-PLACEHOLDERS.overridable}
+    reason: A member of the un-waivable gate set, which is pinned as a whole.
+    covered_by: HR-005
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-DUTY-ALLOCATION.overridable}
+    reason: Overridable; flipping it would move the un-waivable set pinned by HR-005.
+    covered_by: HR-005
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-QUAL-MINIMUM.overridable}
+    reason: Overridable; flipping it would move the un-waivable set pinned by HR-005.
+    covered_by: HR-005
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-EDI-FOOTER.overridable}
+    reason: Overridable; flipping it would move the un-waivable set pinned by HR-005.
+    covered_by: HR-005
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-SUMMARY-CONDITIONS.overridable}
+    reason: Overridable; flipping it would move the un-waivable set pinned by HR-005.
+    covered_by: HR-005
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-SUMMARY-INCUMBENT.overridable}
+    reason: Overridable; flipping it would move the un-waivable set pinned by HR-005.
+    covered_by: HR-005
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-SUMMARY-LENGTH.overridable}
+    reason: Overridable; flipping it would move the un-waivable set pinned by HR-005.
+    covered_by: HR-005
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-KSA-ORDER.overridable}
+    reason: Overridable; flipping it would move the un-waivable set pinned by HR-005.
+    covered_by: HR-005
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-QUAL-EQUIVALENT.overridable}
+    reason: Overridable; flipping it would move the un-waivable set pinned by HR-005.
+    covered_by: HR-005
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-SENIOR-TITLE.overridable}
+    reason: Overridable; flipping it would move the un-waivable set pinned by HR-005.
+    covered_by: HR-005
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-SEVERITY-FLOOR.overridable}
+    reason: Overridable; flipping it would move the un-waivable set pinned by HR-005.
+    covered_by: HR-005
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-SCORE-FLOOR.overridable}
+    reason: Overridable; flipping it would move the un-waivable set pinned by HR-005.
+    covered_by: HR-005
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-GRADE-FLOOR.overridable}
+    reason: Overridable; flipping it would move the un-waivable set pinned by HR-005.
+    covered_by: HR-005
+
+  # --- gates: which gate carries a blocking rule. WHETHER a rule blocks is pinned
+  # by HR-004 (gates.blocking_rule_ids) and whether it can be waived by HR-005;
+  # which of the overridable gates it is filed under changes only the wording the
+  # reviewer reads. The two UN-WAIVABLE gates' membership is registered (HR-006,
+  # HR-007), because there membership is the substantive claim.
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-DUTY-ALLOCATION.rule_ids}
+    reason: >-
+      Which overridable gate a blocking rule is filed under determines only the
+      reason copy shown to the reviewer.
+    covered_by: HR-004
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-QUAL-MINIMUM.rule_ids}
+    reason: >-
+      Which overridable gate a blocking rule is filed under determines only the
+      reason copy shown to the reviewer.
+    covered_by: HR-004
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-EDI-FOOTER.rule_ids}
+    reason: >-
+      Which overridable gate a blocking rule is filed under determines only the
+      reason copy shown to the reviewer.
+    covered_by: HR-004
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-SUMMARY-CONDITIONS.rule_ids}
+    reason: >-
+      Which overridable gate a blocking rule is filed under determines only the
+      reason copy shown to the reviewer.
+    covered_by: HR-004
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-SUMMARY-INCUMBENT.rule_ids}
+    reason: >-
+      Which overridable gate a blocking rule is filed under determines only the
+      reason copy shown to the reviewer.
+    covered_by: HR-004
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-SUMMARY-LENGTH.rule_ids}
+    reason: >-
+      Which overridable gate a blocking rule is filed under determines only the
+      reason copy shown to the reviewer.
+    covered_by: HR-004
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-KSA-ORDER.rule_ids}
+    reason: >-
+      Which overridable gate a blocking rule is filed under determines only the
+      reason copy shown to the reviewer.
+    covered_by: HR-004
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-QUAL-EQUIVALENT.rule_ids}
+    reason: >-
+      Which overridable gate a blocking rule is filed under determines only the
+      reason copy shown to the reviewer.
+    covered_by: HR-004
+  - config: {file: gates.yaml, path: gates.SFU-APPROVE-SENIOR-TITLE.rule_ids}
+    reason: >-
+      Which overridable gate a blocking rule is filed under determines only the
+      reason copy shown to the reviewer.
+    covered_by: HR-004
+
+  # --- thresholds / scoring: definitional or presentation ----------------------
+  - config: {file: thresholds.yaml, path: thresholds.evidence_context_window}
+    reason: >-
+      Characters of surrounding text quoted either side of a match in an evidence
+      snippet. Pure presentation: it changes how much context a reviewer reads, and
+      no decision whatsoever.
+
+  - config: {file: scoring.yaml, path: scoring.fallback_grade}
+    reason: >-
+      The grade awarded below the lowest band. Definitional given the bands
+      (HR-013..HR-016): F is what sits under D. The loader already refuses a
+      fallback_grade that duplicates a band.
+
+  # --- titles: the two restrictions that cannot be checked from a JD ------------
+  - config: {file: titles.yaml, path: titles.registrar.reserved_for_employee_group}
+    reason: >-
+      Null by design: it records that the Registrar restriction is NOT checkable
+      from the JD alone (it needs organisational context). The decision — whether to
+      say anything at all, and at what severity — is HR-032.
+    covered_by: HR-032
+  - config: {file: titles.yaml, path: titles.human_resources.reserved_for_employee_group}
+    reason: >-
+      Null by design: the Human Resources restriction is not checkable from the JD
+      alone. The decision is HR-033.
+    covered_by: HR-033
+
+  # --- rule severities: DEAD CONFIG (never read) -------------------------------
+  # Found while building this register. For these four rules the validator ALWAYS
+  # supplies the severity from another file, so the catalog's `default_severity` is
+  # never used. Flagged for removal; harmless, but misleading to a reader.
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-LANG-CODED.default_severity}
+    reason: >-
+      DEAD CONFIG — never read. A coded-term finding always takes its severity from
+      the coded_terms.yaml tier the term sits in (HR-028 / HR-029), so this default
+      cannot affect any outcome. Flagged for removal.
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-AUTH-TITLE-EXEC-DIR.default_severity}
+    reason: >-
+      DEAD CONFIG — never read. A restricted-title finding always takes its severity
+      from titles.yaml (HR-030). Flagged for removal.
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-AUTH-TITLE-REGISTRAR.default_severity}
+    reason: >-
+      DEAD CONFIG — never read. Severity comes from titles.yaml (HR-032). Flagged
+      for removal.
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-AUTH-TITLE-HR.default_severity}
+    reason: >-
+      DEAD CONFIG — never read. Severity comes from titles.yaml (HR-033). Flagged
+      for removal.
+
+  # --- rule severities ---------------------------------------------------------
+  # A rule's `default_severity` is NOT merely a score weight. It has THREE effects,
+  # and an exemption here is only sound because all three are pinned elsewhere:
+  #   1. score cost                    -> pinned by the penalties, HR-008..HR-011
+  #   2. blocking BY NAME              -> pinned by HR-004 (gates.blocking_rule_ids)
+  #   3. blocking BY SEVERITY FLOOR    -> pinned by HR-057
+  #      (rule_catalog.rules_by_severity.high). This is the one an earlier draft of
+  #      this register MISSED: a `low` nudge promoted to `high` starts blocking
+  #      approval through SFU-APPROVE-SEVERITY-FLOOR without appearing in any gate.
+  #      HR-057 pins the membership of every tier that reaches the floor, so that
+  #      promotion now breaks the build.
+  # With (1), (2) and (3) all pinned, the individual severity values below are not a
+  # SEPARATE decision — any change that matters moves one of the three.
+
+  # definitional: the three `high` rules (their tier membership is HR-057)
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-COMP-SUMMARY.default_severity}
+    reason: >-
+      Definitional: a document with no Position Summary is not a job description.
+      `high` is what makes the severity floor (HR-003) and the un-waivable
+      mandatory-sections gate (HR-006) agree about it. Membership of the `high`
+      tier — the tier that trips the floor — is pinned by HR-057.
+    covered_by: HR-057
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-COMP-DUTIES.default_severity}
+    reason: >-
+      Definitional: a document with no duties is not a job description. `high` tier
+      membership is pinned by HR-057; the un-waivable gate by HR-006.
+    covered_by: HR-057
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-COMP-QUALS.default_severity}
+    reason: >-
+      Definitional: a document with no qualifications is not a job description.
+      `high` tier membership is pinned by HR-057; the un-waivable gate by HR-006.
+    covered_by: HR-057
+
+  # the rest: the severity value itself is not a separate decision, because all
+  # three of its effects are pinned (see the note above). Each `covered_by` names
+  # the entry that carries the substantive question about that rule.
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-COMP-RELATIONSHIPS.default_severity}
+    reason: >-
+      Its score cost is pinned by HR-008..HR-011, its blocking-by-name by HR-004,
+      and its blocking-by-severity-floor by HR-057. A `low` completeness nudge.
+    covered_by: HR-057
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-COMP-ABOUT.default_severity}
+    reason: >-
+      Missing "About SFU" boilerplate — `low`, and boilerplate the composer restores.
+      Score cost HR-008..HR-011; blocking by name HR-004; by severity floor HR-057.
+      (What that boilerplate then does to the coded-term lexicon IS a decision —
+      HR-058.)
+    covered_by: HR-058
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-COMP-EDI.default_severity}
+    reason: >-
+      Missing Employment Equity statement — `low`, and it DOES block, via the
+      EDI-footer gate (pinned by HR-004). Its sibling, the territorial
+      acknowledgement, is registered as HR-039 because its WORDING is an open
+      publish blocker. Severity-floor promotion pinned by HR-057.
+    covered_by: HR-004
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-STRUCT-SUMMARY-TOO-LONG.default_severity}
+    reason: >-
+      `low`, but blocking by name (HR-004, HR-020). All three effects of the severity
+      are pinned: cost HR-008..HR-011, name HR-004, floor HR-057.
+    covered_by: HR-004
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-STRUCT-ACTION-VERB.default_severity}
+    reason: >-
+      A `low` drafting nudge (duties should be action-verb led). THIS is the rule the
+      reviewer used to prove the severity-floor hole: promoting it to `high` used to
+      make a non-approved verb block a JD with no register change. It now moves
+      HR-057 and breaks the build. The glossary itself is HR-055 / HR-043 / HR-044.
+    covered_by: HR-057
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-STRUCT-HOW-WHY.default_severity}
+    reason: >-
+      A `low` drafting nudge (duties should carry "how and why" detail). Cost pinned
+      by HR-008..HR-011; blocking by name HR-004; by severity floor HR-057.
+    covered_by: HR-057
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-STRUCT-PLACEHOLDER.default_severity}
+    reason: >-
+      `medium`, and un-waivably blocking (HR-007). The substantive question is the
+      marker list (HR-047); severity-floor promotion is pinned by HR-057.
+    covered_by: HR-047
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-QUAL-SKILL-MODIFIER.default_severity}
+    reason: >-
+      A `low` drafting nudge (skills should carry a proficiency modifier). The
+      vocabulary itself is HR-053; severity-floor promotion is pinned by HR-057.
+    covered_by: HR-053
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-QUAL-MODIFIER-VOCAB.default_severity}
+    reason: >-
+      A `low` drafting nudge (use the Toolkit's modifier vocabulary). The vocabularies
+      are HR-040 and HR-053; severity-floor promotion is pinned by HR-057.
+    covered_by: HR-040
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-QUAL-EQUIVALENT.default_severity}
+    reason: >-
+      `low`, but blocking by name (HR-004). The substantive question is the
+      literal-phrase match (HR-042); severity-floor promotion is pinned by HR-057.
+    covered_by: HR-042
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-QUAL-BANNED-PHRASE.default_severity}
+    reason: >-
+      `medium`, and blocking by name (HR-004). The substantive question is the
+      whole-document match scope (HR-041); severity-floor promotion is pinned by
+      HR-057.
+    covered_by: HR-041
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-QUAL-DEGREE-DISCIPLINE.default_severity}
+    reason: >-
+      A `low` drafting nudge (a degree requirement should name a discipline and allow
+      related fields). The patterns are HR-050 / HR-051; severity-floor promotion is
+      pinned by HR-057.
+    covered_by: HR-050
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-GATE-DUTY-PCT.default_severity}
+    reason: >-
+      `medium`, and blocking by name (HR-004) — an explicit SFU never-approve
+      condition. The substantive questions are the rounding window (HR-023/HR-024),
+      the minimum count (HR-025) and the pattern (HR-045).
+    covered_by: HR-004
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-GATE-KSA-ORDER.default_severity}
+    reason: >-
+      `low`, but blocking by name (HR-004). The ordering it enforces is HR-052;
+      severity-floor promotion is pinned by HR-057.
+    covered_by: HR-052
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-GATE-SENIOR-TITLE.default_severity}
+    reason: >-
+      `low`, but blocking by name (HR-004). The pattern it fires on is HR-049;
+      severity-floor promotion is pinned by HR-057.
+    covered_by: HR-049
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-GATE-REL-HEADER.default_severity}
+    reason: >-
+      A `low` nudge for the standardized Relationships header — boilerplate the
+      composer restores. The header text is HR-056; severity-floor promotion is
+      pinned by HR-057.
+    covered_by: HR-056
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-AUTH-SUMMARY-CONDITIONS.default_severity}
+    reason: >-
+      `medium`, and blocking by name (HR-004). The substantive question is the
+      working-conditions word list (HR-046); severity-floor promotion is pinned by
+      HR-057.
+    covered_by: HR-046
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-AUTH-SUMMARY-INCUMBENT.default_severity}
+    reason: >-
+      `low`, but blocking by name (HR-004). The regex it fires on is HR-048;
+      severity-floor promotion is pinned by HR-057.
+    covered_by: HR-048
+  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-AUTH-ABILITIES-OBSERVABLE.default_severity}
+    reason: >-
+      A `low` drafting nudge (an ability should read "Ability to <observable
+      behaviour>"). The prefixes are HR-054; severity-floor promotion is pinned by
+      HR-057.
+    covered_by: HR-054
