@@ -7,21 +7,17 @@ Repo: **`C:\repos\JD-Assistant`** → GitHub **github.com/humanaxiom/jd-assistan
 
 ---
 
-## Current state — Phase 2 COMPLETE, pending HR + PR review
+## Current state — Phase 2 COMPLETE and merged; 2.4 is next
 
-Phase 1 is merged (`main`). Phase 2 (the validation engine) is code-complete: 2.1 and 2.2 are
-merged; **2.3 and the HR decision register are open PRs awaiting your review** — nothing further
-merges until you look at them.
+Phases 1 and 2 are fully merged to `main`. The validation engine (rules-as-data → section
+validators → gate runner) and the HR decision register are all landed.
 
 | Phase | State | PR | Commit |
 |---|---|---|---|
 | 2.1 rules-as-data (8 versioned YAML + typed loader) | MERGED | [#6](https://github.com/humanaxiom/jd-assistant/pull/6) | `43f29db` |
 | 2.2 section validators (29 rules, rulebook-as-code) | MERGED | [#7](https://github.com/humanaxiom/jd-assistant/pull/7) | `9eaa39d` |
-| 2.3 gate runner ("never approve if…", 14 gates) | **OPEN, unmerged** | [#8](https://github.com/humanaxiom/jd-assistant/pull/8) | `036c205` |
-| HR decision register (58 decisions, build-enforced) | **OPEN, stacked on #8** | [#9](https://github.com/humanaxiom/jd-assistant/pull/9) | `9d0da5e` |
-
-**Merge order: #8 then #9.** #9 is stacked on #8's branch; retarget its base to `main` once #8
-merges. This branch (`chore/docs-handoff-refresh`) is stacked on top of the register branch.
+| 2.3 gate runner ("never approve if…", 14 gates) | MERGED | [#8](https://github.com/humanaxiom/jd-assistant/pull/8) | `5b8d954` |
+| HR decision register (58 decisions, build-enforced) | MERGED | [#9](https://github.com/humanaxiom/jd-assistant/pull/9) | `c519bed` |
 
 Test suite: **638 passing**, coverage **96.92%**, all in Docker via `make gates`.
 Rule data now totals **11 versioned YAML** under `core/src/jd_core/rules/` (8 from 2.1, plus
