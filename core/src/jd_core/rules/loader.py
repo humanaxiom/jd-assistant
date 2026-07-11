@@ -1,0 +1,422 @@
+"""Typed, validated loader for the versioned SFU rulebook data.
+
+**Rulebook as data** (CLAUDE.md non-negotiable #2): every gate threshold, word
+list, verb list, KSA modifier, lexicon entry, restricted title and scoring
+constant lives in the YAML files shipped beside this module — never hardcoded in
+Python logic. This module is the *only* thing that reads them.
+
+What it does, and deliberately does not do:
+
+* **Does** parse + validate the shipped YAML into frozen pydantic v2 models,
+  precompile every regex exactly once, cross-check that all files carry the same
+  ``version``, and fail loudly (:class:`RulesError`) on anything malformed —
+  a missing file, bad YAML, an unknown key, out-of-order grade bands, a severity
+  key that is not a :data:`~src.jd_core.models.quality.JDIssueSeverity`.
+* **Does not** implement any validator or gate logic. Phase 2.2 (section
+  validators) and 2.3 (gate runner) consume :func:`get_rules`; the rules
+  themselves stay inert data here.
+
+Resource loading goes through :mod:`importlib.resources`, so the package works
+wherever it is importable — notably inside the ``gates`` container, which mounts
+only ``./core``. Nothing outside the package is ever read.
+
+Provenance for each table is in the header comment of its YAML file; the SFU
+source extract is ``docs/rulebook/sfu-reference.md``, the rulebook itself is
+``docs/rulebook/sfu-jd-standards.txt``, and the tables were ported from hris
+``packages/pipeline/src/pipeline/quality/jd_rules.py`` (``RULES_VERSION =
+"jd_rules_sfu_v3"``).
+"""
+
+from __future__ import annotations
+
+import importlib.resources
+import itertools
+import re
+from collections.abc import Mapping
+from functools import lru_cache
+from pathlib import Path
+from types import MappingProxyType
+from typing import Annotated, Any, Final, TypeVar, get_args
+
+import yaml
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    PlainValidator,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
+
+from src.jd_core.models.quality import JDGrade, JDIssueSeverity
+
+_PACKAGE: Final = __package__ or "src.jd_core.rules"
+
+_SEVERITIES: Final[frozenset[str]] = frozenset(get_args(JDIssueSeverity))
+
+
+class RulesError(RuntimeError):
+    """The rulebook data is missing, malformed, or internally inconsistent.
+
+    Always fatal: a JD Bank process with unloadable rules has no oracle, so it
+    must not start rather than silently validate against nothing.
+    """
+
+
+# --- reusable field types ----------------------------------------------------
+
+_K = TypeVar("_K")
+_V = TypeVar("_V")
+
+
+def _freeze(mapping: Mapping[_K, _V]) -> Mapping[_K, _V]:
+    """Return a read-only view, so loaded rule tables cannot be mutated."""
+    return MappingProxyType(dict(mapping))
+
+
+def _compile_regex(value: Any) -> re.Pattern[str]:
+    """Compile a ``{pattern, ignore_case}`` YAML mapping into a regex, once."""
+    if not isinstance(value, Mapping):
+        raise ValueError("expected a mapping with keys 'pattern' and 'ignore_case'")
+    unknown = set(value) - {"pattern", "ignore_case"}
+    if unknown:
+        raise ValueError(f"unknown regex-rule key(s): {sorted(unknown)}")
+    missing = {"pattern", "ignore_case"} - set(value)
+    if missing:
+        raise ValueError(f"missing regex-rule key(s): {sorted(missing)}")
+    pattern = value["pattern"]
+    if not isinstance(pattern, str) or not pattern.strip():
+        raise ValueError("'pattern' must be a non-empty string")
+    ignore_case = value["ignore_case"]
+    if not isinstance(ignore_case, bool):
+        raise ValueError("'ignore_case' must be a boolean")
+    try:
+        return re.compile(pattern, re.IGNORECASE if ignore_case else 0)
+    except re.error as exc:
+        raise ValueError(f"invalid regex {pattern!r}: {exc}") from exc
+
+
+FrozenStrMap = Annotated[Mapping[str, str], AfterValidator(_freeze)]
+FrozenRankMap = Annotated[Mapping[str, int], AfterValidator(_freeze)]
+FrozenPenaltyMap = Annotated[Mapping[JDIssueSeverity, float], AfterValidator(_freeze)]
+Regex = Annotated[re.Pattern[str], PlainValidator(_compile_regex)]
+
+
+def _check_terms(terms: Mapping[str, str]) -> Mapping[str, str]:
+    for term, replacement in terms.items():
+        if not term.strip():
+            raise ValueError("term keys must be non-empty")
+        if term != term.strip().lower():
+            raise ValueError(f"term {term!r} must be lowercase and stripped")
+        if not replacement.strip():
+            raise ValueError(f"term {term!r} has an empty replacement")
+    return terms
+
+
+# --- one model per YAML file -------------------------------------------------
+
+
+class _RuleFile(BaseModel):
+    """Base for every rules YAML: frozen, closed, and version-stamped."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    version: str = Field(min_length=1)
+
+
+class Thresholds(_RuleFile):
+    """Numeric gate thresholds (``thresholds.yaml``)."""
+
+    duties_min: int = Field(gt=0)
+    duties_max: int = Field(gt=0)
+    summary_min_words: int = Field(gt=0)
+    summary_max_words: int = Field(gt=0)
+    max_listed: int = Field(gt=0)
+    evidence_context_window: int = Field(gt=0)
+    duty_allocation_min_count: int = Field(gt=0)
+    duty_allocation_total_min: int = Field(ge=0)
+    duty_allocation_total_max: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def _ranges_are_ordered(self) -> Thresholds:
+        if self.duties_min > self.duties_max:
+            raise ValueError("duties_min must not exceed duties_max")
+        if self.summary_min_words > self.summary_max_words:
+            raise ValueError("summary_min_words must not exceed summary_max_words")
+        if self.duty_allocation_total_min > self.duty_allocation_total_max:
+            raise ValueError(
+                "duty_allocation_total_min must not exceed duty_allocation_total_max"
+            )
+        return self
+
+
+class ActionVerbs(_RuleFile):
+    """The SFU action-verb glossary (``action_verbs.yaml``)."""
+
+    approved: frozenset[str] = Field(min_length=1)
+
+    @field_validator("approved")
+    @classmethod
+    def _are_lowercase(cls, verbs: frozenset[str]) -> frozenset[str]:
+        for verb in sorted(verbs):
+            if not verb.strip():
+                raise ValueError("action verbs must be non-empty")
+            if verb != verb.strip().lower():
+                raise ValueError(f"action verb {verb!r} must be lowercase and stripped")
+        return verbs
+
+
+class CodedTerms(_RuleFile):
+    """The gender-coded lexicon, by severity tier (``coded_terms.yaml``)."""
+
+    medium: FrozenStrMap
+    low: FrozenStrMap
+
+    @field_validator("medium", "low")
+    @classmethod
+    def _terms_are_well_formed(cls, terms: Mapping[str, str]) -> Mapping[str, str]:
+        return _check_terms(terms)
+
+    @model_validator(mode="after")
+    def _tiers_are_disjoint(self) -> CodedTerms:
+        overlap = sorted(set(self.medium) & set(self.low))
+        if overlap:
+            raise ValueError(f"coded term(s) {overlap} appear in both severity tiers")
+        return self
+
+
+class Qualifications(_RuleFile):
+    """Qualification / KSA rules (``qualifications.yaml``)."""
+
+    knowledge_modifiers: frozenset[str] = Field(min_length=1)
+    skill_modifiers: frozenset[str] = Field(min_length=1)
+    ksa_rank: FrozenRankMap
+    banned_phrases: tuple[str, ...] = Field(min_length=1)
+    equivalent_combination: str = Field(min_length=1)
+    ability_prefixes: tuple[str, ...] = Field(min_length=1)
+
+    @field_validator("ksa_rank")
+    @classmethod
+    def _ranks_are_contiguous(cls, ranks: Mapping[str, int]) -> Mapping[str, int]:
+        if not ranks:
+            raise ValueError("ksa_rank must not be empty")
+        if sorted(ranks.values()) != list(range(len(ranks))):
+            raise ValueError(
+                f"ksa_rank values must be distinct and contiguous from 0, "
+                f"got {sorted(ranks.values())}"
+            )
+        return ranks
+
+
+class Markers(_RuleFile):
+    """Literal (non-regex) text markers (``markers.yaml``)."""
+
+    placeholder: tuple[str, ...] = Field(min_length=1)
+    working_conditions: tuple[str, ...] = Field(min_length=1)
+    relationships_header: str = Field(min_length=1)
+
+
+class Patterns(_RuleFile):
+    """Regex rules, precompiled once at load (``patterns.yaml``)."""
+
+    incumbent: Regex
+    duty_allocation: Regex
+    degree_mention: Regex
+    related_discipline: Regex
+    senior_title: Regex
+
+
+class RestrictedTitle(BaseModel):
+    """One SFU-reserved title phrase."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    key: str = Field(min_length=1)
+    phrase: str = Field(min_length=1)
+    # Non-null only when the restriction is checkable from the JD alone.
+    reserved_for_employee_group: str | None = None
+    # The severity a validator raises this restriction at (advisory -> "info").
+    severity: JDIssueSeverity
+    note: str = ""
+
+
+class Titles(_RuleFile):
+    """Restricted job titles (``titles.yaml``)."""
+
+    restricted: tuple[RestrictedTitle, ...] = Field(min_length=1)
+
+    @field_validator("restricted")
+    @classmethod
+    def _keys_are_unique(
+        cls, titles: tuple[RestrictedTitle, ...]
+    ) -> tuple[RestrictedTitle, ...]:
+        keys = [t.key for t in titles]
+        if len(set(keys)) != len(keys):
+            raise ValueError("restricted title keys must be unique")
+        return titles
+
+
+class GradeBand(BaseModel):
+    """A grade's lower score cutoff (``score >= min_score`` -> ``grade``)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    min_score: float = Field(ge=0.0, le=100.0)
+    grade: JDGrade
+
+
+class Scoring(_RuleFile):
+    """Severity penalties, decay, and grade bands (``scoring.yaml``)."""
+
+    severity_penalty: FrozenPenaltyMap
+    severity_decay: float = Field(ge=0.0, le=1.0)
+    grade_bands: tuple[GradeBand, ...] = Field(min_length=1)
+    fallback_grade: JDGrade
+
+    @field_validator("severity_penalty")
+    @classmethod
+    def _covers_every_severity(
+        cls, penalties: Mapping[JDIssueSeverity, float]
+    ) -> Mapping[JDIssueSeverity, float]:
+        missing = _SEVERITIES - set(penalties)
+        if missing:
+            raise ValueError(
+                f"severity_penalty must define every JDIssueSeverity; "
+                f"missing {sorted(missing)}"
+            )
+        return penalties
+
+    @model_validator(mode="after")
+    def _bands_are_ordered_and_complete(self) -> Scoring:
+        for upper, lower in itertools.pairwise(self.grade_bands):
+            if upper.min_score <= lower.min_score:
+                raise ValueError(
+                    "grade_bands must be in strictly descending min_score order"
+                )
+        grades = [band.grade for band in self.grade_bands]
+        if len(set(grades)) != len(grades):
+            raise ValueError("grade_bands must not repeat a grade")
+        if self.fallback_grade in grades:
+            raise ValueError(
+                f"fallback_grade {self.fallback_grade!r} must not also be a band grade"
+            )
+        return self
+
+    def grade_for(self, score: float) -> JDGrade:
+        """The grade for ``score`` — the first band it clears, else the fallback.
+
+        Pure data lookup over the bands (no scoring logic); the bands are
+        validated strictly descending, so every score maps to exactly one grade.
+        """
+        for band in self.grade_bands:
+            if score >= band.min_score:
+                return band.grade
+        return self.fallback_grade
+
+
+class Rules(BaseModel):
+    """The whole validated rulebook — one frozen object, one ``version``."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    version: str = Field(min_length=1)
+    thresholds: Thresholds
+    action_verbs: ActionVerbs
+    coded_terms: CodedTerms
+    qualifications: Qualifications
+    markers: Markers
+    patterns: Patterns
+    titles: Titles
+    scoring: Scoring
+
+
+# --- loading -----------------------------------------------------------------
+
+_FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
+    ("thresholds.yaml", "thresholds", Thresholds),
+    ("action_verbs.yaml", "action_verbs", ActionVerbs),
+    ("coded_terms.yaml", "coded_terms", CodedTerms),
+    ("qualifications.yaml", "qualifications", Qualifications),
+    ("markers.yaml", "markers", Markers),
+    ("patterns.yaml", "patterns", Patterns),
+    ("titles.yaml", "titles", Titles),
+    ("scoring.yaml", "scoring", Scoring),
+)
+
+#: Every YAML file that makes up the rulebook, in load order.
+RULE_FILES: Final[tuple[str, ...]] = tuple(name for name, _, _ in _FILE_MODELS)
+
+
+def _read_text(name: str, directory: Path | None) -> str:
+    """Raw YAML text for ``name`` — from the package by default (importlib.
+    resources, so no path walking and nothing outside ``core/`` is read), or from
+    ``directory`` when one is given (tests supply a scratch copy)."""
+    source: Path | Any = (
+        importlib.resources.files(_PACKAGE).joinpath(name)
+        if directory is None
+        else directory / name
+    )
+    try:
+        text = source.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RulesError(f"Cannot read rule file {name!r}: {exc}") from exc
+    if not isinstance(text, str):  # pragma: no cover - defensive
+        raise RulesError(f"Rule file {name!r} did not yield text")
+    return text
+
+
+def _parse_yaml(name: str, text: str) -> dict[str, Any]:
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise RulesError(f"Malformed YAML in rule file {name!r}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise RulesError(
+            f"Rule file {name!r} must contain a YAML mapping, "
+            f"got {type(data).__name__}"
+        )
+    return data
+
+
+def load_rules(directory: Path | None = None) -> Rules:
+    """Parse + validate the rulebook. Uncached — see :func:`get_rules`.
+
+    ``directory`` overrides the packaged YAML (used by tests to exercise
+    malformed/invalid data without touching the shipped rules).
+
+    Raises:
+        RulesError: a file is missing, its YAML is malformed, or the rule data
+            fails validation (unknown key, bad regex, unordered grade bands,
+            a severity outside ``JDIssueSeverity``, mismatched versions, ...).
+    """
+    parsed: dict[str, _RuleFile] = {}
+    for name, field, model in _FILE_MODELS:
+        raw = _parse_yaml(name, _read_text(name, directory))
+        try:
+            parsed[field] = model.model_validate(raw)
+        except ValidationError as exc:
+            raise RulesError(f"Invalid rule data in {name!r}: {exc}") from exc
+
+    versions = {rule_file.version for rule_file in parsed.values()}
+    if len(versions) != 1:
+        raise RulesError(
+            f"Rule files disagree on version: {sorted(versions)}. Every rules YAML "
+            f"must be bumped together."
+        )
+
+    payload: dict[str, Any] = {"version": versions.pop(), **parsed}
+    try:
+        return Rules.model_validate(payload)
+    except ValidationError as exc:  # pragma: no cover - defensive
+        raise RulesError(f"Invalid rulebook: {exc}") from exc
+
+
+@lru_cache(maxsize=1)
+def get_rules() -> Rules:
+    """The shipped rulebook — parsed once, cached, frozen.
+
+    The single accessor every consumer (validators, gate runner, composer) uses.
+    """
+    return load_rules()

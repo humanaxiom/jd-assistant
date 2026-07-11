@@ -15,3 +15,4 @@ tenacity>=9.0.0
 python-dotenv>=1.0.0
 python-docx>=1.1.0      # .docx / .docm (OOXML) text extraction
 striprtf>=0.0.26        # .rtf text extraction
+pyyaml>=6.0.2         # versioned rulebook data (jd_core/rules/*.yaml)

@@ -1,0 +1,44 @@
+# SFU literal text markers — RULEBOOK AS DATA (CLAUDE.md §2).
+#
+# Plain (non-regex) substrings, matched casefolded. Regex rules live in
+# patterns.yaml.
+#
+# provenance:
+#   rulebook: docs/rulebook/sfu-jd-standards.txt
+#     - Part 2 template instructional text the writer must replace
+#     - Part 2B: the Position Summary states the role's purpose, NOT its
+#       working conditions
+#     - Part 2F: the standardized Relationships header boilerplate
+#   hris: packages/pipeline/src/pipeline/quality/jd_rules.py ::
+#     _PLACEHOLDER_MARKERS, _WORKING_CONDITION_MARKERS,
+#     _RELATIONSHIPS_HEADER_MARKER
+version: jd_rules_sfu_v3
+
+# Template instructional/placeholder fragments left unreplaced by the writer.
+placeholder:
+  - action verb
+  - how and why
+  - what by
+  - spell out acronyms
+  - provide a high level summary
+  - "____"
+  - "[insert"
+
+# Working-condition signals that must NOT appear in the Position Summary
+# (Learning Series Part 2B). High-signal only, to limit false positives.
+working_conditions:
+  - on-call
+  - on call
+  - shift work
+  - evenings and weekends
+  - evening and weekend
+  - weekends and holidays
+  - standby
+  - stand-by
+  - housing
+  - parking
+  - relocation
+
+# The distinctive opening phrase every JD's Relationships section carries
+# verbatim (Learning Series Part 2F).
+relationships_header: establishes and maintains relationships and alliances

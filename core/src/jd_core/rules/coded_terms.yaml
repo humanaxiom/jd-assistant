@@ -1,0 +1,63 @@
+# SFU gender-coded / gendered-term lexicon — RULEBOOK AS DATA (CLAUDE.md §2).
+#
+# term -> the suggested replacement text (rendered into the finding's suggestion).
+# Matched on word boundaries, case-insensitively.
+#
+# provenance:
+#   rulebook: docs/rulebook/sfu-jd-standards.txt (Part 6 — inclusive language);
+#     JD Toolkit p17 "Gender Neutral Terms" (used with gender-decoder.katmatfield.com);
+#     SFU Total Compensation Learning Series Part 6 (gendered occupational nouns +
+#     generic pronouns).
+#   provenance doc: docs/rulebook/sfu-reference.md §3
+#   hris: packages/pipeline/src/pipeline/quality/jd_rules.py
+#         :: _CODED_TERMS (medium) / _CODED_TERMS_LOW (low)
+#
+# NOTE: SFU's lexicon also lists "supporting", but marks it "vague — clarify",
+# not a hard replace. It is deliberately NOT flagged (hris does the same).
+version: jd_rules_sfu_v3
+
+# Clear neutral form exists -> medium severity.
+medium:
+  aggressive: '"rapid", "intense", or "large"'
+  ambitious: '"motivated"'
+  championing: '"advocating" or "promoting"'
+  competitive: '"tough" or "intense"'
+  confidential: '"restricted"'
+  dominant: '"top"'
+  foreman: '"foreperson"'
+  persistent: '"tenacious" or "continuing"'
+  compassionate: '"caring"'
+  agreement: '"contract" or "partnership"'
+  in-kind: '"non-monetary"'
+  rockstar: '"skilled"'
+  ninja: '"expert"'
+  guru: '"specialist"'
+  # Learning Series Part 6 — gendered occupational nouns.
+  chairman: '"chair" or "chairperson"'
+  policeman: '"police officer"'
+  fireman: '"firefighter"'
+  salesman: '"sales representative"'
+  businessman: '"business person" or "executive"'
+  spokesman: '"spokesperson"'
+  craftsman: '"artisan" or "craftsperson"'
+  workman: '"worker"'
+  middleman: '"intermediary" or "go-between"'
+  repairman: '"technician" or "repairer"'
+  waitress: '"server"'
+  actress: '"actor"'
+  stewardess: '"flight attendant"'
+  manpower: '"workforce" or "staffing"'
+  man-hours: '"work hours"'
+  mankind: '"humankind"'
+  manmade: '"artificial", "manufactured", or "synthetic"'
+
+# Officially listed, but also common context-dependent words -> low severity, so a
+# false positive cannot drag the grade.
+low:
+  individual: '"single"/"lone", or "position"/"role" (as "this individual")'
+  honest: '"candid"'
+  trust: '"reliable"'
+  # Generic gendered pronouns signal incumbent-focused writing (Series Part 6).
+  he/she: '"they" or "the incumbent"'
+  s/he: '"they" or "the incumbent"'
+  his/her: '"their" or "the incumbent''s"'
