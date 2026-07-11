@@ -1,0 +1,32 @@
+# SFU JD numeric thresholds — RULEBOOK AS DATA (CLAUDE.md §2).
+#
+# provenance:
+#   rulebook: docs/rulebook/sfu-jd-standards.txt
+#     - Position Summary "One paragraph, 100-150 words MAXIMUM"  (Part 2B, l.85)
+#     - "More than 3-5 main responsibilities" is a defect        (Part 2C, l.154)
+#     - Duty time-allocations must total 100%                    (Part 11.6)
+#   hris: packages/pipeline/src/pipeline/quality/jd_rules.py
+#     _DUTIES_MIN, _DUTIES_MAX, _SUMMARY_MIN_WORDS, _SUMMARY_MAX_WORDS,
+#     _MAX_LISTED, the `window=40` evidence snippet default, and the
+#     `len(allocations) >= 2 and not (99 <= sum <= 101)` duty-% gate.
+version: jd_rules_sfu_v3
+
+# Duties & Responsibilities: 3-5 major responsibilities.
+duties_min: 3
+duties_max: 5
+
+# Position Summary length, in words.
+summary_min_words: 100
+summary_max_words: 150
+
+# Cap on how many offending items a single finding names.
+max_listed: 5
+
+# Characters of context either side of a match in an evidence snippet.
+evidence_context_window: 40
+
+# Duty time-allocation gate: only fire when at least this many parenthesized
+# "(NN%)" allocations are present, and accept a 99-101 rounding tolerance.
+duty_allocation_min_count: 2
+duty_allocation_total_min: 99
+duty_allocation_total_max: 101

@@ -1,0 +1,130 @@
+# SFU approved action-verb glossary — RULEBOOK AS DATA (CLAUDE.md §2).
+#
+# A duty statement must begin with one of these (leading word, lowercased).
+#
+# provenance:
+#   rulebook: docs/rulebook/sfu-jd-standards.txt — "Start each bullet with action
+#     verb" (Part 2C, l.182); the JD Toolkit "Glossary of Terms".
+#   hris: packages/pipeline/src/pipeline/quality/jd_rules.py :: _APPROVED_ACTION_VERBS
+#   note: ported verbatim — 116 entries. "accountable" and "responsible" are
+#     adjectives, not third-person verbs, but the SFU glossary lists them, so they
+#     stay. Both "assemble" and "assembles" appear in the source and are kept.
+version: jd_rules_sfu_v3
+
+approved:
+  - accomplishes
+  - accountable
+  - accounts
+  - acknowledges
+  - acts
+  - adapts
+  - administers
+  - advises
+  - allocates
+  - analyzes
+  - applies
+  - approves
+  - arranges
+  - assemble
+  - assembles
+  - assesses
+  - assigns
+  - assists
+  - assures
+  - attends
+  - audits
+  - authorizes
+  - calculates
+  - carries
+  - checks
+  - collaborates
+  - communicates
+  - compiles
+  - composes
+  - computes
+  - conducts
+  - constructs
+  - contributes
+  - controls
+  - coordinates
+  - corrects
+  - counsels
+  - creates
+  - decides
+  - delegates
+  - demonstrates
+  - designs
+  - determines
+  - develops
+  - directs
+  - disciplines
+  - distributes
+  - drafts
+  - enforces
+  - ensures
+  - establishes
+  - estimates
+  - evaluates
+  - examines
+  - exercises
+  - facilitates
+  - forecasts
+  - formulates
+  - guides
+  - handles
+  - identifies
+  - implements
+  - initiates
+  - inspects
+  - instructs
+  - integrates
+  - interprets
+  - interviews
+  - investigates
+  - leads
+  - maintains
+  - manages
+  - measures
+  - monitors
+  - motivates
+  - negotiates
+  - observes
+  - operates
+  - organizes
+  - outlines
+  - oversees
+  - participates
+  - performs
+  - plans
+  - prepares
+  - processes
+  - programs
+  - promotes
+  - proposes
+  - provides
+  - purchases
+  - receives
+  - recommends
+  - records
+  - repairs
+  - reports
+  - represents
+  - requisitions
+  - researches
+  - resolves
+  - responsible
+  - reviews
+  - revises
+  - schedules
+  - screens
+  - selects
+  - services
+  - sorts
+  - suggests
+  - supervises
+  - tests
+  - trains
+  - transcribes
+  - transfers
+  - troubleshoots
+  - verifies

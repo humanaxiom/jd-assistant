@@ -1,0 +1,43 @@
+# SFU Qualifications / KSA rules — RULEBOOK AS DATA (CLAUDE.md §2).
+#
+# provenance:
+#   rulebook: docs/rulebook/sfu-jd-standards.txt
+#     - Part 5.1 knowledge modifiers: EXCELLENT / WORKING / [NO MODIFIER]
+#     - Part 5.2 skill modifiers: BASIC / INTERMEDIATE / ADVANCED / EXPERT
+#     - Part 5.3 abilities: 'Format: "Ability to [observable behavior]"'
+#     - Part 5.4 KSA order: Knowledge -> Skills -> Abilities
+#     - l.240 equivalency statement; l.264 banned "may include"/"assets"/"preferences"
+#   provenance doc: docs/rulebook/sfu-reference.md §6
+#   hris: packages/pipeline/src/pipeline/quality/jd_rules.py ::
+#     _VALID_KNOWLEDGE_MODIFIERS, _VALID_SKILL_MODIFIERS, _KSA_RANK,
+#     _BANNED_QUALIFICATION_PHRASES, _EQUIVALENT_COMBINATION, and the
+#     ("ability to", "able to") prefix check in _authoring_gates.
+version: jd_rules_sfu_v3
+
+# Accepted proficiency modifiers (compared lowercased). "none" is the explicit
+# sentinel for the rulebook's "[NO MODIFIER] knowledge" tier.
+knowledge_modifiers: [excellent, working, none]
+skill_modifiers: [basic, intermediate, advanced, expert]
+
+# Qualifications must run Knowledge -> Skills -> Abilities (Part 5.4). Ranks are
+# compared pairwise; a later item with a lower rank is out of order.
+ksa_rank:
+  knowledge: 0
+  skill: 1
+  ability: 2
+
+# Phrases the Toolkit bans from Qualifications — they signal *desired*, not the
+# *minimum* needed to perform at the full working level.
+banned_phrases:
+  - may include
+  - assets
+  - preferences
+
+# The required equivalency path ("...or an equivalent combination of education,
+# training and experience"). Matched as a casefolded substring.
+equivalent_combination: equivalent combination
+
+# An ability must read as observable behaviour: it starts with one of these.
+ability_prefixes:
+  - ability to
+  - able to

@@ -1,0 +1,38 @@
+# JD quality scoring calibration — RULEBOOK AS DATA (CLAUDE.md §2).
+#
+# score = max(0, 100 - Σ penalty), where each severity tier's k-th (0-indexed)
+# finding costs `severity_penalty[tier] * severity_decay**k`. Diminishing returns
+# bound a tier at `penalty / (1 - decay)`, so a wall of minor nudges cannot alone
+# force an F while genuine high-severity failures still drive a low grade. Tiers
+# do NOT decay against each other.
+#
+# provenance:
+#   hris: packages/pipeline/src/pipeline/quality/jd_rules.py ::
+#     _SEVERITY_PENALTY, _SEVERITY_DECAY, _GRADE_BANDS (calibration of
+#     RULES_VERSION jd_rules_sfu_v3). Not an SFU-published table — SFU's rulebook
+#     defines the gates; the score is our transparent roll-up of them.
+version: jd_rules_sfu_v3
+
+# Keys MUST be exactly the JDIssueSeverity literal (jd_core.models.quality).
+severity_penalty:
+  high: 20.0
+  medium: 10.0
+  low: 5.0
+  info: 0.0
+
+# Diminishing-returns factor for stacked findings of the SAME severity.
+severity_decay: 0.7
+
+# Lower cutoffs, highest first: score >= min_score -> grade. Must be strictly
+# descending; anything below the last band gets `fallback_grade`.
+grade_bands:
+  - min_score: 90.0
+    grade: A
+  - min_score: 75.0
+    grade: B
+  - min_score: 60.0
+    grade: C
+  - min_score: 40.0
+    grade: D
+
+fallback_grade: F

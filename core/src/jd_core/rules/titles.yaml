@@ -1,0 +1,33 @@
+# SFU restricted job titles — RULEBOOK AS DATA (CLAUDE.md §2).
+#
+# A title phrase (matched casefolded, as a substring of the JD title) that SFU
+# reserves for a specific context. `reserved_for_employee_group` is non-null only
+# when the restriction is checkable from the JD alone; the others need context a
+# validator cannot verify, so they are advisory (`severity: info`).
+#
+# `severity` must be one of the JDIssueSeverity literal (jd_core.models.quality).
+#
+# provenance:
+#   rulebook: docs/rulebook/sfu-jd-standards.txt — Part 3.5 (restricted titles)
+#   provenance doc: docs/rulebook/sfu-reference.md §2 (Job Titling Guide, Toolkit p18-19)
+#   hris: packages/pipeline/src/pipeline/quality/jd_rules.py :: _authoring_gates
+#     ("executive director" -> employee_group must be apex, severity low;
+#     "registrar" and "human resources" -> severity info, context not checkable)
+version: jd_rules_sfu_v3
+
+restricted:
+  - key: executive_director
+    phrase: executive director
+    reserved_for_employee_group: apex
+    severity: low
+    note: Reserved for APEX-classified roles.
+  - key: registrar
+    phrase: registrar
+    reserved_for_employee_group: null
+    severity: info
+    note: Reserved for registrarial roles within AVPSI Student Services.
+  - key: human_resources
+    phrase: human resources
+    reserved_for_employee_group: null
+    severity: info
+    note: Reserved for roles within SFU HR; elsewhere use "personnel".
