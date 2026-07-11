@@ -1,6 +1,6 @@
 # SFU JD rule catalog — RULEBOOK AS DATA (CLAUDE.md §2).
 #
-# The 27 deterministic gates, keyed by a stable `rule_id`. For each: the SFU
+# The deterministic gates, keyed by a stable `rule_id`. For each: the SFU
 # template `section` it belongs to, the guide `source_part` it enforces, its
 # `category` (the SINGLE SOURCE OF TRUTH — validators derive each issue's
 # category from here), the `default_severity` it is raised at, its checklist
@@ -147,12 +147,22 @@ rules:
       default: Add the Employment Equity boilerplate from the template.
 
   # --- structure: the SFU format --------------------------------------------
-  - rule_id: SFU-STRUCT-SUMMARY-LENGTH
+  #
+  # The summary-length and duty-count checks are TWO-SIDED, and the two sides are
+  # NOT the same rule as far as the rulebook is concerned: SFU states a MAXIMUM
+  # ("150 words maximum", "no more than 3-5 duties") and its Part-11.6 never-approve
+  # list names only the over-run. The under-run (a thin summary, only 2 duties) is
+  # our own drafting nudge. They therefore carry distinct rule_ids, so the approval
+  # policy in gates.yaml can block exactly the condition SFU names and leave the
+  # nudge advisory — a policy distinction that would otherwise be impossible to
+  # express without a code change. Trigger conditions and severities are unchanged
+  # from the single two-sided rules they replace.
+  - rule_id: SFU-STRUCT-SUMMARY-TOO-SHORT
     category: structure
     section: position_summary
     source_part: Part 2B
     default_severity: low
-    title: Position Summary is 100-150 words
+    title: Position Summary is at least 100 words
     owner: deterministic
     # placeholders: {words}
     messages:
@@ -161,27 +171,55 @@ rules:
         {summary_min_words}-{summary_max_words}.
     recommendations:
       default: >-
-        Tighten or expand the summary to the
-        {summary_min_words}-{summary_max_words} word range.
+        Expand the summary to the {summary_min_words}-{summary_max_words} word
+        range.
 
-  - rule_id: SFU-STRUCT-DUTIES-COUNT
+  - rule_id: SFU-STRUCT-SUMMARY-TOO-LONG
+    category: structure
+    section: position_summary
+    source_part: Part 2B
+    default_severity: low
+    title: Position Summary is at most 150 words
+    owner: deterministic
+    # placeholders: {words}
+    messages:
+      default: >-
+        Position Summary is {words} words; the template allows a maximum of
+        {summary_max_words}.
+    recommendations:
+      default: >-
+        Tighten the summary to the {summary_min_words}-{summary_max_words} word
+        range.
+
+  - rule_id: SFU-STRUCT-DUTIES-TOO-FEW
     category: structure
     section: duties
     source_part: Part 2C
     default_severity: medium
-    title: 3-5 major duties
+    title: At least 3 major duties
     owner: deterministic
     # placeholders: {count}
     messages:
-      too_few: >-
+      default: >-
         Only {count} main duties; the template expects {duties_min}-{duties_max}
         major responsibilities.
-      too_many: >-
+    recommendations:
+      default: Add the missing major responsibilities (each action-verb led).
+
+  - rule_id: SFU-STRUCT-DUTIES-TOO-MANY
+    category: structure
+    section: duties
+    source_part: Part 2C
+    default_severity: medium
+    title: At most 5 major duties
+    owner: deterministic
+    # placeholders: {count}
+    messages:
+      default: >-
         {count} main duties; the template expects {duties_min}-{duties_max} -
         combine related ones.
     recommendations:
-      too_few: Add the missing major responsibilities (each action-verb led).
-      too_many: >-
+      default: >-
         Group related duties under a smaller set of major responsibilities.
 
   - rule_id: SFU-STRUCT-ACTION-VERB

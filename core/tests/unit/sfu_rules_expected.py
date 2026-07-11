@@ -29,7 +29,12 @@ class Expected(NamedTuple):
     owner: str = "deterministic"
 
 
-# --- the 27 deterministic rules ---------------------------------------------
+# --- the deterministic rules -------------------------------------------------
+#
+# hris catalogues 27. We carry 29: the two-sided summary-length and duty-count
+# rules are each split into an over-run and an under-run rule_id (see below) so the
+# Phase-2.3 approval policy can gate exactly the condition SFU's never-approve list
+# names. Detection is unchanged — same triggers, same severities.
 
 EXPECTED_CATALOG: dict[str, Expected] = {
     # completeness — mandatory template sections (Part 2)
@@ -48,11 +53,19 @@ EXPECTED_CATALOG: dict[str, Expected] = {
     "SFU-COMP-ABOUT": Expected("completeness", "about_sfu", "Part 2", "low"),
     "SFU-COMP-TERRITORIAL": Expected("completeness", "edi_footer", "Part 2", "low"),
     "SFU-COMP-EDI": Expected("completeness", "edi_footer", "Part 2", "low"),
-    # structure — SFU format
-    "SFU-STRUCT-SUMMARY-LENGTH": Expected(
+    # structure — SFU format.
+    # The summary-length and duty-count checks are two-sided; SFU's never-approve
+    # list names only the MAXIMUM, so each is catalogued as two rules (over-run vs
+    # under-run) and the approval policy can gate one without the other. Same
+    # triggers, same severities as the single hris rules they split.
+    "SFU-STRUCT-SUMMARY-TOO-SHORT": Expected(
         "structure", "position_summary", "Part 2B", "low"
     ),
-    "SFU-STRUCT-DUTIES-COUNT": Expected("structure", "duties", "Part 2C", "medium"),
+    "SFU-STRUCT-SUMMARY-TOO-LONG": Expected(
+        "structure", "position_summary", "Part 2B", "low"
+    ),
+    "SFU-STRUCT-DUTIES-TOO-FEW": Expected("structure", "duties", "Part 2C", "medium"),
+    "SFU-STRUCT-DUTIES-TOO-MANY": Expected("structure", "duties", "Part 2C", "medium"),
     "SFU-STRUCT-ACTION-VERB": Expected("structure", "duties", "Glossary", "low"),
     "SFU-STRUCT-HOW-WHY": Expected("structure", "duties", "Part 2C", "low"),
     "SFU-STRUCT-PLACEHOLDER": Expected("structure", "general", "Part 2", "medium"),

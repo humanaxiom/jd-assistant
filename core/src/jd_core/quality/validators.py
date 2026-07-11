@@ -33,17 +33,49 @@ from src.jd_core.rules import Rules, get_rules
 _DEFAULT_VARIANT = "default"
 
 
+def _anchor(term: str) -> str:
+    """The search pattern for ``term`` — anchored only where anchoring means
+    something.
+
+    A multi-word term is a plain substring (mirroring hris). A single-word term is
+    boundary-anchored so ``assets`` does not match inside ``reassessment`` — but
+    **only at an edge that is alphanumeric**.
+
+    DELIBERATE DEVIATION FROM hris: hris wraps every space-free marker in
+    ``\\b…\\b``, which is simply wrong when the marker's edge is not a word
+    character, and it silently kills two of the seven placeholder markers:
+
+    * ``\\b\\[insert`` can only match when a *word* character precedes the ``[``,
+      so ``[insert department]`` at the start of a line — the exact thing an
+      unfinished draft contains — never fires;
+    * ``____\\b`` requires a non-word character after the 4th underscore, but
+      ``_`` *is* a word character, so any run of 5+ underscores (i.e. every real
+      fill-in line) never fires.
+
+    ``SFU-STRUCT-PLACEHOLDER`` feeds a **non-overridable** approval gate, so a
+    marker that cannot fire is a false safety guarantee, not a cosmetic bug.
+    ``(?<!\\w)x(?!\\w)`` is equivalent to ``\\bx\\b`` for an alphanumeric-edged
+    term, so every alphabetic term (the coded lexicon, the banned qualification
+    phrases, the working-condition markers) matches bit-identically to before.
+    """
+    pattern = re.escape(term)
+    if " " in term:
+        return pattern
+    if term[:1].isalnum():
+        pattern = rf"(?<!\w){pattern}"
+    if term[-1:].isalnum():
+        pattern = rf"{pattern}(?!\w)"
+    return pattern
+
+
 def _context(text: str, term: str, *, window: int) -> str | None:
     """Short verbatim snippet of ``text`` around the first match of ``term``.
 
-    Word-boundary match for a single word, plain substring for a multi-word term
-    (mirroring hris). ``None`` when the term is absent. Ellipses mark truncation,
-    so the snippet is never mistaken for the whole sentence.
+    ``None`` when the term is absent. Ellipses mark truncation, so the snippet is
+    never mistaken for the whole sentence. See :func:`_anchor` for how a term is
+    matched.
     """
-    pattern = re.escape(term)
-    if " " not in term:
-        pattern = rf"\b{pattern}\b"
-    match = re.search(pattern, text, flags=re.IGNORECASE)
+    match = re.search(_anchor(term), text, flags=re.IGNORECASE)
     if match is None:
         return None
     start = max(0, match.start() - window)
@@ -142,19 +174,23 @@ def _structure(
     out: list[JDQualityIssue] = []
     thresholds = rules.thresholds
 
+    # Two-sided, but two DIFFERENT rules: SFU's never-approve list names only the
+    # over-run (the maximum), so the over- and under-run carry distinct rule_ids and
+    # the approval policy can gate one without the other. Same triggers, same
+    # severities as the two-sided rules they replace.
     summary = (sfu.position_summary or "").strip()
     if summary:
         words = len(summary.split())
-        if words < thresholds.summary_min_words or words > thresholds.summary_max_words:
-            out.append(_issue(rules, "SFU-STRUCT-SUMMARY-LENGTH", words=words))
+        if words < thresholds.summary_min_words:
+            out.append(_issue(rules, "SFU-STRUCT-SUMMARY-TOO-SHORT", words=words))
+        elif words > thresholds.summary_max_words:
+            out.append(_issue(rules, "SFU-STRUCT-SUMMARY-TOO-LONG", words=words))
 
     n = len(sfu.duties)
     if 0 < n < thresholds.duties_min:
-        out.append(_issue(rules, "SFU-STRUCT-DUTIES-COUNT", variant="too_few", count=n))
+        out.append(_issue(rules, "SFU-STRUCT-DUTIES-TOO-FEW", count=n))
     elif n > thresholds.duties_max:
-        out.append(
-            _issue(rules, "SFU-STRUCT-DUTIES-COUNT", variant="too_many", count=n)
-        )
+        out.append(_issue(rules, "SFU-STRUCT-DUTIES-TOO-MANY", count=n))
 
     approved = rules.action_verbs.approved
     bad_verbs = [

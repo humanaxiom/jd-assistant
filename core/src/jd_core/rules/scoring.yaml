@@ -1,10 +1,10 @@
 # JD quality scoring calibration — RULEBOOK AS DATA (CLAUDE.md §2).
 #
-# score = max(0, 100 - Σ penalty), where each severity tier's k-th (0-indexed)
-# finding costs `severity_penalty[tier] * severity_decay**k`. Diminishing returns
-# bound a tier at `penalty / (1 - decay)`, so a wall of minor nudges cannot alone
-# force an F while genuine high-severity failures still drive a low grade. Tiers
-# do NOT decay against each other.
+# score = max(min_score, max_score - Σ penalty), where each severity tier's k-th
+# (0-indexed) finding costs `severity_penalty[tier] * severity_decay**k`.
+# Diminishing returns bound a tier at `penalty / (1 - decay)`, so a wall of minor
+# nudges cannot alone force an F while genuine high-severity failures still drive
+# a low grade. Tiers do NOT decay against each other.
 #
 # provenance:
 #   hris: packages/pipeline/src/pipeline/quality/jd_rules.py ::
@@ -12,6 +12,14 @@
 #     RULES_VERSION jd_rules_sfu_v3). Not an SFU-published table — SFU's rulebook
 #     defines the gates; the score is our transparent roll-up of them.
 version: jd_rules_sfu_v3
+
+# The score scale. `max_score` is the perfect-JD baseline every penalty is
+# subtracted from (hris hardcoded it as a literal 100.0 in Python); `min_score` is
+# the floor a saturating pile of findings bottoms out at. Both participate in the
+# decision (they set what the gate runner's score floor is measured against), so
+# both are data, not code.
+max_score: 100.0
+min_score: 0.0
 
 # Keys MUST be exactly the JDIssueSeverity literal (jd_core.models.quality).
 severity_penalty:

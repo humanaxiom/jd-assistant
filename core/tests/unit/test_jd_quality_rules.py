@@ -8,7 +8,7 @@ diminishing returns).
 
 The suite is the behavioural spec, ported from hris
 ``tests/unit/test_jd_quality_rules.py`` and extended to CLAUDE.md invariant #4:
-**every one of the 27 catalogued rules gets a failing fixture (a JD that trips it)
+**every one of the catalogued rules gets a failing fixture (a JD that trips it)
 and a passing fixture (a clean JD that does not).** Assertions are on the
 validator post-state — ``rule_id`` + severity + section + evidence presence
 (invariant #3) — not on incidental prose; the few message assertions that remain
@@ -124,7 +124,7 @@ def test_clean_jd_has_no_issues_and_scores_100() -> None:
 
 @pytest.mark.parametrize("rule_id", sorted(EXPECTED_CATALOG))
 def test_clean_jd_is_a_passing_fixture_for_every_rule(rule_id: str) -> None:
-    """Passing fixture, per rule: the conformant JD trips none of the 27."""
+    """Passing fixture, per rule: the conformant JD trips not one of them."""
     assert rule_id not in _ids(evaluate_jd_rules(_clean_jd(), _CLEAN_RAW))
 
 
@@ -198,28 +198,28 @@ FAILING_FIXTURES: list[FailingCase] = [
     ),
     # --- structure ---
     (
-        "SFU-STRUCT-SUMMARY-LENGTH",
+        "SFU-STRUCT-SUMMARY-TOO-SHORT",
         "summary-too-short",
         _jd(position_summary=_summary(40)),
         _CLEAN_RAW,
         "low",
     ),
     (
-        "SFU-STRUCT-SUMMARY-LENGTH",
+        "SFU-STRUCT-SUMMARY-TOO-LONG",
         "summary-too-long",
         _jd(position_summary=_summary(200)),
         _CLEAN_RAW,
         "low",
     ),
     (
-        "SFU-STRUCT-DUTIES-COUNT",
+        "SFU-STRUCT-DUTIES-TOO-FEW",
         "too-few-duties",
         _jd(duties=[_duty("Manages"), _duty("Leads")]),
         _CLEAN_RAW,
         "medium",
     ),
     (
-        "SFU-STRUCT-DUTIES-COUNT",
+        "SFU-STRUCT-DUTIES-TOO-MANY",
         "too-many-duties",
         _jd(duties=[_duty("Manages") for _ in range(6)]),
         _CLEAN_RAW,
@@ -476,27 +476,51 @@ PassingCase = tuple[str, str, SFUJobDescription, str]
 
 PASSING_FIXTURES: list[PassingCase] = [
     (
-        "SFU-STRUCT-DUTIES-COUNT",
+        "SFU-STRUCT-DUTIES-TOO-FEW",
         "exactly-three-duties",
         _jd(duties=[_duty("Manages"), _duty("Leads"), _duty("Provides")]),
         _CLEAN_RAW,
     ),
     (
-        "SFU-STRUCT-DUTIES-COUNT",
+        "SFU-STRUCT-DUTIES-TOO-MANY",
         "exactly-five-duties",
         _jd(duties=[_duty("Manages") for _ in range(5)]),
         _CLEAN_RAW,
     ),
+    (  # the over-run rule must NOT fire on an under-run JD, and vice versa
+        "SFU-STRUCT-DUTIES-TOO-MANY",
+        "two-duties-is-too-few-not-too-many",
+        _jd(duties=[_duty("Manages"), _duty("Leads")]),
+        _CLEAN_RAW,
+    ),
     (
-        "SFU-STRUCT-SUMMARY-LENGTH",
+        "SFU-STRUCT-DUTIES-TOO-FEW",
+        "six-duties-is-too-many-not-too-few",
+        _jd(duties=[_duty("Manages") for _ in range(6)]),
+        _CLEAN_RAW,
+    ),
+    (
+        "SFU-STRUCT-SUMMARY-TOO-SHORT",
         "summary-at-lower-bound",
         _jd(position_summary=_summary(100)),
         _CLEAN_RAW,
     ),
     (
-        "SFU-STRUCT-SUMMARY-LENGTH",
+        "SFU-STRUCT-SUMMARY-TOO-LONG",
         "summary-at-upper-bound",
         _jd(position_summary=_summary(150)),
+        _CLEAN_RAW,
+    ),
+    (
+        "SFU-STRUCT-SUMMARY-TOO-LONG",
+        "a-short-summary-is-not-a-long-one",
+        _jd(position_summary=_summary(40)),
+        _CLEAN_RAW,
+    ),
+    (
+        "SFU-STRUCT-SUMMARY-TOO-SHORT",
+        "a-long-summary-is-not-a-short-one",
+        _jd(position_summary=_summary(200)),
         _CLEAN_RAW,
     ),
     (
@@ -533,7 +557,7 @@ PASSING_FIXTURES: list[PassingCase] = [
         # A zero-duty JD is a COMPLETENESS failure (SFU-COMP-DUTIES), not a count
         # failure: the `0 < n` guard stops it being reported twice ("no duties
         # listed" AND "only 0 main duties").
-        "SFU-STRUCT-DUTIES-COUNT",
+        "SFU-STRUCT-DUTIES-TOO-FEW",
         "zero-duties-is-completeness-not-count",
         _jd(duties=[]),
         _CLEAN_RAW,
@@ -596,16 +620,25 @@ def test_passing_fixture_does_not_trip_its_rule(
 def test_summary_length_message_reports_the_count_and_the_template_range() -> None:
     issues = _hits(
         evaluate_jd_rules(_jd(position_summary=_summary(40)), _CLEAN_RAW),
-        "SFU-STRUCT-SUMMARY-LENGTH",
+        "SFU-STRUCT-SUMMARY-TOO-SHORT",
     )
     assert "40" in issues[0].message
     assert "100-150" in issues[0].message
 
 
+def test_over_long_summary_message_reports_the_maximum() -> None:
+    issues = _hits(
+        evaluate_jd_rules(_jd(position_summary=_summary(200)), _CLEAN_RAW),
+        "SFU-STRUCT-SUMMARY-TOO-LONG",
+    )
+    assert "200" in issues[0].message
+    assert "150" in issues[0].message
+
+
 def test_duties_count_message_reports_the_template_range() -> None:
     issues = _hits(
         evaluate_jd_rules(_jd(duties=[_duty("Manages")]), _CLEAN_RAW),
-        "SFU-STRUCT-DUTIES-COUNT",
+        "SFU-STRUCT-DUTIES-TOO-FEW",
     )
     assert "3-5" in issues[0].message
 
@@ -623,7 +656,57 @@ def test_zero_duties_is_reported_once_as_completeness_not_twice() -> None:
     'only 0 main duties'. Regression for a double-reported finding."""
     ids = _ids(evaluate_jd_rules(_jd(duties=[]), _CLEAN_RAW))
     assert "SFU-COMP-DUTIES" in ids
-    assert "SFU-STRUCT-DUTIES-COUNT" not in ids
+    assert "SFU-STRUCT-DUTIES-TOO-FEW" not in ids
+
+
+# --- placeholder markers: the two that hris's \b-wrapping silently killed -----
+#
+# SFU-STRUCT-PLACEHOLDER feeds a NON-OVERRIDABLE approval gate, so a marker that
+# cannot fire is a false safety guarantee: a reviewer trusting the gate would
+# approve a JD that still reads "[insert department]". Regression fixtures for
+# both dead markers.
+
+
+@pytest.mark.parametrize(
+    ("raw", "label"),
+    [
+        ("[insert department] leads the team.", "bracket-at-position-0"),
+        ("The [insert department] leads the team.", "bracket-after-a-space"),
+        ("Reports to:\n[insert department]\n", "bracket-after-a-newline"),
+        ("Name: _____", "five-underscores"),
+        ("Name: ____________", "twelve-underscores"),
+        ("Name: ____", "exactly-four-underscores"),
+    ],
+)
+def test_unfinished_draft_markers_fire(raw: str, label: str) -> None:
+    issues = _hits(
+        evaluate_jd_rules(_clean_jd(), _CLEAN_RAW + " " + raw), "SFU-STRUCT-PLACEHOLDER"
+    )
+    assert issues, f"{label}: an unfinished draft must trip the placeholder gate"
+    assert issues[0].evidence
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "The department reassembles the team.",  # no marker at all
+        "Underscore_separated_identifiers are fine.",
+        "The reinsertion of the clause is complete.",  # 'insert' inside a word
+    ],
+)
+def test_placeholder_markers_do_not_over_fire(raw: str) -> None:
+    assert "SFU-STRUCT-PLACEHOLDER" not in _ids(
+        evaluate_jd_rules(_clean_jd(), _CLEAN_RAW + " " + raw)
+    )
+
+
+def test_alphabetic_terms_still_match_on_word_boundaries_only() -> None:
+    """The anchoring fix must be a no-op for every alphabetic term: `(?<!\\w)x(?!\\w)`
+    is equivalent to `\\bx\\b`. 'assets' inside 'reassessment' must not fire."""
+    ids = _ids(
+        evaluate_jd_rules(_clean_jd(), _CLEAN_RAW + " The reassessment is done.")
+    )
+    assert "SFU-QUAL-BANNED-PHRASE" not in ids
 
 
 def test_a_document_with_hundreds_of_allocations_does_not_crash_the_validator() -> None:
@@ -800,6 +883,8 @@ def test_scoring_calibration_is_overridable() -> None:
     tuned = Scoring.model_validate(
         {
             "version": get_rules().version,
+            "max_score": 100.0,
+            "min_score": 0.0,
             "severity_penalty": {
                 "high": 20.0,
                 "medium": 30.0,
@@ -826,6 +911,8 @@ def test_decay_of_one_turns_diminishing_returns_off() -> None:
     linear = Scoring.model_validate(
         {
             "version": shipped.version,
+            "max_score": shipped.max_score,
+            "min_score": shipped.min_score,
             "severity_penalty": dict(shipped.severity_penalty),
             "severity_decay": 1.0,
             "grade_bands": [

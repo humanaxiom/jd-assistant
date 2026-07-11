@@ -803,7 +803,7 @@ def test_unknown_message_variant_raises(rules: Rules) -> None:
 
 
 def test_unsupplied_placeholder_raises(rules: Rules) -> None:
-    spec = rules.rule_catalog.spec("SFU-STRUCT-SUMMARY-LENGTH")
+    spec = rules.rule_catalog.spec("SFU-STRUCT-SUMMARY-TOO-SHORT")
     with pytest.raises(RulesError, match="placeholder"):
         spec.render("default", {})
 

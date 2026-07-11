@@ -21,7 +21,7 @@ import datetime as dt
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # The quality dimensions the auditor reports against. ``rule``-sourced issues
 # use the structural categories; the LLM pass owns ``inclusive_language`` and
@@ -126,6 +126,88 @@ class JDChecklistSection(BaseModel):
     issues: list[JDQualityIssue] = Field(default_factory=list)
 
 
+# ---------- approval gates: "never approve if…" ----------
+
+
+class GateReason(BaseModel):
+    """One approval gate that is blocking, and why — in rulebook terms.
+
+    Machine-readable (``gate_id``, ``rule_ids``, ``overridable``) so the UI and
+    the audit log can act on it, and human-readable (``reason``, rendered from the
+    gate's copy in ``rules/gates.yaml``) so a reviewer can see what to fix. The
+    ``source_part`` cites the SFU guide part the gate enforces.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    gate_id: str = Field(min_length=1, max_length=64)
+    source_part: str = Field(min_length=1)  # e.g. "Part 11.6"
+    reason: str = Field(min_length=1)
+    # The catalogued rules that tripped the gate. Empty for a gate measuring a
+    # roll-up (score / grade), or one tripped only by rule-less LLM findings.
+    rule_ids: tuple[str, ...] = ()
+    # Verbatim JD spans the offending findings quoted, bounded by the policy's
+    # ``max_listed``.
+    evidence: tuple[str, ...] = ()
+    # May an HR reviewer waive this gate (always: only with a written reason)?
+    overridable: bool
+
+
+class GateOverride(BaseModel):
+    """A reviewer's waiver of one *overridable* blocking gate.
+
+    CLAUDE.md non-negotiable #1: an override REQUIRES a written reason. That is
+    not a check performed somewhere — an override without a reason (or with a
+    whitespace one, or with no named reviewer) is **unrepresentable**: this model
+    will not construct. Phase 4 persists these to the append-only audit log.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    gate_id: str = Field(min_length=1, max_length=64)
+    reviewer: str = Field(min_length=1, max_length=200)
+    reason: str = Field(min_length=1, max_length=500)
+
+    @field_validator("reviewer", "reason")
+    @classmethod
+    def _is_written(cls, value: str) -> str:
+        written = value.strip()
+        if not written:
+            raise ValueError("must not be blank: an override requires a written reason")
+        return written
+
+
+class GateDecision(BaseModel):
+    """Whether an HR reviewer may be shown the approve button, and why not.
+
+    **This is not an approval.** ``approved=True`` means only that approval is
+    *permitted* — nothing auto-publishes (CLAUDE.md #1); a human still decides.
+    ``approved=False`` means the button is disabled, and every ``blocking`` reason
+    says which rulebook part disabled it.
+
+    The two states are kept in step by construction: an "approved" decision that
+    still carries blockers — or a blocked one that carries none — cannot be built.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    approved: bool
+    blocking: tuple[GateReason, ...] = ()
+    # Gates a reviewer waived, each with its written reason (see GateOverride).
+    overridden: tuple[GateOverride, ...] = ()
+
+    @model_validator(mode="after")
+    def _approval_means_nothing_is_blocking(self) -> GateDecision:
+        if self.approved and self.blocking:
+            raise ValueError(
+                "a decision cannot be approvable while gates are still blocking: "
+                f"{[r.gate_id for r in self.blocking]}"
+            )
+        if not self.approved and not self.blocking:
+            raise ValueError("a blocked decision must say which gate(s) block it")
+        return self
+
+
 # ---------- persisted / API response ----------
 
 
@@ -150,6 +232,11 @@ class JDQualityReport(BaseModel):
     # at build/read time — default empty so old persisted rows (which store only
     # ``issues``) still parse; the read path recomputes it.
     checklist: list[JDChecklistSection] = Field(default_factory=list)
+    # Whether the rulebook permits an HR reviewer to approve this JD at all, and
+    # if not, which gates block it. Derived from ``issues`` + score + grade under
+    # the versioned gate policy — like ``checklist``, recomputed on read, so it
+    # defaults to None for rows written before the gate runner existed.
+    gate_decision: GateDecision | None = None
     model: str
     prompt_version: str
     rules_version: str

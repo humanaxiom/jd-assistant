@@ -2,7 +2,7 @@
 
 Three things are pinned here:
 
-* **The catalog is rulebook data** — the 27 ``RuleSpec`` entries, the SFU section
+* **The catalog is rulebook data** — the ``RuleSpec`` entries, the SFU section
   labels, the template section order and the category->section fallback map are
   loaded from ``rules/rule_catalog.yaml``, not hardcoded in Python. Their content
   is checked against ``sfu_rules_expected`` (transcribed from hris).
