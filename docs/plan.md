@@ -240,19 +240,27 @@ Human gate: approve ADR-005 before Phase 1.
 
 **Exit:** full archive ingests and parses with a metrics report (parse rate, confidence).
 
-### Phase 2 — Validation engine (rulebook as code)
-- **2.1** Rules-as-data: externalize hris `jd_rules.py` tables (verb glossary, coded-term
-  lexicon, modifiers, restricted titles, thresholds, grade bands) into versioned YAML under
-  `jd_core/rules/`, loaded not hardcoded; carry `docs/jd-harmonizer/sfu-reference.md` (#30) as
-  provenance.
-- **2.2** Section validators = port hris `jd_rules.py` (#4) + `rule_catalog.py` (#5), emitting
+### Phase 2 — Validation engine (rulebook as code) — COMPLETE-pending-review
+- **2.1** ✅ MERGED (PR #6, `43f29db`) — rules-as-data: 11 versioned YAML files under
+  `core/src/jd_core/rules/` + typed loader (`get_rules()`), replacing hris `jd_rules.py` tables.
+- **2.2** ✅ MERGED (PR #7, `9eaa39d`) — section validators (29 catalogued rules, each with a
+  failing + passing fixture), porting hris `jd_rules.py` (#4) + `rule_catalog.py` (#5); emits
   `ValidationIssue{code, severity, section, evidence, recommendation}`.
-- **2.3** Gate runner: "never approve if…" → boolean + reasons. Every gate = a failing-fixture
-  and a passing-fixture test (port hris `test_jd_quality_rules.py`).
-- **2.4** Land the EXTRACT modules into `jd_core` per ADR-005; keep hris tests as the spec.
-- **2.5** Archive baseline: run the validator over the parsed archive → quality dashboard data.
+- **2.3** 🔶 OPEN PR #8 (`036c205`), awaiting review — gate runner: "never approve if…" → 14
+  gates (12 overridable, 2 non-overridable), boolean + reasons.
+- **HR decision register** (added mid-phase, not in the original plan) — 🔶 OPEN PR #9, stacked
+  on #8 — 58 decisions (all `open`) recording every non-trivial default for SFU HR to ratify;
+  build-enforced against the live config. See `docs/decisions/HR-DECISION-REGISTER.md`.
+- **2.4** Not started — land remaining EXTRACT modules into `jd_core` per ADR-005; keep hris
+  tests as the spec.
+- **2.5** Not started — archive baseline: run the validator over the parsed archive → quality
+  dashboard data. This ratifies (or kills) the score floor of 60 set in 2.3/register HR-001.
 
-**Exit:** validator passes the rulebook test suite; baseline report generated.
+**Merge order for open work: #8 then #9** (#9 retargets its base to `main` once #8 merges).
+Test suite at HEAD of the stack: 638 passing, coverage 96.92%, all in Docker via `make gates`.
+
+**Exit (met, pending HR ratification of the register):** validator passes the rulebook test
+suite; gate runner + decision register land. Baseline report (2.5) still outstanding.
 
 ### Phase 3 — Dedup & clustering
 - **3.1** Tier 1 exact-dup + report (NEW). Early quantified win (~13.5% of corpus).
