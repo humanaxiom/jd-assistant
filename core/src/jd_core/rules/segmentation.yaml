@@ -1,0 +1,127 @@
+# How the Phase 2.5 archive baseline SEGMENTS the corpus — rulebook-as-data (CLAUDE.md §2).
+#
+# WHAT THIS FILE DECIDES
+# ----------------------
+# Nothing here changes what the validator computes about any JD. It decides which JDs a
+# baseline number is computed OVER — and therefore **which population the approval bar is
+# ratified against**, which is the most consequential judgement in Phase 2.5.
+#
+# It has to be a decision, because the archive fails by ERA, not by quality:
+# SFU-COMP-TERRITORIAL / -ABOUT / -EDI fire on nearly every pre-2019 JD because those
+# sections DID NOT EXIST in the template those JDs were authored under — and
+# SFU-APPROVE-EDI-FOOTER *blocks*. A blended, whole-corpus approval rate would report the
+# archive as catastrophically non-compliant when much of it is simply OLD.
+#
+# ON THE REGISTER, NOT IN THE HASH
+# --------------------------------
+# Every knob below is registered (HR-109 … HR-118, all `open` — SFU HR has ratified
+# nothing) and drift-checked: change one without telling HR and `make gates` fails.
+#
+# But it is excluded from the rulebook's content hash (`loader._UNHASHED_FILES`), so it
+# does NOT move `rules_version`. That stamp means exactly one thing — "the rules that
+# produced this report" — and re-banding an era cannot move a single JD's score, so
+# hashing this file would make every previously stamped report look stale on a change
+# that changed no rule. `decision_register.yaml` is excluded for the same reason by the
+# same mechanism; this is the second file in that category, not a new idea. This file
+# carries its OWN content identity instead (`Segmentation.stamp`), and every baseline
+# artifact records both.
+#
+# EVERY DEFAULT BELOW WAS MEASURED AGAINST THE REAL ARCHIVE (all 14,565 files) — the
+# standing rule of this phase. See `docs/audit/archive-census.md` §3/§4a/§7 and
+# `tests/unit/test_baseline_facets.py`.
+
+version: jd_rules_sfu_v4
+
+# --- era ----------------------------------------------------------------------
+# Census §4b: "Era for the [2008-2021] middle band is most reliably inferred from the
+# JDFN filename token, not body headings." So the token wins over the date band, in
+# BOTH directions: 50 real files carry JDFN with a pre-2019 leading date (1 in 2010,
+# 1 in 2012, 1 in 2015, 2 in 2016, 20 in 2017, 25 in 2018) and they were authored under
+# the current template. HR-109 — read it; the override is a judgement, not a fact.
+era_template_token: JDFN
+
+# Measured on the leading YYYYMMDD prefix (present on 14,565/14,565 files):
+#   <=2009: 3,339   2010-2018: 5,014   >=2019: 6,212
+# `new` is everything above era_transition_max_year — there is no third bound, so a
+# file dated 2030 cannot fall off the end of the ladder into no segment at all.
+era_old_max_year: 2009
+era_transition_max_year: 2018
+
+# --- filename parsing ---------------------------------------------------------
+# The dominant convention (census §3):
+#   YYYYMMDD_<positionID>_<role-slug>[_JDFN_<GROUP>_<revdate>]
+#
+# The position id is the ZERO-PADDED 8-digit PeopleSoft number. Zero-padding is what
+# makes it safe: a date (YYYYMMDD) and a JDFN revision date both start `19`/`20`, so a
+# leading `0` cannot collide with either. Older UNPADDED ids (`43353`) are deliberately
+# NOT claimed — a 5-digit matcher would also claim years, grades and percentages, and a
+# wrong id silently MERGES two unrelated positions into one revision chain.
+#
+# MEASURED (HR-114 carries the full reconciliation, including where we differ from the
+# census): 13,572 of 14,565 files carry an id; 993 carry none. The number of distinct
+# POSITIONS depends on how a bundle is counted — 5,327 by first-id (the shipped grouping)
+# and 5,541 counting every id in every name. The census reported 5,436, which is neither.
+#
+# `ignore_case: false` throughout, and that is a real choice, not a default: the archive's
+# filename tokens are UPPER-CASE by convention (`JDFN`, `APSA`), and matching them
+# case-insensitively would also match a role slug that merely happens to contain the
+# letters. The rulebook's regex form makes the flag explicit rather than implied.
+file_date_pattern:
+  pattern: '^((?:19|20)\d{2})(\d{2})(\d{2})'
+  ignore_case: false
+position_id_pattern:
+  pattern: '(?<![0-9])(0[0-9]{7})(?![0-9])'
+  ignore_case: false
+revision_date_pattern:
+  pattern: 'JDFN_[A-Z]+_((?:19|20)\d{2})(\d{2})(\d{2})'
+  ignore_case: false
+# Reads the bargaining unit off a JDFN name. MEASURED: it yields 12 distinct values over
+# 4,536 files — APSA 3,351 / CUPE 771 / APEX 329 / POLY 49, plus 36 files whose group
+# token is typo'd or truncated in the source filename (ASPA 26, ASAP 2, D 2, B 2, S 1,
+# CUPS 1, ASPSA 1, APA 1). Those 36 are reported exactly as found: the baseline does not
+# silently repair the archive's own data. (HR-118)
+employee_group_pattern:
+  pattern: 'JDFN_([A-Z]+)'
+  ignore_case: false
+
+# --- dedup populations --------------------------------------------------------
+# Census §7a: ~13.5% of the archive is byte-for-byte duplicate. §7b: ~8,160 files are a
+# non-first version of an already-seen position id. An un-deduplicated approval rate is
+# therefore weighted by how many times a position happened to be re-saved.
+#
+# `latest_per_position` is the DECISION-RELEVANT population: the approval bar would
+# apply to the *current* JD for a position, not to its revision history.
+
+# Which date says "this is the current version"? A JDFN file carries two: the leading
+# (original/effective) date and the trailing revision date. MEASURED: 2,857 of the 4,494
+# real JDFN files with a revision token have a revision date that DIFFERS from their
+# leading date, so this knob moves the population materially. `true` = the revision date
+# wins. (HR-112)
+prefer_revision_date_for_version: true
+
+# MEASURED: 993 files (~7%) carry no zero-padded id at all. They cannot be de-versioned,
+# so they are each their own "position". Dropping them would silently shrink the
+# decision-relevant population by ~1,000 files — and NON-RANDOMLY. (HR-113)
+keep_files_without_position_id: true
+
+# A real filename can BUNDLE several positions into one document:
+#   20220201_00114560,_00114369,_00132130_JDFN_APSA_20220201.docx
+#
+# `first`: the file is the first id's. This is the census's own method (§7b) — and the
+#   census names its own limit: a bundle over-counts the first position's revision
+#   history and under-counts the others, which lose a version they genuinely have. Under
+#   `first` the population rests on 5,327 distinct positions.
+# `all`: the file belongs to every id it names, and survives if it is the current version
+#   for ANY of them — 5,541 distinct positions. Arguably what a bundle *is*.
+#
+# Both are IMPLEMENTED, so this is a default a reviewer can really change. Registered
+# `open` (HR-116) precisely because it is a defensible call rather than an obvious one.
+position_id_grouping: first
+
+# --- aggregation / reporting --------------------------------------------------
+# Presentation, not policy: neither changes any file's score, grade, gate decision or
+# segment. Both are explicitly exempted as `trivial` in the register, with reasons.
+score_histogram_bin: 10.0
+# JD-derived text in-repo is precedented (fixtures/golden/ holds real JD binaries), but
+# an artifact must not become a copy of the corpus. Evidence snippets are capped.
+evidence_max_chars: 160

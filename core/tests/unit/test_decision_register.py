@@ -50,6 +50,7 @@ from src.jd_core.rules import (
     get_rules,
     live_value,
     load_rules,
+    loader,
     normalize_config_value,
     resolve_config_path,
 )
@@ -444,10 +445,218 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         "action_verbs",
         "markers",
         "textnorm",
+        # `segmentation.yaml` is an ORDINARY rule file — loaded, validated, registered,
+        # drift-checked. It is merely not part of `rules_version` (`_UNHASHED_FILES`),
+        # exactly as `decision_register.yaml` is not. No second config subsystem.
+        "segmentation",
     }
     # ...and that is every rule file there is, bar the register itself.
     described = {name.removesuffix(".yaml") for name in RULE_FILES}
     assert files_touched == described - {REGISTER_FILE.removesuffix(".yaml")}
+
+
+# --- segmentation.yaml: on the register, deliberately NOT in rules_version ---------
+
+
+def test_the_unhashed_files_are_the_two_that_cannot_change_a_jds_score() -> None:
+    """The rulebook already had this category before Phase 2.5 — it just had one member.
+
+    ``_HASHED_FIELDS`` is derived by EXCLUDING files, and the exclusion encodes exactly
+    one idea: *"this file is on the register's surface, but it does not change what the
+    rules decide about a JD."* ``decision_register.yaml`` describes the rules;
+    ``segmentation.yaml`` decides which FILES a baseline number is computed over.
+    Neither
+    can move a score, a grade or a gate.
+    """
+    assert loader._UNHASHED_FILES == {REGISTER_FILE, "segmentation.yaml"}
+    hashed = set(loader._HASHED_FIELDS)
+    assert "segmentation" not in hashed
+    assert "decision_register" not in hashed
+    # ...and everything else IS hashed: an exclusion list cannot quietly grow.
+    assert hashed == {
+        field
+        for name, field, _ in loader._FILE_MODELS
+        if name not in loader._UNHASHED_FILES
+    }
+
+
+def test_a_config_path_resolves_into_the_segmentation_file(rules: Rules) -> None:
+    """No new path language was needed: ``resolve_config_path`` walks ``Rules``, and
+    ``segmentation`` is a ``Rules`` field like any other."""
+    assert resolve_config_path(rules, "segmentation.era_old_max_year") == 2009
+    assert live_value(rules, "segmentation.era_template_token") == "JDFN"
+    assert live_value(rules, "segmentation.keep_files_without_position_id") is True
+    # a regex compares as its pattern source, exactly as `patterns.yaml` does
+    assert live_value(rules, "segmentation.position_id_pattern") == (
+        r"(?<![0-9])(0[0-9]{7})(?![0-9])"
+    )
+
+
+def test_editing_the_segmentation_file_leaves_rules_version_untouched(
+    tmp_path: Path, rules: Rules
+) -> None:
+    """**THE property this whole arrangement exists for.**
+
+    ``Rules.version`` is ``jd_rules_sfu_v4+<digest of the rule content>`` and it means
+    exactly one thing: *the rules that produced this report* (PR #16). Segmentation
+    decides which FILES a baseline number is computed over — it cannot move any JD's
+    score, grade or gate decision. If it were hashed, re-banding an era would invalidate
+    the stamp on every report ever produced while no rule had moved at all, and
+    ``rules_version`` would stop meaning what it says.
+
+    Proved by MUTATING THE SHIPPED YAML and reloading — never by reading the list.
+    """
+    _write_valid_rules(tmp_path)
+    _patch(tmp_path, "segmentation.yaml", lambda d: d.update(era_old_max_year=2005))
+    retuned = load_rules(tmp_path)
+
+    # the rulebook's identity does not move...
+    assert retuned.version == rules.version
+    assert retuned.content_hash == rules.content_hash
+    # ...but the segmentation's own identity does, so an artifact can still say which
+    # population it describes.
+    assert retuned.segmentation.era_old_max_year == 2005
+    assert retuned.segmentation.stamp != rules.segmentation.stamp
+
+
+def test_editing_a_real_rule_file_does_move_rules_version(
+    tmp_path: Path, rules: Rules
+) -> None:
+    """The other half — otherwise the test above would pass on a hash that tracks
+    nothing."""
+    _write_valid_rules(tmp_path)
+    _patch(tmp_path, "thresholds.yaml", lambda d: d.__setitem__("duties_max", 9))
+    assert load_rules(tmp_path).version != rules.version
+
+
+def test_retuning_the_segmentation_without_the_register_breaks_the_build(
+    tmp_path: Path,
+) -> None:
+    """It is unhashed, but it is still REGISTERED — so it cannot move silently. Re-band
+    the eras (the call that decides which population the approval bar is ratified
+    against) and the build fails until HR is told."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path, "segmentation.yaml", lambda d: d.update(era_transition_max_year=2015)
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-111" in problem for problem in problems), problems
+
+
+def test_dropping_the_jdfn_era_token_without_the_register_breaks_the_build(
+    tmp_path: Path,
+) -> None:
+    """HR-109: the token overrides the date band in BOTH directions, which is what makes
+    50 pre-2019 files `new`. Retiring it is a one-word edit with no other symptom."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "segmentation.yaml",
+        lambda d: d.__setitem__("era_template_token", "X"),
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-109" in problem for problem in problems), problems
+
+
+def test_changing_how_a_bundled_position_is_grouped_breaks_the_build(
+    tmp_path: Path,
+) -> None:
+    """HR-116: the census's own method, with the census's own admitted over/under-count.
+    The alternative is implemented — so this is a default HR can really change, and
+    changing it must tell them."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "segmentation.yaml",
+        lambda d: d.__setitem__("position_id_grouping", "all"),
+    )
+    problems = check_register(load_rules(tmp_path))
+    assert any("HR-116" in problem for problem in problems), problems
+
+
+def test_every_field_of_the_segmentation_file_is_on_the_surface(rules: Rules) -> None:
+    """The flat-file guarantee (the ``hay_signals`` lesson): a knob added to
+    ``segmentation.yaml`` tomorrow lands on the decision surface the moment it is
+    declared, with no enumerator change — so ``check_register`` breaks the build until
+    someone says whether HR must ratify it. ``Segmentation`` is ``extra="forbid"``, so
+    the other half holds too: a YAML key with no field is rejected outright."""
+    surface = decision_surface(rules)
+    for field in type(rules.segmentation).model_fields:
+        if field != "version":
+            assert f"segmentation.{field}" in surface, field
+
+
+def test_the_segmentation_defaults_are_registered_as_nobodys_standard(
+    rules: Rules,
+) -> None:
+    """Provenance honesty (the HR-029 / HR-059 lesson). SFU publishes no era model, no
+    template-era boundary and no dedup policy. Not one of these may claim a rulebook
+    part, and not one of them is ratified."""
+    entries = [
+        d
+        for d in rules.decision_register.decisions
+        if d.config.file == "segmentation.yaml"
+    ]
+    assert len(entries) >= 10, "segmentation.yaml is barely registered"
+    for decision in entries:
+        assert decision.provenance == "our_invention", decision.id
+        assert decision.source_part is None, decision.id
+        assert decision.status == "open", decision.id
+
+
+#: The ONE pre-existing ``jd_core -> jd_bank`` import, recorded so that a second one
+#: cannot appear unnoticed. ``parser/store.py`` is a persistence adapter — it writes a
+#: parsed JD into ``jd_bank``'s ORM rows. It is a real layering smell, it predates 2.5,
+#: and it is a leaf that nothing in the rulebook imports — so it cannot form the cycle
+#: below. Not fixed here (it is not this task's diff); pinned so it cannot grow.
+_KNOWN_CORE_TO_BANK_IMPORTS: Final[frozenset[str]] = frozenset({"parser/store.py"})
+
+
+def test_the_rulebook_never_imports_jd_bank() -> None:
+    """**The layering arrow, defended by a test rather than by a comment.**
+
+    ``jd_bank`` (ingestion, the archive baseline) depends on ``jd_core`` (the rulebook
+    and the validator). An earlier draft of this work put the segmentation policy in
+    ``jd_bank`` and had ``jd_core.rules.loader`` import it *back* — a real import cycle
+    that only failed **by luck of alphabetical test-collection order**, and that left
+    ``get_rules()`` dead in a way an API smoke test would not have caught.
+
+    A constraint enforced by an empty ``__init__.py`` and a comment is not enforced.
+    This reads the source. ``src/jd_core/rules/`` is the load-bearing case: everything
+    imports it (validators, gates, the API, the worker), so an edge OUT of it into a
+    higher layer is precisely what becomes a cycle.
+    """
+    rulebook = Path(__file__).resolve().parents[2] / "src" / "jd_core" / "rules"
+    offenders = [
+        module.name
+        for module in sorted(rulebook.rglob("*.py"))
+        if "src.jd_bank" in module.read_text(encoding="utf-8")
+    ]
+    assert not offenders, (
+        f"the rulebook must not import jd_bank — that is the cycle. "
+        f"Offending module(s): {offenders}"
+    )
+
+
+def test_no_new_core_to_bank_import_appears() -> None:
+    """The ratchet on the rest of ``jd_core``. One such import already exists
+    (:data:`_KNOWN_CORE_TO_BANK_IMPORTS`). This fails if a second is added — and equally
+    if the recorded one is removed — so the list cannot rot in either direction."""
+    core = Path(__file__).resolve().parents[2] / "src" / "jd_core"
+    found = {
+        module.relative_to(core).as_posix()
+        for module in core.rglob("*.py")
+        if any(
+            # `lstrip` on purpose: a lazy import *inside a function* is exactly the
+            # escape hatch someone reaches for when this ratchet blocks them, and a
+            # raw `startswith` would wave it through.
+            line.lstrip().startswith(("from src.jd_bank", "import src.jd_bank"))
+            for line in module.read_text(encoding="utf-8").splitlines()
+        )
+    }
+    assert found == _KNOWN_CORE_TO_BANK_IMPORTS, sorted(
+        found.symmetric_difference(_KNOWN_CORE_TO_BANK_IMPORTS)
+    )
 
 
 @pytest.mark.parametrize(

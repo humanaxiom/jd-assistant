@@ -3,9 +3,26 @@
 # all project code, tests, and linters run INSIDE the `api` container (source is
 # bind-mounted at /app, so no rebuild is needed after edits). Run `make up` first.
 .PHONY: up down gates gates-fast gates-integration migrate logs shell hook-install \
-        register register-check
+        register register-check baseline
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
+
+# ── Archive baseline (Phase 2.5) ───────────────────────────────────────────
+# The SFU JD archive lives OUTSIDE the repo and is READ-ONLY. Its path is NOT
+# hardcoded: point JD_ARCHIVE_PATH at it. The default is a repo-relative `./archive`
+# (machine-neutral); if it is empty the runner refuses to run rather than producing a
+# confident baseline of nothing.
+#
+#   make baseline JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs
+#   make baseline JD_ARCHIVE_PATH=... BASELINE_ARGS="--sample 30"
+#
+# `export` (not a `VAR=x cmd` prefix) is what makes this work on Windows too: docker
+# compose reads these from the environment, and cmd.exe has no inline env-var prefix.
+JD_ARCHIVE_PATH ?= ./archive
+JD_BASELINE_OUT ?= ./out/baseline
+BASELINE_ARGS   ?=
+export JD_ARCHIVE_PATH
+export JD_BASELINE_OUT
 
 up:               ## Start the full stack (Ollama must be running on host)
 	docker compose up -d
@@ -58,6 +75,14 @@ register:         ## Render the HR decision register -> docs/decisions/HR-DECISI
 
 register-check:   ## Fail if the committed register Markdown is stale (CI drift gate)
 	@docker compose run --rm -T gates python -m src.jd_core.rules.render --check < $(REGISTER_MD)
+
+# ── Archive baseline (Phase 2.5) ───────────────────────────────────────────
+# Full corpus is ~8-9 minutes single-process (measured: ~32 ms/file .doc, ~36 ms .docx).
+# Deliberately NOT parallelised: it would trade determinism — what an audit trail is made
+# of — for time this batch job does not need.
+baseline:         ## Run the archive baseline (JD_ARCHIVE_PATH=<SFU JD archive>; BASELINE_ARGS="--sample 30")
+	docker compose run --rm -T baseline python -m src.jd_bank.baseline $(BASELINE_ARGS)
+	@echo "✅ baseline written to $(JD_BASELINE_OUT)"
 
 # ── Migrations (already Docker) ────────────────────────────────────────────
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).
