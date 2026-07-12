@@ -58,7 +58,7 @@
 # building Phase 2.1 (rules-as-data), 2.2 (validators) and 2.3 (gate runner); the
 # "FOR HR TO DECIDE" prose in gates.yaml is their prose ancestor — this file is the
 # enforced version of it.
-version: jd_rules_sfu_v3
+version: jd_rules_sfu_v4
 
 decisions:
   # ═══ THE APPROVAL BAR ═══════════════════════════════════════════════════════
@@ -652,8 +652,10 @@ decisions:
       in SFU's Part 6 list. hris added them ("plus a few widely-recognised coded
       terms") and we inherited them unexamined. Several over-fire badly on ordinary
       JD prose: "handles confidential information" and "negotiates the agreement"
-      are flagged today. WORSE — see HR-058 — "compassionate" appears in SFU's OWN
-      mandatory About-SFU paragraph, so SFU's boilerplate trips our lexicon.
+      are flagged today. "compassionate" is the worst of them: it appears in SFU's OWN
+      mandatory About-SFU paragraph. The scan no longer looks inside that paragraph
+      (HR-107), so SFU's boilerplate no longer trips our lexicon — but the term is
+      still `medium` in a JD's own prose, and it is still not SFU's term. See HR-058.
     impact_if_changed: >-
       Two separate calls. (a) The nine additions: adopt them as SFU policy, or drop
       them. (b) The one deliberate OMISSION: SFU's list also carries "supporting",
@@ -846,14 +848,21 @@ decisions:
       rather than development. TWO distinct gaps. (a) SEVERITY: a missing
       acknowledgement is `low` (5 points) — yet it DOES block approval via the
       EDI-footer gate, so a `low` finding is doing a `high` finding's job. (b)
-      WORDING: THE SYSTEM ONLY CHECKS PRESENCE, NEVER TEXT. There is no configured
-      canonical wording anywhere in the rulebook data — nothing verifies the JD
-      carries SFU's current official acknowledgement rather than an outdated or
-      paraphrased one. Deciding the wording implies ADDING a config key to hold it.
+      WORDING: THE SYSTEM STILL ONLY CHECKS PRESENCE, NEVER TEXT. Nothing verifies the
+      JD carries SFU's current official acknowledgement rather than an outdated or
+      paraphrased one. UPDATED (2.5-prep): the config key this entry said was missing
+      now EXISTS — `boilerplate.territorial_acknowledgement` (HR-105) — but it was
+      added to serve the coded-term scan exemption (HR-107), and NO VALIDATOR COMPARES
+      A JD AGAINST IT. Storing a wording is not verifying one, and our stored copy is
+      itself unverified (three known wordings disagree — see HR-105). This entry stays
+      open on both counts.
     impact_if_changed: >-
       Must be signed off against SFU's current official text before any external
       distribution (Phase 6). Until then every "approved" JD carries an
-      unverified acknowledgement.
+      unverified acknowledgement. ENFORCING the wording (making SFU-COMP-TERRITORIAL
+      compare text rather than detect presence) is a validator change, not a config
+      edit, and would fail a large share of the archive at once — the archive template
+      and our rulebook copy do not agree.
     status: open
 
   # ═══ CHECKS WHOSE SHAPE IS A JUDGEMENT CALL ═════════════════════════════════
@@ -1401,25 +1410,44 @@ decisions:
     current_default: '"caring"'
     provenance: hris_calibration
     why_it_matters: >-
-      SFU's pre-populated About-SFU block reads "We are unconventional, fearless,
-      COMPASSIONATE, approachable and ready." The template says do not edit it. Our
-      lexicon files "compassionate" at `medium` — one of the nine terms that are NOT
-      on SFU's own published list (HR-029). Measured on a clean JD: WITHOUT the
-      About-SFU paragraph, score 91.5 / grade A, no coded-term finding. WITH it —
+      ⚠ THE FALSE POSITIVE IS FIXED (Phase 2.5-prep) — the QUESTION IS STILL OPEN.
+      Read the history, then what is left to decide.
+
+      HISTORY. SFU's pre-populated About-SFU block reads "We are unconventional,
+      fearless, COMPASSIONATE, approachable and ready." The template says do not edit
+      it. Our lexicon files "compassionate" at `medium` — one of the nine terms that
+      are NOT on SFU's own published list (HR-029). Measured on a clean JD: WITHOUT
+      the About-SFU paragraph, score 91.5 / grade A, no coded-term finding. WITH it —
       i.e. exactly as SFU mandates — score 81.5 / grade B, one `medium` coded-term
-      finding. A JD is penalised 10 points for obeying SFU, and penalised again
-      (SFU-COMP-ABOUT) if it leaves the paragraph out. It cannot win. This is almost
-      certainly the highest-frequency false positive in the system, and because it
-      fires on nearly every compliant JD it systematically DEPRESSES THE WHOLE
-      ARCHIVE BASELINE — the very baseline the score floor (HR-001) is supposed to
-      be ratified against. Ratify HR-001 with this fixed, or the floor is calibrated
-      against a 10-point artefact.
+      finding. A JD was penalised 10 points for obeying SFU, and penalised again
+      (SFU-COMP-ABOUT) if it left the paragraph out. It could not win. Because it
+      fired on nearly every compliant JD it systematically DEPRESSED THE WHOLE ARCHIVE
+      BASELINE — the very baseline the score floor (HR-001) is to be ratified against.
+
+      WHAT WAS DONE. Of the three ways out, we took the third: the coded-term scan no
+      longer looks inside SFU's mandated boilerplate. That is a decision in its own
+      right and it is registered as its own entry — HR-107, provenance
+      `our_invention`, status open — with the mandated text itself at HR-104 (About
+      SFU), HR-105 (territorial) and HR-106 (equity). The archive baseline is now
+      measured with the artefact removed, so HR-001 can be ratified against a real
+      number. Behaviour is pinned by tests both ways: paragraph present -> no
+      coded-term finding AND no SFU-COMP-ABOUT; paragraph absent -> SFU-COMP-ABOUT
+      still fires.
+
+      WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD
+      stop losing points; it did NOT settle whether "compassionate" belongs in the
+      lexicon at all. It is still `medium` — so a JD that uses the word in its OWN
+      prose (a Health & Counselling JD asking for "compassionate client care") is
+      still docked 10 points and a grade for a word SFU itself uses approvingly and
+      never published as coded. That is the question below, and it is HR's.
     impact_if_changed: >-
-      Three ways out, all config: drop "compassionate" from the lexicon (it is not
-      SFU's term anyway); demote it to `low`; or exclude the About-SFU boilerplate
-      from the lexicon's scan (a validator scope change — NOT free, see HR-041 for
-      the same shape of problem). Left as-is deliberately: this register documents
-      the behaviour, it does not change it.
+      The remaining choice, both config: drop "compassionate" from the lexicon
+      (`coded_terms.medium`) — it is not SFU's term anyway (HR-029) — or demote it to
+      `low` (`coded_terms.low`, 5 points instead of 10, and it cannot drag a grade).
+      Doing NEITHER is also a choice: the word stays a `medium` finding everywhere
+      except inside SFU's own mandated sentences. Whichever way HR goes, the scan
+      exemption (HR-107) stands on its own — a scanner should not mark down text SFU
+      forbids the author to edit, whatever the lexicon ends up saying.
     status: open
 
   # ═══ TITLES: THE SENIORITY LADDER ═══════════════════════════════════════════
@@ -2522,6 +2550,146 @@ decisions:
     impact_if_changed: >-
       Config only; advisory. A qualitative statement ("supervises the comms team") names no
       number and never escalates, which is the conservative half of the design.
+    status: open
+
+  # ═══ SFU'S MANDATED BOILERPLATE, AND WHAT WE MAY NOT MARK DOWN ══════════════
+  # The four entries below are HR-058's fix. Three of them are SFU's own text; the
+  # fourth — the one HR must actually look at — is OURS: the decision that a scanner
+  # may not penalise text SFU forbids the author to edit.
+
+  - id: HR-104
+    question: >-
+      Is this SFU's current "About SFU" paragraph, word for word — the pre-populated
+      block the template says not to edit?
+    config:
+      file: boilerplate.yaml
+      path: boilerplate.about_sfu
+    current_default:
+      - >-
+        We are Canada's engaged university, defined by our dynamic integration of
+        innovative education, cutting-edge research, and far-reaching community
+        engagement.
+      - We are unconventional, fearless, compassionate, approachable and ready.
+      - We celebrate the diversity of people, ideas and cultures.
+    provenance: sfu_rulebook
+    source_part: Part 1.5
+    why_it_matters: >-
+      This text is now load-bearing, not decoration: the coded-term scan (Part 6)
+      SKIPS it (HR-107), because SFU's own second sentence contains "compassionate",
+      which our lexicon files at `medium` (HR-058). Get the wording wrong and the
+      exemption silently stops applying — the JD is docked 10 points again and nothing
+      fails. Two things HR should know. (a) OUR COPY MAY BE STALE: it is transcribed
+      from our copy of the rulebook, not from SFU's live source. (b) THE ARCHIVE
+      DISAGREES WITH THE RULEBOOK: SFU's own new-template JDs carry only the first TWO
+      sentences — the third ("We celebrate the diversity...") is absent from the
+      template we have. That is precisely why the block is a LIST of passages and each
+      is matched on its own: a whole-paragraph match would have failed on the real
+      archive and left the false positive in place.
+    impact_if_changed: >-
+      Config only. Correcting a word restores the exemption for JDs carrying the
+      corrected text and withdraws it from JDs carrying the old text — so if SFU has
+      revised this paragraph, BOTH wordings belong in this list until the archive is
+      re-issued. Adding a passage that is not SFU's would hand every JD quoting it a
+      free pass from the coded-term scan, which is the only real abuse route here.
+    status: open
+
+  - id: HR-105
+    question: >-
+      Is this SFU's current official territorial acknowledgement — including the
+      spelling of every Nation's name?
+    config:
+      file: boilerplate.yaml
+      path: boilerplate.territorial_acknowledgement
+    current_default:
+      - >-
+        Simon Fraser University respectfully acknowledges the xwmethkweyem
+        (Musqueam), Skwxwu7mesh Uxwumixw (Squamish), selilwetal (Tsleil-Waututh),
+        q'ic'ey' (Katzie), kwikwetl'em (Kwikwetlem), Qayqayt, Kwantlen, Semiahmoo
+        and Tsawwassen peoples on whose unceded traditional territories our three
+        campuses reside.
+    provenance: sfu_rulebook
+    source_part: Part 1.6
+    why_it_matters: >-
+      CLAUDE.md's standing open flag, and HR-039's missing half. HR-039 records that
+      the system "only checks presence, never text — there is no configured canonical
+      wording anywhere in the rulebook data, and deciding the wording implies ADDING a
+      config key to hold it." THIS IS THAT KEY — but adding it VERIFIES NOTHING. Three
+      wordings are now known to exist and no two agree: our rulebook copy (above, an
+      ASCII transliteration that is almost certainly NOT SFU's current orthography for
+      the Nations' names), the archive template (English names only), and whatever SFU
+      publishes today. Getting an Indigenous Nation's name wrong is not a typo. NOTE:
+      nothing today reads this text as an acknowledgement CHECK — SFU-COMP-TERRITORIAL
+      still only checks presence — so this key does not yet enforce a wording on
+      anyone. It exists because the acknowledgement is mandated boilerplate and
+      therefore, like About SFU, exempt from the coded-term scan (HR-107); it happens
+      to contain no coded term today, so the exemption is currently a no-op that
+      guards against a future lexicon addition.
+    impact_if_changed: >-
+      Must be verified against SFU's official text before ANY external distribution
+      (Phase 6 sign-off; blocks publish, not development). Deciding to ENFORCE the
+      wording — i.e. having SFU-COMP-TERRITORIAL compare text rather than detect
+      presence — is a separate decision (HR-039) and would be a validator change, not
+      a config edit.
+    status: open
+
+  - id: HR-106
+    question: >-
+      Is this SFU's current Employment Equity statement, word for word?
+    config:
+      file: boilerplate.yaml
+      path: boilerplate.employment_equity
+    current_default:
+      - Simon Fraser University is committed to the principle of Employment Equity.
+    provenance: sfu_rulebook
+    source_part: Part 1.6
+    why_it_matters: >-
+      The second of the two statements Part 1.6 says MUST appear on every SFU JD. Same
+      shape as HR-105: transcribed from our copy of the rulebook, unverified against
+      SFU's live source, and held here because mandated boilerplate is exempt from the
+      coded-term scan (HR-107). It contains no coded term today, so the exemption is a
+      no-op for it — it is registered so that it cannot QUIETLY become one.
+    impact_if_changed: >-
+      Config only. Presence is still what SFU-COMP-EDI checks (and that gate DOES block
+      approval — HR-004); this key does not change that.
+    status: open
+
+  - id: HR-107
+    question: >-
+      Should our scanners mark down text that SFU wrote, pre-populated, and forbids
+      the JD author to edit?
+    config:
+      file: boilerplate.yaml
+      path: boilerplate.coded_term_scan_exempt
+    current_default:
+      - about_sfu
+      - territorial_acknowledgement
+      - employment_equity
+    provenance: our_invention
+    why_it_matters: >-
+      WE SAY NO, AND THIS IS US SAYING IT — not SFU. It is the fix for HR-058, and the
+      only entry in this group that is a judgement rather than a transcription. Before
+      it, a JD that obeyed SFU scored 91.5/A without the About-SFU paragraph and
+      81.5/B with it — because SFU's own sentence says "compassionate", which our
+      lexicon (HR-028/HR-029) files at `medium`. Removing the paragraph to dodge that
+      tripped SFU-COMP-ABOUT instead. The JD could not win, on nearly every compliant
+      JD in the archive, systematically depressing the very baseline the score floor
+      (HR-001) is to be ratified against. So the Part-6 scan no longer looks inside the
+      blocks named here. SCOPE, precisely: the exemption is granted to SFU's TEXT,
+      never to a section — only a verbatim mandated passage (whitespace / case /
+      smart-quote insensitive, nothing else) is skipped, so coded language cannot be
+      smuggled past the scan by putting it under an "About SFU" heading, by quoting a
+      fragment, or by splicing words into a mandated sentence. Every other scan
+      (placeholders, banned qualification phrases, duty percentages, and the PRESENCE
+      gates SFU-COMP-ABOUT / -TERRITORIAL / -EDI) still reads the whole document.
+    impact_if_changed: >-
+      Empty this list and HR-058 returns in full: every compliant JD in the archive is
+      docked 10 points and a grade for SFU's own word. Alternatives HR may prefer
+      instead of (or as well as) this: drop "compassionate" from the lexicon entirely —
+      it is one of the nine terms SFU never published (HR-029) — or demote it to `low`.
+      Those are lexicon decisions and are separately open. Note the exemption is
+      currently doing work ONLY for `about_sfu`; the other two blocks carry no coded
+      term today and are listed so that the same class of defect cannot reappear the
+      day a term is added to the lexicon.
     status: open
 
 # ═════════════════════════════════════════════════════════════════════════════

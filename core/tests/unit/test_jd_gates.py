@@ -251,7 +251,9 @@ def test_gates_yaml_ships_and_carries_the_rulebook_version(
     rules: Rules, policy: GatePolicy
 ) -> None:
     assert "gates.yaml" in RULE_FILES
-    assert policy.version == rules.version
+    # the file's DECLARED version; `rules.version` is now that plus a content digest
+    # (see test_rules_version.py — the string used to track nothing).
+    assert policy.version == rules.declared_version
 
 
 def test_shipped_gates_match_the_expected_policy(policy: GatePolicy) -> None:

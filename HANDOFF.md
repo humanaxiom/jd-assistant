@@ -159,6 +159,14 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
 
 ## Gotchas learned (save yourself the pain)
 
+- **`rules_version` is now content-derived, and that couples rule edits to `make register`.**
+  Since 2.5-prep, `Rules.version` is `jd_rules_sfu_v4+<12-hex digest of the rule content>` — and
+  `rules/render.py` renders it into the register Markdown header. So **any change to any rule
+  YAML (except `decision_register.yaml`) now fails `make register-check` until you re-run
+  `make register`**, even when no register prose changed. That is the intended forcing function
+  (the committed register names the exact rulebook it describes), but it is new and it looks like
+  a spurious CI failure the first time it bites. `decision_register.yaml` is deliberately excluded
+  from the digest, so editing register prose does *not* churn the version.
 - **The `gates` container mounts only `./core` at `/app`.** Tests must be self-contained under
   `core/tests/`; `docs/` and repo-root fixtures are NOT visible in it.
 - **testcontainers work in the `gates` service** (Docker socket mounted + host-override env vars).
@@ -223,6 +231,16 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
 
 ## Backlog (real, recorded — fold into cleanup PRs as they come up)
 
+- **A zero-width character defeats the coded-term scan outright (PRE-EXISTING — not 2.5-prep).**
+  The scan anchors each term with `(?<!\w)term(?!\w)`, so `comp​assionate` (a zero-width space
+  mid-word — a routine `.docx` extraction artefact) matches **nothing** and the term goes
+  unflagged. Confirmed by running the scanner with the boilerplate exemption forced OFF, so the
+  2.5-prep redaction did not introduce it: it is the scanner's own regex, and the same hole applies
+  to every coded term, every banned qualification phrase and every placeholder marker. The
+  boilerplate *matcher* folds these characters away (`quality/boilerplate.py :: _FOLD`); the
+  *scanner* does not. Fix = normalize the JD text once, up front, for every scan — a validator-wide
+  change that wants its own PR. It **will move findings on real archive documents**, so decide
+  deliberately whether it lands before or after 2.5's baseline run.
 - **`comparison.cluster_algo` can lie** (`rules/comparison.yaml`). It accepts any non-empty string:
   set it to `louvain` and clusters get *stamped* `louvain` while `build_clusters` still runs
   connected components — a provenance falsehood (non-negotiable #6) in whatever Phase 3 persists.

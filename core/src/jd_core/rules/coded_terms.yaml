@@ -14,7 +14,7 @@
 #
 # NOTE: SFU's lexicon also lists "supporting", but marks it "vague — clarify",
 # not a hard replace. It is deliberately NOT flagged (hris does the same).
-version: jd_rules_sfu_v3
+version: jd_rules_sfu_v4
 
 # Clear neutral form exists -> medium severity.
 medium:

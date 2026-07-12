@@ -1,0 +1,76 @@
+# SFU's MANDATED BOILERPLATE — RULEBOOK AS DATA (CLAUDE.md §2).
+#
+# The text SFU pre-populates and forbids the JD author to edit. It is here for one
+# reason: our own coded-term lexicon fires INSIDE it, so a JD is penalised for
+# obeying SFU (HR-058). A scanner may not mark down text its own rulebook says
+# must not be changed, so the mandated text — and the fact that it is exempt from
+# the coded-term scan — is rule DATA, not a special case buried in a validator.
+#
+# provenance:
+#   rulebook: docs/rulebook/sfu-jd-standards.txt
+#     - Part 1.5 "ABOUT SFU (Pre-populated section — do not edit)"  (l.54-55)
+#     - Part 1.6 "MANDATORY TERRITORIAL ACKNOWLEDGEMENT & EDI COMMITMENT":
+#       "These 2 statements MUST appear on EVERY SFU JD"             (l.57-62)
+#   register: HR-104 (About SFU) · HR-105 (territorial) · HR-106 (equity) ·
+#             HR-107 (the scan exemption itself — OUR call, not SFU's)
+#
+# ── WHY EACH BLOCK IS A LIST OF PASSAGES, NOT ONE PARAGRAPH ──────────────────
+# A passage is the unit of exemption: the scan skips a span of the JD only when
+# that span is one of SFU's mandated sentences, VERBATIM. Two reasons:
+#
+#   1. It is what the archive actually contains. SFU's own new-template JDs carry
+#      the About-SFU block WITHOUT its third sentence (see
+#      tests/fixtures/sfu_new_template.txt). A whole-paragraph match would fail on
+#      the real corpus and the false positive would survive the "fix".
+#   2. It closes the smuggling loophole. The exemption is granted to SFU's text,
+#      never to a SECTION: you cannot get arbitrary coded language past the scanner
+#      by putting it under an "About SFU" heading, by quoting a fragment of a
+#      mandated sentence, or by splicing words into one — a spliced sentence is no
+#      longer the mandated sentence, so nothing is exempted.
+#
+# Matching is on NORMALIZED text (see quality/boilerplate.py): whitespace collapsed
+# (the archive line-wraps mid-sentence), case folded, and typographic quotes /
+# dashes folded to ASCII (docx gives "Canada’s", the rulebook gives "Canada's").
+# Everything else must match character for character.
+#
+# ⚠ WORDING IS NOT VERIFIED. These are transcribed from OUR COPY of the rulebook,
+# which is not SFU's live source of truth. CLAUDE.md's standing open flag applies
+# to the territorial acknowledgement in particular: our copy carries an ASCII
+# transliteration of the hən̓q̓əmin̓əm̓ / Sḵwx̱wú7mesh names, which is almost
+# certainly NOT SFU's current official orthography, and the archive template
+# carries a THIRD wording again (English names only). Verify against SFU's official
+# text before any external distribution (Phase 6). Nothing here decides presence —
+# SFU-COMP-TERRITORIAL / SFU-COMP-EDI / SFU-COMP-ABOUT still fire on absence.
+version: jd_rules_sfu_v4
+
+# Part 1.5 — pre-populated, "do not edit". Sentence 2 is the whole of HR-058: it
+# contains "compassionate", which coded_terms.yaml files at MEDIUM.
+about_sfu:
+  - >-
+    We are Canada's engaged university, defined by our dynamic integration of
+    innovative education, cutting-edge research, and far-reaching community
+    engagement.
+  - We are unconventional, fearless, compassionate, approachable and ready.
+  - We celebrate the diversity of people, ideas and cultures.
+
+# Part 1.6 — mandatory on EVERY SFU JD. See the ⚠ above before trusting the text.
+territorial_acknowledgement:
+  - >-
+    Simon Fraser University respectfully acknowledges the xwmethkweyem
+    (Musqueam), Skwxwu7mesh Uxwumixw (Squamish), selilwetal (Tsleil-Waututh),
+    q'ic'ey' (Katzie), kwikwetl'em (Kwikwetlem), Qayqayt, Kwantlen, Semiahmoo
+    and Tsawwassen peoples on whose unceded traditional territories our three
+    campuses reside.
+
+# Part 1.6 — the second of the two mandatory statements.
+employment_equity:
+  - Simon Fraser University is committed to the principle of Employment Equity.
+
+# THE DECISION (HR-107, our_invention): which mandated blocks the coded-term scan
+# (SFU-LANG-CODED, Part 6) does not look inside. Empty this list and HR-058's false
+# positive comes straight back — which is what the behavioural tests prove.
+# Names must be blocks defined above; the loader rejects anything else.
+coded_term_scan_exempt:
+  - about_sfu
+  - territorial_acknowledgement
+  - employment_equity

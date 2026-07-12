@@ -30,8 +30,10 @@ source extract is ``docs/rulebook/sfu-reference.md``, the rulebook itself is
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import importlib.resources
 import itertools
+import json
 import re
 from collections.abc import Iterable, Mapping, Sequence, Set
 from functools import lru_cache
@@ -276,6 +278,102 @@ class Markers(_RuleFile):
     placeholder: tuple[str, ...] = Field(min_length=1)
     working_conditions: tuple[str, ...] = Field(min_length=1)
     relationships_header: str = Field(min_length=1)
+
+
+#: ``boilerplate.yaml`` fields that are NOT a mandated block. Everything else in
+#: the file is one — so adding a fourth mandated block is a data edit, and it
+#: lands on the decision surface (and in ``blocks``) with no code change.
+_NON_BLOCK_FIELDS: Final[frozenset[str]] = frozenset(
+    {"version", "coded_term_scan_exempt"}
+)
+
+
+class Boilerplate(_RuleFile):
+    """SFU's mandated, do-not-edit text — and what the scanners may not mark down
+    inside it (``boilerplate.yaml``).
+
+    The rulebook pre-populates the About-SFU paragraph (Part 1.5) and mandates the
+    territorial acknowledgement + Employment Equity statements (Part 1.6) on *every*
+    JD. Our own coded-term lexicon then fires inside SFU's own words:
+    ``compassionate`` sits in the About-SFU block at ``medium``, so a JD that obeys
+    SFU loses 10 points and a grade, and a JD that drops the paragraph to dodge that
+    trips ``SFU-COMP-ABOUT`` instead. It cannot win (HR-058).
+
+    So the mandated text lives here as data, and :attr:`coded_term_scan_exempt` says
+    — in the rulebook, not in a validator — which blocks the coded-term scan does not
+    look inside. Presence is untouched: ``SFU-COMP-ABOUT`` / ``-TERRITORIAL`` / ``-EDI``
+    still fire when a block is genuinely absent.
+
+    **The unit of exemption is a passage, not a section.** A span of a JD is skipped
+    only when it is one of SFU's mandated sentences verbatim (modulo whitespace, case
+    and typographic punctuation — see :mod:`src.jd_core.quality.boilerplate`). Coded
+    language cannot be smuggled past the scan by wrapping it in something that *looks
+    like* the boilerplate: an "About SFU" heading exempts nothing, a fragment of a
+    mandated sentence exempts nothing, and words spliced into a mandated sentence make
+    it a different sentence, which exempts nothing.
+    """
+
+    about_sfu: tuple[str, ...] = Field(min_length=1)
+    territorial_acknowledgement: tuple[str, ...] = Field(min_length=1)
+    employment_equity: tuple[str, ...] = Field(min_length=1)
+    #: The blocks ``SFU-LANG-CODED`` does not scan inside. THE decision (HR-107) —
+    #: empty it and HR-058's false positive comes straight back.
+    coded_term_scan_exempt: tuple[str, ...] = Field(default=())
+
+    @field_validator("about_sfu", "territorial_acknowledgement", "employment_equity")
+    @classmethod
+    def _passages_are_real_text(cls, passages: tuple[str, ...]) -> tuple[str, ...]:
+        for passage in passages:
+            if not passage.strip():
+                raise ValueError("a mandated passage must not be blank")
+        if len(set(passages)) != len(passages):
+            raise ValueError("a mandated block must not repeat a passage")
+        return passages
+
+    @field_validator("coded_term_scan_exempt")
+    @classmethod
+    def _exemption_is_a_set(cls, names: tuple[str, ...]) -> tuple[str, ...]:
+        if len(set(names)) != len(names):
+            raise ValueError("coded_term_scan_exempt must not repeat a block")
+        return names
+
+    @model_validator(mode="after")
+    def _the_exemption_names_blocks_that_exist(self) -> Boilerplate:
+        """An exemption for a block that is not in this file would silently exempt
+        nothing — the same "a gate that can never fire" failure as an uncatalogued
+        blocking rule_id, so it is a load error, not a quiet no-op."""
+        unknown = sorted(set(self.coded_term_scan_exempt) - set(self.block_names))
+        if unknown:
+            raise ValueError(
+                f"coded_term_scan_exempt names block(s) {unknown} that this file does "
+                f"not define; known blocks: {list(self.block_names)}"
+            )
+        return self
+
+    @property
+    def block_names(self) -> tuple[str, ...]:
+        """The mandated blocks, in file order — derived, never written down twice."""
+        return tuple(
+            name for name in type(self).model_fields if name not in _NON_BLOCK_FIELDS
+        )
+
+    @property
+    def blocks(self) -> Mapping[str, tuple[str, ...]]:
+        """block name -> its mandated passages."""
+        return _freeze(
+            {
+                name: cast(tuple[str, ...], getattr(self, name))
+                for name in self.block_names
+            }
+        )
+
+    @property
+    def coded_term_exempt_passages(self) -> tuple[str, ...]:
+        """Every passage the coded-term scan must not look inside."""
+        blocks = self.blocks
+        return tuple(
+            passage for name in self.coded_term_scan_exempt for passage in blocks[name]
+        )
 
 
 class Patterns(_RuleFile):
@@ -1501,12 +1599,77 @@ class DecisionRegister(_RuleFile):
         return tuple(sorted(in_status, key=lambda d: d.id))
 
 
+# --- the rules' content identity (what a ValidationReport is stamped with) ----
+
+#: SemVer's build-metadata separator, between the declared version and the digest.
+VERSION_SEPARATOR: Final[str] = "+"
+
+#: How much of the digest the stamped version carries. A git short-sha: readable,
+#: and 48 bits is far more than a rulebook of ~12 files needs.
+CONTENT_HASH_LENGTH: Final[int] = 12
+
+
+def _canonical(value: Any) -> Any:
+    """``value`` as order-stable, JSON-encodable plain data.
+
+    The canonical form is what makes the content hash an *identity* rather than a
+    checksum of a file's bytes: a model is its sorted fields, a mapping its sorted
+    keys, a set its sorted members (order is not policy), a sequence its items in
+    order (order IS policy — ``family_match_order`` decides overlaps), and a compiled
+    regex is its source plus its flags.
+    """
+    if isinstance(value, BaseModel):
+        return {
+            field: _canonical(getattr(value, field))
+            for field in sorted(type(value).model_fields)
+        }
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    if isinstance(value, re.Pattern):
+        compiled = cast(re.Pattern[str], value)
+        return {"pattern": compiled.pattern, "flags": compiled.flags}
+    if isinstance(value, Mapping):
+        return {str(key): _canonical(value[key]) for key in sorted(value, key=str)}
+    if isinstance(value, Set):
+        return sorted((_canonical(member) for member in value), key=repr)
+    if isinstance(value, Sequence):
+        return [_canonical(item) for item in value]
+    raise RulesError(  # pragma: no cover - defensive
+        f"rule data of type {type(value).__name__} cannot be canonicalised; the "
+        f"content hash would silently stop tracking it"
+    )
+
+
+def _content_hash(rule_files: Mapping[str, _RuleFile]) -> str:
+    """SHA-256 over the canonicalised rule files. Pure, portable, deterministic."""
+    payload = json.dumps(
+        {name: _canonical(rule_files[name]) for name in sorted(rule_files)},
+        sort_keys=True,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 class Rules(BaseModel):
-    """The whole validated rulebook — one frozen object, one ``version``."""
+    """The whole validated rulebook — one frozen object, one ``version``.
+
+    :attr:`version` is **derived from the rule content** (see
+    :meth:`content_hash`), not declared. Before Phase 2.5 it was the literal string
+    every YAML carried, and it tracked nothing: the rules under ``jd_rules_sfu_v3``
+    changed materially across 2.2, 2.3 and 2.4 (new files, new gates, 45 new
+    decisions) while the string every ``ValidationReport`` was stamped with stood
+    still. Two reports stamped ``v3`` could have been produced by different
+    rulebooks — a false audit trail (CLAUDE.md non-negotiable #6), about to have the
+    archive baseline pinned to it.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    version: str = Field(min_length=1)
+    #: The human-readable version every rules YAML carries (``jd_rules_sfu_v4``).
+    #: Bumped by hand when the rulebook changes in a way HR should be told about.
+    declared_version: str = Field(min_length=1)
     thresholds: Thresholds
     action_verbs: ActionVerbs
     coded_terms: CodedTerms
@@ -1514,12 +1677,53 @@ class Rules(BaseModel):
     markers: Markers
     patterns: Patterns
     titles: Titles
+    boilerplate: Boilerplate
     hay_signals: HaySignalRules
     comparison: Comparison
     scoring: Scoring
     rule_catalog: RuleCatalog
     gates: GatePolicy
     decision_register: DecisionRegister
+
+    @property
+    def content_hash(self) -> str:
+        """SHA-256 over the canonicalised rule data — the rules' content identity.
+
+        Deterministic and portable: computed from the *loaded models*, so YAML key
+        order, comments, quoting and line wrapping cannot move it, and two machines
+        with the same rules always agree. No clock, no file mtime, no
+        ``PYTHONHASHSEED`` (sets are canonicalised sorted, mappings by sorted key).
+
+        ``decision_register.yaml`` is deliberately **excluded**. It describes the
+        rules; it does not change what the validator computes about a JD. Including
+        it would mean a copy-edit to an ``why_it_matters`` paragraph invalidated
+        every previously stamped report — and, since the register's own
+        ``current_default`` values are already cross-checked against the live rules
+        (:func:`check_register`), a real rule change is caught either way.
+
+        Recomputed on access rather than cached: ``model_copy(update=...)`` (how the
+        test suites retune a rulebook) must not be able to carry a stale identity
+        into a report it stamps. It is ~1 ms.
+        """
+        return _content_hash({name: getattr(self, name) for name in _HASHED_FIELDS})
+
+    @property
+    def version(self) -> str:
+        """What a ``ValidationReport`` is stamped with: ``<declared>+<short hash>``.
+
+        Both halves earn their place. The declared half is what an HR reader can
+        actually say out loud and look up; a bare digest is unreadable to them. The
+        hash half is what makes the stamp *true* — it moves whenever any rule moves,
+        so an HR reviewer holding an old report can settle the only question that
+        matters ("was this produced by today's rules?") by comparing this one string
+        against today's. ``+`` is SemVer's build-metadata separator, and 12 hex
+        characters is a git short-sha: familiar, and 48 bits is far more than a
+        rulebook needs.
+        """
+        return (
+            f"{self.declared_version}"
+            f"{VERSION_SEPARATOR}{self.content_hash[:CONTENT_HASH_LENGTH]}"
+        )
 
     @model_validator(mode="after")
     def _restricted_titles_are_catalogued(self) -> Rules:
@@ -1821,6 +2025,7 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "qualifications",
     "action_verbs",
     "markers",
+    "boilerplate",
     "hay_signals",
     "comparison",
 )
@@ -1835,15 +2040,19 @@ def decision_surface(rules: Rules) -> frozenset[str]:
     and the coverage check (:func:`check_register`) breaks the build until
     someone says whether HR must decide it.
 
-    **All twelve rule files are walked.** The surface is everything that can change
+    **All thirteen rule files are walked.** The surface is everything that can change
     what the system decides about a JD:
 
     * ``gates.yaml`` — the approval policy: each gate's overridability and the
       parameter it measures, plus two *derived* views of the policy as a whole
       (:attr:`GatePolicy.blocking_rule_ids`,
       :attr:`GatePolicy.non_overridable_gate_ids`).
+    * ``boilerplate.yaml`` — SFU's mandated text, and which of it the coded-term
+      scan does not look inside. The text is a decision because *what counts as the
+      mandated block* decides what is exempt; the exemption list is a decision
+      because emptying it re-penalises every compliant JD (HR-104 … HR-107).
     * ``thresholds`` / ``patterns`` / ``qualifications`` / ``action_verbs`` /
-      ``markers`` / ``hay_signals`` / ``comparison`` — every field
+      ``markers`` / ``boilerplate`` / ``hay_signals`` / ``comparison`` — every field
       (:data:`_FLAT_SURFACE_FILES`). These are the matchers the validators fire on,
       the weights the Hay estimator scores with, and the thresholds the similarity /
       clustering / drift maths compares against: a regex, a banned phrase, an
@@ -2012,6 +2221,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     ("markers.yaml", "markers", Markers),
     ("patterns.yaml", "patterns", Patterns),
     ("titles.yaml", "titles", Titles),
+    ("boilerplate.yaml", "boilerplate", Boilerplate),
     ("hay_signals.yaml", "hay_signals", HaySignalRules),
     ("comparison.yaml", "comparison", Comparison),
     ("scoring.yaml", "scoring", Scoring),
@@ -2022,6 +2232,13 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
 
 #: Every YAML file that makes up the rulebook, in load order.
 RULE_FILES: Final[tuple[str, ...]] = tuple(name for name, _, _ in _FILE_MODELS)
+
+#: The :class:`Rules` fields whose content identifies a validation result — every
+#: rule file except the register. See :meth:`Rules.content_hash` for why the
+#: register is out: it describes the rules, it does not change what they decide.
+_HASHED_FIELDS: Final[tuple[str, ...]] = tuple(
+    field for name, field, _ in _FILE_MODELS if name != REGISTER_FILE
+)
 
 
 def _read_text(name: str, directory: Path | None) -> str:
@@ -2081,7 +2298,7 @@ def load_rules(directory: Path | None = None) -> Rules:
             f"must be bumped together."
         )
 
-    payload: dict[str, Any] = {"version": versions.pop(), **parsed}
+    payload: dict[str, Any] = {"declared_version": versions.pop(), **parsed}
     try:
         return Rules.model_validate(payload)
     except ValidationError as exc:

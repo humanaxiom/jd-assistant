@@ -112,7 +112,7 @@ def _gate(data: dict[str, Any], gate_id: str) -> dict[str, Any]:
 def test_the_register_ships_and_is_a_versioned_rule_file(rules: Rules) -> None:
     assert REGISTER_FILE in RULE_FILES
     assert (_PKG_DIR / REGISTER_FILE).is_file()
-    assert rules.decision_register.version == rules.version
+    assert rules.decision_register.version == rules.declared_version
 
 
 def test_every_config_path_resolves_against_the_live_rules(rules: Rules) -> None:
@@ -435,6 +435,7 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         "scoring",
         "coded_terms",
         "titles",
+        "boilerplate",
         "hay_signals",
         "comparison",
         "rule_catalog",
@@ -456,6 +457,7 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         "qualifications",
         "action_verbs",
         "markers",
+        "boilerplate",
         "hay_signals",
         "comparison",
     ],
@@ -584,6 +586,10 @@ def test_the_flat_surface_files_are_exactly_the_ones_with_no_containers(
     # ~22 similarity/clustering/drift decision parameters, every one of them visible
     # to `check_register` the moment it is declared, with no enumerator change.
     assert "comparison" in flat
+    # ...and `boilerplate.yaml` (2.5-prep). A fourth mandated block added to it is a
+    # data edit that lands on the surface — and in `Boilerplate.blocks` — with no code
+    # change at all.
+    assert "boilerplate" in flat
     assert flat.isdisjoint(hand_enumerated)
 
 
@@ -1047,6 +1053,15 @@ def test_the_decision_surface_enumerates_every_family_completely(
     for field in type(rules.comparison).model_fields:
         if field != "version":
             assert f"comparison.{field}" in surface
+
+    # SFU's mandated text, and the decision not to scan inside it (HR-104..HR-107).
+    # The TEXT is on the surface because what counts as the mandated block decides
+    # what is exempt; the EXEMPTION is on it because emptying the list re-penalises
+    # every compliant JD in the archive.
+    for field in type(rules.boilerplate).model_fields:
+        if field != "version":
+            assert f"boilerplate.{field}" in surface
+    assert "boilerplate.coded_term_scan_exempt" in surface
 
     # every catalogued rule's severity
     for spec in rules.rule_catalog.rules:

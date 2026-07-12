@@ -29,7 +29,11 @@ from src.jd_core.rules import RULE_FILES, Rules, RulesError, get_rules, load_rul
 
 # --- expected values, transcribed from hris jd_rules.py (RULES_VERSION v3) ----
 
-EXPECTED_VERSION = "jd_rules_sfu_v3"
+#: The DECLARED (human) version every rules YAML carries. ``Rules.version`` is this
+#: plus a digest of the rule content — see ``test_rules_version.py``. Bumped to v4 in
+#: Phase 2.5-prep: the coded-term scan stopped reading SFU's mandated boilerplate
+#: (HR-058/HR-107), which is a behaviour change and must be visible to HR.
+EXPECTED_VERSION = "jd_rules_sfu_v4"
 
 # _APPROVED_ACTION_VERBS — the complete SFU Toolkit glossary, transcribed
 # verbatim. Pinned by exact set equality: a count-only assertion would let a
@@ -239,7 +243,8 @@ def rules() -> Rules:
 
 def test_all_rule_files_ship_and_parse(rules: Rules) -> None:
     assert isinstance(rules, Rules)
-    assert rules.version == EXPECTED_VERSION
+    assert rules.declared_version == EXPECTED_VERSION
+    assert rules.version.startswith(f"{EXPECTED_VERSION}+")
 
 
 def test_every_yaml_file_carries_the_same_version(rules: Rules) -> None:
@@ -491,7 +496,7 @@ def _patch(directory: Path, name: str, mutate: Any) -> None:
 def test_load_rules_from_an_explicit_directory(tmp_path: Path) -> None:
     _write_valid_rules(tmp_path)
     loaded = load_rules(tmp_path)
-    assert loaded.version == EXPECTED_VERSION
+    assert loaded.declared_version == EXPECTED_VERSION
     assert len(loaded.action_verbs.approved) == EXPECTED_ACTION_VERB_COUNT
 
 

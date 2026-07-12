@@ -28,7 +28,7 @@
 # landed, tested and registered; Phase 3 (dedup & clustering) is where they first
 # decide something. Registering them now is the point: they must not arrive as
 # undeclared defaults inside a feature PR.
-version: jd_rules_sfu_v3
+version: jd_rules_sfu_v4
 
 # ── Version stamps ───────────────────────────────────────────────────────────
 # Identity, not policy: what a persisted neighbour/cluster was produced BY. Bump

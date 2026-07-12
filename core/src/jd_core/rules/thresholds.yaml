@@ -9,7 +9,7 @@
 #     _DUTIES_MIN, _DUTIES_MAX, _SUMMARY_MIN_WORDS, _SUMMARY_MAX_WORDS,
 #     _MAX_LISTED, the `window=40` evidence snippet default, and the
 #     `len(allocations) >= 2 and not (99 <= sum <= 101)` duty-% gate.
-version: jd_rules_sfu_v3
+version: jd_rules_sfu_v4
 
 # Duties & Responsibilities: 3-5 major responsibilities.
 duties_min: 3
