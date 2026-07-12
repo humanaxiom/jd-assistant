@@ -443,6 +443,7 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         "qualifications",
         "action_verbs",
         "markers",
+        "textnorm",
     }
     # ...and that is every rule file there is, bar the register itself.
     described = {name.removesuffix(".yaml") for name in RULE_FILES}

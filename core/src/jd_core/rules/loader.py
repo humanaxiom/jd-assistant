@@ -65,6 +65,7 @@ from src.jd_core.models.quality import (
     JDIssueSeverity,
     SFUSection,
 )
+from src.jd_core.textnorm import fold
 
 _PACKAGE: Final = __package__ or "src.jd_core.rules"
 
@@ -151,6 +152,31 @@ FrozenFallbackMap = Annotated[
 Regex = Annotated[re.Pattern[str], PlainValidator(_compile_regex)]
 
 
+def _scannable(label: str, values: Iterable[str]) -> None:
+    """Every string a validator matches against a JD must survive the fold.
+
+    The scanners read a JD through :mod:`src.jd_core.textnorm` (zero-width characters
+    dropped, whitespace collapsed, typographic punctuation folded), so a rule datum
+    made *only* of characters the fold removes — a lone zero-width space, a soft
+    hyphen — carries nothing to match. It passes ``str.strip()``, it looks like real
+    rule data in the YAML, and it is either a term that can never fire or (in an
+    unguarded matcher) a term that matches at every index of every JD.
+
+    "A gate that can never fire is a false safety guarantee" is this rulebook's
+    standing rule, so it is a LOAD error, not a silent one.
+    """
+    for value in values:
+        # A rule term is one line, so HR-108 (may a term match across a paragraph
+        # break?) cannot change whether it folds to nothing. The value is immaterial
+        # here, and is passed explicitly rather than defaulted so that it stays that
+        # way if the policy moves.
+        if not fold(value, join_paragraphs=True):
+            raise ValueError(
+                f"{label} {value!r} has nothing left to match once invisible "
+                f"characters are folded away"
+            )
+
+
 def _check_terms(terms: Mapping[str, str]) -> Mapping[str, str]:
     for term, replacement in terms.items():
         if not term.strip():
@@ -159,6 +185,7 @@ def _check_terms(terms: Mapping[str, str]) -> Mapping[str, str]:
             raise ValueError(f"term {term!r} must be lowercase and stripped")
         if not replacement.strip():
             raise ValueError(f"term {term!r} has an empty replacement")
+    _scannable("coded term", terms)
     return terms
 
 
@@ -259,6 +286,14 @@ class Qualifications(_RuleFile):
     equivalent_combination: str = Field(min_length=1)
     ability_prefixes: tuple[str, ...] = Field(min_length=1)
 
+    @field_validator("banned_phrases", "ability_prefixes", "equivalent_combination")
+    @classmethod
+    def _are_scannable(cls, values: tuple[str, ...] | str) -> tuple[str, ...] | str:
+        _scannable(
+            "qualification phrase", [values] if isinstance(values, str) else values
+        )
+        return values
+
     @field_validator("ksa_rank")
     @classmethod
     def _ranks_are_contiguous(cls, ranks: Mapping[str, int]) -> Mapping[str, int]:
@@ -278,6 +313,12 @@ class Markers(_RuleFile):
     placeholder: tuple[str, ...] = Field(min_length=1)
     working_conditions: tuple[str, ...] = Field(min_length=1)
     relationships_header: str = Field(min_length=1)
+
+    @field_validator("placeholder", "working_conditions", "relationships_header")
+    @classmethod
+    def _are_scannable(cls, values: tuple[str, ...] | str) -> tuple[str, ...] | str:
+        _scannable("marker", [values] if isinstance(values, str) else values)
+        return values
 
 
 #: ``boilerplate.yaml`` fields that are NOT a mandated block. Everything else in
@@ -324,7 +365,11 @@ class Boilerplate(_RuleFile):
     @classmethod
     def _passages_are_real_text(cls, passages: tuple[str, ...]) -> tuple[str, ...]:
         for passage in passages:
-            if not passage.strip():
+            # `fold`, not `strip`: a passage of nothing but zero-width spaces survives
+            # `strip()` yet normalizes to "", which is "found" at every index of every
+            # JD — one stray YAML line would redact the whole document and turn the
+            # coded-term scan off university-wide.
+            if not fold(passage, join_paragraphs=True):
                 raise ValueError("a mandated passage must not be blank")
         if len(set(passages)) != len(passages):
             raise ValueError("a mandated block must not repeat a passage")
@@ -376,6 +421,24 @@ class Boilerplate(_RuleFile):
         )
 
 
+class TextNorm(_RuleFile):
+    """How the scanners READ a JD's text (``textnorm.yaml``).
+
+    Almost all of :mod:`src.jd_core.textnorm` is mechanical and is deliberately NOT
+    here (CLAUDE.md §2 makes *decisions* configurable, and "a zero-width space is
+    invisible" is not a decision anyone can hold a different opinion about). This file
+    holds the one part of the fold that is a policy call — and, measured on the real
+    archive, the one part that actually moves findings.
+    """
+
+    #: THE decision (HR-108). May a term match across a paragraph break?
+    #: ``false`` collapses a line WRAP (the ``antiword`` artefact that made ~9.5% of
+    #: legacy JDs look like they were missing the equivalency path) but leaves a blank
+    #: line standing as a boundary — because joining two unrelated paragraphs INVENTS
+    #: findings, including a trip of the NON-OVERRIDABLE no-placeholders gate.
+    collapse_across_paragraph_break: bool
+
+
 class Patterns(_RuleFile):
     """Regex rules, precompiled once at load (``patterns.yaml``)."""
 
@@ -400,6 +463,12 @@ class RestrictedTitle(BaseModel):
     # The severity a validator raises this restriction at (advisory -> "info").
     severity: JDIssueSeverity
     note: str = ""
+
+    @field_validator("phrase")
+    @classmethod
+    def _is_scannable(cls, phrase: str) -> str:
+        _scannable("restricted title phrase", [phrase])
+        return phrase
 
 
 class _TitleDimension(NamedTuple):
@@ -1676,6 +1745,7 @@ class Rules(BaseModel):
     qualifications: Qualifications
     markers: Markers
     patterns: Patterns
+    textnorm: TextNorm
     titles: Titles
     boilerplate: Boilerplate
     hay_signals: HaySignalRules
@@ -2025,6 +2095,7 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "qualifications",
     "action_verbs",
     "markers",
+    "textnorm",
     "boilerplate",
     "hay_signals",
     "comparison",
@@ -2220,6 +2291,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     ("qualifications.yaml", "qualifications", Qualifications),
     ("markers.yaml", "markers", Markers),
     ("patterns.yaml", "patterns", Patterns),
+    ("textnorm.yaml", "textnorm", TextNorm),
     ("titles.yaml", "titles", Titles),
     ("boilerplate.yaml", "boilerplate", Boilerplate),
     ("hay_signals.yaml", "hay_signals", HaySignalRules),

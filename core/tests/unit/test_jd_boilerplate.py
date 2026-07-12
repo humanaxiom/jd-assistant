@@ -173,7 +173,8 @@ def test_sfu_mandates_a_paragraph_that_contains_one_of_our_own_coded_terms(
             term
             for term in coded
             for passage in passages
-            if f" {term} " in f" {normalize(passage)} ".replace(",", " ")
+            if f" {term} "
+            in f" {normalize(passage, join_paragraphs=False)} ".replace(",", " ")
         )
         for block, passages in boilerplate.blocks.items()
     }
@@ -373,7 +374,7 @@ def test_redaction_cannot_weld_two_words_into_a_third(
     ``man`` welded together is ``workman``, a `medium` coded term the JD never
     contained. The cut leaves a space behind, so it cannot happen."""
     block = _mandated_paragraph(boilerplate, "about_sfu")
-    redacted = redact_passages(f"work{block}man", [block])
+    redacted = redact_passages(f"work{block}man", [block], join_paragraphs=False)
     assert redacted == "work man"
     assert "workman" not in redacted
 
@@ -381,7 +382,10 @@ def test_redaction_cannot_weld_two_words_into_a_third(
 def test_redaction_leaves_a_document_with_no_boilerplate_alone() -> None:
     """A legacy JD carries none of the new template's blocks — untouched, byte for
     byte, so nothing about the old-era archive changes."""
-    assert redact_passages(_CLEAN_RAW, ["We celebrate diversity."]) == _CLEAN_RAW
+    assert (
+        redact_passages(_CLEAN_RAW, ["We celebrate diversity."], join_paragraphs=False)
+        == _CLEAN_RAW
+    )
 
 
 # --- the matcher's guard rails: the states the DATA is allowed to reach --------
@@ -413,14 +417,21 @@ def test_two_wordings_of_one_paragraph_collapse_into_a_single_cut() -> None:
 
     # (a) two revisions of one paragraph, both listed, JD carries the old one — the
     #     exact data state HR-104 tells HR to create.
-    assert redact_passages(doc, [old, revised]) == cut
-    assert redact_passages(doc, [revised, old]) == cut  # list order must not matter
+    assert redact_passages(doc, [old, revised], join_paragraphs=False) == cut
+    assert (
+        redact_passages(doc, [revised, old], join_paragraphs=False) == cut
+    )  # list order must not matter
     # (b) one passage nested wholly inside another -> the wider cut wins, once
-    assert redact_passages(doc, [nested, old]) == cut
-    assert redact_passages(doc, [old, nested]) == cut
+    assert redact_passages(doc, [nested, old], join_paragraphs=False) == cut
+    assert redact_passages(doc, [old, nested], join_paragraphs=False) == cut
     # (c) spans that straddle -> merged into ONE cut spanning both. Without the
     #     collapse this would slice backwards and duplicate the tail.
-    assert redact_passages(f"Intro. {old} Apply now. Outro.", [old, straddling]) == cut
+    assert (
+        redact_passages(
+            f"Intro. {old} Apply now. Outro.", [old, straddling], join_paragraphs=False
+        )
+        == cut
+    )
 
 
 def test_a_zero_width_character_inside_the_mandated_text_is_still_the_mandated_text(
@@ -432,16 +443,48 @@ def test_a_zero_width_character_inside_the_mandated_text_is_still_the_mandated_t
     block = _mandated_paragraph(boilerplate, "about_sfu")
     bommed = block.replace("compassionate", "comp﻿assionate")
     assert bommed != block
-    assert normalize(bommed) == normalize(block)
+    assert normalize(bommed, join_paragraphs=False) == normalize(
+        block, join_paragraphs=False
+    )
     assert _coded(evaluate_jd_rules(_clean_jd(), f"{bommed}\n{_CLEAN_RAW}")) == []
+
+
+def test_the_cut_lands_on_the_passage_even_when_the_fold_has_moved_every_index(
+    boilerplate: Boilerplate,
+) -> None:
+    """The origin map, pinned by behaviour rather than assumed.
+
+    A passage is FOUND in normalized space (whitespace collapsed, case folded,
+    zero-width characters dropped) and CUT out of the original — and the two have
+    different coordinates. Every character the fold removes before the passage is one
+    character of drift between them. Cut at the normalized offset and the knife lands
+    somewhere else entirely: here, 300 characters to the left, leaving SFU's paragraph
+    (and its ``compassionate``) in the text and slicing the JD's own prose instead.
+
+    Every earlier fixture in this file happens to have zero drift — no invisible
+    characters, no collapsed whitespace run before the block — so the origin map was
+    the identity and a mis-cut was invisible. This one has drift wider than the
+    passage.
+    """
+    passage = boilerplate.about_sfu[1]
+    assert "compassionate" in passage
+    doc = f"KEEP-BEFORE {'​' * 300}\n\n {passage} KEEP-AFTER"
+
+    cut = redact_passages(doc, [passage], join_paragraphs=False)
+    assert passage not in cut
+    assert "compassionate" not in cut
+    assert cut.startswith("KEEP-BEFORE")
+    assert cut.endswith("KEEP-AFTER")
 
 
 def test_a_blank_passage_matches_nothing_rather_than_everything() -> None:
     """A whitespace-only passage normalizes to the empty string, and ``"" in text`` is
     True at every index — so an unguarded matcher would redact the WHOLE document and
     silently disable the coded-term scan. It must be a no-op instead."""
-    assert redact_passages(_CLEAN_RAW, ["   \n\t "]) == _CLEAN_RAW
-    assert redact_passages(_CLEAN_RAW, [""]) == _CLEAN_RAW
+    assert (
+        redact_passages(_CLEAN_RAW, ["   \n\t "], join_paragraphs=False) == _CLEAN_RAW
+    )
+    assert redact_passages(_CLEAN_RAW, [""], join_paragraphs=False) == _CLEAN_RAW
     # ...and it cannot be reached from the rulebook anyway: see the load guards below.
 
 
@@ -573,6 +616,7 @@ def test_every_mandated_block_is_registered_and_the_exemption_is_ours(
 def test_normalize_is_idempotent_and_strips_exactly_what_it_claims_to() -> None:
     """Leading/trailing/collapsed whitespace, case, and typographic punctuation — and
     nothing else. Everything the matcher's "verbatim" promise rests on."""
-    text = "  We  are\nCanada’s engaged  university.  "
-    assert normalize(text) == "we are canada's engaged university."
-    assert normalize(normalize(text)) == normalize(text)
+    text = "  We  are\nCanada’s engaged  university.  "
+    once = normalize(text, join_paragraphs=False)
+    assert once == "we are canada's engaged university."
+    assert normalize(once, join_paragraphs=False) == once
