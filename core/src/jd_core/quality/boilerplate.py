@@ -24,15 +24,22 @@ Scope — what counts as the mandated block, and why it cannot be gamed:
 
 * The unit is a **passage** (one of SFU's mandated sentences), matched **verbatim**.
   A passage is cut only where the JD reproduces it in full.
-* Matching is on normalized text: whitespace collapsed (the archive line-wraps
-  mid-sentence), case folded, and typographic quotes/dashes/NBSP folded to ASCII
-  (a ``.docx`` yields "Canada’s", the rulebook yields "Canada's"). **Everything else
+* Matching is on normalized text — :func:`src.jd_core.textnorm.fold_text`, the ONE
+  definition of invisible/typographic noise in this repo, plus case folding:
+  whitespace collapsed (the archive line-wraps mid-sentence), zero-width characters
+  and soft hyphens dropped, typographic quotes/dashes/NBSP folded to ASCII (a
+  ``.docx`` yields "Canada’s", the rulebook yields "Canada's"). **Everything else
   must match character for character.**
 * Therefore: an "About SFU" *heading* exempts nothing — only SFU's text does. A
   fragment ("…fearless, compassionate…") is not a passage, so it is still scanned.
   Words spliced into a mandated sentence make it a different sentence, which matches
   nothing and is scanned in full. Text before, after or between the passages is
   always scanned. The exemption is granted to SFU's words, never to a location.
+
+Folding cannot widen the exemption. It deletes only characters a reader cannot see
+and rewrites only characters onto their own ASCII spelling — so no amount of it turns
+a sentence the JD's author wrote into a sentence SFU mandated, and every smuggling
+route stays closed (``tests/unit/test_jd_boilerplate.py``).
 """
 
 from __future__ import annotations
@@ -40,32 +47,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from typing import Final
 
-#: Typographic variants a ``.docx``/PDF extraction produces where the rulebook (a
-#: plain-text transcript) has ASCII. Folded so a JD is not scanned differently
-#: because of a smart quote. NOT a general unicode normalization: only characters
-#: whose ASCII counterpart is unambiguous.
-_FOLD: Final[dict[str, str]] = {
-    "‘": "'",
-    "’": "'",
-    "‚": "'",
-    "‛": "'",
-    "′": "'",
-    "“": '"',
-    "”": '"',
-    "„": '"',
-    "″": '"',
-    "‐": "-",
-    "‑": "-",
-    "‒": "-",
-    "–": "-",
-    "—": "-",
-    "―": "-",
-    "−": "-",
-    " ": " ",
-    " ": " ",
-    " ": " ",
-    "﻿": "",
-}
+from src.jd_core.textnorm import fold_text
 
 #: What a cut passage is replaced by. A space, not nothing: splicing the two sides
 #: of the cut together could otherwise weld two words into a third that the scanner
@@ -73,66 +55,53 @@ _FOLD: Final[dict[str, str]] = {
 _CUT: Final[str] = " "
 
 
-def normalize(text: str) -> str:
-    """``text`` in the form passages are compared in. See the module docstring."""
-    return _normalized_with_origin(text)[0]
+def normalize(text: str, *, join_paragraphs: bool) -> str:
+    """``text`` in the form passages are compared in. See the module docstring.
 
-
-def _normalized_with_origin(text: str) -> tuple[str, Sequence[int]]:
-    """``(normalized, origin)`` where ``origin[i]`` is the index in ``text`` that
-    normalized character ``i`` came from.
-
-    The map is what lets a match found in normalized space be cut out of the
-    **original** text, so the surviving evidence snippets a finding quotes are still
-    the JD's own words — not a lower-cased, whitespace-mangled rendering of them.
+    ``join_paragraphs`` is the rulebook's ``textnorm.collapse_across_paragraph_break``
+    (HR-108), threaded in rather than defaulted: there is one home for that decision
+    and it is not this module.
     """
-    out: list[str] = []
-    origin: list[int] = []
-    pending_space = False
-    for index, char in enumerate(text):
-        folded = _FOLD.get(char, char)
-        if not folded:
-            continue
-        if folded.isspace():
-            pending_space = bool(out)  # a leading run of whitespace emits nothing
-            continue
-        if pending_space:
-            out.append(" ")
-            origin.append(index)
-            pending_space = False
-        piece = folded.casefold()
-        out.extend(piece)
-        origin.extend([index] * len(piece))
-    return "".join(out), origin
+    return fold_text(text, join_paragraphs=join_paragraphs, casefold=True).folded
 
 
-def _spans(text: str, passages: Iterable[str]) -> list[tuple[int, int]]:
+def _spans(
+    text: str, passages: Iterable[str], *, join_paragraphs: bool
+) -> list[tuple[int, int]]:
     """Every ``[start, end)`` span of ``text`` occupied by a mandated passage.
 
     Every occurrence, not just the first: a JD that repeats the footer (the archive
     does) must have both copies exempted, or the fix would work on page 1 and not on
     page 2.
+
+    Spans come back in the coordinates of the **original** ``text``
+    (:meth:`~src.jd_core.textnorm.FoldedText.to_raw`), so a passage matched in folded
+    space is cut out of the JD's own bytes — and the text that survives the cut, which
+    is what a coded-term finding then quotes as evidence, is still the JD's own words
+    rather than a lower-cased, whitespace-mangled rendering of them.
     """
-    haystack, origin = _normalized_with_origin(text)
+    folded = fold_text(text, join_paragraphs=join_paragraphs, casefold=True)
     found: list[tuple[int, int]] = []
     for passage in passages:
-        needle = normalize(passage)
+        needle = normalize(passage, join_paragraphs=join_paragraphs)
         if not needle:
             continue
-        at = haystack.find(needle)
+        at = folded.folded.find(needle)
         while at != -1:
-            found.append((origin[at], origin[at + len(needle) - 1] + 1))
-            at = haystack.find(needle, at + len(needle))
+            found.append(folded.to_raw(at, at + len(needle)))
+            at = folded.folded.find(needle, at + len(needle))
     return found
 
 
-def redact_passages(text: str, passages: Sequence[str]) -> str:
+def redact_passages(
+    text: str, passages: Sequence[str], *, join_paragraphs: bool
+) -> str:
     """``text`` with every verbatim occurrence of a mandated passage cut out.
 
     Pure. Returns ``text`` unchanged when no passage occurs in it (the common case
     for a legacy JD that carries none of the new template's boilerplate).
     """
-    spans = _spans(text, passages)
+    spans = _spans(text, passages, join_paragraphs=join_paragraphs)
     if not spans:
         return text
 

@@ -1,8 +1,8 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-11 (Phase 2 incl. 2.4 merged; docker renamed to `jd-bank`; **2.5-prep is
-in flight and unreviewed on `agent/p2.5-prep` — read the ⚠ IN FLIGHT section first**).
+Last updated: 2026-07-11 (Phase 2 incl. 2.4 merged; docker renamed to `jd-bank`; 2.5-prep +
+scanner hardening merged. **2.5 — the archive baseline — is next and is now unblocked.**)
 
 Repo: **`C:\repos\JD-Assistant`** → GitHub **github.com/humanaxiom/jd-assistant**.
 
@@ -23,10 +23,12 @@ validators → gate runner), the HR decision register, and all remaining EXTRACT
 | 2.4a bank value objects + provenance + render | MERGED | [#11](https://github.com/humanaxiom/jd-assistant/pull/11) | `43435a7` |
 | 2.4b title classifier + Hay signals (tables as data) | MERGED | [#12](https://github.com/humanaxiom/jd-assistant/pull/12) | `b71868a` |
 | 2.4c similarity + clustering + drift (pure functions) | MERGED | [#13](https://github.com/humanaxiom/jd-assistant/pull/13) | `58fc7d2` |
+| 2.5-prep: HR-058 boilerplate exemption + content-derived `rules_version` | MERGED | [#16](https://github.com/humanaxiom/jd-assistant/pull/16) | `98c0add` |
+| scanner hardening: invisible-char + line-wrap folding (HR-108) | MERGED | [#17](https://github.com/humanaxiom/jd-assistant/pull/17) | — |
 
-Test suite: **864 passing**, coverage **97.11%**, all in Docker via `make gates`. Decision
-register grew from 58 to **103 decisions** as 2.4 landed two new rule files (`hay_signals.yaml`,
-`comparison.yaml`) alongside the 11 from 2.1–2.3.
+Test suite: **1037 passing**, coverage **97.28%**, all in Docker via `make gates`. Decision
+register grew from 58 to **108 decisions** (2.4 added `hay_signals.yaml` + `comparison.yaml`;
+2.5-prep added `boilerplate.yaml`; scanner hardening added `textnorm.yaml`).
 
 All 16 EXTRACT-mapped hris modules are now ported or explicitly deferred: `export.py` → 5.4,
 the 3 prompt templates (`sfu_jd_extract`/`jd_harmonize`/`jd_quality`) → 4.2, `jd_import_service`
@@ -36,43 +38,30 @@ and `drift` landed as pure, tested functions **deliberately not wired to anythin
 
 ---
 
-## ⚠ IN FLIGHT — start here: `agent/p2.5-prep` (pushed, UNREVIEWED, DO NOT MERGE AS-IS)
+## What 2.5-prep established about the archive — read before you trust any archive claim
 
-A **2.5-prep** branch exists with both pre-baseline fixes substantially built. The coder subagent
-was **stopped mid-verification** when the session ran out (it was still auditing coverage of its
-own new module). Gates are green — **922 passing, 97.01%, register in step** — but **no reviewer
-has audited it**, and on this project the reviewer has returned CHANGES REQUIRED on the first pass
-of *every* task, with every finding real. Treat green gates as necessary, not sufficient.
+Both pre-baseline fixes are merged. **The most valuable output was not the code — it was the
+measurements**, because two of the three things we *believed* about the archive turned out to be
+false, and only running against the real corpus revealed it.
 
-**Why these two fixes must land BEFORE the 2.5 baseline runs** (both decided by the human):
+**Measured on the real archive** (`C:\repos\hris\fixtures\SFU_JDs`, through this repo's own
+`ingest/extract.py`; several independent random samples, all agreeing):
 
-1. **HR-058 — we penalise text SFU forbids us to edit.** SFU mandates a verbatim, do-not-edit
-   "About SFU" paragraph containing `compassionate`, which `coded_terms.yaml` scores **medium**.
-   A fully compliant JD therefore scores 91.5/A → **81.5/B**; omit the paragraph to dodge it and
-   `SFU-COMP-ABOUT` fires instead. **Penalised either way** — and it is likely the archive's
-   highest-frequency false positive, systematically depressing the very baseline the score floor
-   of 60 is to be ratified against. Fix: new `quality/boilerplate.py` + `rules/boilerplate.yaml`
-   exempt the mandated block from the coded-term scan (rule data, not hardcoded — invariant #2).
-2. **`rules_version` tracked nothing.** Every `ValidationReport` is stamped `jd_rules_sfu_v3` as
-   provenance (non-negotiable #6), but the rules under that string changed materially in 2.2, 2.3
-   and 2.4. Two reports stamped `v3` can come from different rulebooks. 2.5 was about to pin
-   baseline numbers to it, making the audit trail false exactly when first relied upon. Fix: the
-   version is now **derived from rule content**.
+| Belief | Reality |
+|---|---|
+| "Zero-width chars are a routine `.docx` artefact" | **FALSE.** 600–799 `.docx` sampled: **zero** Cf chars, zero soft hyphens, zero ligatures. `<w:softHyphen/>` exists as an XML *element* in 7 files — python-docx drops it before the scanner sees it. The ZWSP fix is correct hardening but moves **~nothing** on this archive. |
+| "HR-058 is the archive's highest-frequency false positive" | **Not the biggest one.** The real one was **line-wrapping**: antiword hard-wraps legacy `.doc`, so `"equivalent\n   combination"` read as *missing the equivalency path*. `SFU-QUAL-EQUIVALENT` drops **~50%** (74→35, 97→47, 72→34 across samples — ~10% of legacy JDs). |
+| "The territorial-ack + equity footers have HR-058's bug too" | **FALSE.** With the exemption forced off, both produce zero coded terms, zero markers, zero restricted titles. Only `about_sfu` hits. |
 
-**Next session must, before opening a PR:**
-- Finish the coverage audit the coder was mid-way through (an untested branch in the new module).
-- Run a full **adversarial Opus review**, specifically hunting: (a) the **loophole** — can a JD
-  smuggle arbitrary coded language past the scanner by wrapping it in near-miss boilerplate?
-  Whitespace/casing/punctuation/partial-quote handling is the risk. (b) Is the version hash truly
-  **deterministic** (no dict ordering, no mtimes, no PYTHONHASHSEED sensitivity) across machines
-  and rebuilds? (c) Does `SFU-COMP-ABOUT` still fire when the paragraph is genuinely absent?
-- **Unanswered question — check this, it may be the same bug twice more:** do the
-  **territorial-acknowledgement** and **employment-equity** footers (also SFU-mandated boilerplate)
-  contain any coded/restricted term our own rules flag? If so it is the identical defect class and
-  the fix must cover them. The coder was asked but was stopped before reporting.
-- Note the standing open flag: **our stored territorial-acknowledgement text is NOT verified**
-  against SFU's current official wording — do not treat it as authoritative (Phase 6 sign-off,
-  blocks publish, not development).
+**The lesson, and it is now a rule: every claim about the archive must be checked against the
+archive.** Two coders and the orchestrator all reasoned confidently from "zero-width chars are
+common in .docx". They are not, in this corpus. The reviewer was the only one who looked, and it
+overturned the premise of an entire PR — a PR whose false narrative was about to be written into
+2.5's provenance.
+
+Also established: the JDs contain **real leftover template instructions** (e.g. *"For each item
+start with an action verb and briefly describe WHAT is done…"*, still sitting in a live JD), which
+the line-wrap had been hiding from the placeholder gate. Expect 2.5 to surface more of these.
 
 ---
 
@@ -82,7 +71,7 @@ of *every* task, with every finding real. Treat green gates as necessary, not su
 `core/src/jd_core/rules/decision_register.yaml`; `make register-check` fails the build on drift,
 also wired into CI). **103 decisions, all `open` — SFU HR has ratified nothing yet.**
 
-Provenance: **17 our-invention · 71 hris-calibration · 15 SFU-rulebook.** The entire approval
+Provenance: **19 our-invention · 71 hris-calibration · 18 SFU-rulebook** (108 total). The entire approval
 bar — score floor 60.0, grade floor C, the severity floor, the 14-rule blocking set, the 2
 non-overridable gates — is **our invention, not an SFU number**. It must be ratified against the
 Phase 2.5 archive baseline (see Next up, below).
@@ -100,7 +89,8 @@ itself is shrunk to dodge that check.
 
 | ID | Issue |
 |---|---|
-| HR-058 | **BEING FIXED on `agent/p2.5-prep`** (unreviewed — see ⚠ IN FLIGHT). SFU's own mandated "do not edit" About SFU paragraph contains `compassionate`, a **medium** coded term. A compliant JD scores 91.5/A → 81.5/B; omitting the paragraph trips `SFU-COMP-ABOUT` instead — penalised either way. Likely the highest-frequency false positive; it systematically depresses the very baseline the score floor is to be ratified against. |
+| HR-058 | **FIXED** (PR #16). SFU's mandated "do not edit" About SFU paragraph contains `compassionate`, a **medium** coded term — a compliant JD scored 91.5/A → 81.5/B, and omitting the paragraph tripped `SFU-COMP-ABOUT` instead. The coded-term scan now redacts SFU's mandated passages first. The exemption is granted to SFU's **TEXT** (verbatim, modulo folding), never to a **location** — so coded language cannot be smuggled through by wrapping it in boilerplate-shaped prose (verified against 11 adversarial JDs). |
+| HR-108 | Whitespace-run collapsing treats a paragraph break as one space — which would weld two unrelated paragraphs and **invent** findings, including a non-overridable `SFU-STRUCT-PLACEHOLDER` gate trip (a permanently un-approvable JD, no waiver). Default is therefore **paragraph-aware** (`collapse_across_paragraph_break: false`). Measured: the safer default costs **zero** of the −50% `SFU-QUAL-EQUIVALENT` win — both settings give byte-identical findings on the real archive, with the boundary genuinely engaged (100% of `.doc`, 47% of `.docx`). Free insurance. |
 | HR-047 | `action verb` / `how and why` / `what by` are placeholder markers feeding the **non-overridable** no-placeholders gate → a JD that merely discusses action verbs is permanently un-approvable, no waiver. |
 | HR-046 | Working-condition markers include `housing`, `parking`, `relocation` → a Parking Services JD naming its own domain is blocked. |
 | HR-025 | A single `(50%)` duty allocation escapes SFU's Part-11.6 duty-total gate. |
@@ -231,16 +221,18 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
 
 ## Backlog (real, recorded — fold into cleanup PRs as they come up)
 
-- **A zero-width character defeats the coded-term scan outright (PRE-EXISTING — not 2.5-prep).**
-  The scan anchors each term with `(?<!\w)term(?!\w)`, so `comp​assionate` (a zero-width space
-  mid-word — a routine `.docx` extraction artefact) matches **nothing** and the term goes
-  unflagged. Confirmed by running the scanner with the boilerplate exemption forced OFF, so the
-  2.5-prep redaction did not introduce it: it is the scanner's own regex, and the same hole applies
-  to every coded term, every banned qualification phrase and every placeholder marker. The
-  boilerplate *matcher* folds these characters away (`quality/boilerplate.py :: _FOLD`); the
-  *scanner* does not. Fix = normalize the JD text once, up front, for every scan — a validator-wide
-  change that wants its own PR. It **will move findings on real archive documents**, so decide
-  deliberately whether it lands before or after 2.5's baseline run.
+- **`_extract_docx` joins paragraphs with a single `\n`**, so HR-108's paragraph boundary only
+  engages on **47% of `.docx`** (373/799 — those with a literal blank line, or a whitespace-only
+  paragraph, which survives `if p.text` as `"\n \n"`). The other ~53% still join adjacent paragraphs
+  for matching, so a term could match across a `.docx` paragraph break. `.doc` is covered in full
+  (498/498), and that is where the wrapping problem actually lives, so this is not urgent. Fix =
+  `"\n\n".join(...)` — but it **rewrites the stored raw text the segmenter reads**, so it is its own
+  deliberate change, not a drive-by.
+- **`SFU-QUAL-BANNED-PHRASE` scans the whole document** while its own rule text says *"phrases the
+  Toolkit bans from **Qualifications**"*. So `"may include"` in *duties* prose fires a
+  Qualifications rule — e.g. *"Responsibilities may include arranging catering…"*. **68 such
+  findings already exist on 498 legacy JDs**; scanner-hardening added ~3 by making them fire
+  reliably. Pre-existing scoping bug, now louder. Scope the rule to its own section.
 - **`comparison.cluster_algo` can lie** (`rules/comparison.yaml`). It accepts any non-empty string:
   set it to `louvain` and clusters get *stamped* `louvain` while `build_clusters` still runs
   connected components — a provenance falsehood (non-negotiable #6) in whatever Phase 3 persists.

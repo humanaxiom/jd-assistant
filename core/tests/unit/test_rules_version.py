@@ -72,6 +72,8 @@ MUTATIONS: Final[dict[str, Any]] = {
     "scoring.yaml": lambda d: d["severity_penalty"].update(low=6.0),
     "rule_catalog.yaml": lambda d: d["section_labels"].update(general="General"),
     "gates.yaml": lambda d: d.update(max_listed=d["max_listed"] + 1),
+    # HR-108: flip the paragraph boundary and every scan reads the archive differently.
+    "textnorm.yaml": lambda d: d.update(collapse_across_paragraph_break=True),
 }
 
 

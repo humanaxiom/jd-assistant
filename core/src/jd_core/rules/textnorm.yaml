@@ -1,0 +1,59 @@
+# How the scanners READ a JD's text — RULEBOOK AS DATA (CLAUDE.md §2).
+#
+# Every scan in quality/validators.py matches its terms against the JD through one
+# fold (src/jd_core/textnorm.py): invisible characters dropped, typographic
+# punctuation folded to ASCII, whitespace runs collapsed. Almost all of that is
+# MECHANICAL — "a zero-width space is invisible" is not an opinion SFU HR could hold
+# differently, and it is not in this file.
+#
+# ONE part of it is a decision, and it is the part that actually moves findings on the
+# real archive. Hence this file, and HR-108.
+#
+# provenance:
+#   our_invention. SFU's rulebook says nothing about text normalization; it was
+#   written for people reading Word documents, not for a regex reading an antiword
+#   dump. Nothing here is transcribed from anywhere.
+version: jd_rules_sfu_v4
+
+# THE DECISION (HR-108). May a term match ACROSS a paragraph break?
+#
+# false (shipped): a run of whitespace collapses to one space WITHIN a paragraph, and
+#   a paragraph break (a blank line) is a boundary a term cannot span.
+#
+#   Why collapse at all: `antiword` hard-wraps the legacy `.doc` corpus, so a JD that
+#   plainly says "…or an equivalent combination of education…" reaches the scanner as
+#   "equivalent\n      combination" and was reported as MISSING the equivalency path.
+#   MEASURED on a random 400-document `.doc` sample: SFU-QUAL-EQUIVALENT 74 -> 35, i.e.
+#   39 false positives (9.75% of legacy JDs) removed. Same class as HR-058: penalising
+#   a JD for how a converter wrapped it. The same sample GAINS 3 findings the wrap was
+#   hiding (a leftover "start with an action verb…" template instruction; two real "may
+#   include" phrases) — all three verified genuine.
+#
+#   Why NOT across a paragraph break: joining two unrelated paragraphs INVENTS
+#   findings. "Decides what" / "By whom is set elsewhere." becomes the placeholder
+#   marker "what by" — which feeds the NON-OVERRIDABLE no-placeholders gate (HR-047),
+#   i.e. a permanently un-approvable JD, no waiver, manufactured out of normalization.
+#   Also observed: "Duties may" / "Include other tasks." -> SFU-QUAL-BANNED-PHRASE
+#   (medium, -10 score), and "Coordinates on" / "call centre staffing." ->
+#   SFU-AUTH-SUMMARY-CONDITIONS.
+#
+#   What the boundary costs: NOTHING, today. On the same 400-`.doc` and 599-`.docx`
+#   samples, `false` and `true` produce byte-identical findings — no archive document
+#   currently has a term straddling a paragraph break. The whole antiword win is kept;
+#   the boundary is insurance against the invented-finding class above.
+#
+# true: any whitespace run — wrap, paragraph break, section break, table-cell boundary
+#   — is one space. Catches a term a badly-extracted document split across a paragraph
+#   boundary, at the price of the three invented findings above.
+#
+# ⚠ PARTIAL GAP (not a decision — a defect to fix elsewhere): a paragraph break is
+# detected as a BLANK LINE. ingest/extract.py joins `.docx` paragraphs with a single
+# "\n" and drops empty ones — but `if p.text` drops only the TRULY empty ones, so a
+# whitespace-only paragraph (" ") survives and yields "\n \n", which IS a boundary.
+# Measured on 799 archive `.docx`: 101 have a literal blank line, 329 a whitespace-only
+# paragraph — 373 (47%) DO get a boundary. The gap is the other ~53%, separated by a
+# single "\n" and still joined for matching. The `.doc` corpus — where the wrapping
+# problem actually lives — is covered in full (498/498). Closing the `.docx` half means
+# changing the extractor's paragraph separator, which rewrites stored raw text the
+# segmenter reads — its own change, on the backlog.
+collapse_across_paragraph_break: false
