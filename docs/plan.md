@@ -240,7 +240,7 @@ Human gate: approve ADR-005 before Phase 1.
 
 **Exit:** full archive ingests and parses with a metrics report (parse rate, confidence).
 
-### Phase 2 — Validation engine (rulebook as code) — COMPLETE (2.1–2.4 merged); 2.5 next
+### Phase 2 — Validation engine (rulebook as code) — 2.1–2.4 + prep MERGED; 2.5 (baseline) next
 - **2.1** ✅ MERGED (PR #6, `43f29db`) — rules-as-data: 8 versioned YAML files under
   `core/src/jd_core/rules/` + typed loader (`get_rules()`), replacing hris `jd_rules.py` tables.
 - **2.2** ✅ MERGED (PR #7, `9eaa39d`) — section validators (29 catalogued rules, each with a
@@ -255,14 +255,37 @@ Human gate: approve ADR-005 before Phase 1.
   tests as the spec: **2.4a** bank value objects + provenance + render (PR #11, `43435a7`),
   **2.4b** title classifier + Hay signals (PR #12, `b71868a`), **2.4c** similarity + clustering
   + drift (PR #13, `58fc7d2`). Two new rule files (`hay_signals.yaml`, `comparison.yaml`) grew
-  the decision register from 58 to 103 decisions. All 16 EXTRACT-mapped hris modules are now
+  the decision register from 58 to 103 decisions (108 after 2.5-prep + scanner hardening). All 16
+  EXTRACT-mapped hris modules are now
   ported or explicitly deferred (`export.py` → 5.4, prompt templates → 4.2, `jd_import_service`
   → 5). `similarity`/`clustering`/`drift` landed as pure, tested functions deliberately not yet
   wired to a `ParsedJD` — that adapter is Phase 3 work.
-- **2.5** Not started — archive baseline: run the validator over the parsed archive → quality
-  dashboard data. This ratifies (or kills) the score floor of 60 set in 2.3/register HR-001.
+- **2.5-prep** ✅ MERGED (PR #16, `98c0add`) — two defects that would have corrupted the baseline.
+  **HR-058**: the coded-term scan penalised `compassionate` inside SFU's own *mandated, do-not-edit*
+  About-SFU paragraph — a compliant JD scored 91.5/A → 81.5/B, and omitting the paragraph tripped
+  `SFU-COMP-ABOUT` instead. The scan now redacts SFU's mandated passages first; the exemption is
+  granted to SFU's **text**, never to a **location** (verified against 11 adversarial JDs).
+  **`rules_version`**: was the constant `jd_rules_sfu_v3` while the rules changed materially across
+  2.2/2.3/2.4 — two reports stamped `v3` could come from different rulebooks. Now derived from rule
+  content, so a stamped `ValidationReport` identifies the rules that produced it (non-negotiable #6).
+- **Scanner hardening** ✅ MERGED (PR #17, `6b228d2`) — the scanners anchored terms against **raw**
+  text, so they mis-fired on 13 rules in **both** directions (including `SFU-GATE-DUTY-PCT` silently
+  finding *zero* allocations on a JD totalling 80%). Fixed with one shared fold (`textnorm.py`).
+  Measured against the real archive: the zero-width-character defect moves **~nothing** (this corpus
+  has none), while **line-wrapping** — antiword hard-wraps legacy `.doc` — was cutting
+  `SFU-QUAL-EQUIVALENT` false positives by **~50%** (~10% of legacy JDs). **HR-108** registered
+  (`open`): whitespace collapsing across a *paragraph break* would weld unrelated paragraphs and
+  invent findings, including a non-overridable gate trip — so the default is paragraph-aware, and it
+  costs zero of the win.
+- **2.5** ⏭ NEXT — archive baseline: run the validator over the parsed archive → quality dashboard
+  data. **This ratifies (or kills) the score floor of 60** (HR-001) and the rest of the approval bar,
+  all of which is `our_invention` and unratified by SFU. Segment `.doc` vs `.docx` (they behave
+  differently); stamp every report with the content-derived `rules_version`; and expect the top of
+  the finding-frequency table to be a **bug list, not a quality verdict** — HR-046/047/048/055 are
+  registered, live false-positive generators. See HANDOFF's "2.5 — the brief".
 
-Test suite at HEAD: 864 passing, coverage 97.11%, all in Docker via `make gates`.
+Test suite at HEAD: **1037 passing**, coverage **97.28%**, all in Docker via `make gates`.
+Decision register: **108** (19 our-invention · 71 hris-calibration · 18 SFU-rulebook), all `open`.
 
 **Exit (met, pending HR ratification of the register):** validator passes the rulebook test
 suite; gate runner + decision register + 2.4 EXTRACT modules land. Baseline report (2.5) still
