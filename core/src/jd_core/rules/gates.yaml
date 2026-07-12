@@ -80,7 +80,7 @@
 #      CLAUDE.md): SFU-APPROVE-EDI-FOOTER below gates its *presence*, which is what
 #      we can check deterministically. Verifying the official text is a Phase-6
 #      sign-off task and blocks publish, not review.
-version: jd_rules_sfu_v3
+version: jd_rules_sfu_v4
 
 # JDIssueSeverity, least severe FIRST. The rank the severity floor compares
 # against; must cover every severity exactly once (the loader checks).

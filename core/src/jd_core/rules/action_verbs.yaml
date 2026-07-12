@@ -9,7 +9,7 @@
 #   note: ported verbatim — 116 entries. "accountable" and "responsible" are
 #     adjectives, not third-person verbs, but the SFU glossary lists them, so they
 #     stay. Both "assemble" and "assembles" appear in the source and are kept.
-version: jd_rules_sfu_v3
+version: jd_rules_sfu_v4
 
 approved:
   - accomplishes

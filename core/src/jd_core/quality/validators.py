@@ -28,6 +28,7 @@ from typing import Any
 
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.models.quality import JDIssueSeverity, JDQualityIssue
+from src.jd_core.quality.boilerplate import redact_passages
 from src.jd_core.rules import Rules, get_rules
 
 _DEFAULT_VARIANT = "default"
@@ -276,12 +277,26 @@ def _qualifications(
 
 def _inclusive_language(raw_text: str, rules: Rules) -> list[JDQualityIssue]:
     """SFU's official gender-neutral lexicon (Part 6). The severity is the tier
-    the term is filed under in ``coded_terms.yaml`` — never named here."""
+    the term is filed under in ``coded_terms.yaml`` — never named here.
+
+    Scanned over the JD **minus SFU's own mandated passages** (HR-058): SFU's
+    pre-populated, "do not edit" About-SFU paragraph contains ``compassionate``,
+    which this lexicon files at ``medium``, so a JD was penalised for obeying SFU
+    and penalised again (``SFU-COMP-ABOUT``) for leaving the paragraph out. Which
+    passages are exempt is rulebook data, not a decision taken here
+    (``boilerplate.coded_term_scan_exempt``, HR-107) — empty that list and every
+    compliant JD is docked 10 points again.
+
+    The exemption is granted to SFU's *text*, never to a section: only a verbatim
+    mandated passage is cut, so coded language cannot be smuggled past this scan by
+    dressing it up as boilerplate. See :mod:`src.jd_core.quality.boilerplate`.
+    """
     out: list[JDQualityIssue] = []
     window = rules.thresholds.evidence_context_window
+    scannable = redact_passages(raw_text, rules.boilerplate.coded_term_exempt_passages)
     for severity, terms in rules.coded_terms.tiers:
         for term, fix in terms.items():
-            evidence = _context(raw_text, term, window=window)
+            evidence = _context(scannable, term, window=window)
             if evidence is None:
                 continue
             out.append(

@@ -24,7 +24,7 @@
 #     RULE_CATALOG / SFU_SECTION_LABELS / SFU_SECTION_ORDER /
 #     _CATEGORY_FALLBACK_SECTION, and the message + suggestion strings passed to
 #     `_issue(...)` in jd_rules.py (RULES_VERSION "jd_rules_sfu_v3").
-version: jd_rules_sfu_v3
+version: jd_rules_sfu_v4
 
 rules:
   # --- completeness: the mandatory template sections (Part 2) ----------------

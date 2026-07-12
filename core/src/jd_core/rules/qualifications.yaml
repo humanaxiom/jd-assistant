@@ -12,7 +12,7 @@
 #     _VALID_KNOWLEDGE_MODIFIERS, _VALID_SKILL_MODIFIERS, _KSA_RANK,
 #     _BANNED_QUALIFICATION_PHRASES, _EQUIVALENT_COMBINATION, and the
 #     ("ability to", "able to") prefix check in _authoring_gates.
-version: jd_rules_sfu_v3
+version: jd_rules_sfu_v4
 
 # Accepted proficiency modifiers (compared lowercased). "none" is the explicit
 # sentinel for the rulebook's "[NO MODIFIER] knowledge" tier.

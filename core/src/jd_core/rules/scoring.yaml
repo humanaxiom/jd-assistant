@@ -11,7 +11,7 @@
 #     _SEVERITY_PENALTY, _SEVERITY_DECAY, _GRADE_BANDS (calibration of
 #     RULES_VERSION jd_rules_sfu_v3). Not an SFU-published table — SFU's rulebook
 #     defines the gates; the score is our transparent roll-up of them.
-version: jd_rules_sfu_v3
+version: jd_rules_sfu_v4
 
 # The score scale. `max_score` is the perfect-JD baseline every penalty is
 # subtracted from (hris hardcoded it as a literal 100.0 in Python); `min_score` is

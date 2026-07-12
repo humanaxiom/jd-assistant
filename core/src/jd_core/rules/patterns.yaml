@@ -14,7 +14,7 @@
 #     hris applied `degree_mention` and `related_discipline` to an already
 #     casefolded haystack (no flags); ignore_case: true is equivalent and lets a
 #     validator run them against raw text.
-version: jd_rules_sfu_v3
+version: jd_rules_sfu_v4
 
 # First-person markers -> incumbent-focused (not position-focused) writing.
 incumbent:

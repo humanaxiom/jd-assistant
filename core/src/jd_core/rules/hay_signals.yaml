@@ -18,7 +18,7 @@
 # hris: packages/pipeline/src/pipeline/bank/hay_signals.py (_EDU_HIGH, _EDU_MID,
 #   _PS_CHALLENGE, _PS_ROUTINE, _ACC_AUTONOMY, and the scoring in _know_how /
 #   _problem_solving / _accountability).
-version: jd_rules_sfu_v3
+version: jd_rules_sfu_v4
 
 # How many evidence phrases one factor's signal may cite. Presentation only: it
 # cannot change a level (the score is computed before evidence is capped). Must

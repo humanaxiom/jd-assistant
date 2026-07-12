@@ -12,7 +12,7 @@
 #   hris: packages/pipeline/src/pipeline/quality/jd_rules.py ::
 #     _PLACEHOLDER_MARKERS, _WORKING_CONDITION_MARKERS,
 #     _RELATIONSHIPS_HEADER_MARKER
-version: jd_rules_sfu_v3
+version: jd_rules_sfu_v4
 
 # Template instructional/placeholder fragments left unreplaced by the writer.
 placeholder:

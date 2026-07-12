@@ -27,6 +27,7 @@ from src.jd_core.models.quality import (
     JDQualityReport,
     SFUSection,
 )
+from src.jd_core.rules import get_rules
 
 
 def _issue() -> JDQualityIssue:
@@ -50,7 +51,10 @@ def _report() -> JDQualityReport:
         issues=[_issue()],
         model="qwen2.5",
         prompt_version="jd_quality_v1",
-        rules_version="jd_rules_sfu_v3",
+        # The stamp's real shape: declared version + a digest of the rule CONTENT (see
+        # test_rules_version.py). A bare `jd_rules_sfu_v3` here would advertise a
+        # format that no longer identifies any rulebook.
+        rules_version=get_rules().version,
         generated_at=dt.datetime(2026, 7, 10, tzinfo=dt.UTC),
     )
 

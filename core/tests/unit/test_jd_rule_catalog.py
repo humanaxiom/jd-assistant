@@ -104,7 +104,9 @@ def test_rule_catalog_is_a_versioned_yaml_file_in_the_rules_package() -> None:
     path = _RULES_DIR / "rule_catalog.yaml"
     assert path.is_file()
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-    assert raw["version"] == get_rules().version
+    # the DECLARED version the file carries; `Rules.version` is that plus a digest of
+    # the rule content (test_rules_version.py).
+    assert raw["version"] == get_rules().declared_version
     assert len(raw["rules"]) == len(EXPECTED_CATALOG)
 
 

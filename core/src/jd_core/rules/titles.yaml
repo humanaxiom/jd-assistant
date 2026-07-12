@@ -26,7 +26,7 @@
 #   hris: packages/pipeline/src/pipeline/quality/jd_rules.py :: _authoring_gates
 #     ("executive director" -> employee_group must be apex, severity low;
 #     "registrar" and "human resources" -> severity info, context not checkable)
-version: jd_rules_sfu_v3
+version: jd_rules_sfu_v4
 
 # The seniority ladder a job title is classified onto, senior -> junior. Consumed
 # by the title-family classifier (jd_core.models.bank.TitleFamily is this list,
