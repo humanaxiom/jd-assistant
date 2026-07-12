@@ -115,6 +115,38 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     command: ["pytest", "-q"]
 
+  # ─── Archive baseline (Phase 2.5) ────────────────────────────────────────
+  # Runs the shipped validator + gate runner over the real SFU JD archive and writes
+  # the segmented quality-baseline data. The archive lives OUTSIDE the repo and is
+  # READ-ONLY (CLAUDE.md "External read-only paths"), so it is bound `:ro`.
+  #
+  # JD_ARCHIVE_PATH is deliberately NOT defaulted to any developer's real path — the
+  # fallback is a repo-relative `./archive`, and if that is empty the runner REFUSES to
+  # run rather than emitting a confident, fully-stamped baseline of nothing:
+  #
+  #   make baseline JD_ARCHIVE_PATH=/path/to/SFU_JDs
+  #   make baseline JD_ARCHIVE_PATH=/path/to/SFU_JDs BASELINE_ARGS="--sample 30"
+  #
+  # Not started by `up` (profile: tools). No DB, no Redis, no Neo4j: the baseline is a
+  # pure read of the archive through jd_core, and it persists nothing.
+  baseline:
+    profiles: ["tools"]
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    environment:
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./core:/app
+      - ${JD_ARCHIVE_PATH:-./archive}:/archive:ro
+      # Working output (gitignored): all three artifacts, including the bulk rows.jsonl.
+      - ${JD_BASELINE_OUT:-./out/baseline}:/out
+      # The COMMITTED audit trail: summary.json + errors.jsonl. A baseline that only
+      # exists in an ignored directory is not an audit trail.
+      - ./docs/baseline:/committed
+    command: ["python", "-m", "src.jd_bank.baseline"]
+
 volumes:
   pgdata:
   neo4jdata:

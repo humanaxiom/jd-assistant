@@ -44,6 +44,7 @@ from src.jd_core.rules import (
     Rules,
     get_rules,
     load_rules,
+    loader,
 )
 
 _PKG_DIR: Final[Path] = (
@@ -101,8 +102,11 @@ def rules() -> Rules:
 
 
 def test_every_hashed_rule_file_is_covered_by_a_mutation() -> None:
-    """Nobody may add a rule file that this suite does not prove the version tracks."""
-    hashed = set(RULE_FILES) - {REGISTER_FILE}
+    """Nobody may add a HASHED rule file that this suite does not prove the version
+    tracks — and nobody may quietly move an existing one into the unhashed set to dodge
+    that, because :data:`_UNHASHED_FILES` is pinned by
+    ``test_the_unhashed_files_are_the_two_that_cannot_change_a_jds_score``."""
+    hashed = set(RULE_FILES) - loader._UNHASHED_FILES
     assert set(MUTATIONS) == hashed, sorted(hashed.symmetric_difference(MUTATIONS))
 
 
@@ -190,6 +194,28 @@ def test_editing_the_registers_prose_does_not_move_the_version(
     _write_rules(tmp_path)
     _patch(tmp_path, REGISTER_FILE, _reword)
     assert load_rules(tmp_path).version == rules.version
+
+
+def test_rebanding_the_archives_eras_does_not_move_the_version(
+    tmp_path: Path, rules: Rules
+) -> None:
+    """``segmentation.yaml`` is the second unhashed rule file, and it is unhashed for
+    exactly the same reason as the register: it decides which **files** an archive
+    baseline is computed over, never what any JD scores. Re-band an era and not one JD's
+    score, grade or gate decision changes — so invalidating the stamp on every report
+    ever produced would be a lie about what actually changed.
+
+    It is still fully registered (HR-109 … HR-118) and drift-checked, so it cannot move
+    *silently* — see ``test_retuning_the_segmentation_without_the_register_breaks_the_
+    build``. Unhashed is not unwatched.
+    """
+    _write_rules(tmp_path)
+    _patch(tmp_path, "segmentation.yaml", lambda d: d.update(era_old_max_year=2005))
+    retuned = load_rules(tmp_path)
+
+    assert retuned.version == rules.version
+    assert retuned.segmentation.era_old_max_year == 2005  # it really did change
+    assert retuned.segmentation.stamp != rules.segmentation.stamp  # ...and it says so
 
 
 def test_the_version_is_stable_across_loads(rules: Rules, tmp_path: Path) -> None:

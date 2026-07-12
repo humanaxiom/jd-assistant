@@ -18,4 +18,13 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# Phase 2.5 archive-baseline WORKING output. `rows.jsonl` carries JD-derived evidence
+# snippets for all 14,565 files — a bulk derived copy of a READ-ONLY archive that lives
+# outside the repo (the `fixtures/golden/` precedent is for CURATED fixtures, not a dump).
+# The audit trail that IS committed — `summary.json` + `errors.jsonl` — goes to
+# `docs/baseline/`, written by the same run. Regenerate with `make baseline`.
+/out/
+# The default (machine-neutral) bind point for the archive, if a dev symlinks it in.
+/archive/
+
 # Fixtures may contain PII-scrubbed golden docs — tracked deliberately, so NOT ignored.

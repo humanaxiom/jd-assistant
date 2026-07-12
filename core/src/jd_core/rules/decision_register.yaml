@@ -79,11 +79,39 @@ decisions:
       presentable for review. It is OUR roll-up of the rulebook, not a number SFU
       published anywhere — SFU's rulebook names conditions ("never approve if…"),
       never a score. We chose 60 to line up with the C grade band.
+      ✅ THE PHASE-2.5 ARCHIVE BASELINE HAS NOW TESTED THIS NUMBER AGAINST ALL 14,565
+      REAL JDs, AND IT SURVIVES. Measured on the CURRENT-PRACTICE COHORT (defined below):
+      the median JD scores 77.3 (mean 76.4, range 47.5-95.0), and 869 of 874 — 99.4% —
+      clear the floor of 60. The floor rejects FIVE files. Grades: 5 A, 509 B, 355 C,
+      5 D, and ZERO F. The archive ratifies the bar; it does not kill it.
+      ⚠ BUT READ HR-004 BEFORE RATIFYING: 60 is not the number that is actually stopping
+      anything. Of the 246 current-practice JDs that cannot be approved, this floor blocks
+      5 and the grade floor 5, while two FORMATTING gates block 134 and 104. HR would be
+      ratifying a score bar that is very nearly inert.
+      ⚠ AND DO NOT READ THE WHOLE-ARCHIVE NUMBER AS QUALITY. Across all 6,259 `new`-era
+      JDs the score distribution is BIMODAL (a mode at 10-29, n=1,304; a mode at 60-79,
+      n=3,929; a valley at 30-59, n=580) and this floor does sit in the valley — but the
+      two modes are NOT good JDs and bad JDs. They are JDs that carry the territorial
+      acknowledgement and JDs that do not (see HR-109). The floor is separating a document
+      era, not a quality level, and read carelessly that would look like a ringing
+      endorsement of 60 when it is really an artefact.
+      COHORT DEFINITION (used by HR-001..HR-005, HR-019/020, HR-047, HR-109..HR-111, and
+      reproducible from `docs/baseline/` with one filter): "current practice" = the 874
+      `new`-era JDs on which SFU-COMP-TERRITORIAL did NOT fire, i.e. the validator found
+      SFU's mandated acknowledgement actually present. A raw-text scan of all 6,259
+      new-era JDs puts SFU-COMP-TERRITORIAL's false-positive rate at ~0.2% (10 files), so
+      a text-presence cohort is ~883 and every figure above moves by under one point.
     impact_if_changed: >-
       Directly sets the size of the review queue. Raising it to 70 turns every
       C-grade JD into a blocked draft; lowering it to 50 lets D-grade JDs through
-      to a reviewer. Should be ratified against the Phase-2.5 archive baseline
-      (what score does the median SFU JD actually get?), not in the abstract.
+      to a reviewer. MEASURED against the current-practice cohort: raising the floor to
+      70 would newly block 111 of 874 JDs (the 106 in the 60-69 band plus those already
+      below); lowering it to 50 would release 4 of the 5 it currently rejects. So the
+      knob is real but the region it operates in is nearly empty — which is the finding.
+      RECOMMENDATION TO HR: ratify 60. It is defensible against the real corpus, it
+      rejects almost nothing that current practice produces, and no evidence was found
+      that it is wrong. It stays `open` because only SFU HR can ratify it; JD Bank does
+      not get to mark its own homework.
     status: open
 
   - id: HR-002
@@ -97,11 +125,22 @@ decisions:
       A second, independent floor next to the score floor (HR-001). The grade
       letter is what a reviewer actually sees, so this is the bar in the language
       the dashboard speaks. Also not an SFU number.
+      ✅ MEASURED (Phase 2.5, current-practice cohort — see HR-001 for the definition):
+      the grade floor blocks 5 of 874. The grade distribution is 5 A / 509 B / 355 C /
+      5 D / ZERO F — i.e. essentially the whole cohort already sits at C or above, and a
+      C floor is where the population naturally begins rather than a bar it has to clear.
+      ⚠ Like HR-001, this is nearly inert: 5 blocks, against 134 and 104 for two
+      formatting gates (HR-004). HR should not mistake it for the operative bar.
     impact_if_changed: >-
       Deliberately a separate knob from HR-001 and today aligned with it (grade C
       starts at 60.0 — HR-015). They can be tuned apart, but if they disagree the
       stricter one silently wins, which is confusing to a reviewer. Ratify them
-      together.
+      together. MEASURED: raising the floor to B would newly block the 355 C-grade JDs —
+      41% of everything current practice produces — turning a nearly-inert gate into the
+      single largest blocker in the system. That is the asymmetry to be aware of: this
+      knob is quiet at C and violent at B.
+      RECOMMENDATION TO HR: ratify C, together with HR-001. Stays `open` — only SFU HR
+      can ratify.
     status: open
 
   - id: HR-003
@@ -118,10 +157,19 @@ decisions:
       the JD scores well. It is also the only gate that catches findings with no
       rule id at all — i.e. the Phase-5 LLM pass. Today only three rules are
       `high` (no summary / no duties / no qualifications).
+      ✅ MEASURED (Phase 2.5, current-practice cohort — definition in HR-001): the
+      severity floor blocks 7 of 874. It behaves exactly as a backstop should — it almost
+      never fires on a JD written under current practice, and when it does, the JD is
+      genuinely missing a mandatory section. No evidence was found that `high` is wrong.
     impact_if_changed: >-
       Lowering it to `medium` would block on missing Decision-Making, missing
       Problem-Solving, banned qualification phrases, leftover placeholders and any
-      coded term flagged `medium` — a very large share of the archive at once.
+      coded term flagged `medium` — a very large share of the archive at once. That is
+      no longer a guess: SFU-QUAL-BANNED-PHRASE alone has a KNOWN scoping bug (it scans
+      the whole document though its rule text says Qualifications only — see the project
+      backlog), so lowering this floor would promote a bug straight to blocking. Fix the
+      scoping bug first, then reconsider.
+      RECOMMENDATION TO HR: ratify `high`. Stays `open` — only SFU HR can ratify.
     status: open
 
   - id: HR-004
@@ -155,11 +203,36 @@ decisions:
       with more than five duties (SFU-STRUCT-DUTIES-TOO-MANY, HR-036), a missing
       Impact-of-Decision-Making or Problem-Solving section (HR-034/HR-035), and
       the three restricted-title rules (HR-030/HR-032/HR-033).
+      ⚠⚠ THE SINGLE MOST IMPORTANT THING PHASE 2.5 LEARNED, AND HR MUST SEE IT BEFORE
+      RATIFYING ANYTHING: **THE OPERATIVE APPROVAL BAR IS NOT THE SCORE FLOOR — IT IS TWO
+      FORMATTING GATES.** Of the 246 current-practice JDs that cannot be approved
+      (cohort defined in HR-001), the blocking gates are:
+        SFU-APPROVE-SUMMARY-LENGTH     134  (54.5%)   <- the summary is too short/long
+        SFU-APPROVE-QUAL-MINIMUM       104  (42.3%)
+        SFU-APPROVE-QUAL-EQUIVALENT     42  (17.1%)
+        SFU-APPROVE-EDI-FOOTER          10  ( 4.1%)   <- and these 10 are FALSE POSITIVES
+        SFU-APPROVE-SUMMARY-CONDITIONS   9  ( 3.7%)
+        SFU-APPROVE-MANDATORY-SECTIONS   7  ( 2.8%)   <- non-overridable (HR-005)
+        SFU-APPROVE-SEVERITY-FLOOR       7  ( 2.8%)   (HR-003)
+        SFU-APPROVE-SCORE-FLOOR          5  ( 2.0%)   (HR-001)
+        SFU-APPROVE-GRADE-FLOOR          5  ( 2.0%)   (HR-002)
+      HR believes it is ratifying a quality bar. It is in fact ratifying a WORD-COUNT
+      RANGE on the position summary (HR-019 / HR-020) and a qualifications-completeness
+      rule. The score floor of 60 — the number everyone will argue about — turns away
+      five files. That is not an argument for changing anything; it is an argument for
+      knowing what is actually being decided.
     impact_if_changed: >-
       Adding one id to a gate's `rule_ids` promotes that rule to blocking with no
       code change. This register entry is what makes such a promotion visible: the
       build fails until this list is updated, so a rule can never quietly start —
       or stop — blocking approval.
+      ⚠ SFU-COMP-TERRITORIAL and SFU-COMP-EDI are on this list, and on the archive as it
+      stands that makes them a DATE DETECTOR rather than a quality gate (HR-109). They
+      block 86.2% of the `new` era — not because those JDs are bad, but because SFU's own
+      acknowledgement rollout was still in progress when they were written. Removing them
+      from the blocking set is one of the options open to HR; so is leaving them and
+      accepting that pre-2024 JDs must be re-issued before they can be approved. Both are
+      legitimate. Neither is JD Bank's call, and NOTHING HAS BEEN CHANGED.
     status: open
 
   - id: HR-005
@@ -184,6 +257,16 @@ decisions:
       Removing a gate from this set hands reviewers discretion they do not have
       today; adding one takes discretion away. Flipping ANY gate's `overridable`
       flag moves this list and breaks the build until HR is told.
+      ✅ MEASURED (Phase 2.5): on the current-practice cohort (HR-001) the un-waivable
+      set almost never fires — SFU-APPROVE-MANDATORY-SECTIONS blocks 7 of 874, and
+      SFU-APPROVE-NO-PLACEHOLDERS blocks **ZERO**. Both blocks are, on inspection,
+      correct: a JD really is missing a mandatory section. Taking a reviewer's discretion
+      away is only defensible when the gate is never wrong, and on current practice these
+      two are not wrong.
+      ⚠ The legacy corpus is a different story, and it is the reason HR-047 exists:
+      SFU-APPROVE-NO-PLACEHOLDERS makes 29.4% of the WHOLE archive permanently
+      un-approvable with no waiver available. See HR-047 — that is a legacy-corpus
+      problem, not a current-practice one.
     status: open
 
   - id: HR-006
@@ -424,6 +507,13 @@ decisions:
       Raising it makes more of the archive score lower; setting the rule
       non-firing would require removing the check, which is a rulebook question,
       not a code one.
+      ✅ MEASURED (Phase 2.5, current-practice cohort — definition in HR-001): the
+      under-run fires on 340 of 874 JDs (38.9%) — so more than a third of everything SFU
+      writes today has a summary under 100 words — and because we chose NOT to gate it, it
+      blocks ZERO of them. The asymmetry this entry describes is real, it is large, and
+      it is currently working as intended: 340 JDs are nudged, none are stopped. Had we
+      gated the under-run "for symmetry", it would instantly have become the single
+      largest blocker in the system.
     status: open
 
   - id: HR-020
@@ -438,9 +528,25 @@ decisions:
       This one IS an SFU never-approve condition, and we gate it: a summary over
       150 words blocks approval (overridable). It is the only two-sided threshold
       whose over-run blocks and whose under-run does not.
+      ⚠⚠ MEASURED (Phase 2.5): **THIS IS THE #1 OPERATIVE APPROVAL BAR IN THE ENTIRE
+      SYSTEM.** On the current-practice cohort (874 JDs — definition in HR-001), 246
+      cannot be approved, and SFU-APPROVE-SUMMARY-LENGTH blocks **134 of them (54.5%)** —
+      every one of them driven by SFU-STRUCT-SUMMARY-TOO-LONG, i.e. by this number. For
+      comparison, the score floor everyone will argue about (HR-001) blocks 5.
+      So: whatever HR believes it is ratifying when it ratifies "the approval bar", the
+      thing that is actually turning JDs away is a 150-WORD LIMIT ON THE POSITION SUMMARY.
+      It is the most consequential integer in the rulebook, and — unlike the score floor —
+      it is genuinely SFU's own (Part 2B, and Part 11.6 names the over-run explicitly).
+      That is the good news: the bar that is really operating is the one bit of it SFU
+      actually published.
     impact_if_changed: >-
       Legacy JDs commonly run long. This threshold is a major driver of how many
-      archive documents are blocked on first pass.
+      archive documents are blocked on first pass — MEASURED: 134 of the 246 unapprovable
+      current-practice JDs, more than all other gates combined bar one. Moving it is the
+      single highest-leverage change available to HR: relaxing it to, say, 200 words would
+      release the majority of the review queue at a stroke; tightening it would swamp the
+      queue. Because it is SFU's own published number, JD Bank recommends NOT moving it —
+      but HR should ratify it knowing that this, not the score, is the bar.
     status: open
 
   - id: HR-021
@@ -919,6 +1025,20 @@ decisions:
       Narrowing the scope to the Qualifications section removes a large class of
       false blocks. Removing "assets" from the list would diverge from SFU's text.
       This is the highest-frequency false block we know of.
+      ⚠⚠ MEASURED (Phase 2.5) — AND IT IS WORSE THAN THIS ENTRY GUESSED. This rule is the
+      **#2 OPERATIVE APPROVAL BAR IN THE SYSTEM**. On the current-practice cohort (874
+      JDs — definition in HR-001), 246 cannot be approved, and SFU-APPROVE-QUAL-MINIMUM
+      blocks **104 of them (42.3%)** — and **all 104 are raised by this rule alone**
+      (SFU-QUAL-BANNED-PHRASE is that gate's only member). For comparison, the score floor
+      blocks 5.
+      So the second-largest thing standing between SFU's current JDs and approval is a
+      qualifications rule **whose scope is a known bug** — it matches "may include" /
+      "assets" / "preferences" anywhere in the document, including in DUTIES prose, which
+      this entry already documented and which the project backlog already tracks. We do not
+      yet know how many of the 104 are genuine; what is now certain is that the population
+      is large enough that the answer matters, and that fixing the scope is no longer a
+      tidy-up — it is a change to the approval bar. NOTHING HAS BEEN CHANGED: the scope
+      stays as shipped and this stays `open`, with the number attached.
     status: open
 
   - id: HR-042
@@ -941,6 +1061,14 @@ decisions:
       Accepting more wordings means either a list of accepted phrases or a regex —
       both are config, no code change. Leaving it strict means reviewers waive it by
       hand on correctly-written JDs.
+      ✅ MEASURED (Phase 2.5): the **#3 operative approval bar**. On the current-practice
+      cohort (HR-001), SFU-APPROVE-QUAL-EQUIVALENT blocks 42 of the 246 unapprovable JDs
+      (17.1%) — again more than eight times what the score floor (HR-001) turns away. A
+      literal-substring test for one phrase is therefore a real gate on real JDs, not a
+      formality, and every wording SFU's own authors chose that is not the exact words
+      "equivalent combination" is being blocked by it. Note this is AFTER the line-wrap
+      fix of PR #17, which already removed ~50% of this rule's legacy false positives —
+      so these 42 are not an extraction artefact.
     status: open
 
   - id: HR-043
@@ -1066,6 +1194,20 @@ decisions:
       Either make the gate overridable (HR-007) or make the markers more specific
       (e.g. require the template's full instructional sentence). Both are config
       edits.
+      ✅ MEASURED (Phase 2.5) — AND THE PRIORITY OF THIS ENTRY CHANGES AS A RESULT. The
+      damage is real but it is **entirely in the legacy corpus**:
+        * whole archive:          4,268 of 14,522 scored JDs (29.4%) are permanently
+                                  un-approvable by this gate, with no waiver available;
+        * latest-per-position:    1,474 of 6,295 (23.4%) — i.e. it condemns nearly a
+                                  quarter of SFU's CURRENT position records;
+        * current-practice cohort (874 JDs, definition in HR-001): **ZERO**.
+      So this gate is a legacy-corpus menace and **not a threat to what SFU writes today**.
+      Whoever prioritises the fix should know both halves of that: it is not urgent for
+      new authoring (it stops nothing), and it is severe for any project that needs to
+      bring the existing archive up to an approvable state (it blocks a quarter of it,
+      un-waivably, largely because those documents merely *discuss* action verbs). If JD
+      Bank is ever pointed at the back catalogue, this becomes the first thing to fix.
+      NOTHING HAS BEEN CHANGED.
     status: open
 
   # ═══ THE MATCHERS BEHIND THE BLOCKING GATES ═════════════════════════════════
@@ -2755,6 +2897,384 @@ decisions:
       This entry is the part of the fold that actually changes findings.
     status: open
 
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PHASE 2.5 — THE ARCHIVE BASELINE'S SEGMENTATION (segmentation.yaml)
+  #
+  # These ten do not change what the validator computes about ANY JD. They decide
+  # something arguably more consequential: **which population the approval bar is
+  # ratified against.** 2.5 is the trial of a bar that is entirely `our_invention`
+  # (the score floor of 60, the grade floor of C, the severity floor, the 14-rule
+  # blocking set, the 2 non-overridable gates — none ratified by SFU), and the number
+  # that trial produces depends on which files are counted.
+  #
+  # It matters because the archive fails by ERA, not by quality: SFU-COMP-TERRITORIAL /
+  # -ABOUT / -EDI fire on nearly every pre-2019 JD because those sections DID NOT EXIST
+  # in the template those JDs were authored under — and SFU-APPROVE-EDI-FOOTER *blocks*.
+  # Measured on the first 1,500 files (all old-era): SFU-COMP-EDI and -TERRITORIAL fire
+  # on 1,494 of 1,494, and the approval rate is 0.0%. On a 40-file spread across the
+  # whole archive, the same rules give a median of 37.5 for `old` and 68.3 for `new`.
+  # A blended, whole-corpus number would report the archive as catastrophically
+  # non-compliant when much of it is simply OLD. So the segmentation IS the finding, and
+  # every knob that draws its boundaries is a decision SFU HR must make.
+  #
+  # They are configured OUTSIDE the rulebook on purpose (see loader.ConfigRoot):
+  # `rules_version` means "the rules that produced this report", and folding a
+  # non-scoring knob into its digest would make every stamped report look stale on a
+  # change that cannot move a single score.
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: HR-109
+    question: >-
+      What marks a JD as having been authored under SFU's CURRENT template — and should
+      that mark override the JD's date?
+    config:
+      file: segmentation.yaml
+      path: segmentation.era_template_token
+    current_default: JDFN
+    provenance: our_invention
+    why_it_matters: >-
+      This is the most consequential line in the file, because era is what the archive
+      actually fails on. The Phase-0 census (§4b) found body headings unusable as an era
+      signal across the whole 2008-2021 middle band and concluded that era "is most
+      reliably inferred from the JDFN filename token, not body headings" — so we read the
+      token. `JDFN` is SFU's own job-description form marker; it appears in 4,637 of the
+      14,565 files (re-measured against the archive; the census says 4,637 too).
+      ⚠ THE PART AN HR REVIEWER MUST ACTUALLY RULE ON: the token OVERRIDES the date band,
+      IN BOTH DIRECTIONS. A file carrying `JDFN` is classified `new` however old its
+      date. MEASURED CONSEQUENCE: 50 real files carry `JDFN` with a pre-2019 date (1 in
+      2010, 1 in 2012, 1 in 2015, 2 in 2016, 20 in 2017, 25 in 2018) and are therefore
+      judged `new` — i.e. held to the CURRENT approval bar — despite predating the band
+      that otherwise defines it. We ship the override because a JD written on the current
+      form should be judged against the current form, whatever year it was filed. It is a
+      judgement, not a fact, and it is why this entry exists.
+    impact_if_changed: >-
+      Retire the token (or empty it) and era collapses to the date bands alone: those 50
+      files fall back to `old`/`transition`, and — far more importantly — the `new`
+      segment stops meaning "authored under the current template" and starts meaning only
+      "filed after 2018", which re-imports every mis-dated re-save into the population the
+      bar is being ratified against. Change the token string and it matches nothing: every
+      file falls to its date band and the override silently stops existing. Nothing about
+      any JD's SCORE moves either way — only which files' scores are averaged together.
+      ⚠⚠ THE ARCHIVE BASELINE DISPROVED THE MODEL THIS ENTRY ASSUMES. We assumed SFU made
+      ONE transition. IT MADE TWO, FOUR YEARS APART:
+      (1) the JDFN TEMPLATE rolled out in 2019 (1 file in 2010 … 332 in 2019, 1,131 in
+      2020); and
+      (2) the TERRITORIAL ACKNOWLEDGEMENT / EDI FOOTER became standard practice only in
+      2023-2024. MEASURED presence by year across all 6,259 `new`-era JDs — 2019 0.2% ·
+      2020 0.8% · 2021 1.4% · 2022 1.0% · 2023 10.0% · 2024 63.1% · 2025 84.9% ·
+      2026 88.6%. It is a rollout STILL IN PROGRESS, not a settled standard.
+      `new` captures transition (1), and is then judged by SFU-APPROVE-EDI-FOOTER — a
+      BLOCKING gate that only transition (2) satisfies. So a 2019 JDFN document, authored
+      CORRECTLY under the template of its day, is un-approvable for lacking a paragraph
+      that did not yet exist. THE COST, MEASURED: `new`-era approval is 10.0%;
+      current-practice approval is 71.9%. Same rulebook, same bar, two populations —
+      A SEVENFOLD GAP, and every point of it is a date, not a quality difference. The gate
+      itself is NOT wrong: a raw-text scan of all 6,259 new-era JDs puts
+      SFU-COMP-TERRITORIAL's false-positive rate at ~0.2% (10 files). The archive
+      genuinely does not have the paragraph yet.
+      TWO OPTIONS, BOTH HR'S CALL, NEITHER TAKEN: (a) add a FOURTH band — `current`, from
+      2024 — so the bar is ratified against the population it was actually written for; or
+      (b) stop defining the era by a DATE at all and define it by the FOOTER'S PRESENCE,
+      which is what really separates the two regimes (and is how the 874-JD
+      current-practice cohort in HR-001 is defined). JD Bank has changed nothing and
+      recommends neither: which population SFU's approval bar is FOR is a policy question,
+      not an engineering one.
+
+  - id: HR-110
+    question: Where does the OLD template era end?
+    config:
+      file: segmentation.yaml
+      path: segmentation.era_old_max_year
+    current_default: 2009
+    provenance: our_invention
+    why_it_matters: >-
+      The census (§4a) puts the OLD band at 1967-2009 — paper-derived, `.doc`-dominated,
+      lettered section headings, an incumbent NAME field. Re-measured on the leading
+      YYYYMMDD filename prefix (present on all 14,565 files): 3,339 files fall at or below
+      2009. These JDs predate the About-SFU paragraph, the territorial acknowledgement and
+      the Employment Equity statement entirely, so three completeness rules and a BLOCKING
+      gate fire on essentially all of them. Reporting that as "non-compliance" would be
+      reporting that they are old.
+    impact_if_changed: >-
+      Moves the OLD/TRANSITION boundary. Every file in the years that change sides moves
+      segment, so both segments' score distributions and approval rates move — with no
+      change to any JD's score. The bands must stay ordered (`era_old_max_year` below
+      `era_transition_max_year`) or the config refuses to load, because a `transition`
+      segment nothing can land in is a segment that silently reports nothing.
+      ⚠ THE BASELINE SHOWED THE THREE-BAND MODEL IS THE WRONG SHAPE (see HR-109 for the
+      evidence): SFU made TWO transitions, four years apart — the template in 2019 and the
+      territorial/EDI footer in 2023-2024 — and this ladder only has a rung for the first.
+      The OLD/TRANSITION boundary itself is not what is wrong (nothing in the baseline
+      contradicts 2009), but the ladder it sits on is incomplete, so ratifying this band
+      in isolation would ratify a model the data does not support. Read HR-109, HR-110 and
+      HR-111 together, or not at all.
+
+  - id: HR-111
+    question: Where does the TRANSITION era end and the CURRENT template era begin?
+    config:
+      file: segmentation.yaml
+      path: segmentation.era_transition_max_year
+    current_default: 2018
+    provenance: our_invention
+    why_it_matters: >-
+      The bar is FOR the current-template population, so this line decides who the bar is
+      actually being tried on. The census (§4a) puts TRANSITION at 2010-2018 and NEW at
+      2019+, and the JDFN rollout confirms the cliff: 25 JDFN files in 2018, then 332 in
+      2019 and 1,131 in 2020. Re-measured on the leading date prefix: 5,014 files in
+      2010-2018 and 6,212 from 2019. Anything above this year is `new` — there is
+      deliberately no upper bound, so a file dated 2030 cannot fall off the end of the
+      ladder into no segment at all.
+    impact_if_changed: >-
+      Directly changes the population the approval bar is ratified against, which is the
+      whole point of Phase 2.5. Lower it and pre-current-template JDs are judged by the
+      current bar; raise it and genuinely current JDs are excused from it. Note the JDFN
+      token (HR-109) already overrides this for 50 files, so the two entries interact and
+      should be read together.
+      ⚠⚠ AND THE BASELINE SHOWED THIS BOUNDARY IS IN THE WRONG PLACE FOR THE JOB IT IS
+      DOING. `new` (2019+) is meant to be "the population the bar is FOR". It is not.
+      MEASURED: `new`-era approval is 10.0%, while approval among JDs that actually carry
+      SFU's mandated acknowledgement is 71.9% — a SEVENFOLD gap produced entirely by
+      SFU-APPROVE-EDI-FOOTER blocking 86.2% of the `new` era, because the acknowledgement
+      only became standard practice in 2023-2024 (year-by-year adoption in HR-109). Judged
+      by this boundary, the archive looks catastrophically non-compliant. Judged by the
+      population the bar is really for, it PASSES — 99.4% clear the score floor, median
+      77.3, zero F grades (HR-001).
+      Moving this year to 2024 (or replacing the date test with a footer-presence test)
+      would make `new` mean what this entry claims it means. Both are HR's call.
+      **NOTHING HAS BEEN CHANGED — the shipped default is still 2018, and the finding is
+      registered rather than quietly patched.**
+
+  - id: HR-112
+    question: >-
+      A JDFN filename carries TWO dates. Which one says "this is the current version of
+      this position"?
+    config:
+      file: segmentation.yaml
+      path: segmentation.prefer_revision_date_for_version
+    current_default: true
+    provenance: our_invention
+    why_it_matters: >-
+      The archive is a revision history, not a set of current JDs: the census (§7b) counts
+      ~8,160 files that are a non-first version of an already-seen position. The
+      `latest_per_position` population exists to recover the CURRENT JD for each position,
+      and "latest" needs a date. A JDFN filename gives two — the leading (original /
+      effective) YYYYMMDD and the trailing `JDFN_<GROUP>_<YYYYMMDD>` revision date. We
+      take the revision date when there is one. MEASURED: 4,494 real files carry a revision
+      token, and on 2,857 of them the revision date DIFFERS from the leading date — so this
+      is not a formality, it re-picks the current JD for thousands of positions. (Measured
+      on the first 1,500 files, this population shifts the median score from 25.3 to 27.8:
+      superseded drafts really are worse than the JDs that replaced them.)
+    impact_if_changed: >-
+      Set it `false` and versions are ordered by the leading date alone — for a position
+      whose JD was created in 2018 and revised in 2024, the 2018 file can win, and the
+      baseline reports a superseded draft as the position's current JD. The 143 JDFN files
+      with no revision token, and the 9,928 non-JDFN files, are unaffected either way (they
+      have only one date to use).
+
+  - id: HR-113
+    question: >-
+      Are files with no readable position ID part of the "current JD" population, or
+      excluded from it?
+    config:
+      file: segmentation.yaml
+      path: segmentation.keep_files_without_position_id
+    current_default: true
+    provenance: our_invention
+    why_it_matters: >-
+      ~7% of the archive (993 of 14,565 files by our own pattern — see HR-114) carries no
+      zero-padded position ID at all, so it cannot be de-versioned: there is no position to
+      be the latest version OF. We keep them, each as its own position. The alternative is
+      to drop them — which would silently shrink the decision-relevant population by about
+      a thousand JDs, and would do so NON-RANDOMLY (un-IDed files skew old and skew toward
+      the irregular filenames the census flags), quietly biasing the very number the
+      approval bar is about to be judged against.
+    impact_if_changed: >-
+      Set it `false` and the `latest_per_position` population loses ~993 files. Every
+      distribution, grade count and approval rate reported for that population moves, and
+      the files it loses are not a random sample of the archive. No JD's score changes.
+
+  - id: HR-114
+    question: What counts as a position ID in a filename?
+    config:
+      file: segmentation.yaml
+      path: segmentation.position_id_pattern
+    current_default: '(?<![0-9])(0[0-9]{7})(?![0-9])'
+    provenance: our_invention
+    why_it_matters: >-
+      The position ID is what turns 14,565 FILES into POSITIONS, and therefore what the
+      entire `latest_per_position` population rests on. We claim only the ZERO-PADDED
+      8-digit PeopleSoft number. The zero-padding is what makes it safe: a date (YYYYMMDD)
+      and a JDFN revision date both begin `19` or `20`, so a leading `0` cannot collide
+      with either. Older UNPADDED IDs (e.g. `43353` in `20060411_43353Technician.doc`) are
+      deliberately NOT claimed: a 5-digit matcher would also claim years, grades and
+      percentages, and a wrong position ID silently MERGES two unrelated positions into
+      one revision chain — which would delete a real JD from the current-JD population.
+      MEASURED, by running THIS pattern over all 14,565 real filenames: 13,572 files carry
+      an ID and 993 carry none. ⚠ THE NUMBER OF DISTINCT POSITIONS IS NOT ONE NUMBER — it
+      depends on how a BUNDLED filename is counted (HR-116): 5,327 distinct positions
+      under the shipped `first` grouping, 5,541 counting every ID in every name. THE
+      CENSUS (§7b) REPORTED 5,436, WHICH IS NEITHER — a ~2% divergence from the shipped
+      figure. It is recorded here, unresolved, rather than explained away: the census's
+      own method is not reproducible from its write-up, and an earlier draft of this entry
+      "reconciled" the gap to ~0.2% against a distinct-ID count (5,428) that was an
+      artefact of the measuring command and not a property of this pattern at all. Do not
+      let a number into this register that nobody has re-measured.
+    impact_if_changed: >-
+      Loosen it to catch the unpadded legacy IDs and more files gain a position — at the
+      risk of false IDs that merge unrelated positions and drop real current JDs from the
+      population. Tighten it and more files fall to HR-113's "no position ID" bucket. Both
+      change the size and membership of `latest_per_position`; neither changes any score.
+
+  - id: HR-115
+    question: How is a file's date read out of its name?
+    config:
+      file: segmentation.yaml
+      path: segmentation.file_date_pattern
+    current_default: '^((?:19|20)\d{2})(\d{2})(\d{2})'
+    provenance: our_invention
+    why_it_matters: >-
+      Era (HR-110 / HR-111) is a function of this date, so a JD whose date cannot be read
+      cannot be placed in an era band. The archive's naming convention (census §3) is
+      `YYYYMMDD_<positionID>_<role-slug>`, and MEASURED, the leading prefix is present on
+      all 14,565 files — so today nothing falls to the `unknown` era. An unparseable or
+      impossible date (`20211301` is not a month) yields no date and an `unknown` era
+      rather than a guess or a crash: the file is still counted, in a segment that says
+      plainly that we could not classify it.
+    impact_if_changed: >-
+      A pattern that fails to match sends files to the `unknown` era, where they are
+      counted but excluded from every era comparison — the baseline would quietly narrow
+      without appearing to lose anything. A pattern that matches the WRONG digits (e.g. a
+      trailing revision date) would silently re-band files across eras.
+
+  - id: HR-116
+    question: >-
+      A filename can bundle SEVERAL positions into one document. Which position does that
+      document belong to?
+    config:
+      file: segmentation.yaml
+      path: segmentation.position_id_grouping
+    current_default: first
+    provenance: our_invention
+    why_it_matters: >-
+      Real filenames bundle positions —
+      `20220201_00114560,_00114369,_00132130_JDFN_APSA_20220201.docx` is one document
+      describing three. We ship `first`: the file is attributed to the first ID in its
+      name. ⚠ THE LIMITATION IS THE CENSUS'S OWN, AND IT IS REAL (§7b): grouping by the
+      first ID OVER-counts the first position's revision history and UNDER-counts the
+      others, which lose a version they genuinely have — so a bundled position can be
+      represented in `latest_per_position` by an older standalone JD than the bundle that
+      actually supersedes it. `first` ships because it reproduces the census's method, and
+      the census is the number every other claim in this phase is cross-checked against.
+      The alternative (`all` — the file belongs to every ID it names, and survives if it is
+      the current version for any of them) is IMPLEMENTED, not hypothetical: this is a
+      `Literal`, not a free string, so a data-only switch to a strategy nobody wrote fails
+      loudly instead of silently doing nothing. Every ID in a bundle is recorded on the row
+      (`position_ids`) whichever way this is set, so no evidence is lost.
+    impact_if_changed: >-
+      Set it to `all` and each bundled document counts as the current JD of every position
+      it names: the under-count is removed, `latest_per_position` grows, and positions that
+      are only described by a bundle stop being represented by a stale standalone file. It
+      is the more defensible reading of what a bundle IS; it is not the census's, which is
+      the only reason it is not the default. No JD's score changes either way.
+
+  - id: HR-117
+    question: How is a JD's REVISION date read out of its name?
+    config:
+      file: segmentation.yaml
+      path: segmentation.revision_date_pattern
+    current_default: 'JDFN_[A-Z]+_((?:19|20)\d{2})(\d{2})(\d{2})'
+    provenance: our_invention
+    why_it_matters: >-
+      This is the date HR-112 chooses to trust, so the two stand or fall together: if this
+      pattern stops matching, `prefer_revision_date_for_version` silently has nothing to
+      prefer and every file falls back to its leading date, with no error and no visible
+      change. MEASURED: it matches 4,494 of the 4,637 JDFN files (143 carry no revision
+      token), and on 2,857 of those the revision date differs from the leading date.
+    impact_if_changed: >-
+      Re-picks which file is the current version for thousands of positions, or — if it
+      matches nothing — quietly disables HR-112 altogether. That silent-disable is the
+      failure mode worth watching: the baseline would still run, still stamp itself, and
+      still report a number, computed over a different population than the register says.
+
+  - id: HR-118
+    question: How is the employee group (APSA / APEX / CUPE / POLY) read out of a name?
+    config:
+      file: segmentation.yaml
+      path: segmentation.employee_group_pattern
+    current_default: 'JDFN_([A-Z]+)'
+    provenance: our_invention
+    why_it_matters: >-
+      The employee group is recorded on every row so the baseline can be read by bargaining
+      unit — which matters because the CUPE template line genuinely differs from APSA/APEX
+      and, per the census (§4b caveat), does NOT always carry the territorial-acknowledgement
+      footer. Three of twenty modern `.docx` sampled were CUPE and legitimately lacked it. A
+      CUPE JD therefore trips SFU-COMP-TERRITORIAL for following ITS OWN template, and
+      without this field that would be invisible in the aggregate — it would just look like
+      CUPE JDs are worse. MEASURED over all 14,565 filenames, this pattern yields 12 distinct
+      values across 4,536 files: APSA 3,351 / CUPE 771 / APEX 329 / POLY 49 — the four real
+      bargaining units — plus 36 files whose group token is TYPO'D OR TRUNCATED IN THE SOURCE
+      FILENAME (ASPA 26, ASAP 2, D 2, B 2, S 1, CUPS 1, ASPSA 1, APA 1). Those 36 are
+      reported exactly as found. The baseline does not silently repair the archive's own
+      data: `ASPA` is a real transposition in a real filename, and a matcher that quietly
+      "corrected" it would be inventing a fact about SFU's records.
+    impact_if_changed: >-
+      Only the group label moves; era, population and score are all unaffected. But losing
+      it would hide a template-line confound inside the headline non-compliance number,
+      which is exactly the class of error Phase 2.5 exists to avoid. Widening the pattern to
+      absorb the 36 typo'd tokens into their intended units would make the by-group numbers
+      tidier and the archive's data-quality problem invisible — which is a decision, not a
+      cleanup, and would belong here.
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PROMOTED FROM `trivial` BY THE PHASE-2.5 BASELINE
+  #
+  # This was an explicit `trivial:` exemption ("a `low` drafting nudge"). The archive
+  # baseline measured how often it actually fires, and a `low` nudge that lands on 78%
+  # of everything SFU writes is not a nudge — it is a systematic markdown. The standing
+  # rule says: if a default looks wrong, REGISTER IT AS `open`, do not quietly patch it.
+  # So it is registered, and nothing about it has been changed.
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: HR-119
+    question: >-
+      Should a duty that does not spell out HOW and WHY it is performed be marked down —
+      when almost every job description SFU writes omits it?
+    config:
+      file: rule_catalog.yaml
+      path: rule_catalog.SFU-STRUCT-HOW-WHY.default_severity
+    current_default: low
+    provenance: hris_calibration
+    why_it_matters: >-
+      SFU's Part 2C asks that a duty say what is done, HOW it is done and WHY. The rule
+      fires once per duty that carries no "how/why" clause. It does NOT block approval —
+      it only costs score — which is why it sat in the register's `trivial` list as a
+      "low drafting nudge" until Phase 2.5 measured it.
+      ⚠ IT IS THE LARGEST SINGLE DEPRESSANT ON THE ENTIRE SCORE DISTRIBUTION. MEASURED:
+        * it fires on 4,865 of 6,259 `new`-era JDs — **77.7%**;
+        * on the current-practice cohort (874 JDs, defined in HR-001) it fires on
+          **869 of 874 — 99.4%**;
+        * on the 246 current-practice JDs that cannot be approved, **98.0%**; and
+        * on the 628 that CAN be approved, **628 of 628 — 100%**.
+      Read the last two lines together. This rule fires on essentially every JD SFU
+      writes, approved and blocked alike. A finding that is present on 100% of the JDs we
+      are willing to approve is not distinguishing anything — it is a constant subtracted
+      from every score in the corpus. Either SFU's authors are near-universally ignoring
+      Part 2C (possible, and worth telling them), or the parser's notion of a "how/why
+      clause" is too narrow (also possible, and untested). We do not yet know which, and
+      that is exactly why this is registered rather than tuned.
+      It is the top candidate for the next false-positive investigation — and the one to
+      look at BEFORE anyone concludes anything from the shape of the score distribution.
+    impact_if_changed: >-
+      It is `low`, so each finding costs little — but at ~4,865 firings across the new era
+      it is doing more to the median score than any other rule in the rulebook. Demoting
+      it to `info` would lift scores corpus-wide; promoting it toward the severity floor
+      (HR-003 / HR-057) would make it BLOCKING and instantly un-approve ~99% of everything
+      SFU currently writes. That asymmetry is the reason this is now a registered decision
+      and not a `trivial:` exemption.
+      NOTHING HAS BEEN CHANGED: it still ships at `low`, still blocks nothing, and the
+      finding is recorded rather than acted on.
+    status: open
+
 # ═════════════════════════════════════════════════════════════════════════════
 # TRIVIAL — on the decision surface, deliberately NOT a decision for HR.
 #
@@ -2765,6 +3285,21 @@ decisions:
 #   * decided elsewhere — `covered_by` names the entry that pins it (validated).
 # ═════════════════════════════════════════════════════════════════════════════
 trivial:
+  # --- archive baseline: presentation ------------------------------------------
+  - config: {file: segmentation.yaml, path: segmentation.score_histogram_bin}
+    reason: >-
+      The width of a score-distribution bucket in the baseline's summary. It changes how
+      the SAME scores are drawn, never what any of them is: no JD's score, grade, gate
+      decision or segment membership depends on it, and the min / median / mean / max are
+      computed from the raw scores, not from the bins. Presentation.
+
+  - config: {file: segmentation.yaml, path: segmentation.evidence_max_chars}
+    reason: >-
+      How much of a finding's verbatim JD quote is carried into the baseline artifacts
+      before truncation. It cannot move a score, a grade, a gate or a segment — the
+      findings are complete either way; this only bounds how much JD text a derived
+      artifact reproduces. A cap, not a policy call.
+
   # --- hay signals: presentation ----------------------------------------------
   - config: {file: hay_signals.yaml, path: hay_signals.evidence_cap}
     reason: >-
@@ -2998,11 +3533,6 @@ trivial:
       reviewer used to prove the severity-floor hole: promoting it to `high` used to
       make a non-approved verb block a JD with no register change. It now moves
       HR-057 and breaks the build. The glossary itself is HR-055 / HR-043 / HR-044.
-    covered_by: HR-057
-  - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-STRUCT-HOW-WHY.default_severity}
-    reason: >-
-      A `low` drafting nudge (duties should carry "how and why" detail). Cost pinned
-      by HR-008..HR-011; blocking by name HR-004; by severity floor HR-057.
     covered_by: HR-057
   - config: {file: rule_catalog.yaml, path: rule_catalog.SFU-STRUCT-PLACEHOLDER.default_severity}
     reason: >-

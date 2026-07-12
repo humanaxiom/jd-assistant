@@ -20,6 +20,15 @@ Resource loading goes through :mod:`importlib.resources`, so the package works
 wherever it is importable — notably inside the ``gates`` container, which mounts
 only ``./core``. Nothing outside the package is ever read.
 
+**Two rule files are on the register but NOT in the content hash**
+(:data:`_UNHASHED_FILES`): ``decision_register.yaml``, which *describes* the rules, and
+``segmentation.yaml``, which decides which **files** an archive-baseline number is
+computed over. Neither can change what the validator computes about a JD, so neither
+belongs in ``rules_version``. They are otherwise ordinary rule files — loaded,
+validated, version-checked, on the decision surface, drift-checked against the register.
+That is the whole mechanism: there is no second config subsystem, and ``jd_core``
+depends on nothing above it.
+
 Provenance for each table is in the header comment of its YAML file; the SFU
 source extract is ``docs/rulebook/sfu-reference.md``, the rulebook itself is
 ``docs/rulebook/sfu-jd-standards.txt``, and the tables were ported from hris
@@ -99,6 +108,13 @@ GENERAL_SECTION: Final[SFUSection] = "general"
 
 #: The HR decision register — a rule file that describes the *other* rule files.
 REGISTER_FILE: Final[str] = "decision_register.yaml"
+
+#: The archive baseline's segmentation policy — a rule file that decides which JDs a
+#: baseline number is computed OVER, never what any of them scores.
+SEGMENTATION_FILE: Final[str] = "segmentation.yaml"
+
+#: How a bundled multi-position filename is attributed to positions (HR-116).
+PositionIdGrouping = Literal["first", "all"]
 
 
 class RulesError(RuntimeError):
@@ -437,6 +453,102 @@ class TextNorm(_RuleFile):
     #: line standing as a boundary — because joining two unrelated paragraphs INVENTS
     #: findings, including a trip of the NON-OVERRIDABLE no-placeholders gate.
     collapse_across_paragraph_break: bool
+
+
+class Segmentation(_RuleFile):
+    """How the archive baseline SEGMENTS the corpus (``segmentation.yaml``).
+
+    Nothing here changes what the validator computes about any JD. It decides something
+    arguably more consequential: **which population the approval bar is ratified
+    against.** Phase 2.5 is the trial of a bar that is entirely ``our_invention`` — the
+    score floor of 60, the grade floor of C, the severity floor, the 14-rule blocking
+    set, the 2 non-overridable gates, none of them ratified by SFU — and the number that
+    trial produces depends on which files are counted.
+
+    It has to, because the archive fails by ERA, not by quality:
+    ``SFU-COMP-TERRITORIAL``
+    / ``-ABOUT`` / ``-EDI`` fire on nearly every pre-2019 JD because those sections *did
+    not exist in the template those JDs were authored under*, and
+    ``SFU-APPROVE-EDI-FOOTER`` **blocks**. A blended, whole-corpus approval rate would
+    report the archive as catastrophically non-compliant when much of it is simply old.
+    So the segmentation IS the finding, and every knob that draws its boundaries is a
+    decision SFU HR must make (HR-109 … HR-118).
+
+    **On the register, but NOT in the hash** (:data:`_UNHASHED_FILES`).
+    ``Rules.version``
+    means exactly one thing — *"the rules that produced this report"* (PR #16) — and
+    re-banding an era cannot move a single JD's score, so folding it into the digest
+    would make every previously stamped report look stale on a change that changed no
+    rule. ``decision_register.yaml`` is exempted from the digest for precisely the same
+    reason and by the same mechanism; this is the second file in that category, not a
+    new
+    idea. It carries its own content identity instead (:attr:`stamp`), which every
+    baseline artifact records alongside ``rules_version``.
+
+    Shaped **flat** on purpose, so it qualifies for :data:`_FLAT_SURFACE_FILES`: a knob
+    added here tomorrow lands on the decision surface the moment it is declared, and
+    :func:`check_register` breaks the build until someone says whether HR must ratify
+    it.
+    """
+
+    #: The filename token marking SFU's CURRENT job-description form. It OVERRIDES the
+    #: date bands, in both directions (HR-109) — census §4b found body headings unusable
+    #: as an era signal across the whole 2008-2021 middle band.
+    era_template_token: str = Field(min_length=1)
+    era_old_max_year: int = Field(gt=1900)
+    era_transition_max_year: int = Field(gt=1900)
+
+    file_date_pattern: Regex
+    position_id_pattern: Regex
+    revision_date_pattern: Regex
+    employee_group_pattern: Regex
+
+    #: A JDFN filename carries two dates. ``true`` = the trailing REVISION date decides
+    #: which file is a position's current version (HR-112).
+    prefer_revision_date_for_version: bool
+    #: Are files with no readable position id in the current-JD population (HR-113)?
+    keep_files_without_position_id: bool
+    #: How a bundled multi-position filename is attributed (HR-116).
+    position_id_grouping: PositionIdGrouping
+
+    #: Presentation only — neither can move a score, a grade, a gate or a segment.
+    score_histogram_bin: float = Field(gt=0.0, le=100.0)
+    evidence_max_chars: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def _the_era_bands_are_ordered(self) -> Segmentation:
+        """An unreachable segment is this rulebook's "a gate that can never fire"
+        failure, applied to segmentation: if the transition band ended before the old
+        band did, no file could ever be classified ``transition`` and the summary would
+        silently show an empty segment rather than refusing to load."""
+        if self.era_old_max_year >= self.era_transition_max_year:
+            raise ValueError(
+                f"era_old_max_year ({self.era_old_max_year}) must sit below "
+                f"era_transition_max_year ({self.era_transition_max_year}) — otherwise "
+                f"no file can ever be classified 'transition'"
+            )
+        return self
+
+    @property
+    def digest(self) -> str:
+        """SHA-256 over this file's canonicalised content — its own identity.
+
+        Same contract as :meth:`Rules.content_hash`, and recomputed on access for the
+        same reason: a ``model_copy`` that retunes a knob must not carry a stale
+        identity
+        into an artifact it stamps.
+        """
+        return _content_hash({"segmentation": self})
+
+    @property
+    def stamp(self) -> str:
+        """What a baseline artifact records: ``<version>+<short digest>``.
+
+        Distinct from :attr:`Rules.version` by construction — same declared version, a
+        digest over *this file only* — so an artifact can say both which rules scored it
+        and which population it describes, and neither answer can drift into the other.
+        """
+        return f"{self.version}{VERSION_SEPARATOR}{self.digest[:CONTENT_HASH_LENGTH]}"
 
 
 class Patterns(_RuleFile):
@@ -1488,6 +1600,9 @@ class ConfigRef(BaseModel):
     * ``action_verbs.approved.accountable``        — membership of a set (bool)
     * ``gates.blocking_rule_ids``                  — a *derived* view: the whole
       "never approve if…" set, so promoting or demoting ANY rule breaks the build
+    * ``segmentation.era_old_max_year``            — a rule file that is registered and
+      drift-checked but deliberately NOT hashed into ``rules_version``
+      (:data:`_UNHASHED_FILES`)
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -1746,6 +1861,8 @@ class Rules(BaseModel):
     markers: Markers
     patterns: Patterns
     textnorm: TextNorm
+    #: On the register, but NOT in the content hash — see :class:`Segmentation`.
+    segmentation: Segmentation
     titles: Titles
     boilerplate: Boilerplate
     hay_signals: HaySignalRules
@@ -1764,12 +1881,17 @@ class Rules(BaseModel):
         with the same rules always agree. No clock, no file mtime, no
         ``PYTHONHASHSEED`` (sets are canonicalised sorted, mappings by sorted key).
 
-        ``decision_register.yaml`` is deliberately **excluded**. It describes the
-        rules; it does not change what the validator computes about a JD. Including
-        it would mean a copy-edit to an ``why_it_matters`` paragraph invalidated
-        every previously stamped report — and, since the register's own
-        ``current_default`` values are already cross-checked against the live rules
-        (:func:`check_register`), a real rule change is caught either way.
+        :data:`_UNHASHED_FILES` is deliberately **excluded** —
+        ``decision_register.yaml``
+        and ``segmentation.yaml``. Neither changes what the validator computes about a
+        JD: the first *describes* the rules, the second decides which **files** an
+        archive-baseline number is computed over. Including them would mean a copy-edit
+        to a ``why_it_matters`` paragraph — or a re-banding of the archive's eras —
+        invalidated every previously stamped report, while no rule had moved at all. And
+        nothing is lost by it: both files' ``current_default`` values are cross-checked
+        against the live rules (:func:`check_register`), so a real change to either is
+        caught anyway, and ``segmentation.yaml`` carries its own content identity
+        (:attr:`Segmentation.stamp`) for the artifacts that need one.
 
         Recomputed on access rather than cached: ``model_copy(update=...)`` (how the
         test suites retune a rulebook) must not be able to carry a stale identity
@@ -2099,6 +2221,7 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "boilerplate",
     "hay_signals",
     "comparison",
+    "segmentation",
 )
 
 
@@ -2292,6 +2415,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     ("markers.yaml", "markers", Markers),
     ("patterns.yaml", "patterns", Patterns),
     ("textnorm.yaml", "textnorm", TextNorm),
+    (SEGMENTATION_FILE, "segmentation", Segmentation),
     ("titles.yaml", "titles", Titles),
     ("boilerplate.yaml", "boilerplate", Boilerplate),
     ("hay_signals.yaml", "hay_signals", HaySignalRules),
@@ -2305,11 +2429,22 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
 #: Every YAML file that makes up the rulebook, in load order.
 RULE_FILES: Final[tuple[str, ...]] = tuple(name for name, _, _ in _FILE_MODELS)
 
+#: The rule files that are NOT part of the rulebook's content identity. Both are on the
+#: decision surface, both are drift-checked against the register, and **neither can
+#: change what the validator computes about a JD** — which is the whole test:
+#:
+#: * ``decision_register.yaml`` *describes* the rules;
+#: * ``segmentation.yaml`` decides which FILES a baseline number is computed over.
+#:
+#: Hashing either would mean a copy-edit to an HR-facing paragraph, or a re-banding of
+#: the archive's eras, invalidated the stamp on every report ever produced — while no
+#: rule had moved at all. See :meth:`Rules.content_hash`.
+_UNHASHED_FILES: Final[frozenset[str]] = frozenset({REGISTER_FILE, SEGMENTATION_FILE})
+
 #: The :class:`Rules` fields whose content identifies a validation result — every
-#: rule file except the register. See :meth:`Rules.content_hash` for why the
-#: register is out: it describes the rules, it does not change what they decide.
+#: rule file except those in :data:`_UNHASHED_FILES`.
 _HASHED_FIELDS: Final[tuple[str, ...]] = tuple(
-    field for name, field, _ in _FILE_MODELS if name != REGISTER_FILE
+    field for name, field, _ in _FILE_MODELS if name not in _UNHASHED_FILES
 )
 
 
