@@ -1,14 +1,83 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-11 (Phase 2 incl. 2.4 merged; docker renamed to `jd-bank`; 2.5-prep +
-scanner hardening merged. **2.5 — the archive baseline — is next and is now unblocked.**)
+Last updated: 2026-07-12 (**Phase 2 COMPLETE — 2.5, the archive baseline, is merged.** The
+approval bar met the real corpus and **survived**. Phase 3 — dedup & clustering — is next.)
 
 Repo: **`C:\repos\JD-Assistant`** → GitHub **github.com/humanaxiom/jd-assistant**.
 
 ---
 
-## Current state — Phases 1 and 2 (through 2.4) COMPLETE and merged; 2.5 is next
+## 2.5 — THE HEADLINE. Read this before you believe anything about the archive.
+
+**The archive RATIFIES the approval bar. It does not kill it.** The 2.5 brief (written before the
+run) predicted the opposite and told you to expect the bar to die. It didn't. Correcting that
+expectation is the single most important thing on this page.
+
+Full deliverable: **`docs/baseline/README.md`** + `summary.json` + `errors.jsonl`.
+Regenerate: `make baseline JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs` (~9 min, single-process).
+
+Ran all **14,565** files → 14,522 scored, 43 skipped, every file accounted for.
+
+| Population | Approval | |
+|---|---|---|
+| All scored | 4.3% | **A category error. Never quote it.** |
+| Era = `new` (JDFN/2019+) | 10.0% | **Also wrong** — see the era bug below. |
+| **Current practice** (n=874, carries the mandated acknowledgement) | **71.9%** | The bar's real trial. |
+
+On current practice: median **77.3**, **99.4% clear the score floor of 60**, grades 5 A / 509 B /
+355 C / 5 D / **zero F**. **The score floor rejects 5 JDs out of 874.**
+
+### Why every other number lied: one gate is a DATE DETECTOR
+
+`SFU-APPROVE-EDI-FOOTER` blocks 86% of the `new` era — not because those JDs are bad, but because
+the **territorial acknowledgement is a rollout still in progress**: 0% (2018) → 0.2% (2019) → 1.4%
+(2021) → 11% (2023) → 63% (2024) → 85% (2025) → **88.6% (2026)**. Approval rate tracks adoption
+almost exactly, because a blocking gate keyed to the footer *is* an adoption detector.
+
+**The validator is correct and this was checked**: cross-examined `SFU-COMP-TERRITORIAL` against a
+raw-text scan of all 6,259 new-era JDs → **10 false positives (0.2%)**. The archive genuinely
+doesn't have the paragraph yet.
+
+### The era model is WRONG, and the baseline proved it (HR-109/110/111)
+
+`segmentation.yaml` assumes **one** transition. There are **two, four years apart**: the JDFN
+*template* rolled out in 2019; the *acknowledgement/EDI footer* became standard in **2023–24**.
+Our `new` era captures the first and is then judged by a gate only the second satisfies — so a
+2019 JDFN doc, authored correctly under the template of its day, is un-approvable. **10.0% vs
+71.9% — same bar, two populations, a 7× gap, all date and no quality.** Registered `open`; HR
+chooses between a 4th `current` band (2024+) or an era defined by the footer's presence.
+
+### What the bar ACTUALLY gates (HR-004/019/020/041/042)
+
+Of the 246 current-practice JDs still blocked: `SUMMARY-LENGTH` **134**, `QUAL-MINIMUM` **104**,
+`QUAL-EQUIVALENT` 42 … `SCORE-FLOOR` **5**, `GRADE-FLOOR` **5**.
+**HR believes it is ratifying a quality bar. It is ratifying a word-count range.** Say that before
+anyone signs.
+
+- **The #2 operative gate is a rule we already knew was broken.** All **104** `QUAL-MINIMUM` blocks
+  come from `SFU-QUAL-BANNED-PHRASE` — the known mis-scoping bug (its rule text says
+  *Qualifications only*; it scans the whole document). It was filed as a tidy-up. **It is not a
+  tidy-up — it is the second-largest component of the approval bar**, so fixing its scope is a
+  change to the bar and must go through the register, not a cleanup PR.
+- **HR-119 (new): `SFU-STRUCT-HOW-WHY` fires on 100% of the 628 JDs we would approve.** A finding
+  present on every approvable JD distinguishes nothing — it is a constant subtracted from every
+  score. Not blocking, so it costs only points, but it is the largest single depressant on the
+  distribution and the top false-positive candidate. Promoted out of `trivial`.
+- **HR-047 blocks ZERO current-practice JDs** (29.4% of the whole archive, 23.4% of
+  latest-per-position). A legacy-corpus menace, **not** a threat to what SFU writes today. This is
+  the finding everyone expected to be the villain; the data says it isn't. Prioritise accordingly.
+
+### The trap in the distribution — do not fall in it
+
+The `new`-era histogram is bimodal and the floor of 60 sits in the valley. **This is not evidence
+the floor is well-placed.** The two modes are "has the acknowledgement" / "doesn't" — the same
+rollout again. Within current practice the distribution is **unimodal, centred 70–79**. The floor
+is defensible because it is *nearly inert*, not because the data carved a threshold there.
+
+---
+
+## Current state — Phases 1 and 2 COMPLETE and merged; Phase 3 is next
 
 Phases 1 and 2 are fully merged to `main`. The validation engine (rules-as-data → section
 validators → gate runner), the HR decision register, and all remaining EXTRACT-eligible
@@ -25,10 +94,12 @@ validators → gate runner), the HR decision register, and all remaining EXTRACT
 | 2.4c similarity + clustering + drift (pure functions) | MERGED | [#13](https://github.com/humanaxiom/jd-assistant/pull/13) | `58fc7d2` |
 | 2.5-prep: HR-058 boilerplate exemption + content-derived `rules_version` | MERGED | [#16](https://github.com/humanaxiom/jd-assistant/pull/16) | `98c0add` |
 | scanner hardening: invisible-char + line-wrap folding (HR-108) | MERGED | [#17](https://github.com/humanaxiom/jd-assistant/pull/17) | — |
+| **2.5 THE ARCHIVE BASELINE** — trial of the approval bar | MERGED | [#18](https://github.com/humanaxiom/jd-assistant/pull/18) | `7e75835` |
 
-Test suite: **1037 passing**, coverage **97.28%**, all in Docker via `make gates`. Decision
-register grew from 58 to **108 decisions** (2.4 added `hay_signals.yaml` + `comparison.yaml`;
-2.5-prep added `boilerplate.yaml`; scanner hardening added `textnorm.yaml`).
+Test suite: **1114 passing**, coverage **97.37%**, all in Docker via `make gates`. Decision
+register grew from 58 to **119 decisions** (2.4 added `hay_signals.yaml` + `comparison.yaml`;
+2.5-prep added `boilerplate.yaml`; scanner hardening added `textnorm.yaml`; 2.5 added
+`segmentation.yaml` + HR-119).
 
 All 16 EXTRACT-mapped hris modules are now ported or explicitly deferred: `export.py` → 5.4,
 the 3 prompt templates (`sfu_jd_extract`/`jd_harmonize`/`jd_quality`) → 4.2, `jd_import_service`
@@ -91,7 +162,9 @@ itself is shrunk to dodge that check.
 |---|---|
 | HR-058 | **FIXED** (PR #16). SFU's mandated "do not edit" About SFU paragraph contains `compassionate`, a **medium** coded term — a compliant JD scored 91.5/A → 81.5/B, and omitting the paragraph tripped `SFU-COMP-ABOUT` instead. The coded-term scan now redacts SFU's mandated passages first. The exemption is granted to SFU's **TEXT** (verbatim, modulo folding), never to a **location** — so coded language cannot be smuggled through by wrapping it in boilerplate-shaped prose (verified against 11 adversarial JDs). |
 | HR-108 | Whitespace-run collapsing treats a paragraph break as one space — which would weld two unrelated paragraphs and **invent** findings, including a non-overridable `SFU-STRUCT-PLACEHOLDER` gate trip (a permanently un-approvable JD, no waiver). Default is therefore **paragraph-aware** (`collapse_across_paragraph_break: false`). Measured: the safer default costs **zero** of the −50% `SFU-QUAL-EQUIVALENT` win — both settings give byte-identical findings on the real archive, with the boundary genuinely engaged (100% of `.doc`, 47% of `.docx`). Free insurance. |
-| HR-047 | `action verb` / `how and why` / `what by` are placeholder markers feeding the **non-overridable** no-placeholders gate → a JD that merely discusses action verbs is permanently un-approvable, no waiver. |
+| HR-119 | **NEW (2.5).** `SFU-STRUCT-HOW-WHY` fires on **100% of the 628 JDs we would approve** (77.7% of the new era). A finding present on every approvable JD distinguishes nothing — it is a constant subtracted from every score. Not blocking, but the largest single depressant on the distribution. **Top false-positive candidate.** |
+| HR-041 | **RE-SCOPED (2.5).** `SFU-QUAL-BANNED-PHRASE`'s whole-document scan drives **all 104** `SFU-APPROVE-QUAL-MINIMUM` blocks → it is the **#2 operative gate in the approval bar**, not a tidy-up. |
+| HR-047 | `action verb` / `how and why` / `what by` are placeholder markers feeding the **non-overridable** no-placeholders gate → a JD that merely discusses action verbs is permanently un-approvable, no waiver. **2.5 measured it: 29.4% of the archive, 23.4% of latest-per-position, but ZERO current-practice JDs — a legacy menace, not a threat to what SFU writes today.** |
 | HR-046 | Working-condition markers include `housing`, `parking`, `relocation` → a Parking Services JD naming its own domain is blocked. |
 | HR-025 | A single `(50%)` duty allocation escapes SFU's Part-11.6 duty-total gate. |
 | HR-048 | The incumbent regex (`\bmy\b\|\bmyself\b\|\bi am\b`) is the whole of Part 2B and it blocks, yet "he is responsible for…" passes. |
@@ -149,6 +222,31 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
 
 ## Gotchas learned (save yourself the pain)
 
+- **The archive-claim rule caught the orchestrator itself in 2.5 — twice, in mirror image.** (a)
+  The Phase 0 census (§8.2) says the territorial footer lives in `word/footer*.xml` and warns a
+  body-only extractor will miss it. **That is FALSE for this corpus** — checked across 20 modern
+  JDFN docs: it is in `word/document.xml`, and `footer*.xml` had it **zero** times. (b) Having
+  verified that 17 of 20 *recent* JDFN docs carry the acknowledgement, the orchestrator nearly
+  declared the 81% miss-rate a bug — but those 20 were the **newest 400 files**, the one slice
+  where adoption is ~85%. The sample was worthless generalised to the era. It was only caught by
+  cross-examining the validator against the raw text of **all 6,259** new-era JDs. **A sample
+  drawn from the newest files is not a sample of the corpus. Check the claim against the whole
+  archive, not against the slice that is easy to look at.**
+- **`segmentation.yaml` is registered but NOT hashed.** It is an ordinary rule file in
+  `_FILE_MODELS`, excluded from the `rules_version` digest by `_UNHASHED_FILES = {REGISTER_FILE,
+  SEGMENTATION_FILE}` — the exact mechanism `decision_register.yaml` already used. So editing it
+  does **not** churn `rules_version` (which is right: it decides which *files* a baseline covers,
+  never how a JD is *scored*). Reuse this pattern for any future "registered, but does not change
+  what the rules decide about a JD" config. **Do not** give it a bespoke second-config-root
+  subsystem — that was tried in 2.5, it forced a `jd_core → jd_bank` layering inversion, and the
+  reviewer correctly demanded it be replaced by the one-line exclusion.
+- **`jd_core` must not import `jd_bank`** — the rulebook is the pure core. Enforced by a ratchet
+  (`test_no_new_core_to_bank_import_appears`, which `lstrip()`s so a lazy in-function import can't
+  slip it) plus `test_the_rulebook_never_imports_jd_bank`. One pre-existing edge is pinned:
+  `jd_core/parser/store.py` imports `jd_bank.db.models` (a persistence adapter; a genuine leaf, no
+  cycle possible). **Backlog: move it.** If you add a re-export to `jd_bank/baseline/__init__.py`
+  you will re-create a cycle that kills `get_rules()` — the ratchet is what stands between you and
+  that.
 - **`rules_version` is now content-derived, and that couples rule edits to `make register`.**
   Since 2.5-prep, `Rules.version` is `jd_rules_sfu_v4+<12-hex digest of the rule content>` — and
   `rules/render.py` renders it into the register Markdown header. So **any change to any rule
@@ -194,11 +292,7 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
 
 ## Next up
 
-- **2.5 — THE ARCHIVE BASELINE. This is the next task. It is unblocked.** See the dedicated brief
-  below ("2.5 — the brief"). Both prerequisites are merged: HR-058 no longer penalises SFU's own
-  mandated text (PR #16), and `rules_version` now identifies the rules that produced a report
-  (PR #16). The scanners no longer under- or over-report on line-wrapped legacy `.doc` (PR #17).
-- **Phase 3** — dedup & clustering. **This is where 2.4c's trio gets wired up.** `similarity`,
+- **Phase 3 — dedup & clustering. This is the next task.** **This is where 2.4c's trio gets wired up.** `similarity`,
   `clustering` and `drift` landed as pure, tested, *uncalled* functions: `skill_overlap` needs a
   skill ontology + idf corpus, `seniority_closeness` needs an education enum + years bar, and a
   `ParsedJD` has none of them. Phase 3 must design the `ParsedJD → signals` adapter (where do
@@ -206,6 +300,28 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
   the real archive corpus. That is a **new decision** — it wants an ADR, and register entries.
   Note `families={}` degrades `skill_overlap` to plain idf-weighted Jaccard vs hris's ontology-aware
   scoring; record that when it lands.
+  **2.5 hands Phase 3 real gifts — use them:** the archive is **~13.5% byte-identical duplicates**
+  (confirmed: 14,522 → 12,557 after exact-content dedup) and collapses to **6,295 latest-version
+  positions** from 14,565 files. `aggregate.population(rows, name, config)` already computes all
+  three populations, and `rows.jsonl` carries `sha256` / `position_ids` / `version_date` per file.
+  Phase 3's Tier-1 dedup is largely *measured already*.
+- **Rulebook work the baseline made urgent (do these BEFORE trusting any score):**
+  1. **`SFU-QUAL-BANNED-PHRASE` scoping** — no longer a tidy-up. It is the **#2 operative gate**
+     (all 104 `QUAL-MINIMUM` blocks). Fixing its scope **changes the approval bar** → register
+     entry, not a cleanup PR.
+  2. **HR-109/110/111 era model** — disproved by the baseline. Needs HR's call (4th `current`
+     band, or era-by-footer-presence). Until then, **do not quote any `new`-era number.**
+  3. **HR-119 `SFU-STRUCT-HOW-WHY`** — fires on 100% of approvable JDs. Investigate before the
+     score is trusted; it is the largest depressant on the distribution.
+- **Extension-trust is silently losing recoverable JDs** (from the 2.5 skip ledger,
+  `docs/baseline/errors.jsonl`, 43 files): **9 `.doc`-named files are actually RTF** — and we have
+  an RTF backend — plus an 89 MB `.rtf` over the extractor's 50 MiB cap, and 22 `.docx`
+  python-docx cannot open. Fix = content-sniff the magic bytes instead of trusting the extension.
+  Deliberately NOT done in 2.5: it is a real change to the extractor with its own blast radius,
+  and 10 files of 14,565 move no number in the baseline.
+- **Move `jd_core/parser/store.py`'s import of `jd_bank.db.models`** — the one pinned
+  `jd_core → jd_bank` edge (see Gotchas). Harmless today (a leaf, no cycle), but it is the
+  exception that the import ratchet has to carry.
 - **Deferred EXTRACT modules** (plan already assigns them): `export.py` → 5.4 (needs `reportlab`, a
   new dep, plus SFU styling hris never implemented, plus the open territorial-ack flag); prompts
   (`sfu_jd_extract` / `jd_harmonize` / `jd_quality`) → 4.2 (no LLM client or prompt loader exists;
@@ -214,62 +330,6 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
 
 ---
 
-## 2.5 — the brief (start here)
-
-**Run the validator across the parsed archive and produce the quality-baseline data.**
-
-### What this run is FOR — read this before writing any code
-
-**It is the trial of the approval bar, not of the archive.** The score floor of 60, the grade floor
-of C, the severity floor, the 14-rule blocking set and the 2 non-overridable gates are **`our_invention`**
-— 19 of 108 decisions, **none ratified by SFU**. 2.5 is the first time they meet real data.
-
-**The run is allowed to kill them.** If the archive says a compliant SFU JD scores 48, the number
-60 is wrong — the archive is not. **Report what the archive says. Do not tune the archive to fit
-the bar, and do not quietly adjust the bar to flatter the archive.** If a default looks wrong,
-it goes to the register as `open` (standing rule), with the measured evidence attached.
-
-### The rule this phase exists to honour
-
-**EVERY CLAIM ABOUT THE ARCHIVE MUST BE CHECKED AGAINST THE ARCHIVE.** In 2.5-prep, *three of our
-confident beliefs about the corpus turned out to be false* (see the section above). Two coders and
-the orchestrator all reasoned from "zero-width chars are common in .docx" — there are **zero** in
-this corpus. Only the reviewer looked. A baseline built on unchecked assumptions is worse than no
-baseline, because it will be believed.
-
-### Scope
-
-- Run the full validator + gate runner over the parsed archive (`C:\repos\hris\fixtures\SFU_JDs`,
-  READ-ONLY, via this repo's own `ingest/extract.py` + parser — do not hand-roll a second path).
-- Produce **dashboard data**: score distribution, grade distribution, per-rule finding frequency,
-  gate-trip frequency, and the **approval rate under the current bar**.
-- **Segment `.doc` vs `.docx`.** They behave differently (antiword wraps; python-docx does not) and
-  a blended number will hide that. The legacy `.doc` corpus is where the wrapping problems live.
-- **Stamp every report with the content-derived `rules_version`** (that is what PR #16 was for).
-  A baseline that cannot say which rulebook produced it is not an audit trail.
-
-### What to expect, and what to look for
-
-- **The top of the finding-frequency table is a bug list, not a quality verdict.** Known live
-  false-positive generators are registered: HR-047 (`action verb` / `how and why` as placeholder
-  markers → **non-overridable** gate), HR-046 (`parking`/`housing` working-condition markers),
-  HR-055 (closed action-verb glossary missing `supports`, `delivers`, `liaises`), HR-025 (a single
-  `(50%)` escapes the duty-total gate), HR-048 (the incumbent regex). **Expect them near the top,
-  and separate "our rule is wrong" from "the JD is bad" before drawing any conclusion.**
-- **Real leftover template instructions exist in live JDs** (e.g. *"For each item start with an
-  action verb and briefly describe WHAT is done…"*). The placeholder gate firing on those is
-  **correct** — do not "fix" it.
-- `SFU-QUAL-BANNED-PHRASE` scans the whole document though its rule text says *Qualifications only*
-  (backlog) — so its count is inflated by duties prose. Note it rather than fixing it mid-run.
-
-### Deliverable
-
-Baseline data + a written read of it: **does the archive ratify the bar, or kill it?** Name the
-number, show the distribution, and state plainly which findings are the rulebook's fault. Any
-proposed change to a decision parameter lands as a register entry with the archive evidence — not
-as a quiet edit.
-
----
 
 ## Backlog (real, recorded — fold into cleanup PRs as they come up)
 
@@ -280,11 +340,13 @@ as a quiet edit.
   (498/498), and that is where the wrapping problem actually lives, so this is not urgent. Fix =
   `"\n\n".join(...)` — but it **rewrites the stored raw text the segmenter reads**, so it is its own
   deliberate change, not a drive-by.
-- **`SFU-QUAL-BANNED-PHRASE` scans the whole document** while its own rule text says *"phrases the
-  Toolkit bans from **Qualifications**"*. So `"may include"` in *duties* prose fires a
-  Qualifications rule — e.g. *"Responsibilities may include arranging catering…"*. **68 such
-  findings already exist on 498 legacy JDs**; scanner-hardening added ~3 by making them fire
-  reliably. Pre-existing scoping bug, now louder. Scope the rule to its own section.
+- ~~**`SFU-QUAL-BANNED-PHRASE` scans the whole document**~~ — **PROMOTED by the 2.5 baseline; this
+  is no longer a backlog tidy-up.** Its rule text says *"phrases the Toolkit bans from
+  **Qualifications**"*, but it scans the whole document, so *"Responsibilities may include
+  arranging catering…"* in **duties** prose fires a Qualifications rule. **The baseline showed this
+  one rule drives ALL 104 `SFU-APPROVE-QUAL-MINIMUM` blocks — the #2 operative gate in the entire
+  approval bar.** Fixing its scope is therefore **a change to the approval bar**, and must land as
+  a register entry with evidence, not a cleanup PR. See `docs/baseline/README.md` + HR-041.
 - **`comparison.cluster_algo` can lie** (`rules/comparison.yaml`). It accepts any non-empty string:
   set it to `louvain` and clusters get *stamped* `louvain` while `build_clusters` still runs
   connected components — a provenance falsehood (non-negotiable #6) in whatever Phase 3 persists.
