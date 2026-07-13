@@ -299,34 +299,54 @@ Human gate: approve ADR-005 before Phase 1.
   and HR-119 (new) records that `SFU-STRUCT-HOW-WHY` fires on **100% of the JDs we would approve**.
   **Deliverable: `docs/baseline/README.md`.**
 
-Test suite at HEAD: **1114 passing**, coverage **97.37%**, all in Docker via `make gates`.
-Decision register: **119**, all `open` — but see Phase 2.6 below: HR review is now unblocked.
+*(The 2.5 figures above are the pre-2.6 rulebook, `…+2cb6723a5241`. Phase 2.6 corrected three
+defects and moved them — see below.)*
 
 **Exit: MET.** Validator passes the rulebook test suite; gate runner + decision register + 2.4
 EXTRACT modules landed; the baseline is run and read.
 
-### Phase 2.6 — HR ratification (NEW; added by the 2.5 result)
+### Phase 2.6 — ✅ MERGED — three rulebook defects the baseline exposed
 
-2.5 turned the register from a list of guesses into a list of **measured** decisions, which makes HR
-review possible for the first time. Two documents drive it:
-- **`docs/decisions/HR-REVIEW-PACKET.md`** — the 9 decisions that actually matter, written for a
-  non-engineer, each with its measured impact and our recommendation.
+2.5's most valuable output was not a score. It was the discovery that **three of our own rules were
+broken and were distorting the very numbers SFU HR was about to ratify.** Fixed and re-baselined
+**before** the HR packet went out — because handing HR figures we already knew were wrong, collecting
+their ratification, and *then* correcting them would have made the sign-off meaningless.
+
+1. **`SFU-STRUCT-HOW-WHY` was unevaluable** (HR-121). It counted duties lacking `how_why` — a field
+   the parser **never populates** (`segmenter.py`: *"left empty"*). It fired on **100% of the JDs we
+   would approve**: zero discriminating power, a constant subtracted from every score. **The same
+   class as the 2.4 `render.py` bug — faithful to hris, wrong here**: in hris an LLM filled the
+   field; our regex parser structurally cannot. Retired as **data** (`RuleSpec.evaluable`), so Phase 4
+   reinstates it with one YAML word. Finding 8,593 → 0; scores rose on 9,217, unchanged on 5,305,
+   **fell on 0**. *(Precisely: every score that carried the finding rose. NOT "every score rose".)*
+2. **`SFU-QUAL-BANNED-PHRASE` scanned the whole document** (HR-120) though its rule text says
+   *Qualifications only* — so *"Responsibilities may include arranging catering…"* in **duties** prose
+   tripped a Qualifications gate. It drove **all 104** `QUAL-MINIMUM` blocks. Now a knob
+   (`banned_phrase_scope`). Blocks 104 → 0, **+59 approvals — the entire gain.**
+3. **The era model conflated two rollouts** (HR-122). 4th band `current` (2024+) added.
+
+**Net: approval 71.9% → 78.6%, median 77.3 → 79.0, blocked 246 → 187, score-floor rejections 5 → 2.**
+
+Test suite at HEAD: **1143 passing**, coverage **97.40%**. Decision register: **122**, all `open`.
+Rulebook: `jd_rules_sfu_v4+67decdb6e9d3`.
+
+### Phase 2.7 — ⏭ HR ratification (needs SFU, not us)
+
+The register is now a list of **measured** decisions rather than guesses, so HR review is possible
+for the first time. Two documents drive it:
+- **`docs/decisions/HR-REVIEW-PACKET.md`** — the decisions that actually matter, written for a
+  non-engineer, each with measured impact and our recommendation.
 - **`docs/decisions/POST-REVIEW-CHANGE-PLAN.md`** — for each possible ruling: which config key
   changes, what it moves, what test must go red.
 
-**Sequencing is load-bearing.** Three of the nine are *our* defects, not HR questions, and they
-distort the very numbers HR would be ratifying. Fix them and re-baseline **before** asking HR to
-ratify anything:
-1. `SFU-QUAL-BANNED-PHRASE` scoping (HR-041) — a bug, and the #2 operative gate.
-2. `SFU-STRUCT-HOW-WHY` (HR-119) — fires on 100% of approvable JDs; likely a detection bug.
-3. The era model (HR-109/110/111) — a modelling error.
+Six decisions remain, and they are genuinely SFU's: the 100–150 word range that is the *real*
+gatekeeper (134 of 187 blocks); the un-appealable no-placeholders gate; the footer gate blocking 94%
+of the archive; the score/grade/severity floors (recommend ratify — they reject 2 of 874); whether
+the banned-phrase list is missing the phrases SFU authors actually use; and whether "current" means a
+date or the footer's presence.
 
-Then take Decisions 1/3/4/6 to HR against the corrected baseline. The register already enforces the
-ratification record: a `ratified` decision **must** carry `decided_by` / `decided_on` /
+The register enforces the record: a `ratified` decision **must** carry `decided_by` / `decided_on` /
 `decision_note`, or the rulebook fails to load.
-
-> **Do not** hand HR the current numbers, collect 119 ratifications, and *then* fix the bugs — the
-> register would record "HR ratified 60.0" against a distribution that no longer exists.
 
 ### Phase 3 — Dedup & clustering
 - **3.1** Tier 1 exact-dup + report (NEW). Early quantified win — **2.5 already measured it**:

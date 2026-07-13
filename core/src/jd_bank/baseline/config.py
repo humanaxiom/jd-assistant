@@ -23,12 +23,19 @@ from src.jd_core.rules import Segmentation, get_rules
 
 #: The template era a JD was authored under, inferred from its FILENAME.
 #:
+#: **Four bands, because SFU made two transitions** (Phase 2.6): the JDFN *template* in
+#: 2019 (``new``) and the territorial/EDI *footer* in 2023-24 (``current``). The 2.5
+#: baseline proved the three-band model wrong by measuring it — ``new`` was judged by a
+#: blocking gate only ``current`` satisfies, which made a correctly-authored 2019 JDFN
+#: document un-approvable and produced a sevenfold approval gap that was pure date.
+#: See ``segmentation.yaml`` and HR-109 … HR-111 / HR-122.
+#:
 #: **Not** :data:`src.jd_core.parser.headings.Era` (``old``/``new``/``unknown``), which
 #: is inferred from the document BODY. They answer different questions — "what template
 #: was this written on?" vs "what headings does this text use?" — and conflating them
 #: would be a category error, so the vocabularies deliberately differ (``transition``
-#: exists only here). A baseline row carries both.
-ArchiveEra = Literal["old", "transition", "new", "unknown"]
+#: and ``current`` exist only here). A baseline row carries both.
+ArchiveEra = Literal["old", "transition", "new", "current", "unknown"]
 
 #: The three populations the baseline reports over. See ``segmentation.yaml`` for why a
 #: single blended number would be weighted by re-save habits rather than by quality.

@@ -232,19 +232,11 @@ FAILING_FIXTURES: list[FailingCase] = [
         _CLEAN_RAW,
         "low",
     ),
-    (
-        "SFU-STRUCT-HOW-WHY",
-        "duty-without-how-why",
-        _jd(
-            duties=[
-                _duty("Manages", how=False),
-                _duty("Coordinates"),
-                _duty("Provides"),
-            ]
-        ),
-        _CLEAN_RAW,
-        "low",
-    ),
+    # SFU-STRUCT-HOW-WHY has NO failing fixture, and cannot have one: the deterministic
+    # parser never populates `SFUDuty.how_why`, so the rule is catalogued but not
+    # evaluable (HR-119 / HR-121) and the engine does not raise it. Its fixture is the
+    # inverse one — "it is NOT raised, even on a JD with no how/why at all" — and it
+    # lives in `test_rulebook_defects.py` with the rest of the Phase-2.6 spec.
     (
         "SFU-STRUCT-PLACEHOLDER",
         "leftover-template-text",
@@ -310,8 +302,21 @@ FAILING_FIXTURES: list[FailingCase] = [
     (
         "SFU-QUAL-BANNED-PHRASE",
         "assets-in-quals",
-        _clean_jd(),
-        _CLEAN_RAW + " Other certifications are assets.",
+        # The phrase is IN THE QUALIFICATIONS, which is where SFU bans it and — since
+        # Phase 2.6 (HR-120) — where the rule looks. Scanning the whole document for it
+        # was the defect: a duty saying "capital assets" raised a Qualifications gate.
+        _jd(
+            qualifications=[
+                *_clean_quals()[:3],
+                SFUQualification(
+                    text="Other certifications are assets",
+                    kind="skill",
+                    modifier="advanced",
+                ),
+                _clean_quals()[3],
+            ]
+        ),
+        _CLEAN_RAW,
         "medium",
     ),
     (
@@ -441,9 +446,23 @@ FAILING_FIXTURES: list[FailingCase] = [
 
 
 def test_every_catalogued_rule_has_a_failing_fixture() -> None:
-    """Invariant #4: no rule ships without a fixture that trips it."""
+    """Invariant #4: no rule ships without a fixture that trips it.
+
+    …with exactly one class of exception, and it is not a loophole: a rule the catalog
+    marks ``evaluable: false`` (HR-121) is one the deterministic engine never raises,
+    because the parsed JD does not carry the data it judges. A "failing fixture" for
+    such a rule is unconstructible by definition — and *that* is what is under test, so
+    it is pinned the other way up, in ``test_rulebook_defects.py``: the rule is not
+    raised even by a JD that flagrantly breaks it, and one YAML line brings it back.
+    The set is read from the rulebook, so a rule cannot be dropped from this suite by
+    hand — only by being retired on the record, in the register, where HR can see it.
+    """
+    unevaluable = set(get_rules().rule_catalog.unevaluable_rule_ids)
+    assert unevaluable == {"SFU-STRUCT-HOW-WHY"}
+
     covered = {rule_id for rule_id, *_ in FAILING_FIXTURES}
-    assert covered == set(EXPECTED_CATALOG), sorted(set(EXPECTED_CATALOG) - covered)
+    expected = set(EXPECTED_CATALOG) - unevaluable
+    assert covered == expected, sorted(expected - covered)
 
 
 @pytest.mark.parametrize(
@@ -702,11 +721,21 @@ def test_placeholder_markers_do_not_over_fire(raw: str) -> None:
 
 def test_alphabetic_terms_still_match_on_word_boundaries_only() -> None:
     """The anchoring fix must be a no-op for every alphabetic term: `(?<!\\w)x(?!\\w)`
-    is equivalent to `\\bx\\b`. 'assets' inside 'reassessment' must not fire."""
-    ids = _ids(
-        evaluate_jd_rules(_clean_jd(), _CLEAN_RAW + " The reassessment is done.")
+    is equivalent to `\\bx\\b`. 'assets' inside 'reassessment' must not fire.
+
+    Probed inside the QUALIFICATIONS, the only text this rule reads since HR-120 — a
+    probe in the raw document would now pass for the wrong reason.
+    """
+    jd = _jd(
+        qualifications=[
+            *_clean_quals()[:3],
+            SFUQualification(
+                text="Reassessment procedures", kind="skill", modifier="advanced"
+            ),
+            _clean_quals()[3],
+        ]
     )
-    assert "SFU-QUAL-BANNED-PHRASE" not in ids
+    assert "SFU-QUAL-BANNED-PHRASE" not in _ids(evaluate_jd_rules(jd, _CLEAN_RAW))
 
 
 def test_a_document_with_hundreds_of_allocations_does_not_crash_the_validator() -> None:
@@ -774,8 +803,18 @@ def test_placeholder_reports_at_most_one_finding() -> None:
 
 
 def test_banned_phrase_reports_one_finding_per_phrase() -> None:
-    raw = _CLEAN_RAW + " Duties may include travel. Certifications are assets."
-    issues = _hits(evaluate_jd_rules(_clean_jd(), raw), "SFU-QUAL-BANNED-PHRASE")
+    jd = _jd(
+        qualifications=[
+            *_clean_quals()[:3],
+            SFUQualification(
+                text="Duties may include travel; certifications are assets",
+                kind="skill",
+                modifier="advanced",
+            ),
+            _clean_quals()[3],
+        ]
+    )
+    issues = _hits(evaluate_jd_rules(jd, _CLEAN_RAW), "SFU-QUAL-BANNED-PHRASE")
     assert len(issues) == 2
     evidence = " ".join(i.evidence or "" for i in issues)
     assert "may include" in evidence

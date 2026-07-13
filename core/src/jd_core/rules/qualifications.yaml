@@ -33,6 +33,22 @@ banned_phrases:
   - assets
   - preferences
 
+# WHERE they are banned (HR-120). `qualifications` = the parsed Qualifications section
+# only; `document` = the whole JD.
+#
+# It shipped as `document` until Phase 2.6, and that was a DEFECT, not a policy: the
+# rule's own catalog text says "phrases the Toolkit bans from **Qualifications**". The
+# 2.5 archive baseline measured the cost — a duty reading "responsibilities may include
+# arranging catering…" or "manages capital assets" raised a QUALIFICATIONS finding, and
+# SFU-QUAL-BANNED-PHRASE drove **all 104** SFU-APPROVE-QUAL-MINIMUM blocks on the
+# current-practice cohort, making it the #2 operative gate in the entire approval bar on
+# the strength of matches in the wrong section.
+#
+# Fixing the scope CHANGES WHO GETS APPROVED, so it is a registered decision with the
+# measured before/after (HR-120), not a cleanup. `document` remains selectable — one
+# YAML word — if HR rules that these phrases have no place anywhere in a JD.
+banned_phrase_scope: qualifications
+
 # The required equivalency path ("...or an equivalent combination of education,
 # training and experience"). Matched as a casefolded substring.
 equivalent_combination: equivalent combination
