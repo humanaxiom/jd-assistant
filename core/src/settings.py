@@ -8,8 +8,15 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # Inference (Ollama on metal, OpenAI-compatible /v1 endpoint)
-    ollama_base_url: str = "http://host.docker.internal:11434/v1"
+    # Inference: Ollama on metal, OpenAI-compatible /v1 (ADR-003, amended 2026-07-13).
+    # It runs on a TRUSTED INTERNAL HOST — `aria-gb10-2` — not on the dev box, and not
+    # `host.docker.internal` (which is what this said until someone checked). Overridden
+    # by OLLAMA_BASE_URL in compose. `nomic-embed-text` is 768-dim, matching the ADR-002
+    # Neo4j vector index — verified from inside the `gates` container, not assumed.
+    #
+    # NOTE: local `make gates` reaches this host; CI (`ubuntu-latest`) CANNOT, and never
+    # will. Nothing on the `make gates` path may call a live endpoint. See ADR-003.
+    ollama_base_url: str = "http://aria-gb10-2:11434/v1"
     agent_model: str = "qwen2.5-coder:14b"
     embed_model: str = "nomic-embed-text"
 

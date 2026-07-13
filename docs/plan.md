@@ -371,10 +371,19 @@ The register enforces the record: a `ratified` decision **must** carry `decided_
     writes a cluster row"* — done on schedule): a closed `Literal` **and** `build_clusters` genuinely
     dispatches on it.
 - **3.2** ⏭ **NEXT** — embedding service (Ollama client, batching, upsert into the Neo4j vector
-  index; doc + section level, model tag). **First code in the project to touch the LLM stack**, and
-  the first that needs Ollama on host metal — note the `gates` container is self-contained and
-  cannot reach it, so the golden test needs a deliberate story (same constraint that deferred the
-  4.2 prompts).
+  index; doc + section level, model tag). **First code in the project to touch the LLM stack.**
+  **The Ollama story is settled and the old constraint was false — see ADR-003 (amended 2026-07-13).**
+  Ollama runs on **`aria-gb10-2`**, a trusted internal host (not `host.docker.internal`, which is what
+  compose said until it was checked). Verified from inside the `gates` container: reachable,
+  `nomic-embed-text` present, **768-dim** — matching the ADR-002 Neo4j index.
+  **The split that governs the test strategy:** local `make gates` **can** reach it; **CI
+  (`ubuntu-latest`, GitHub-hosted) cannot, and never will.** So `make gates` must not depend on a
+  live model endpoint — a test that calls Ollama passes locally and turns CI red. Unit tests mock the
+  client; integration tests mock the embedding call; **a live golden test is opt-in and local-only**
+  (own target, or a marker that skips when unreachable).
+  **Data boundary:** from 3.2, JD text crosses a private network to be embedded. Non-negotiable #5 is
+  restated accordingly — self-hosted inference only, no cloud API, no vendor egress. FIPPA applies;
+  moving the inference host off a trusted segment is a compliance decision, not a config edit.
 - **3.3** Tier 2 near-dup (NEW): MinHash → cosine confirm; tune on the label set; precision/recall
   regression-gated in CI.
 - **3.4** Title normalizer (#8) + Tier 3 role-equivalence (#6) + hard constraints (NEW).
