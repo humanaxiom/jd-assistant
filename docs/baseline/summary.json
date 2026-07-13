@@ -3,10 +3,10 @@
   "file_count": 14565,
   "scored": 14522,
   "skipped": 43,
-  "rules_version": "jd_rules_sfu_v4+67decdb6e9d3",
+  "rules_version": "jd_rules_sfu_v4+8c004c4dadd1",
   "parser_version": "jd_segmenter_v1",
   "config_stamp": "jd_rules_sfu_v4+d4c4e253c13a",
-  "generated_at": "2026-07-13T16:53:48.127796Z",
+  "generated_at": "2026-07-13T19:06:07.185938Z",
   "segments": [
     {
       "population": "all",
@@ -3321,6 +3321,6 @@
     "DocumentTooLargeError: 89397431 bytes exceeds the extractor's cap of 52428800 bytes (not read)": 1,
     "ExtractionError: antiword failed: <tmpfile> is not a Word Document.": 1,
     "ExtractionError: antiword failed: <tmpfile> is not a Word Document. It seems to be a ZIP file, so is probably an OpenDocument file, or a \"docx\" file from MS Word 2007 or newer (antiword only handles binary format documents from MS Word 2003 and earlier)": 1,
-    "ExtractionError: docx parse failed: file '<_io.BytesIO object at 0x7917efaa0590>' is not a Word file, content type is 'application/vnd.ms-word.document.macroEnabled.main+xml'": 1
+    "ExtractionError: docx parse failed: file '<_io.BytesIO>' is not a Word file, content type is 'application/vnd.ms-word.document.macroEnabled.main+xml'": 1
   }
 }

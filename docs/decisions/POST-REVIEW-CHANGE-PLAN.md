@@ -4,7 +4,7 @@
 For each decision HR can hand back, this says *exactly* what changes: which file, which key, what
 it moves, what test goes red, and what else must land in the same PR.
 
-**Baseline this plan is measured against:** `jd_rules_sfu_v4+67decdb6e9d3` (post-2.6), all 14,565
+**Baseline this plan is measured against:** `jd_rules_sfu_v4+8c004c4dadd1` (post-2.6), all 14,565
 archive files (`docs/baseline/`). Current-practice cohort n=874, approval **687 (78.6%)**.
 
 ## Status — Phase 2.6 landed three of these

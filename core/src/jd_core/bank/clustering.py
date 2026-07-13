@@ -9,8 +9,19 @@ label) are derived per cluster.
 
 Connected components is the deliberate Iteration-1 choice: simple and explainable.
 If it over-merges on the real archive (one giant blob), Louvain community detection
-is the documented fallback — and both the algorithm stamp and the threshold are data
-(``rules/comparison.yaml``, HR-095 / HR-097), so switching is not a code change.
+is the documented fallback.
+
+**The algorithm stamp SELECTS the algorithm — it does not merely describe it.**
+``build_clusters`` looks ``comparison.cluster_algo`` up in :data:`CLUSTER_ALGORITHMS`.
+This is the fix for the backlog item *"``comparison.cluster_algo`` can lie"*: the field
+used to accept any non-empty string, so setting it to ``louvain`` would have stamped
+every persisted cluster ``louvain`` while this module went right on running connected
+components — a provenance falsehood (CLAUDE.md non-negotiable #6) in whatever Phase 3
+persists. HANDOFF's deadline was *"fix before Phase 3 writes a cluster row"*. Two locks
+now: the loader's :data:`~src.jd_core.rules.ClusterAlgorithm` refuses to *spell* an
+unimplemented algorithm, and the dispatch below refuses to *run* one. Adding Louvain is
+a code change plus a data change, together — which is the honest cost of switching, and
+the thing a bare string was hiding.
 
 **The cluster threshold is derived, not stored.** hris wrote ``CLUSTER_THRESHOLD =
 max(SIM_THRESHOLD, 0.80)``. Only the two decided numbers are data — the per-JD noise
@@ -31,35 +42,22 @@ add them here on the way past.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Mapping
+from typing import Final
 from uuid import UUID
 
 from src.jd_core.bank.similarity import normalize_title
-from src.jd_core.rules import Comparison, Rules, get_rules
+from src.jd_core.rules import Comparison, Rules, RulesError, get_rules
 
 
 def _comparison(rules: Rules | None) -> Comparison:
     return (rules if rules is not None else get_rules()).comparison
 
 
-def build_clusters(
-    edges: Iterable[tuple[UUID, UUID, float]],
-    *,
-    threshold: float | None = None,
-    rules: Rules | None = None,
+def _connected_components(
+    edges: Iterable[tuple[UUID, UUID, float]], *, cutoff: float, min_size: int
 ) -> list[list[UUID]]:
-    """Union-find over the edges at or above ``threshold``.
-
-    ``threshold`` defaults to the rulebook's *derived* cluster threshold
-    (``max(sim_threshold, cluster_threshold_floor)``); a caller may still pass its
-    own, as hris's signature allowed.
-
-    Returns the connected components with at least ``min_cluster_size`` members, each
-    member list sorted for determinism, the clusters ordered largest-first and then by
-    smallest member id.
-    """
-    comparison = _comparison(rules)
-    cutoff = comparison.cluster_threshold if threshold is None else threshold
+    """Union-find over the edges at or above ``cutoff`` (the Iteration-1 algorithm)."""
     parent: dict[UUID, UUID] = {}
 
     def find(x: UUID) -> UUID:
@@ -87,10 +85,56 @@ def build_clusters(
     clusters = [
         sorted(members, key=str)
         for members in components.values()
-        if len(members) >= comparison.min_cluster_size
+        if len(members) >= min_size
     ]
     clusters.sort(key=lambda members: (-len(members), str(members[0])))
     return clusters
+
+
+#: The algorithms this module IMPLEMENTS, keyed by the stamp that selects them. The
+#: loader's :data:`~src.jd_core.rules.ClusterAlgorithm` is the same closed set — so a
+#: rulebook can only name what is here, and what is here is what runs. Add Louvain by
+#: adding it to *both*; there is no way to add it to only one.
+CLUSTER_ALGORITHMS: Final[Mapping[str, Callable[..., list[list[UUID]]]]] = {
+    "connected_components": _connected_components,
+}
+
+
+def build_clusters(
+    edges: Iterable[tuple[UUID, UUID, float]],
+    *,
+    threshold: float | None = None,
+    rules: Rules | None = None,
+) -> list[list[UUID]]:
+    """Cluster the edges at or above ``threshold``, using the rulebook's algorithm.
+
+    ``threshold`` defaults to the rulebook's *derived* cluster threshold
+    (``max(sim_threshold, cluster_threshold_floor)``); a caller may still pass its
+    own, as hris's signature allowed.
+
+    Returns the components with at least ``min_cluster_size`` members, each member list
+    sorted for determinism, the clusters ordered largest-first and then by smallest
+    member id.
+
+    Raises:
+        RulesError: ``comparison.cluster_algo`` names an algorithm that is not
+            implemented. Unreachable through the loader (which rejects it first) —
+            but a run must fail loudly rather than silently label its clusters with an
+            algorithm that did not produce them.
+    """
+    comparison = _comparison(rules)
+    algorithm = CLUSTER_ALGORITHMS.get(comparison.cluster_algo)
+    if algorithm is None:
+        raise RulesError(
+            f"comparison.cluster_algo names {comparison.cluster_algo!r}, which is not "
+            f"implemented — clusters would be stamped with an algorithm that did not "
+            f"produce them. Implemented: {sorted(CLUSTER_ALGORITHMS)}."
+        )
+    return algorithm(
+        edges,
+        cutoff=comparison.cluster_threshold if threshold is None else threshold,
+        min_size=comparison.min_cluster_size,
+    )
 
 
 def cluster_metrics(

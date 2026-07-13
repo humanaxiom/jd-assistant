@@ -980,6 +980,28 @@ class HaySignalRules(_RuleFile):
 
 FrozenCueMap = Annotated[Mapping[str, tuple[str, ...]], AfterValidator(_freeze)]
 
+#: The clustering algorithms JD Bank **actually implements** — the closed set
+#: ``comparison.cluster_algo`` may name.
+#:
+#: It used to be ``str = Field(min_length=1)``, and that made the stamp a lie waiting
+#: to happen: set it to ``louvain`` and every persisted cluster would be *stamped*
+#: ``louvain`` while :func:`~src.jd_core.bank.clustering.build_clusters` went right on
+#: running connected components. A provenance falsehood (CLAUDE.md non-negotiable #6)
+#: in whatever Phase 3 persists, and it was on the backlog with an explicit deadline:
+#: *"fix before Phase 3 writes a cluster row."* Louvain remains the documented fallback
+#: if connected components over-merges on the real archive — but adding it here is now
+#: the same edit as adding it to the dispatch table in ``clustering.py``, which is the
+#: point. A data-only "switch" fails at load.
+ClusterAlgorithm = Literal["connected_components"]
+
+#: How a Tier-1 exact-duplicate group of N byte-identical files is written into
+#: ``dedup_edges`` (HR-123). **Both are implemented** — a knob whose alternative is
+#: unimplemented is precisely the ``cluster_algo`` bug in a new place.
+#:
+#: ``star``   N-1 edges from a canonical representative to each other member.
+#: ``clique`` N(N-1)/2 edges — every unordered pair.
+ExactEdgeTopology = Literal["star", "clique"]
+
 
 class Comparison(_RuleFile):
     """Calibration for similarity, clustering and drift (``comparison.yaml``).
@@ -1005,7 +1027,17 @@ class Comparison(_RuleFile):
 
     #: What a persisted neighbour/cluster was produced BY — identity, not policy.
     sim_version: str = Field(min_length=1)
-    cluster_algo: str = Field(min_length=1)
+    #: ...and it may only name an algorithm we implement (:data:`ClusterAlgorithm`).
+    #: ``build_clusters`` DISPATCHES on this, so the stamp selects the algorithm rather
+    #: than merely describing it.
+    cluster_algo: ClusterAlgorithm
+
+    #: Tier-1 dedup: how a group of N byte-identical archive files is written into
+    #: ``dedup_edges`` — a star to a canonical representative (N-1 edges) or the full
+    #: clique (N(N-1)/2). HR-123. Byte-identity is an EQUIVALENCE relation, so the
+    #: clique's extra edges restate what transitivity already gives; the star is the
+    #: minimal set of true statements that recovers the same connected component.
+    exact_edge_topology: ExactEdgeTopology
 
     #: Education levels, LOW -> HIGH. A rung's ordinal is its index (high_school 0).
     education_ladder: tuple[str, ...] = Field(min_length=2)

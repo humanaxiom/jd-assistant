@@ -3552,6 +3552,81 @@ decisions:
       extracted text. That is a real architectural change to `facets.py`, not a knob.
     status: open
 
+  - id: HR-123
+    question: >-
+      When N archive files are BYTE-IDENTICAL, how is that fact recorded — as N-1 edges
+      to one representative file (a star), or as an edge between every pair (a clique)?
+    config:
+      file: comparison.yaml
+      path: comparison.exact_edge_topology
+    current_default: star
+    provenance: our_invention
+    why_it_matters: >-
+      This is the shape of the archive's duplication as JD Bank will store it, and it is
+      the first thing Phase 3 writes. It exists as a knob at all because of what it sits
+      on top of — a PROVENANCE FIX, not a preference.
+      THE BUG IT REPLACES. `source_documents.sha256` was UNIQUE and `ingest_document`
+      returned the existing row on a duplicate hash. So the table was a ledger of
+      distinct CONTENT while every consumer read it as a ledger of the ARCHIVE.
+      ✅ MEASURED over all 14,565 files with this repo's own `compute_sha256` (NOT the
+      Phase 0 census's md5+shell toolchain — a different pipeline, so it was re-verified
+      rather than quoted): 1,037 SHA-256 groups hold more than one file, 3,009 files sit
+      in one, and 1,972 of those are byte-for-byte redundant copies. Under the old
+      schema those 1,972 files would have been ingested and their FILENAMES DISCARDED —
+      no row, no record they ever existed. "Which archive files produced this canonical
+      JD?" was unanswerable (non-negotiable #6), and `DedupTier.EXACT` / `dedup_edges`
+      were dead code, because an edge needs two source ids and the duplicate never got
+      one. Migration 0002 makes the ledger one row per FILE; this parameter decides how
+      the duplication is then SAID.
+      ✅ MEASURED, the shape that decides the answer: 616 groups of 2, 207 of 3, 87 of 4,
+      49 of 5, 32 of 6, 17 of 7, 17 of 8, 6 of 9, 4 of 10, 2 of 11. LARGEST GROUP: 11.
+      star = 1,972 edges; clique = 4,068. Both are affordable TODAY, so the choice is
+      about meaning and growth, not about this corpus:
+        * byte-identity is an EQUIVALENCE relation, so the clique's extra 2,096 edges are
+          all derivable from the star by transitivity — they state nothing new;
+        * `build_clusters` (connected components) recovers the IDENTICAL group from
+          either, so no downstream consumer can tell them apart;
+        * star grows LINEARLY in group size, clique QUADRATICALLY — and Tiers 2 and 3
+          write into this same table with far larger and far messier groups.
+      ⚠ THE LINEARITY IS A PROPERTY OF THE CODE, AND IT HAD TO BE EARNED — do not read it
+      as a mathematical given. The Tier-1 pass is ADDITIVE (it never deletes an edge), so
+      if the representative is re-derived as "first by sort order" on every run, a
+      duplicate arriving with an earlier-sorting path RE-ANCHORS the star and the previous
+      star's edges remain. MEASURED on a group of 6 ingested in reverse order, one pass per
+      arrival: 15 EDGES — THE FULL CLIQUE — across 5 anchors, where a clean star is 5.
+      Every edge true, every edge redundant, and this bullet quietly false. The
+      representative is therefore PINNED: a group keeps the anchor its edges already hang
+      off, so a late arrival adds exactly one edge. Pinned by
+      `test_the_star_stays_linear_under_worst_case_arrival_order`, which fails with exactly
+      15 edges if the anchor is removed. HR is ratifying the pinned behaviour.
+      `clique` is implemented, not merely named: a knob whose alternative does nothing is
+      exactly the `cluster_algo` landmine this same PR is disarming.
+    impact_if_changed: >-
+      No JD's score, grade or approval moves — this decides what the dedup FINDING looks
+      like in the database, never what any JD is worth. What moves is the cost and the
+      addressability of the edge table: `clique` makes every pair of identical files
+      answerable by a single row lookup instead of by graph traversal (2.1x the rows
+      here; on a group of 100 it would be 50x). Flipping it does not invalidate existing
+      rows — both topologies orient every edge by the SAME total order (the archive path,
+      never "from the representative"), so a star's edges are a strict subset of the
+      clique's, and re-running Tier-1 after the flip simply ADDS the missing pairs.
+      ⚠ THAT SUBSET PROPERTY IS EARNED, AND IT IS NOT WHAT THE DATABASE ENFORCES. The
+      `uq_dedup_pair_tier` constraint is on the ORDERED pair, so it would happily accept
+      `(b, a)` alongside `(a, b)`. Only the orientation rule prevents it — and the first
+      cut of the star-stability fix broke exactly this by orienting star edges FROM the
+      pinned representative, which points backwards for every member that sorts before it.
+      MEASURED on 6 duplicates arriving in reverse order: 4 of the 5 star edges reversed,
+      and a subsequent flip to `clique` produced 19 EDGES WITH 4 MIRRORED PAIRS (a clean
+      clique on 6 is 15, with none) — i.e. this very paragraph was false of the code.
+      WHO the representative is and WHICH WAY AN EDGE POINTS are now strictly separate
+      questions. Pinned by `test_tier1_never_writes_both_directions_of_a_pair` (which now
+      runs AFTER a re-anchor — on a fresh pass the two coincide, so a fresh pass cannot
+      catch a violation) and by
+      `test_flipping_to_clique_after_a_re_anchor_writes_no_mirrored_pairs`.
+      ⚠ WHAT THIS IS *NOT* A DECISION ABOUT: whether the duplicates get collapsed. They
+      do not, at any setting. Nothing in this knob can delete an archive file's row.
+    status: open
+
 # ═════════════════════════════════════════════════════════════════════════════
 # TRIVIAL — on the decision surface, deliberately NOT a decision for HR.
 #
@@ -3895,6 +3970,19 @@ trivial:
     reason: >-
       The same stamp for clustering: which algorithm produced a cluster
       (`connected_components`; Louvain is the documented fallback if it over-merges on
-      the real archive). Naming the algorithm in data does not SELECT it — the code
-      implements connected components — so switching would be a code change plus this
-      stamp, and the numbers that decide what actually merges are HR-094 … HR-097.
+      the real archive). Still not a decision for HR — the numbers that decide what
+      actually merges are HR-094 … HR-097 — but the REASON has changed, and the old one
+      was the loophole.
+      ⚠ CORRECTED IN PHASE 3.1. The old exemption said "naming the algorithm in data does
+      not SELECT it", and treated that as harmless. It was the opposite of harmless: the
+      field accepted ANY non-empty string, so writing `louvain` here would have STAMPED
+      every persisted cluster `louvain` while `build_clusters` went right on running
+      connected components — a provenance falsehood (CLAUDE.md non-negotiable #6) baked
+      into whatever Phase 3 persists, and the same class of landmine as a gate that
+      cannot fire. It was on the backlog with a deadline: "fix before Phase 3 writes a
+      cluster row."
+      It now names a CLOSED set of the algorithms we implement (`ClusterAlgorithm`), and
+      `build_clusters` DISPATCHES on it — so the stamp genuinely selects the algorithm,
+      and a data-only "switch" to an unimplemented one fails the rulebook to LOAD rather
+      than silently mislabelling clusters. Adding Louvain is now a code change and this
+      stamp, together, which is the honest cost a bare string was hiding.

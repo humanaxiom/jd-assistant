@@ -1,7 +1,7 @@
 # JD Bank — Decisions for SFU HR
 
 **Status:** awaiting HR review. **Nothing in this system has been ratified by SFU.**
-**Date:** 2026-07-13 · **Rulebook under review:** `jd_rules_sfu_v4+67decdb6e9d3`
+**Date:** 2026-07-13 · **Rulebook under review:** `jd_rules_sfu_v4+8c004c4dadd1`
 **Evidence:** every number below is measured against all **14,565** JDs in the SFU archive
 (`docs/baseline/README.md`).
 

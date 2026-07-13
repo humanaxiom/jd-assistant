@@ -6,7 +6,7 @@
 |---|---|
 | Archive | `C:\repos\hris\fixtures\SFU_JDs` (READ-ONLY), 14,565 files |
 | Accounted for | **14,522 scored + 43 skipped = 14,565.** No silent drops. |
-| Rules | `jd_rules_sfu_v4+67decdb6e9d3` *(post-2.6)* |
+| Rules | `jd_rules_sfu_v4+8c004c4dadd1` *(post-2.6)* |
 | Parser | `jd_segmenter_v1` |
 | Segmentation | `jd_rules_sfu_v4+d4c4e253c13a` *(post-2.6)* |
 | Regenerate | `make baseline JD_ARCHIVE_PATH=<archive>` (~9 min) |
@@ -283,7 +283,7 @@ number in this report.
 - ❌ *"Fixing HOW-WHY raised every score."* It raised **every score that carried the finding**
   (8,593). 5,305 files never carried it and did not move.
 - ✅ *"On the JDs SFU writes today, 79% are approvable under our proposed bar, and the median scores
-  79."* That is the finding, and it is stamped `jd_rules_sfu_v4+67decdb6e9d3`.
+  79."* That is the finding, and it is stamped `jd_rules_sfu_v4+8c004c4dadd1`.
 
 ---
 

@@ -22,7 +22,8 @@ from uuid import UUID
 import pytest
 
 from src.jd_core.bank import build_clusters, cluster_label, cluster_metrics
-from src.jd_core.rules import Rules, get_rules
+from src.jd_core.bank.clustering import CLUSTER_ALGORITHMS
+from src.jd_core.rules import Rules, RulesError, get_rules
 from tests.unit.retuned_rules import retuned as _retuned
 
 _A = UUID("00000000-0000-0000-0000-00000000000a")
@@ -167,3 +168,47 @@ def test_an_explicit_threshold_still_overrides_the_rulebook() -> None:
     """The hris signature is preserved: a caller may pass its own threshold (every
     ported test above does). The rulebook only supplies the *default*."""
     assert build_clusters([(_A, _B, 0.5)], threshold=0.4) == [[_A, _B]]
+
+
+# --- the stamp cannot lie (backlog: "`comparison.cluster_algo` can lie") -------
+#
+# It used to be `str = Field(min_length=1)`. So setting it to `louvain` STAMPED every
+# cluster `louvain` while `build_clusters` went right on running connected components
+# — a provenance falsehood (CLAUDE.md non-negotiable #6) in whatever Phase 3 persists.
+# HANDOFF: "fix before Phase 3 writes a cluster row." Two independent locks, because
+# either alone leaves a hole:
+#   1. the LOADER rejects an algorithm nobody implemented (a data-only switch cannot
+#      even be spelled), and
+#   2. `build_clusters` DISPATCHES on the stamp, so the stamp genuinely SELECTS the
+#      algorithm instead of merely describing it. Add Louvain and the stamp starts
+#      choosing it; forget to add it and (1) already stopped you.
+
+
+def test_naming_an_unimplemented_algorithm_fails_the_rulebook_to_load(
+    rules: Rules,
+) -> None:
+    """The landmine, disarmed: `louvain` is not implemented, so it may not be said."""
+    with pytest.raises(ValueError):
+        _retuned(rules, cluster_algo="louvain")
+    with pytest.raises(ValueError):
+        _retuned(rules, cluster_algo="anything_at_all")
+
+
+def test_the_stamp_selects_the_algorithm_rather_than_merely_describing_it(
+    rules: Rules,
+) -> None:
+    """`build_clusters` looks the algorithm UP by its stamp. A rulebook naming one we
+    do not implement cannot reach here (the loader stops it) — but if it ever did, the
+    run fails loudly instead of silently mislabelling clusters."""
+    assert set(CLUSTER_ALGORITHMS) == {"connected_components"}
+    assert rules.comparison.cluster_algo in CLUSTER_ALGORITHMS
+
+    rogue = rules.model_copy(
+        update={
+            "comparison": rules.comparison.model_copy(
+                update={"cluster_algo": "louvain"}
+            )
+        }
+    )
+    with pytest.raises(RulesError, match="louvain"):
+        build_clusters([(_A, _B, 0.9)], rules=rogue)

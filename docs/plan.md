@@ -328,7 +328,7 @@ their ratification, and *then* correcting them would have made the sign-off mean
 **Net: approval 71.9% → 78.6%, median 77.3 → 79.0, blocked 246 → 187, score-floor rejections 5 → 2.**
 
 Test suite at HEAD: **1143 passing**, coverage **97.40%**. Decision register: **122**, all `open`.
-Rulebook: `jd_rules_sfu_v4+67decdb6e9d3`.
+Rulebook: `jd_rules_sfu_v4+8c004c4dadd1`.
 
 ### Phase 2.7 — ⏭ HR ratification (needs SFU, not us)
 

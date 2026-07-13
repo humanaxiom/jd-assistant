@@ -147,6 +147,33 @@ services:
       - ./docs/baseline:/committed
     command: ["python", "-m", "src.jd_bank.baseline"]
 
+  # ─── Tier-1 exact-duplicate report (Phase 3.1) ───────────────────────────
+  # Deliberately does NOT bind the archive. There is exactly one chain in this repo
+  # that walks it (the baseline, above) and HANDOFF says "do not hand-roll a second
+  # path" — so the dedup report reads the baseline's `rows.jsonl`, which already
+  # carries a sha256 for every one of the 14,565 files, and groups it with the SAME
+  # code the database pass uses. Run `make baseline` first.
+  #
+  #   make baseline JD_ARCHIVE_PATH=/path/to/SFU_JDs
+  #   make dedup
+  #
+  # Not started by `up` (profile: tools). No DB: this is the report, not the pass.
+  dedup:
+    profiles: ["tools"]
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    environment:
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./core:/app
+      # Reads rows.jsonl; writes the raw group dump back beside it (both gitignored).
+      - ${JD_BASELINE_OUT:-./out/baseline}:/out
+      # The COMMITTED finding: docs/dedup/summary.json.
+      - ./docs/dedup:/committed
+    command: ["python", "-m", "src.jd_bank.dedup"]
+
 volumes:
   pgdata:
   neo4jdata:
