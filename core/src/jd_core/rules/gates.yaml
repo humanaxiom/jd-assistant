@@ -39,9 +39,14 @@
 #   2. Duty count is two-sided, likewise split into SFU-STRUCT-DUTIES-TOO-MANY /
 #      -TOO-FEW. NEITHER is gated today — see FOR HR TO DECIDE. The split means
 #      gating the over-run is a one-line YAML edit if HR wants it.
-#   3. Banned qualification phrases match the WHOLE raw text, so "capital assets"
-#      inside a duty trips a Qualifications gate. Gated (SFU explicitly bans
-#      advertising desired extras) and `overridable: true` for exactly that reason.
+#   3. ~~Banned qualification phrases match the WHOLE raw text, so "capital assets"
+#      inside a duty trips a Qualifications gate.~~ FIXED IN PHASE 2.6 (HR-120): the
+#      scan is scoped to the Qualifications, where SFU actually bans the phrases. The
+#      whole-document match was a defect and it was the #2 operative gate in the bar
+#      (all 104 SFU-APPROVE-QUAL-MINIMUM blocks on the current-practice cohort; now
+#      ZERO). The gate is still `overridable: true` — but the reason recorded here for
+#      making it waivable has evaporated with the bug, so that is now an open question
+#      for HR (HR-042), not a settled calibration.
 #   4. The coded-term lexicon over-fires on ordinary JD boilerplate
 #      (`confidential`, `agreement`, `compassionate`). NOT gated: SFU-LANG-CODED is
 #      absent from every blocking set — the lexicon is an advisory tone check, and a
@@ -152,9 +157,16 @@ gates:
     type: blocking_rules
     title: Qualifications state the minimum, not desired extras
     source_part: Part 2H
-    # Overridable (tension #3): the phrase match spans the whole document, so a
-    # duty that mentions "capital assets" can trip it. A reviewer waives it with
-    # a written reason, which is the audit trail we want.
+    # ⚠ THE REASON THIS GATE IS WAIVABLE NO LONGER EXISTS (Phase 2.6, HR-120).
+    # It was made overridable because the phrase match spanned the WHOLE DOCUMENT, so a
+    # duty mentioning "capital assets" tripped a Qualifications gate — a false block a
+    # reviewer had to waive by hand. That was a defect and it is fixed: the scan is now
+    # scoped to the Qualifications (`qualifications.banned_phrase_scope`), and the gate
+    # went from blocking 104 of the 874 current-practice JDs to blocking ZERO of them.
+    # It stays `overridable: true` because 2.6 changed the SCOPE, not the POLICY, and
+    # quietly hardening a gate off the back of a bug fix is exactly the kind of unratified
+    # tightening this rulebook forbids. But the justification above is now void, so
+    # whether it should still be waivable is an OPEN QUESTION FOR HR — see HR-042.
     overridable: true
     rule_ids:
       - SFU-QUAL-BANNED-PHRASE

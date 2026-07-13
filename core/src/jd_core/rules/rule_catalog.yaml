@@ -236,6 +236,26 @@ rules:
     recommendations:
       default: Start each duty with a verb from the SFU action-verb glossary.
 
+  # CATALOGUED, BUT NOT RAISED (HR-119 / HR-121). SFU's Part 2C expectation is real, and
+  # the rule is kept here in full — text, severity, citation — so that reinstating it is
+  # this one word and no code change.
+  #
+  # It is not raised because the deterministic parser cannot evaluate it. The rule reads
+  # `SFUDuty.how_why`; `segmenter.py` leaves that field EMPTY, always ("how_why left
+  # empty" — it has no way to split a duty's how/why sub-points out of a regex-parsed
+  # line). So `not d.how_why` was true for every duty of every JD, and the 2.5 baseline
+  # measured the consequence: the rule fired on 77.7% of the new era, 99.4% of current
+  # practice, and **100% of the 628 JDs the bar would approve**. A finding present on
+  # every approvable JD distinguishes nothing — it was a constant subtracted from every
+  # score in the archive, and it was measuring OUR PARSER, not SFU's job descriptions.
+  #
+  # Demoting it to `info` was the tempting fix and would have been the wrong one: `info`
+  # costs zero score (scoring.yaml), so scores would have risen while the finding still
+  # landed on every JD in every report. That hides the constant instead of removing it.
+  #
+  # REINSTATE IT when a producer populates `how_why` — the Phase-4.2 `sfu_jd_extract`
+  # LLM pass is the one on the plan. Flip `evaluable: true`, re-baseline, and tell HR
+  # what the finding rate on real JDs actually turns out to be.
   - rule_id: SFU-STRUCT-HOW-WHY
     category: structure
     section: duties
@@ -243,6 +263,7 @@ rules:
     default_severity: low
     title: Duties carry 'how and why' detail
     owner: deterministic
+    evaluable: false
     # placeholders: {count}
     messages:
       default: "{count} duties have no 'how and why' detail."

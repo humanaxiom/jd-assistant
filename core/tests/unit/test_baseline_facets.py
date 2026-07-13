@@ -71,6 +71,9 @@ def test_the_segmentation_policy_ships_as_a_rule_file_not_as_literals(
     assert config.era_template_token == "JDFN"
     assert config.era_old_max_year == 2009
     assert config.era_transition_max_year == 2018
+    # The fourth band (Phase 2.6, HR-122) — SFU made TWO transitions, four years apart.
+    # The behavioural spec of the whole re-banding lives in `test_rulebook_defects.py`.
+    assert config.era_new_max_year == 2023
     assert config.position_id_grouping == "first"
 
 
@@ -170,15 +173,24 @@ def test_format_is_the_extension_the_extractor_will_dispatch_on(
         ("20100101_00000001_Clerk.doc", "transition"),
         ("20181125_00124410_Communications_Associate.docx", "transition"),
         ("20190731_00102112_Compensation_Consultant.docx", "new"),
-        # ...and the template token OVERRIDES the date band, in both directions.
-        # 50 real JDFN files predate 2019 (1 in 2010, 1 in 2012, 1 in 2015, 2 in 2016,
-        # 20 in 2017, 25 in 2018): they were authored under the CURRENT template, so
-        # the current bar is the one they should be judged against.
+        # ...and the fourth band (Phase 2.6, HR-122): SFU made TWO transitions, four
+        # years apart — the JDFN template (2019) and the territorial/EDI footer
+        # (2023-24). 2024 is where footer adoption crosses 50%.
+        ("20240101_00102112_Compensation_Consultant.docx", "current"),
+        ("20260401_00102112_Compensation_Consultant.docx", "current"),
+        # The template token PROMOTES a pre-2019 file to `new`. 50 real JDFN files
+        # predate 2019 (1 in 2010, 1 in 2012, 1 in 2015, 2 in 2016, 20 in 2017, 25 in
+        # 2018): they were authored under the CURRENT template, so the current-template
+        # bar is the one they should be judged against.
         ("20180322_Carpenter_JDFN_POLY_20200216.docx", "new"),
         ("20170101_00000001_JDFN_APSA_20170101.docx", "new"),
+        # ...but it does NOT cap a later file at `new`. Every JD SFU writes today
+        # carries the token, so a token that won outright would collapse `current`
+        # straight back into `new` — the very bug the fourth band exists to fix.
+        ("20250301_00102112_Analyst_JDFN_APSA_20250301.docx", "current"),
     ],
 )
-def test_era_is_the_template_token_first_then_the_date_band(
+def test_era_is_the_date_band_with_the_template_token_as_a_promotion(
     config: Segmentation, name: str, era: str
 ) -> None:
     """Census §4b: "Era for [the 2008-2021 middle band] is most reliably inferred from
@@ -307,5 +319,8 @@ def test_the_shipped_defaults_are_the_ones_measured_against_the_archive(
     """
     assert config.era_template_token == "JDFN"
     assert (config.era_old_max_year, config.era_transition_max_year) == (2009, 2018)
+    # ...and the band the 2.5 baseline proved was missing (HR-122): footer adoption
+    # crosses 50% in 2024 (11.2% in 2023 -> 63.3% in 2024), so `new` ends in 2023.
+    assert config.era_new_max_year == 2023
     assert config.position_id_pattern.pattern == r"(?<![0-9])(0[0-9]{7})(?![0-9])"
     assert config.position_id_grouping == "first"

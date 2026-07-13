@@ -1,9 +1,15 @@
 # JD Bank — Decisions for SFU HR
 
 **Status:** awaiting HR review. **Nothing in this system has been ratified by SFU.**
-**Date:** 2026-07-13 · **Rulebook under review:** `jd_rules_sfu_v4+2cb6723a5241`
+**Date:** 2026-07-13 · **Rulebook under review:** `jd_rules_sfu_v4+67decdb6e9d3`
 **Evidence:** every number below is measured against all **14,565** JDs in the SFU archive
 (`docs/baseline/README.md`).
+
+> **Before you read on:** the first version of this packet was written against an earlier rulebook.
+> Running it against your archive exposed **three defects in our own rules** — one of which could
+> never *not* fire. We fixed those first and re-measured, so **you are reading corrected numbers.**
+> Handing you figures we already knew were distorted, collecting your ratification, and *then*
+> fixing them would have made your sign-off meaningless.
 
 ---
 
@@ -33,34 +39,35 @@ almost nothing.
 | | |
 |---|---|
 | JDs measured | **874** (those written under current practice) |
-| **Would be approvable** | **628 — 71.9%** |
-| Median quality score | **77 / 100** |
-| Grades | 5 A · 509 B · 355 C · 5 D · **no F** |
+| **Would be approvable** | **687 — 78.6%** |
+| Median quality score | **79 / 100** |
+| Grades | 82 A · 550 B · 240 C · 2 D · **no F** |
+| Rejected on quality score | **2** |
 
-That is a healthy result. Roughly seven in ten of your current job descriptions would pass
-straight through; the rest need edits, not rewrites.
+That is a healthy result. Nearly eight in ten of your current job descriptions would pass straight
+through; the rest need edits, not rewrites. **No job description in your current corpus scores an
+F.**
 
-**But three things in it are wrong, and you need to know before you sign anything.**
+**But three things in it still need your ruling, and you need to know before you sign anything.**
 
 ---
 
 ## Decision 1 — ⚠️ The bar you think you're approving is not the bar that's operating
 
 **You would assume the system blocks bad job descriptions on quality.** It doesn't. Here is what
-*actually* blocked the 246 current JDs that failed:
+*actually* blocked the 187 current JDs that failed:
 
 | What blocked it | JDs | |
 |---|---:|---|
 | **Position Summary is outside 100–150 words** | **134** | ← the real gatekeeper |
-| **Qualifications wording** (see Decision 2 — *this is a bug*) | **104** | |
 | Missing "or an equivalent combination of education and experience" | 42 | |
 | Missing part of the territorial/equity footer | 10 | |
 | Summary describes working conditions, not the role | 9 | |
 | Missing a mandatory section | 7 | |
-| …*the actual quality score being too low* | **5** | |
+| …*the actual quality score being too low* | **2** | |
 
-**The quality score rejects five job descriptions out of 874.** It is almost inert. The thing
-doing the real gatekeeping is **a word count.**
+**The quality score rejects two job descriptions out of 874.** It is almost inert. The thing doing
+the real gatekeeping is **a word count.**
 
 > **What we need from you:** simply to *know* this before you ratify. The 100–150 word range is
 > **SFU's own published number**, not ours — so we recommend keeping it. But you should ratify it
@@ -78,27 +85,32 @@ than an accident.
 
 ---
 
-## Decision 2 — 🐞 The second-biggest blocker is a bug on our side
+## Decision 2 — ✅ FIXED: the second-biggest blocker was a bug on our side
 
-The rule that rejected **104** JDs is supposed to catch "wish-list" language in the
-**Qualifications** section — phrases like *"may include"* or *"an asset"* that turn a minimum
+**We are reporting this rather than quietly fixing it, because correcting it changed who gets
+approved — and any change to the approval bar belongs to you.**
+
+A rule was rejecting **104** of your job descriptions. It is supposed to catch "wish-list" language
+in the **Qualifications** section — phrases like *"may include"* or *"an asset"* that turn a minimum
 requirement into a nice-to-have.
 
-**It is scanning the entire document instead of the Qualifications section.** So a JD that says,
-in its *Duties*:
+**It was scanning the entire document instead of the Qualifications section.** So a JD that said, in
+its *Duties*:
 
 > *"Responsibilities **may include** arranging catering for departmental events…"*
 
-…is blocked for a Qualifications problem it does not have.
+…was blocked for a Qualifications problem it did not have. **All 104 blocks were this bug. Every
+single one.**
 
-**All 104 blocks are this rule. Every single one.** This is our defect, not a policy question.
+**Now fixed.** Those blocks went 104 → **0**, and **59 job descriptions** became approvable (the
+other 45 were also failing something else). This is the entire improvement from 71.9% to 78.6%.
 
-> **What we need from you:** nothing — but we are telling you rather than quietly fixing it,
-> because correcting the scope **changes who gets approved**, and any change to the approval bar
-> goes through you. We recommend we fix the scope and re-run the baseline before you ratify
-> anything else in this section.
+> **What we now need from you — a real question the fix exposed.** Correctly scoped, that banned-
+> phrase list now matches **10 files out of 14,522.** Either it is a guard-rail nobody trips, or
+> **it is missing the phrases your authors actually write.** We would like a few minutes of an
+> experienced JD reviewer's time to tell us which.
 
-*(Register: HR-041)*
+*(Register: HR-041, HR-120)*
 
 ---
 
@@ -167,7 +179,7 @@ individual justification roughly **13,000 times.**
 
 ---
 
-## Decision 5 — 📅 We split your archive into "eras" and we got it wrong
+## Decision 5 — ✅ FIXED: we split your archive into "eras" and we got it wrong
 
 To judge fairly, we sorted your JDs into OLD / TRANSITION / CURRENT, so we would not score a 1990
 job description against a 2019 template. **Our era model assumed one changeover. There were two,
@@ -180,20 +192,22 @@ We classed everything from 2019 as "current" — then judged it with a rule only
 satisfy. The result: a **2019 job description, written perfectly correctly under the template of
 its day, is un-approvable.**
 
-The damage is large and purely artificial:
+The damage was large and purely artificial — **the same job descriptions, the same rules, a
+sevenfold difference, entirely from where we drew a line.**
 
-| Population | Approval rate |
-|---|---|
-| Our "current" era (2019+) | **10%** |
-| Actually-current practice (2023–24+) | **72%** |
+**Now fixed:** we added a fourth era, **"current" (2024 onwards)** — the year footer adoption crosses
+50%.
 
-**Same job descriptions, same rules — a sevenfold difference, entirely from where we drew a line.**
+> **One thing you should still rule on.** A date is a *proxy*. Of the JDs dated 2024+, **239 still
+> lack the footer**; and **79 that have it predate 2024**. So the era band (1,034 JDs, 61% approval)
+> and the true current-practice group (874 JDs, 79% approval) are not the same set — they overlap on
+> 795. The gap *is* the rollout still finishing.
+>
+> **We recommend defining "current" by whether the JD actually carries the footer, rather than by
+> its date.** That is the real signal. But it is a judgement about what "current practice" *means*
+> at SFU, so it is yours, not ours.
 
-> **What we need from you:** confirm which population is the real "current" one. We recommend a
-> fourth era beginning **2024** (when footer adoption crosses 50%), or defining "current" by
-> whether the JD *has* the footer rather than by its date. Either is a five-minute change.
-
-*(Register: HR-109, HR-110, HR-111)*
+*(Register: HR-109, HR-110, HR-111, HR-122)*
 
 ---
 
@@ -201,57 +215,69 @@ The damage is large and purely artificial:
 
 | | Setting | Measured effect |
 |---|---|---|
-| Minimum score to approve | **60 / 100** | Rejects **5** of 874 |
-| Minimum grade to approve | **C** | Rejects **5** of 874 |
+| Minimum score to approve | **60 / 100** | Rejects **2** of 874 |
+| Minimum grade to approve | **C** | Rejects **2** of 874 |
 | Maximum severity allowed | **high** | Rejects 7 of 874 |
 
-These three numbers are **entirely our invention** — SFU publishes no such thresholds. They were
-the numbers we were most worried about, because we made them up.
+These three numbers are **entirely our invention** — SFU publishes no such thresholds. They were the
+numbers we were most worried about, precisely because we made them up.
 
-**The archive vindicated them.** 99.4% of your current JDs clear the score floor of 60. It is not
-standing between SFU and anything.
+**Your archive vindicated them.** 99.8% of your current JDs clear the score floor of 60.
 
-> **Our recommendation: ratify all three as-is.** One caveat, so nobody oversells it: the floor is
-> defensible because it is *nearly inert*, **not** because 60 is a magic number. If you want a
-> more demanding bar later, the data supports raising it — the median current JD scores 77.
+> **Our recommendation: ratify all three as-is.** Two caveats, so nobody oversells this:
+> - The floor is defensible because it is **nearly inert**, *not* because 60 is a magic number. It
+>   rejects two job descriptions.
+> - If you want a **more demanding** bar later, the data supports raising it — the median current JD
+>   now scores **79**, and 82 of them score an A. A floor of 70 would be a real bar rather than a
+>   formality. That is a policy choice, not a technical one, and it is yours.
 
 *(Register: HR-001, HR-002, HR-003)*
 
 ---
 
-## Decision 7 — One rule fires on **100%** of the JDs we would approve
+## Decision 7 — ✅ FIXED: a rule that could never *not* fire
 
-`SFU-STRUCT-HOW-WHY` checks that each duty explains *how* and *why*, not just *what*. It fires on:
+`SFU-STRUCT-HOW-WHY` was supposed to check that each duty explains *how* and *why*, not just *what*.
+It fired on **100% of the job descriptions the system said were good enough to approve** — all 628
+of them.
 
-- **78%** of your current-era JDs
-- **100%** of the 628 JDs the system says are **good enough to approve**
+**It was measuring nothing.** The part of our software that reads a JD **never extracts that
+information in the first place**, so the rule reported it "missing" on every duty of every job
+description ever written. It was a fixed penalty subtracted from everyone's score — invisible,
+because it applied to everyone equally.
 
-**A finding that appears on every single acceptable job description is not measuring anything.**
-It is a fixed penalty subtracted from everyone's score. It doesn't block approval — it just
-quietly drags the whole distribution down.
+**Now retired**, until our reader can actually extract the field. Every score that carried the
+penalty went up (8,593 job descriptions); none went down. Your median rose from 77 to **79**.
 
-Either SFU genuinely wants every JD rewritten in a "how and why" style that essentially none
-currently use, **or the rule is wrong.** We think it's the rule.
+> **What we need from you:** nothing today. But it is worth knowing that **we cannot currently
+> check whether a duty explains "how and why"** — we can only check that the duty exists and starts
+> with an action verb. If that check matters to SFU, tell us and we will build the extraction (it
+> is scheduled work, not new research).
 
-> **What we need from you:** tell us whether "how and why" phrasing in every duty is a real SFU
-> expectation. If it isn't, we retire or soften the rule and every score goes up.
-
-*(Register: HR-119)*
+*(Register: HR-119, HR-121)*
 
 ---
 
-## Summary — the nine decisions
+## Summary — where each decision stands
+
+**Three were our own defects. We fixed them and re-measured before bringing you this packet.**
+
+| # | Decision | Status | Blocks today |
+|---|---|---|---|
+| 2 | Qualifications rule scanned the whole document | ✅ **Fixed** — freed 59 JDs | 104 → **0** |
+| 7 | "How and why" rule could never *not* fire | ✅ **Fixed** — retired; median 77 → 79 | 0 |
+| 5 | Our era model conflated two changeovers | ✅ **Fixed** — 4th "current" era added | *(was a 7× distortion)* |
+
+**Six need your ruling:**
 
 | # | Decision | Our recommendation | Blocks today |
 |---|---|---|---|
-| 1 | Summary 100–150 words is the real gatekeeper | **Ratify** (it's SFU's own number) — but know it | 134 |
+| 1 | Summary 100–150 words is the **real** gatekeeper | **Ratify** (it's SFU's own number) — but ratify it *knowing* | **134** |
 | 1b | Too-short summaries are *not* blocked (340 JDs) | **Leave as-is**, deliberately | 0 |
-| 2 | Qualifications rule scans the whole document | **We fix the bug**, then re-baseline | 104 |
-| 3 | "No placeholders" blocks with no appeal | **Make it waivable** | 0 now, 29% of archive |
-| 4 | Territorial/equity footer blocks 94% of archive | **Auto-insert boilerplate** instead of penalising | 10 |
-| 5 | Our era model conflates two changeovers | **Add a 2024 "current" era** | — (7× distortion) |
-| 6 | Score floor 60 / grade C / severity high | **Ratify all three** | 5 |
-| 7 | "How and why" fires on 100% of good JDs | **Tell us if it's real** — we think it's wrong | 0 |
+| 2b | The banned-phrase list now matches only 10 files | **Tell us if it's missing your real phrases** | 0 |
+| 3 | "No placeholders" blocks with **no appeal** | **Make it waivable** | 0 now, 29% of archive |
+| 4 | Territorial/equity footer blocks 94% of archive | **Auto-insert the boilerplate** instead of penalising | 10 |
+| 6 | Score floor 60 / grade C / severity high | **Ratify all three** | **2** |
 
 ---
 

@@ -164,6 +164,22 @@ def _hits(jd: SFUJobDescription, raw: str, rule_id: str) -> list[JDQualityIssue]
     return [i for i in evaluate_jd_rules(jd, raw) if i.rule_id == rule_id]
 
 
+def _quals_saying(text: str) -> list[SFUQualification]:
+    """The clean qualifications, plus one that says ``text``.
+
+    Where a banned-phrase probe has to live since Phase 2.6: ``SFU-QUAL-BANNED-PHRASE``
+    reads the QUALIFICATIONS, not the whole document (HR-120 — the whole-document scan
+    was the defect that drove all 104 SFU-APPROVE-QUAL-MINIMUM blocks in the 2.5
+    baseline). The fold still applies to that text, which is what these tests are about,
+    so the probe is unchanged in substance — only in *where the JD says it*.
+
+    Inserted before the ability so Knowledge -> Skills -> Abilities order still holds.
+    """
+    jd = _clean_jd()
+    probe = SFUQualification(text=text, kind="skill", modifier="advanced")
+    return [*jd.qualifications[:-1], probe, jd.qualifications[-1]]
+
+
 def test_the_clean_fixture_really_is_clean() -> None:
     """Every test below reads a finding as caused by the one thing it introduced. That
     is only true if the baseline is empty."""
@@ -225,15 +241,17 @@ def test_a_typographic_artefact_no_longer_hides_a_coded_term(
 
 
 def test_an_invisible_character_no_longer_hides_a_banned_qualification_phrase() -> None:
-    raw = f"{_CLEAN_RAW} Qualifications: SQL and Java are asse{ZWSP}ts."
-    assert _hits(_clean_jd(), raw, "SFU-QUAL-BANNED-PHRASE")
+    jd = _clean_jd(qualifications=_quals_saying(f"SQL and Java are asse{ZWSP}ts"))
+    assert _hits(jd, _CLEAN_RAW, "SFU-QUAL-BANNED-PHRASE")
 
 
 def test_a_line_wrap_no_longer_hides_a_two_word_banned_phrase() -> None:
     """The multi-word half of the hole: a banned phrase is matched as a literal
     substring, so the archive's habit of wrapping mid-phrase hid it."""
-    raw = f"{_CLEAN_RAW} Qualifications may\ninclude a professional certification."
-    assert _hits(_clean_jd(), raw, "SFU-QUAL-BANNED-PHRASE")
+    jd = _clean_jd(
+        qualifications=_quals_saying("Duties may\ninclude a professional certification")
+    )
+    assert _hits(jd, _CLEAN_RAW, "SFU-QUAL-BANNED-PHRASE")
 
 
 def test_an_invisible_character_no_longer_hides_a_placeholder_marker() -> None:
@@ -436,8 +454,9 @@ def test_folding_alone_would_have_lost_a_finding_so_the_raw_text_is_scanned_too(
         lost, join_paragraphs=False
     )  # the fold really does destroy this one
 
-    assert _hits(_clean_jd(), f"{_CLEAN_RAW} {written}.", "SFU-QUAL-BANNED-PHRASE")
-    assert _hits(_clean_jd(), f"{_CLEAN_RAW} {lost}.", "SFU-QUAL-BANNED-PHRASE")
+    for probe in (written, lost):
+        jd = _clean_jd(qualifications=_quals_saying(probe))
+        assert _hits(jd, _CLEAN_RAW, "SFU-QUAL-BANNED-PHRASE"), probe
 
 
 def test_every_coded_term_in_the_shipped_lexicon_is_still_caught(rules: Rules) -> None:
@@ -458,8 +477,10 @@ def test_every_placeholder_marker_and_banned_phrase_is_still_caught(
         raw = f"{_CLEAN_RAW} Draft note: {marker} goes here."
         assert _hits(_clean_jd(), raw, "SFU-STRUCT-PLACEHOLDER"), marker
     for phrase in rules.qualifications.banned_phrases:
-        raw = f"{_CLEAN_RAW} Qualifications {phrase} something."
-        assert _hits(_clean_jd(), raw, "SFU-QUAL-BANNED-PHRASE"), phrase
+        jd = _clean_jd(
+            qualifications=_quals_saying(f"Certification {phrase} something")
+        )
+        assert _hits(jd, _CLEAN_RAW, "SFU-QUAL-BANNED-PHRASE"), phrase
 
 
 def test_a_term_still_does_not_match_inside_a_longer_word() -> None:
@@ -654,7 +675,7 @@ def test_an_antiword_hard_wrap_no_longer_hides_the_equivalency_path() -> None:
 
 
 @pytest.mark.parametrize(
-    ("label", "text", "rule_id"),
+    ("label", "text", "rule_id", "in_qualifications"),
     [
         # ...and the marker feeds the NON-OVERRIDABLE no-placeholders gate (HR-047):
         # a JD made permanently un-approvable, with no waiver, by a text transform.
@@ -662,16 +683,22 @@ def test_an_antiword_hard_wrap_no_longer_hides_the_equivalency_path() -> None:
             "placeholder marker `what by`",
             "Decides what\n\nBy whom is set elsewhere.",
             "SFU-STRUCT-PLACEHOLDER",
+            False,
         ),
+        # The banned-phrase probe lives in the QUALIFICATIONS now (HR-120) — the only
+        # text this rule reads. The paragraph-boundary property is the same one, and the
+        # risk it guards is real there too: the segmenter can put two wrapped
+        # requirement lines in one item, and joining them invents a BLOCKING finding.
         (
             "banned phrase `may include`",
             "Duties may\n\nInclude other tasks.",
             "SFU-QUAL-BANNED-PHRASE",
+            True,
         ),
     ],
 )
 def test_collapsing_across_a_paragraph_break_would_invent_a_finding(
-    rules: Rules, label: str, text: str, rule_id: str
+    rules: Rules, label: str, text: str, rule_id: str, in_qualifications: bool
 ) -> None:
     """The reason the default is paragraph-AWARE, proved from both sides.
 
@@ -681,14 +708,17 @@ def test_collapsing_across_a_paragraph_break_would_invent_a_finding(
     conjures it straight back (the by-VALUE pin: a validator that hardcoded
     paragraph-awareness passes the first assertion and fails the second).
     """
-    raw = f"{_CLEAN_RAW}\n\n{text}"
-    assert _hits(_clean_jd(), raw, rule_id) == [], label
+    jd = (
+        _clean_jd(qualifications=_quals_saying(text))
+        if in_qualifications
+        else _clean_jd()
+    )
+    raw = _CLEAN_RAW if in_qualifications else f"{_CLEAN_RAW}\n\n{text}"
+    assert _hits(jd, raw, rule_id) == [], label
 
     joined = _retuned(rules, join=True)
     invented = [
-        i
-        for i in evaluate_jd_rules(_clean_jd(), raw, rules=joined)
-        if i.rule_id == rule_id
+        i for i in evaluate_jd_rules(jd, raw, rules=joined) if i.rule_id == rule_id
     ]
     assert invented, label
 
@@ -712,8 +742,8 @@ def test_a_working_condition_marker_is_not_assembled_across_two_paragraphs(
 def test_a_wrap_is_still_collapsed_when_the_paragraph_boundary_is_respected() -> None:
     """The boundary must not throw the win away: ONE line break is a wrap and still
     collapses. Only a blank line stops a term."""
-    raw = f"{_CLEAN_RAW} Qualifications may\ninclude a certification."
-    assert _hits(_clean_jd(), raw, "SFU-QUAL-BANNED-PHRASE")
+    jd = _clean_jd(qualifications=_quals_saying("Duties may\ninclude a certification"))
+    assert _hits(jd, _CLEAN_RAW, "SFU-QUAL-BANNED-PHRASE")
 
 
 def test_the_paragraph_scope_is_registered_and_ours(rules: Rules) -> None:

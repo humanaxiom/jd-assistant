@@ -323,6 +323,11 @@ def _structure(
         named = ", ".join(sorted(set(bad_verbs))[: thresholds.max_listed])
         out.append(_issue(rules, "SFU-STRUCT-ACTION-VERB", verbs=named))
 
+    # SFU-STRUCT-HOW-WHY is CATALOGUED BUT NOT EVALUABLE today, and this branch is left
+    # standing on purpose: reinstating the rule when a producer finally populates
+    # `SFUDuty.how_why` (Phase 4's extractor) is then a one-line YAML flip
+    # (`evaluable: true`) and no code change at all. `evaluate_jd_rules` is what does
+    # not emit it — see there, and HR-119 / HR-121.
     missing_how_why = sum(1 for d in sfu.duties if not d.how_why)
     if missing_how_why:
         out.append(_issue(rules, "SFU-STRUCT-HOW-WHY", count=missing_how_why))
@@ -376,8 +381,30 @@ def _qualifications(
     if not (_present(text, equivalent) or _present(qual_text, equivalent)):
         out.append(_issue(rules, "SFU-QUAL-EQUIVALENT"))
 
+    # The banned phrases are scanned where the rulebook bans them (HR-120) — the parsed
+    # Qualifications, not the whole JD. The rule's own catalog text says so ("phrases
+    # the Toolkit bans from Qualifications"), and the 2.5 baseline measured what
+    # ignoring it cost: a whole-document scan made "responsibilities may include
+    # arranging catering" in DUTIES prose raise a QUALIFICATIONS finding, and that
+    # finding drove ALL 104 SFU-APPROVE-QUAL-MINIMUM blocks on the current-practice
+    # cohort — the #2 operative gate in the approval bar, all on mis-scoped matches.
+    #
+    # Note the DELIBERATE asymmetry with SFU-QUAL-EQUIVALENT just above, which still
+    # accepts the equivalency path anywhere in the document. That check is LENIENT
+    # (finding the path anywhere means the JD has it) and a wide scope makes it more
+    # forgiving; this one is PUNITIVE and blocks, so a wide scope invents violations.
+    # Scope narrows the rule that punishes, not the rule that forgives.
+    #
+    # An empty Qualifications section therefore makes this rule unable to fire — which
+    # is only safe because such a JD trips SFU-COMP-QUALS, a member of the
+    # NON-OVERRIDABLE SFU-APPROVE-MANDATORY-SECTIONS gate. It is not un-blocked; it is
+    # un-waivably blocked, stricter than the gate it escapes. (Honest limit: the
+    # segmenter drops a Qualifications line that ends in ":", so a banned phrase living
+    # only in a "Qualifications may include:" header line is not seen. It is a header,
+    # not a qualification — and the phrase is not on the requirement it would corrupt.)
+    scanned = qual_text if quals.banned_phrase_scope == "qualifications" else text
     for phrase in quals.banned_phrases:
-        evidence = _context(text, phrase, window=window)
+        evidence = _context(scanned, phrase, window=window)
         if evidence is not None:
             out.append(
                 _issue(
@@ -610,4 +637,17 @@ def evaluate_jd_rules(
     issues += _inclusive_language(raw_text, rules)
     issues += _quality_gates(sfu, text, title, rules)
     issues += _authoring_gates(sfu, summary, title, rules)
-    return issues
+    # ...and the engine raises only the rules the catalog says it CAN raise (HR-121).
+    #
+    # A rule whose input the parsed JD does not carry cannot be evaluated, and emitting
+    # it anyway is worse than not having it: `SFU-STRUCT-HOW-WHY` reads
+    # `SFUDuty.how_why`, which the deterministic segmenter never populates, so it fired
+    # on 100% of the 628 JDs the bar would approve. A finding present on every
+    # approvable JD is not a quality signal — it is a constant, and it depressed every
+    # score in the archive. This filter makes such a rule silent, in ONE place, not in
+    # a special case inside whichever validator happens to own it, and the rulebook
+    # refuses to load if a blocking gate is keyed to one (`Rules.
+    # _no_gate_blocks_on_a_rule_the_engine_never_raises`) — a gate that cannot fire is a
+    # false safety guarantee.
+    unevaluable = frozenset(rules.rule_catalog.unevaluable_rule_ids)
+    return [issue for issue in issues if issue.rule_id not in unevaluable]

@@ -116,6 +116,12 @@ SEGMENTATION_FILE: Final[str] = "segmentation.yaml"
 #: How a bundled multi-position filename is attributed to positions (HR-116).
 PositionIdGrouping = Literal["first", "all"]
 
+#: Where ``SFU-QUAL-BANNED-PHRASE`` looks for the phrases SFU bans from Qualifications
+#: (HR-120). ``qualifications`` = the parsed Qualifications only, which is what the
+#: rule says; ``document`` = the whole JD, which is what it used to do — and which made
+#: a duty merely mentioning "capital assets" raise a QUALIFICATIONS gate and block it.
+BannedPhraseScope = Literal["qualifications", "document"]
+
 
 class RulesError(RuntimeError):
     """The rulebook data is missing, malformed, or internally inconsistent.
@@ -299,6 +305,14 @@ class Qualifications(_RuleFile):
     skill_modifiers: frozenset[str] = Field(min_length=1)
     ksa_rank: FrozenRankMap
     banned_phrases: tuple[str, ...] = Field(min_length=1)
+    #: WHERE those phrases are banned (HR-120). The rule's own catalog text says the
+    #: Toolkit bans them *from Qualifications*; until Phase 2.6 the scan ran over the
+    #: whole document, and the 2.5 baseline measured what that cost: the rule drove
+    #: **all 104** ``SFU-APPROVE-QUAL-MINIMUM`` blocks on the current-practice cohort —
+    #: the #2 operative gate in the entire approval bar — because "responsibilities may
+    #: include…" and "capital assets" live in DUTIES prose. So the scope is a decision,
+    #: and it is data: set it back to ``document`` and the old behaviour returns.
+    banned_phrase_scope: BannedPhraseScope
     equivalent_combination: str = Field(min_length=1)
     ability_prefixes: tuple[str, ...] = Field(min_length=1)
 
@@ -491,12 +505,22 @@ class Segmentation(_RuleFile):
     it.
     """
 
-    #: The filename token marking SFU's CURRENT job-description form. It OVERRIDES the
-    #: date bands, in both directions (HR-109) — census §4b found body headings unusable
-    #: as an era signal across the whole 2008-2021 middle band.
+    #: The filename token marking SFU's CURRENT job-description form. It PROMOTES a
+    #: pre-2019 file to ``new`` (HR-109) — census §4b found body headings unusable as
+    #: an era signal across the 2008-2021 middle band. It does not *cap* a later file:
+    #: every JD SFU writes today carries the token, so a token that "wins" outright
+    #: would collapse ``current`` back into ``new`` and re-create the bug it fixes.
     era_template_token: str = Field(min_length=1)
     era_old_max_year: int = Field(gt=1900)
     era_transition_max_year: int = Field(gt=1900)
+    #: Where ``new`` ends and ``current`` begins (HR-122). SFU made **two** transitions,
+    #: four years apart — the JDFN *template* in 2019, and the territorial/EDI *footer*
+    #: in 2023-24 — and the three-band model only had a rung for the first, then judged
+    #: the whole ``new`` era with a blocking gate only the second satisfies. 2024 is the
+    #: year footer adoption crosses 50% (measured: 11% in 2023 -> 63% in 2024), so
+    #: ``new`` ends in 2023. Above this year is ``current``; there is deliberately no
+    #: fourth bound, so a file dated 2030 cannot fall off the end of the ladder.
+    era_new_max_year: int = Field(gt=1900)
 
     file_date_pattern: Regex
     position_id_pattern: Regex
@@ -520,13 +544,24 @@ class Segmentation(_RuleFile):
         """An unreachable segment is this rulebook's "a gate that can never fire"
         failure, applied to segmentation: if the transition band ended before the old
         band did, no file could ever be classified ``transition`` and the summary would
-        silently show an empty segment rather than refusing to load."""
-        if self.era_old_max_year >= self.era_transition_max_year:
-            raise ValueError(
-                f"era_old_max_year ({self.era_old_max_year}) must sit below "
-                f"era_transition_max_year ({self.era_transition_max_year}) — otherwise "
-                f"no file can ever be classified 'transition'"
-            )
+        silently show an empty segment rather than refusing to load.
+
+        Three boundaries since 2.6, and the ladder is checked rung by rung, so adding a
+        band cannot leave a hole between two of them.
+        """
+        ladder = (
+            ("era_old_max_year", self.era_old_max_year, "old"),
+            ("era_transition_max_year", self.era_transition_max_year, "transition"),
+            ("era_new_max_year", self.era_new_max_year, "new"),
+        )
+        for (lower_name, lower, _), (upper_name, upper, band) in itertools.pairwise(
+            ladder
+        ):
+            if lower >= upper:
+                raise ValueError(
+                    f"{lower_name} ({lower}) must sit below {upper_name} ({upper}) — "
+                    f"otherwise no file can ever be classified {band!r}"
+                )
         return self
 
     @property
@@ -1211,6 +1246,16 @@ class RuleSpec(BaseModel):
     default_severity: JDIssueSeverity
     title: str = Field(min_length=1)
     owner: RuleOwner = "deterministic"
+    #: May the deterministic engine raise this rule at all? ``false`` means the parsed
+    #: JD does not carry the data the rule judges, so the finding it would emit is
+    #: **unfalsifiable** — it fires on every document, by construction, and a rule that
+    #: cannot NOT fire is a constant subtracted from every score, not a quality signal.
+    #: The rule stays catalogued (its text, severity and rulebook citation are real, and
+    #: the register keeps the record of why it is silent); ``evaluate_jd_rules`` simply
+    #: does not emit it. Flip this to ``true`` and it is raised again with no code
+    #: change — which is what reinstating it costs once a producer populates its input.
+    #: See ``RuleCatalog.unevaluable_rule_ids`` (HR-121) — the registered view.
+    evaluable: bool = True
     #: variant name -> template (``default`` unless a gate has several phrasings)
     messages: FrozenStrMap
     recommendations: FrozenStrMap
@@ -1296,6 +1341,31 @@ class RuleCatalog(_RuleFile):
     def by_id(self) -> Mapping[str, RuleSpec]:
         """Every rule, keyed by ``rule_id`` (the lookup validators use)."""
         return _freeze({spec.rule_id: spec for spec in self.rules})
+
+    @property
+    def unevaluable_rule_ids(self) -> tuple[str, ...]:
+        """The rules the deterministic engine must NOT raise — a *derived* view.
+
+        Derived, exactly as :attr:`GatePolicy.blocking_rule_ids` is, and registered the
+        same way (HR-121): flip ``evaluable`` on ANY rule and this set moves, so the
+        drift check breaks the build until someone tells HR. There is no second list to
+        keep in step with the flags.
+
+        Today it holds one rule, and it holds it for a reason that is a fact about the
+        parser rather than an opinion about SFU: ``SFU-STRUCT-HOW-WHY`` asks whether
+        each duty spells out HOW and WHY, and reads ``SFUDuty.how_why`` — a field the
+        deterministic segmenter (``segmenter.py``: "``how_why`` left empty") **never
+        populates**. So ``not d.how_why`` was true for every duty of every JD: the rule
+        fired on 77.7% of the new era, 99.4% of current practice, and **100% of the 628
+        JDs the bar would approve** (Phase 2.5 baseline). It was not measuring the
+        archive; it was measuring our parser.
+
+        Muting it to ``info`` would have been the wrong fix and was checked rather than
+        assumed: ``info`` costs zero score, so scores would have risen — while the
+        finding still landed on every JD in every report. The constant would have been
+        hidden, not removed.
+        """
+        return tuple(sorted(spec.rule_id for spec in self.rules if not spec.evaluable))
 
     @property
     def rules_by_severity(self) -> Mapping[str, tuple[str, ...]]:
@@ -1943,6 +2013,105 @@ class Rules(BaseModel):
             )
         return self
 
+    def _reachable_severities(self) -> Mapping[str, frozenset[JDIssueSeverity]]:
+        """Every severity each catalogued rule can actually be raised at.
+
+        ``default_severity`` is NOT the whole answer, and assuming it was is how the
+        first version of :meth:`_no_gate_blocks_on_a_rule_the_engine_never_raises`
+        shipped a hole. Two validators override the catalog from *other* rule files,
+        and both are data:
+
+        * ``SFU-LANG-CODED`` is raised at the severity of the ``coded_terms.yaml`` tier
+          the matched term is filed under — the catalog's own default is dead config;
+        * each restricted title is raised at the ``severity`` its ``titles.yaml`` entry
+          carries.
+
+        So a rule's *reachable* severity set is its default plus whatever the data can
+        override it to. Derived from the rulebook, never hand-listed: a third override
+        route added tomorrow lands here, or the rule that reads it is wrong.
+        """
+        reachable: dict[str, set[JDIssueSeverity]] = {
+            spec.rule_id: {spec.default_severity} for spec in self.rule_catalog.rules
+        }
+        for severity, _ in self.coded_terms.tiers:
+            reachable["SFU-LANG-CODED"].add(severity)
+        for title in self.titles.restricted:
+            reachable[title.rule_id].add(title.severity)
+        return _freeze({rid: frozenset(sevs) for rid, sevs in reachable.items()})
+
+    @model_validator(mode="after")
+    def _no_gate_blocks_on_a_rule_the_engine_never_raises(self) -> Rules:
+        """The other half of :meth:`_blocking_gates_are_catalogued`.
+
+        A gate keyed to a rule nobody can raise is a gate that can never fire, and "a
+        gate that cannot fire is a false safety guarantee" — the standing rule of this
+        rulebook. Cataloguing the rule is not enough: an ``evaluable: false`` rule is
+        never emitted, so gating on it would ship an approval bar that silently checks
+        nothing. Retiring a rule and gating a rule are therefore mutually exclusive, and
+        the rulebook refuses to load rather than let the two drift into each other.
+
+        **BOTH ROUTES TO BLOCKING, because there are two and the first version of this
+        validator only closed one.** :attr:`GatePolicy.blocking_rule_ids` is derived
+        from the :class:`BlockingRulesGate`s alone, so checking against it left
+        :class:`SeverityFloorGate` — the route :func:`decision_surface` documents in
+        this very file: *"a rule promoted to the floor's severity starts blocking
+        approval through SeverityFloorGate WITHOUT ever being named in a gate's
+        rule_ids"* — wide open. Two pure-YAML edits, no code, and it loaded happily:
+
+        1. ``titles.yaml``: ``SFU-AUTH-TITLE-REGISTRAR.severity: high`` (a free
+           ``JDIssueSeverity`` data field, and these rules are deliberately gated by
+           nothing) — the rule now blocks through ``SFU-APPROVE-SEVERITY-FLOOR``;
+        2. ``rule_catalog.yaml``: ``evaluable: false`` on the same rule.
+
+        The finding vanishes, approval flips ``False -> True``, and a live gate in the
+        register is left with nothing that can trip it. That the shipped rulebook was
+        not already exploitable this way is **luck** — its three ``high`` rules happen
+        to sit in a ``BlockingRulesGate`` too, so the first check caught them by
+        accident.
+
+        So the test is a rule's *maximum reachable* severity
+        (:meth:`_reachable_severities` — the catalog default is not the whole story)
+        against every severity floor in the policy. Retire a rule that can reach the
+        floor and the rulebook does not load.
+        """
+        floors = [
+            gate for gate in self.gates.gates if isinstance(gate, SeverityFloorGate)
+        ]
+        unevaluable = set(self.rule_catalog.unevaluable_rule_ids)
+        reachable = self._reachable_severities()
+
+        silent = sorted(self.gates.blocking_rule_ids & unevaluable)
+        if silent:
+            raise ValueError(
+                f"gates.yaml blocks on rule_id(s) {silent} that rule_catalog.yaml "
+                f"marks `evaluable: false` — the deterministic engine never raises "
+                f"them, so the gate could never fire. A gate that cannot fire is a "
+                f"false safety guarantee: either the rule is evaluable, or it does "
+                f"not gate."
+            )
+
+        for gate in floors:
+            floor = self.gates.severity_rank(gate.min_severity)
+            reaching = sorted(
+                rule_id
+                for rule_id in unevaluable
+                if any(
+                    self.gates.severity_rank(severity) >= floor
+                    for severity in reachable[rule_id]
+                )
+            )
+            if reaching:
+                raise ValueError(
+                    f"rule_catalog.yaml marks rule_id(s) {reaching} "
+                    f"`evaluable: false`, but they can be raised at or above "
+                    f"{gate.gate_id}'s `min_severity` ({gate.min_severity}) — so that "
+                    f"gate would block on a finding the engine never emits. The same "
+                    f"false safety guarantee, reached by the severity-floor route "
+                    f"instead of a gate's `rule_ids`: either the rule is evaluable, or "
+                    f"it must not be able to reach the floor."
+                )
+        return self
+
     @model_validator(mode="after")
     def _hay_modifiers_exist_on_the_rulebooks_own_scales(self) -> Rules:
         """The Hay estimator may only read modifiers the rulebook actually defines.
@@ -2268,6 +2437,10 @@ def decision_surface(rules: Rules) -> frozenset[str]:
       weight: a rule promoted to the floor's severity starts blocking approval
       through :class:`SeverityFloorGate` without ever being named in a gate's
       ``rule_ids``. That is a second route to blocking, and it is on the surface.
+      Plus :attr:`RuleCatalog.unevaluable_rule_ids` — *which rules the engine raises
+      at all*. Retiring one silences its finding wherever it fired and lifts the score
+      of every JD that carried it (8,593 of 14,522 files, for the one rule retired so
+      far — a majority of the archive, but not all of it).
 
     Pure copy (messages, recommendations, titles, notes, the ``*_labels`` a
     classifier renders) is not on the surface.
@@ -2351,6 +2524,13 @@ def decision_surface(rules: Rules) -> frozenset[str]:
         f"rule_catalog.{spec.rule_id}.default_severity"
         for spec in rules.rule_catalog.rules
     }
+    # ...and WHICH RULES THE ENGINE RAISES AT ALL — the derived view of every rule's
+    # `evaluable` flag (HR-121). Retiring a rule silences its finding wherever it fired
+    # and lifts the score of every JD that carried it, which is a change to the approval
+    # bar by any other name; reinstating one is a change back. Registering the set (not
+    # 29 per-rule flags) pins 100% of that decision's content in one entry: flip any
+    # flag and this set moves, and `check_register` breaks the build.
+    paths.add("rule_catalog.unevaluable_rule_ids")
     return frozenset(paths)
 
 

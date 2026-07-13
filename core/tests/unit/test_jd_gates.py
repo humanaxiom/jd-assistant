@@ -187,6 +187,25 @@ def _clean_quals() -> list[SFUQualification]:
     ]
 
 
+def _quals_with_desired_extras() -> list[SFUQualification]:
+    """Qualifications that advertise a DESIRED extra — SFU-QUAL-BANNED-PHRASE's fixture.
+
+    The phrase lives in the QUALIFICATIONS, because that is where SFU bans it and, since
+    Phase 2.6, that is where the rule looks (HR-120). Putting it in the raw document was
+    what the 2.5 baseline exposed: the whole-document scan drove all 104
+    SFU-APPROVE-QUAL-MINIMUM blocks on the current-practice cohort, most of them from
+    "assets" / "may include" sitting harmlessly in DUTIES prose.
+
+    Inserted BEFORE the ability, so the JD still runs Knowledge -> Skills -> Abilities
+    and this fixture trips one gate rather than also tripping SFU-APPROVE-KSA-ORDER.
+    """
+    quals = _clean_quals()
+    extra = SFUQualification(
+        text="Other certifications are assets", kind="skill", modifier="advanced"
+    )
+    return [*quals[:-1], extra, quals[-1]]
+
+
 def _clean_jd() -> SFUJobDescription:
     return SFUJobDescription(
         title="Software Developer",
@@ -394,7 +413,7 @@ FAILING_GATE_FIXTURES: list[GateCase] = [
     (
         "SFU-APPROVE-QUAL-MINIMUM",
         "desired-extras-in-quals",
-        *_case(_clean_jd(), _CLEAN_RAW + " Other certifications are assets."),
+        *_case(_jd(qualifications=_quals_with_desired_extras()), _CLEAN_RAW),
     ),
     (
         "SFU-APPROVE-EDI-FOOTER",
@@ -630,8 +649,7 @@ def test_passing_fixture_does_not_trip_its_gate(
 
 
 def test_a_blocking_rule_gate_names_the_offending_rules_and_cites_evidence() -> None:
-    raw = _CLEAN_RAW + " Other certifications are assets."
-    decision = _decide(_clean_jd(), raw)
+    decision = _decide(_jd(qualifications=_quals_with_desired_extras()), _CLEAN_RAW)
     reason = _reason_for(decision, "SFU-APPROVE-QUAL-MINIMUM")
     assert reason.rule_ids == ("SFU-QUAL-BANNED-PHRASE",)
     assert reason.evidence  # the verbatim JD span the validator quoted
@@ -655,16 +673,27 @@ def test_a_totally_broken_jd_trips_many_gates_at_once() -> None:
     jd = _jd(position_summary=None, duties=[], qualifications=[])
     raw = "ACTION VERB what by. Duties may include travel. Plans (60%). Runs (30%)."
     decision = _decide(jd, raw)
+    blocked = _blocked_ids(decision)
     assert decision.approved is False
     assert {
         "SFU-APPROVE-MANDATORY-SECTIONS",
         "SFU-APPROVE-NO-PLACEHOLDERS",
         "SFU-APPROVE-DUTY-ALLOCATION",
-        "SFU-APPROVE-QUAL-MINIMUM",
         "SFU-APPROVE-SEVERITY-FLOOR",
         "SFU-APPROVE-SCORE-FLOOR",
         "SFU-APPROVE-GRADE-FLOOR",
-    } <= _blocked_ids(decision)
+    } <= blocked
+
+    # ...and NOT on qualifications, because this JD HAS NO QUALIFICATIONS. Since HR-120
+    # the banned-phrase rule reads the Qualifications section, so an empty one cannot
+    # trip it — the "may include" in this JD's duties prose is exactly the false block
+    # the 2.5 baseline caught. Nothing escapes: SFU-COMP-QUALS fires instead, and
+    # SFU-APPROVE-MANDATORY-SECTIONS is NON-OVERRIDABLE, so this JD is un-waivably
+    # blocked where QUAL-MINIMUM would merely have been waivable.
+    assert "SFU-APPROVE-QUAL-MINIMUM" not in blocked
+    assert (
+        "SFU-APPROVE-MANDATORY-SECTIONS" in get_rules().gates.non_overridable_gate_ids
+    )
 
 
 def test_the_runner_never_raises_on_a_pathological_jd(policy: GatePolicy) -> None:
@@ -755,7 +784,7 @@ def test_raising_the_score_floor_blocks_a_previously_permitted_jd(
 
 
 def test_removing_a_gate_permits_a_previously_blocked_jd(policy: GatePolicy) -> None:
-    jd, raw = _clean_jd(), _CLEAN_RAW + " Other certifications are assets."
+    jd, raw = _jd(qualifications=_quals_with_desired_extras()), _CLEAN_RAW
     assert _blocked_ids(_decide(jd, raw)) == {"SFU-APPROVE-QUAL-MINIMUM"}
 
     relaxed = _tuned(
@@ -905,7 +934,7 @@ def test_severity_floor_boundary(severity: JDIssueSeverity, blocked: bool) -> No
 
 
 def _blocked_on_quals() -> GateDecision:
-    return _decide(_clean_jd(), _CLEAN_RAW + " Other certifications are assets.")
+    return _decide(_jd(qualifications=_quals_with_desired_extras()), _CLEAN_RAW)
 
 
 @pytest.mark.parametrize("reason", ["", "   ", "\t\n"])
@@ -999,8 +1028,8 @@ def test_a_duplicate_override_is_an_error() -> None:
 
 
 def test_a_partial_override_still_blocks() -> None:
-    jd = _clean_jd()
-    raw = _CLEAN_RAW + " Certifications are assets. Plans (60%). Runs (30%)."
+    jd = _jd(qualifications=_quals_with_desired_extras())
+    raw = _CLEAN_RAW + " Plans (60%). Runs (30%)."
     decision = _decide(jd, raw)
     assert {
         "SFU-APPROVE-QUAL-MINIMUM",
@@ -1054,7 +1083,7 @@ def test_build_report_assembles_issues_score_grade_checklist_gates_and_version(
     rules: Rules,
 ) -> None:
     job_id = uuid4()
-    jd, raw = _clean_jd(), _CLEAN_RAW + " Other certifications are assets."
+    jd, raw = _jd(qualifications=_quals_with_desired_extras()), _CLEAN_RAW
     issues = evaluate_jd_rules(jd, raw)
     generated_at = dt.datetime(2026, 7, 10, tzinfo=dt.UTC)
 
