@@ -1055,19 +1055,39 @@ def test_the_derived_cluster_threshold_is_pinned_and_cannot_drift(
 def test_the_comparison_defaults_are_registered_as_nobodys_standard(
     rules: Rules,
 ) -> None:
-    """Provenance honesty, again (HR-029 / HR-059 / the Hay lesson). EVERY parameter in
-    ``comparison.yaml`` is `hris_calibration`: SFU publishes no similarity formula, no
-    clone score, no cluster threshold and no drift metric. The two that come closest —
-    the education-change and > 5-direct-reports escalations — were cited by hris to
-    "SFU Toolkit p26", and the rulebook this repo ships contains no re-evaluation
-    criteria at all. So: not one entry here may claim a `source_part`."""
+    """Provenance honesty, again (HR-029 / HR-059 / the Hay lesson). **NOT ONE**
+    parameter in ``comparison.yaml`` is an SFU standard, and none may be dressed up as
+    one: SFU publishes no similarity formula, no clone score, no cluster threshold and
+    no drift metric. The two that come closest — the education-change and > 5-direct-
+    reports escalations — were cited by hris to "SFU Toolkit p26", and the rulebook this
+    repo ships contains no re-evaluation criteria at all.
+
+    So the bar is: nothing here is ``sfu_rulebook``, and nothing here cites a
+    ``source_part``.
+
+    ⚠ It is **not** "everything here is ``hris_calibration``". That was true while
+    ``comparison.yaml`` held only the 2.4c port, and Phase 3.1 made it false: HR-123
+    (``exact_edge_topology``) is ``our_invention`` — hris had no Tier-1 dedup edges at
+    all, so there is no hris number to have inherited, and claiming ``hris_calibration``
+    for it would be the *same* provenance lie in the opposite direction. The count below
+    is what stops the 22 genuinely-inherited numbers from being quietly relabelled
+    ``our_invention`` (or vice versa) on the way past.
+    """
     register = rules.decision_register
     comparison = [d for d in register.decisions if d.config.file == "comparison.yaml"]
-    assert len(comparison) >= 20, "comparison.yaml is barely registered"
+    assert len(comparison) >= 21, "comparison.yaml is barely registered"
     for decision in comparison:
-        assert decision.provenance == "hris_calibration", decision.id
+        assert decision.provenance != "sfu_rulebook", decision.id
         assert decision.source_part is None, decision.id
         assert decision.status == "open", decision.id
+
+    inherited = [d for d in comparison if d.provenance == "hris_calibration"]
+    ours = [d for d in comparison if d.provenance == "our_invention"]
+    assert len(inherited) >= 20, "the ported hris calibration was relabelled"
+    # The ONLY thing in this file that is ours: the Tier-1 edge topology (3.1). If this
+    # grows, a new invention has been added to a file whose whole header says the
+    # numbers came from hris — say so there too, or it is a lie by omission.
+    assert [d.id for d in ours] == ["HR-123"]
 
 
 def test_the_hay_and_comparison_education_cues_cannot_drift_apart(

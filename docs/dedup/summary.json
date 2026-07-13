@@ -1,0 +1,356 @@
+{
+  "source": "/out/rows.jsonl",
+  "generated_at": "2026-07-13T22:14:28.804119Z",
+  "total_documents": 14565,
+  "hashed": 14564,
+  "unhashed": 1,
+  "distinct_sha256": 12592,
+  "group_count": 1037,
+  "files_in_groups": 3009,
+  "redundant_files": 1972,
+  "redundancy_rate": 0.1354023619884647,
+  "group_size_distribution": {
+    "2": 616,
+    "3": 207,
+    "4": 87,
+    "5": 49,
+    "6": 32,
+    "7": 17,
+    "8": 17,
+    "9": 6,
+    "10": 4,
+    "11": 2
+  },
+  "largest_group_size": 11,
+  "biggest_groups": [
+    {
+      "sha256": "4e8146dc60d153045b8940ea7e4ff6ac50cda2daacab322c31c1791e54f149d8",
+      "size": 11,
+      "byte_size": 45275,
+      "filenames": [
+        "20211208_00133744_JDFN_APSA_20221205.docx",
+        "20211208_00133745_JDFN_APSA_20221205.docx",
+        "20211209_00122896_JDFN_APSA_20221205.docx",
+        "20211209_00123220_JDFN_APSA_20221205.docx",
+        "20211210_00001086_JDFN_APSA_20221205.docx",
+        "20211210_00001456_JDFN_APSA_20221205.docx",
+        "20211210_00001640_JDFN_APSA_20221205.docx",
+        "20211210_00001942_JDFN_APSA_20221205.docx",
+        "20211210_00050055_JDFN_APSA_20221205.docx",
+        "20211210_00128450_JDFN_APSA_20221205.docx",
+        "20211210_00131849_JDFN_APSA_20221205.docx"
+      ]
+    },
+    {
+      "sha256": "e153df5fdce70547dec5a406b80ad5f3e584320d508f102719e720d8ebb3ae87",
+      "size": 11,
+      "byte_size": 34540,
+      "filenames": [
+        "20210913_00001369_JDFN_APSA_20210913.docx",
+        "20210913_00097328_JDFN_APSA_20210913.docx",
+        "20210913_00102285_JDFN_APSA_20210913.docx",
+        "20210913_00112754_JDFN_APSA_20210913.docx",
+        "20210913_00117848_JDFN_APSA_20210913.docx",
+        "20210913_00126538_JDFN_APSA_20210913.docx",
+        "20210913_00126719_JDFN_APSA_20210913.docx",
+        "20210913_00130718_JDFN_APSA_20210913.docx",
+        "20210913_00130719_JDFN_APSA_20210913.docx",
+        "20210913_00131380_JDFN_APSA_20210913.docx",
+        "20210913_00131381_JDFN_APSA_20210913.docx"
+      ]
+    },
+    {
+      "sha256": "15a233eba76c49f53b68588ae09bba780d0008b2a11736503384d6df0030f6b3",
+      "size": 10,
+      "byte_size": 52412,
+      "filenames": [
+        "20160805_00001089_Clerk.docx",
+        "20160805_00001097_Clerk.docx",
+        "20160805_00001104_Clerk.docx",
+        "20160805_00001108_Clerk.docx",
+        "20160805_00006988_Clerk.docx",
+        "20160805_00030245_Clerk.docx",
+        "20160805_00030999_Clerk.docx",
+        "20160805_00099562_Clerk.docx",
+        "20160805_00114314_Clerk.docx",
+        "20160805_00119662_Clerk.docx"
+      ]
+    },
+    {
+      "sha256": "41ca627abf038d6b38dc56b850f5c67fca2892843e9d273fc422074644c8a82c",
+      "size": 10,
+      "byte_size": 27839,
+      "filenames": [
+        "20210323_00000942_JDFN_APSA_20210323.docx",
+        "20210323_00030704_JDFN_APSA_20210323.docx",
+        "20210323_00064771_JDFN_APSA_20210323.docx",
+        "20210323_00096503_JDFN_APSA_20210323.docx",
+        "20210323_00104238_JDFN_APSA_20210323.docx",
+        "20210323_00111981_JDFN_APSA_20210323.docx",
+        "20210323_00111984_JDFN_APSA_20210323.docx",
+        "20210323_00121341_JDFN_APSA_20210323.docx",
+        "20210323_00127754_JDFN_APSA_20210323.docx",
+        "20210323_00127755_JDFN_APSA_20210323.docx"
+      ]
+    },
+    {
+      "sha256": "cd5ae06e568f40a1691184818c33f13cca8b5ce3e57cd4c4ee7fa01c5c9a864f",
+      "size": 10,
+      "byte_size": 27859,
+      "filenames": [
+        "20191209_00127754_JDFN_APSA_20191209.docx",
+        "20191209_00127755_JDFN_APSA_20191209.docx",
+        "20191213_00000942_JDFN_APSA_20191209.docx",
+        "20191213_00030704_JDFN_APSA_20191209.docx",
+        "20191213_00064771_JDFN_APSA_20191209.docx",
+        "20191213_00096503_JDFN_APSA_20191209.docx",
+        "20191213_00104238_JDFN_APSA_20191209.docx",
+        "20191213_00111981_JDFN_APSA_20191209.docx",
+        "20191213_00111984_JDFN_APSA_20191209.docx",
+        "20191213_00121341_JDFN_APSA_20191209.docx"
+      ]
+    },
+    {
+      "sha256": "d752d72b01ef1eb3540f799de1beefd541db3ff1a6ad9c6d315637e0047e4631",
+      "size": 10,
+      "byte_size": 56181,
+      "filenames": [
+        "20210210_00001741_JDFN_APSA_20200101.docx",
+        "20210210_00001797_JDFN_APSA_20200101.docx",
+        "20210210_00097311_JDFN_APSA_20200101.docx",
+        "20210210_00097713_JDFN_APSA_20200101.docx",
+        "20210210_00099986_JDFN_APSA_20200101.docx",
+        "20210210_00105403_JDFN_APSA_20200101.docx",
+        "20210210_00107529_JDFN_APSA_20200101.docx",
+        "20210210_00109900_JDFN_APSA_20200101.docx",
+        "20210210_00109901_JDFN_APSA_20200101.docx",
+        "20210210_00119266_JDFN_APSA_20200101.docx"
+      ]
+    },
+    {
+      "sha256": "0301847961a7d4b7ed073541768ce9e4b1981272fa6faa4557e1e38f2838275f",
+      "size": 9,
+      "byte_size": 34505,
+      "filenames": [
+        "20210414_00000702_JDFN_APSA_20210506.docx",
+        "20210414_00001369_JDFN_APSA_20210506.docx",
+        "20210414_00097328_JDFN_APSA_20210506.docx",
+        "20210414_00102285_JDFN_APSA_20210506.docx",
+        "20210414_00112754_JDFN_APSA_20210506.docx",
+        "20210414_00126538_JDFN_APSA_20210506.docx",
+        "20210414_00126719_JDFN_APSA_20210506.docx",
+        "20210414_00130718_JDFN_APSA_20210506.docx",
+        "20210414_00130719_JDFN_APSA_20210506.docx"
+      ]
+    },
+    {
+      "sha256": "0cb463d54c1a9d1ab26a130f9af77c2eac57fe55b5259c3a26daec64f34ecc89",
+      "size": 9,
+      "byte_size": 47541,
+      "filenames": [
+        "20190829_APSA_20200923.docx",
+        "20200924_APSA_20200923.docx",
+        "20200925_APSA_20200923.docx",
+        "20201022_APSA_20200923.docx",
+        "20201109_APSA_20200923.docx",
+        "20201125_APSA_20200923.docx",
+        "20201218_APSA_20200923.docx",
+        "20210119_APSA_20200923.docx",
+        "20210422_APSA_20200923.docx"
+      ]
+    },
+    {
+      "sha256": "172b0aeda07e44a165eccb54ac66d7fac16f72ae247be6d22c6aa8cc8354f202",
+      "size": 9,
+      "byte_size": 52169,
+      "filenames": [
+        "20150428_00000180_Program_Assistant.docx",
+        "20150428_00006910_Program_Assistant.docx",
+        "20150428_00006960_Program_Assistant.docx",
+        "20150428_00030169_Program_Assistant.docx",
+        "20150428_00030546_Program_Assistant.docx",
+        "20150428_00031158_Program_Assistant.docx",
+        "20150428_00061941_Program_Assistant.docx",
+        "20150428_00101115_Program_Assistant.docx",
+        "20150428_00111983_Program_Assistant.docx"
+      ]
+    },
+    {
+      "sha256": "54056283602e9c595124a5ac569c1909efa47c1e6110b0b19e6b6f6995db4f0b",
+      "size": 9,
+      "byte_size": 31767,
+      "filenames": [
+        "20211208_00001086_JDFN_APSA_20211208.docx",
+        "20211208_00001456_JDFN_APSA_20211208.docx",
+        "20211208_00001640_JDFN_APSA_20211208.docx",
+        "20211208_00001942_JDFN_APSA_20211208.docx",
+        "20211208_00050055_JDFN_APSA_20211208.docx",
+        "20211208_00122896_JDFN_APSA_20211208.docx",
+        "20211208_00123220_JDFN_APSA_20211208.docx",
+        "20211208_00128450_JDFN_APSA_20211208.docx",
+        "20211208_00131849_JDFN_APSA_20211208.docx"
+      ]
+    },
+    {
+      "sha256": "64957c5c842e8c9045c65746061c9991f4454ae065136de0ccae3fc5c401d71f",
+      "size": 9,
+      "byte_size": 43850,
+      "filenames": [
+        "20081217_00000318_Library_Assistant.docx",
+        "20081217_00000904_Library_Assistant.docx",
+        "20081217_00006852_Library_Assistant.docx",
+        "20081217_00031079_Library_Assistant.docx",
+        "20090323_00000316_Library_Assistant.docx",
+        "20090323_00000551_Library_Assistant.docx",
+        "20090323_00000552_Library_Assistant.docx",
+        "20090323_00000553_Library_Assistant.docx",
+        "20090323_00006848_Library_Assistant.docx"
+      ]
+    },
+    {
+      "sha256": "cd59ee710b673581214f4dce5c2ed19f6a52d8ac7cfa19812e7f3b33c670b774",
+      "size": 9,
+      "byte_size": 27567,
+      "filenames": [
+        "20211124_00001139_APSA_JDFN_20211203.docx",
+        "20211124_00001368_APSA_JDFN_20211203.docx",
+        "20211124_00001436_APSA_JDFN_20211203.docx",
+        "20211124_00031918_APSA_JDFN_20211203.docx",
+        "20211124_00105925_APSA_JDFN_20211203.docx",
+        "20211124_00106925_APSA_JDFN_20211203.docx",
+        "20211124_00121053_APSA_JDFN_20211203.docx",
+        "20211124_00131768_APSA_JDFN_20211203.docx",
+        "20211203_00131829_APSA_JDFN_20211203.docx"
+      ]
+    },
+    {
+      "sha256": "091c5e62373eded8cb8182c4876fdb4238a851ea27e9d26cf2c29269236398a1",
+      "size": 8,
+      "byte_size": 38393,
+      "filenames": [
+        "20110301_00001415_Educational_Consultant.docx",
+        "20110301_00001428_Educational_Consultant.docx",
+        "20110301_00001804_Educational_Consultant.docx",
+        "20110301_00098396_Educational_Consultant.docx",
+        "20110301_00109196_Educational_Consultant.docx",
+        "20110301_00109197_Educational_Consultant.docx",
+        "20110301_00109198_Educational_Consultant.docx",
+        "20110301_00109199_Educational_Consultant.docx"
+      ]
+    },
+    {
+      "sha256": "1532a5cc863cb8200e620dac77b63daad571540d01767d098febc5dde15c51e1",
+      "size": 8,
+      "byte_size": 218624,
+      "filenames": [
+        "20080616_00000539_Program_Assistant.doc",
+        "20080616_00000753_Program_Assistant.doc",
+        "20080616_00001444_Program_Assistant.doc",
+        "20080616_00030992_Program_Assistant.doc",
+        "20080616_00031114_Program_Assistant.doc",
+        "20080616_00031237_Program_Assistant.doc",
+        "20080616_00064889_Program_Assistant.doc",
+        "20080616_00102216_Program_Assistant.doc"
+      ]
+    },
+    {
+      "sha256": "185182caa53bfe433b5507213179b08a9b03aa2a7569b1fbc296bb0c9071a83f",
+      "size": 8,
+      "byte_size": 71986,
+      "filenames": [
+        "20130115_00001082_Clerk.docx",
+        "20130115_00001083_Clerk.docx",
+        "20130115_00001768_Clerk.docx",
+        "20130115_00030836_Clerk.docx",
+        "20130115_00099592_Clerk.docx",
+        "20130115_00099593_Clerk.docx",
+        "20130115_00116040_Clerk.docx",
+        "20191104_20130115_00001083_Clerk_(1).docx"
+      ]
+    },
+    {
+      "sha256": "1de6adedec7db4c5d1b9b3d752c8d53fdc7acf621143db3720e871b14a9da63b",
+      "size": 8,
+      "byte_size": 47737,
+      "filenames": [
+        "20140129_00001415_Educational_Consultant.docx",
+        "20140129_00001428_Educational_Consultant.docx",
+        "20140129_00109196_Educational_Consultant.docx",
+        "20140129_00109197_Educational_Consultant.docx",
+        "20140129_00109198_Educational_Consultant.docx",
+        "20140129_00109199_Educational_Consultant.docx",
+        "20140129_00114599_Educational_Consultant.docx",
+        "20140205_00098396_Educational_Consultant.docx"
+      ]
+    },
+    {
+      "sha256": "211ecb01e971643cfc444794078238fe3a37edfcd33b2bf4a20b2c3ae2b67bbd",
+      "size": 8,
+      "byte_size": 30619,
+      "filenames": [
+        "20200414_00001086_JDFN_APSA_20200414.docx",
+        "20200414_00001456_JDFN_APSA_20200414.docx",
+        "20200414_00001640_JDFN_APSA_20200414.docx",
+        "20200414_00001942_JDFN_APSA_20200414.docx",
+        "20200414_00050055_JDFN_APSA_20200414.docx",
+        "20200414_00122896_JDFN_APSA_20200414.docx",
+        "20200414_00123220_JDFN_APSA_20200414.docx",
+        "20200414_00128450_JDFN_APSA_20200414.docx"
+      ]
+    },
+    {
+      "sha256": "2919ba0bec13f76abfc2664b1ffa82cf2b0e157746e1145a04a0b177d6f1b192",
+      "size": 8,
+      "byte_size": 33689,
+      "filenames": [
+        "20200702_000127529_JDFN_APSA_20200702.docx",
+        "20200702_00030958_JDFN_APSA_20200702.docx",
+        "20200702_00030960_JDFN_APSA_20200702.docx",
+        "20200702_00030962_JDFN_APSA_20200702.docx",
+        "20200702_00098504_JDFN_APSA_20200702.docx",
+        "20200702_00123339_JDFN_APSA_20200702.docx",
+        "20200702_00127527_JDFN_APSA_20200702.docx",
+        "20200702_00127528_JDFN_APSA_20200702.docx"
+      ]
+    },
+    {
+      "sha256": "2f96632cd0466efb5ab5bfbc9ffcdd49f9faed556f28e7af44972ec078c55c53",
+      "size": 8,
+      "byte_size": 67584,
+      "filenames": [
+        "20190416_00133693_JDFN_APSA_20220907.doc",
+        "20190417_00133372_JDFN_APSA_20220907.doc",
+        "20190417_00133373_JDFN_APSA_20220907.doc",
+        "20190417_00133375_JDFN_APSA_20220907.doc",
+        "20190418_00100599_JDFN_APSA_20220907.doc",
+        "20190418_00102491_JDFN_APSA_20220907.doc",
+        "20190418_00131236_JDFN_APSA_20220907.doc",
+        "20190418_131236_133372_133373_133375_133693_JDFN_APSA_20220907.doc"
+      ]
+    },
+    {
+      "sha256": "3fd610b90bf54eb7a62f25b6a9af5e01c5efa86bdbc707932b153c2f6c10a75e",
+      "size": 8,
+      "byte_size": 52845,
+      "filenames": [
+        "20130927_00001089_Clerk.docx",
+        "20130927_00001097_Clerk.docx",
+        "20130927_00001104_Clerk.docx",
+        "20130927_00001108_Clerk.docx",
+        "20130927_00006988_Clerk.docx",
+        "20130927_00030245_Clerk.docx",
+        "20130927_00030999_Clerk.docx",
+        "20130927_00099562_Clerk.docx"
+      ]
+    }
+  ],
+  "groups_spanning_multiple_positions": 798,
+  "groups_within_one_position": 141,
+  "groups_without_position_id": 98,
+  "files_in_multi_position_groups": 2463,
+  "edges_star": 1972,
+  "edges_clique": 4068,
+  "topology": "star",
+  "edges_at_topology": 1972,
+  "rules_version": "jd_rules_sfu_v4+8c004c4dadd1"
+}

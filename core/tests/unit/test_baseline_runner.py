@@ -30,7 +30,12 @@ from src.jd_bank.baseline.__main__ import main
 from src.jd_bank.baseline.aggregate import histogram, population, summarise
 from src.jd_bank.baseline.config import get_baseline_config
 from src.jd_bank.baseline.models import BaselineRow, BaselineSummary, SegmentStats
-from src.jd_bank.baseline.runner import evaluate_file, run_baseline, write_artifacts
+from src.jd_bank.baseline.runner import (
+    _stable_reason,
+    evaluate_file,
+    run_baseline,
+    write_artifacts,
+)
 from src.jd_core.parser import PARSER_VERSION
 from src.jd_core.rules import Segmentation, get_rules
 
@@ -225,6 +230,42 @@ def test_two_runs_over_the_same_archive_produce_byte_identical_rows(
     assert tempfile.gettempdir() not in (corrupt.skip_reason or "")
     # ...and the substance of antiword's complaint survives verbatim
     assert "antiword failed" in (corrupt.skip_reason or "")
+
+
+def test_a_heap_address_never_reaches_the_ledger() -> None:
+    """The SECOND source of per-run noise, and it was missed when the first was fixed.
+
+    ``_extract_docx`` hands python-docx a ``BytesIO``, and python-docx puts its **repr**
+    in the failure message — carrying a heap address that differs on every run::
+
+        docx parse failed: file '<_io.BytesIO object at 0x7917efaa0590>' is not a Word..
+
+    One real archive file (a macro-enabled ``.docx``) hits this, so ``summary.json`` was
+    NOT byte-reproducible across two runs of the same archive — under a runner whose own
+    docstring calls reproducibility "the property an audit trail is made of", and which
+    is single-process precisely to guarantee it. The tmpfile fix shipped with a
+    "verified byte-identical across two real runs" claim that this file falsified.
+
+    The address is our heap layout, not a fact about the JD. Scrub it; keep the rest.
+    """
+    exc = ValueError(
+        "file '<_io.BytesIO object at 0x7917efaa0590>' is not a Word file, "
+        "content type is 'application/vnd.ms-word.document.macroEnabled.main+xml'"
+    )
+    reason = _stable_reason(exc)
+
+    assert "0x" not in reason
+    assert "<_io.BytesIO>" in reason
+    # The substance — WHICH file type python-docx refused — survives verbatim.
+    assert "macroEnabled" in reason
+    assert "is not a Word file" in reason
+    # Two different heap addresses collapse to one ledger reason, so the grouped
+    # skip ledger counts them together instead of reporting N groups of 1.
+    other = ValueError(
+        "file '<_io.BytesIO object at 0xdeadbeef99>' is not a Word file, "
+        "content type is 'application/vnd.ms-word.document.macroEnabled.main+xml'"
+    )
+    assert _stable_reason(other) == reason
 
 
 def test_identically_broken_files_group_into_one_ledger_reason(

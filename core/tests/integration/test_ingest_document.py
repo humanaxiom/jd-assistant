@@ -107,7 +107,21 @@ async def test_ingest_legacy_doc_via_antiword(migrated_pg_url: str) -> None:
 
 
 @pytest.mark.asyncio
-async def test_duplicate_sha256_returns_existing_row(migrated_pg_url: str) -> None:
+async def test_a_duplicate_sha256_gets_its_own_row(migrated_pg_url: str) -> None:
+    """**The 3.1 provenance fix.** ``source_documents`` is a faithful ledger of the
+    archive: ONE ROW PER FILE.
+
+    It used to be the opposite. ``sha256`` was ``unique=True`` and ``ingest_document``
+    returned the *existing* row on a duplicate hash — so of the **3,009** archive files
+    that sit in an exact-duplicate group, **1,972** would have been ingested and their
+    filenames **discarded entirely**: no row, no record they ever existed. "Which
+    archive files produced this canonical JD?" was unanswerable, and
+    ``DedupTier.EXACT`` / ``DedupEdge`` were dead code (an edge needs two
+    ``source_id``s and the duplicate never got one).
+
+    Dedup is now a **finding**, expressed as edges (:mod:`src.jd_bank.dedup`) — never
+    a silent write-time collapse.
+    """
     engine = create_async_engine(migrated_pg_url)
     session_maker = async_sessionmaker(engine, expire_on_commit=False)
     data = b"Position Summary: identical bytes for a duplicate ingest test.\n"
@@ -124,12 +138,134 @@ async def test_duplicate_sha256_returns_existing_row(migrated_pg_url: str) -> No
             session, filename="dup_copy.txt", data=data, storage_ref="archive/dup2.txt"
         )
         await session.commit()
-        assert again.id == first_id  # same row, not a new one
+        assert again.id != first_id  # a DIFFERENT row — the filename survives
+
+        rows = (
+            await session.scalars(
+                select(SourceDocument)
+                .where(SourceDocument.sha256 == compute_sha256(data))
+                .order_by(SourceDocument.storage_ref)
+            )
+        ).all()
+        assert [row.filename for row in rows] == ["dup.txt", "dup_copy.txt"]
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_re_ingesting_the_same_file_does_not_double_insert(
+    migrated_pg_url: str,
+) -> None:
+    """**The idempotency key is ``(storage_ref, sha256)``** — "this exact content, at
+    this exact location, is one ledger row".
+
+    Dropping the unique ``sha256`` removed what used to make a re-run safe, so the key
+    had to be replaced, not deleted. ``storage_ref`` *alone* would have been wrong: if
+    the bytes at a path ever change, the only ways to honour a unique ``storage_ref``
+    are to UPDATE the row in place — silently re-pointing the ``parsed_jds`` that
+    already hang off it at bytes that no longer produced them, which is a provenance
+    lie — or to raise. Keying on the pair instead means a changed file gets a *new*
+    row and the old one keeps its lineage intact.
+    """
+    engine = create_async_engine(migrated_pg_url)
+    session_maker = async_sessionmaker(engine, expire_on_commit=False)
+    data = b"Position Summary: re-ingest me.\n"
+    ref = "archive/idempotent.txt"
+
+    async with session_maker() as session:
+        first = await ingest_document(
+            session, filename="idempotent.txt", data=data, storage_ref=ref
+        )
+        await session.commit()
+        first_id = first.id
+
+    async with session_maker() as session:
+        again = await ingest_document(
+            session, filename="idempotent.txt", data=data, storage_ref=ref
+        )
+        await session.commit()
+        assert again.id == first_id
 
         count = await session.scalar(
             select(func.count())
             .select_from(SourceDocument)
-            .where(SourceDocument.sha256 == compute_sha256(data))
+            .where(SourceDocument.storage_ref == ref)
+        )
+        assert count == 1
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_changed_bytes_at_the_same_ref_are_a_new_row_not_an_overwrite(
+    migrated_pg_url: str,
+) -> None:
+    """The other half of the key. The archive is read-only so this is hypothetical
+    today — but it is the case that decides between the two candidate keys, and
+    overwriting would corrupt the lineage of anything already parsed from the old
+    bytes."""
+    engine = create_async_engine(migrated_pg_url)
+    session_maker = async_sessionmaker(engine, expire_on_commit=False)
+    ref = "archive/revised.txt"
+
+    async with session_maker() as session:
+        old = await ingest_document(
+            session, filename="revised.txt", data=b"version one\n", storage_ref=ref
+        )
+        new = await ingest_document(
+            session, filename="revised.txt", data=b"version two\n", storage_ref=ref
+        )
+        await session.commit()
+        assert old.id != new.id
+        assert old.sha256 != new.sha256
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_a_racing_insert_of_the_same_file_does_not_poison_the_session(
+    migrated_pg_url: str,
+) -> None:
+    """The race path (``ingest.py``'s ``IntegrityError`` branch), and the half-updated
+    concurrency story 3.1 had to finish.
+
+    The old handler called ``session.rollback()`` — which rolls back the CALLER'S whole
+    transaction, throwing away every other document the caller had staged in it. The
+    conflicting INSERT is now wrapped in a SAVEPOINT, so losing the race costs exactly
+    the one row and the caller's work survives.
+    """
+    engine = create_async_engine(migrated_pg_url)
+    session_maker = async_sessionmaker(engine, expire_on_commit=False)
+    data = b"Position Summary: raced.\n"
+    ref = "archive/raced.txt"
+
+    async with session_maker() as writer, session_maker() as racer:
+        # The racer commits the row first, behind the writer's back.
+        await ingest_document(racer, filename="raced.txt", data=data, storage_ref=ref)
+        await racer.commit()
+
+        # The writer has already staged OTHER work in its transaction...
+        earlier = await ingest_document(
+            writer,
+            filename="earlier.txt",
+            data=b"unrelated, staged before the race\n",
+            storage_ref="archive/earlier.txt",
+        )
+        # ...then loses the race on the duplicate.
+        lost = await ingest_document(
+            writer, filename="raced.txt", data=data, storage_ref=ref
+        )
+        assert lost.storage_ref == ref  # the winner's row, not a crash
+        await writer.commit()
+
+    async with session_maker() as session:
+        # The staged, unrelated document SURVIVED the race — a naked rollback()
+        # would have discarded it.
+        survived = await session.get(SourceDocument, earlier.id)
+        assert survived is not None
+        assert survived.filename == "earlier.txt"
+
+        count = await session.scalar(
+            select(func.count())
+            .select_from(SourceDocument)
+            .where(SourceDocument.storage_ref == ref)
         )
         assert count == 1
     await engine.dispose()

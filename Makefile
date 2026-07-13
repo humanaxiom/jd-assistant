@@ -3,7 +3,7 @@
 # all project code, tests, and linters run INSIDE the `api` container (source is
 # bind-mounted at /app, so no rebuild is needed after edits). Run `make up` first.
 .PHONY: up down gates gates-fast gates-integration migrate logs shell hook-install \
-        register register-check baseline
+        register register-check baseline dedup
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -21,6 +21,7 @@ REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 JD_ARCHIVE_PATH ?= ./archive
 JD_BASELINE_OUT ?= ./out/baseline
 BASELINE_ARGS   ?=
+DEDUP_ARGS      ?=
 export JD_ARCHIVE_PATH
 export JD_BASELINE_OUT
 
@@ -83,6 +84,14 @@ register-check:   ## Fail if the committed register Markdown is stale (CI drift 
 baseline:         ## Run the archive baseline (JD_ARCHIVE_PATH=<SFU JD archive>; BASELINE_ARGS="--sample 30")
 	docker compose run --rm -T baseline python -m src.jd_bank.baseline $(BASELINE_ARGS)
 	@echo "✅ baseline written to $(JD_BASELINE_OUT)"
+
+# ── Tier-1 exact-duplicate report (Phase 3.1) ──────────────────────────────
+# Reads the BASELINE's rows.jsonl (which already carries a sha256 per file) rather
+# than walking the archive a second time — HANDOFF: "do not hand-roll a second path".
+# Run `make baseline` first. Seconds, not minutes: no extraction, no parsing.
+dedup:            ## Tier-1 exact-duplicate report over the baseline's rows -> docs/dedup/
+	docker compose run --rm -T dedup python -m src.jd_bank.dedup $(DEDUP_ARGS)
+	@echo "✅ dedup report written to docs/dedup/summary.json"
 
 # ── Migrations (already Docker) ────────────────────────────────────────────
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).

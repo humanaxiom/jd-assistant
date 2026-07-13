@@ -92,7 +92,26 @@ class ReviewActionKind(enum.StrEnum):
 class SourceDocument(Base):
     """A raw archive file: a bytes reference, its SHA-256 (Tier-1 dedup key),
     detected format, ingest metadata, and the incumbent-name normalization
-    report produced during ingestion."""
+    report produced during ingestion.
+
+    **ONE ROW PER FILE — a faithful ledger of the archive** (Phase 3.1, migration
+    ``0002``). ``sha256`` used to be ``unique=True``, which made this table a ledger of
+    distinct *content* rather than of *files*: of the 3,009 archive files that sit in
+    an exact-duplicate group, 1,972 would have been ingested and their filenames
+    discarded, so "which archive files produced this canonical JD?" was unanswerable
+    (CLAUDE.md non-negotiable #6). It also made ``DedupEdge`` and ``DedupTier.EXACT``
+    dead code: an edge needs two ``source_id``s and the duplicate never got one.
+
+    Duplication is now a **finding**, expressed as :class:`DedupEdge` rows
+    (:mod:`src.jd_bank.dedup`), never a write-time collapse.
+
+    ``sha256`` keeps its (non-unique) index — it is the Tier-1 grouping key. The
+    idempotency key that replaced the unique hash is ``(storage_ref, sha256)``: *this
+    exact content, at this exact location, is one ledger row*. ``storage_ref`` alone
+    would have forced a re-ingest of changed bytes to either UPDATE in place — silently
+    re-pointing the ``parsed_jds`` already hanging off the row at bytes that did not
+    produce them — or to raise.
+    """
 
     __tablename__ = "source_documents"
 
@@ -103,7 +122,8 @@ class SourceDocument(Base):
     # the bytes themselves — Postgres holds metadata, not blobs.
     storage_ref: Mapped[str] = mapped_column(String(1024))
     filename: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    sha256: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    #: Indexed, NOT unique — the Tier-1 dedup key, and duplicates are the point.
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
     fmt: Mapped[DocumentFormat] = mapped_column(Enum(DocumentFormat))
     byte_size: Mapped[int] = mapped_column(Integer, default=0)
     ingest_metadata: Mapped[dict[str, Any]] = mapped_column(
@@ -118,6 +138,10 @@ class SourceDocument(Base):
 
     parsed_jds: Mapped[list[ParsedJDRow]] = relationship(
         back_populates="source_document"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("storage_ref", "sha256", name="uq_source_ref_sha256"),
     )
 
 
@@ -185,7 +209,15 @@ class ValidationReport(Base):
 class DedupEdge(Base):
     """A similarity edge between two source documents, tagged with the tier that
     produced it, the score, and the method (e.g. ``sha256``, ``minhash+cosine``,
-    ``vec+skill``). Undirected in intent; ``(a, b, tier)`` is unique."""
+    ``vec+skill``). Undirected in intent; ``(a, b, tier)`` is unique.
+
+    ⚠ The unique constraint is on the **ordered** triple, so it cannot by itself stop
+    ``(b, a)`` from landing next to ``(a, b)``. Writers must orient every edge by one
+    total order over the endpoints — a *structural* order (the archive path), never
+    "whichever endpoint the writer happened to start from". :mod:`src.jd_bank.dedup`
+    orients on ``dedup.order_key`` and pins it against the real database, across a
+    re-anchoring and a topology flip, not merely on a single fresh pass (a fresh pass
+    is the one case where the two coincide, so it cannot catch a violation)."""
 
     __tablename__ = "dedup_edges"
 

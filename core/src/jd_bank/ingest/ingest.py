@@ -5,8 +5,17 @@ The first stage of the pipeline (plan §2): each archive file is hashed
 extracted (:mod:`src.jd_bank.ingest.extract`) and incumbent-normalized
 (:mod:`src.jd_bank.ingest.scrub`), and a :class:`~src.jd_bank.db.models.
 SourceDocument` row persisted with the format, byte size, ingest metadata, and
-the normalization report. Duplicate SHA-256 is handled gracefully (the column
-is unique): a re-ingest returns the existing row rather than raising.
+the normalization report.
+
+**ONE ROW PER FILE** (Phase 3.1). A duplicate SHA-256 gets its **own row**: two archive
+files that are byte-identical are two archive files, and ``source_documents`` is a
+faithful ledger of the archive. Duplication is a *finding* — :mod:`src.jd_bank.dedup`
+records it as ``DedupEdge`` rows — never a silent write-time collapse. Before 3.1 the
+hash was ``UNIQUE`` and this function returned the existing row, which discarded the
+filenames of 1,972 of the archive's 14,565 files.
+
+The idempotency key is therefore ``(storage_ref, sha256)``: *this exact content, at
+this exact location, is one ledger row*. See :data:`_IDEMPOTENCY_KEY`.
 
 Extraction/scrub are CPU/subprocess-bound and run off the event loop via
 ``asyncio.to_thread`` so the async caller is never blocked.
@@ -18,6 +27,7 @@ import asyncio
 import hashlib
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Final
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -71,6 +81,41 @@ def walk_archive(root: str | Path) -> Iterator[Path]:
             yield path
 
 
+#: **The idempotency key**, and the thing that replaced ``UNIQUE(sha256)``.
+#:
+#: Dropping the unique hash (migration ``0002``) removed what used to make a re-run of
+#: ingestion safe, so the key had to be *replaced*, not deleted. ``(storage_ref,
+#: sha256)`` reads as: *this exact content, at this exact location, is one ledger row.*
+#:
+#: Why not ``storage_ref`` alone — the obvious "one row per file" key? Because it forces
+#: a decision the moment the bytes at a path ever change, and both of its answers are
+#: bad: UPDATE the row in place, which silently re-points every ``parsed_jds`` /
+#: ``validation_reports`` row already hanging off it at bytes that did not produce them
+#: (a provenance lie, and precisely what non-negotiable #6 forbids); or raise, which
+#: makes a routine re-scan of a corrected archive fail. Keying on the pair means a
+#: changed file simply gets a **new** row and the old one keeps its lineage intact.
+#:
+#: Why not ``sha256`` alone? That is the bug being fixed: it is a key over *content*,
+#: and it discards filenames.
+#:
+#: The archive is read-only, so in practice the two keys behave identically on it. This
+#: is a deliberate choice about which one is *safe when the assumption breaks*.
+_IDEMPOTENCY_KEY: Final[str] = "(storage_ref, sha256)"
+
+
+async def _existing(
+    session: AsyncSession, *, storage_ref: str, sha256: str
+) -> SourceDocument | None:
+    """The row for THIS file, if the archive has already been ingested."""
+    row: SourceDocument | None = await session.scalar(
+        select(SourceDocument).where(
+            SourceDocument.storage_ref == storage_ref,
+            SourceDocument.sha256 == sha256,
+        )
+    )
+    return row
+
+
 async def ingest_document(
     session: AsyncSession,
     *,
@@ -84,14 +129,15 @@ async def ingest_document(
     text, and inserts a row carrying the format, byte size, ingest metadata, and
     the (PII-free) normalization report. Unsupported formats
     (:data:`DocumentFormat.OTHER`) are persisted with an ``unsupported`` status
-    for manual triage instead of raising. A duplicate SHA-256 returns the
-    already-stored row (the column is unique).
+    for manual triage instead of raising.
+
+    **A duplicate SHA-256 gets its own row** — see the module docstring. Re-ingesting
+    the *same file* (:data:`_IDEMPOTENCY_KEY`) returns the already-stored row, so a
+    re-run of the archive walk is a no-op rather than a second copy of it.
     """
     sha256 = compute_sha256(data)
 
-    existing = await session.scalar(
-        select(SourceDocument).where(SourceDocument.sha256 == sha256)
-    )
+    existing = await _existing(session, storage_ref=storage_ref, sha256=sha256)
     if existing is not None:
         return existing
 
@@ -140,16 +186,21 @@ async def ingest_document(
         ingest_metadata=ingest_metadata,
         normalization_report=normalization_report,
     )
-    session.add(doc)
+    # The insert goes in a SAVEPOINT so that losing the race costs exactly this one
+    # row. The old handler called `session.rollback()` — which rolls back the CALLER'S
+    # WHOLE TRANSACTION, silently discarding every other document staged in it. That is
+    # the half-updated concurrency story 3.1 had to finish: a batch ingest of 14,565
+    # files, hitting one duplicate storage_ref, would have thrown away everything since
+    # its last commit and reported success.
     try:
-        await session.flush()
+        async with session.begin_nested():
+            session.add(doc)
+            await session.flush()
     except IntegrityError:
-        # Concurrent insert of the same sha256 raced us — return the winner.
-        await session.rollback()
-        winner = await session.scalar(
-            select(SourceDocument).where(SourceDocument.sha256 == sha256)
-        )
-        if winner is None:  # pragma: no cover — defensive; unique row must exist
+        # A concurrent insert of the SAME FILE (`_IDEMPOTENCY_KEY`) beat us to it. The
+        # savepoint is already rolled back; the caller's other work is untouched.
+        winner = await _existing(session, storage_ref=storage_ref, sha256=sha256)
+        if winner is None:  # pragma: no cover — defensive; the unique row must exist
             raise
         return winner
 

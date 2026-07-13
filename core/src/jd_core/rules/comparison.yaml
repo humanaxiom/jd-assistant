@@ -5,10 +5,19 @@
 # a redundancy cluster?) and `bank/drift.py` (how far has a posting diverged from its
 # canonical role?).
 #
-# ⚠ PROVENANCE — NOT SFU-PUBLISHED. EVERY number below is `hris_calibration`
-# (HR-082 … HR-103). SFU publishes no similarity formula, no clone score, no cluster
-# threshold and no drift metric; `docs/rulebook/sfu-jd-standards.txt` contains none of
-# these words. Two of them come closest and STILL do not clear the bar:
+# ⚠ PROVENANCE — NOT ONE NUMBER BELOW IS SFU-PUBLISHED. SFU publishes no similarity
+# formula, no clone score, no cluster threshold and no drift metric;
+# `docs/rulebook/sfu-jd-standards.txt` contains none of these words.
+#
+# The 22 calibration numbers (HR-082 … HR-103) are `hris_calibration` — inherited from
+# the hris pipeline. The ONE exception is `exact_edge_topology` (HR-123, Phase 3.1),
+# which is `our_invention`: hris had no Tier-1 dedup edges at all, so there is no hris
+# number to have inherited, and calling it `hris_calibration` would be the same
+# provenance lie pointing the other way. Pinned by
+# `test_the_comparison_defaults_are_registered_as_nobodys_standard`.
+#
+# Two of the inherited numbers come closest to an SFU source and STILL do not clear the
+# bar:
 #
 #   * the drift escalations (an education-level change; a > 5 direct-reports change).
 #     hris cited them to "SFU Toolkit p26 / sfu-reference.md §5" and the shipped
@@ -37,8 +46,42 @@ version: jd_rules_sfu_v4
 sim_version: jd_sim_v2
 # Connected components is the deliberate Iteration-1 choice: simple + explainable.
 # If it over-merges on the real archive (one giant blob), Louvain is the documented
-# fallback — and bumping this stamp is then a data edit, not a code edit.
+# fallback.
+#
+# ⚠ THIS STAMP CANNOT LIE ANY MORE (Phase 3.1). It used to accept ANY non-empty
+# string, so writing `louvain` here would have STAMPED every persisted cluster
+# `louvain` while `build_clusters` went on running connected components — a
+# provenance falsehood (CLAUDE.md #6). It is now a closed set (`ClusterAlgorithm`)
+# of the algorithms we actually implement, AND `build_clusters` dispatches on it. So
+# naming Louvain is no longer a data edit: it is a data edit plus the code, together,
+# or the rulebook refuses to load.
 cluster_algo: connected_components
+
+# ── Tier-1 exact-duplicate dedup (Phase 3.1) ─────────────────────────────────
+# How a group of N BYTE-IDENTICAL archive files is recorded in `dedup_edges`. HR-123.
+#
+#   star    N-1 edges, from a canonical representative to each other member.
+#   clique  N(N-1)/2 edges — every unordered pair.
+#
+# MEASURED on the real archive (14,565 files, our own `compute_sha256`): 1,037 groups,
+# 3,009 files, 1,972 redundant copies, largest group 11. star = 1,972 edges;
+# clique = 4,068. Both are implemented and both are cheap TODAY — the choice is about
+# what the edge MEANS and how it grows, not about this corpus:
+#
+#   * Byte-identity is an EQUIVALENCE relation. The clique's extra 2,096 edges are all
+#     derivable by transitivity from the star: they state nothing new.
+#   * `build_clusters` (connected components) recovers the identical group from either.
+#   * Growth: star is LINEAR in group size, clique QUADRATIC. Tiers 2 and 3 write into
+#     this same table with far larger, far less clean groups, and a table whose *exact*
+#     tier is already quadratic sets the wrong precedent for the ones that hurt.
+#     ⚠ That linearity is EARNED, not free: the pass is additive, so the representative
+#     is PINNED to the one a group's edges already hang off. Re-deriving it per run lets
+#     a late, earlier-sorting duplicate re-anchor the star — measured on a group of 6 in
+#     reverse order: 15 edges, the full clique. See `dedup/tier1.py :: _anchors`.
+#
+# `clique` exists for the reader who wants every pair addressable by a single row
+# lookup rather than by traversal. Nobody has ratified either — HR-123, `open`.
+exact_edge_topology: star
 
 # ── Education: ONE ladder for the whole rulebook ─────────────────────────────
 # hris kept this fact TWICE — `drift._EDU_ORDINAL` (a name -> ordinal dict) and
