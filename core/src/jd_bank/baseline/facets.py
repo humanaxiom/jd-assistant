@@ -98,24 +98,40 @@ def _date_from(match_groups: tuple[str, ...]) -> dt.date | None:
 def _era(
     *, file_date: dt.date | None, template_token: bool, config: Segmentation
 ) -> ArchiveEra:
-    """The template era, token first, then the date band.
+    """The template era: the date band, with the template token as a PROMOTION.
 
-    The token wins in BOTH directions. MEASURED: 50 real files carry the
+    **Four bands, because SFU made two transitions four years apart** (HR-109 … HR-111,
+    HR-122): the JDFN *template* (2019 -> ``new``) and the territorial/EDI *footer*
+    (2023-24 -> ``current``). The 2.5 baseline disproved the three-band model: ``new``
+    captured the first transition and was then judged by a blocking gate that only the
+    second satisfies, so a 2019 JDFN document — authored correctly under the template
+    of its day — was un-approvable. Measured: 10.0% ``new``-era approval against 71.9%
+    among JDs carrying the acknowledgement. A sevenfold gap, all of it date.
+
+    **The token promotes; it does not cap.** MEASURED: 50 real files carry the
     current-template token with a pre-2019 leading date (1 in 2010, 1 in 2012, 1 in
     2015, 2 in 2016, 20 in 2017, 25 in 2018) — they were authored under the current
-    template, and the current bar is the one they should be judged against. Census §4b:
-    era in the middle band "is most reliably inferred from the JDFN filename token, not
-    body headings". The override is a judgement, not a fact — it is HR-109.
+    template, so ``new`` is the bar they should be judged against (census §4b: era in
+    the middle band "is most reliably inferred from the JDFN filename token, not body
+    headings"). But *every* JD SFU writes today also carries the token, so a token that
+    won OUTRIGHT — as it did before 2.6 — would pull every 2024+ file back into ``new``
+    and collapse the fourth band on the day it was added. Promotion up the ladder, never
+    demotion down it. The promotion is a judgement, not a fact; it is HR-109.
+
+    Era is read from the LEADING (original) date, not the revision date: it asks which
+    template a JD was AUTHORED under. ``prefer_revision_date_for_version`` (HR-112)
+    answers the different question of which file is a position's current version.
     """
+    if file_date is None:
+        return "new" if template_token else "unknown"
+    year = file_date.year
+    if year > config.era_new_max_year:
+        return "current"
+    if year > config.era_transition_max_year:
+        return "new"
     if template_token:
         return "new"
-    if file_date is None:
-        return "unknown"
-    if file_date.year <= config.era_old_max_year:
-        return "old"
-    if file_date.year <= config.era_transition_max_year:
-        return "transition"
-    return "new"
+    return "old" if year <= config.era_old_max_year else "transition"
 
 
 def file_facets(path: Path, config: Segmentation) -> FileFacets:

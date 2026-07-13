@@ -33,19 +33,37 @@
 version: jd_rules_sfu_v4
 
 # --- era ----------------------------------------------------------------------
+# FOUR BANDS, BECAUSE SFU MADE TWO TRANSITIONS, NOT ONE (Phase 2.6, HR-109 … HR-111,
+# HR-122). The 2.5 baseline disproved the three-band model it was measured with:
+#   (1) the JDFN TEMPLATE rolled out in 2019 (332 files in 2019 -> 1,131 in 2020);
+#   (2) the TERRITORIAL ACKNOWLEDGEMENT / EDI FOOTER only became standard in 2023-24
+#       (measured presence: 1.4% in 2021 · 11% in 2023 · 63% in 2024 · 85% in 2025).
+# `new` captured (1) and was then judged by SFU-APPROVE-EDI-FOOTER — a BLOCKING gate
+# that only (2) satisfies. A 2019 JDFN document, authored correctly under the template
+# of its day, was un-approvable for missing a paragraph that did not yet exist. The
+# cost, measured: `new`-era approval 10.0% against 71.9% for JDs that actually carry
+# the acknowledgement. A SEVENFOLD gap, and every point of it a date, not a quality.
+#
 # Census §4b: "Era for the [2008-2021] middle band is most reliably inferred from the
-# JDFN filename token, not body headings." So the token wins over the date band, in
-# BOTH directions: 50 real files carry JDFN with a pre-2019 leading date (1 in 2010,
-# 1 in 2012, 1 in 2015, 2 in 2016, 20 in 2017, 25 in 2018) and they were authored under
-# the current template. HR-109 — read it; the override is a judgement, not a fact.
+# JDFN filename token, not body headings." So the token PROMOTES a pre-2019 file to
+# `new`: 50 real files carry JDFN with a pre-2019 leading date (1 in 2010, 1 in 2012,
+# 1 in 2015, 2 in 2016, 20 in 2017, 25 in 2018) and they were authored under the current
+# template. It no longer CAPS a later file at `new` — every JD SFU writes today carries
+# the token, so a token that won outright would collapse `current` straight back into
+# `new` and re-create the very bug this band exists to fix. HR-109 — read it; the
+# promotion is a judgement, not a fact.
 era_template_token: JDFN
 
 # Measured on the leading YYYYMMDD prefix (present on 14,565/14,565 files):
 #   <=2009: 3,339   2010-2018: 5,014   >=2019: 6,212
-# `new` is everything above era_transition_max_year — there is no third bound, so a
-# file dated 2030 cannot fall off the end of the ladder into no segment at all.
 era_old_max_year: 2009
 era_transition_max_year: 2018
+# 2024 is where footer adoption CROSSES 50% (11% in 2023 -> 63% in 2024), so `new` ends
+# in 2023 and `current` begins in 2024 (HR-122). `current` is everything above this year
+# — there is deliberately no fourth bound, so a file dated 2030 cannot fall off the end
+# of the ladder into no segment at all. The loader checks the three boundaries are
+# ordered: a band nothing can land in is a segment that silently reports nothing.
+era_new_max_year: 2023
 
 # --- filename parsing ---------------------------------------------------------
 # The dominant convention (census §3):
