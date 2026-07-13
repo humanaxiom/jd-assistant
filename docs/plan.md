@@ -348,16 +348,40 @@ date or the footer's presence.
 The register enforces the record: a `ratified` decision **must** carry `decided_by` / `decided_on` /
 `decision_note`, or the rulebook fails to load.
 
-### Phase 3 — Dedup & clustering
-- **3.1** Tier 1 exact-dup + report (NEW). Early quantified win — **2.5 already measured it**:
-  14,522 → **12,557** after exact-content dedup, and **6,295** latest-version-per-position.
-  `aggregate.population()` computes all three populations, and `rows.jsonl` carries `sha256` /
-  `position_ids` / `version_date` per file. Much of 3.1 is done.
-- **3.2** Embedding service (Ollama client, batching, upsert into Neo4j vector index; doc +
-  section level, model tag).
+### Phase 3 — Dedup & clustering — 3.1 MERGED; 3.2 next
+
+- **3.1** ✅ **MERGED** (PR #21) — Tier-1 exact dedup, and a **schema correction that had to come
+  first**. `source_documents.sha256` was `UNIQUE` and `ingest_document()` returned the existing row
+  on a duplicate — so ~**1,972** archive files would have been ingested with their **filenames
+  discarded entirely**, while `DedupEdge`/`DedupTier` sat in the schema as **dead code** (an edge
+  needs two source ids; the duplicate never got one). A provenance bug against non-negotiable #6.
+  **Now: one row per FILE, and dedup is a *finding* — `DedupEdge` rows — not a silent write-time
+  collapse.** All three tiers write into one edge table. Migration `0002` drops the UNIQUE (keeps the
+  index) and its **downgrade refuses** if duplicate hashes exist rather than deleting rows to make
+  room for itself. Ingest is keyed `(storage_ref, sha256)` and its race path moved to a SAVEPOINT —
+  the old `session.rollback()` rolled back the *caller's* whole transaction, silently discarding a
+  batch ingest's uncommitted work.
+  - **Measured (verified independently, `Get-FileHash`, zero shared code):** 1,037 groups · 3,009
+    files in a group · **1,972 redundant** · largest group 11.
+  - **The finding that pays for 3.5: 798 of the 1,037 groups (77%) span MORE THAN ONE
+    `position_id`** — 2,463 files. Not re-saves: **distinct positions sharing a byte-identical JD.**
+    Only 141 groups are genuine re-saves. **Tier-1 hands clustering a role cluster with similarity
+    pinned at 1.0, for free, before a single embedding is computed.**
+  - `comparison.cluster_algo` can **no longer lie** (the backlog landmine, *"fix before Phase 3
+    writes a cluster row"* — done on schedule): a closed `Literal` **and** `build_clusters` genuinely
+    dispatches on it.
+- **3.2** ⏭ **NEXT** — embedding service (Ollama client, batching, upsert into the Neo4j vector
+  index; doc + section level, model tag). **First code in the project to touch the LLM stack**, and
+  the first that needs Ollama on host metal — note the `gates` container is self-contained and
+  cannot reach it, so the golden test needs a deliberate story (same constraint that deferred the
+  4.2 prompts).
 - **3.3** Tier 2 near-dup (NEW): MinHash → cosine confirm; tune on the label set; precision/recall
   regression-gated in CI.
 - **3.4** Title normalizer (#8) + Tier 3 role-equivalence (#6) + hard constraints (NEW).
+  **This is where 2.4c's trio finally gets wired.** `similarity`/`clustering`/`drift` are pure,
+  tested, *uncalled*: `skill_overlap` needs a skill ontology + idf corpus, `seniority_closeness`
+  needs an education enum + years bar, and a `ParsedJD` has neither. The `ParsedJD → signals`
+  adapter is a **new decision** — it wants an ADR and register entries.
 - **3.5** Clustering (#7 + constraints NEW) + cluster report artifacts for HR eyeball pass.
 
 **Exit:** duplicate + cluster reports over the full archive; metrics meet the agreed floor.

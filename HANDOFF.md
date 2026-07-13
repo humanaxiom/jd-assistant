@@ -1,8 +1,16 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-13 (**Phase 2 COMPLETE — 2.5 (baseline) + 2.6 (three defect fixes).** The
-approval bar met the real corpus and **survived**. HR review is unblocked. Phase 3 next.)
+Last updated: 2026-07-13 (**Phase 2 COMPLETE + Phase 3.1 (Tier-1 dedup) shipped.** The approval bar
+met the real corpus and **survived**. HR review is unblocked. **3.2 — embeddings — is next.**)
+
+**Catching up? Read [`docs/status/2026-07-13-shipped.md`](docs/status/2026-07-13-shipped.md) first** —
+the one-pager on 2.5 / 2.6 / 3.1, and the basis of what we tell HR.
+
+**PR stack awaiting merge (in this order):** [#19](https://github.com/humanaxiom/jd-assistant/pull/19)
+(2.5 baseline) → [#20](https://github.com/humanaxiom/jd-assistant/pull/20) (2.6 defects) →
+[#21](https://github.com/humanaxiom/jd-assistant/pull/21) (3.1 dedup). All CI-green and
+reviewer-approved; they are stacked, so order matters.
 
 Repo: **`C:\repos\JD-Assistant`** → GitHub **github.com/humanaxiom/jd-assistant**.
 
@@ -502,6 +510,8 @@ official text from HR in the same review.
 
 ## Authoritative references
 
+- **`docs/status/2026-07-13-shipped.md` — the one-pager.** What shipped in 2.5/2.6/3.1, for the team
+  and as the basis of what we tell HR. **Start here if you are catching up.**
 - `docs/plan.md` — full build plan, architecture, phase breakdown (current).
 - **`docs/baseline/README.md` — THE ARCHIVE BASELINE (2.5).** The measured read of all 14,565 JDs.
   Read before making any claim about the archive. Regenerate with `make baseline`.
