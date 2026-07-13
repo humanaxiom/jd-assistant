@@ -283,6 +283,31 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
   cross-examining the validator against the raw text of **all 6,259** new-era JDs. **A sample
   drawn from the newest files is not a sample of the corpus. Check the claim against the whole
   archive, not against the slice that is easy to look at.**
+- **OLLAMA IS ON `aria-gb10-2`, NOT ON THIS MACHINE — and the local/CI split is the whole story.**
+  (ADR-003 amended 2026-07-13.) `docker-compose.yml` said `host.docker.internal` until someone
+  checked; it is now `${OLLAMA_BASE_URL:-http://aria-gb10-2:11434/v1}`.
+  **Verified from inside the `gates` container:** reachable, `nomic-embed-text` present, **768-dim**
+  (matches the ADR-002 Neo4j index — checked, not assumed).
+
+  | | Reaches `aria-gb10-2`? |
+  |---|---|
+  | **Local `make gates`** | ✅ **YES** |
+  | **CI** (`runs-on: ubuntu-latest`, GitHub-hosted) | ❌ **NO, and never will** — a cloud runner cannot route to an internal host |
+
+  So the old claim *"the `gates` container cannot reach host Ollama"* was **false locally and true in
+  CI**, for a different reason than it gave — and it had been **deferring work** (the 4.2 prompts).
+  **The rule it protected still stands, now enforced by topology rather than policy: `make gates`
+  MUST NOT depend on a live model endpoint.** A test that calls Ollama passes on your machine and
+  turns CI red — worse than not having the test, because it is intermittent and trains people to
+  ignore CI. **Live golden tests are opt-in and local-only** (own make target, or a marker that
+  *skips* when the endpoint is unreachable). Unit tests mock the client; integration tests mock the
+  embedding call.
+
+  ⚠️ **Data boundary changed.** Non-negotiable #5 no longer says "JD content never leaves this
+  machine" — from 3.2, JD text crosses a private network to be embedded. The real invariant (**no
+  third-party/cloud LLM API, no vendor egress**) is intact, and `aria-gb10-2` is a **trusted internal
+  host**. These are SFU HR records, so **FIPPA applies**: if the inference host ever leaves a trusted
+  segment, that is a **compliance decision to re-take, not a config value to edit.**
 - **Any `repr()` in an exception message will break baseline reproducibility.** The runner is
   single-process *precisely* to guarantee two runs over the same archive produce byte-identical
   artifacts — that is what the audit trail is made of. Two things have already broken it: antiword's
@@ -409,7 +434,9 @@ official text from HR in the same review.
 - **Deferred EXTRACT modules** (plan already assigns them): `export.py` → 5.4 (needs `reportlab`, a
   new dep, plus SFU styling hris never implemented, plus the open territorial-ack flag); prompts
   (`sfu_jd_extract` / `jd_harmonize` / `jd_quality`) → 4.2 (no LLM client or prompt loader exists;
-  the golden test needs host Ollama, which the self-contained `gates` container cannot reach);
+  ~~the golden test needs host Ollama, which the self-contained `gates` container cannot reach~~ —
+  **that reason was FALSE, see the Ollama gotcha below; the real reason is that CI cannot reach the
+  inference host, so a live golden test must be opt-in and local-only**);
   `jd_import_service` → 5 (composer upload; would force PyMuPDF back after 1.3 dropped the PDF path).
 
 ---

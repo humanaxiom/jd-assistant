@@ -52,13 +52,22 @@ services:
       NEO4J_USER: neo4j
       NEO4J_PASSWORD: harnesspass
       REDIS_URL: redis://redis:6379/0
-      OLLAMA_BASE_URL: http://host.docker.internal:11434/v1
+      # Ollama runs on metal on a TRUSTED INTERNAL HOST (`aria-gb10-2`) — NOT on the dev
+      # box, and NOT `host.docker.internal` (which is what this said until we checked).
+      # Overridable, so the hostname is config and not a fact welded into the repo.
+      # Verified from inside the `gates` container: reachable, `nomic-embed-text` present,
+      # 768-dim (ADR-002). So an inference-touching test is NOT blocked by `gates` being
+      # self-contained — a constraint that had been deferring work on the strength of an
+      # unchecked assumption. See ADR-003.
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://aria-gb10-2:11434/v1}
       AGENT_MODEL: qwen2.5-coder:14b
       EMBED_MODEL: nomic-embed-text
       MAX_REVIEW_ITERATIONS: "5"
       COVERAGE_THRESHOLD: "80"
     extra_hosts:
-      - "host.docker.internal:host-gateway"   # Linux: reach Ollama on metal
+      # Kept: testcontainers still resolves sibling containers via the host gateway. It is
+      # no longer how Ollama is reached.
+      - "host.docker.internal:host-gateway"
     volumes: ["./core:/app"]
     depends_on:
       postgres: { condition: service_healthy }

@@ -50,10 +50,16 @@ hooks: no-commit-to-main, ruff auto-fix) for sessions run from the repo root, a 
    never verbatim model text.
 4. TDD + GATES: failing test first. Every rulebook gate has a failing-fixture test and
    a passing-fixture test. make gates must be green before any commit.
-5. LOCAL-FIRST: inference via Ollama only. JD content never leaves this machine. Incumbent
-   names are normalized out of canonical JDs at ingestion as a RULEBOOK quality step
-   (describe the role, not the person) — NOT a resume-grade privacy gate. These are JDs, not
-   resumes.
+5. SELF-HOSTED INFERENCE ONLY: all inference runs on Ollama on infrastructure **we control**.
+   **No third-party or cloud LLM API, ever — no vendor egress of JD content.** That is the
+   real invariant; the older wording ("JD content never leaves this machine") is now
+   **false in the letter**: Ollama runs on `aria-gb10-2`, a trusted internal host, so JD text
+   **does** cross a private network to be embedded (Phase 3.2 onward). See ADR-003 for the
+   topology and the trust assumption. **If the inference host ever moves off a trusted
+   segment, this becomes a FIPPA question and must be re-decided, not silently carried.**
+   Incumbent names are normalized out of canonical JDs at ingestion as a RULEBOOK quality
+   step (describe the role, not the person) — NOT a resume-grade privacy gate. These are JDs,
+   not resumes.
 6. PROVENANCE: every canonical JD traces to sources, cluster, validation reports, and
    reviewer actions. Audit log is append-only.
 7. FIXTURES ARE SACRED: fixtures/golden/ and fixtures/labels/ change only via reviewed
@@ -61,8 +67,10 @@ hooks: no-commit-to-main, ruff auto-fix) for sessions run from the repo root, a 
 8. DOCKER-ONLY (ADR-006): all code, tests, gates, linters, and migrations run in Docker.
    NO host Python/venv/pip/pre-commit. `make gates` runs the FULL suite (incl. integration
    via testcontainers) in the one-shot `gates` compose service — self-contained, CI-identical.
-   Testing is non-negotiable and has no host fallback. Only Ollama runs on host metal.
-   See DEVELOPER_GUIDE_1.md.
+   Testing is non-negotiable and has no host fallback. The one exception is **Ollama**, which
+   runs on metal — on `aria-gb10-2`, **not** on the dev box. The `gates` container **can** reach
+   it (verified: `nomic-embed-text`, 768-dim, from inside `gates`), so an inference-touching
+   test is NOT blocked by the container being self-contained. See DEVELOPER_GUIDE_1.md.
 
 ## Neo4j — roles, do not conflate
 - Harness agent memory (day 1, via docker compose): lineage graph + vector artifact store.
