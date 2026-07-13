@@ -16,9 +16,18 @@ Two docs to know:
   subagent at. Reviewers are always Opus; never downgrade a faithful port, rulebook/policy
   semantics, a security-touching diff, or anything changing a decision parameter.
 - `docs/decisions/HR-DECISION-REGISTER.md` — generated register of every non-trivial rulebook
-  default (103 entries, all `open` — SFU HR has ratified nothing yet). **Standing rule: any
+  default (**119 entries, all `open`** — SFU HR has ratified nothing yet). **Standing rule: any
   non-trivial metric/rule must be YAML-configurable and registered in the same PR; if a default
   looks wrong, register it as `open`, don't quietly patch it.**
+  A `ratified` entry **must** carry `decided_by` / `decided_on` / `decision_note` or the rulebook
+  fails to load — that is how an HR ruling gets recorded. Never a side file.
+- `docs/baseline/README.md` — **the archive baseline (Phase 2.5), measured over all 14,565 JDs.**
+  **EVERY CLAIM ABOUT THE ARCHIVE MUST BE CHECKED AGAINST THE ARCHIVE** — this rule has already
+  caught the Phase 0 census, two coders, a reviewer *and* the orchestrator. A sample of the newest
+  files is not a sample of the corpus.
+- `docs/decisions/HR-REVIEW-PACKET.md` (what HR must decide) + `POST-REVIEW-CHANGE-PLAN.md` (what we
+  change when they rule). **Three of the nine decisions are OUR defects, not HR questions, and they
+  distort the numbers HR would ratify — fix those and re-baseline BEFORE asking HR anything.**
 
 Paths: `C:\repos\agent-harnesses-v2` is the **live upstream harness** — this repo vendors a copy
 of it (kept in sync; subagents subsystem reconciled 2026-07-10, see ADR-004). `C:\repos\jdbank`

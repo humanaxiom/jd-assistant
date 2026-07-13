@@ -240,7 +240,7 @@ Human gate: approve ADR-005 before Phase 1.
 
 **Exit:** full archive ingests and parses with a metrics report (parse rate, confidence).
 
-### Phase 2 — Validation engine (rulebook as code) — 2.1–2.4 + prep MERGED; 2.5 (baseline) next
+### Phase 2 — Validation engine (rulebook as code) — ✅ COMPLETE (2.1–2.5 all MERGED)
 - **2.1** ✅ MERGED (PR #6, `43f29db`) — rules-as-data: 8 versioned YAML files under
   `core/src/jd_core/rules/` + typed loader (`get_rules()`), replacing hris `jd_rules.py` tables.
 - **2.2** ✅ MERGED (PR #7, `9eaa39d`) — section validators (29 catalogued rules, each with a
@@ -277,22 +277,62 @@ Human gate: approve ADR-005 before Phase 1.
   (`open`): whitespace collapsing across a *paragraph break* would weld unrelated paragraphs and
   invent findings, including a non-overridable gate trip — so the default is paragraph-aware, and it
   costs zero of the win.
-- **2.5** ⏭ NEXT — archive baseline: run the validator over the parsed archive → quality dashboard
-  data. **This ratifies (or kills) the score floor of 60** (HR-001) and the rest of the approval bar,
-  all of which is `our_invention` and unratified by SFU. Segment `.doc` vs `.docx` (they behave
-  differently); stamp every report with the content-derived `rules_version`; and expect the top of
-  the finding-frequency table to be a **bug list, not a quality verdict** — HR-046/047/048/055 are
-  registered, live false-positive generators. See HANDOFF's "2.5 — the brief".
+- **2.5** ✅ MERGED (PR #19, `7e75835`) — **the archive baseline: the approval bar met all 14,565
+  real JDs and SURVIVED.** New `jd_bank/baseline/` package + `make baseline` (~9 min, single-process,
+  archive bound read-only). 14,522 scored, 43 skipped, every file accounted for.
+  **The bar is ratified by the data, not killed by it:** on the 874 JDs written under current
+  practice, approval is **71.9%**, median score **77.3**, and **99.4% clear the score floor of 60**
+  (it rejects 5). But the run overturned three things we believed:
+  1. **A blended approval rate is a category error.** The whole-archive 4.3% and the "new"-era 10.0%
+     both measure a *calendar*, not quality — `SFU-APPROVE-EDI-FOOTER` is a **date detector**,
+     because the territorial acknowledgement is a rollout still in progress (0% in 2018 → 88.6% in
+     2026). **Never quote them.**
+  2. **Our era model is wrong** (HR-109/110/111): it assumes one transition; there are **two, four
+     years apart** — the JDFN template (2019) and the footer (2023–24). A correctly-authored 2019 JD
+     is un-approvable. 10.0% vs 71.9% is a **7× artefact of where we drew a line.**
+  3. **The operative bar is not the score floor.** Of 246 current-practice blocks: summary word-count
+     **134**, `QUAL-MINIMUM` **104**, score floor **5**. HR thinks it is ratifying a quality bar; it
+     is ratifying a word count. And the #2 gate — all 104 `QUAL-MINIMUM` blocks — is
+     `SFU-QUAL-BANNED-PHRASE`, **a scoping bug we had filed as a tidy-up**.
+  Also: segmentation is rules-as-data (`segmentation.yaml`, registered but excluded from the
+  `rules_version` digest); HR-047, expected to be the villain, blocks **zero** current-practice JDs;
+  and HR-119 (new) records that `SFU-STRUCT-HOW-WHY` fires on **100% of the JDs we would approve**.
+  **Deliverable: `docs/baseline/README.md`.**
 
-Test suite at HEAD: **1037 passing**, coverage **97.28%**, all in Docker via `make gates`.
-Decision register: **108** (19 our-invention · 71 hris-calibration · 18 SFU-rulebook), all `open`.
+Test suite at HEAD: **1114 passing**, coverage **97.37%**, all in Docker via `make gates`.
+Decision register: **119**, all `open` — but see Phase 2.6 below: HR review is now unblocked.
 
-**Exit (met, pending HR ratification of the register):** validator passes the rulebook test
-suite; gate runner + decision register + 2.4 EXTRACT modules land. Baseline report (2.5) still
-outstanding.
+**Exit: MET.** Validator passes the rulebook test suite; gate runner + decision register + 2.4
+EXTRACT modules landed; the baseline is run and read.
+
+### Phase 2.6 — HR ratification (NEW; added by the 2.5 result)
+
+2.5 turned the register from a list of guesses into a list of **measured** decisions, which makes HR
+review possible for the first time. Two documents drive it:
+- **`docs/decisions/HR-REVIEW-PACKET.md`** — the 9 decisions that actually matter, written for a
+  non-engineer, each with its measured impact and our recommendation.
+- **`docs/decisions/POST-REVIEW-CHANGE-PLAN.md`** — for each possible ruling: which config key
+  changes, what it moves, what test must go red.
+
+**Sequencing is load-bearing.** Three of the nine are *our* defects, not HR questions, and they
+distort the very numbers HR would be ratifying. Fix them and re-baseline **before** asking HR to
+ratify anything:
+1. `SFU-QUAL-BANNED-PHRASE` scoping (HR-041) — a bug, and the #2 operative gate.
+2. `SFU-STRUCT-HOW-WHY` (HR-119) — fires on 100% of approvable JDs; likely a detection bug.
+3. The era model (HR-109/110/111) — a modelling error.
+
+Then take Decisions 1/3/4/6 to HR against the corrected baseline. The register already enforces the
+ratification record: a `ratified` decision **must** carry `decided_by` / `decided_on` /
+`decision_note`, or the rulebook fails to load.
+
+> **Do not** hand HR the current numbers, collect 119 ratifications, and *then* fix the bugs — the
+> register would record "HR ratified 60.0" against a distribution that no longer exists.
 
 ### Phase 3 — Dedup & clustering
-- **3.1** Tier 1 exact-dup + report (NEW). Early quantified win (~13.5% of corpus).
+- **3.1** Tier 1 exact-dup + report (NEW). Early quantified win — **2.5 already measured it**:
+  14,522 → **12,557** after exact-content dedup, and **6,295** latest-version-per-position.
+  `aggregate.population()` computes all three populations, and `rows.jsonl` carries `sha256` /
+  `position_ids` / `version_date` per file. Much of 3.1 is done.
 - **3.2** Embedding service (Ollama client, batching, upsert into Neo4j vector index; doc +
   section level, model tag).
 - **3.3** Tier 2 near-dup (NEW): MinHash → cosine confirm; tune on the label set; precision/recall

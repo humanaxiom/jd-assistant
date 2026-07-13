@@ -136,13 +136,16 @@ Of the 246 current-practice JDs that still cannot be approved:
 
 | Blocking gate | Files | |
 |---|---:|---|
-| `SFU-APPROVE-SUMMARY-LENGTH` | **134** | position summary outside the word-count range |
+| `SFU-APPROVE-SUMMARY-LENGTH` | **134** | position summary outside the 100–150 word range |
 | `SFU-APPROVE-QUAL-MINIMUM` | **104** | **all 104 driven by a rule we know is broken — see below** |
 | `SFU-APPROVE-QUAL-EQUIVALENT` | 42 | |
-| `SFU-APPROVE-EDI-FOOTER` | 20 | partial footer |
+| `SFU-APPROVE-EDI-FOOTER` | 10 | partial footer |
+| `SFU-APPROVE-SUMMARY-CONDITIONS` | 9 | |
 | `SFU-APPROVE-MANDATORY-SECTIONS` | 7 | **non-overridable — no waiver** |
+| `SFU-APPROVE-SEVERITY-FLOOR` | 7 | |
 | `SFU-APPROVE-SCORE-FLOOR` | **5** | |
 | `SFU-APPROVE-GRADE-FLOOR` | **5** | |
+| `SFU-APPROVE-KSA-ORDER` | 1 | |
 
 The bar's teeth are in **summary length and qualifications formatting**, not in the score.
 **HR believes it is being asked to ratify a quality bar. It is being asked to ratify a word-count

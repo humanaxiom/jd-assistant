@@ -292,7 +292,31 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
 
 ## Next up
 
-- **Phase 3 — dedup & clustering. This is the next task.** **This is where 2.4c's trio gets wired up.** `similarity`,
+### Phase 2.6 — HR ratification. **Read `docs/decisions/HR-REVIEW-PACKET.md` +
+### `POST-REVIEW-CHANGE-PLAN.md` before touching a rule.**
+
+2.5 made HR review possible for the first time (the register is now *measured*, not guessed). But
+**three of the nine decisions are OUR defects, not HR questions — and they distort the very numbers
+HR would be ratifying.** Fix them and re-baseline FIRST:
+
+1. **`SFU-QUAL-BANNED-PHRASE` scoping (HR-041)** — a bug, and the **#2 operative gate** (all 104
+   `QUAL-MINIMUM` blocks). Scoping it to Qualifications flips up to 104 JDs to approvable →
+   **it changes the approval bar**, so it lands with a register entry + a re-run baseline, not as a
+   cleanup PR.
+2. **`SFU-STRUCT-HOW-WHY` (HR-119)** — fires on **100% of the 628 JDs we would approve**. A rule that
+   fires on literally every document is more likely *matching wrongly* than describing a universal
+   failure. Investigate `validators.py :: _structure` before muting the severity.
+3. **The era model (HR-109/110/111)** — a modelling error (two rollouts, four years apart). Cheap to
+   fix; `segmentation.yaml` is excluded from the `rules_version` digest, so it does **not** churn it.
+
+**Then** take the remaining decisions to HR against the corrected baseline. The register already
+enforces the record: a `ratified` decision **must** carry `decided_by` / `decided_on` /
+`decision_note` or the rulebook fails to load — so use it, don't invent a side file.
+
+> ⛔ **Do not** hand HR today's numbers, collect 119 ratifications, and *then* fix the bugs. The
+> register would record "HR ratified 60.0" against a distribution that no longer exists.
+
+- **Phase 3 — dedup & clustering.** The next *build* task (can run in parallel with 2.6). **This is where 2.4c's trio gets wired up.** `similarity`,
   `clustering` and `drift` landed as pure, tested, *uncalled* functions: `skill_overlap` needs a
   skill ontology + idf corpus, `seniority_closeness` needs an education enum + years bar, and a
   `ParsedJD` has none of them. Phase 3 must design the `ParsedJD → signals` adapter (where do
@@ -422,7 +446,13 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
 ## Authoritative references
 
 - `docs/plan.md` — full build plan, architecture, phase breakdown (current).
-- `docs/subagent-model-strategy.md` — model tiering rules for subagent dispatch (new).
+- **`docs/baseline/README.md` — THE ARCHIVE BASELINE (2.5).** The measured read of all 14,565 JDs.
+  Read before making any claim about the archive. Regenerate with `make baseline`.
+- **`docs/decisions/HR-REVIEW-PACKET.md` — what SFU HR must decide** (9 decisions, written for a
+  non-engineer, each with measured impact + our recommendation).
+- **`docs/decisions/POST-REVIEW-CHANGE-PLAN.md` — what we change once they rule** (per decision:
+  config key, blast radius, what test must go red, sequencing).
+- `docs/subagent-model-strategy.md` — model tiering rules for subagent dispatch.
 - `docs/decisions/HR-DECISION-REGISTER.md` — generated register; `make register` / `make register-check`.
 - `docs/adr/` — ADR-002 (PG/Neo4j), 003 (Ollama), 004 (repo placement), 005 (extract-vs-rewrite,
   Accepted), 006 (Docker-only).
