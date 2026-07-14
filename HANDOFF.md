@@ -1,16 +1,14 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-13 (**Phase 2 COMPLETE + Phase 3.1 (Tier-1 dedup) shipped.** The approval bar
-met the real corpus and **survived**. HR review is unblocked. **3.2 — embeddings — is next.**)
+Last updated: 2026-07-13 (**Phase 2–3.2 COMPLETE.** 3.1 Tier-1 dedup + 3.2a archive→Postgres + 3.2b embeddings all merged and shipped. **NEW: Our parser cannot read 29% of the archive — WJQ Custom form, not JDFN. This blocks 3.5, not 3.3/3.4; HR numbers are unaffected.** 3.3 is next.)
 
 **Catching up? Read [`docs/status/2026-07-13-shipped.md`](docs/status/2026-07-13-shipped.md) first** —
 the one-pager on 2.5 / 2.6 / 3.1, and the basis of what we tell HR.
 
-**PR stack awaiting merge (in this order):** [#19](https://github.com/humanaxiom/jd-assistant/pull/19)
-(2.5 baseline) → [#20](https://github.com/humanaxiom/jd-assistant/pull/20) (2.6 defects) →
-[#21](https://github.com/humanaxiom/jd-assistant/pull/21) (3.1 dedup). All CI-green and
-reviewer-approved; they are stacked, so order matters.
+**PR stack all MERGED:** [#19](https://github.com/humanaxiom/jd-assistant/pull/19) (2.5 baseline)
+→ [#22](https://github.com/humanaxiom/jd-assistant/pull/22) (2.6 defects, re-opened after #20 auto-closed)
+→ [#21](https://github.com/humanaxiom/jd-assistant/pull/21) (3.1 dedup) → [#23](https://github.com/humanaxiom/jd-assistant/pull/23) (3.2a ingest) → [#24](https://github.com/humanaxiom/jd-assistant/pull/24) (3.2b embeddings).
 
 Repo: **`C:\repos\JD-Assistant`** → GitHub **github.com/humanaxiom/jd-assistant**.
 
@@ -126,11 +124,9 @@ is defensible because it is *nearly inert*, not because the data carved a thresh
 
 ---
 
-## Current state — Phases 1 and 2 COMPLETE and merged; Phase 3 is next
+## Current state — Phases 1–3.2 COMPLETE and merged; Phase 3.3 is next
 
-Phases 1 and 2 are fully merged to `main`. The validation engine (rules-as-data → section
-validators → gate runner), the HR decision register, and all remaining EXTRACT-eligible
-`jd_core` modules (2.4a/b/c) are landed.
+Phases 1 and 2 are fully merged. Phase 3.1 (Tier-1 exact dedup) and Phase 3.2 (archive ingest + embeddings) are also fully merged. The validation engine, HR decision register, all EXTRACT-eligible `jd_core` modules, the full archive in Postgres, and the embedding service are all landed.
 
 | Phase | State | PR | Commit |
 |---|---|---|---|
@@ -143,19 +139,112 @@ validators → gate runner), the HR decision register, and all remaining EXTRACT
 | 2.4c similarity + clustering + drift (pure functions) | MERGED | [#13](https://github.com/humanaxiom/jd-assistant/pull/13) | `58fc7d2` |
 | 2.5-prep: HR-058 boilerplate exemption + content-derived `rules_version` | MERGED | [#16](https://github.com/humanaxiom/jd-assistant/pull/16) | `98c0add` |
 | scanner hardening: invisible-char + line-wrap folding (HR-108) | MERGED | [#17](https://github.com/humanaxiom/jd-assistant/pull/17) | — |
-| **2.5 THE ARCHIVE BASELINE** — trial of the approval bar | PR [#19](https://github.com/humanaxiom/jd-assistant/pull/19) | `7e75835` |
-| **2.6 three rulebook defects** — HOW-WHY unevaluable · banned-phrase scope · 4th era band | PR (stacked on #19) | — |
+| **2.5 THE ARCHIVE BASELINE** — trial of the approval bar | MERGED | [#19](https://github.com/humanaxiom/jd-assistant/pull/19) | `7e75835` |
+| **2.6 three rulebook defects** — HOW-WHY unevaluable · banned-phrase scope · 4th era band | MERGED | [#22](https://github.com/humanaxiom/jd-assistant/pull/22) | — |
+| **3.1 Tier-1 exact dedup** — one file per row; dedup a finding, not a silent collapse | MERGED | [#21](https://github.com/humanaxiom/jd-assistant/pull/21) | — |
+| **3.2a archive→Postgres ingest driver** — all 14,565 files in the ledger | MERGED | [#23](https://github.com/humanaxiom/jd-assistant/pull/23) | — |
+| **3.2b embedding service** — doc + section vectors on `aria-gb10-2` (Ollama + Neo4j) | MERGED | [#24](https://github.com/humanaxiom/jd-assistant/pull/24) | — |
 
-Test suite: **1143 passing**, coverage **97.40%**, all in Docker via `make gates`. Decision
-register grew from 58 to **123 decisions** (2.4 added `hay_signals.yaml` + `comparison.yaml`;
-2.5-prep added `boilerplate.yaml`; scanner hardening added `textnorm.yaml`; 2.5 added
-`segmentation.yaml`; 2.6 added HR-120/121/122).
+Test suite: **1256 passing**, coverage **95.55%** (3.2b integration tests added), all in Docker via `make gates`. Decision
+register grew from 58 to **130 decisions** (added HR-124..HR-130 for embeddings config in 3.2b).
 
 All 16 EXTRACT-mapped hris modules are now ported or explicitly deferred: `export.py` → 5.4,
 the 3 prompt templates (`sfu_jd_extract`/`jd_harmonize`/`jd_quality`) → 4.2, `jd_import_service`
 → 5 (see `docs/audit/hris-reuse-map.md` and Next up, below). 2.4c's `similarity`, `clustering`
 and `drift` landed as pure, tested functions **deliberately not wired to anything yet** — the
 `ParsedJD → signals` adapter is Phase 3 work (see Next up).
+
+---
+
+## This session: 3.1 + 3.2a + 3.2b all merged
+
+**The full archive is now in Postgres.** Every measured count independently reproduces a previously
+known number via a different code path, proving the ingest schema is sound:
+
+| PostgreSQL | Value | Validates against |
+|---|---|---|
+| `source_documents` (one row per file) | **14,565** | 3.1's ledger property |
+| `parsed_jds` scored | **14,522** | 2.5 baseline "14,522 scored" |
+| `parsed_jds` failed or unsupported | **43** | 2.5 baseline "43 skipped" |
+| Distinct `sha256` | 12,593 | — |
+| Duplicate files (1,972 redundant) | **1,972** | 3.1's measured count, exactly |
+
+**Phase 3.2a — the ingest driver.** Two blocking defects had to be fixed first:
+1. **`parse_and_store` was not idempotent** — unconditional INSERT, no unique constraint. Two runs
+   doubled `parsed_jds`, each row a fresh UUID, orphaning every vector. Fixed: migration **`0003`**
+   adds `uq_parsed_source_parser` on `(source_document_id, parser_version)` (parse is a pure
+   function). `parse_and_store` now mirrors `ingest_document`'s select→SAVEPOINT-insert→re-select
+   shape, and the upgrade **refuses** rather than deleting rows.
+2. **Incumbent names would have crossed the network** to `aria-gb10-2`. `ingest_document` computed
+   the clean text, persisted the report, and **discarded the text**. The obvious driver would parse
+   RAW text carrying incumbent names, violating FIPPA. Fixed: it now returns `IngestOutcome(document, text)`
+   and the driver parses the clean text on **every** path, including the resumed one. Also:
+   `_stable_reason` extracted to a shared home; `stream_sha256` hashes in 1 MiB chunks so oversized
+   files still get a row (3.1's ledger property holds; hashing bytes we refuse to parse was never
+   the hazard the cap guards).
+
+**New in the repo:** `make ingest JD_ARCHIVE_PATH=... [INGEST_ARGS=...]`, an `ingest` compose service,
+`jd_bank/ingest/driver.py`.
+
+**Phase 3.2b — the embedding service.** Document- **and** section-level embeddings on `aria-gb10-2`
+(Ollama client, Neo4j upsert). New rule file `embeddings.yaml`; register entries **HR-124..HR-130**
+(all `open`, all `our_invention` — SFU publishes no embedding policy). Every default **measured**
+against the live endpoint + all 14,522 parsed JDs:
+- Server hard-rejects `400: input length exceeds context length` (no silent truncation).
+- Limit is **8192 tokens**; real JD text runs ~1.5 chars/token (legacy boilerplate-heavy `.doc`), so
+  practical ceiling is ~12,000 chars.
+- Serialized JD lengths over all 14,522: median 2,559 · p99 5,993 · p99.9 8,870 · **max 8,987** ·
+  **zero exceed 10,000**. → **`max_chars: 10000`** truncates **nothing** in this archive.
+- **`min_section_chars: 40`** excludes 1 summary + 6 duty-blocks in 14,522 — guard-rail, not a filter.
+- **`include_title_in_document: false`** — `similarity.py` promises title-agnostic scoring; a title
+  in the document vector silently voids that. Mutation-pinned.
+- Embeddings **deterministic** (same text → identical vector) + **content-keyed** on `(text_sha256,
+  model, embed_stamp)` → idempotent + unchanged corpus writes nothing, calls Ollama zero times.
+- Runner **reconciles/prunes** stale vectors (a MERGE-only design would leave dead vectors live in
+  the queryable index). The keep-list is derived *before* embedding, so a 400 or transient failure
+  never triggers a delete.
+- **ADR-003 live-test guard:** `make gates` CAN reach `aria-gb10-2`; **CI never will.** Live tests
+  are deselected in pytest `addopts`, `Makefile`, **AND** `.github/workflows/ci.yml` (with
+  `--strict-markers`). **`make embed`** runs them opt-in and local-only. New: `docs/embeddings/summary.json`
+  (counts + stamps, **never vectors**).
+
+**Gates: 1256 passing, 95.55% coverage.**
+
+---
+
+## THE BIG NEW FINDING — record this prominently
+
+**Our parser cannot read 29% of the archive.** SFU's **Weighted Job Questionnaire (WJQ) Custom**
+form — a *different document template* from the JDFN one the segmenter knows, with headings like
+`PART 1: JOB DESCRIPTION` — is **4,226 files (29.1% of the archive)**, and **89% of them (3,771)
+parse to ZERO content sections.**
+
+- **34.5% of all parsed JDs (5,005 of 14,522) serialize to zero characters** — nothing to embed.
+  WJQ is **75%** of that.
+- By era: `old` 34.3% empty · `transition` **52.7%** · `new` 21.5% · `current` **13.8%**. **NOT
+  a legacy-only problem** — a 2024 CUPE `.docx` with 9,291 chars of real duties and summary comes
+  back with `parse_confidence: 0.02`, zero sections, and a title misread.
+- `docs/rulebook/sfu-reference.md` **already documents WJQ Custom** as SFU's point-factor instrument.
+  The project knew the *instrument*; the **parser was never taught its document template.**
+
+**Two things keep this from being a crisis, both checked against the archive:**
+
+1. **The HR numbers are CLEAN.** The 874-JD current-practice cohort reproduces exactly from the
+   committed baseline artifact, and **ZERO of those JDs have a broken parse** (median `parse_confidence`
+   **0.74**). All 4,984 unparsed JDs grade **F, median score 19.0** — they sit entirely inside the
+   archive-wide "~5% approval" figure HANDOFF already brands *a category error, never quote it*. **No
+   re-baseline needed; the HR packet is unaffected.** In fact this **explains** that number for the
+   first time: the archive-wide approval rate is low in large part because a third of the corpus is
+   a template we never taught the parser to read.
+
+2. **No rework for 3.2.** The embedding design is content-keyed and idempotent, so when a WJQ parser
+   lands, those JDs re-parse to different text → `text_sha256` moves → they **re-embed automatically**.
+
+**The consequence lands on Phase 3, not HR: embeddings and clustering see only ~65% of the archive
+until WJQ is parsed.** **File WJQ parser support as a task that BLOCKS 3.5 (clustering)** — a
+cluster report produced before it would silently cover 65% of the corpus, which is exactly the trap
+2.6 taught (metrics computed on a corpus quietly missing a third of itself). It does **not** block
+3.3/3.4.
 
 ---
 
@@ -273,6 +362,24 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
 
 ## Gotchas learned (save yourself the pain)
 
+- **The reviewer paid for itself again: 10 real defects across 3 rounds on 3.2b, 6 on 3.2a.**
+  The two most dangerous on each were the **same class — a correct fix pinned by NOTHING**: (3.2a)
+  the SAVEPOINT protecting a caller's uncommitted work — the exact bug 3.1 spent a migration fixing
+  — had a race test whose racer *committed first*, so the pre-check short-circuited and the guarded
+  branch was never reached. (3.2b) dropping `text_sha256` from the skip predicate (the whole
+  content-identity guarantee) left all 1242 tests green; reversing the runner's sha→vector binding
+  — **every vector on the wrong JD** — left all 12 integration tests green. **All now go red.** The
+  standing lesson holds: **a green suite proves nothing about a guard you have not tried to break.**
+- **A test fake can make a bug unwritable.** 3.2b's fake embed client keyed vectors on **batch
+  index**, so two different texts at the same position got the *same* vector — which made the entire
+  class of "this node got the vector of its own text" assertion silently impossible to write. **Fakes
+  in this suite must be content-keyed.**
+- **An `OSError`-unreadable file still gets no `source_documents` row** (zero such files in the 2.5
+  ledger; every one of the 43 is extract-stage or the size cap). Unlike the oversized case, its bytes
+  cannot be read *at all*, so `(storage_ref, sha256)` is genuinely unsatisfiable and a sentinel hash
+  would collide in Tier-1 with every other unreadable file. Backlog line, not a hole to paper over.
+- **`docs/embeddings/`** is bound by the `embed` compose service; keep the `.gitkeep` or Docker
+  creates it root-owned.
 - **The archive-claim rule caught the orchestrator itself in 2.5 — twice, in mirror image.** (a)
   The Phase 0 census (§8.2) says the territorial footer lives in `word/footer*.xml` and warns a
   body-only extractor will miss it. **That is FALSE for this corpus** — checked across 20 modern
@@ -402,7 +509,7 @@ it; do not invent a side file.
 blocking**, because we would then be *generating* the wording, not merely checking for it. Get the
 official text from HR in the same review.
 
-- **Phase 3 — dedup & clustering. 3.1 (Tier-1 exact dedup) is DONE; 3.2 (embeddings) is next.**
+- **Phase 3 — dedup & clustering. 3.1 + 3.2 (Tier-1 dedup + embeddings) are DONE; 3.3 (Tier-2 near-dup) is next.**
   - **3.1 landed a schema change worth knowing:** `source_documents` is now **one row per FILE**
     (the UNIQUE on `sha256` is gone), and dedup is a **finding** — `DedupEdge` rows — not a silent
     write-time collapse. It was a **provenance bug**: `ingest_document()` returned the existing row
@@ -415,11 +522,31 @@ official text from HR in the same review.
     role cluster with similarity pinned at 1.0, for free, before a single embedding is computed.**
   - **Still to wire up: 2.4c's trio.** `similarity`, `clustering` and `drift` are pure, tested,
     *uncalled* functions: `skill_overlap` needs a skill ontology + idf corpus, `seniority_closeness`
-    needs an education enum + years bar, and a `ParsedJD` has none of them. Phase 3 must design the
+    needs an education enum + years bar, and a `ParsedJD` has none of them. 3.4 must design the
     `ParsedJD → signals` adapter (where do skills come from? proposal: `qualifications` where
     `kind ∈ {knowledge, skill, ability}`) against the real corpus. That is a **new decision** — it
     wants an ADR and register entries. Note `families={}` degrades `skill_overlap` to plain
     idf-weighted Jaccard vs hris's ontology-aware scoring; record that when it lands.
+  - **3.3 is Tier-2 near-dup (MinHash/Jaccard on 5-gram shingles, cosine-confirmed).** Tune on the
+    label set (`fixtures/labels/pairs.csv`); gate precision/recall in CI so the learned model cannot
+    regress.
+  - 🔴 **READ THIS BEFORE YOU USE A COSINE THRESHOLD. `clone_threshold: 0.92` IS MEANINGLESS ON THIS
+    CORPUS — measured on the real vectors, not guessed.** Over 300 random JDs, **excluding self AND
+    excluding exact-duplicate content** (different `text_sha256`, so Tier-1's 1,972 byte-identical
+    files cannot inflate it), the nearest neighbour's document cosine is: **min 0.877 · p10 0.953 ·
+    median 0.988 · max 1.0 — and 98% (250/255) sit at or ABOVE 0.92.** Every SFU JD is written in the
+    same register, the same template, the same vocabulary, so **document-level cosine barely
+    discriminates at all** at that bar: a 0.92 threshold would declare *almost the entire archive* a
+    clone of something. `clone_threshold` was ported from hris, is **unratified**, and was already
+    flagged in this file as "pinned by value but behaviourally invisible". It is now **measured, and
+    the data says it is wrong here.**
+    **This does NOT break 3.3's design** — the plan is MinHash *first*, cosine only as a **confirm**,
+    which is exactly the right shape for a signal this compressed. But: (a) **recalibrate the
+    threshold against this distribution before it decides anything** (register it with the measured
+    basis; do not quietly patch it); (b) expect the useful signal to live in **section** vectors and
+    in MinHash, not in the document vector; (c) a precision/recall gate tuned against a 0.92 cosine
+    would be measuring nothing. **Never quote a document-cosine similarity as evidence two SFU JDs
+    are the same role without saying what the baseline neighbour cosine is.**
 - ~~**Rulebook work the baseline made urgent**~~ **ALL THREE DONE IN 2.6** (banned-phrase scoping,
   `HOW-WHY` unevaluable, 4th era band). Scores are now trustworthy. What is left is HR's, not ours.
 - **Extension-trust is silently losing recoverable JDs** (from the 2.5 skip ledger,
@@ -444,6 +571,23 @@ official text from HR in the same review.
 
 ## Backlog (real, recorded — fold into cleanup PRs as they come up)
 
+- **`sections_skipped_short` is a misnomer and the committed artifact says something false** (found by
+  the first real embed run, `docs/embeddings/summary.json`). It reports **20,644** — but only **7**
+  sections in the whole archive are actually *short* (1 summary + 6 duty-blocks, below
+  `min_section_chars: 40`). The other ~20,637 are **ABSENT**, not short: the counter is
+  `3 × 14,522 candidate slots − 22,922 embedded`, so it silently folds "this JD has no qualifications
+  section at all" into "this section was too short to embed". Anyone reading the artifact would
+  conclude the guard-rail is doing 3,000× more work than it is. Split it into `sections_absent` vs
+  `sections_skipped_short` — the guard-rail's real footprint (7) is one of the numbers that justifies
+  its default, and it is currently invisible.
+- **The embed run's first pre-fetch logs six Neo4j `property key does not exist` warnings** against an
+  empty index (`text_sha256`, `model`, `embed_stamp`). Harmless — it is the skip-first query running
+  before any node exists — but it is noise at the top of every fresh run's log and will train people
+  to ignore warnings. Quiet it (or state in the runner why it is expected on a cold index).
+- **Stacked PR merge gotcha — record this in lore.** Merging #19 with `--delete-branch` deleted its
+  base branch, which **auto-closed PR #20** (2.6). GitHub will not reopen a PR whose head was rebased
+  after closing, so 2.6 was re-opened as a **fresh PR #22** linked back to #20 for review history.
+  **In a stacked PR chain, do NOT `--delete-branch` on merge until the whole stack has landed.**
 - **`_extract_docx` joins paragraphs with a single `\n`**, so HR-108's paragraph boundary only
   engages on **47% of `.docx`** (373/799 — those with a literal blank line, or a whitespace-only
   paragraph, which survives `if p.text` as `"\n \n"`). The other ~53% still join adjacent paragraphs
