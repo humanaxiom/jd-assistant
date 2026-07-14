@@ -445,10 +445,12 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         "action_verbs",
         "markers",
         "textnorm",
-        # `segmentation.yaml` is an ORDINARY rule file — loaded, validated, registered,
-        # drift-checked. It is merely not part of `rules_version` (`_UNHASHED_FILES`),
-        # exactly as `decision_register.yaml` is not. No second config subsystem.
+        # `segmentation.yaml` / `embeddings.yaml` are ORDINARY rule files — loaded,
+        # validated, registered, drift-checked. They are merely not part of
+        # `rules_version` (`_UNHASHED_FILES`), exactly as `decision_register.yaml` is
+        # not. No second config subsystem.
         "segmentation",
+        "embeddings",
     }
     # ...and that is every rule file there is, bar the register itself.
     described = {name.removesuffix(".yaml") for name in RULE_FILES}
@@ -458,17 +460,21 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
 # --- segmentation.yaml: on the register, deliberately NOT in rules_version ---------
 
 
-def test_the_unhashed_files_are_the_two_that_cannot_change_a_jds_score() -> None:
+def test_the_unhashed_files_are_the_ones_that_cannot_change_a_jds_score() -> None:
     """The rulebook already had this category before Phase 2.5 — it just had one member.
 
     ``_HASHED_FIELDS`` is derived by EXCLUDING files, and the exclusion encodes exactly
     one idea: *"this file is on the register's surface, but it does not change what the
     rules decide about a JD."* ``decision_register.yaml`` describes the rules;
-    ``segmentation.yaml`` decides which FILES a baseline number is computed over.
-    Neither
-    can move a score, a grade or a gate.
+    ``segmentation.yaml`` decides which FILES a baseline number is computed over;
+    ``embeddings.yaml`` (Phase 3.2b) decides what text a JD becomes for an embedding
+    model. None of the three can move a score, a grade or a gate.
     """
-    assert loader._UNHASHED_FILES == {REGISTER_FILE, "segmentation.yaml"}
+    assert loader._UNHASHED_FILES == {
+        REGISTER_FILE,
+        "segmentation.yaml",
+        "embeddings.yaml",
+    }
     hashed = set(loader._HASHED_FIELDS)
     assert "segmentation" not in hashed
     assert "decision_register" not in hashed
@@ -670,6 +676,7 @@ def test_no_new_core_to_bank_import_appears() -> None:
         "boilerplate",
         "hay_signals",
         "comparison",
+        "embeddings",
     ],
 )
 def test_every_field_of_a_flat_rule_file_is_on_the_surface(
@@ -800,6 +807,9 @@ def test_the_flat_surface_files_are_exactly_the_ones_with_no_containers(
     # data edit that lands on the surface — and in `Boilerplate.blocks` — with no code
     # change at all.
     assert "boilerplate" in flat
+    # ...and `embeddings.yaml` (3.2b), for the same reason: a knob added to it lands
+    # on the surface the moment it is declared, with no enumerator change.
+    assert "embeddings" in flat
     assert flat.isdisjoint(hand_enumerated)
 
 

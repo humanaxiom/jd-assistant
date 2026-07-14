@@ -36,6 +36,17 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# `-m "not live"` is the critical line: the `gates` compose service's DEFAULT command
+# is a bare `pytest -q` (docker-compose.yml), and `testpaths = ["tests"]` means that
+# bare invocation collects `tests/live` too. CI (ubuntu-latest) can never reach
+# `aria-gb10-2` (ADR-003) and never will, so live tests must be DESELECTED by
+# default, not merely skippable — a marker alone is not enough. The Makefile and
+# ci.yml also pass `-m "not live"` explicitly on the commands that matter; this is
+# what protects every OTHER way of invoking pytest in this container.
+addopts = "--strict-markers -m \"not live\""
+markers = [
+    "live: opt-in, LOCAL-ONLY test against a real Ollama endpoint (aria-gb10-2). Never runs in `make gates` / CI — see ADR-003. Run via `make gates-live`.",
+]
 
 [tool.coverage.run]
 source = ["src"]

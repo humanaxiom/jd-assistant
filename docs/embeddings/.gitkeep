@@ -1,0 +1,7 @@
+# Phase 3.2b. `make embed` writes summary.json here (counts + stamps ONLY — never a
+# vector: embeddings are not guaranteed byte-reproducible across model-server
+# versions, unlike the deterministic baseline/dedup artifacts).
+#
+# This file exists so the directory is TRACKED. docker-compose binds
+# `./docs/embeddings:/committed`, and Docker creates a missing bind source as a
+# ROOT-OWNED directory on the host — which then fights every later write.

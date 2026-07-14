@@ -1,0 +1,100 @@
+# How a parsed JD becomes something an embedding model sees — rulebook-as-data
+# (CLAUDE.md §2). Phase 3.2b.
+#
+# WHAT THIS FILE DECIDES
+# ----------------------
+# Nothing here changes what the VALIDATOR computes about a JD. It decides what TEXT a
+# parsed JD becomes for an embedding model (`jd_core.bank.embed_text`), and what model
+# embeds it (`jd_bank.embeddings`) — the retrieval/dedup-Tier-3 substrate, not the
+# quality bar.
+#
+# ON THE REGISTER, NOT IN THE HASH
+# --------------------------------
+# Every knob below is registered (HR-124 … HR-130, all `open` — SFU HR has ratified
+# nothing) and drift-checked: change one without telling HR and `make gates` fails.
+#
+# But it is excluded from the rulebook's content hash (`loader._UNHASHED_FILES`), so it
+# does NOT move `rules_version`. That stamp means exactly one thing — "the rules that
+# produced this ValidationReport" — and retuning `max_chars` or swapping the model
+# cannot move a single JD's SCORE, so hashing this file would make every previously
+# stamped report look stale on a change that changed no rule. `decision_register.yaml`
+# and `segmentation.yaml` are excluded for the same reason by the same mechanism; this
+# is the third file in that category, not a new idea. This file carries its OWN content
+# identity instead (`Embeddings.stamp`), and it is THAT stamp — not `rules_version` —
+# that a Neo4j node is written with (`embed_stamp`): flip anything here and every
+# existing node's stamp mismatches the live one, so the store's skip-first comparison
+# forces a full re-embed, MERGEd in place.
+#
+# EVERY DEFAULT BELOW WAS MEASURED — see HANDOFF 2026-07-13 (Phase 3.2b probe of the
+# real `aria-gb10-2` endpoint and the real archive's 14,522 parsed JDs).
+
+version: jd_rules_sfu_v4
+
+# --- the model ------------------------------------------------------------------
+# ADR-003: self-hosted inference only, on `aria-gb10-2` (a trusted internal host — JD
+# text crosses a private network to be embedded, never a third-party API). Verified
+# live from inside the `gates` container: reachable, `nomic-embed-text` present,
+# returns 768-dim vectors. Same text -> BYTE-IDENTICAL vector across calls (so
+# content-keyed idempotency, keyed on `text_sha256`, is sound), and batched embedding
+# gives the identical vectors to one-at-a-time — which is why batch size is an
+# OPERATIONAL setting (`settings.embed_batch_size`), not a rulebook decision: it cannot
+# change the output, only the throughput.
+model: nomic-embed-text
+
+# MUST equal `model`'s real output dimensionality AND the Neo4j vector index's
+# `vector.dimensions` (`core/db/migrations/002_jd_vectors.cypher`, BOTH
+# `jd_document_embeddings` and `jd_section_embeddings`). The loader cannot see Neo4j or
+# call Ollama, so this file's value is the THIRD home of "768" (model card, cypher,
+# here) and only the live golden test (`tests/live`, opt-in/local-only — CI cannot
+# reach `aria-gb10-2`, ADR-003) proves all three still agree.
+dimensions: 768
+
+# --- how much text ----------------------------------------------------------------
+# The server returns a hard HTTP 400 ("the input length exceeds the context length")
+# on an over-long input — it NEVER silently truncates. The limit is 8,192 tokens; real
+# JD text runs ~1.5 chars/token (whitespace/form-heavy), so the practical ceiling is
+# ~12,000 chars. MEASURED over all 14,522 parsed JDs' serialized length: median 2,559 ·
+# p99 5,993 · p99.9 8,870 · max 8,987 — ZERO exceed 10,000. So this truncates nothing
+# real in the archive today, while staying with real margin under the server's 400.
+max_chars: 10000
+
+# A section (of `section_vectors`, below) shorter than this gets NO embedding at all —
+# no unit, no JDSection node — rather than a near-empty vector cosine similarity
+# treats unreliably. MEASURED: excludes exactly 1 position-summary and 6 duty-blocks
+# across 14,522 parsed JDs. A guard-rail nobody trips much, not a filter that trims
+# real content.
+min_section_chars: 40
+
+# `similarity.py`'s module docstring promises the score is "title-agnostic BY
+# CONSTRUCTION" — titles are never a term of it. A title folded into the document
+# text would smuggle it back in through `weight_vector`, silently breaking that
+# guarantee. `false` keeps the promise; pinned by mutation
+# (`test_embed_text.py`: flip it -> the title appears in the serialized text).
+include_title_in_document: false
+
+# The whole-document text, in TEMPLATE order — every content-bearing SFU section
+# except `identification` (structured columns, not prose) and the three boilerplate
+# blocks (`about_sfu` / territorial-ack / EDI footer), which are presence BOOLEANS on
+# the parsed model with no text to serialize. Serializing the PARSED JD (never raw
+# extracted text) is what keeps SFU's mandated, byte-identical boilerplate out of every
+# JD's vector for free — no exemption list to maintain, unlike HR-058's coded-term scan.
+document_sections:
+  - position_summary
+  - duties
+  - decision_making
+  - problem_solving
+  - relationships
+  - qualifications
+  - additional_context
+
+# Which sections ALSO get their own separate embedding (a JDSection node), because
+# each has a NAMED downstream consumer today: `comparison.yaml` calls the similarity
+# term "the summary embedding" (position_summary); duties is the role signal;
+# qualifications is the proposed skill source for Tier-3 / `skill_overlap`. Must be a
+# subset of `document_sections` (loader-enforced) — a section vector for content the
+# document text does not include would embed something the document vector cannot be
+# compared against.
+section_vectors:
+  - position_summary
+  - duties
+  - qualifications

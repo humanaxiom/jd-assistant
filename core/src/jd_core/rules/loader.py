@@ -113,6 +113,31 @@ REGISTER_FILE: Final[str] = "decision_register.yaml"
 #: baseline number is computed OVER, never what any of them scores.
 SEGMENTATION_FILE: Final[str] = "segmentation.yaml"
 
+#: How a parsed JD becomes embeddings (Phase 3.2b) — a rule file that decides what
+#: text is SENT to the embedding model, never what the validator computes about a JD.
+EMBEDDINGS_FILE: Final[str] = "embeddings.yaml"
+
+#: The content-bearing SFU sections an embedding may be built from — the subset of
+#: :data:`~src.jd_core.models.quality.SFUSection` that carries free text at all.
+#: ``identification`` is structured columns, not prose; ``about_sfu`` /
+#: ``edi_footer`` are presence booleans with no text to serialize; ``general`` is a
+#: cross-cutting finding bucket, not a template section. Both
+#: ``embeddings.document_sections`` and ``embeddings.section_vectors`` are
+#: restricted to this set, so the rulebook cannot name a section
+#: :mod:`src.jd_core.bank.embed_text` has no producer for — the same "a gate that can
+#: never fire" failure, applied to a section that could never serialize anything.
+_CONTENT_SECTIONS: Final[frozenset[str]] = frozenset(
+    {
+        "position_summary",
+        "duties",
+        "decision_making",
+        "problem_solving",
+        "relationships",
+        "qualifications",
+        "additional_context",
+    }
+)
+
 #: How a bundled multi-position filename is attributed to positions (HR-116).
 PositionIdGrouping = Literal["first", "all"]
 
@@ -583,6 +608,119 @@ class Segmentation(_RuleFile):
         digest over *this file only* — so an artifact can say both which rules scored it
         and which population it describes, and neither answer can drift into the other.
         """
+        return f"{self.version}{VERSION_SEPARATOR}{self.digest[:CONTENT_HASH_LENGTH]}"
+
+
+class Embeddings(_RuleFile):
+    """How a parsed JD becomes something an embedding model sees (``embeddings.yaml``,
+    Phase 3.2b).
+
+    Every value here is ``our_invention`` — SFU publishes no embedding policy, and
+    hris had none (JD Bank's dedup Tier-3 and search are new work). All seven are
+    MEASURED against the real archive (see the YAML header + HR-124…HR-130):
+    ``model``/``dimensions`` are verified live against ``aria-gb10-2`` (ADR-003) and
+    hardcoded a second time in ``core/db/migrations/002_jd_vectors.cypher``;
+    ``max_chars`` sits between the archive's true maximum (8,987 chars, zero of
+    14,522 parsed JDs exceed 10,000) and the server's hard 400 (~12,000 chars);
+    ``min_section_chars`` is a guard-rail measured to exclude only 7 of 14,522
+    parsed JDs; ``include_title_in_document`` protects :mod:`~src.jd_core.bank.
+    similarity`'s "title-agnostic by construction" guarantee; ``document_sections``
+    /``section_vectors`` are restricted to :data:`_CONTENT_SECTIONS`.
+
+    **On the register, but NOT in the content hash** (:data:`_UNHASHED_FILES`) — the
+    third file in that category, after ``decision_register.yaml`` and
+    ``segmentation.yaml``, and for the identical reason: changing what model embeds a
+    JD, or how much of it, cannot change what the VALIDATOR computes about that JD.
+    ``Rules.version`` means one thing — "the rules that produced this
+    ``ValidationReport``" — and folding embedding config into it would make every
+    previously-stamped report look stale whenever HR retunes ``max_chars``, though no
+    rule moved. Nothing is lost: :attr:`stamp` carries this file's own content
+    identity (the same mechanism as :attr:`Segmentation.stamp`), and it is *this*
+    stamp — not ``Rules.version`` — that a Neo4j node is written with
+    (``embed_stamp``), because it is what actually needs to change to force a
+    re-embed: flip any field here and :attr:`stamp` moves, the store's skip-first
+    comparison sees a mismatch on every existing node, and the whole archive
+    re-embeds — MERGEd in place, no orphans, exactly as a real model change should
+    behave.
+
+    Shaped **flat**, like ``segmentation.yaml`` and for the same reason
+    (:data:`_FLAT_SURFACE_FILES`): a knob added here tomorrow is on the decision
+    surface the moment it is declared.
+    """
+
+    model: str = Field(min_length=1)
+    #: MUST equal the Neo4j vector index's `vector.dimensions` (both
+    #: ``jd_document_embeddings`` and ``jd_section_embeddings`` in
+    #: ``002_jd_vectors.cypher``) and what ``model`` actually returns. The loader
+    #: cannot see Neo4j, so this equality is enforced only by the live golden test
+    #: (``tests/live``) and by measurement at authoring time — not at load.
+    dimensions: int = Field(gt=0)
+    #: The embedding server's hard ceiling is ~12,000 chars (8,192 tokens at this
+    #: corpus's measured ~1.5 chars/token) and it 400s rather than truncating. This
+    #: sits below that with margin, and — measured — above every real JD in the
+    #: archive, so it truncates nothing that exists today.
+    max_chars: int = Field(gt=0)
+    #: A section shorter than this is not embedded at all (no unit, no node) — a
+    #: guard-rail against a near-empty section producing an unreliable vector, not a
+    #: filter that trims real content. May be 0 to disable it outright.
+    min_section_chars: int = Field(ge=0)
+    #: `false` keeps the document vector title-agnostic, protecting
+    #: ``similarity.py``'s "title-agnostic by construction" guarantee. See the class
+    #: docstring; pinned by mutation in ``test_embed_text.py``.
+    include_title_in_document: bool
+    #: The whole-document text, in template order. Every member must be one of
+    #: :data:`_CONTENT_SECTIONS` — a name outside that set has no producer in
+    #: :mod:`~src.jd_core.bank.embed_text` and would silently serialize to nothing.
+    document_sections: tuple[SFUSection, ...] = Field(min_length=1)
+    #: Which sections ALSO get their own, separate embedding (a ``JDSection`` node).
+    #: Must be a subset of :attr:`document_sections` — a section vector for content
+    #: the document text itself does not include would embed something the document
+    #: vector cannot be compared against.
+    section_vectors: tuple[SFUSection, ...] = Field(min_length=1)
+
+    @field_validator("document_sections", "section_vectors")
+    @classmethod
+    def _sections_are_known_and_unique(
+        cls, sections: tuple[SFUSection, ...]
+    ) -> tuple[SFUSection, ...]:
+        _no_repeats("embeddings section list", sections)
+        unknown = sorted(set(sections) - _CONTENT_SECTIONS)
+        if unknown:
+            raise ValueError(
+                f"embeddings.yaml names section(s) {unknown} that carry no "
+                f"embeddable content (no producer in jd_core.bank.embed_text); "
+                f"known: {sorted(_CONTENT_SECTIONS)}"
+            )
+        return sections
+
+    @model_validator(mode="after")
+    def _section_vectors_are_part_of_the_document(self) -> Embeddings:
+        missing = sorted(set(self.section_vectors) - set(self.document_sections))
+        if missing:
+            raise ValueError(
+                f"embeddings.section_vectors names section(s) {missing} that are "
+                f"not in embeddings.document_sections — a section embedding must "
+                f"come from content the document text itself includes"
+            )
+        return self
+
+    @property
+    def digest(self) -> str:
+        """SHA-256 over this file's canonicalised content — its own identity.
+
+        Same contract as :meth:`Segmentation.digest`: recomputed on access so a
+        ``model_copy`` that retunes a knob (how every mutation test in
+        ``test_embed_text.py`` proves a knob is pinned) cannot carry a stale
+        identity into a node it stamps.
+        """
+        return _content_hash({"embeddings": self})
+
+    @property
+    def stamp(self) -> str:
+        """What a Neo4j node is written with (``embed_stamp``): ``<version>+<short
+        digest>``. Distinct from :attr:`Rules.version` by construction, exactly as
+        :attr:`Segmentation.stamp` is — see the class docstring for why this, and
+        not ``Rules.version``, is the identity that forces a re-embed."""
         return f"{self.version}{VERSION_SEPARATOR}{self.digest[:CONTENT_HASH_LENGTH]}"
 
 
@@ -1972,6 +2110,8 @@ class Rules(BaseModel):
     scoring: Scoring
     rule_catalog: RuleCatalog
     gates: GatePolicy
+    #: On the register, but NOT in the content hash — see :class:`Embeddings`.
+    embeddings: Embeddings
     decision_register: DecisionRegister
 
     @property
@@ -1984,16 +2124,19 @@ class Rules(BaseModel):
         ``PYTHONHASHSEED`` (sets are canonicalised sorted, mappings by sorted key).
 
         :data:`_UNHASHED_FILES` is deliberately **excluded** —
-        ``decision_register.yaml``
-        and ``segmentation.yaml``. Neither changes what the validator computes about a
-        JD: the first *describes* the rules, the second decides which **files** an
-        archive-baseline number is computed over. Including them would mean a copy-edit
-        to a ``why_it_matters`` paragraph — or a re-banding of the archive's eras —
+        ``decision_register.yaml``, ``segmentation.yaml`` and ``embeddings.yaml``. None
+        of the three changes what the validator computes about a JD: the first
+        *describes* the rules, the second decides which **files** an archive-baseline
+        number is computed over, the third decides what text a JD becomes **for an
+        embedding model** — a fact about retrieval and dedup Tier-3, not about JD
+        quality. Including any of them would mean a copy-edit to a ``why_it_matters``
+        paragraph, a re-banding of the archive's eras, or retuning ``max_chars``
         invalidated every previously stamped report, while no rule had moved at all. And
-        nothing is lost by it: both files' ``current_default`` values are cross-checked
-        against the live rules (:func:`check_register`), so a real change to either is
-        caught anyway, and ``segmentation.yaml`` carries its own content identity
-        (:attr:`Segmentation.stamp`) for the artifacts that need one.
+        nothing is lost by it: every one of the three files' ``current_default`` values
+        is cross-checked against the live rules (:func:`check_register`), so a real
+        change to any of them is caught anyway, and ``segmentation.yaml`` /
+        ``embeddings.yaml`` each carry their own content identity (:attr:`Segmentation.
+        stamp`, :attr:`Embeddings.stamp`) for the artifacts that need one.
 
         Recomputed on access rather than cached: ``model_copy(update=...)`` (how the
         test suites retune a rulebook) must not be able to carry a stale identity
@@ -2423,6 +2566,7 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "hay_signals",
     "comparison",
     "segmentation",
+    "embeddings",
 )
 
 
@@ -2435,7 +2579,7 @@ def decision_surface(rules: Rules) -> frozenset[str]:
     and the coverage check (:func:`check_register`) breaks the build until
     someone says whether HR must decide it.
 
-    **All thirteen rule files are walked.** The surface is everything that can change
+    **All fourteen rule files are walked.** The surface is everything that can change
     what the system decides about a JD:
 
     * ``gates.yaml`` — the approval policy: each gate's overridability and the
@@ -2447,7 +2591,8 @@ def decision_surface(rules: Rules) -> frozenset[str]:
       mandated block* decides what is exempt; the exemption list is a decision
       because emptying it re-penalises every compliant JD (HR-104 … HR-107).
     * ``thresholds`` / ``patterns`` / ``qualifications`` / ``action_verbs`` /
-      ``markers`` / ``boilerplate`` / ``hay_signals`` / ``comparison`` — every field
+      ``markers`` / ``boilerplate`` / ``hay_signals`` / ``comparison`` /
+      ``segmentation`` / ``embeddings`` — every field
       (:data:`_FLAT_SURFACE_FILES`). These are the matchers the validators fire on,
       the weights the Hay estimator scores with, and the thresholds the similarity /
       clustering / drift maths compares against: a regex, a banned phrase, an
@@ -2635,23 +2780,28 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     ("scoring.yaml", "scoring", Scoring),
     ("rule_catalog.yaml", "rule_catalog", RuleCatalog),
     ("gates.yaml", "gates", GatePolicy),
+    (EMBEDDINGS_FILE, "embeddings", Embeddings),
     (REGISTER_FILE, "decision_register", DecisionRegister),
 )
 
 #: Every YAML file that makes up the rulebook, in load order.
 RULE_FILES: Final[tuple[str, ...]] = tuple(name for name, _, _ in _FILE_MODELS)
 
-#: The rule files that are NOT part of the rulebook's content identity. Both are on the
-#: decision surface, both are drift-checked against the register, and **neither can
-#: change what the validator computes about a JD** — which is the whole test:
+#: The rule files that are NOT part of the rulebook's content identity. All three are
+#: on the decision surface, all three are drift-checked against the register, and
+#: **none can change what the validator computes about a JD** — which is the whole
+#: test:
 #:
 #: * ``decision_register.yaml`` *describes* the rules;
-#: * ``segmentation.yaml`` decides which FILES a baseline number is computed over.
+#: * ``segmentation.yaml`` decides which FILES a baseline number is computed over;
+#: * ``embeddings.yaml`` decides what text a JD becomes FOR AN EMBEDDING MODEL.
 #:
-#: Hashing either would mean a copy-edit to an HR-facing paragraph, or a re-banding of
-#: the archive's eras, invalidated the stamp on every report ever produced — while no
-#: rule had moved at all. See :meth:`Rules.content_hash`.
-_UNHASHED_FILES: Final[frozenset[str]] = frozenset({REGISTER_FILE, SEGMENTATION_FILE})
+#: Hashing any of them would mean a copy-edit to an HR-facing paragraph, a re-banding of
+#: the archive's eras, or retuning ``max_chars`` invalidated the stamp on every report
+#: ever produced — while no rule had moved at all. See :meth:`Rules.content_hash`.
+_UNHASHED_FILES: Final[frozenset[str]] = frozenset(
+    {REGISTER_FILE, SEGMENTATION_FILE, EMBEDDINGS_FILE}
+)
 
 #: The :class:`Rules` fields whose content identifies a validation result — every
 #: rule file except those in :data:`_UNHASHED_FILES`.

@@ -46,6 +46,12 @@ from src.jd_core.bank.drift import (
     experience_years_from_text,
     supervisory_reports_from_text,
 )
+from src.jd_core.bank.embed_text import (
+    SERIALIZER_VERSION,
+    SerializedText,
+    serialize_document,
+    serialize_section,
+)
 from src.jd_core.bank.hay_signals import estimate_hay_signals
 from src.jd_core.bank.provenance import skill_frequency
 from src.jd_core.bank.render import render_sfu_jd_text
@@ -64,7 +70,9 @@ from src.jd_core.bank.title_family import (
 )
 
 __all__ = [
+    "SERIALIZER_VERSION",
     "DriftResult",
+    "SerializedText",
     "build_clusters",
     "classify_title",
     "classify_title_family",
@@ -81,6 +89,8 @@ __all__ = [
     "render_sfu_jd_text",
     "score_job_similarity",
     "seniority_closeness",
+    "serialize_document",
+    "serialize_section",
     "skill_frequency",
     "skill_overlap",
     "supervisory_reports_from_text",
