@@ -1,5 +1,11 @@
 name: jd-bank
 
+# HOST PORTS: jd-bank publishes on the 254xx/255xx range, NOT the service defaults.
+# This dev box runs several Docker projects at once (a pre-rename `agent-harness-*`
+# stack still holds 5432/7474/7687, and other apps hold 15432/17474/19432/27474…), so
+# claiming the standard ports means `make up` dies with "port is already allocated".
+# In-container service-to-service addressing is UNCHANGED (`postgres:5432`,
+# `bolt://neo4j:7687`) — only the host publication moved. Override per-port if you must.
 services:
   # ─── Data Tier ───────────────────────────────────────────────────────────
   postgres:
@@ -8,7 +14,7 @@ services:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: app
       POSTGRES_DB: harness
-    ports: ["5432:5432"]
+    ports: ["${JD_PG_PORT:-25432}:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U app -d harness"]
@@ -22,7 +28,7 @@ services:
       NEO4J_AUTH: neo4j/harnesspass
       NEO4J_PLUGINS: '["apoc"]'
       NEO4J_dbms_memory_heap_max__size: 1G
-    ports: ["7474:7474", "7687:7687"]
+    ports: ["${JD_NEO4J_HTTP_PORT:-25474}:7474", "${JD_NEO4J_BOLT_PORT:-25687}:7687"]
     volumes: [neo4jdata:/data]
     healthcheck:
       test: ["CMD-SHELL", "cypher-shell -u neo4j -p harnesspass 'RETURN 1'"]
@@ -32,7 +38,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports: ["6379:6379"]
+    ports: ["${JD_REDIS_PORT:-25379}:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -45,7 +51,7 @@ services:
       context: ./core
       dockerfile: Dockerfile
     command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
-    ports: ["8000:8000"]
+    ports: ["${JD_API_PORT:-25800}:8000"]
     environment: &app_env
       DATABASE_URL: postgresql+asyncpg://app:app@postgres:5432/harness
       NEO4J_URI: bolt://neo4j:7687
@@ -93,7 +99,7 @@ services:
       context: ./core
       dockerfile: Dockerfile
     command: flask --app frontend.app run --host 0.0.0.0 --port 5000 --debug
-    ports: ["5000:5000"]
+    ports: ["${JD_FRONTEND_PORT:-25500}:5000"]
     environment:
       API_BASE_URL: http://api:8000
       FLASK_SECRET_KEY: dev-only-change-me
