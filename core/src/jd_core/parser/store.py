@@ -7,24 +7,66 @@ pure/deterministic and unit-tested without a database): the segmenter produces a
 (``parsed`` = ``SFUJobDescription.model_dump(mode="json")`` — JSONB-safe — plus
 ``parser_version`` and ``parse_confidence``) with its FK back to the source
 document.
+
+**Idempotent on ``(source_document_id, parser_version)``** (Phase 3.2a, LANDMINE 1,
+migration ``0003``). The parse is a pure function of ``(source bytes, parser_version)``,
+so re-parsing the same document at the same parser version must return the existing
+row, not insert a second one — otherwise a re-run of the archive ingest driver
+(:mod:`src.jd_bank.ingest.driver`) would double (then triple, ...) every row in
+``parsed_jds``, and Phase 3.2b keys vectors off these rows.
+
+Mirrors :func:`~src.jd_bank.ingest.ingest.ingest_document`'s proven idiom exactly:
+select-by-key first; if found, return it; else INSERT inside a SAVEPOINT
+(``session.begin_nested()``), and on ``IntegrityError`` (lost the race to a concurrent
+insert of the same key) re-select and return the winner. The SAVEPOINT is what makes
+losing the race cost exactly this one row — a bare ``session.rollback()`` would roll
+back the CALLER'S WHOLE TRANSACTION, silently discarding every other document staged in
+a batch ingest.
 """
 
 from __future__ import annotations
 
+import uuid
+
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.jd_bank.db.models import ParsedJDRow, SourceDocument
-from src.jd_core.parser.segmenter import ParseResult, parse_jd
+from src.jd_core.parser.segmenter import PARSER_VERSION, ParseResult, parse_jd
+
+
+async def _existing(
+    session: AsyncSession, *, source_document_id: uuid.UUID, parser_version: str
+) -> ParsedJDRow | None:
+    """The row for THIS (source document, parser version), if it has already been
+    parsed."""
+    row: ParsedJDRow | None = await session.scalar(
+        select(ParsedJDRow).where(
+            ParsedJDRow.source_document_id == source_document_id,
+            ParsedJDRow.parser_version == parser_version,
+        )
+    )
+    return row
 
 
 async def parse_and_store(
     session: AsyncSession, source_document: SourceDocument, text: str
 ) -> ParsedJDRow:
-    """Segment ``text`` and insert a ``parsed_jds`` row for ``source_document``.
+    """Segment ``text`` and insert a ``parsed_jds`` row for ``source_document``, or
+    return the row that already exists for this ``(source_document, parser_version)``.
 
-    Adds and flushes the row (so its PK is populated) but does **not** commit —
-    the caller owns the transaction. Returns the persisted row.
+    Flushes the row (so its PK is populated) but does **not** commit — the caller owns
+    the transaction. Returns the persisted row.
     """
+    existing = await _existing(
+        session,
+        source_document_id=source_document.id,
+        parser_version=PARSER_VERSION,
+    )
+    if existing is not None:
+        return existing
+
     result: ParseResult = parse_jd(text)
     row = ParsedJDRow(
         source_document_id=source_document.id,
@@ -32,6 +74,24 @@ async def parse_and_store(
         parser_version=result.parser_version,
         parse_confidence=result.parse_confidence,
     )
-    session.add(row)
-    await session.flush()
+    # SAVEPOINT, exactly as `ingest_document` does — see the module docstring for why
+    # a bare `session.rollback()` on the IntegrityError branch would be wrong.
+    try:
+        async with session.begin_nested():
+            session.add(row)
+            await session.flush()
+    except IntegrityError:
+        # Re-select on PARSER_VERSION — the SAME key the pre-check used. (`result.
+        # parser_version` is that same constant today, but one key must have one
+        # source, or a future parser that stamps a row differently from what it
+        # selects on would look up the wrong row here and raise.)
+        winner = await _existing(
+            session,
+            source_document_id=source_document.id,
+            parser_version=PARSER_VERSION,
+        )
+        if winner is None:  # pragma: no cover — defensive; the unique row must exist
+            raise
+        return winner
+
     return row

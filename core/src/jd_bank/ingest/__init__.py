@@ -18,11 +18,15 @@ from src.jd_bank.ingest.extract import (
     UnsupportedFormatError,
     extract_text,
     extract_text_from_path,
+    read_document_bytes,
+    stream_sha256,
 )
 from src.jd_bank.ingest.ingest import (
+    IngestOutcome,
     compute_sha256,
     detect_format,
     ingest_document,
+    ingest_unreadable_document,
     walk_archive,
 )
 from src.jd_bank.ingest.scrub import ScrubReport, normalize_incumbent_names
@@ -33,9 +37,13 @@ __all__ = [
     "UnsupportedFormatError",
     "extract_text",
     "extract_text_from_path",
+    "read_document_bytes",
+    "stream_sha256",
     "compute_sha256",
     "detect_format",
+    "IngestOutcome",
     "ingest_document",
+    "ingest_unreadable_document",
     "walk_archive",
     "ScrubReport",
     "normalize_incumbent_names",
