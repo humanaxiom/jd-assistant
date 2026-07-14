@@ -182,11 +182,12 @@ def test_an_oversized_file_is_never_read_into_memory(
     "unsupported". This test proves the bytes are never read at all (``read_bytes`` is
     made to explode) and that the row is still produced, segmented and counted.
     """
+    # ONE patch, because the cap and the stat-before-read guard that enforces it now
+    # have ONE home: `ingest.extract.read_document_bytes`, shared by this runner and
+    # the Phase 3.2a ingest driver. (This used to patch a second copy of the constant
+    # in `baseline.runner`; the runner no longer holds one.)
     monkeypatch.setattr(
         "src.jd_bank.ingest.extract.MAX_DOCUMENT_BYTES", 10, raising=True
-    )
-    monkeypatch.setattr(
-        "src.jd_bank.baseline.runner.MAX_DOCUMENT_BYTES", 10, raising=True
     )
 
     def _explode(self: Path) -> bytes:  # pragma: no cover - must never be called

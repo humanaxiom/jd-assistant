@@ -147,7 +147,12 @@ class SourceDocument(Base):
 
 class ParsedJDRow(Base):
     """The structured ``ParsedJD`` (SFU 10-section schema) extracted from one
-    source document, with the parser version and per-parse confidence."""
+    source document, with the parser version and per-parse confidence.
+
+    **ONE ROW PER (source document, parser version)** (Phase 3.2a, migration ``0003``).
+    ``jd_core.parser.store.parse_and_store`` is idempotent on this key — re-parsing the
+    same document at the same parser version returns the existing row rather than
+    inserting a second one."""
 
     __tablename__ = "parsed_jds"
 
@@ -168,6 +173,17 @@ class ParsedJDRow(Base):
     source_document: Mapped[SourceDocument] = relationship(back_populates="parsed_jds")
     validation_reports: Mapped[list[ValidationReport]] = relationship(
         back_populates="parsed_jd"
+    )
+
+    __table_args__ = (
+        # LANDMINE 1 (Phase 3.2a, migration 0003): the parse is a pure function of
+        # (source bytes, parser_version), so re-parsing the same document at the same
+        # parser version must be the SAME row. Without this, `parse_and_store` had no
+        # constraint stopping a re-run of the archive driver from inserting a second
+        # (or 14,565th) copy of every parse.
+        UniqueConstraint(
+            "source_document_id", "parser_version", name="uq_parsed_source_parser"
+        ),
     )
 
 

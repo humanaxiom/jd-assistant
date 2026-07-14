@@ -25,8 +25,6 @@ and would trade determinism — the property an audit trail is *made of* — for
 from __future__ import annotations
 
 import json
-import re
-import tempfile
 from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
 from uuid import UUID, uuid5
@@ -35,11 +33,13 @@ from src.jd_bank.baseline.config import get_baseline_config
 from src.jd_bank.baseline.facets import file_facets
 from src.jd_bank.baseline.models import BaselineFinding, BaselineRow, BaselineSummary
 from src.jd_bank.ingest.extract import (
-    MAX_DOCUMENT_BYTES,
+    DocumentTooLargeError,
     ExtractionError,
     extract_text,
+    read_document_bytes,
 )
 from src.jd_bank.ingest.ingest import compute_sha256, walk_archive
+from src.jd_bank.stable_reason import stable_reason as _stable_reason
 from src.jd_core.parser import PARSER_VERSION, parse_jd
 from src.jd_core.quality import build_report, evaluate_jd_rules
 from src.jd_core.rules import Rules, Segmentation, get_rules
@@ -55,44 +55,11 @@ DETERMINISTIC_ONLY: str = "none (deterministic rules only)"
 #: corpus incomparable row-for-row — the opposite of an audit trail.
 _JOB_NAMESPACE: UUID = UUID("6ba7b812-9dad-11d1-80b4-00c04fd430c8")
 
-#: Any path under the system temp dir, as it appears inside an exception message.
-_TMPFILE = re.compile(re.escape(tempfile.gettempdir()) + r"[/\\]\S+")
-
-#: A CPython object repr — ``<_io.BytesIO object at 0x7f...>``. The address is the
-#: process's heap layout, not a fact about the JD, and it is different every run.
-_OBJ_ADDR = re.compile(r"<([\w.]+) object at 0x[0-9a-fA-F]+>")
-
-
-def _stable_reason(exc: Exception) -> str:
-    """``exc`` as a ledger reason that is the SAME on every run.
-
-    Two sources of per-run noise leak into extractor exception messages, and BOTH have
-    to go or the ledger is not an audit trail:
-
-    1. ``extract._extract_doc`` writes the bytes to a ``NamedTemporaryFile`` before
-       handing them to antiword, so a failure message names it::
-
-           antiword failed: /tmp/tmp0k444cks.doc is not a Word Document
-
-    2. ``extract._extract_docx`` hands python-docx a ``BytesIO``, and python-docx puts
-       its **repr** in the message — which carries a heap address::
-
-           docx parse failed: file '<_io.BytesIO object at 0x7917efaa0590>' is not a
-           Word file, content type is 'application/vnd.ms-word.document.macroEnabled...'
-
-    Both are freshly random every run. Left in, they would (a) make ``rows.jsonl`` and
-    ``summary.json`` byte-different on two runs over the *same* archive — destroying
-    the reproducibility an audit trail is made of — and (b) shatter the grouped skip
-    ledger, so files that failed for one identical reason would each report as their
-    own unique reason with a count of 1. Measured over the full archive: 11 files name
-    the temp path (largest group that would shatter: 9), and 1 names a heap address.
-
-    (2) was missed when (1) was fixed, and it outlived a "verified byte-identical
-    across two runs" claim. Both are artefacts of **our own** plumbing and say nothing
-    about the JD, so scrubbing them discards no evidence. The rest survives verbatim.
-    """
-    reason = _TMPFILE.sub("<tmpfile>", f"{type(exc).__name__}: {exc}")
-    return _OBJ_ADDR.sub(r"<\1>", reason)
+#: ``_stable_reason`` now lives in :mod:`src.jd_bank.stable_reason` (Phase 3.2a) so the
+#: archive ingest driver's skip ledger can share it instead of re-implementing the same
+#: temp-path / heap-address scrubbing in a second home. Re-exported under its original
+#: name here (see the import above) — this module's own tests import ``_stable_reason``
+#: directly from ``runner``, and a pure refactor must not disturb that.
 
 
 def _row(
@@ -148,34 +115,32 @@ def evaluate_file(
     fmt = file_facets(path, cfg).format
 
     try:
-        # STAT BEFORE READ, exactly as `extract_text_from_path` does. `extract_text`
-        # also enforces the cap — but only *after* the bytes are already in memory, so
-        # reading first would hand a 50 MiB+ document straight past the DoS guard the
-        # extractor deliberately added.
+        # STAT BEFORE READ — `read_document_bytes` (`ingest/extract.py`) is the ONE
+        # home of that guard, shared with the Phase 3.2a ingest driver. `extract_text`
+        # also enforces the cap, but only *after* the bytes are already in memory, so
+        # a caller that reads first hands a 50 MiB+ document straight past the DoS
+        # guard the extractor deliberately added.
         #
         # Not hypothetical. MEASURED: exactly one archive file exceeds the cap —
         # `19980120_19980120_00000293_Asst_to_Director,_Rec_Services.rtf`, 89,397,431
         # bytes. Note it is an `.rtf`, not a `.doc`: it maps to `DocumentFormat.RTF` and
         # we DO have an extractor for it, so this is a file we could otherwise read. It
         # is skipped on size alone, and it segments as `format: rtf` in the ledger.
-        size = path.stat().st_size
-        if size > MAX_DOCUMENT_BYTES:
-            return _row(
-                path,
-                cfg,
-                rulebook,
-                status="skipped",
-                skip_stage="read",
-                # No sha256: the point is that the bytes are never read. The row is
-                # still segmented and counted — an oversized file is a FINDING, not
-                # a drop.
-                byte_size=size,
-                skip_reason=(
-                    f"DocumentTooLargeError: {size} bytes exceeds the extractor's cap "
-                    f"of {MAX_DOCUMENT_BYTES} bytes (not read)"
-                ),
-            )
-        data = path.read_bytes()
+        data = read_document_bytes(path)
+    except DocumentTooLargeError as exc:
+        return _row(
+            path,
+            cfg,
+            rulebook,
+            status="skipped",
+            skip_stage="read",
+            # No sha256: the point is that the bytes are never read. The row is
+            # still segmented and counted — an oversized file is a FINDING, not
+            # a drop. `byte_size` re-stats (cheap): the guard refused to read, so
+            # there are no bytes to measure.
+            byte_size=path.stat().st_size,
+            skip_reason=_stable_reason(exc),
+        )
     except OSError as exc:
         return _row(
             path,

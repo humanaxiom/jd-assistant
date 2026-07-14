@@ -3,7 +3,7 @@
 # all project code, tests, and linters run INSIDE the `api` container (source is
 # bind-mounted at /app, so no rebuild is needed after edits). Run `make up` first.
 .PHONY: up down gates gates-fast gates-integration migrate logs shell hook-install \
-        register register-check baseline dedup
+        register register-check baseline dedup ingest
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -22,6 +22,7 @@ JD_ARCHIVE_PATH ?= ./archive
 JD_BASELINE_OUT ?= ./out/baseline
 BASELINE_ARGS   ?=
 DEDUP_ARGS      ?=
+INGEST_ARGS     ?=
 export JD_ARCHIVE_PATH
 export JD_BASELINE_OUT
 
@@ -92,6 +93,17 @@ baseline:         ## Run the archive baseline (JD_ARCHIVE_PATH=<SFU JD archive>;
 dedup:            ## Tier-1 exact-duplicate report over the baseline's rows -> docs/dedup/
 	docker compose run --rm -T dedup python -m src.jd_bank.dedup $(DEDUP_ARGS)
 	@echo "✅ dedup report written to docs/dedup/summary.json"
+
+# ── Archive ingest driver (Phase 3.2a) ─────────────────────────────────────
+# UNLIKE baseline/dedup, this WRITES to Postgres — run `make up` then `make migrate`
+# first (the ingest service does not run migrations itself; it only opens the
+# already-migrated schema). Idempotent: safe to re-run after a partial/failed pass.
+#
+#   make up && make migrate
+#   make ingest JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs
+#   make ingest JD_ARCHIVE_PATH=... INGEST_ARGS="--limit 200"
+ingest:           ## Ingest + parse the archive into Postgres (needs `make migrate` first)
+	docker compose run --rm -T ingest python -m src.jd_bank.ingest --archive-root /archive $(INGEST_ARGS)
 
 # ── Migrations (already Docker) ────────────────────────────────────────────
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).

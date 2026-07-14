@@ -183,6 +183,35 @@ services:
       - ./docs/dedup:/committed
     command: ["python", "-m", "src.jd_bank.dedup"]
 
+  # ─── Archive ingest driver (Phase 3.2a) ──────────────────────────────────
+  # UNLIKE baseline/dedup above, this one WRITES to Postgres — it is what fills
+  # source_documents / parsed_jds for the first time. Everything after it (Phase 3.2b
+  # embeddings, Tier-2/3 dedup, clustering) depends on these rows existing.
+  #
+  #   make ingest JD_ARCHIVE_PATH=/path/to/SFU_JDs
+  #   make ingest JD_ARCHIVE_PATH=/path/to/SFU_JDs INGEST_ARGS="--limit 200"
+  #
+  # NB it is INGEST_ARGS, not BASELINE_ARGS — the Makefile's `ingest` target passes
+  # $(INGEST_ARGS). Copy the wrong variable name here and the limit is silently
+  # dropped: you get a full 14,565-file ingest where you asked for a smoke test.
+  #
+  # Not started by `up` (profile: tools). Needs Postgres (env copied from the
+  # `api`/`worker` anchor via `<<: *app_env`); does NOT need Neo4j or Ollama — this
+  # phase persists parsed JDs, it does not embed them yet.
+  ingest:
+    profiles: ["tools"]
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    environment:
+      <<: *app_env
+    volumes:
+      - ./core:/app
+      - ${JD_ARCHIVE_PATH:-./archive}:/archive:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: ["python", "-m", "src.jd_bank.ingest", "--archive-root", "/archive"]
+
 volumes:
   pgdata:
   neo4jdata:

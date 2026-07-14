@@ -25,9 +25,46 @@ from src.jd_bank.ingest.extract import (
     UnsupportedFormatError,
     extract_text,
     extract_text_from_path,
+    stream_sha256,
 )
+from src.jd_bank.ingest.ingest import compute_sha256
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
+
+
+def test_stream_sha256_agrees_with_compute_sha256(tmp_path: Path) -> None:
+    """The two hashers MUST agree, or Tier-1 dedup splits.
+
+    ``compute_sha256`` hashes bytes already in memory (the normal ingest path);
+    ``stream_sha256`` hashes a file in chunks (the oversized path, which must never load
+    it). They are the same digest over the same content — a file grouped one way by one
+    and another way by the other would silently break exact-duplicate detection.
+    """
+    content = b"a" * (3 * 1024 * 1024 + 7)  # spans several chunks, ends mid-chunk
+    path = tmp_path / "big.rtf"
+    path.write_bytes(content)
+
+    digest, size = stream_sha256(path)
+    assert digest == compute_sha256(content)
+    assert size == len(content)
+
+
+def test_stream_sha256_never_loads_the_whole_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Constant memory is the entire reason this function exists: it is what lets an
+    89 MB document be a ledger row without ever being loaded. ``read_bytes`` explodes,
+    so the only way to pass is to stream."""
+    path = tmp_path / "huge.rtf"
+    path.write_bytes(b"streamed, never slurped")
+
+    def _explode(self: Path) -> bytes:  # pragma: no cover - must never be called
+        raise AssertionError(f"{self} was slurped into memory instead of streamed")
+
+    monkeypatch.setattr(Path, "read_bytes", _explode)
+    digest, size = stream_sha256(path)
+    assert len(digest) == 64
+    assert size == len(b"streamed, never slurped")
 
 
 def _docx_bytes(paragraphs: list[str]) -> bytes:
