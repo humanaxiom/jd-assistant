@@ -71,10 +71,19 @@ class NearDupSummary(BaseModel):
     documents_unreadable: int = Field(ge=0)
     documents_below_min_shingles: int = Field(ge=0)
     documents_signed: int = Field(ge=0)
-    #: ``documents_signed / documents_seen`` — ``0.0`` when nothing was seen. NOT the
-    #: same claim as "WJQ files recovered" (that requires comparing a `raw_clean` run
-    #: against a `serialized` run of the SAME corpus, which this single run's numbers
-    #: cannot establish on their own — see HR-131's measured basis for that specific
+    #: ``documents_signed / distinct_contents`` — ``0.0`` when ``distinct_contents``
+    #: is ``0``. The denominator is DISTINCT CONTENTS, never ``documents_seen``
+    #: (FILES): Tier-2 runs over one signature per distinct ``sha256``
+    #: (``edge_scope: content``), and ``documents_unreadable`` +
+    #: ``documents_below_min_shingles`` + ``documents_signed`` partition
+    #: ``distinct_contents`` EXACTLY — they do not partition ``documents_seen``,
+    #: which double-(under-)counts every byte-identical duplicate Tier-1 already
+    #: folded away. Dividing by ``documents_seen`` instead (the first cut's bug) is a
+    #: unit error, not a rounding difference: on the real archive it reported 85.8%
+    #: coverage against a true 99.2% (12,494 / 12,593). NOT the same claim as "WJQ
+    #: files recovered" (that requires comparing a `raw_clean` run against a
+    #: `serialized` run of the SAME corpus, which this single run's numbers cannot
+    #: establish on their own — see HR-131's measured basis for that specific
     #: comparison, done once, offline, against the real archive).
     coverage_rate: float = Field(ge=0.0, le=1.0)
 
@@ -114,8 +123,8 @@ def build_near_dup_summary(
     cross = sum(1 for r in result.pairs if r.qualifies and r.same_position is False)
     unknown = sum(1 for r in result.pairs if r.qualifies and r.same_position is None)
     coverage_rate = (
-        result.documents_signed / result.documents_seen
-        if result.documents_seen
+        result.documents_signed / result.distinct_contents
+        if result.distinct_contents
         else 0.0
     )
     return NearDupSummary(
