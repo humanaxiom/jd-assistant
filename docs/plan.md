@@ -348,7 +348,7 @@ date or the footer's presence.
 The register enforces the record: a `ratified` decision **must** carry `decided_by` / `decided_on` /
 `decision_note`, or the rulebook fails to load.
 
-### Phase 3 — Dedup & clustering — 3.1 MERGED; 3.2 next
+### Phase 3 — Dedup & clustering — 3.1/3.2 MERGED; 3.3 next
 
 - **3.1** ✅ **MERGED** (PR #21) — Tier-1 exact dedup, and a **schema correction that had to come
   first**. `source_documents.sha256` was `UNIQUE` and `ingest_document()` returned the existing row
@@ -370,30 +370,36 @@ The register enforces the record: a `ratified` decision **must** carry `decided_
   - `comparison.cluster_algo` can **no longer lie** (the backlog landmine, *"fix before Phase 3
     writes a cluster row"* — done on schedule): a closed `Literal` **and** `build_clusters` genuinely
     dispatches on it.
-- **3.2** ⏭ **NEXT** — embedding service (Ollama client, batching, upsert into the Neo4j vector
-  index; doc + section level, model tag). **First code in the project to touch the LLM stack.**
-  **The Ollama story is settled and the old constraint was false — see ADR-003 (amended 2026-07-13).**
-  Ollama runs on **`aria-gb10-2`**, a trusted internal host (not `host.docker.internal`, which is what
-  compose said until it was checked). Verified from inside the `gates` container: reachable,
-  `nomic-embed-text` present, **768-dim** — matching the ADR-002 Neo4j index.
-  **The split that governs the test strategy:** local `make gates` **can** reach it; **CI
-  (`ubuntu-latest`, GitHub-hosted) cannot, and never will.** So `make gates` must not depend on a
-  live model endpoint — a test that calls Ollama passes locally and turns CI red. Unit tests mock the
-  client; integration tests mock the embedding call; **a live golden test is opt-in and local-only**
-  (own target, or a marker that skips when unreachable).
-  **Data boundary:** from 3.2, JD text crosses a private network to be embedded. Non-negotiable #5 is
-  restated accordingly — self-hosted inference only, no cloud API, no vendor egress. FIPPA applies;
-  moving the inference host off a trusted segment is a compliance decision, not a config edit.
-- **3.3** Tier 2 near-dup (NEW): MinHash → cosine confirm; tune on the label set; precision/recall
-  regression-gated in CI.
+- **3.2a** ✅ **MERGED** (PR #23) — archive→Postgres ingest driver. Two blocking defects fixed first:
+  (1) **`parse_and_store` now idempotent** — migration `0003` adds `uq_parsed_source_parser` unique
+  constraint; upgrade refuses rather than deleting rows. (2) **Incumbent names stay clean** — driver
+  parses the normalized text, never raw bytes. Also: `_stable_reason` deduped to one home (extractor
+  `read_document_bytes`), `stream_sha256` hashes in 1 MiB chunks so oversized files still get a row.
+  **Result: full archive (14,565 files) in Postgres, every measured count independently reproduces.**
+- **3.2b** ✅ **MERGED** (PR #24) — embedding service (Ollama client + Neo4j upsert). Doc + section
+  level; model-stamped. New rule file `embeddings.yaml` (HR-124..HR-130, all `open`, all
+  `our_invention`). Every default **measured** against live endpoint + all 14,522 parsed JDs:
+  max_chars 10,000 (truncates nothing), min_section_chars 40, title_excluded. Deterministic +
+  content-keyed + idempotent; runner reconciles/prunes stale vectors. **ADR-003 live-test guard:**
+  `make gates` reaches `aria-gb10-2`; CI never will. Live tests opt-in, local-only. **Gates: 1256
+  passing, 95.55% coverage.**
+  **⚠️ NEW: WJQ parser blocks 3.5, not 3.3/3.4.** 29% of the archive (4,226 files) is SFU's WJQ
+  Custom form, not JDFN; 89% of WJQ parse to zero content (34.5% of all 14,522 JDs serialize empty).
+  HR numbers unaffected (current-practice cohort has zero broken parses). Embeddings and clustering
+  see ~65% of archive until WJQ parser lands. **File WJQ support as a task that BLOCKS 3.5 (clustering)** —
+  a cluster report before it would silently cover 65% of the corpus.
+- **3.3** ⏭ **NEXT** — Tier 2 near-dup (MinHash → cosine confirm; tune on label set; precision/recall
+  regression-gated in CI).
 - **3.4** Title normalizer (#8) + Tier 3 role-equivalence (#6) + hard constraints (NEW).
   **This is where 2.4c's trio finally gets wired.** `similarity`/`clustering`/`drift` are pure,
   tested, *uncalled*: `skill_overlap` needs a skill ontology + idf corpus, `seniority_closeness`
   needs an education enum + years bar, and a `ParsedJD` has neither. The `ParsedJD → signals`
   adapter is a **new decision** — it wants an ADR and register entries.
-- **3.5** Clustering (#7 + constraints NEW) + cluster report artifacts for HR eyeball pass.
+- **3.5** Clustering (#7 + constraints NEW) + **WJQ parser** (required before this phase, blocks
+  otherwise) + cluster report artifacts for HR eyeball pass.
 
-**Exit:** duplicate + cluster reports over the full archive; metrics meet the agreed floor.
+**Exit:** duplicate + cluster reports over the full archive (or 65% if WJQ parser not yet landed, in
+which case report must say so); metrics meet the agreed floor.
 
 ### Phase 4 — Harmonization & review
 - **4.1** Merge engine (NEW): section selection, duty union/dedup/reorder, % rebalance, KSA
