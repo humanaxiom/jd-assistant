@@ -348,7 +348,7 @@ date or the footer's presence.
 The register enforces the record: a `ratified` decision **must** carry `decided_by` / `decided_on` /
 `decision_note`, or the rulebook fails to load.
 
-### Phase 3 — Dedup & clustering — 3.1/3.2 MERGED; 3.3 next
+### Phase 3 — Dedup & clustering — 3.1/3.2/3.3 MERGED; 3.4 next
 
 - **3.1** ✅ **MERGED** (PR #21) — Tier-1 exact dedup, and a **schema correction that had to come
   first**. `source_documents.sha256` was `UNIQUE` and `ingest_document()` returned the existing row
@@ -388,18 +388,61 @@ The register enforces the record: a `ratified` decision **must** carry `decided_
   HR numbers unaffected (current-practice cohort has zero broken parses). Embeddings and clustering
   see ~65% of archive until WJQ parser lands. **File WJQ support as a task that BLOCKS 3.5 (clustering)** —
   a cluster report before it would silently cover 65% of the corpus.
-- **3.3** ⏭ **NEXT** — Tier 2 near-dup (MinHash → cosine confirm; tune on label set; precision/recall
-  regression-gated in CI).
-- **3.4** Title normalizer (#8) + Tier 3 role-equivalence (#6) + hard constraints (NEW).
+- **3.3** ✅ **MERGED** (PR #27) — Tier-2 near-dup: MinHash/LSH candidates over word-5-gram shingles
+  → **exact Jaccard** confirm → `DedupEdge(tier=NEAR_DUPLICATE)`. New rule file `dedup.yaml`,
+  register entries **HR-131..HR-140** (register now **140** entries), amended HR-093. **Gates: 1368
+  passing, 94.90% coverage.**
+  - **Real-archive run:** 14,565 files → 12,593 distinct contents → **112,537 LSH candidates →
+    14,312 near-duplicate edges** at `jaccard_min: 0.85`. Edge Jaccard: p10 0.88 · **median 0.966** ·
+    p90 1.0. **Position split: same-position 3,980 · cross-position 8,251 · unknown 2,081 — 67.5% of
+    near-dup edges span DIFFERENT positions.** Reconcile proven idempotent on the real corpus: a
+    second pass wrote 0, updated 0, pruned 0.
+  - **Measurement #1 — document cosine cannot do this job; shingle Jaccard can.** Nearest-neighbour
+    cosine: median **0.988**, 98% of JDs have a neighbour ≥ 0.92 — a cosine bar confirms *everything*.
+    Word-5-gram Jaccard on the same corpus: nearest-neighbour median **0.126**, random-pair median
+    **0.0022** (p99.9 = 0.30). **Jaccard drives; `cosine_confirm_min` ships `null` (OFF).**
+    **HR-093 (`clone_threshold: 0.92`, unratified) is amended with this measurement — it must be
+    re-derived before Tier-3 uses it.**
+  - **Measurement #2 — the obvious oracle is worse than no oracle.** "Same `position_id` ⇒ duplicate"
+    fails completely: same-position pairs have median Jaccard **0.30**, cross-position LSH candidates
+    have median **0.58** — the negatives are MORE similar than the positives. SFU's redundancy is
+    cross-position CLONING, not within-position revision (consistent with Tier-1's 77% cross-position
+    finding). No honest precision/recall CI gate exists on `fixtures/labels/pairs.csv` (12 near-dup
+    positives, a `best_guess_label` column, authored against a census this repo later caught being
+    wrong). Instead: a **pinned behavioural fixture** + the adjudication sample
+    (`docs/dedup/near-dup-adjudication-sample.csv`, 192 stratified pairs, empty `human_label`), so a
+    real label set can finally be built.
+  - **Structural decisions carried forward:** Tier-2 edges are NOT additive (a Jaccard edge is only
+    true relative to a threshold + shingle config) — the runner **reconciles: insert / update /
+    prune**. The EXACT/NEAR ladder is closed **structurally** (candidates are generated over one
+    signature per distinct `sha256`), pinned by a 6-member star-group test (a pair-sized test cannot
+    catch the "10 of 15 pairs" undercount a naive "skip pairs with an EXACT edge" check would leave).
+  - **🔴 NEW FINDING — a third silent extraction defect, blocks 3.5 alongside WJQ.** `_extract_docx`
+    reads only `document.paragraphs`, never text inside TABLES or Word content controls
+    (`<w:sdtContent>`). Measured over all 9,947 `.docx`: **2,596 files lose >40% of their text, 24
+    lose EVERYTHING**, 561 (5.6%) contain a content control, ~20.7M characters never seen by any part
+    of the system. **HR numbers are safe** (checked over the 864 `.docx` in the 874-JD current-practice
+    cohort: zero lose >40%) — the losses concentrate in the same legacy/other-template population as
+    WJQ. Also: 57 documents were `unreadable` to Tier-2 vs 43 in the 2.5 skip ledger — not a bug, the
+    extra 14 are the content-control case (extracts to empty text); Tier-2's ledger is honest, the
+    extractor is what is wrong. Real fix, big blast radius (moves `text_sha256`, re-parses/re-embeds/
+    re-shingles) — safe by design since 3.2b/3.3 are content-keyed and idempotent, but its own
+    deliberate task, not a drive-by.
+- **3.4** ⏭ **NEXT** — Title normalizer (#8) + Tier 3 role-equivalence (#6) + hard constraints (NEW).
   **This is where 2.4c's trio finally gets wired.** `similarity`/`clustering`/`drift` are pure,
   tested, *uncalled*: `skill_overlap` needs a skill ontology + idf corpus, `seniority_closeness`
   needs an education enum + years bar, and a `ParsedJD` has neither. The `ParsedJD → signals`
   adapter is a **new decision** — it wants an ADR and register entries.
-- **3.5** Clustering (#7 + constraints NEW) + **WJQ parser** (required before this phase, blocks
-  otherwise) + cluster report artifacts for HR eyeball pass.
+- **3.5** Clustering (#7 + constraints NEW) — **BLOCKED by two issues, not one:** the **WJQ parser**
+  gap (29% of the archive, ~65% coverage until fixed) AND the **new** `_extract_docx` table/
+  content-control defect (2,596 files lose >40% of text). Neither blocks 3.4; both must be fixed
+  before a cluster report is trustworthy — 3.2b/3.3's content-keyed idempotency means a re-run
+  recovers automatically once the extractor improves. Plus cluster report artifacts for HR eyeball
+  pass.
 
-**Exit:** duplicate + cluster reports over the full archive (or 65% if WJQ parser not yet landed, in
-which case report must say so); metrics meet the agreed floor.
+**Exit:** duplicate + cluster reports over the full archive (or a partial-coverage figure if the WJQ
+parser / docx-table fix are not yet landed, in which case the report must say so); metrics meet the
+agreed floor.
 
 ### Phase 4 — Harmonization & review
 - **4.1** Merge engine (NEW): section selection, duty union/dedup/reorder, % rebalance, KSA

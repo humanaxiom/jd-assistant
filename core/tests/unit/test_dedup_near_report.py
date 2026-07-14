@@ -40,8 +40,14 @@ def _pair(
 
 
 def _result(pairs: tuple[PairRecord, ...]) -> Tier2Result:
+    # documents_seen (FILES) deliberately != distinct_contents (Tier-1 folded some
+    # byte-identical duplicates away already) — a fixture where the two coincide
+    # would not catch a bug that divides by the wrong one (see the real archive:
+    # 14,565 files -> 12,593 distinct contents). unreadable + below_min_shingles +
+    # signed partitions distinct_contents EXACTLY (1 + 1 + 8 == 10), never
+    # documents_seen.
     return Tier2Result(
-        documents_seen=10,
+        documents_seen=14,
         distinct_contents=10,
         documents_unreadable=1,
         documents_below_min_shingles=1,
@@ -66,18 +72,32 @@ def _result(pairs: tuple[PairRecord, ...]) -> Tier2Result:
 # --- build_near_dup_summary --------------------------------------------------------
 
 
-def test_coverage_rate_is_documents_signed_over_documents_seen() -> None:
+def test_coverage_rate_is_documents_signed_over_distinct_contents() -> None:
+    # documents_seen=14 (files) != distinct_contents=10 (distinct contents) here on
+    # purpose. The bug this pins divided by documents_seen instead: that would give
+    # 8 / 14 =~ 0.5714, not the correct 8 / 10 = 0.8 — a fixture where seen ==
+    # distinct_contents cannot tell the two formulas apart (this is exactly the
+    # unit error the real archive artifact shipped: 85.8% reported vs a true 99.2%).
     result = _result(())
     summary = build_near_dup_summary(
         result, source="test", rules_version="jd_rules_sfu_v4+deadbeefcafe"
     )
     assert summary.coverage_rate == 8 / 10
+    assert summary.coverage_rate != 8 / 14
     assert summary.documents_signed == 8
-    assert summary.documents_seen == 10
+    assert summary.distinct_contents == 10
+    assert summary.documents_seen == 14
 
 
-def test_coverage_rate_is_zero_not_a_division_error_when_nothing_was_seen() -> None:
-    result = _result(()).model_copy(update={"documents_seen": 0, "documents_signed": 0})
+def test_coverage_rate_is_zero_not_a_division_error_when_no_distinct_contents() -> None:
+    result = _result(()).model_copy(
+        update={
+            "distinct_contents": 0,
+            "documents_unreadable": 0,
+            "documents_below_min_shingles": 0,
+            "documents_signed": 0,
+        }
+    )
     summary = build_near_dup_summary(result, source="test", rules_version="v")
     assert summary.coverage_rate == 0.0
 
