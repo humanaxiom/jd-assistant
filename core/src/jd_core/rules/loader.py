@@ -117,6 +117,10 @@ SEGMENTATION_FILE: Final[str] = "segmentation.yaml"
 #: text is SENT to the embedding model, never what the validator computes about a JD.
 EMBEDDINGS_FILE: Final[str] = "embeddings.yaml"
 
+#: Tier-2 near-duplicate detection (Phase 3.3) — a rule file that decides which
+#: DOCUMENTS are similar to each other, never what the validator computes about a JD.
+DEDUP_FILE: Final[str] = "dedup.yaml"
+
 #: The content-bearing SFU sections an embedding may be built from — the subset of
 #: :data:`~src.jd_core.models.quality.SFUSection` that carries free text at all.
 #: ``identification`` is structured columns, not prose; ``about_sfu`` /
@@ -146,6 +150,16 @@ PositionIdGrouping = Literal["first", "all"]
 #: rule says; ``document`` = the whole JD, which is what it used to do — and which made
 #: a duty merely mentioning "capital assets" raise a QUALIFICATIONS gate and block it.
 BannedPhraseScope = Literal["qualifications", "document"]
+
+#: What Tier-2 shingles: the incumbent-scrubbed RAW extracted text (re-read from
+#: ``storage_ref``, since Postgres holds no text column) or the PARSED JD serialized
+#: exactly as Phase 3.2b embeds it. See ``dedup.yaml`` header for the measured
+#: coverage gap between the two (raw: 14,452 documents; serialized: 9,517).
+DedupTextSource = Literal["raw_clean", "serialized"]
+
+#: Tier-2 runs over DISTINCT CONTENTS (one unit per Tier-1 sha256 group, ``content``)
+#: or over every individual FILE (``file``). See ``dedup.yaml`` header.
+DedupEdgeScope = Literal["content", "file"]
 
 
 class RulesError(RuntimeError):
@@ -721,6 +735,107 @@ class Embeddings(_RuleFile):
         digest>``. Distinct from :attr:`Rules.version` by construction, exactly as
         :attr:`Segmentation.stamp` is — see the class docstring for why this, and
         not ``Rules.version``, is the identity that forces a re-embed."""
+        return f"{self.version}{VERSION_SEPARATOR}{self.digest[:CONTENT_HASH_LENGTH]}"
+
+
+class Dedup(_RuleFile):
+    """Tier-2 near-duplicate detection (``dedup.yaml``, Phase 3.3).
+
+    Every value here is ``our_invention`` and MEASURED against the real archive — see
+    the YAML header + register entries HR-131…HR-140. It decides which DOCUMENTS are
+    similar to each other; it can never change what the validator computes about any
+    one JD.
+
+    **On the register, but NOT in the content hash** (:data:`_UNHASHED_FILES`) — the
+    fourth file in that category, after ``decision_register.yaml``,
+    ``segmentation.yaml`` and ``embeddings.yaml``, and for the identical reason:
+    retuning ``jaccard_min`` cannot move a single JD's score, so folding it into
+    ``rules_version`` would make every previously-stamped ``ValidationReport`` look
+    stale on a change that moved no rule. This file carries its own content identity
+    instead (:attr:`stamp`), and it is THAT stamp — not ``rules_version`` — that rides
+    in ``DedupEdge.method`` (``f"minhash+jaccard@{stamp[-12:]}"``), so a stale edge is
+    visible in the row itself and the Tier-2 reconcile pass has something to key on.
+
+    Shaped **flat**, like ``segmentation.yaml`` / ``embeddings.yaml`` and for the same
+    reason (:data:`_FLAT_SURFACE_FILES`): a knob added here tomorrow is on the
+    decision surface the moment it is declared.
+    """
+
+    #: What Tier-2 shingles. See :data:`DedupTextSource`.
+    text_source: DedupTextSource
+    #: Word-gram width. MEASURED sweet spot: k=5 (see YAML header).
+    shingle_size: int = Field(gt=0)
+    #: Cut SFU's mandated boilerplate (``boilerplate.yaml``) before shingling — reuses
+    #: HR-058's ``redact_passages`` mechanism, never a second redactor.
+    redact_boilerplate: bool
+    #: A document shingling to fewer than this many grams gets NO signature at all —
+    #: counted (``documents_below_min_shingles``), never silently dropped or scored.
+    min_shingles: int = Field(ge=0)
+    #: MinHash signature length. NEVER the score — see ``jd_core.bank.minhash``.
+    num_perm: int = Field(gt=0)
+    #: LSH bands. ``bands * rows`` MUST equal ``num_perm`` — enforced below.
+    bands: int = Field(gt=0)
+    #: LSH rows per band.
+    rows: int = Field(gt=0)
+    #: The EXACT-Jaccard score an LSH candidate must clear to become a ``DedupEdge``.
+    #: REGISTERED `open` (HR-138) — a human must ultimately rule on this number.
+    #: (HR-136 is `bands`; the YAML and the register always said HR-138.)
+    jaccard_min: float = Field(ge=0.0, le=1.0)
+    #: Veto a Jaccard-qualifying candidate whose document cosine sits below this.
+    #: ``null`` = OFF. MEASURED: shipping this ON today would filter almost nothing —
+    #: see YAML header.
+    cosine_confirm_min: float | None = Field(default=None, ge=0.0, le=1.0)
+    #: ``content`` (Tier-1 sha256 groups) or ``file`` (every individual file). See
+    #: :data:`DedupEdgeScope` and the YAML header.
+    edge_scope: DedupEdgeScope
+    #: A safety valve, not a policy lever: the pass RAISES rather than silently
+    #: truncating the LSH candidate list if this is exceeded. Registered TRIVIAL, not
+    #: an HR decision — see ``decision_register.yaml``.
+    max_candidate_pairs: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def _bands_times_rows_equals_num_perm(self) -> Dedup:
+        """The rulebook FAILS TO LOAD if the banding does not partition the whole
+        signature — the ``_hay_modifiers_exist_on_the_rulebooks_own_scales`` pattern,
+        applied to a numeric identity instead of a vocabulary subset. A banding that
+        does not exactly cover ``num_perm`` would silently drop the signature's tail
+        (too few) or read past its end (too many) the moment
+        :func:`~src.jd_core.bank.minhash.band_keys` is called."""
+        if self.bands * self.rows != self.num_perm:
+            raise ValueError(
+                f"dedup.yaml: bands ({self.bands}) * rows ({self.rows}) = "
+                f"{self.bands * self.rows} must equal num_perm ({self.num_perm})"
+            )
+        return self
+
+    @property
+    def s_curve_threshold(self) -> float:
+        """The Jaccard value at which the LSH banding's candidate-probability S-curve
+        crosses 50% — ``(1/bands)^(1/rows)``. DERIVED, never a stored key: a third
+        number holding the same fact as ``bands``/``rows`` is the ``max_listed``
+        duplicate-knob landmine.
+
+        Computed inline rather than via ``jd_core.bank.minhash.s_curve_threshold``
+        (the same formula, pinned equal by
+        ``test_dedup_rules.py::test_the_rules_s_curve_threshold_matches_minhashs``):
+        ``jd_core.bank`` imports ``jd_core.rules`` at package-init time
+        (``bank/__init__.py`` -> ``embed_text.py`` -> ``Embeddings``), so importing
+        ``jd_core.bank`` from here — even lazily inside a property — would invert that
+        dependency into a cycle the moment this property is touched before ``jd_core.
+        rules`` has finished its own first import.
+        """
+        return float((1 / self.bands) ** (1 / self.rows))
+
+    @property
+    def digest(self) -> str:
+        """SHA-256 over this file's canonicalised content — its own identity. Same
+        contract as :attr:`Embeddings.digest` / :attr:`Segmentation.digest`."""
+        return _content_hash({"dedup": self})
+
+    @property
+    def stamp(self) -> str:
+        """What a ``DedupEdge.method`` embeds: ``<version>+<short digest>``. Distinct
+        from :attr:`Rules.version` by construction — see the class docstring."""
         return f"{self.version}{VERSION_SEPARATOR}{self.digest[:CONTENT_HASH_LENGTH]}"
 
 
@@ -2112,6 +2227,8 @@ class Rules(BaseModel):
     gates: GatePolicy
     #: On the register, but NOT in the content hash — see :class:`Embeddings`.
     embeddings: Embeddings
+    #: On the register, but NOT in the content hash — see :class:`Dedup`.
+    dedup: Dedup
     decision_register: DecisionRegister
 
     @property
@@ -2124,19 +2241,21 @@ class Rules(BaseModel):
         ``PYTHONHASHSEED`` (sets are canonicalised sorted, mappings by sorted key).
 
         :data:`_UNHASHED_FILES` is deliberately **excluded** —
-        ``decision_register.yaml``, ``segmentation.yaml`` and ``embeddings.yaml``. None
-        of the three changes what the validator computes about a JD: the first
-        *describes* the rules, the second decides which **files** an archive-baseline
-        number is computed over, the third decides what text a JD becomes **for an
-        embedding model** — a fact about retrieval and dedup Tier-3, not about JD
-        quality. Including any of them would mean a copy-edit to a ``why_it_matters``
-        paragraph, a re-banding of the archive's eras, or retuning ``max_chars``
+        ``decision_register.yaml``, ``segmentation.yaml``, ``embeddings.yaml`` and
+        ``dedup.yaml``. None of the four changes what the validator computes about a
+        JD: the first *describes* the rules, the second decides which **files** an
+        archive-baseline number is computed over, the third decides what text a JD
+        becomes **for an embedding model**, the fourth decides which **documents** are
+        similar to each other (Tier-2) — none of it is about JD quality. Including any
+        of them would mean a copy-edit to a ``why_it_matters`` paragraph, a re-banding
+        of the archive's eras, retuning ``max_chars``, or retuning ``jaccard_min``
         invalidated every previously stamped report, while no rule had moved at all. And
-        nothing is lost by it: every one of the three files' ``current_default`` values
+        nothing is lost by it: every one of the four files' ``current_default`` values
         is cross-checked against the live rules (:func:`check_register`), so a real
         change to any of them is caught anyway, and ``segmentation.yaml`` /
-        ``embeddings.yaml`` each carry their own content identity (:attr:`Segmentation.
-        stamp`, :attr:`Embeddings.stamp`) for the artifacts that need one.
+        ``embeddings.yaml`` / ``dedup.yaml`` each carry their own content identity
+        (:attr:`Segmentation.stamp`, :attr:`Embeddings.stamp`, :attr:`Dedup.stamp`) for
+        the artifacts that need one.
 
         Recomputed on access rather than cached: ``model_copy(update=...)`` (how the
         test suites retune a rulebook) must not be able to carry a stale identity
@@ -2567,6 +2686,7 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "comparison",
     "segmentation",
     "embeddings",
+    "dedup",
 )
 
 
@@ -2579,7 +2699,7 @@ def decision_surface(rules: Rules) -> frozenset[str]:
     and the coverage check (:func:`check_register`) breaks the build until
     someone says whether HR must decide it.
 
-    **All fourteen rule files are walked.** The surface is everything that can change
+    **Every rule file is walked.** The surface is everything that can change
     what the system decides about a JD:
 
     * ``gates.yaml`` — the approval policy: each gate's overridability and the
@@ -2592,7 +2712,7 @@ def decision_surface(rules: Rules) -> frozenset[str]:
       because emptying it re-penalises every compliant JD (HR-104 … HR-107).
     * ``thresholds`` / ``patterns`` / ``qualifications`` / ``action_verbs`` /
       ``markers`` / ``boilerplate`` / ``hay_signals`` / ``comparison`` /
-      ``segmentation`` / ``embeddings`` — every field
+      ``segmentation`` / ``embeddings`` / ``dedup`` — every field
       (:data:`_FLAT_SURFACE_FILES`). These are the matchers the validators fire on,
       the weights the Hay estimator scores with, and the thresholds the similarity /
       clustering / drift maths compares against: a regex, a banned phrase, an
@@ -2781,26 +2901,29 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     ("rule_catalog.yaml", "rule_catalog", RuleCatalog),
     ("gates.yaml", "gates", GatePolicy),
     (EMBEDDINGS_FILE, "embeddings", Embeddings),
+    (DEDUP_FILE, "dedup", Dedup),
     (REGISTER_FILE, "decision_register", DecisionRegister),
 )
 
 #: Every YAML file that makes up the rulebook, in load order.
 RULE_FILES: Final[tuple[str, ...]] = tuple(name for name, _, _ in _FILE_MODELS)
 
-#: The rule files that are NOT part of the rulebook's content identity. All three are
-#: on the decision surface, all three are drift-checked against the register, and
+#: The rule files that are NOT part of the rulebook's content identity. All four are
+#: on the decision surface, all four are drift-checked against the register, and
 #: **none can change what the validator computes about a JD** — which is the whole
 #: test:
 #:
 #: * ``decision_register.yaml`` *describes* the rules;
 #: * ``segmentation.yaml`` decides which FILES a baseline number is computed over;
-#: * ``embeddings.yaml`` decides what text a JD becomes FOR AN EMBEDDING MODEL.
+#: * ``embeddings.yaml`` decides what text a JD becomes FOR AN EMBEDDING MODEL;
+#: * ``dedup.yaml`` decides which DOCUMENTS are similar to each other (Tier-2).
 #:
 #: Hashing any of them would mean a copy-edit to an HR-facing paragraph, a re-banding of
-#: the archive's eras, or retuning ``max_chars`` invalidated the stamp on every report
-#: ever produced — while no rule had moved at all. See :meth:`Rules.content_hash`.
+#: the archive's eras, retuning ``max_chars``, or retuning ``jaccard_min`` invalidated
+#: the stamp on every report ever produced — while no rule had moved at all. See
+#: :meth:`Rules.content_hash`.
 _UNHASHED_FILES: Final[frozenset[str]] = frozenset(
-    {REGISTER_FILE, SEGMENTATION_FILE, EMBEDDINGS_FILE}
+    {REGISTER_FILE, SEGMENTATION_FILE, EMBEDDINGS_FILE, DEDUP_FILE}
 )
 
 #: The :class:`Rules` fields whose content identifies a validation result — every

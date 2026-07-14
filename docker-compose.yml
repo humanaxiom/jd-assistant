@@ -245,6 +245,37 @@ services:
       neo4j: { condition: service_healthy }
     command: ["python", "-m", "src.jd_bank.embeddings"]
 
+  # ─── Tier-2 near-duplicate dedup (Phase 3.3) ──────────────────────────────
+  # MinHash-candidate, exact-Jaccard-scored, DB-reconciled `dedup_edges` rows at
+  # `tier=NEAR_DUPLICATE`. Needs Postgres (source_documents / parsed_jds — run
+  # `make ingest` first) AND the archive bind (`dedup.text_source: raw_clean`, the
+  # shipped default, re-reads bytes from `storage_ref` — see `jd_bank.dedup.near.
+  # text.ArchiveTextSource`). Neo4j is needed ONLY if `dedup.cosine_confirm_min` is
+  # set — it ships `null` (HR-139), so this service does not depend on Neo4j by
+  # default; if HR turns the cosine confirm on, run `make up` first so Neo4j is
+  # reachable (`__main__.py` opens a driver only when the rulebook asks for one).
+  #
+  #   make near-dup
+  #   make near-dup NEARDUP_ARGS="--limit 200"
+  #
+  # Not started by `up` (profile: tools). Committed artifacts (counts/stamps/
+  # filenames ONLY — never document text): docs/dedup/near-dup-summary.json,
+  # docs/dedup/near-dup-adjudication-sample.csv.
+  near-dup:
+    profiles: ["tools"]
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    environment:
+      <<: *app_env
+    volumes:
+      - ./core:/app
+      - ${JD_ARCHIVE_PATH:-./archive}:/archive:ro
+      - ./docs/dedup:/committed
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: ["python", "-m", "src.jd_bank.dedup.near"]
+
 volumes:
   pgdata:
   neo4jdata:

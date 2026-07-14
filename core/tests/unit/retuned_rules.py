@@ -21,10 +21,11 @@ from typing import Any
 
 import yaml
 
-from src.jd_core.rules import Comparison, Rules
+from src.jd_core.rules import Comparison, Dedup, Rules
 
 _PKG_DIR = Path(__file__).resolve().parents[2] / "src" / "jd_core" / "rules"
 _COMPARISON = _PKG_DIR / "comparison.yaml"
+_DEDUP = _PKG_DIR / "dedup.yaml"
 
 
 def raw_comparison() -> dict[str, Any]:
@@ -33,7 +34,20 @@ def raw_comparison() -> dict[str, Any]:
     return data
 
 
+def raw_dedup() -> dict[str, Any]:
+    """The shipped ``dedup.yaml``, as the loader sees it before validation."""
+    data: dict[str, Any] = yaml.safe_load(_DEDUP.read_text(encoding="utf-8"))
+    return data
+
+
 def retuned(rules: Rules, **fields: Any) -> Rules:
     """``rules`` with ``comparison.yaml`` re-validated, ``fields`` overridden."""
     comparison = Comparison.model_validate({**raw_comparison(), **fields})
     return rules.model_copy(update={"comparison": comparison})
+
+
+def retuned_dedup(rules: Rules, **fields: Any) -> Rules:
+    """``rules`` with ``dedup.yaml`` re-validated, ``fields`` overridden — the same
+    "what if HR moved it" fixture as :func:`retuned`, for Tier-2's rulebook."""
+    dedup = Dedup.model_validate({**raw_dedup(), **fields})
+    return rules.model_copy(update={"dedup": dedup})

@@ -3,7 +3,7 @@
 # all project code, tests, and linters run INSIDE the `api` container (source is
 # bind-mounted at /app, so no rebuild is needed after edits). Run `make up` first.
 .PHONY: up down gates gates-fast gates-integration gates-live migrate logs shell \
-        hook-install register register-check baseline dedup ingest embed
+        hook-install register register-check baseline dedup ingest embed near-dup
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -24,6 +24,7 @@ BASELINE_ARGS   ?=
 DEDUP_ARGS      ?=
 INGEST_ARGS     ?=
 EMBED_ARGS      ?=
+NEARDUP_ARGS    ?=
 export JD_ARCHIVE_PATH
 export JD_BASELINE_OUT
 
@@ -123,6 +124,19 @@ ingest:           ## Ingest + parse the archive into Postgres (needs `make migra
 embed:            ## Embed parsed_jds into Neo4j's vector index (needs `make ingest` first)
 	docker compose run --rm -T embed python -m src.jd_bank.embeddings $(EMBED_ARGS)
 	@echo "✅ embeddings summary written to docs/embeddings/summary.json"
+
+# ── Tier-2 near-duplicate dedup (Phase 3.3) ────────────────────────────────
+# MinHash-candidate, exact-Jaccard-scored, DB-reconciled — needs Postgres AND the
+# archive bind (re-reads bytes via `dedup.text_source: raw_clean`). Run `make
+# ingest` first. NB it is NEARDUP_ARGS, not EMBED_ARGS/DEDUP_ARGS — copying the
+# wrong `*_ARGS` variable name here is the exact copy-paste bug HANDOFF already
+# recorded once for `ingest`.
+#
+#   make near-dup
+#   make near-dup NEARDUP_ARGS="--limit 200"
+near-dup:         ## Tier-2 near-duplicate dedup into dedup_edges (needs `make ingest` first)
+	docker compose run --rm -T near-dup python -m src.jd_bank.dedup.near $(NEARDUP_ARGS)
+	@echo "✅ near-dup summary written to docs/dedup/near-dup-summary.json"
 
 # ── Migrations (already Docker) ────────────────────────────────────────────
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).
