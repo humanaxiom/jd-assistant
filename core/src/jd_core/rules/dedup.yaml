@@ -1,0 +1,138 @@
+# Tier-2 near-duplicate detection (Phase 3.3) — rulebook-as-data (CLAUDE.md §2).
+#
+# WHAT THIS FILE DECIDES
+# -----------------------
+# Nothing here changes what the VALIDATOR computes about a JD. It decides which
+# DOCUMENTS are similar to each other — never a score, grade, gate or finding on any
+# one JD. Same category as `segmentation.yaml` and `embeddings.yaml`: registered, on
+# the decision surface, drift-checked against the register, but excluded from
+# `rules_version` (`loader._UNHASHED_FILES`) because retuning `jaccard_min` cannot make
+# a single JD's ValidationReport look stale. `Dedup.stamp` is this file's own content
+# identity, and it is THAT stamp — not `rules_version` — that rides in
+# `DedupEdge.method` (`f"minhash+jaccard@{dedup.stamp[-12:]}"`), so a stale edge is
+# visible in the row itself.
+#
+# EVERY DEFAULT BELOW WAS MEASURED against the real archive (14,565 files, 12,494
+# distinct contents) — see HANDOFF 2026-07-13 and the register entries HR-131…HR-140.
+# None of it is SFU's: JD Bank's Tier-2 dedup is new work, and SFU publishes no
+# near-duplicate policy.
+#
+# THE TWO FINDINGS THAT SHAPE THIS FILE
+# --------------------------------------
+# 1. Document cosine is USELESS on this corpus (nearest-neighbour median 0.988, 98% at
+#    or above the inherited `comparison.clone_threshold` of 0.92) — a cosine bar would
+#    confirm almost everything. Word-5-gram Jaccard discriminates sharply (nearest-
+#    neighbour median 0.126 vs random-pair median 0.0022). So Jaccard drives, and the
+#    cosine confirm (`cosine_confirm_min`) ships OFF (`null`).
+# 2. The label set (`fixtures/labels/pairs.csv`) does NOT work as a precision/recall
+#    oracle here: same-position "negatives" have HIGHER median Jaccard (0.30) than
+#    cross-position LSH "candidates" (0.58) — SFU's redundancy is cross-position
+#    cloning, not within-position revision (Tier-1 found the same shape: 77% of exact
+#    groups span more than one position). See `dedup/near/report.py` and
+#    `tests/unit/test_dedup_near_fixture.py` for the CI gate this drives to instead: a
+#    pinned behavioural fixture, not a percentage against 101 unreliable labels.
+
+version: jd_rules_sfu_v4
+
+# --- what text is shingled ---------------------------------------------------------
+# `raw_clean` (the incumbent-scrubbed extracted text, re-read from `storage_ref` and
+# re-extracted — Postgres holds no text column) vs `serialized` (the PARSED JD run
+# through `jd_core.bank.embed_text.serialize_document`, Phase 3.2b's pipeline).
+# MEASURED: raw text covers 14,452 of 14,565 documents; parsed/serialized text covers
+# only 9,517 (34.5% of the corpus serializes to EMPTY — the WJQ-template gap HANDOFF
+# already documents). Scoring on `serialized` would silently exclude the very JDs most
+# likely to be duplicates of each other (`transition` era is 52.7% unparseable), which
+# is exactly the "metrics computed on a corpus quietly missing a third of itself" trap
+# 2.6 already taught this project once. `raw_clean` rescues 98.6% of the 5,012
+# zero-serialization files. Both branches are implemented — a knob whose alternative is
+# unimplemented is the `cluster_algo` bug (HR-123's own warning) in a new place.
+text_source: raw_clean
+
+# --- shingling ----------------------------------------------------------------------
+# Word grams, not character grams: SFU JDs share the same vocabulary/template
+# university-wide, so character n-grams would collide constantly and discriminate
+# nothing. MEASURED all-pairs median Jaccard by k: k=4 -> 0.0039, k=5 -> 0.0022 (the
+# widest separation from the near-neighbour median of 0.126), k=7 -> 0.0009 but the
+# near-neighbour median also falls to 0.10 at k=7 (starts losing true twins). k=5 is
+# the sweet spot.
+shingle_size: 5
+
+# SFU's own mandated About-SFU / territorial-acknowledgement / Employment-Equity text
+# (`boilerplate.yaml`) is byte-identical across thousands of JDs and would otherwise
+# inflate every pair's shingle overlap by a constant amount unrelated to whether the
+# JDs describe the same role. MEASURED effect is small but real (all-pairs p90: 0.0311
+# redacted vs 0.036 raw). Reuses HR-058's existing mechanism
+# (`jd_core.quality.boilerplate.redact_passages`) rather than a second redactor — one
+# rulebook fact, one home.
+redact_boilerplate: true
+
+# A signature built from fewer than this many shingles is not computed at all — the
+# document is counted (`documents_below_min_shingles`), never silently dropped or
+# scored against a near-empty set. MEASURED: excludes 70 of 14,522 parsed JDs (0.48%)
+# — a guard-rail, not a filter, mirroring `embeddings.min_section_chars`'s "excludes 7"
+# shape.
+min_shingles: 20
+
+# --- MinHash / LSH: the CANDIDATE INDEX, never the score -----------------------------
+# See `jd_core.bank.minhash` module docstring: the score a caller keeps is ALWAYS
+# exact Jaccard, recomputed on the two documents' shingle sets. MinHash's own
+# estimator error (sigma ~= 0.088 at num_perm=128, worst case J=0.5) is far too coarse
+# to threshold a similarity DECISION on — it only decides which pairs are worth an
+# exact comparison at all.
+#
+# MEASURED: pure Python (no numpy — not needed) computes MinHash signatures for the
+# whole corpus in ~3.5 minutes.
+num_perm: 128
+
+# bands * rows MUST equal num_perm (loader-enforced — the rulebook fails to load
+# otherwise). MEASURED at bands=32/rows=4: S-curve midpoint (1/bands)^(1/rows) = 0.420,
+# 70,752 LSH candidate pairs, no measurable recall loss at any operating threshold
+# tried. Recorded alternative: bands=16/rows=8 -> midpoint 0.707, 21,345 candidates —
+# IDENTICAL edge count at Jaccard >= 0.9 and only -0.4% at Jaccard >= 0.8, i.e. a
+# strictly tighter candidate set buys almost nothing at this corpus's operating point.
+bands: 32
+rows: 4
+
+# The score threshold an LSH candidate must clear (on EXACT Jaccard, never the MinHash
+# estimate) to become a `DedupEdge`. MEASURED edge counts over the whole corpus at
+# several thresholds: 0.9 -> 11,398 edges * 0.85 -> 14,312 edges (SHIPPED) * 0.8 ->
+# 15,877 * 0.7 -> 19,110. Random-pair Jaccard p99.9 is 0.30, so 0.85 sits far into the
+# tail — a random pair essentially never reaches it. REGISTERED `open`: this is the
+# number a human reviewer must ultimately rule on (HR-138), not an engineering default
+# to quietly ship and forget.
+jaccard_min: 0.85
+
+# An optional confirm: veto an LSH-candidate/Jaccard-qualifying pair if the DOCUMENT
+# cosine similarity (Neo4j vectors, Phase 3.2b) sits below this. `null` = OFF.
+# MEASURED: 98% of non-identical nearest-neighbour cosines sit at or ABOVE 0.92 (median
+# 0.988) — a cosine confirm at any realistic bar would confirm almost every pair
+# Jaccard already qualified, i.e. it is a filter that can (almost) never reject, the
+# same "HR-121 SFU-STRUCT-HOW-WHY" failure shape inverted. It is also UNAVAILABLE for
+# 34.5% of the corpus (no vectors for WJQ-template files that serialize to empty), so
+# gating on it would silently run a DIFFERENT policy on WJQ files than on JDFN files.
+# The code path is implemented and tested (so this is real the day HR turns it on);
+# shipped `null` because turning it on today would not filter anything real.
+cosine_confirm_min: null
+
+# `content` (SHIPPED): Tier-2 runs over DISTINCT CONTENTS (Tier-1's 12,494 sha256
+# groups), not the 14,452 hashed files — an edge is written between the two groups'
+# Tier-1 representatives. `file`: every individual file is its own unit. MEASURED
+# consequence: two 11-member exact-duplicate groups that are near-dups of each other
+# would emit 121 edges under `file` scope and 1 under `content` scope. `content` is
+# also what makes the EXACT/NEAR ladder safe by construction (see
+# `dedup/near/runner.py`): a sha256 group is one node, so a byte-identical pair can
+# never even become a CANDIDATE for a NEAR edge — no separate "already has an EXACT
+# edge" check is needed or correct (Tier-1's default topology is `star`, not `clique`,
+# so that check would miss most of a large group's internal pairs). Both scopes are
+# implemented.
+edge_scope: content
+
+# A safety valve, not a policy lever: if the LSH banding would generate more candidate
+# pairs than this, the pass RAISES rather than silently truncating the candidate list
+# (which would silently under-report edges with no record that it happened). MEASURED
+# 70,752 candidates at the shipped banding — this sits comfortably above that with
+# headroom for a re-tuned banding or a grown archive, while still catching a
+# misconfiguration (e.g. bands/rows chosen so loosely that every document becomes a
+# candidate of every other). Registered TRIVIAL (see decision_register.yaml `trivial:`)
+# — it cannot change a result, only refuse to produce one.
+max_candidate_pairs: 250000

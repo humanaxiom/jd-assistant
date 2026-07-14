@@ -67,12 +67,12 @@ def test_the_measured_defaults_are_what_the_yaml_ships(rules: Rules) -> None:
 # --- unhashed, but registered ---------------------------------------------------
 
 
-def test_embeddings_is_the_third_unhashed_file(rules: Rules) -> None:
-    assert loader._UNHASHED_FILES == {
-        "decision_register.yaml",
-        "segmentation.yaml",
-        "embeddings.yaml",
-    }
+def test_embeddings_is_unhashed(rules: Rules) -> None:
+    """``embeddings.yaml`` was the THIRD file added to this category (after
+    ``decision_register.yaml`` / ``segmentation.yaml``); ``dedup.yaml`` (Phase 3.3)
+    is the fourth — see ``test_dedup_rules.py::test_dedup_is_the_fourth_unhashed_file``
+    for the full, current set. This test only pins embeddings' OWN membership."""
+    assert "embeddings.yaml" in loader._UNHASHED_FILES
     assert "embeddings" not in loader._HASHED_FIELDS
 
 

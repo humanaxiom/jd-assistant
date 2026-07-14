@@ -18,6 +18,7 @@ version.
 
 from src.jd_core.rules.loader import (
     CONTENT_HASH_LENGTH,
+    DEDUP_FILE,
     EMBEDDINGS_FILE,
     GENERAL_SECTION,
     HAY_BASE_LEVEL,
@@ -36,6 +37,9 @@ from src.jd_core.rules.loader import (
     DecisionProvenance,
     DecisionRegister,
     DecisionStatus,
+    Dedup,
+    DedupEdgeScope,
+    DedupTextSource,
     Embeddings,
     ExactEdgeTopology,
     GatePolicy,
@@ -79,6 +83,7 @@ from src.jd_core.rules.loader import (
 
 __all__ = [
     "CONTENT_HASH_LENGTH",
+    "DEDUP_FILE",
     "EMBEDDINGS_FILE",
     "GENERAL_SECTION",
     "HAY_BASE_LEVEL",
@@ -92,6 +97,9 @@ __all__ = [
     "ClusterAlgorithm",
     "CodedTerms",
     "Comparison",
+    "Dedup",
+    "DedupEdgeScope",
+    "DedupTextSource",
     "Embeddings",
     "ExactEdgeTopology",
     "ConfigRef",

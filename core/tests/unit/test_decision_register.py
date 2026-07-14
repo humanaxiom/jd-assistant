@@ -445,12 +445,13 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         "action_verbs",
         "markers",
         "textnorm",
-        # `segmentation.yaml` / `embeddings.yaml` are ORDINARY rule files — loaded,
-        # validated, registered, drift-checked. They are merely not part of
-        # `rules_version` (`_UNHASHED_FILES`), exactly as `decision_register.yaml` is
-        # not. No second config subsystem.
+        # `segmentation.yaml` / `embeddings.yaml` / `dedup.yaml` are ORDINARY rule
+        # files — loaded, validated, registered, drift-checked. They are merely not
+        # part of `rules_version` (`_UNHASHED_FILES`), exactly as
+        # `decision_register.yaml` is not. No second config subsystem.
         "segmentation",
         "embeddings",
+        "dedup",
     }
     # ...and that is every rule file there is, bar the register itself.
     described = {name.removesuffix(".yaml") for name in RULE_FILES}
@@ -468,12 +469,14 @@ def test_the_unhashed_files_are_the_ones_that_cannot_change_a_jds_score() -> Non
     rules decide about a JD."* ``decision_register.yaml`` describes the rules;
     ``segmentation.yaml`` decides which FILES a baseline number is computed over;
     ``embeddings.yaml`` (Phase 3.2b) decides what text a JD becomes for an embedding
-    model. None of the three can move a score, a grade or a gate.
+    model; ``dedup.yaml`` (Phase 3.3) decides which DOCUMENTS are similar to each
+    other. None of the four can move a score, a grade or a gate.
     """
     assert loader._UNHASHED_FILES == {
         REGISTER_FILE,
         "segmentation.yaml",
         "embeddings.yaml",
+        "dedup.yaml",
     }
     hashed = set(loader._HASHED_FIELDS)
     assert "segmentation" not in hashed

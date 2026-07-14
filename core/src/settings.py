@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     # so this only trades throughput for memory and never changes what gets stored.
     embed_batch_size: int = 64
 
+    # Phase 3.3: OPERATIONAL, not a rulebook decision — how many rows one
+    # insert/update/delete statement (or one Neo4j vector fetch) carries in the
+    # Tier-2 near-dup reconcile (`jd_bank.dedup.near.runner`). It cannot change WHICH
+    # edges get written, only how many round-trips writing them costs; `dedup.yaml`
+    # is where a decision that changes the RESULT would live.
+    neardup_batch_size: int = 500
+
     # Postgres (transactions)
     database_url: str = "postgresql+asyncpg://app:app@postgres:5432/harness"
 
