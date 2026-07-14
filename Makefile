@@ -2,8 +2,8 @@
 # DOCKER-ONLY (ADR-006): no host Python. `make` is a task-runner that invokes Docker;
 # all project code, tests, and linters run INSIDE the `api` container (source is
 # bind-mounted at /app, so no rebuild is needed after edits). Run `make up` first.
-.PHONY: up down gates gates-fast gates-integration migrate logs shell hook-install \
-        register register-check baseline dedup ingest
+.PHONY: up down gates gates-fast gates-integration gates-live migrate logs shell \
+        hook-install register register-check baseline dedup ingest embed
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -23,6 +23,7 @@ JD_BASELINE_OUT ?= ./out/baseline
 BASELINE_ARGS   ?=
 DEDUP_ARGS      ?=
 INGEST_ARGS     ?=
+EMBED_ARGS      ?=
 export JD_ARCHIVE_PATH
 export JD_BASELINE_OUT
 
@@ -47,7 +48,7 @@ gates:            ## Full gate suite (what agents and CI run): static + unit + i
 		ruff check src tests && \
 		black --check src tests && \
 		mypy src --strict && \
-		pytest tests/unit tests/integration --cov=src --cov-fail-under=80 --timeout=300 -q'
+		pytest tests/unit tests/integration -m "not live" --cov=src --cov-fail-under=80 --timeout=300 -q'
 	@echo "✅ ALL GATES GREEN"
 
 gates-fast:       ## Pre-commit subset (static + unit, no integration) — quick edit-loop gate
@@ -55,11 +56,18 @@ gates-fast:       ## Pre-commit subset (static + unit, no integration) — quick
 		ruff check src tests && \
 		black --check src tests && \
 		mypy src --strict && \
-		pytest tests/unit -q --timeout=120'
+		pytest tests/unit -m "not live" -q --timeout=120'
 	@echo "✅ FAST GATES GREEN"
 
 gates-integration: ## Integration tests only (testcontainers), in the gates runner
-	docker compose run --rm gates pytest tests/integration --timeout=300 -q
+	docker compose run --rm gates pytest tests/integration -m "not live" --timeout=300 -q
+
+# Opt-in, LOCAL-ONLY live golden tests against the real `aria-gb10-2` Ollama endpoint
+# (ADR-003). NEVER part of `make gates` / CI — CI (ubuntu-latest) cannot route to a
+# private internal host and never will. Self-skips per-test if the endpoint is
+# unreachable (e.g. off-VPN), so it is honest in both environments.
+gates-live:       ## Opt-in, LOCAL-ONLY live embedding golden tests (never in CI/gates)
+	docker compose run --rm gates pytest tests/live -m live --timeout=300 -q
 
 # ── HR decision register (rules/decision_register.yaml -> Markdown for HR) ──
 # The register is DATA; the Markdown is a rendered VIEW of it, never hand-edited.
@@ -104,6 +112,17 @@ dedup:            ## Tier-1 exact-duplicate report over the baseline's rows -> d
 #   make ingest JD_ARCHIVE_PATH=... INGEST_ARGS="--limit 200"
 ingest:           ## Ingest + parse the archive into Postgres (needs `make migrate` first)
 	docker compose run --rm -T ingest python -m src.jd_bank.ingest --archive-root /archive $(INGEST_ARGS)
+
+# ── Embeddings (Phase 3.2b) ────────────────────────────────────────────────
+# UNLIKE ingest, this needs Postgres AND Neo4j AND a reachable Ollama
+# (`OLLAMA_BASE_URL` -> `aria-gb10-2`, ADR-003). Run `make ingest` first — this
+# reads `parsed_jds`, it does not walk the archive.
+#
+#   make embed
+#   make embed EMBED_ARGS="--limit 200"
+embed:            ## Embed parsed_jds into Neo4j's vector index (needs `make ingest` first)
+	docker compose run --rm -T embed python -m src.jd_bank.embeddings $(EMBED_ARGS)
+	@echo "✅ embeddings summary written to docs/embeddings/summary.json"
 
 # ── Migrations (already Docker) ────────────────────────────────────────────
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).

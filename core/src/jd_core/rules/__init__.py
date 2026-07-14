@@ -18,6 +18,7 @@ version.
 
 from src.jd_core.rules.loader import (
     CONTENT_HASH_LENGTH,
+    EMBEDDINGS_FILE,
     GENERAL_SECTION,
     HAY_BASE_LEVEL,
     REGISTER_FILE,
@@ -35,6 +36,7 @@ from src.jd_core.rules.loader import (
     DecisionProvenance,
     DecisionRegister,
     DecisionStatus,
+    Embeddings,
     ExactEdgeTopology,
     GatePolicy,
     GateSpec,
@@ -77,6 +79,7 @@ from src.jd_core.rules.loader import (
 
 __all__ = [
     "CONTENT_HASH_LENGTH",
+    "EMBEDDINGS_FILE",
     "GENERAL_SECTION",
     "HAY_BASE_LEVEL",
     "REGISTER_FILE",
@@ -89,6 +92,7 @@ __all__ = [
     "ClusterAlgorithm",
     "CodedTerms",
     "Comparison",
+    "Embeddings",
     "ExactEdgeTopology",
     "ConfigRef",
     "PositionIdGrouping",

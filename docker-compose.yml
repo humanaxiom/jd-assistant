@@ -212,6 +212,33 @@ services:
       postgres: { condition: service_healthy }
     command: ["python", "-m", "src.jd_bank.ingest", "--archive-root", "/archive"]
 
+  # ─── Embeddings (Phase 3.2b) ──────────────────────────────────────────────
+  # parsed_jds (Postgres) -> Neo4j's vector index. UNLIKE ingest, this needs BOTH
+  # data stores AND a reachable Ollama (`OLLAMA_BASE_URL`, from `*app_env` ->
+  # `aria-gb10-2`, ADR-003) — it is the first thing in this repo that calls a live
+  # model endpoint outside of tests. No archive bind: it reads `parsed_jds`, it does
+  # not walk the archive (run `make ingest` first).
+  #
+  #   make embed
+  #   make embed EMBED_ARGS="--limit 200"
+  #
+  # Not started by `up` (profile: tools). The COMMITTED artifact
+  # (docs/embeddings/summary.json) carries counts and stamps ONLY — never a vector.
+  embed:
+    profiles: ["tools"]
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    environment:
+      <<: *app_env
+    volumes:
+      - ./core:/app
+      - ./docs/embeddings:/committed
+    depends_on:
+      postgres: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+    command: ["python", "-m", "src.jd_bank.embeddings"]
+
 volumes:
   pgdata:
   neo4jdata:

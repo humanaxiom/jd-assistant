@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+8c004c4dadd1` · **123 decisions** (123 open · 0 ratified · 0 deferred) · 59 parameters explicitly exempted as trivial · 178 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+8c004c4dadd1` · **130 decisions** (130 open · 0 ratified · 0 deferred) · 59 parameters explicitly exempted as trivial · 185 parameters on the decision surface, all accounted for.
 
 ## What this is
 
@@ -139,6 +139,13 @@ Every policy call JD Bank currently makes **by default**, because SFU HR has not
 | [HR-121](#hr-121) | Which quality rules may the deterministic engine raise at all — and which are retired because the parsed JD does not carry the data they judge? | `SFU-STRUCT-HOW-WHY` | our invention |
 | [HR-122](#hr-122) | Where does the CURRENT era begin — i.e. from what year is a JD judged by the bar that assumes SFU's territorial acknowledgement and EDI footer? | `2023` | our invention |
 | [HR-123](#hr-123) | When N archive files are BYTE-IDENTICAL, how is that fact recorded — as N-1 edges to one representative file (a star), or as an edge between every pair (a clique)? | `star` | our invention |
+| [HR-124](#hr-124) | Which embedding model turns a parsed JD's text into the vector JD Bank stores and searches on? | `nomic-embed-text` | our invention |
+| [HR-125](#hr-125) | How many dimensions does an embedding have, and does everything that needs to agree on that number actually agree? | `768` | our invention |
+| [HR-126](#hr-126) | How much of a parsed JD's serialized text is actually sent to the embedding model before it is truncated? | `10000` | our invention |
+| [HR-127](#hr-127) | How short can one section's text be before it is not worth giving its own embedding at all? | `40` | our invention |
+| [HR-128](#hr-128) | Does the JD's TITLE become part of the whole-document embedding, or is the document vector title-agnostic like the rest of the similarity score? | `false` | our invention |
+| [HR-129](#hr-129) | Which parts of a parsed JD make up the WHOLE-DOCUMENT text an embedding model sees? | *7 entries — see below* | our invention |
+| [HR-130](#hr-130) | Which sections get their OWN separate embedding (a `JDSection` node), in addition to the whole-document vector? | `position_summary`, `duties`, `qualifications` | our invention |
 
 ### Our invention — nobody has ratified these
 
@@ -428,6 +435,62 @@ The two bands now say two different, true things. The merged band said one false
     write into this same table with far larger and far messier groups.
 ⚠ THE LINEARITY IS A PROPERTY OF THE CODE, AND IT HAD TO BE EARNED — do not read it as a mathematical given. The Tier-1 pass is ADDITIVE (it never deletes an edge), so if the representative is re-derived as "first by sort order" on every run, a duplicate arriving with an earlier-sorting path RE-ANCHORS the star and the previous star's edges remain. MEASURED on a group of 6 ingested in reverse order, one pass per arrival: 15 EDGES — THE FULL CLIQUE — across 5 anchors, where a clean star is 5. Every edge true, every edge redundant, and this bullet quietly false. The representative is therefore PINNED: a group keeps the anchor its edges already hang off, so a late arrival adds exactly one edge. Pinned by `test_the_star_stays_linear_under_worst_case_arrival_order`, which fails with exactly 15 edges if the anchor is removed. HR is ratifying the pinned behaviour. `clique` is implemented, not merely named: a knob whose alternative does nothing is exactly the `cluster_algo` landmine this same PR is disarming.
 - **If it changes:** No JD's score, grade or approval moves — this decides what the dedup FINDING looks like in the database, never what any JD is worth. What moves is the cost and the addressability of the edge table: `clique` makes every pair of identical files answerable by a single row lookup instead of by graph traversal (2.1x the rows here; on a group of 100 it would be 50x). Flipping it does not invalidate existing rows — both topologies orient every edge by the SAME total order (the archive path, never "from the representative"), so a star's edges are a strict subset of the clique's, and re-running Tier-1 after the flip simply ADDS the missing pairs. ⚠ THAT SUBSET PROPERTY IS EARNED, AND IT IS NOT WHAT THE DATABASE ENFORCES. The `uq_dedup_pair_tier` constraint is on the ORDERED pair, so it would happily accept `(b, a)` alongside `(a, b)`. Only the orientation rule prevents it — and the first cut of the star-stability fix broke exactly this by orienting star edges FROM the pinned representative, which points backwards for every member that sorts before it. MEASURED on 6 duplicates arriving in reverse order: 4 of the 5 star edges reversed, and a subsequent flip to `clique` produced 19 EDGES WITH 4 MIRRORED PAIRS (a clean clique on 6 is 15, with none) — i.e. this very paragraph was false of the code. WHO the representative is and WHICH WAY AN EDGE POINTS are now strictly separate questions. Pinned by `test_tier1_never_writes_both_directions_of_a_pair` (which now runs AFTER a re-anchor — on a fresh pass the two coincide, so a fresh pass cannot catch a violation) and by `test_flipping_to_clique_after_a_re_anchor_writes_no_mirrored_pairs`. ⚠ WHAT THIS IS *NOT* A DECISION ABOUT: whether the duplicates get collapsed. They do not, at any setting. Nothing in this knob can delete an archive file's row.
+
+#### HR-124 — Which embedding model turns a parsed JD's text into the vector JD Bank stores and searches on?
+
+- **We ship:** `nomic-embed-text`
+- **Configured in:** `embeddings.yaml` → `embeddings.model`
+- **Where the default came from:** our invention
+- **Why it matters:** ✅ VERIFIED live from inside the `gates` container (ADR-003, amended 2026-07-13): `aria-gb10-2` is reachable, `nomic-embed-text` is present, and it returns 768-dim vectors matching the Neo4j vector index `core/db/migrations/002_jd_vectors.cypher` already mandates. ✅ MEASURED: the SAME text returns a BYTE-IDENTICAL vector across repeated calls, and a batched call returns the identical vectors to one-at-a-time — which is what makes `text_sha256`-keyed idempotency (the store's skip-first pass, the runner's in-run memo) sound, and what makes batch size an OPERATIONAL setting (`settings.embed_batch_size`) rather than a rulebook decision: it cannot change the output, only the throughput.
+- **If it changes:** Moves `embeddings.stamp` (`embed_stamp`), which is what the store's skip-first comparison keys on — so swapping the model forces a full re-embed of the archive, MERGEd in place onto the same `(source_document_id | source_document_id:section)` node ids, no orphans. It must also return `embeddings.dimensions`-dim vectors (HR-125) or every write to the Neo4j vector index fails outright.
+
+#### HR-125 — How many dimensions does an embedding have, and does everything that needs to agree on that number actually agree?
+
+- **We ship:** `768`
+- **Configured in:** `embeddings.yaml` → `embeddings.dimensions`
+- **Where the default came from:** our invention
+- **Why it matters:** This number lives in THREE homes that cannot see each other: the model's own output, `core/db/migrations/002_jd_vectors.cypher`'s `vector.dimensions` on BOTH `jd_document_embeddings` and `jd_section_embeddings` (hardcoded — Cypher cannot read this YAML), and here. The loader validates YAML, not a live Neo4j instance or a live Ollama call, so nothing at LOAD time can catch the three drifting apart — only the opt-in, local-only live golden test (`tests/live`, never in `make gates` / CI — ADR-003: CI cannot reach `aria-gb10-2`) asserts `len(vector) == rules.embeddings.dimensions` against the real endpoint, and only an integration test's `SHOW VECTOR INDEXES` assertion catches the migration drifting from this value.
+- **If it changes:** A mismatch between this value and the model's REAL output dimensionality makes every Neo4j write to the vector index fail (or, worse, silently index a vector of the wrong length if Neo4j ever stopped enforcing it). A mismatch between this value and the CYPHER migration's `vector.dimensions` requires a NEW migration (Neo4j vector indexes are not alterable in place) — this YAML value alone changes nothing in the already-applied index.
+
+#### HR-126 — How much of a parsed JD's serialized text is actually sent to the embedding model before it is truncated?
+
+- **We ship:** `10000`
+- **Configured in:** `embeddings.yaml` → `embeddings.max_chars`
+- **Where the default came from:** our invention
+- **Why it matters:** ✅ MEASURED: the server 400s ("the input length exceeds the context length") rather than silently truncating, at 8,192 tokens — and real JD text runs ~1.5 chars/token (whitespace/form-heavy), so the practical ceiling is ~12,000 chars. ✅ MEASURED over all 14,522 parsed JDs' serialized length: median 2,559 · p99 5,993 · p99.9 8,870 · MAX 8,987 — ZERO exceed 10,000. So 10,000 truncates nothing that exists in the archive today, while sitting with real margin under the server's hard 400.
+- **If it changes:** Lowering it starts truncating real, currently-whole JDs (information loss, plus a forced re-embed via `embeddings.stamp`). Raising it toward the ~12,000-char practical ceiling risks a LIVE 400 the first time a JD grows past it. The runner catches a 400 and skips it (never crashes) — and it isolates it: the 400'd batch is re-issued ONE TEXT AT A TIME, so a single over-long JD costs only itself, not the up-to-63 innocent JDs batched with it. But the over-long JD itself is then a document that silently never gets embedded, so this is not a free lunch.
+
+#### HR-127 — How short can one section's text be before it is not worth giving its own embedding at all?
+
+- **We ship:** `40`
+- **Configured in:** `embeddings.yaml` → `embeddings.min_section_chars`
+- **Where the default came from:** our invention
+- **Why it matters:** A near-empty section (one word, or a stray period the segmenter left behind) produces a vector cosine similarity treats unreliably, and an unhelpfully "close" neighbour is worse than an honest gap. ✅ MEASURED over all 14,522 parsed JDs: this threshold excludes exactly 1 position-summary and 6 duty-blocks — a guard-rail nobody trips much, not a filter that trims real content out of the corpus.
+- **If it changes:** Raising it starts excluding genuinely short-but-real sections from getting a `JDSection` node (a real, if terse, position summary loses its own embedding and falls back to being findable only via the whole-document vector). Lowering it to 0 disables the guard-rail outright and lets a near-empty section get a vector.
+
+#### HR-128 — Does the JD's TITLE become part of the whole-document embedding, or is the document vector title-agnostic like the rest of the similarity score?
+
+- **We ship:** `false`
+- **Configured in:** `embeddings.yaml` → `embeddings.include_title_in_document`
+- **Where the default came from:** our invention
+- **Why it matters:** `jd_core.bank.similarity`'s module docstring promises the overall score is "title-agnostic BY CONSTRUCTION" — "Software Engineer", "Developer II" and "Applications Programmer" can score as the same role because titles are not a term of the score. If the title were folded into the document text, that guarantee would be broken through the back door: `weight_vector` would now be scoring title similarity too, silently. `false` keeps the promise true at the vector layer, not just at the maths layer.
+- **If it changes:** Flipping to `true` smuggles the title back into "title-agnostic" similarity and moves EVERY document embedding (a full re-embed via `embeddings.stamp`) plus every downstream similarity ranking and Tier-3 dedup edge that reads it. Pinned by mutation in `test_embed_text.py`: flip it via `model_copy` and the title appears in the serialized text; the shipped default omits it.
+
+#### HR-129 — Which parts of a parsed JD make up the WHOLE-DOCUMENT text an embedding model sees?
+
+- **We ship:** `position_summary`, `duties`, `decision_making`, `problem_solving`, `relationships`, `qualifications`, `additional_context`
+- **Configured in:** `embeddings.yaml` → `embeddings.document_sections`
+- **Where the default came from:** our invention
+- **Why it matters:** This IS what "this JD's content" means for retrieval, dedup Tier-3 and search — the vector is only as good as what it was computed over. `identification` is deliberately excluded (structured columns — department, grade, position number — not prose a similarity search should match on), and the three boilerplate blocks (`about_sfu` / territorial-ack / EDI footer) are excluded because they are presence BOOLEANS on the parsed model with no text at all: serializing the PARSED JD (never raw extracted text) keeps SFU's mandated, byte-identical boilerplate out of every JD's vector for free, with no exemption list to maintain (unlike HR-058's coded-term scan, which has to redact it explicitly because it scans raw text).
+- **If it changes:** Adding or removing a section moves `embeddings.stamp` and forces a full re-embed. A section name outside `jd_core.rules.loader._CONTENT_SECTIONS` fails to load — the rulebook refuses a section `embed_text.py` has no producer for, the same "a gate that can never fire" failure applied to a section that could never serialize anything.
+
+#### HR-130 — Which sections get their OWN separate embedding (a `JDSection` node), in addition to the whole-document vector?
+
+- **We ship:** `position_summary`, `duties`, `qualifications`
+- **Configured in:** `embeddings.yaml` → `embeddings.section_vectors`
+- **Where the default came from:** our invention
+- **Why it matters:** These are the three sections with a NAMED downstream consumer TODAY: `comparison.yaml`'s own docstring calls the similarity term "the summary embedding" (`position_summary`); `duties` is the clearest single role signal a parsed JD carries; `qualifications` is the proposed skill source for Tier-3 dedup / `skill_overlap` once a skill ontology exists (2.4c's similarity module, currently unwired). `decision_making` / `problem_solving` / `relationships` / `additional_context` are in the DOCUMENT vector (HR-129) but have no named per-section consumer yet, so they get no separate node.
+- **If it changes:** Adding a section here creates a new class of `JDSection` node (storage cost, more retrieval surface, one more embed call per affected JD) and moves `embeddings. stamp`. REMOVING one DELETES every `JDSection` node of that kind on the next run — the pass reconciles, it does not only MERGE. That is deliberate and it is load-bearing: a MERGE-only pass would leave the orphaned vectors LIVE IN THE QUERYABLE INDEX, so `db.index.vector.queryNodes` would go on returning a section this rulebook no longer says exists, and Tier-3 dedup / search (3.3, 3.4) would retrieve it. Pinned by `test_dropping_a_section_vector_prunes_its_nodes`. Every member MUST also be a member of `document_sections` (HR-129, loader-enforced) — a section vector for content the document text does not include would embed something the document vector cannot be compared against.
 
 ### Inherited hris calibration — not an SFU-published number
 

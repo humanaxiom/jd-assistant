@@ -18,7 +18,16 @@ class Settings(BaseSettings):
     # will. Nothing on the `make gates` path may call a live endpoint. See ADR-003.
     ollama_base_url: str = "http://aria-gb10-2:11434/v1"
     agent_model: str = "qwen2.5-coder:14b"
+    # The HARNESS agent-memory embedding model (`memory.graph.GraphMemory`'s
+    # `artifact_embeddings` index — lineage-graph retrieval). NOT what JD Bank
+    # embeds a parsed JD with — that is `get_rules().embeddings.model` (HR-124),
+    # a rulebook decision. The two coincide today (both `nomic-embed-text`) but
+    # must be free to diverge: `src.jd_bank.embeddings` must never read this field.
     embed_model: str = "nomic-embed-text"
+    # Phase 3.2b: OPERATIONAL, not a rulebook decision — MEASURED that a batched
+    # embedding call returns identical vectors to one-at-a-time (ADR-003 / HR-124),
+    # so this only trades throughput for memory and never changes what gets stored.
+    embed_batch_size: int = 64
 
     # Postgres (transactions)
     database_url: str = "postgresql+asyncpg://app:app@postgres:5432/harness"
