@@ -1,0 +1,88 @@
+{
+  "era": "old",
+  "jd": {
+    "about_sfu_present": false,
+    "additional_context": null,
+    "decision_making": [
+      "The completeness and compliance of submitted grant applications.",
+      "The prioritization of competing application deadlines."
+    ],
+    "department": "Office of Research Services",
+    "duties": [
+      {
+        "action_verb": "Processes",
+        "frequency": null,
+        "how_why": [],
+        "statement": "Processes research grant applications by confirming revisions, checking budgets, and drawing attention to compliance issues."
+      },
+      {
+        "action_verb": "Coordinates",
+        "frequency": null,
+        "how_why": [],
+        "statement": "Coordinates communication between principal investigators and external funding agencies."
+      },
+      {
+        "action_verb": "Maintains",
+        "frequency": null,
+        "how_why": [],
+        "statement": "Maintains accurate records of grant activity and prepares periodic reports."
+      }
+    ],
+    "employee_group": null,
+    "employment_equity_present": false,
+    "grade": null,
+    "position_number": "00456789",
+    "position_summary": "The Research Grants Coordinator processes research grant applications to ensure that agency policies and guidelines have been met, and coordinates the flow of information between researchers and funding agencies.",
+    "problem_solving": [
+      "Discrepancies between application budgets and agency guidelines.",
+      "Conflicting submission deadlines during peak funding periods."
+    ],
+    "qualifications": [
+      {
+        "kind": "education",
+        "modifier": null,
+        "text": "Bachelor's degree in a relevant discipline and three years of related administrative experience, or an equivalent combination of education, training and experience."
+      },
+      {
+        "kind": "knowledge",
+        "modifier": "working",
+        "text": "Working knowledge of research grant administration and Tri-Agency guidelines."
+      },
+      {
+        "kind": "skill",
+        "modifier": "intermediate",
+        "text": "Intermediate skills in spreadsheet and database applications."
+      },
+      {
+        "kind": "ability",
+        "modifier": null,
+        "text": "Ability to interpret and apply complex policies and guidelines."
+      }
+    ],
+    "relationships": {
+      "external": [
+        "Corresponds with federal and provincial granting agencies."
+      ],
+      "internal": [
+        "Liaises with faculty researchers and departmental finance staff."
+      ],
+      "supervisory": "Supervision Received: Works under the general direction of the Manager, Research Services."
+    },
+    "territorial_acknowledgement_present": false,
+    "title": "Research Grants Coordinator"
+  },
+  "parse_confidence": 0.635,
+  "section_confidence": {
+    "about_sfu": 0.0,
+    "additional_context": 0.0,
+    "decision_making": 0.9,
+    "duties": 0.9,
+    "footer": 0.0,
+    "identification": 0.95,
+    "position_summary": 0.9,
+    "problem_solving": 0.9,
+    "qualifications": 0.9,
+    "relationships": 0.9
+  },
+  "template": "jdfn"
+}

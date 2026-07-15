@@ -36,13 +36,26 @@ QualificationKind = Literal[
 
 class SFUDuty(BaseModel):
     """One Duties & Responsibilities entry in the template's
-    "ACTION VERB … WHAT *by* / how and why" shape."""
+    "ACTION VERB … WHAT *by* / how and why" shape.
+
+    ``frequency`` is populated only by the CUPE/WJQ template (Phase 3.4): the WJQ
+    "MAJOR FUNCTIONS" section tags each duty with how often it is performed —
+    ``(D)`` Daily / ``(W)`` Weekly / ``(M)`` Monthly / ``(S)`` Semester, either as a
+    per-duty marker or as a group heading. It is **additive and optional**: the
+    APSA/APEX/POLY (JDFN) template has no such tag, so every JDFN duty leaves it
+    ``None``, and an existing v1 ``parsed`` JSONB (written before this field existed)
+    deserializes unchanged (missing key -> default ``None``). The marker itself is
+    stripped from :attr:`statement`; this field carries the meaning. Registered
+    (HR-142)."""
 
     model_config = ConfigDict(extra="ignore")
 
     action_verb: str = Field(default="", max_length=60)
     statement: str = Field(min_length=1, max_length=400)
     how_why: list[str] = Field(default_factory=list, max_length=12)
+    #: WJQ frequency of performance (``daily`` / ``weekly`` / ``monthly`` /
+    #: ``semester``), or ``None`` for a JDFN duty. Additive; see the class docstring.
+    frequency: str | None = Field(default=None, max_length=20)
 
     _how_why_null = field_validator("how_why", mode="before")(_null_to_empty)
 

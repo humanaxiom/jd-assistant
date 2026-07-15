@@ -247,7 +247,62 @@ def population(
 _DIMENSIONS: tuple[tuple[SegmentDimension, Callable[[BaselineRow], str]], ...] = (
     ("format", lambda row: row.format),
     ("era", lambda row: row.era),
+    # Phase 3.4: the CUPE/WJQ population as its own facet (`wjq` vs `jdfn`; a skipped
+    # row that never parsed is `unknown`). So a WJQ JD's JDFN-bar score is visible as a
+    # WJQ number, never quoted inside the current-practice cohort — see
+    # `current_practice_cohort` and HR-143.
+    ("template", lambda row: row.template or "unknown"),
 )
+
+#: The eras the JDFN approval bar is judged against — the two current-template bands.
+_CURRENT_PRACTICE_ERAS: frozenset[str] = frozenset({"new", "current"})
+
+#: The gate whose firing means SFU's mandated territorial acknowledgement is ABSENT —
+#: a rollout still in progress, not a quality failure (HANDOFF "one gate is a DATE
+#: DETECTOR"). The current-practice cohort is the JDs on which it did NOT fire.
+_TERRITORIAL_RULE_ID: str = "SFU-COMP-TERRITORIAL"
+
+#: The template the JDFN approval bar is FOR. A WJQ (CUPE) JD scored on this bar is a
+#: category error — the WJQ template has no About-SFU/territorial footer, so it
+#: fails the footer gate for a reason that has nothing to do with its quality.
+_WJQ_TEMPLATE: str = "wjq"
+
+
+def current_practice_cohort(
+    rows: Sequence[BaselineRow], *, config: Segmentation | None = None
+) -> list[BaselineRow]:
+    """The JDs the JDFN approval bar is actually ratified against (HANDOFF's 874).
+
+    THREE clauses, all necessary, none of them a score threshold:
+
+    * ``era ∈ {new, current}`` — authored under the current JDFN template, not judged
+      for lacking sections that did not exist when they were written;
+    * ``SFU-COMP-TERRITORIAL`` did NOT fire — SFU's mandated acknowledgement is actually
+      present, so the JD is not being penalised for a rollout still in progress;
+    * ``template != "wjq"`` (**Phase 3.4**), applied only when
+      ``segmentation.wjq_excluded_from_current_practice`` is set (HR-143, default
+      ``true``) — a WJQ/CUPE JD is on a DIFFERENT template with no About-SFU/territorial
+      footer by design; scoring it on the JDFN bar is a category error, and whether CUPE
+      gets a bar of its own is a deferred HR decision, not one to make by silently
+      letting WJQ contaminate this cohort.
+
+    Before the WJQ router (v1 parser), WJQ files read as ~empty and graded F, so they
+    sat in the archive-wide "~5% approval" figure and never reached this cohort. The v2
+    router parses them into real content — 1,011 ``new`` + 182 ``current`` WJQ files
+    (MEASURED) — which is exactly why the ``template`` clause must land WITH the parser:
+    without it, a third of a WJQ JD's real content would now flow into the number HR
+    ratifies the JDFN bar against. Scored-only: an unscored row has no approval outcome.
+    """
+    cfg = config if config is not None else get_baseline_config()
+    exclude_wjq = cfg.wjq_excluded_from_current_practice
+    return [
+        row
+        for row in rows
+        if row.status == "scored"
+        and row.era in _CURRENT_PRACTICE_ERAS
+        and _TERRITORIAL_RULE_ID not in row.rule_ids
+        and not (exclude_wjq and row.template == _WJQ_TEMPLATE)
+    ]
 
 
 def _stamp(rows: Sequence[BaselineRow], field: str, fallback: str) -> str:

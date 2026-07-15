@@ -40,8 +40,10 @@ SkipStage = Literal["read", "extract"]
 
 RowStatus = Literal["scored", "skipped"]
 
-#: What a segment slices the population by. ``all`` is the un-sliced whole.
-SegmentDimension = Literal["all", "format", "era"]
+#: What a segment slices the population by. ``all`` is the un-sliced whole. ``template``
+#: (Phase 3.4) reports the CUPE/WJQ population as its own facet, so nobody quotes a WJQ
+#: JD's JDFN-bar score as if it belonged to the current-practice cohort.
+SegmentDimension = Literal["all", "format", "era", "template"]
 
 
 class BaselineFinding(BaseModel):
@@ -102,6 +104,12 @@ class BaselineRow(BaseModel):
     #: :attr:`era`, which is filename-derived. Both are carried so the baseline can say
     #: how often they disagree instead of assuming they do not.
     body_era: str | None = None
+    #: Which document TEMPLATE the parser routed to (``jdfn`` / ``wjq``; ``None`` on a
+    #: skipped row). Phase 3.4. This is what keeps WJQ (CUPE) JDs OUT of the JDFN
+    #: approval-bar cohort (``baseline.aggregate.current_practice_cohort``) — a WJQ JD
+    #: scored on the JDFN bar is a category error, and whether CUPE gets its own bar
+    #: is a deferred HR decision (HR-143), not one to make by omission.
+    template: str | None = None
     parse_confidence: float | None = None
     char_count: int | None = None
 

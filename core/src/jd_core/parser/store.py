@@ -9,11 +9,22 @@ pure/deterministic and unit-tested without a database): the segmenter produces a
 document.
 
 **Idempotent on ``(source_document_id, parser_version)``** (Phase 3.2a, LANDMINE 1,
-migration ``0003``). The parse is a pure function of ``(source bytes, parser_version)``,
-so re-parsing the same document at the same parser version must return the existing
-row, not insert a second one — otherwise a re-run of the archive ingest driver
+migration ``0003``). The parse is pure over ``(extracted text, parser_version)``
+— NOT of the source bytes: the same bytes yield different text when the extractor
+changes (the ``.docx`` table/content-control fix rewrote what python-docx returns; the
+extension-sniff backlog item would reroute a mis-named file to a different backend). So
+re-parsing the same document at the same parser version returns the existing row, not a
+second one — otherwise a re-run of the archive ingest driver
 (:mod:`src.jd_bank.ingest.driver`) would double (then triple, ...) every row in
 ``parsed_jds``, and Phase 3.2b keys vectors off these rows.
+
+**The idempotency key is BLIND to the extractor** (backlog). An extractor-only change
+(same ``parser_version``, different extracted text) does NOT bump ``parser_version``, so
+it does NOT force a re-parse through this key — a caller that wants the new text
+reflected must re-parse deliberately (as the orchestrator's re-parse does). A parser
+change — like the Phase-3.4 WJQ router — DOES move ``parser_version``, and that is what
+forces the archive re-parse. Folding the extractor identity into the key is a schema
+change, deliberately not done here.
 
 Mirrors :func:`~src.jd_bank.ingest.ingest.ingest_document`'s proven idiom exactly:
 select-by-key first; if found, return it; else INSERT inside a SAVEPOINT

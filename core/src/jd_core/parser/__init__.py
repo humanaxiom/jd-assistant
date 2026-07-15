@@ -9,7 +9,12 @@ and NEW SFU JD templates, with per-section confidence. See
 from __future__ import annotations
 
 from src.jd_core.parser.headings import Era, SectionKey
-from src.jd_core.parser.segmenter import PARSER_VERSION, ParseResult, parse_jd
+from src.jd_core.parser.segmenter import (
+    PARSER_VERSION,
+    ParseResult,
+    Template,
+    parse_jd,
+)
 from src.jd_core.parser.store import parse_and_store
 
 __all__ = [
@@ -17,6 +22,7 @@ __all__ = [
     "Era",
     "ParseResult",
     "SectionKey",
+    "Template",
     "parse_and_store",
     "parse_jd",
 ]

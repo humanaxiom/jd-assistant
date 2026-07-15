@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import Literal
 
 from src.jd_core.models.parsed_jd import (
     SFUDuty,
@@ -47,7 +48,16 @@ from src.jd_core.models.parsed_jd import (
 from src.jd_core.parser import headings as hd
 from src.jd_core.parser.headings import Era, SectionKey
 
-PARSER_VERSION = "jd_segmenter_v1"
+#: Bumped v1 -> v2 for the WJQ template router (Phase 3.4): ``parse_jd`` now classifies
+#: a document ``wjq`` or ``jdfn`` and dispatches WJQ to :mod:`src.jd_core.parser.wjq`.
+#: This is a genuine parser change — a WJQ file that read as ~empty under v1 now parses
+#: to real content — so the version moves to force the archive re-parse the orchestrator
+#: runs (``parsed_jds`` is keyed on ``(source_document_id, parser_version)``).
+PARSER_VERSION = "jd_segmenter_v2"
+
+#: Which SFU document template ``parse_jd`` read: the APSA/APEX/POLY "JDFN" form (the
+#: original segmenter), the CUPE/WJQ questionnaire, or neither recognisably.
+Template = Literal["jdfn", "wjq", "unknown"]
 
 # Field length ceilings mirrored from the pydantic contract, applied defensively
 # so best-effort structuring never trips a validation error.
@@ -86,6 +96,9 @@ class ParseResult:
     era: Era
     section_confidence: dict[str, float]
     parse_confidence: float
+    #: Which template the router dispatched to (Phase 3.4). ``jdfn`` for the original
+    #: APSA/APEX/POLY + legacy path (unchanged); ``wjq`` for a CUPE questionnaire.
+    template: Template = "jdfn"
     parser_version: str = PARSER_VERSION
     headings_found: frozenset[SectionKey] = field(default_factory=frozenset)
 
@@ -336,8 +349,24 @@ def _segment(lines: list[str]) -> tuple[dict[SectionKey, str], set[int]]:
 
 def parse_jd(text: str) -> ParseResult:
     """Segment ``text`` into a populated :class:`SFUJobDescription` with
-    per-section confidence. Deterministic and total: never raises."""
+    per-section confidence. Deterministic and total: never raises.
+
+    **Router (Phase 3.4).** Classifies the document from its body text: a CUPE/WJQ
+    questionnaire (marker present) is dispatched to :mod:`src.jd_core.parser.wjq`;
+    everything else takes the original JDFN/legacy path below, **byte-identical** to v1.
+    The WJQ marker vocabulary is data (``wjq.yaml``), read via :func:`get_rules`."""
     text = text or ""
+
+    # Import lazily so `segmenter` (which `wjq` imports for its helpers + `ParseResult`)
+    # stays import-cycle-free; `get_rules` is imported here too because the router is
+    # the only part of the JDFN path that consults the rulebook.
+    from src.jd_core.parser.wjq import is_wjq, segment_wjq  # noqa: PLC0415
+    from src.jd_core.rules import get_rules  # noqa: PLC0415
+
+    wjq_rules = get_rules().wjq
+    if is_wjq(text, wjq_rules):
+        return segment_wjq(text, wjq_rules)
+
     collapsed = _collapse_spaces(text)
     lines = text.splitlines()
 
