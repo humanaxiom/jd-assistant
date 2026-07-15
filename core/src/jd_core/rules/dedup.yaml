@@ -85,13 +85,23 @@ min_shingles: 20
 num_perm: 128
 
 # bands * rows MUST equal num_perm (loader-enforced — the rulebook fails to load
-# otherwise). MEASURED at bands=32/rows=4: S-curve midpoint (1/bands)^(1/rows) = 0.420,
-# 70,752 LSH candidate pairs, no measurable recall loss at any operating threshold
-# tried. Recorded alternative: bands=16/rows=8 -> midpoint 0.707, 21,345 candidates —
-# IDENTICAL edge count at Jaccard >= 0.9 and only -0.4% at Jaccard >= 0.8, i.e. a
-# strictly tighter candidate set buys almost nothing at this corpus's operating point.
-bands: 32
-rows: 4
+# otherwise). S-curve midpoint (1/bands)^(1/rows) = 0.707. MEASURED on the full corpus
+# (jaccard_min=0.85): 23,705 LSH candidate pairs -> 15,080 near-dup edges.
+#
+# CHANGED from bands=32/rows=4 (midpoint 0.420) after the docx table/content-control
+# extraction fix (PR #30) and the WJQ parser (PR #32) recovered ~20.7M chars for a third
+# of the archive. That text is dominated by SFU's shared WJQ template scaffolding (14
+# section headings, checkbox boilerplate, instruction lines), which is near-identical
+# across all ~4,300 WJQ files -> at the loose 0.420 midpoint they collided into mega-
+# buckets and blew past `max_candidate_pairs` (measured 98,193+ candidates, the valve
+# fired and refused to truncate). The 0.707 midpoint filters that low-Jaccard boilerplate
+# noise WITHOUT losing edges: 15,080 vs 15,082 edges (a 2-edge / 0.01% difference), 4x
+# fewer candidates, and back under the valve. The boilerplate never became an edge at
+# jaccard_min=0.85 anyway — it was pure candidate-generation waste. (Redacting WJQ
+# template boilerplate the way `redact_boilerplate` handles JDFN's About-SFU/territorial
+# text is a Phase-3.5 clustering-quality follow-up, not needed here.)
+bands: 16
+rows: 8
 
 # The score threshold an LSH candidate must clear (on EXACT Jaccard, never the MinHash
 # estimate) to become a `DedupEdge`. MEASURED edge counts over the whole corpus at

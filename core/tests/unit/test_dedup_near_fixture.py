@@ -17,15 +17,24 @@ The four fixtures, and what they are for:
   reformatted (upper-cased, commas -> semicolons) — punctuation and case fold away
   entirely, so these MUST shingle identically (J=1.0) and MUST become an edge. The
   ``.doc``-vs-``.docx`` "archetypal Tier-2 positive" shape, at fixture scale.
-* ``role_summary_v2.txt`` — the same JD with two words genuinely changed
-  ("prepares"->"drafts", "multiple"->"several"). MEASURED: this is a real LSH
-  candidate (J well above the S-curve midpoint) but its exact Jaccard (0.6098) sits
-  BELOW the shipped `jaccard_min` of 0.85 — so it does NOT become an edge at the
-  shipped threshold, though it IS reported (`PairRecord.qualifies=False`), never
-  silently dropped. This is not a fixture bug: it is the honest, measured shape of
-  "a casual revision is not close enough to trip a 0.85 bar", and it is exactly the
+* ``role_summary_v2.txt`` — the same JD with one word genuinely changed
+  ("prepares"->"drafts"). MEASURED: this is a real LSH candidate at the shipped
+  bands=16/rows=8 banding (J=0.7368 clears the 0.707 S-curve midpoint) but its exact
+  Jaccard sits BELOW the shipped `jaccard_min` of 0.85 — so it does NOT become an
+  edge at the shipped threshold, though it IS reported (`PairRecord.qualifies=False`),
+  never silently dropped. This is not a fixture bug: it is the honest, measured shape
+  of "a casual revision is not close enough to trip a 0.85 bar", and it is exactly the
   kind of case ``docs/dedup/near-dup-adjudication-sample.csv`` exists to surface for
   a human, not for this gate to silently decide either way.
+  NOTE (retune, HR-136/HR-137, bands 32/4 -> 16/8): the fixture originally changed
+  TWO words ("prepares"->"drafts", "multiple"->"several"), J=0.6098. At the old
+  bands=32/rows=4 banding (midpoint 0.420) that was comfortably a candidate; at the
+  new bands=16/rows=8 banding (midpoint 0.707) it drops BELOW the midpoint and stops
+  being an LSH candidate at all — losing this fixture's demonstration that a
+  candidate can fail to qualify without being silently dropped. The fixture was
+  narrowed to a single-word change (J=0.7368) specifically so it clears the new
+  0.707 midpoint and still falls short of 0.85, keeping that property exercised at
+  fixture scale rather than only in prose.
 * ``unrelated.txt`` — shares no vocabulary with the other three. MEASURED: zero
   overlap, never a candidate.
 
@@ -152,9 +161,9 @@ async def test_exact_jaccard_is_pinned_to_four_decimal_places_for_every_pair(
     }
     assert pairwise == {
         ("sha-role_summary_v1.txt", "sha-role_summary_v1_reformatted.txt"): 1.0,
-        ("sha-role_summary_v1.txt", "sha-role_summary_v2.txt"): 0.6098,
+        ("sha-role_summary_v1.txt", "sha-role_summary_v2.txt"): 0.7368,
         ("sha-role_summary_v1.txt", "sha-unrelated.txt"): 0.0,
-        ("sha-role_summary_v1_reformatted.txt", "sha-role_summary_v2.txt"): 0.6098,
+        ("sha-role_summary_v1_reformatted.txt", "sha-role_summary_v2.txt"): 0.7368,
         ("sha-role_summary_v1_reformatted.txt", "sha-unrelated.txt"): 0.0,
         ("sha-role_summary_v2.txt", "sha-unrelated.txt"): 0.0,
     }
@@ -199,7 +208,7 @@ async def test_the_edge_set_is_pinned_on_the_shipped_jaccard_min(rules: Rules) -
     )
     assert order_key(v1) < order_key(v1_reformatted)
 
-    # EXACTLY one edge — the reformatted twin. v2's 0.6098 does not clear 0.85.
+    # EXACTLY one edge — the reformatted twin. v2's 0.7368 does not clear 0.85.
     assert len(plan.edges) == 1
     (((source_a, source_b), spec),) = list(plan.edges.items())
     assert (source_a, source_b) == (v1.id, v1_reformatted.id)
@@ -215,7 +224,7 @@ async def test_the_edge_set_is_pinned_on_the_shipped_jaccard_min(rules: Rules) -
     non_qualifying_scores = sorted(
         round(p.jaccard, 4) for p in plan.pairs if not p.qualifies
     )
-    assert non_qualifying_scores == [0.6098, 0.6098]
+    assert non_qualifying_scores == [0.7368, 0.7368]
 
 
 # --- moving ANY knob must turn this gate red --------------------------------------
