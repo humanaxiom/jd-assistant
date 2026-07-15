@@ -390,8 +390,25 @@ The register enforces the record: a `ratified` decision **must** carry `decided_
   a cluster report before it would silently cover 65% of the corpus.
 - **3.3** ✅ **MERGED** (PR #27) — Tier-2 near-dup: MinHash/LSH candidates over word-5-gram shingles
   → **exact Jaccard** confirm → `DedupEdge(tier=NEAR_DUPLICATE)`. New rule file `dedup.yaml`,
-  register entries **HR-131..HR-140** (register now **140** entries), amended HR-093. **Gates: 1368
-  passing, 94.90% coverage.**
+  register entries **HR-131..HR-140**. **Gates: 1368 passing, 94.90% coverage.**
+
+- **Extraction defects FIXED this session** — two silent data losses are resolved:
+  - ✅ **`_extract_docx` table + content-control fix** (PR #30, #31): reads only `document.paragraphs`,
+    losing all TABLES and Word content controls. Fixed with document-order body walk. **Recovery: 2,596
+    files lose >40% → 1; 24 lose everything → 0; ~20.7M characters recovered.** Baseline regenerated
+    (#31): **HR cohort byte-identical**; docx fix alone rescued **3,278 files from broken parse**.
+  - ✅ **WJQ (CUPE 3338) template parser** (PR #32, #33): segmenter knew only JDFN/APSA template; WJQ
+    is ~4,300 files (29.5% of archive). New marker-routed parser (`parser/wjq.py`) reads WJQ's 14-section
+    template. Decisions: (1) duty frequency markers → `SFUDuty.frequency`; (2) **WJQ parse-only, excluded
+    from approval-bar cohort** (HR-143) — bar is JDFN/APSA only. `PARSER_VERSION v1 → v2`;
+    `ParseResult.template ∈ {jdfn,wjq,unknown}`. Register **HR-141..HR-148** (register now **148** entries).
+    Baseline regenerated at v2 (#33): **HR cohort BYTE-IDENTICAL**. Template facet: jdfn 10,222 / wjq 4,300 / 43 skipped.
+  - **The win:** archive-wide broken parses (parse_confidence < 0.10): **4,984 → 1,706 → 105 (99.3%
+    parseable)**. Of 4,300 WJQ, only 43 broken. **Archive now 99.4% covered end-to-end** (parse → embed
+    → dedup). Pipeline refreshed: documents with vectors 9,517 → 14,395; section vectors 22,922 → 36,174;
+    edges 14,312 → 15,072 (candidate waste removed, no edge loss).
+  - **Phase 3.5 clustering is now UNBLOCKED.** Both defects were outside the 874-JD current-practice cohort;
+    HR numbers remain unaffected.
   - **Real-archive run:** 14,565 files → 12,593 distinct contents → **112,537 LSH candidates →
     14,312 near-duplicate edges** at `jaccard_min: 0.85`. Edge Jaccard: p10 0.88 · **median 0.966** ·
     p90 1.0. **Position split: same-position 3,980 · cross-position 8,251 · unknown 2,081 — 67.5% of
@@ -433,12 +450,12 @@ The register enforces the record: a `ratified` decision **must** carry `decided_
   tested, *uncalled*: `skill_overlap` needs a skill ontology + idf corpus, `seniority_closeness`
   needs an education enum + years bar, and a `ParsedJD` has neither. The `ParsedJD → signals`
   adapter is a **new decision** — it wants an ADR and register entries.
-- **3.5** Clustering (#7 + constraints NEW) — **BLOCKED by two issues, not one:** the **WJQ parser**
-  gap (29% of the archive, ~65% coverage until fixed) AND the **new** `_extract_docx` table/
-  content-control defect (2,596 files lose >40% of text). Neither blocks 3.4; both must be fixed
-  before a cluster report is trustworthy — 3.2b/3.3's content-keyed idempotency means a re-run
-  recovers automatically once the extractor improves. Plus cluster report artifacts for HR eyeball
-  pass.
+- **3.5** ✅ **NOW UNBLOCKED** — Clustering (#7 + constraints NEW). Both extraction defects (WJQ
+  parser + `_extract_docx` tables) are MERGED and DONE. Archive is 99.3% parseable; pipeline is
+  refreshed. **Quality follow-up: WJQ boilerplate redaction** (14-section scaffolding is near-identical
+  across ~4,300 files) — handled today by 0.85 jaccard_min + 16/8 banding, but redacting the
+  scaffolding like JDFN boilerplate is a **Phase-3.5 clustering-quality improvement**, not a blocker.
+  Cluster report artifacts for HR eyeball pass.
 
 **Exit:** duplicate + cluster reports over the full archive (or a partial-coverage figure if the WJQ
 parser / docx-table fix are not yet landed, in which case the report must say so); metrics meet the
