@@ -3,10 +3,10 @@
   "file_count": 14565,
   "scored": 14522,
   "skipped": 43,
-  "rules_version": "jd_rules_sfu_v4+8c004c4dadd1",
-  "parser_version": "jd_segmenter_v1",
-  "config_stamp": "jd_rules_sfu_v4+d4c4e253c13a",
-  "generated_at": "2026-07-15T12:54:12.624331Z",
+  "rules_version": "jd_rules_sfu_v4+c8ec90d74eb5",
+  "parser_version": "jd_segmenter_v2",
+  "config_stamp": "jd_rules_sfu_v4+bd05cbb48065",
+  "generated_at": "2026-07-15T20:34:12.544739Z",
   "segments": [
     {
       "population": "all",
@@ -17,9 +17,9 @@
       "n_skipped": 43,
       "score": {
         "n": 14522,
-        "minimum": 12.47489345000001,
-        "median": 42.805905,
-        "mean": 49.89367698080568,
+        "minimum": 12.76313350000001,
+        "median": 58.474125415,
+        "mean": 55.971584112375815,
         "maximum": 100.0,
         "histogram": [
           {
@@ -30,32 +30,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 1619
+            "count": 77
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 658
+            "count": 759
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 1613
+            "count": 1655
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 5346
+            "count": 3564
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 262
+            "count": 2517
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 2151
+            "count": 3077
           },
           {
             "lower": 70.0,
@@ -77,62 +77,64 @@
       "grades": {
         "A": 100,
         "B": 1913,
-        "C": 3011,
-        "D": 5608,
-        "F": 3890
+        "C": 3937,
+        "D": 6081,
+        "F": 2491
       },
-      "mean_issue_count": 10.15273378322545,
+      "mean_issue_count": 10.200454482853601,
       "approved": 687,
       "approval_rate": 0.047307533397603636,
       "rule_frequency": {
         "SFU-COMP-TERRITORIAL": 13648,
         "SFU-GATE-REL-HEADER": 12909,
-        "SFU-COMP-PROBLEM": 12062,
+        "SFU-COMP-PROBLEM": 12063,
         "SFU-COMP-ABOUT": 11965,
         "SFU-COMP-EDI": 11794,
+        "SFU-STRUCT-ACTION-VERB": 11181,
         "SFU-LANG-CODED": 11160,
         "SFU-QUAL-DEGREE-DISCIPLINE": 8216,
-        "SFU-STRUCT-ACTION-VERB": 7656,
-        "SFU-COMP-QUALS": 7003,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 7148,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 5971,
+        "SFU-COMP-QUALS": 5962,
         "SFU-STRUCT-PLACEHOLDER": 4842,
-        "SFU-COMP-DECISION": 4639,
-        "SFU-COMP-DUTIES": 4638,
-        "SFU-COMP-RELATIONSHIPS": 4591,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 4446,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 4253,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 4153,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 3612,
-        "SFU-COMP-SUMMARY": 2239,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 1937,
-        "SFU-QUAL-EQUIVALENT": 858,
-        "SFU-QUAL-SKILL-MODIFIER": 705,
-        "SFU-AUTH-TITLE-HR": 516,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 448,
-        "SFU-GATE-KSA-ORDER": 221,
+        "SFU-COMP-DECISION": 4643,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 4180,
+        "SFU-QUAL-SKILL-MODIFIER": 3791,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 3351,
+        "SFU-COMP-RELATIONSHIPS": 1588,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 1428,
+        "SFU-COMP-DUTIES": 1054,
+        "SFU-QUAL-EQUIVALENT": 856,
+        "SFU-AUTH-TITLE-HR": 513,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 434,
+        "SFU-COMP-SUMMARY": 375,
         "SFU-GATE-DUTY-PCT": 114,
-        "SFU-AUTH-TITLE-REGISTRAR": 45,
-        "SFU-GATE-SENIOR-TITLE": 12,
-        "SFU-AUTH-TITLE-EXEC-DIR": 11,
-        "SFU-QUAL-BANNED-PHRASE": 10
+        "SFU-GATE-SENIOR-TITLE": 81,
+        "SFU-GATE-KSA-ORDER": 67,
+        "SFU-AUTH-TITLE-REGISTRAR": 35,
+        "SFU-AUTH-TITLE-EXEC-DIR": 14,
+        "SFU-QUAL-BANNED-PHRASE": 11,
+        "SFU-AUTH-SUMMARY-INCUMBENT": 2
       },
-      "total_findings": 147438,
+      "total_findings": 148131,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 13658,
-        "SFU-APPROVE-GRADE-FLOOR": 9498,
-        "SFU-APPROVE-SCORE-FLOOR": 9498,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 9413,
-        "SFU-APPROVE-SEVERITY-FLOOR": 9413,
+        "SFU-APPROVE-GRADE-FLOOR": 8572,
+        "SFU-APPROVE-SCORE-FLOOR": 8572,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 6232,
+        "SFU-APPROVE-SEVERITY-FLOOR": 6232,
         "SFU-APPROVE-NO-PLACEHOLDERS": 4842,
-        "SFU-APPROVE-SUMMARY-LENGTH": 4446,
-        "SFU-APPROVE-QUAL-EQUIVALENT": 858,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 448,
-        "SFU-APPROVE-KSA-ORDER": 221,
+        "SFU-APPROVE-SUMMARY-LENGTH": 3351,
+        "SFU-APPROVE-QUAL-EQUIVALENT": 856,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 434,
         "SFU-APPROVE-DUTY-ALLOCATION": 114,
-        "SFU-APPROVE-SENIOR-TITLE": 12,
-        "SFU-APPROVE-QUAL-MINIMUM": 10
+        "SFU-APPROVE-SENIOR-TITLE": 81,
+        "SFU-APPROVE-KSA-ORDER": 67,
+        "SFU-APPROVE-QUAL-MINIMUM": 11,
+        "SFU-APPROVE-SUMMARY-INCUMBENT": 2
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 9413,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 6232,
         "SFU-APPROVE-NO-PLACEHOLDERS": 4842
       }
     },
@@ -145,9 +147,9 @@
       "n_skipped": 14,
       "score": {
         "n": 4563,
-        "minimum": 12.47489345000001,
-        "median": 34.882433500000005,
-        "mean": 31.584138440440473,
+        "minimum": 12.76313350000001,
+        "median": 42.3941335,
+        "mean": 43.15215264918361,
         "maximum": 91.5,
         "histogram": [
           {
@@ -158,32 +160,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 1595
+            "count": 67
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 569
+            "count": 672
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 700
+            "count": 1050
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 1640
+            "count": 1658
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 30
+            "count": 827
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 20
+            "count": 280
           },
           {
             "lower": 70.0,
@@ -205,11 +207,11 @@
       "grades": {
         "A": 1,
         "B": 8,
-        "C": 20,
-        "D": 1670,
-        "F": 2864
+        "C": 280,
+        "D": 2485,
+        "F": 1789
       },
-      "mean_issue_count": 12.532544378698224,
+      "mean_issue_count": 12.759368836291912,
       "approved": 1,
       "approval_rate": 0.00021915406530791147,
       "rule_frequency": {
@@ -218,47 +220,49 @@
         "SFU-COMP-PROBLEM": 4552,
         "SFU-GATE-REL-HEADER": 4551,
         "SFU-COMP-ABOUT": 4521,
-        "SFU-COMP-QUALS": 4373,
         "SFU-LANG-CODED": 4127,
+        "SFU-STRUCT-ACTION-VERB": 3660,
+        "SFU-COMP-QUALS": 3330,
         "SFU-QUAL-DEGREE-DISCIPLINE": 3280,
         "SFU-STRUCT-PLACEHOLDER": 3002,
-        "SFU-COMP-DUTIES": 2291,
-        "SFU-COMP-DECISION": 2266,
-        "SFU-STRUCT-ACTION-VERB": 2216,
-        "SFU-COMP-RELATIONSHIPS": 2213,
-        "SFU-COMP-SUMMARY": 2094,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 1247,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1162,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 669,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 667,
-        "SFU-QUAL-EQUIVALENT": 397,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 2654,
+        "SFU-COMP-DECISION": 2267,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1913,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 1365,
+        "SFU-COMP-RELATIONSHIPS": 1339,
+        "SFU-QUAL-SKILL-MODIFIER": 1188,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 1016,
+        "SFU-COMP-DUTIES": 846,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 690,
+        "SFU-QUAL-EQUIVALENT": 395,
         "SFU-AUTH-TITLE-HR": 326,
-        "SFU-QUAL-SKILL-MODIFIER": 140,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 135,
-        "SFU-GATE-KSA-ORDER": 119,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 69,
+        "SFU-COMP-SUMMARY": 264,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 149,
         "SFU-GATE-DUTY-PCT": 39,
-        "SFU-AUTH-TITLE-REGISTRAR": 23,
+        "SFU-GATE-KSA-ORDER": 26,
+        "SFU-AUTH-TITLE-REGISTRAR": 13,
         "SFU-AUTH-TITLE-EXEC-DIR": 3,
-        "SFU-GATE-SENIOR-TITLE": 2
+        "SFU-AUTH-SUMMARY-INCUMBENT": 2,
+        "SFU-GATE-SENIOR-TITLE": 1
       },
-      "total_findings": 57186,
+      "total_findings": 58221,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 4562,
-        "SFU-APPROVE-GRADE-FLOOR": 4534,
-        "SFU-APPROVE-SCORE-FLOOR": 4534,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 4532,
-        "SFU-APPROVE-SEVERITY-FLOOR": 4532,
+        "SFU-APPROVE-GRADE-FLOOR": 4274,
+        "SFU-APPROVE-SCORE-FLOOR": 4274,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 3475,
+        "SFU-APPROVE-SEVERITY-FLOOR": 3475,
         "SFU-APPROVE-NO-PLACEHOLDERS": 3002,
-        "SFU-APPROVE-SUMMARY-LENGTH": 669,
-        "SFU-APPROVE-QUAL-EQUIVALENT": 397,
-        "SFU-APPROVE-KSA-ORDER": 119,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 69,
+        "SFU-APPROVE-SUMMARY-LENGTH": 1365,
+        "SFU-APPROVE-QUAL-EQUIVALENT": 395,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 149,
         "SFU-APPROVE-DUTY-ALLOCATION": 39,
-        "SFU-APPROVE-SENIOR-TITLE": 2
+        "SFU-APPROVE-KSA-ORDER": 26,
+        "SFU-APPROVE-SUMMARY-INCUMBENT": 2,
+        "SFU-APPROVE-SENIOR-TITLE": 1
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 4532,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 3475,
         "SFU-APPROVE-NO-PLACEHOLDERS": 3002
       }
     },
@@ -271,9 +275,9 @@
       "n_skipped": 23,
       "score": {
         "n": 9925,
-        "minimum": 13.17490500000001,
-        "median": 62.005,
-        "mean": 58.38742549542722,
+        "minimum": 15.575905000000006,
+        "median": 62.805905,
+        "mean": 61.95500043963897,
         "maximum": 100.0,
         "histogram": [
           {
@@ -284,32 +288,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 18
+            "count": 8
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 65
+            "count": 62
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 913
+            "count": 602
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 3705
+            "count": 1905
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 232
+            "count": 1690
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 2129
+            "count": 2795
           },
           {
             "lower": 70.0,
@@ -331,62 +335,62 @@
       "grades": {
         "A": 99,
         "B": 1904,
-        "C": 2989,
-        "D": 3937,
-        "F": 996
+        "C": 3655,
+        "D": 3595,
+        "F": 672
       },
-      "mean_issue_count": 9.054609571788413,
+      "mean_issue_count": 9.020050377833753,
       "approved": 686,
       "approval_rate": 0.0691183879093199,
       "rule_frequency": {
         "SFU-COMP-TERRITORIAL": 9061,
         "SFU-GATE-REL-HEADER": 8324,
-        "SFU-COMP-PROBLEM": 7479,
+        "SFU-STRUCT-ACTION-VERB": 7514,
+        "SFU-COMP-PROBLEM": 7480,
         "SFU-COMP-ABOUT": 7413,
         "SFU-COMP-EDI": 7205,
         "SFU-LANG-CODED": 7024,
-        "SFU-STRUCT-ACTION-VERB": 5436,
         "SFU-QUAL-DEGREE-DISCIPLINE": 4927,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 3777,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 3485,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 3088,
-        "SFU-COMP-QUALS": 2599,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 2362,
-        "SFU-COMP-RELATIONSHIPS": 2348,
-        "SFU-COMP-DECISION": 2343,
-        "SFU-COMP-DUTIES": 2317,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 4488,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 4055,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 3489,
+        "SFU-COMP-QUALS": 2601,
+        "SFU-QUAL-SKILL-MODIFIER": 2600,
+        "SFU-COMP-DECISION": 2346,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 1984,
         "SFU-STRUCT-PLACEHOLDER": 1833,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 1800,
-        "SFU-QUAL-SKILL-MODIFIER": 562,
         "SFU-QUAL-EQUIVALENT": 436,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 379,
-        "SFU-AUTH-TITLE-HR": 190,
-        "SFU-COMP-SUMMARY": 115,
-        "SFU-GATE-KSA-ORDER": 100,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 410,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 285,
+        "SFU-COMP-RELATIONSHIPS": 219,
+        "SFU-AUTH-TITLE-HR": 187,
+        "SFU-COMP-DUTIES": 181,
+        "SFU-COMP-SUMMARY": 85,
+        "SFU-GATE-SENIOR-TITLE": 80,
         "SFU-GATE-DUTY-PCT": 75,
+        "SFU-GATE-KSA-ORDER": 39,
         "SFU-AUTH-TITLE-REGISTRAR": 22,
-        "SFU-GATE-SENIOR-TITLE": 10,
-        "SFU-QUAL-BANNED-PHRASE": 10,
-        "SFU-AUTH-TITLE-EXEC-DIR": 8
+        "SFU-AUTH-TITLE-EXEC-DIR": 11,
+        "SFU-QUAL-BANNED-PHRASE": 11
       },
-      "total_findings": 89867,
+      "total_findings": 89524,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 9062,
-        "SFU-APPROVE-GRADE-FLOOR": 4933,
-        "SFU-APPROVE-SCORE-FLOOR": 4933,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 4850,
-        "SFU-APPROVE-SEVERITY-FLOOR": 4850,
-        "SFU-APPROVE-SUMMARY-LENGTH": 3777,
+        "SFU-APPROVE-GRADE-FLOOR": 4267,
+        "SFU-APPROVE-SCORE-FLOOR": 4267,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 2726,
+        "SFU-APPROVE-SEVERITY-FLOOR": 2726,
+        "SFU-APPROVE-SUMMARY-LENGTH": 1984,
         "SFU-APPROVE-NO-PLACEHOLDERS": 1833,
         "SFU-APPROVE-QUAL-EQUIVALENT": 436,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 379,
-        "SFU-APPROVE-KSA-ORDER": 100,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 285,
+        "SFU-APPROVE-SENIOR-TITLE": 80,
         "SFU-APPROVE-DUTY-ALLOCATION": 75,
-        "SFU-APPROVE-QUAL-MINIMUM": 10,
-        "SFU-APPROVE-SENIOR-TITLE": 10
+        "SFU-APPROVE-KSA-ORDER": 39,
+        "SFU-APPROVE-QUAL-MINIMUM": 11
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 4850,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 2726,
         "SFU-APPROVE-NO-PLACEHOLDERS": 1833
       }
     },
@@ -416,9 +420,9 @@
       "n_skipped": 1,
       "score": {
         "n": 10,
-        "minimum": 15.164133500000005,
-        "median": 19.005905000000013,
-        "mean": 35.449576941500005,
+        "minimum": 16.164150000000006,
+        "median": 38.9641335,
+        "mean": 42.483297828000005,
         "maximum": 77.33500000000001,
         "histogram": [
           {
@@ -429,17 +433,17 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 6
+            "count": 2
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 0
+            "count": 1
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 0
+            "count": 3
           },
           {
             "lower": 40.0,
@@ -479,7 +483,7 @@
         "D": 1,
         "F": 6
       },
-      "mean_issue_count": 12.1,
+      "mean_issue_count": 12.2,
       "approved": 0,
       "approval_rate": 0.0,
       "rule_frequency": {
@@ -491,21 +495,22 @@
         "SFU-COMP-EDI": 7,
         "SFU-COMP-PROBLEM": 7,
         "SFU-COMP-QUALS": 7,
+        "SFU-STRUCT-ACTION-VERB": 7,
         "SFU-STRUCT-PLACEHOLDER": 7,
         "SFU-COMP-DECISION": 6,
-        "SFU-COMP-DUTIES": 6,
         "SFU-COMP-RELATIONSHIPS": 6,
-        "SFU-COMP-SUMMARY": 6,
-        "SFU-STRUCT-ACTION-VERB": 4,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 6,
+        "SFU-COMP-DUTIES": 3,
         "SFU-QUAL-SKILL-MODIFIER": 3,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 3,
         "SFU-STRUCT-SUMMARY-TOO-SHORT": 3,
         "SFU-AUTH-ABILITIES-OBSERVABLE": 2,
+        "SFU-COMP-SUMMARY": 2,
         "SFU-GATE-KSA-ORDER": 2,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 2,
         "SFU-QUAL-EQUIVALENT": 1,
         "SFU-STRUCT-DUTIES-TOO-FEW": 1
       },
-      "total_findings": 121,
+      "total_findings": 122,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 10,
         "SFU-APPROVE-GRADE-FLOOR": 7,
@@ -514,6 +519,7 @@
         "SFU-APPROVE-SCORE-FLOOR": 7,
         "SFU-APPROVE-SEVERITY-FLOOR": 7,
         "SFU-APPROVE-KSA-ORDER": 2,
+        "SFU-APPROVE-SUMMARY-LENGTH": 2,
         "SFU-APPROVE-QUAL-EQUIVALENT": 1
       },
       "non_overridable_gate_frequency": {
@@ -628,9 +634,9 @@
       "n_skipped": 0,
       "score": {
         "n": 1034,
-        "minimum": 15.164133500000005,
+        "minimum": 36.27489345000001,
         "median": 78.0,
-        "mean": 73.65338635793037,
+        "mean": 76.26028195519424,
         "maximum": 95.0,
         "histogram": [
           {
@@ -641,32 +647,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 13
+            "count": 0
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 4
+            "count": 0
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 26
+            "count": 2
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 100
+            "count": 1
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 3
+            "count": 103
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 59
+            "count": 99
           },
           {
             "lower": 70.0,
@@ -688,51 +694,55 @@
       "grades": {
         "A": 73,
         "B": 555,
-        "C": 260,
-        "D": 103,
-        "F": 43
+        "C": 300,
+        "D": 104,
+        "F": 2
       },
-      "mean_issue_count": 5.045454545454546,
+      "mean_issue_count": 5.02321083172147,
       "approved": 633,
       "approval_rate": 0.6121856866537717,
       "rule_frequency": {
         "SFU-GATE-REL-HEADER": 758,
         "SFU-LANG-CODED": 626,
+        "SFU-STRUCT-ACTION-VERB": 550,
         "SFU-STRUCT-DUTIES-TOO-FEW": 549,
-        "SFU-STRUCT-ACTION-VERB": 408,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 344,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 388,
         "SFU-QUAL-DEGREE-DISCIPLINE": 300,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 257,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 298,
         "SFU-COMP-TERRITORIAL": 239,
-        "SFU-COMP-PROBLEM": 176,
+        "SFU-QUAL-SKILL-MODIFIER": 232,
+        "SFU-COMP-PROBLEM": 177,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 165,
         "SFU-COMP-EDI": 163,
         "SFU-COMP-ABOUT": 155,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 155,
         "SFU-COMP-DECISION": 149,
-        "SFU-COMP-DUTIES": 148,
-        "SFU-COMP-RELATIONSHIPS": 143,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 116,
-        "SFU-QUAL-SKILL-MODIFIER": 91,
         "SFU-QUAL-EQUIVALENT": 37,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 22,
-        "SFU-COMP-SUMMARY": 19,
-        "SFU-COMP-QUALS": 18,
-        "SFU-GATE-KSA-ORDER": 1
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 30,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 17,
+        "SFU-COMP-DUTIES": 5,
+        "SFU-COMP-SUMMARY": 4,
+        "SFU-GATE-SENIOR-TITLE": 4,
+        "SFU-COMP-QUALS": 2,
+        "SFU-COMP-RELATIONSHIPS": 1,
+        "SFU-GATE-KSA-ORDER": 1,
+        "SFU-QUAL-BANNED-PHRASE": 1
       },
-      "total_findings": 5217,
+      "total_findings": 5194,
       "gate_frequency": {
-        "SFU-APPROVE-SUMMARY-LENGTH": 257,
         "SFU-APPROVE-EDI-FOOTER": 249,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 150,
-        "SFU-APPROVE-SEVERITY-FLOOR": 150,
-        "SFU-APPROVE-GRADE-FLOOR": 146,
-        "SFU-APPROVE-SCORE-FLOOR": 146,
+        "SFU-APPROVE-SUMMARY-LENGTH": 165,
+        "SFU-APPROVE-GRADE-FLOOR": 106,
+        "SFU-APPROVE-SCORE-FLOOR": 106,
         "SFU-APPROVE-QUAL-EQUIVALENT": 37,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 22,
-        "SFU-APPROVE-KSA-ORDER": 1
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 17,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 10,
+        "SFU-APPROVE-SEVERITY-FLOOR": 10,
+        "SFU-APPROVE-SENIOR-TITLE": 4,
+        "SFU-APPROVE-KSA-ORDER": 1,
+        "SFU-APPROVE-QUAL-MINIMUM": 1
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 150
+        "SFU-APPROVE-MANDATORY-SECTIONS": 10
       }
     },
     {
@@ -744,9 +754,9 @@
       "n_skipped": 3,
       "score": {
         "n": 5225,
-        "minimum": 15.164133500000005,
+        "minimum": 15.575905000000006,
         "median": 68.29415,
-        "mean": 63.01063450836688,
+        "mean": 65.94776513167118,
         "maximum": 100.0,
         "histogram": [
           {
@@ -757,32 +767,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 91
+            "count": 2
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 72
+            "count": 48
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 232
+            "count": 140
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 1127
+            "count": 563
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 129
+            "count": 673
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 1664
+            "count": 1889
           },
           {
             "lower": 70.0,
@@ -804,62 +814,62 @@
       "grades": {
         "A": 27,
         "B": 1293,
-        "C": 2254,
-        "D": 1256,
-        "F": 395
+        "C": 2479,
+        "D": 1236,
+        "F": 190
       },
-      "mean_issue_count": 8.129186602870814,
+      "mean_issue_count": 8.116555023923445,
       "approved": 54,
       "approval_rate": 0.010334928229665072,
       "rule_frequency": {
         "SFU-COMP-TERRITORIAL": 5146,
         "SFU-GATE-REL-HEADER": 4058,
+        "SFU-STRUCT-ACTION-VERB": 3631,
         "SFU-COMP-PROBLEM": 3624,
         "SFU-COMP-ABOUT": 3587,
         "SFU-COMP-EDI": 3394,
         "SFU-LANG-CODED": 3139,
-        "SFU-STRUCT-ACTION-VERB": 2864,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 2355,
         "SFU-QUAL-DEGREE-DISCIPLINE": 2300,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 2015,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 1979,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 1389,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 1258,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 2036,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 1984,
+        "SFU-QUAL-SKILL-MODIFIER": 1104,
         "SFU-COMP-DECISION": 924,
-        "SFU-COMP-RELATIONSHIPS": 924,
-        "SFU-COMP-DUTIES": 903,
-        "SFU-COMP-QUALS": 835,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 585,
-        "SFU-QUAL-SKILL-MODIFIER": 349,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 849,
+        "SFU-COMP-QUALS": 737,
         "SFU-STRUCT-PLACEHOLDER": 315,
         "SFU-QUAL-EQUIVALENT": 285,
-        "SFU-COMP-SUMMARY": 187,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 149,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 230,
+        "SFU-COMP-RELATIONSHIPS": 133,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 117,
+        "SFU-COMP-DUTIES": 116,
         "SFU-AUTH-TITLE-HR": 97,
-        "SFU-GATE-KSA-ORDER": 36,
+        "SFU-COMP-SUMMARY": 71,
+        "SFU-GATE-SENIOR-TITLE": 28,
+        "SFU-GATE-KSA-ORDER": 26,
         "SFU-GATE-DUTY-PCT": 15,
-        "SFU-AUTH-TITLE-REGISTRAR": 11,
         "SFU-QUAL-BANNED-PHRASE": 10,
-        "SFU-GATE-SENIOR-TITLE": 8,
-        "SFU-AUTH-TITLE-EXEC-DIR": 3
+        "SFU-AUTH-TITLE-REGISTRAR": 8,
+        "SFU-AUTH-TITLE-EXEC-DIR": 4
       },
-      "total_findings": 42475,
+      "total_findings": 42409,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 5146,
-        "SFU-APPROVE-GRADE-FLOOR": 1651,
-        "SFU-APPROVE-SCORE-FLOOR": 1651,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 1593,
-        "SFU-APPROVE-SEVERITY-FLOOR": 1593,
-        "SFU-APPROVE-SUMMARY-LENGTH": 1389,
+        "SFU-APPROVE-GRADE-FLOOR": 1426,
+        "SFU-APPROVE-SCORE-FLOOR": 1426,
+        "SFU-APPROVE-SUMMARY-LENGTH": 849,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 824,
+        "SFU-APPROVE-SEVERITY-FLOOR": 824,
         "SFU-APPROVE-NO-PLACEHOLDERS": 315,
         "SFU-APPROVE-QUAL-EQUIVALENT": 285,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 149,
-        "SFU-APPROVE-KSA-ORDER": 36,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 117,
+        "SFU-APPROVE-SENIOR-TITLE": 28,
+        "SFU-APPROVE-KSA-ORDER": 26,
         "SFU-APPROVE-DUTY-ALLOCATION": 15,
-        "SFU-APPROVE-QUAL-MINIMUM": 10,
-        "SFU-APPROVE-SENIOR-TITLE": 8
+        "SFU-APPROVE-QUAL-MINIMUM": 10
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 1593,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 824,
         "SFU-APPROVE-NO-PLACEHOLDERS": 315
       }
     },
@@ -872,9 +882,9 @@
       "n_skipped": 13,
       "score": {
         "n": 3326,
-        "minimum": 12.47489345000001,
-        "median": 33.705905000000016,
-        "mean": 31.15626822398443,
+        "minimum": 12.76313350000001,
+        "median": 42.10589345,
+        "mean": 40.93098997184433,
         "maximum": 67.2941335,
         "histogram": [
           {
@@ -885,32 +895,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 1172
+            "count": 60
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 433
+            "count": 646
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 508
+            "count": 844
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 1184
+            "count": 1179
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 20
+            "count": 442
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 9
+            "count": 155
           },
           {
             "lower": 70.0,
@@ -930,11 +940,11 @@
         ]
       },
       "grades": {
-        "C": 9,
-        "D": 1204,
-        "F": 2113
+        "C": 155,
+        "D": 1621,
+        "F": 1550
       },
-      "mean_issue_count": 12.641912206855082,
+      "mean_issue_count": 12.875225496091401,
       "approved": 0,
       "approval_rate": 0.0,
       "rule_frequency": {
@@ -943,47 +953,49 @@
         "SFU-GATE-REL-HEADER": 3326,
         "SFU-COMP-PROBLEM": 3325,
         "SFU-COMP-ABOUT": 3294,
-        "SFU-COMP-QUALS": 3152,
         "SFU-LANG-CODED": 2937,
+        "SFU-COMP-QUALS": 2634,
+        "SFU-STRUCT-ACTION-VERB": 2476,
         "SFU-QUAL-DEGREE-DISCIPLINE": 2427,
         "SFU-STRUCT-PLACEHOLDER": 2400,
-        "SFU-COMP-DUTIES": 1738,
-        "SFU-COMP-DECISION": 1706,
-        "SFU-COMP-RELATIONSHIPS": 1663,
-        "SFU-STRUCT-ACTION-VERB": 1550,
-        "SFU-COMP-SUMMARY": 1521,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 870,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 836,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 509,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 503,
-        "SFU-QUAL-EQUIVALENT": 373,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 1774,
+        "SFU-COMP-DECISION": 1707,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1324,
+        "SFU-COMP-RELATIONSHIPS": 1303,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 1097,
+        "SFU-COMP-DUTIES": 811,
+        "SFU-QUAL-SKILL-MODIFIER": 663,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 577,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 519,
+        "SFU-QUAL-EQUIVALENT": 371,
         "SFU-AUTH-TITLE-HR": 216,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 137,
-        "SFU-QUAL-SKILL-MODIFIER": 121,
-        "SFU-GATE-KSA-ORDER": 101,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 52,
+        "SFU-COMP-SUMMARY": 211,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 124,
         "SFU-GATE-DUTY-PCT": 33,
-        "SFU-AUTH-TITLE-REGISTRAR": 15,
+        "SFU-GATE-KSA-ORDER": 23,
+        "SFU-AUTH-TITLE-REGISTRAR": 8,
         "SFU-AUTH-TITLE-EXEC-DIR": 3,
-        "SFU-GATE-SENIOR-TITLE": 2
+        "SFU-AUTH-SUMMARY-INCUMBENT": 2,
+        "SFU-GATE-SENIOR-TITLE": 1
       },
-      "total_findings": 42047,
+      "total_findings": 42823,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 3326,
-        "SFU-APPROVE-GRADE-FLOOR": 3317,
-        "SFU-APPROVE-SCORE-FLOOR": 3317,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 3313,
-        "SFU-APPROVE-SEVERITY-FLOOR": 3313,
+        "SFU-APPROVE-GRADE-FLOOR": 3171,
+        "SFU-APPROVE-SCORE-FLOOR": 3171,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 2745,
+        "SFU-APPROVE-SEVERITY-FLOOR": 2745,
         "SFU-APPROVE-NO-PLACEHOLDERS": 2400,
-        "SFU-APPROVE-SUMMARY-LENGTH": 503,
-        "SFU-APPROVE-QUAL-EQUIVALENT": 373,
-        "SFU-APPROVE-KSA-ORDER": 101,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 52,
+        "SFU-APPROVE-SUMMARY-LENGTH": 1097,
+        "SFU-APPROVE-QUAL-EQUIVALENT": 371,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 124,
         "SFU-APPROVE-DUTY-ALLOCATION": 33,
-        "SFU-APPROVE-SENIOR-TITLE": 2
+        "SFU-APPROVE-KSA-ORDER": 23,
+        "SFU-APPROVE-SUMMARY-INCUMBENT": 2,
+        "SFU-APPROVE-SENIOR-TITLE": 1
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 3313,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 2745,
         "SFU-APPROVE-NO-PLACEHOLDERS": 2400
       }
     },
@@ -996,9 +1008,9 @@
       "n_skipped": 27,
       "score": {
         "n": 4937,
-        "minimum": 13.17490500000001,
-        "median": 42.3941335,
-        "mean": 43.65850966213712,
+        "minimum": 15.575905000000006,
+        "median": 48.29415,
+        "mean": 51.29687410956342,
         "maximum": 77.33500000000001,
         "histogram": [
           {
@@ -1009,32 +1021,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 343
+            "count": 15
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 149
+            "count": 65
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 847
+            "count": 669
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 2935
+            "count": 1821
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 110
+            "count": 1299
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 419
+            "count": 934
           },
           {
             "lower": 70.0,
@@ -1055,11 +1067,11 @@
       },
       "grades": {
         "B": 65,
-        "C": 488,
-        "D": 3045,
-        "F": 1339
+        "C": 1003,
+        "D": 3120,
+        "F": 749
       },
-      "mean_issue_count": 11.687056917156168,
+      "mean_issue_count": 11.688272230099251,
       "approved": 0,
       "approval_rate": 0.0,
       "rule_frequency": {
@@ -1068,48 +1080,320 @@
         "SFU-COMP-ABOUT": 4929,
         "SFU-COMP-EDI": 4911,
         "SFU-GATE-REL-HEADER": 4767,
+        "SFU-STRUCT-ACTION-VERB": 4524,
         "SFU-LANG-CODED": 4458,
         "SFU-QUAL-DEGREE-DISCIPLINE": 3189,
-        "SFU-COMP-QUALS": 2998,
-        "SFU-STRUCT-ACTION-VERB": 2834,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 2297,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 3040,
+        "SFU-COMP-QUALS": 2589,
         "SFU-STRUCT-PLACEHOLDER": 2127,
-        "SFU-COMP-RELATIONSHIPS": 1861,
-        "SFU-COMP-DECISION": 1860,
-        "SFU-COMP-DUTIES": 1849,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 1329,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 1116,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 1099,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1058,
-        "SFU-COMP-SUMMARY": 512,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 225,
-        "SFU-AUTH-TITLE-HR": 203,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1904,
+        "SFU-COMP-DECISION": 1863,
+        "SFU-QUAL-SKILL-MODIFIER": 1792,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 1240,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 1128,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 591,
+        "SFU-AUTH-TITLE-HR": 200,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 176,
         "SFU-QUAL-EQUIVALENT": 163,
-        "SFU-QUAL-SKILL-MODIFIER": 144,
-        "SFU-GATE-KSA-ORDER": 83,
+        "SFU-COMP-RELATIONSHIPS": 151,
+        "SFU-COMP-DUTIES": 122,
+        "SFU-COMP-SUMMARY": 89,
         "SFU-GATE-DUTY-PCT": 66,
+        "SFU-GATE-SENIOR-TITLE": 48,
         "SFU-AUTH-TITLE-REGISTRAR": 19,
-        "SFU-AUTH-TITLE-EXEC-DIR": 5,
-        "SFU-GATE-SENIOR-TITLE": 2
+        "SFU-GATE-KSA-ORDER": 17,
+        "SFU-AUTH-TITLE-EXEC-DIR": 7
       },
-      "total_findings": 57699,
+      "total_findings": 57705,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 4937,
-        "SFU-APPROVE-GRADE-FLOOR": 4384,
-        "SFU-APPROVE-SCORE-FLOOR": 4384,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 4357,
-        "SFU-APPROVE-SEVERITY-FLOOR": 4357,
-        "SFU-APPROVE-SUMMARY-LENGTH": 2297,
+        "SFU-APPROVE-GRADE-FLOOR": 3869,
+        "SFU-APPROVE-SCORE-FLOOR": 3869,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 2653,
+        "SFU-APPROVE-SEVERITY-FLOOR": 2653,
         "SFU-APPROVE-NO-PLACEHOLDERS": 2127,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 225,
+        "SFU-APPROVE-SUMMARY-LENGTH": 1240,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 176,
         "SFU-APPROVE-QUAL-EQUIVALENT": 163,
-        "SFU-APPROVE-KSA-ORDER": 83,
         "SFU-APPROVE-DUTY-ALLOCATION": 66,
-        "SFU-APPROVE-SENIOR-TITLE": 2
+        "SFU-APPROVE-SENIOR-TITLE": 48,
+        "SFU-APPROVE-KSA-ORDER": 17
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 4357,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 2653,
         "SFU-APPROVE-NO-PLACEHOLDERS": 2127
+      }
+    },
+    {
+      "population": "all",
+      "dimension": "template",
+      "value": "jdfn",
+      "n_files": 10222,
+      "n_scored": 10222,
+      "n_skipped": 0,
+      "score": {
+        "n": 10222,
+        "minimum": 13.76315000000001,
+        "median": 58.9641335,
+        "mean": 57.73293405044521,
+        "maximum": 100.0,
+        "histogram": [
+          {
+            "lower": 0.0,
+            "upper": 10.0,
+            "count": 0
+          },
+          {
+            "lower": 10.0,
+            "upper": 20.0,
+            "count": 21
+          },
+          {
+            "lower": 20.0,
+            "upper": 30.0,
+            "count": 142
+          },
+          {
+            "lower": 30.0,
+            "upper": 40.0,
+            "count": 1254
+          },
+          {
+            "lower": 40.0,
+            "upper": 50.0,
+            "count": 3519
+          },
+          {
+            "lower": 50.0,
+            "upper": 60.0,
+            "count": 262
+          },
+          {
+            "lower": 60.0,
+            "upper": 70.0,
+            "count": 2151
+          },
+          {
+            "lower": 70.0,
+            "upper": 80.0,
+            "count": 2117
+          },
+          {
+            "lower": 80.0,
+            "upper": 90.0,
+            "count": 656
+          },
+          {
+            "lower": 90.0,
+            "upper": 100.0,
+            "count": 100
+          }
+        ]
+      },
+      "grades": {
+        "A": 100,
+        "B": 1913,
+        "C": 3011,
+        "D": 3781,
+        "F": 1417
+      },
+      "mean_issue_count": 8.938368225396204,
+      "approved": 687,
+      "approval_rate": 0.0672079827822344,
+      "rule_frequency": {
+        "SFU-COMP-TERRITORIAL": 9348,
+        "SFU-GATE-REL-HEADER": 8609,
+        "SFU-COMP-PROBLEM": 7763,
+        "SFU-COMP-ABOUT": 7665,
+        "SFU-STRUCT-ACTION-VERB": 7653,
+        "SFU-COMP-EDI": 7494,
+        "SFU-LANG-CODED": 7091,
+        "SFU-COMP-QUALS": 4951,
+        "SFU-QUAL-DEGREE-DISCIPLINE": 4657,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 4253,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 4153,
+        "SFU-STRUCT-PLACEHOLDER": 3811,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 3609,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 2185,
+        "SFU-QUAL-EQUIVALENT": 847,
+        "SFU-QUAL-SKILL-MODIFIER": 519,
+        "SFU-AUTH-TITLE-HR": 513,
+        "SFU-COMP-DECISION": 343,
+        "SFU-COMP-DUTIES": 341,
+        "SFU-COMP-RELATIONSHIPS": 295,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 261,
+        "SFU-COMP-SUMMARY": 201,
+        "SFU-GATE-DUTY-PCT": 113,
+        "SFU-GATE-KSA-ORDER": 48,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 44,
+        "SFU-AUTH-TITLE-REGISTRAR": 34,
+        "SFU-AUTH-TITLE-EXEC-DIR": 11,
+        "SFU-GATE-SENIOR-TITLE": 10,
+        "SFU-QUAL-BANNED-PHRASE": 10
+      },
+      "total_findings": 91368,
+      "gate_frequency": {
+        "SFU-APPROVE-EDI-FOOTER": 9358,
+        "SFU-APPROVE-GRADE-FLOOR": 5198,
+        "SFU-APPROVE-SCORE-FLOOR": 5198,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 5113,
+        "SFU-APPROVE-SEVERITY-FLOOR": 5113,
+        "SFU-APPROVE-NO-PLACEHOLDERS": 3811,
+        "SFU-APPROVE-SUMMARY-LENGTH": 2185,
+        "SFU-APPROVE-QUAL-EQUIVALENT": 847,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 261,
+        "SFU-APPROVE-DUTY-ALLOCATION": 113,
+        "SFU-APPROVE-KSA-ORDER": 48,
+        "SFU-APPROVE-QUAL-MINIMUM": 10,
+        "SFU-APPROVE-SENIOR-TITLE": 10
+      },
+      "non_overridable_gate_frequency": {
+        "SFU-APPROVE-MANDATORY-SECTIONS": 5113,
+        "SFU-APPROVE-NO-PLACEHOLDERS": 3811
+      }
+    },
+    {
+      "population": "all",
+      "dimension": "template",
+      "value": "unknown",
+      "n_files": 43,
+      "n_scored": 0,
+      "n_skipped": 43,
+      "score": null,
+      "grades": {},
+      "mean_issue_count": null,
+      "approved": 0,
+      "approval_rate": null,
+      "rule_frequency": {},
+      "total_findings": 0,
+      "gate_frequency": {},
+      "non_overridable_gate_frequency": {}
+    },
+    {
+      "population": "all",
+      "dimension": "template",
+      "value": "wjq",
+      "n_files": 4300,
+      "n_scored": 4300,
+      "n_skipped": 0,
+      "score": {
+        "n": 4300,
+        "minimum": 12.76313350000001,
+        "median": 58.474125415,
+        "mean": 51.78448665494668,
+        "maximum": 67.705905,
+        "histogram": [
+          {
+            "lower": 0.0,
+            "upper": 10.0,
+            "count": 0
+          },
+          {
+            "lower": 10.0,
+            "upper": 20.0,
+            "count": 56
+          },
+          {
+            "lower": 20.0,
+            "upper": 30.0,
+            "count": 617
+          },
+          {
+            "lower": 30.0,
+            "upper": 40.0,
+            "count": 401
+          },
+          {
+            "lower": 40.0,
+            "upper": 50.0,
+            "count": 45
+          },
+          {
+            "lower": 50.0,
+            "upper": 60.0,
+            "count": 2255
+          },
+          {
+            "lower": 60.0,
+            "upper": 70.0,
+            "count": 926
+          },
+          {
+            "lower": 70.0,
+            "upper": 80.0,
+            "count": 0
+          },
+          {
+            "lower": 80.0,
+            "upper": 90.0,
+            "count": 0
+          },
+          {
+            "lower": 90.0,
+            "upper": 100.0,
+            "count": 0
+          }
+        ]
+      },
+      "grades": {
+        "C": 926,
+        "D": 2300,
+        "F": 1074
+      },
+      "mean_issue_count": 13.200697674418604,
+      "approved": 0,
+      "approval_rate": 0.0,
+      "rule_frequency": {
+        "SFU-COMP-ABOUT": 4300,
+        "SFU-COMP-DECISION": 4300,
+        "SFU-COMP-EDI": 4300,
+        "SFU-COMP-PROBLEM": 4300,
+        "SFU-COMP-TERRITORIAL": 4300,
+        "SFU-GATE-REL-HEADER": 4300,
+        "SFU-LANG-CODED": 4069,
+        "SFU-QUAL-DEGREE-DISCIPLINE": 3559,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 3539,
+        "SFU-STRUCT-ACTION-VERB": 3528,
+        "SFU-QUAL-SKILL-MODIFIER": 3272,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1718,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 1384,
+        "SFU-COMP-RELATIONSHIPS": 1293,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 1166,
+        "SFU-STRUCT-PLACEHOLDER": 1031,
+        "SFU-COMP-QUALS": 1011,
+        "SFU-COMP-DUTIES": 713,
+        "SFU-COMP-SUMMARY": 174,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 173,
+        "SFU-GATE-SENIOR-TITLE": 71,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 27,
+        "SFU-GATE-KSA-ORDER": 19,
+        "SFU-QUAL-EQUIVALENT": 9,
+        "SFU-AUTH-TITLE-EXEC-DIR": 3,
+        "SFU-AUTH-SUMMARY-INCUMBENT": 2,
+        "SFU-AUTH-TITLE-REGISTRAR": 1,
+        "SFU-GATE-DUTY-PCT": 1,
+        "SFU-QUAL-BANNED-PHRASE": 1
+      },
+      "total_findings": 56763,
+      "gate_frequency": {
+        "SFU-APPROVE-EDI-FOOTER": 4300,
+        "SFU-APPROVE-GRADE-FLOOR": 3374,
+        "SFU-APPROVE-SCORE-FLOOR": 3374,
+        "SFU-APPROVE-SUMMARY-LENGTH": 1166,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 1119,
+        "SFU-APPROVE-SEVERITY-FLOOR": 1119,
+        "SFU-APPROVE-NO-PLACEHOLDERS": 1031,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 173,
+        "SFU-APPROVE-SENIOR-TITLE": 71,
+        "SFU-APPROVE-KSA-ORDER": 19,
+        "SFU-APPROVE-QUAL-EQUIVALENT": 9,
+        "SFU-APPROVE-SUMMARY-INCUMBENT": 2,
+        "SFU-APPROVE-DUTY-ALLOCATION": 1,
+        "SFU-APPROVE-QUAL-MINIMUM": 1
+      },
+      "non_overridable_gate_frequency": {
+        "SFU-APPROVE-MANDATORY-SECTIONS": 1119,
+        "SFU-APPROVE-NO-PLACEHOLDERS": 1031
       }
     },
     {
@@ -1121,9 +1405,9 @@
       "n_skipped": 36,
       "score": {
         "n": 12557,
-        "minimum": 12.47489345000001,
-        "median": 42.805905,
-        "mean": 49.49157758805495,
+        "minimum": 12.76313350000001,
+        "median": 58.474125415,
+        "mean": 55.388834614306454,
         "maximum": 100.0,
         "histogram": [
           {
@@ -1134,32 +1418,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 1457
+            "count": 76
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 591
+            "count": 699
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 1424
+            "count": 1514
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 4575
+            "count": 3192
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 241
+            "count": 2084
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 1865
+            "count": 2588
           },
           {
             "lower": 70.0,
@@ -1181,62 +1465,64 @@
       "grades": {
         "A": 83,
         "B": 1587,
-        "C": 2599,
-        "D": 4816,
-        "F": 3472
+        "C": 3322,
+        "D": 5276,
+        "F": 2289
       },
-      "mean_issue_count": 10.195588118181094,
+      "mean_issue_count": 10.252050649040376,
       "approved": 588,
       "approval_rate": 0.046826471290913434,
       "rule_frequency": {
         "SFU-COMP-TERRITORIAL": 11800,
         "SFU-GATE-REL-HEADER": 11192,
-        "SFU-COMP-PROBLEM": 10490,
+        "SFU-COMP-PROBLEM": 10491,
         "SFU-COMP-ABOUT": 10416,
         "SFU-COMP-EDI": 10295,
         "SFU-LANG-CODED": 9684,
+        "SFU-STRUCT-ACTION-VERB": 9594,
         "SFU-QUAL-DEGREE-DISCIPLINE": 7154,
-        "SFU-STRUCT-ACTION-VERB": 6681,
-        "SFU-COMP-QUALS": 6264,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 6099,
+        "SFU-COMP-QUALS": 5385,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 5119,
         "SFU-STRUCT-PLACEHOLDER": 4505,
-        "SFU-COMP-DUTIES": 3959,
-        "SFU-COMP-DECISION": 3955,
-        "SFU-COMP-RELATIONSHIPS": 3905,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 3752,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 3692,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 3590,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 3185,
-        "SFU-COMP-SUMMARY": 2003,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 1545,
-        "SFU-QUAL-EQUIVALENT": 737,
-        "SFU-QUAL-SKILL-MODIFIER": 604,
-        "SFU-AUTH-TITLE-HR": 475,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 381,
-        "SFU-GATE-KSA-ORDER": 178,
+        "SFU-COMP-DECISION": 3959,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 3616,
+        "SFU-QUAL-SKILL-MODIFIER": 3114,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 3004,
+        "SFU-COMP-RELATIONSHIPS": 1502,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 1201,
+        "SFU-COMP-DUTIES": 998,
+        "SFU-QUAL-EQUIVALENT": 735,
+        "SFU-AUTH-TITLE-HR": 472,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 372,
+        "SFU-COMP-SUMMARY": 336,
         "SFU-GATE-DUTY-PCT": 70,
-        "SFU-AUTH-TITLE-REGISTRAR": 42,
-        "SFU-GATE-SENIOR-TITLE": 11,
-        "SFU-AUTH-TITLE-EXEC-DIR": 10,
-        "SFU-QUAL-BANNED-PHRASE": 10
+        "SFU-GATE-SENIOR-TITLE": 67,
+        "SFU-GATE-KSA-ORDER": 54,
+        "SFU-AUTH-TITLE-REGISTRAR": 34,
+        "SFU-AUTH-TITLE-EXEC-DIR": 13,
+        "SFU-QUAL-BANNED-PHRASE": 11,
+        "SFU-AUTH-SUMMARY-INCUMBENT": 2
       },
-      "total_findings": 128026,
+      "total_findings": 128735,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 11810,
-        "SFU-APPROVE-GRADE-FLOOR": 8288,
-        "SFU-APPROVE-SCORE-FLOOR": 8288,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 8213,
-        "SFU-APPROVE-SEVERITY-FLOOR": 8213,
+        "SFU-APPROVE-GRADE-FLOOR": 7565,
+        "SFU-APPROVE-SCORE-FLOOR": 7565,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 5647,
+        "SFU-APPROVE-SEVERITY-FLOOR": 5647,
         "SFU-APPROVE-NO-PLACEHOLDERS": 4505,
-        "SFU-APPROVE-SUMMARY-LENGTH": 3752,
-        "SFU-APPROVE-QUAL-EQUIVALENT": 737,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 381,
-        "SFU-APPROVE-KSA-ORDER": 178,
+        "SFU-APPROVE-SUMMARY-LENGTH": 3004,
+        "SFU-APPROVE-QUAL-EQUIVALENT": 735,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 372,
         "SFU-APPROVE-DUTY-ALLOCATION": 70,
-        "SFU-APPROVE-SENIOR-TITLE": 11,
-        "SFU-APPROVE-QUAL-MINIMUM": 10
+        "SFU-APPROVE-SENIOR-TITLE": 67,
+        "SFU-APPROVE-KSA-ORDER": 54,
+        "SFU-APPROVE-QUAL-MINIMUM": 11,
+        "SFU-APPROVE-SUMMARY-INCUMBENT": 2
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 8213,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 5647,
         "SFU-APPROVE-NO-PLACEHOLDERS": 4505
       }
     },
@@ -1249,9 +1535,9 @@
       "n_skipped": 10,
       "score": {
         "n": 4200,
-        "minimum": 12.47489345000001,
-        "median": 36.563133500000006,
-        "mean": 31.807590590776158,
+        "minimum": 12.76313350000001,
+        "median": 42.3941335,
+        "mean": 42.75949185923425,
         "maximum": 91.5,
         "histogram": [
           {
@@ -1262,32 +1548,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 1435
+            "count": 67
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 517
+            "count": 627
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 656
+            "count": 1005
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 1533
+            "count": 1549
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 30
+            "count": 700
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 20
+            "count": 243
           },
           {
             "lower": 70.0,
@@ -1309,11 +1595,11 @@
       "grades": {
         "A": 1,
         "B": 8,
-        "C": 20,
-        "D": 1563,
-        "F": 2608
+        "C": 243,
+        "D": 2249,
+        "F": 1699
       },
-      "mean_issue_count": 12.515,
+      "mean_issue_count": 12.734761904761905,
       "approved": 1,
       "approval_rate": 0.0002380952380952381,
       "rule_frequency": {
@@ -1322,47 +1608,49 @@
         "SFU-COMP-PROBLEM": 4189,
         "SFU-GATE-REL-HEADER": 4188,
         "SFU-COMP-ABOUT": 4159,
-        "SFU-COMP-QUALS": 4015,
         "SFU-LANG-CODED": 3782,
+        "SFU-STRUCT-ACTION-VERB": 3337,
+        "SFU-COMP-QUALS": 3134,
         "SFU-QUAL-DEGREE-DISCIPLINE": 2996,
         "SFU-STRUCT-PLACEHOLDER": 2839,
-        "SFU-COMP-DUTIES": 2084,
-        "SFU-STRUCT-ACTION-VERB": 2063,
-        "SFU-COMP-DECISION": 2059,
-        "SFU-COMP-RELATIONSHIPS": 2006,
-        "SFU-COMP-SUMMARY": 1881,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 1154,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1115,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 632,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 623,
-        "SFU-QUAL-EQUIVALENT": 353,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 2392,
+        "SFU-COMP-DECISION": 2060,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1775,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 1281,
+        "SFU-COMP-RELATIONSHIPS": 1280,
+        "SFU-QUAL-SKILL-MODIFIER": 1021,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 871,
+        "SFU-COMP-DUTIES": 809,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 645,
+        "SFU-QUAL-EQUIVALENT": 351,
         "SFU-AUTH-TITLE-HR": 307,
-        "SFU-QUAL-SKILL-MODIFIER": 135,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 130,
-        "SFU-GATE-KSA-ORDER": 114,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 67,
+        "SFU-COMP-SUMMARY": 247,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 133,
         "SFU-GATE-DUTY-PCT": 31,
-        "SFU-AUTH-TITLE-REGISTRAR": 21,
+        "SFU-GATE-KSA-ORDER": 25,
+        "SFU-AUTH-TITLE-REGISTRAR": 13,
         "SFU-AUTH-TITLE-EXEC-DIR": 3,
-        "SFU-GATE-SENIOR-TITLE": 2
+        "SFU-AUTH-SUMMARY-INCUMBENT": 2,
+        "SFU-GATE-SENIOR-TITLE": 1
       },
-      "total_findings": 52563,
+      "total_findings": 53486,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 4199,
-        "SFU-APPROVE-GRADE-FLOOR": 4171,
-        "SFU-APPROVE-SCORE-FLOOR": 4171,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 4169,
-        "SFU-APPROVE-SEVERITY-FLOOR": 4169,
+        "SFU-APPROVE-GRADE-FLOOR": 3948,
+        "SFU-APPROVE-SCORE-FLOOR": 3948,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 3276,
+        "SFU-APPROVE-SEVERITY-FLOOR": 3276,
         "SFU-APPROVE-NO-PLACEHOLDERS": 2839,
-        "SFU-APPROVE-SUMMARY-LENGTH": 632,
-        "SFU-APPROVE-QUAL-EQUIVALENT": 353,
-        "SFU-APPROVE-KSA-ORDER": 114,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 67,
+        "SFU-APPROVE-SUMMARY-LENGTH": 1281,
+        "SFU-APPROVE-QUAL-EQUIVALENT": 351,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 133,
         "SFU-APPROVE-DUTY-ALLOCATION": 31,
-        "SFU-APPROVE-SENIOR-TITLE": 2
+        "SFU-APPROVE-KSA-ORDER": 25,
+        "SFU-APPROVE-SUMMARY-INCUMBENT": 2,
+        "SFU-APPROVE-SENIOR-TITLE": 1
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 4169,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 3276,
         "SFU-APPROVE-NO-PLACEHOLDERS": 2839
       }
     },
@@ -1375,9 +1663,9 @@
       "n_skipped": 22,
       "score": {
         "n": 8325,
-        "minimum": 13.17490500000001,
-        "median": 62.3941335,
-        "mean": 58.50063711243618,
+        "minimum": 15.575905000000006,
+        "median": 62.805905,
+        "mean": 61.86441995576965,
         "maximum": 100.0,
         "histogram": [
           {
@@ -1388,32 +1676,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 17
+            "count": 7
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 50
+            "count": 47
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 768
+            "count": 507
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 3041
+            "count": 1642
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 211
+            "count": 1384
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 1844
+            "count": 2344
           },
           {
             "lower": 70.0,
@@ -1435,62 +1723,62 @@
       "grades": {
         "A": 82,
         "B": 1578,
-        "C": 2578,
-        "D": 3252,
-        "F": 835
+        "C": 3078,
+        "D": 3026,
+        "F": 561
       },
-      "mean_issue_count": 9.021141141141142,
+      "mean_issue_count": 8.995315315315315,
       "approved": 587,
       "approval_rate": 0.07051051051051051,
       "rule_frequency": {
         "SFU-COMP-TERRITORIAL": 7578,
         "SFU-GATE-REL-HEADER": 6972,
-        "SFU-COMP-PROBLEM": 6271,
+        "SFU-COMP-PROBLEM": 6272,
+        "SFU-STRUCT-ACTION-VERB": 6252,
         "SFU-COMP-ABOUT": 6227,
         "SFU-COMP-EDI": 6070,
         "SFU-LANG-CODED": 5895,
-        "SFU-STRUCT-ACTION-VERB": 4615,
         "SFU-QUAL-DEGREE-DISCIPLINE": 4151,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 3120,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 2966,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 2575,
-        "SFU-COMP-QUALS": 2219,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 2029,
-        "SFU-COMP-RELATIONSHIPS": 1870,
-        "SFU-COMP-DECISION": 1867,
-        "SFU-COMP-DUTIES": 1846,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 3703,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 3342,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 2970,
+        "SFU-COMP-QUALS": 2221,
+        "SFU-QUAL-SKILL-MODIFIER": 2091,
+        "SFU-COMP-DECISION": 1870,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 1721,
         "SFU-STRUCT-PLACEHOLDER": 1660,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 1414,
-        "SFU-QUAL-SKILL-MODIFIER": 467,
         "SFU-QUAL-EQUIVALENT": 359,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 314,
-        "SFU-AUTH-TITLE-HR": 168,
-        "SFU-COMP-SUMMARY": 93,
-        "SFU-GATE-KSA-ORDER": 63,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 329,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 239,
+        "SFU-COMP-RELATIONSHIPS": 193,
+        "SFU-AUTH-TITLE-HR": 165,
+        "SFU-COMP-DUTIES": 162,
+        "SFU-GATE-SENIOR-TITLE": 66,
+        "SFU-COMP-SUMMARY": 63,
         "SFU-GATE-DUTY-PCT": 39,
+        "SFU-GATE-KSA-ORDER": 28,
         "SFU-AUTH-TITLE-REGISTRAR": 21,
-        "SFU-QUAL-BANNED-PHRASE": 10,
-        "SFU-GATE-SENIOR-TITLE": 9,
-        "SFU-AUTH-TITLE-EXEC-DIR": 7
+        "SFU-QUAL-BANNED-PHRASE": 11,
+        "SFU-AUTH-TITLE-EXEC-DIR": 10
       },
-      "total_findings": 75101,
+      "total_findings": 74886,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 7579,
-        "SFU-APPROVE-GRADE-FLOOR": 4087,
-        "SFU-APPROVE-SCORE-FLOOR": 4087,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 4014,
-        "SFU-APPROVE-SEVERITY-FLOOR": 4014,
-        "SFU-APPROVE-SUMMARY-LENGTH": 3120,
+        "SFU-APPROVE-GRADE-FLOOR": 3587,
+        "SFU-APPROVE-SCORE-FLOOR": 3587,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 2341,
+        "SFU-APPROVE-SEVERITY-FLOOR": 2341,
+        "SFU-APPROVE-SUMMARY-LENGTH": 1721,
         "SFU-APPROVE-NO-PLACEHOLDERS": 1660,
         "SFU-APPROVE-QUAL-EQUIVALENT": 359,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 314,
-        "SFU-APPROVE-KSA-ORDER": 63,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 239,
+        "SFU-APPROVE-SENIOR-TITLE": 66,
         "SFU-APPROVE-DUTY-ALLOCATION": 39,
-        "SFU-APPROVE-QUAL-MINIMUM": 10,
-        "SFU-APPROVE-SENIOR-TITLE": 9
+        "SFU-APPROVE-KSA-ORDER": 28,
+        "SFU-APPROVE-QUAL-MINIMUM": 11
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 4014,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 2341,
         "SFU-APPROVE-NO-PLACEHOLDERS": 1660
       }
     },
@@ -1520,9 +1808,9 @@
       "n_skipped": 1,
       "score": {
         "n": 8,
-        "minimum": 15.164133500000005,
-        "median": 17.58502750000001,
-        "mean": 33.52446636437501,
+        "minimum": 16.164150000000006,
+        "median": 37.518629457500005,
+        "mean": 39.821838910000004,
         "maximum": 77.33500000000001,
         "histogram": [
           {
@@ -1533,17 +1821,17 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 5
+            "count": 2
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 0
+            "count": 1
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 0
+            "count": 2
           },
           {
             "lower": 40.0,
@@ -1583,7 +1871,7 @@
         "D": 1,
         "F": 5
       },
-      "mean_issue_count": 12.25,
+      "mean_issue_count": 12.375,
       "approved": 0,
       "approval_rate": 0.0,
       "rule_frequency": {
@@ -1597,19 +1885,20 @@
         "SFU-COMP-QUALS": 6,
         "SFU-STRUCT-PLACEHOLDER": 6,
         "SFU-COMP-DECISION": 5,
-        "SFU-COMP-DUTIES": 5,
         "SFU-COMP-RELATIONSHIPS": 5,
-        "SFU-COMP-SUMMARY": 5,
-        "SFU-STRUCT-ACTION-VERB": 3,
+        "SFU-STRUCT-ACTION-VERB": 5,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 4,
+        "SFU-COMP-DUTIES": 3,
+        "SFU-COMP-SUMMARY": 2,
         "SFU-QUAL-SKILL-MODIFIER": 2,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 2,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 2,
         "SFU-STRUCT-SUMMARY-TOO-SHORT": 2,
         "SFU-AUTH-ABILITIES-OBSERVABLE": 1,
         "SFU-GATE-KSA-ORDER": 1,
         "SFU-QUAL-EQUIVALENT": 1,
         "SFU-STRUCT-DUTIES-TOO-FEW": 1
       },
-      "total_findings": 98,
+      "total_findings": 99,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 8,
         "SFU-APPROVE-GRADE-FLOOR": 6,
@@ -1617,6 +1906,7 @@
         "SFU-APPROVE-NO-PLACEHOLDERS": 6,
         "SFU-APPROVE-SCORE-FLOOR": 6,
         "SFU-APPROVE-SEVERITY-FLOOR": 6,
+        "SFU-APPROVE-SUMMARY-LENGTH": 2,
         "SFU-APPROVE-KSA-ORDER": 1,
         "SFU-APPROVE-QUAL-EQUIVALENT": 1
       },
@@ -1732,9 +2022,9 @@
       "n_skipped": 0,
       "score": {
         "n": 901,
-        "minimum": 15.164133500000005,
+        "minimum": 36.27489345000001,
         "median": 78.0,
-        "mean": 73.75521121791344,
+        "mean": 76.25851273420183,
         "maximum": 95.0,
         "histogram": [
           {
@@ -1745,32 +2035,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 10
+            "count": 0
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 3
+            "count": 0
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 23
+            "count": 2
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 86
+            "count": 1
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 3
+            "count": 89
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 55
+            "count": 88
           },
           {
             "lower": 70.0,
@@ -1792,51 +2082,55 @@
       "grades": {
         "A": 58,
         "B": 489,
-        "C": 229,
-        "D": 89,
-        "F": 36
+        "C": 262,
+        "D": 90,
+        "F": 2
       },
-      "mean_issue_count": 5.022197558268591,
+      "mean_issue_count": 5.0,
       "approved": 544,
       "approval_rate": 0.6037735849056604,
       "rule_frequency": {
         "SFU-GATE-REL-HEADER": 670,
         "SFU-LANG-CODED": 538,
         "SFU-STRUCT-DUTIES-TOO-FEW": 499,
-        "SFU-STRUCT-ACTION-VERB": 342,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 304,
+        "SFU-STRUCT-ACTION-VERB": 463,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 340,
         "SFU-QUAL-DEGREE-DISCIPLINE": 261,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 229,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 243,
         "SFU-COMP-TERRITORIAL": 209,
-        "SFU-COMP-PROBLEM": 147,
+        "SFU-QUAL-SKILL-MODIFIER": 197,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 149,
+        "SFU-COMP-PROBLEM": 148,
         "SFU-COMP-EDI": 139,
         "SFU-COMP-ABOUT": 131,
         "SFU-COMP-DECISION": 128,
-        "SFU-COMP-DUTIES": 127,
-        "SFU-COMP-RELATIONSHIPS": 122,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 121,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 102,
-        "SFU-QUAL-SKILL-MODIFIER": 77,
         "SFU-QUAL-EQUIVALENT": 31,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 19,
-        "SFU-COMP-SUMMARY": 15,
-        "SFU-COMP-QUALS": 14,
-        "SFU-GATE-KSA-ORDER": 1
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 27,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 15,
+        "SFU-COMP-DUTIES": 5,
+        "SFU-COMP-SUMMARY": 4,
+        "SFU-GATE-SENIOR-TITLE": 4,
+        "SFU-COMP-QUALS": 2,
+        "SFU-COMP-RELATIONSHIPS": 1,
+        "SFU-GATE-KSA-ORDER": 1,
+        "SFU-QUAL-BANNED-PHRASE": 1
       },
-      "total_findings": 4525,
+      "total_findings": 4505,
       "gate_frequency": {
-        "SFU-APPROVE-SUMMARY-LENGTH": 229,
         "SFU-APPROVE-EDI-FOOTER": 219,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 129,
-        "SFU-APPROVE-SEVERITY-FLOOR": 129,
-        "SFU-APPROVE-GRADE-FLOOR": 125,
-        "SFU-APPROVE-SCORE-FLOOR": 125,
+        "SFU-APPROVE-SUMMARY-LENGTH": 149,
+        "SFU-APPROVE-GRADE-FLOOR": 92,
+        "SFU-APPROVE-SCORE-FLOOR": 92,
         "SFU-APPROVE-QUAL-EQUIVALENT": 31,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 19,
-        "SFU-APPROVE-KSA-ORDER": 1
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 15,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 10,
+        "SFU-APPROVE-SEVERITY-FLOOR": 10,
+        "SFU-APPROVE-SENIOR-TITLE": 4,
+        "SFU-APPROVE-KSA-ORDER": 1,
+        "SFU-APPROVE-QUAL-MINIMUM": 1
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 129
+        "SFU-APPROVE-MANDATORY-SECTIONS": 10
       }
     },
     {
@@ -1848,9 +2142,9 @@
       "n_skipped": 3,
       "score": {
         "n": 4371,
-        "minimum": 15.164133500000005,
+        "minimum": 15.575905000000006,
         "median": 68.29415,
-        "mean": 62.92355477973471,
+        "mean": 65.92373049116584,
         "maximum": 100.0,
         "histogram": [
           {
@@ -1861,32 +2155,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 79
+            "count": 2
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 48
+            "count": 23
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 205
+            "count": 125
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 929
+            "count": 461
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 113
+            "count": 589
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 1429
+            "count": 1603
           },
           {
             "lower": 70.0,
@@ -1908,11 +2202,11 @@
       "grades": {
         "A": 25,
         "B": 1042,
-        "C": 1930,
-        "D": 1042,
-        "F": 332
+        "C": 2104,
+        "D": 1050,
+        "F": 150
       },
-      "mean_issue_count": 8.170899107755663,
+      "mean_issue_count": 8.161290322580646,
       "approved": 44,
       "approval_rate": 0.010066346373827499,
       "rule_frequency": {
@@ -1920,50 +2214,50 @@
         "SFU-GATE-REL-HEADER": 3387,
         "SFU-COMP-PROBLEM": 3059,
         "SFU-COMP-ABOUT": 3038,
+        "SFU-STRUCT-ACTION-VERB": 3029,
         "SFU-COMP-EDI": 2891,
         "SFU-LANG-CODED": 2655,
-        "SFU-STRUCT-ACTION-VERB": 2382,
         "SFU-QUAL-DEGREE-DISCIPLINE": 1951,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1651,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 1637,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 1193,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 1064,
-        "SFU-COMP-RELATIONSHIPS": 784,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1937,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 1722,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 1642,
+        "SFU-QUAL-SKILL-MODIFIER": 945,
         "SFU-COMP-DECISION": 783,
-        "SFU-COMP-DUTIES": 767,
-        "SFU-COMP-QUALS": 677,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 497,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 746,
+        "SFU-COMP-QUALS": 590,
         "SFU-STRUCT-PLACEHOLDER": 304,
-        "SFU-QUAL-SKILL-MODIFIER": 298,
         "SFU-QUAL-EQUIVALENT": 227,
-        "SFU-COMP-SUMMARY": 145,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 126,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 202,
+        "SFU-COMP-RELATIONSHIPS": 113,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 101,
+        "SFU-COMP-DUTIES": 100,
         "SFU-AUTH-TITLE-HR": 83,
-        "SFU-GATE-KSA-ORDER": 24,
+        "SFU-COMP-SUMMARY": 42,
+        "SFU-GATE-SENIOR-TITLE": 27,
+        "SFU-GATE-KSA-ORDER": 14,
         "SFU-GATE-DUTY-PCT": 10,
         "SFU-QUAL-BANNED-PHRASE": 10,
-        "SFU-AUTH-TITLE-REGISTRAR": 9,
-        "SFU-GATE-SENIOR-TITLE": 7,
-        "SFU-AUTH-TITLE-EXEC-DIR": 3
+        "SFU-AUTH-TITLE-REGISTRAR": 8,
+        "SFU-AUTH-TITLE-EXEC-DIR": 4
       },
-      "total_findings": 35715,
+      "total_findings": 35673,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 4306,
-        "SFU-APPROVE-GRADE-FLOOR": 1374,
-        "SFU-APPROVE-SCORE-FLOOR": 1374,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 1325,
-        "SFU-APPROVE-SEVERITY-FLOOR": 1325,
-        "SFU-APPROVE-SUMMARY-LENGTH": 1193,
+        "SFU-APPROVE-GRADE-FLOOR": 1200,
+        "SFU-APPROVE-SCORE-FLOOR": 1200,
+        "SFU-APPROVE-SUMMARY-LENGTH": 746,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 675,
+        "SFU-APPROVE-SEVERITY-FLOOR": 675,
         "SFU-APPROVE-NO-PLACEHOLDERS": 304,
         "SFU-APPROVE-QUAL-EQUIVALENT": 227,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 126,
-        "SFU-APPROVE-KSA-ORDER": 24,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 101,
+        "SFU-APPROVE-SENIOR-TITLE": 27,
+        "SFU-APPROVE-KSA-ORDER": 14,
         "SFU-APPROVE-DUTY-ALLOCATION": 10,
-        "SFU-APPROVE-QUAL-MINIMUM": 10,
-        "SFU-APPROVE-SENIOR-TITLE": 7
+        "SFU-APPROVE-QUAL-MINIMUM": 10
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 1325,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 675,
         "SFU-APPROVE-NO-PLACEHOLDERS": 304
       }
     },
@@ -1976,9 +2270,9 @@
       "n_skipped": 8,
       "score": {
         "n": 3121,
-        "minimum": 12.47489345000001,
-        "median": 33.705905000000016,
-        "mean": 31.207316098936946,
+        "minimum": 12.76313350000001,
+        "median": 41.904125415,
+        "mean": 40.573144781454715,
         "maximum": 67.2941335,
         "histogram": [
           {
@@ -1989,32 +2283,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 1086
+            "count": 60
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 415
+            "count": 622
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 479
+            "count": 809
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 1112
+            "count": 1113
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 20
+            "count": 384
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 9
+            "count": 133
           },
           {
             "lower": 70.0,
@@ -2034,11 +2328,11 @@
         ]
       },
       "grades": {
-        "C": 9,
-        "D": 1132,
-        "F": 1980
+        "C": 133,
+        "D": 1497,
+        "F": 1491
       },
-      "mean_issue_count": 12.62576097404678,
+      "mean_issue_count": 12.850048061518743,
       "approved": 0,
       "approval_rate": 0.0,
       "rule_frequency": {
@@ -2047,47 +2341,49 @@
         "SFU-GATE-REL-HEADER": 3121,
         "SFU-COMP-PROBLEM": 3120,
         "SFU-COMP-ABOUT": 3090,
-        "SFU-COMP-QUALS": 2955,
         "SFU-LANG-CODED": 2741,
+        "SFU-COMP-QUALS": 2511,
+        "SFU-STRUCT-ACTION-VERB": 2300,
         "SFU-STRUCT-PLACEHOLDER": 2288,
         "SFU-QUAL-DEGREE-DISCIPLINE": 2262,
-        "SFU-COMP-DUTIES": 1626,
-        "SFU-COMP-DECISION": 1594,
-        "SFU-COMP-RELATIONSHIPS": 1551,
-        "SFU-STRUCT-ACTION-VERB": 1460,
-        "SFU-COMP-SUMMARY": 1421,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 818,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 799,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 479,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 474,
-        "SFU-QUAL-EQUIVALENT": 342,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 1636,
+        "SFU-COMP-DECISION": 1595,
+        "SFU-COMP-RELATIONSHIPS": 1254,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1242,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 1049,
+        "SFU-COMP-DUTIES": 785,
+        "SFU-QUAL-SKILL-MODIFIER": 581,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 508,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 484,
+        "SFU-QUAL-EQUIVALENT": 340,
+        "SFU-COMP-SUMMARY": 211,
         "SFU-AUTH-TITLE-HR": 205,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 129,
-        "SFU-QUAL-SKILL-MODIFIER": 121,
-        "SFU-GATE-KSA-ORDER": 101,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 51,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 109,
         "SFU-GATE-DUTY-PCT": 26,
-        "SFU-AUTH-TITLE-REGISTRAR": 15,
+        "SFU-GATE-KSA-ORDER": 22,
+        "SFU-AUTH-TITLE-REGISTRAR": 8,
         "SFU-AUTH-TITLE-EXEC-DIR": 3,
-        "SFU-GATE-SENIOR-TITLE": 2
+        "SFU-AUTH-SUMMARY-INCUMBENT": 2,
+        "SFU-GATE-SENIOR-TITLE": 1
       },
-      "total_findings": 39405,
+      "total_findings": 40105,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 3121,
-        "SFU-APPROVE-GRADE-FLOOR": 3112,
-        "SFU-APPROVE-SCORE-FLOOR": 3112,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 3108,
-        "SFU-APPROVE-SEVERITY-FLOOR": 3108,
+        "SFU-APPROVE-GRADE-FLOOR": 2988,
+        "SFU-APPROVE-SCORE-FLOOR": 2988,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 2620,
+        "SFU-APPROVE-SEVERITY-FLOOR": 2620,
         "SFU-APPROVE-NO-PLACEHOLDERS": 2288,
-        "SFU-APPROVE-SUMMARY-LENGTH": 479,
-        "SFU-APPROVE-QUAL-EQUIVALENT": 342,
-        "SFU-APPROVE-KSA-ORDER": 101,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 51,
+        "SFU-APPROVE-SUMMARY-LENGTH": 1049,
+        "SFU-APPROVE-QUAL-EQUIVALENT": 340,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 109,
         "SFU-APPROVE-DUTY-ALLOCATION": 26,
-        "SFU-APPROVE-SENIOR-TITLE": 2
+        "SFU-APPROVE-KSA-ORDER": 22,
+        "SFU-APPROVE-SUMMARY-INCUMBENT": 2,
+        "SFU-APPROVE-SENIOR-TITLE": 1
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 3108,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 2620,
         "SFU-APPROVE-NO-PLACEHOLDERS": 2288
       }
     },
@@ -2100,9 +2396,9 @@
       "n_skipped": 25,
       "score": {
         "n": 4164,
-        "minimum": 13.17490500000001,
-        "median": 42.3941335,
-        "mean": 43.846158256211204,
+        "minimum": 15.575905000000006,
+        "median": 47.705905,
+        "mean": 50.91913194969362,
         "maximum": 77.33500000000001,
         "histogram": [
           {
@@ -2113,32 +2409,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 282
+            "count": 14
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 125
+            "count": 54
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 717
+            "count": 578
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 2448
+            "count": 1617
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 105
+            "count": 1022
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 372
+            "count": 764
           },
           {
             "lower": 70.0,
@@ -2159,11 +2455,11 @@
       },
       "grades": {
         "B": 56,
-        "C": 431,
-        "D": 2553,
-        "F": 1124
+        "C": 823,
+        "D": 2639,
+        "F": 646
       },
-      "mean_issue_count": 11.618876080691642,
+      "mean_issue_count": 11.635926993275696,
       "approved": 0,
       "approval_rate": 0.0,
       "rule_frequency": {
@@ -2172,48 +2468,320 @@
         "SFU-COMP-ABOUT": 4157,
         "SFU-COMP-EDI": 4144,
         "SFU-GATE-REL-HEADER": 4014,
+        "SFU-STRUCT-ACTION-VERB": 3802,
         "SFU-LANG-CODED": 3750,
         "SFU-QUAL-DEGREE-DISCIPLINE": 2680,
-        "SFU-COMP-QUALS": 2618,
-        "SFU-STRUCT-ACTION-VERB": 2497,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 2498,
+        "SFU-COMP-QUALS": 2282,
         "SFU-STRUCT-PLACEHOLDER": 1913,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 1851,
-        "SFU-COMP-DECISION": 1450,
-        "SFU-COMP-RELATIONSHIPS": 1448,
-        "SFU-COMP-DUTIES": 1439,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 1182,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 980,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 938,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 817,
-        "SFU-COMP-SUMMARY": 422,
-        "SFU-AUTH-TITLE-HR": 187,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 185,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1600,
+        "SFU-COMP-DECISION": 1453,
+        "SFU-QUAL-SKILL-MODIFIER": 1391,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 1060,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 991,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 464,
+        "SFU-AUTH-TITLE-HR": 184,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 147,
         "SFU-QUAL-EQUIVALENT": 137,
-        "SFU-QUAL-SKILL-MODIFIER": 108,
-        "SFU-GATE-KSA-ORDER": 52,
+        "SFU-COMP-RELATIONSHIPS": 134,
+        "SFU-COMP-DUTIES": 108,
+        "SFU-COMP-SUMMARY": 79,
+        "SFU-GATE-SENIOR-TITLE": 35,
         "SFU-GATE-DUTY-PCT": 34,
         "SFU-AUTH-TITLE-REGISTRAR": 18,
-        "SFU-AUTH-TITLE-EXEC-DIR": 4,
-        "SFU-GATE-SENIOR-TITLE": 2
+        "SFU-GATE-KSA-ORDER": 17,
+        "SFU-AUTH-TITLE-EXEC-DIR": 6
       },
-      "total_findings": 48381,
+      "total_findings": 48452,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 4164,
-        "SFU-APPROVE-GRADE-FLOOR": 3677,
-        "SFU-APPROVE-SCORE-FLOOR": 3677,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 3651,
-        "SFU-APPROVE-SEVERITY-FLOOR": 3651,
+        "SFU-APPROVE-GRADE-FLOOR": 3285,
+        "SFU-APPROVE-SCORE-FLOOR": 3285,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 2342,
+        "SFU-APPROVE-SEVERITY-FLOOR": 2342,
         "SFU-APPROVE-NO-PLACEHOLDERS": 1913,
-        "SFU-APPROVE-SUMMARY-LENGTH": 1851,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 185,
+        "SFU-APPROVE-SUMMARY-LENGTH": 1060,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 147,
         "SFU-APPROVE-QUAL-EQUIVALENT": 137,
-        "SFU-APPROVE-KSA-ORDER": 52,
+        "SFU-APPROVE-SENIOR-TITLE": 35,
         "SFU-APPROVE-DUTY-ALLOCATION": 34,
-        "SFU-APPROVE-SENIOR-TITLE": 2
+        "SFU-APPROVE-KSA-ORDER": 17
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 3651,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 2342,
         "SFU-APPROVE-NO-PLACEHOLDERS": 1913
+      }
+    },
+    {
+      "population": "content_dedup",
+      "dimension": "template",
+      "value": "jdfn",
+      "n_files": 8917,
+      "n_scored": 8917,
+      "n_skipped": 0,
+      "score": {
+        "n": 8917,
+        "minimum": 13.76315000000001,
+        "median": 54.2941335,
+        "mean": 57.27483650504159,
+        "maximum": 100.0,
+        "histogram": [
+          {
+            "lower": 0.0,
+            "upper": 10.0,
+            "count": 0
+          },
+          {
+            "lower": 10.0,
+            "upper": 20.0,
+            "count": 21
+          },
+          {
+            "lower": 20.0,
+            "upper": 30.0,
+            "count": 116
+          },
+          {
+            "lower": 30.0,
+            "upper": 40.0,
+            "count": 1120
+          },
+          {
+            "lower": 40.0,
+            "upper": 50.0,
+            "count": 3150
+          },
+          {
+            "lower": 50.0,
+            "upper": 60.0,
+            "count": 241
+          },
+          {
+            "lower": 60.0,
+            "upper": 70.0,
+            "count": 1865
+          },
+          {
+            "lower": 70.0,
+            "upper": 80.0,
+            "count": 1761
+          },
+          {
+            "lower": 80.0,
+            "upper": 90.0,
+            "count": 560
+          },
+          {
+            "lower": 90.0,
+            "upper": 100.0,
+            "count": 83
+          }
+        ]
+      },
+      "grades": {
+        "A": 83,
+        "B": 1587,
+        "C": 2599,
+        "D": 3391,
+        "F": 1257
+      },
+      "mean_issue_count": 9.028933497813165,
+      "approved": 588,
+      "approval_rate": 0.0659414601323315,
+      "rule_frequency": {
+        "SFU-COMP-TERRITORIAL": 8160,
+        "SFU-GATE-REL-HEADER": 7552,
+        "SFU-COMP-PROBLEM": 6851,
+        "SFU-COMP-ABOUT": 6776,
+        "SFU-STRUCT-ACTION-VERB": 6678,
+        "SFU-COMP-EDI": 6655,
+        "SFU-LANG-CODED": 6267,
+        "SFU-COMP-QUALS": 4416,
+        "SFU-QUAL-DEGREE-DISCIPLINE": 4129,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 3692,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 3590,
+        "SFU-STRUCT-PLACEHOLDER": 3510,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 3182,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 1947,
+        "SFU-QUAL-EQUIVALENT": 726,
+        "SFU-AUTH-TITLE-HR": 472,
+        "SFU-QUAL-SKILL-MODIFIER": 460,
+        "SFU-COMP-DUTIES": 322,
+        "SFU-COMP-DECISION": 319,
+        "SFU-COMP-RELATIONSHIPS": 269,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 229,
+        "SFU-COMP-SUMMARY": 169,
+        "SFU-GATE-DUTY-PCT": 69,
+        "SFU-GATE-KSA-ORDER": 47,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 43,
+        "SFU-AUTH-TITLE-REGISTRAR": 33,
+        "SFU-AUTH-TITLE-EXEC-DIR": 10,
+        "SFU-QUAL-BANNED-PHRASE": 10,
+        "SFU-GATE-SENIOR-TITLE": 9
+      },
+      "total_findings": 80511,
+      "gate_frequency": {
+        "SFU-APPROVE-EDI-FOOTER": 8170,
+        "SFU-APPROVE-GRADE-FLOOR": 4648,
+        "SFU-APPROVE-SCORE-FLOOR": 4648,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 4573,
+        "SFU-APPROVE-SEVERITY-FLOOR": 4573,
+        "SFU-APPROVE-NO-PLACEHOLDERS": 3510,
+        "SFU-APPROVE-SUMMARY-LENGTH": 1947,
+        "SFU-APPROVE-QUAL-EQUIVALENT": 726,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 229,
+        "SFU-APPROVE-DUTY-ALLOCATION": 69,
+        "SFU-APPROVE-KSA-ORDER": 47,
+        "SFU-APPROVE-QUAL-MINIMUM": 10,
+        "SFU-APPROVE-SENIOR-TITLE": 9
+      },
+      "non_overridable_gate_frequency": {
+        "SFU-APPROVE-MANDATORY-SECTIONS": 4573,
+        "SFU-APPROVE-NO-PLACEHOLDERS": 3510
+      }
+    },
+    {
+      "population": "content_dedup",
+      "dimension": "template",
+      "value": "unknown",
+      "n_files": 36,
+      "n_scored": 0,
+      "n_skipped": 36,
+      "score": null,
+      "grades": {},
+      "mean_issue_count": null,
+      "approved": 0,
+      "approval_rate": null,
+      "rule_frequency": {},
+      "total_findings": 0,
+      "gate_frequency": {},
+      "non_overridable_gate_frequency": {}
+    },
+    {
+      "population": "content_dedup",
+      "dimension": "template",
+      "value": "wjq",
+      "n_files": 3640,
+      "n_scored": 3640,
+      "n_skipped": 0,
+      "score": {
+        "n": 3640,
+        "minimum": 12.76313350000001,
+        "median": 58.474125415,
+        "mean": 50.768648114392946,
+        "maximum": 67.705905,
+        "histogram": [
+          {
+            "lower": 0.0,
+            "upper": 10.0,
+            "count": 0
+          },
+          {
+            "lower": 10.0,
+            "upper": 20.0,
+            "count": 55
+          },
+          {
+            "lower": 20.0,
+            "upper": 30.0,
+            "count": 583
+          },
+          {
+            "lower": 30.0,
+            "upper": 40.0,
+            "count": 394
+          },
+          {
+            "lower": 40.0,
+            "upper": 50.0,
+            "count": 42
+          },
+          {
+            "lower": 50.0,
+            "upper": 60.0,
+            "count": 1843
+          },
+          {
+            "lower": 60.0,
+            "upper": 70.0,
+            "count": 723
+          },
+          {
+            "lower": 70.0,
+            "upper": 80.0,
+            "count": 0
+          },
+          {
+            "lower": 80.0,
+            "upper": 90.0,
+            "count": 0
+          },
+          {
+            "lower": 90.0,
+            "upper": 100.0,
+            "count": 0
+          }
+        ]
+      },
+      "grades": {
+        "C": 723,
+        "D": 1885,
+        "F": 1032
+      },
+      "mean_issue_count": 13.248351648351647,
+      "approved": 0,
+      "approval_rate": 0.0,
+      "rule_frequency": {
+        "SFU-COMP-ABOUT": 3640,
+        "SFU-COMP-DECISION": 3640,
+        "SFU-COMP-EDI": 3640,
+        "SFU-COMP-PROBLEM": 3640,
+        "SFU-COMP-TERRITORIAL": 3640,
+        "SFU-GATE-REL-HEADER": 3640,
+        "SFU-LANG-CODED": 3417,
+        "SFU-QUAL-DEGREE-DISCIPLINE": 3025,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 2917,
+        "SFU-STRUCT-ACTION-VERB": 2916,
+        "SFU-QUAL-SKILL-MODIFIER": 2654,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1427,
+        "SFU-COMP-RELATIONSHIPS": 1233,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 1158,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 1057,
+        "SFU-STRUCT-PLACEHOLDER": 995,
+        "SFU-COMP-QUALS": 969,
+        "SFU-COMP-DUTIES": 676,
+        "SFU-COMP-SUMMARY": 167,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 143,
+        "SFU-GATE-SENIOR-TITLE": 58,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 26,
+        "SFU-QUAL-EQUIVALENT": 9,
+        "SFU-GATE-KSA-ORDER": 7,
+        "SFU-AUTH-TITLE-EXEC-DIR": 3,
+        "SFU-AUTH-SUMMARY-INCUMBENT": 2,
+        "SFU-AUTH-TITLE-REGISTRAR": 1,
+        "SFU-GATE-DUTY-PCT": 1,
+        "SFU-QUAL-BANNED-PHRASE": 1
+      },
+      "total_findings": 48224,
+      "gate_frequency": {
+        "SFU-APPROVE-EDI-FOOTER": 3640,
+        "SFU-APPROVE-GRADE-FLOOR": 2917,
+        "SFU-APPROVE-SCORE-FLOOR": 2917,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 1074,
+        "SFU-APPROVE-SEVERITY-FLOOR": 1074,
+        "SFU-APPROVE-SUMMARY-LENGTH": 1057,
+        "SFU-APPROVE-NO-PLACEHOLDERS": 995,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 143,
+        "SFU-APPROVE-SENIOR-TITLE": 58,
+        "SFU-APPROVE-QUAL-EQUIVALENT": 9,
+        "SFU-APPROVE-KSA-ORDER": 7,
+        "SFU-APPROVE-SUMMARY-INCUMBENT": 2,
+        "SFU-APPROVE-DUTY-ALLOCATION": 1,
+        "SFU-APPROVE-QUAL-MINIMUM": 1
+      },
+      "non_overridable_gate_frequency": {
+        "SFU-APPROVE-MANDATORY-SECTIONS": 1074,
+        "SFU-APPROVE-NO-PLACEHOLDERS": 995
       }
     },
     {
@@ -2225,9 +2793,9 @@
       "n_skipped": 25,
       "score": {
         "n": 6295,
-        "minimum": 12.76313350000001,
-        "median": 47.00589345,
-        "mean": 52.692225788131594,
+        "minimum": 14.603500000000011,
+        "median": 58.9641335,
+        "mean": 59.01433020510938,
         "maximum": 100.0,
         "histogram": [
           {
@@ -2238,32 +2806,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 635
+            "count": 22
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 284
+            "count": 313
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 613
+            "count": 559
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 2123
+            "count": 1236
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 92
+            "count": 1160
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 762
+            "count": 1219
           },
           {
             "lower": 70.0,
@@ -2285,62 +2853,64 @@
       "grades": {
         "A": 64,
         "B": 1239,
-        "C": 1245,
-        "D": 2215,
-        "F": 1532
+        "C": 1702,
+        "D": 2396,
+        "F": 894
       },
-      "mean_issue_count": 9.527084988085782,
+      "mean_issue_count": 9.572359015091342,
       "approved": 522,
       "approval_rate": 0.082922954725973,
       "rule_frequency": {
         "SFU-COMP-TERRITORIAL": 5617,
         "SFU-GATE-REL-HEADER": 5502,
         "SFU-LANG-CODED": 4728,
-        "SFU-COMP-PROBLEM": 4564,
+        "SFU-STRUCT-ACTION-VERB": 4688,
+        "SFU-COMP-PROBLEM": 4565,
         "SFU-COMP-ABOUT": 4498,
         "SFU-COMP-EDI": 4427,
         "SFU-QUAL-DEGREE-DISCIPLINE": 3336,
-        "SFU-STRUCT-ACTION-VERB": 3039,
-        "SFU-COMP-QUALS": 2541,
-        "SFU-COMP-DUTIES": 2099,
-        "SFU-COMP-DECISION": 2091,
-        "SFU-COMP-RELATIONSHIPS": 2066,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 1979,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 1878,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1818,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 3042,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 2626,
+        "SFU-COMP-QUALS": 2103,
+        "SFU-COMP-DECISION": 2094,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 1890,
+        "SFU-QUAL-SKILL-MODIFIER": 1826,
         "SFU-STRUCT-PLACEHOLDER": 1639,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 1382,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 977,
-        "SFU-COMP-SUMMARY": 931,
-        "SFU-QUAL-EQUIVALENT": 397,
-        "SFU-QUAL-SKILL-MODIFIER": 337,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 192,
-        "SFU-AUTH-TITLE-HR": 175,
-        "SFU-GATE-KSA-ORDER": 87,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 1345,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 649,
+        "SFU-COMP-RELATIONSHIPS": 610,
+        "SFU-COMP-DUTIES": 419,
+        "SFU-QUAL-EQUIVALENT": 396,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 179,
+        "SFU-COMP-SUMMARY": 176,
+        "SFU-AUTH-TITLE-HR": 173,
         "SFU-GATE-DUTY-PCT": 38,
-        "SFU-AUTH-TITLE-REGISTRAR": 14,
-        "SFU-AUTH-TITLE-EXEC-DIR": 2,
-        "SFU-GATE-SENIOR-TITLE": 1,
-        "SFU-QUAL-BANNED-PHRASE": 1
+        "SFU-GATE-SENIOR-TITLE": 37,
+        "SFU-GATE-KSA-ORDER": 23,
+        "SFU-AUTH-TITLE-REGISTRAR": 8,
+        "SFU-AUTH-TITLE-EXEC-DIR": 4,
+        "SFU-QUAL-BANNED-PHRASE": 2,
+        "SFU-AUTH-SUMMARY-INCUMBENT": 1
       },
-      "total_findings": 59973,
+      "total_findings": 60258,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 5625,
-        "SFU-APPROVE-GRADE-FLOOR": 3747,
-        "SFU-APPROVE-SCORE-FLOOR": 3747,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 3733,
-        "SFU-APPROVE-SEVERITY-FLOOR": 3733,
-        "SFU-APPROVE-SUMMARY-LENGTH": 1979,
+        "SFU-APPROVE-GRADE-FLOOR": 3290,
+        "SFU-APPROVE-SCORE-FLOOR": 3290,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 2208,
+        "SFU-APPROVE-SEVERITY-FLOOR": 2208,
         "SFU-APPROVE-NO-PLACEHOLDERS": 1639,
-        "SFU-APPROVE-QUAL-EQUIVALENT": 397,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 192,
-        "SFU-APPROVE-KSA-ORDER": 87,
+        "SFU-APPROVE-SUMMARY-LENGTH": 1345,
+        "SFU-APPROVE-QUAL-EQUIVALENT": 396,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 179,
         "SFU-APPROVE-DUTY-ALLOCATION": 38,
-        "SFU-APPROVE-QUAL-MINIMUM": 1,
-        "SFU-APPROVE-SENIOR-TITLE": 1
+        "SFU-APPROVE-SENIOR-TITLE": 37,
+        "SFU-APPROVE-KSA-ORDER": 23,
+        "SFU-APPROVE-QUAL-MINIMUM": 2,
+        "SFU-APPROVE-SUMMARY-INCUMBENT": 1
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 3733,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 2208,
         "SFU-APPROVE-NO-PLACEHOLDERS": 1639
       }
     },
@@ -2353,9 +2923,9 @@
       "n_skipped": 7,
       "score": {
         "n": 1737,
-        "minimum": 12.76313350000001,
-        "median": 33.294133500000015,
-        "mean": 31.172014939727983,
+        "minimum": 14.603500000000011,
+        "median": 42.3941335,
+        "mean": 43.8224844499302,
         "maximum": 91.5,
         "histogram": [
           {
@@ -2366,32 +2936,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 624
+            "count": 16
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 230
+            "count": 261
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 276
+            "count": 390
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 585
+            "count": 592
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 8
+            "count": 341
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 6
+            "count": 129
           },
           {
             "lower": 70.0,
@@ -2413,11 +2983,11 @@
       "grades": {
         "A": 1,
         "B": 7,
-        "C": 6,
-        "D": 593,
-        "F": 1130
+        "C": 129,
+        "D": 933,
+        "F": 667
       },
-      "mean_issue_count": 12.507772020725389,
+      "mean_issue_count": 12.7524467472654,
       "approved": 1,
       "approval_rate": 0.0005757052389176742,
       "rule_frequency": {
@@ -2426,47 +2996,47 @@
         "SFU-COMP-PROBLEM": 1728,
         "SFU-COMP-TERRITORIAL": 1728,
         "SFU-COMP-ABOUT": 1712,
-        "SFU-COMP-QUALS": 1648,
         "SFU-LANG-CODED": 1567,
+        "SFU-STRUCT-ACTION-VERB": 1396,
         "SFU-QUAL-DEGREE-DISCIPLINE": 1231,
+        "SFU-COMP-QUALS": 1207,
         "SFU-STRUCT-PLACEHOLDER": 1069,
-        "SFU-COMP-DUTIES": 925,
-        "SFU-COMP-DECISION": 917,
-        "SFU-COMP-RELATIONSHIPS": 895,
-        "SFU-COMP-SUMMARY": 848,
-        "SFU-STRUCT-ACTION-VERB": 793,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 452,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 413,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 242,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 236,
-        "SFU-QUAL-EQUIVALENT": 148,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 1038,
+        "SFU-COMP-DECISION": 918,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 744,
+        "SFU-COMP-RELATIONSHIPS": 515,
+        "SFU-QUAL-SKILL-MODIFIER": 512,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 503,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 436,
+        "SFU-COMP-DUTIES": 322,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 246,
+        "SFU-QUAL-EQUIVALENT": 147,
         "SFU-AUTH-TITLE-HR": 119,
-        "SFU-QUAL-SKILL-MODIFIER": 66,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 61,
-        "SFU-GATE-KSA-ORDER": 55,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 27,
+        "SFU-COMP-SUMMARY": 111,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 57,
         "SFU-GATE-DUTY-PCT": 11,
-        "SFU-AUTH-TITLE-REGISTRAR": 7,
+        "SFU-GATE-KSA-ORDER": 5,
+        "SFU-AUTH-SUMMARY-INCUMBENT": 1,
         "SFU-AUTH-TITLE-EXEC-DIR": 1,
-        "SFU-GATE-SENIOR-TITLE": 1
+        "SFU-AUTH-TITLE-REGISTRAR": 1
       },
-      "total_findings": 21726,
+      "total_findings": 22151,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 1736,
-        "SFU-APPROVE-GRADE-FLOOR": 1723,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 1723,
-        "SFU-APPROVE-SCORE-FLOOR": 1723,
-        "SFU-APPROVE-SEVERITY-FLOOR": 1723,
+        "SFU-APPROVE-GRADE-FLOOR": 1600,
+        "SFU-APPROVE-SCORE-FLOOR": 1600,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 1267,
+        "SFU-APPROVE-SEVERITY-FLOOR": 1267,
         "SFU-APPROVE-NO-PLACEHOLDERS": 1069,
-        "SFU-APPROVE-SUMMARY-LENGTH": 242,
-        "SFU-APPROVE-QUAL-EQUIVALENT": 148,
-        "SFU-APPROVE-KSA-ORDER": 55,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 27,
+        "SFU-APPROVE-SUMMARY-LENGTH": 503,
+        "SFU-APPROVE-QUAL-EQUIVALENT": 147,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 57,
         "SFU-APPROVE-DUTY-ALLOCATION": 11,
-        "SFU-APPROVE-SENIOR-TITLE": 1
+        "SFU-APPROVE-KSA-ORDER": 5,
+        "SFU-APPROVE-SUMMARY-INCUMBENT": 1
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 1723,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 1267,
         "SFU-APPROVE-NO-PLACEHOLDERS": 1069
       }
     },
@@ -2479,9 +3049,9 @@
       "n_skipped": 15,
       "score": {
         "n": 4533,
-        "minimum": 13.17490500000001,
+        "minimum": 15.575905000000006,
         "median": 67.15,
-        "mean": 61.092782739682534,
+        "mean": 65.01388433877891,
         "maximum": 100.0,
         "histogram": [
           {
@@ -2492,32 +3062,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 6
+            "count": 4
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 35
+            "count": 32
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 337
+            "count": 167
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 1538
+            "count": 644
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 84
+            "count": 819
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 755
+            "count": 1089
           },
           {
             "lower": 70.0,
@@ -2539,60 +3109,62 @@
       "grades": {
         "A": 63,
         "B": 1232,
-        "C": 1238,
-        "D": 1622,
-        "F": 378
+        "C": 1572,
+        "D": 1463,
+        "F": 203
       },
-      "mean_issue_count": 8.374365762188397,
+      "mean_issue_count": 8.343481138318994,
       "approved": 521,
       "approval_rate": 0.11493492168541805,
       "rule_frequency": {
         "SFU-COMP-TERRITORIAL": 3864,
         "SFU-GATE-REL-HEADER": 3745,
+        "SFU-STRUCT-ACTION-VERB": 3289,
         "SFU-LANG-CODED": 3155,
-        "SFU-COMP-PROBLEM": 2812,
+        "SFU-COMP-PROBLEM": 2813,
         "SFU-COMP-ABOUT": 2762,
         "SFU-COMP-EDI": 2667,
-        "SFU-STRUCT-ACTION-VERB": 2245,
         "SFU-QUAL-DEGREE-DISCIPLINE": 2099,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 1737,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 1642,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1404,
-        "SFU-COMP-DECISION": 1150,
-        "SFU-COMP-DUTIES": 1150,
-        "SFU-COMP-RELATIONSHIPS": 1147,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 929,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 915,
-        "SFU-COMP-QUALS": 869,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 2001,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1881,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 1644,
+        "SFU-QUAL-SKILL-MODIFIER": 1313,
+        "SFU-COMP-DECISION": 1152,
+        "SFU-COMP-QUALS": 872,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 841,
         "SFU-STRUCT-PLACEHOLDER": 565,
-        "SFU-QUAL-SKILL-MODIFIER": 270,
         "SFU-QUAL-EQUIVALENT": 230,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 165,
-        "SFU-COMP-SUMMARY": 59,
-        "SFU-AUTH-TITLE-HR": 56,
-        "SFU-GATE-KSA-ORDER": 31,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 212,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 122,
+        "SFU-COMP-DUTIES": 75,
+        "SFU-COMP-RELATIONSHIPS": 71,
+        "SFU-AUTH-TITLE-HR": 54,
+        "SFU-COMP-SUMMARY": 44,
+        "SFU-GATE-SENIOR-TITLE": 37,
         "SFU-GATE-DUTY-PCT": 27,
+        "SFU-GATE-KSA-ORDER": 17,
         "SFU-AUTH-TITLE-REGISTRAR": 7,
-        "SFU-AUTH-TITLE-EXEC-DIR": 1,
-        "SFU-QUAL-BANNED-PHRASE": 1
+        "SFU-AUTH-TITLE-EXEC-DIR": 3,
+        "SFU-QUAL-BANNED-PHRASE": 2
       },
-      "total_findings": 37961,
+      "total_findings": 37821,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 3864,
-        "SFU-APPROVE-GRADE-FLOOR": 2000,
-        "SFU-APPROVE-SCORE-FLOOR": 2000,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 1986,
-        "SFU-APPROVE-SEVERITY-FLOOR": 1986,
-        "SFU-APPROVE-SUMMARY-LENGTH": 1737,
+        "SFU-APPROVE-GRADE-FLOOR": 1666,
+        "SFU-APPROVE-SCORE-FLOOR": 1666,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 917,
+        "SFU-APPROVE-SEVERITY-FLOOR": 917,
+        "SFU-APPROVE-SUMMARY-LENGTH": 841,
         "SFU-APPROVE-NO-PLACEHOLDERS": 565,
         "SFU-APPROVE-QUAL-EQUIVALENT": 230,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 165,
-        "SFU-APPROVE-KSA-ORDER": 31,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 122,
+        "SFU-APPROVE-SENIOR-TITLE": 37,
         "SFU-APPROVE-DUTY-ALLOCATION": 27,
-        "SFU-APPROVE-QUAL-MINIMUM": 1
+        "SFU-APPROVE-KSA-ORDER": 17,
+        "SFU-APPROVE-QUAL-MINIMUM": 2
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 1986,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 917,
         "SFU-APPROVE-NO-PLACEHOLDERS": 565
       }
     },
@@ -2622,9 +3194,9 @@
       "n_skipped": 0,
       "score": {
         "n": 6,
-        "minimum": 15.164133500000005,
-        "median": 17.58502750000001,
-        "mean": 25.466396166666673,
+        "minimum": 16.164150000000006,
+        "median": 31.82001347500001,
+        "mean": 33.704432325000006,
         "maximum": 67.2941335,
         "histogram": [
           {
@@ -2635,17 +3207,17 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 5
+            "count": 2
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 0
+            "count": 1
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 0
+            "count": 2
           },
           {
             "lower": 40.0,
@@ -2693,18 +3265,19 @@
         "SFU-QUAL-DEGREE-DISCIPLINE": 6,
         "SFU-COMP-ABOUT": 5,
         "SFU-COMP-DECISION": 5,
-        "SFU-COMP-DUTIES": 5,
         "SFU-COMP-EDI": 5,
         "SFU-COMP-PROBLEM": 5,
         "SFU-COMP-QUALS": 5,
         "SFU-COMP-RELATIONSHIPS": 5,
-        "SFU-COMP-SUMMARY": 5,
         "SFU-STRUCT-PLACEHOLDER": 5,
+        "SFU-COMP-DUTIES": 3,
+        "SFU-STRUCT-ACTION-VERB": 3,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 3,
+        "SFU-COMP-SUMMARY": 2,
         "SFU-AUTH-ABILITIES-OBSERVABLE": 1,
         "SFU-GATE-KSA-ORDER": 1,
         "SFU-QUAL-SKILL-MODIFIER": 1,
-        "SFU-STRUCT-ACTION-VERB": 1,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 1,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 1,
         "SFU-STRUCT-SUMMARY-TOO-SHORT": 1
       },
       "total_findings": 77,
@@ -2715,7 +3288,8 @@
         "SFU-APPROVE-NO-PLACEHOLDERS": 5,
         "SFU-APPROVE-SCORE-FLOOR": 5,
         "SFU-APPROVE-SEVERITY-FLOOR": 5,
-        "SFU-APPROVE-KSA-ORDER": 1
+        "SFU-APPROVE-KSA-ORDER": 1,
+        "SFU-APPROVE-SUMMARY-LENGTH": 1
       },
       "non_overridable_gate_frequency": {
         "SFU-APPROVE-MANDATORY-SECTIONS": 5,
@@ -2829,9 +3403,9 @@
       "n_skipped": 0,
       "score": {
         "n": 832,
-        "minimum": 15.164133500000005,
+        "minimum": 36.27489345000001,
         "median": 78.0,
-        "mean": 73.40535468406851,
+        "mean": 76.05190954353468,
         "maximum": 95.0,
         "histogram": [
           {
@@ -2842,32 +3416,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 10
+            "count": 0
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 4
+            "count": 0
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 22
+            "count": 2
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 81
+            "count": 1
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 3
+            "count": 87
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 57
+            "count": 87
           },
           {
             "lower": 70.0,
@@ -2889,51 +3463,55 @@
       "grades": {
         "A": 49,
         "B": 451,
-        "C": 212,
-        "D": 84,
-        "F": 36
+        "C": 242,
+        "D": 88,
+        "F": 2
       },
-      "mean_issue_count": 5.115384615384615,
+      "mean_issue_count": 5.09375,
       "approved": 497,
       "approval_rate": 0.5973557692307693,
       "rule_frequency": {
         "SFU-GATE-REL-HEADER": 625,
         "SFU-LANG-CODED": 502,
         "SFU-STRUCT-DUTIES-TOO-FEW": 451,
-        "SFU-STRUCT-ACTION-VERB": 323,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 281,
+        "SFU-STRUCT-ACTION-VERB": 439,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 316,
         "SFU-QUAL-DEGREE-DISCIPLINE": 250,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 213,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 226,
         "SFU-COMP-TERRITORIAL": 197,
-        "SFU-COMP-PROBLEM": 145,
+        "SFU-QUAL-SKILL-MODIFIER": 187,
+        "SFU-COMP-PROBLEM": 146,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 135,
         "SFU-COMP-EDI": 133,
         "SFU-COMP-ABOUT": 126,
         "SFU-COMP-DECISION": 122,
-        "SFU-COMP-DUTIES": 121,
-        "SFU-COMP-RELATIONSHIPS": 117,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 109,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 96,
-        "SFU-QUAL-SKILL-MODIFIER": 72,
         "SFU-QUAL-EQUIVALENT": 33,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 18,
-        "SFU-COMP-SUMMARY": 16,
-        "SFU-COMP-QUALS": 15,
-        "SFU-GATE-KSA-ORDER": 1
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 29,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 14,
+        "SFU-COMP-DUTIES": 4,
+        "SFU-COMP-SUMMARY": 4,
+        "SFU-GATE-SENIOR-TITLE": 4,
+        "SFU-COMP-QUALS": 2,
+        "SFU-COMP-RELATIONSHIPS": 1,
+        "SFU-GATE-KSA-ORDER": 1,
+        "SFU-QUAL-BANNED-PHRASE": 1
       },
-      "total_findings": 4256,
+      "total_findings": 4238,
       "gate_frequency": {
-        "SFU-APPROVE-SUMMARY-LENGTH": 213,
         "SFU-APPROVE-EDI-FOOTER": 205,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 123,
-        "SFU-APPROVE-SEVERITY-FLOOR": 123,
-        "SFU-APPROVE-GRADE-FLOOR": 120,
-        "SFU-APPROVE-SCORE-FLOOR": 120,
+        "SFU-APPROVE-SUMMARY-LENGTH": 135,
+        "SFU-APPROVE-GRADE-FLOOR": 90,
+        "SFU-APPROVE-SCORE-FLOOR": 90,
         "SFU-APPROVE-QUAL-EQUIVALENT": 33,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 18,
-        "SFU-APPROVE-KSA-ORDER": 1
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 14,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 9,
+        "SFU-APPROVE-SEVERITY-FLOOR": 9,
+        "SFU-APPROVE-SENIOR-TITLE": 4,
+        "SFU-APPROVE-KSA-ORDER": 1,
+        "SFU-APPROVE-QUAL-MINIMUM": 1
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 123
+        "SFU-APPROVE-MANDATORY-SECTIONS": 9
       }
     },
     {
@@ -2945,9 +3523,9 @@
       "n_skipped": 1,
       "score": {
         "n": 2705,
-        "minimum": 15.164133500000005,
+        "minimum": 15.575905000000006,
         "median": 68.29415,
-        "mean": 63.08281463705331,
+        "mean": 66.73049838979466,
         "maximum": 100.0,
         "histogram": [
           {
@@ -2958,32 +3536,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 57
+            "count": 1
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 48
+            "count": 31
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 131
+            "count": 68
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 612
+            "count": 253
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 53
+            "count": 395
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 682
+            "count": 835
           },
           {
             "lower": 70.0,
@@ -3005,59 +3583,62 @@
       "grades": {
         "A": 15,
         "B": 785,
-        "C": 1004,
-        "D": 665,
-        "F": 236
+        "C": 1157,
+        "D": 648,
+        "F": 100
       },
-      "mean_issue_count": 8.007393715341959,
+      "mean_issue_count": 7.99445471349353,
       "approved": 25,
       "approval_rate": 0.009242144177449169,
       "rule_frequency": {
         "SFU-COMP-TERRITORIAL": 2662,
         "SFU-GATE-REL-HEADER": 2121,
+        "SFU-STRUCT-ACTION-VERB": 1885,
         "SFU-LANG-CODED": 1685,
         "SFU-COMP-PROBLEM": 1661,
         "SFU-COMP-ABOUT": 1634,
         "SFU-COMP-EDI": 1537,
-        "SFU-STRUCT-ACTION-VERB": 1389,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1212,
         "SFU-QUAL-DEGREE-DISCIPLINE": 1183,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 988,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 988,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 796,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 578,
-        "SFU-COMP-DUTIES": 573,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 1081,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 991,
+        "SFU-QUAL-SKILL-MODIFIER": 666,
         "SFU-COMP-DECISION": 571,
-        "SFU-COMP-RELATIONSHIPS": 570,
-        "SFU-COMP-QUALS": 410,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 383,
-        "SFU-QUAL-SKILL-MODIFIER": 177,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 445,
+        "SFU-COMP-QUALS": 347,
         "SFU-QUAL-EQUIVALENT": 164,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 154,
         "SFU-STRUCT-PLACEHOLDER": 137,
-        "SFU-COMP-SUMMARY": 117,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 84,
+        "SFU-COMP-DUTIES": 66,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 64,
+        "SFU-COMP-RELATIONSHIPS": 58,
         "SFU-AUTH-TITLE-HR": 42,
-        "SFU-GATE-KSA-ORDER": 19,
+        "SFU-COMP-SUMMARY": 42,
+        "SFU-GATE-SENIOR-TITLE": 15,
         "SFU-GATE-DUTY-PCT": 14,
-        "SFU-AUTH-TITLE-REGISTRAR": 7,
+        "SFU-GATE-KSA-ORDER": 13,
+        "SFU-AUTH-TITLE-REGISTRAR": 4,
+        "SFU-AUTH-TITLE-EXEC-DIR": 1,
         "SFU-QUAL-BANNED-PHRASE": 1
       },
-      "total_findings": 21660,
+      "total_findings": 21625,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 2662,
-        "SFU-APPROVE-GRADE-FLOOR": 901,
-        "SFU-APPROVE-SCORE-FLOOR": 901,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 887,
-        "SFU-APPROVE-SEVERITY-FLOOR": 887,
-        "SFU-APPROVE-SUMMARY-LENGTH": 796,
+        "SFU-APPROVE-GRADE-FLOOR": 748,
+        "SFU-APPROVE-SCORE-FLOOR": 748,
+        "SFU-APPROVE-SUMMARY-LENGTH": 445,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 392,
+        "SFU-APPROVE-SEVERITY-FLOOR": 392,
         "SFU-APPROVE-QUAL-EQUIVALENT": 164,
         "SFU-APPROVE-NO-PLACEHOLDERS": 137,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 84,
-        "SFU-APPROVE-KSA-ORDER": 19,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 64,
+        "SFU-APPROVE-SENIOR-TITLE": 15,
         "SFU-APPROVE-DUTY-ALLOCATION": 14,
+        "SFU-APPROVE-KSA-ORDER": 13,
         "SFU-APPROVE-QUAL-MINIMUM": 1
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 887,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 392,
         "SFU-APPROVE-NO-PLACEHOLDERS": 137
       }
     },
@@ -3070,9 +3651,9 @@
       "n_skipped": 8,
       "score": {
         "n": 1217,
-        "minimum": 12.76313350000001,
-        "median": 33.005893450000016,
-        "mean": 30.814555032647913,
+        "minimum": 14.603500000000011,
+        "median": 42.10589345,
+        "mean": 41.17007472874873,
         "maximum": 67.2941335,
         "histogram": [
           {
@@ -3083,32 +3664,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 431
+            "count": 11
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 168
+            "count": 250
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 201
+            "count": 310
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 408
+            "count": 409
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 6
+            "count": 175
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 3
+            "count": 62
           },
           {
             "lower": 70.0,
@@ -3128,11 +3709,11 @@
         ]
       },
       "grades": {
-        "C": 3,
-        "D": 414,
-        "F": 800
+        "C": 62,
+        "D": 584,
+        "F": 571
       },
-      "mean_issue_count": 12.634346754313887,
+      "mean_issue_count": 12.882497945768282,
       "approved": 0,
       "approval_rate": 0.0,
       "rule_frequency": {
@@ -3141,47 +3722,47 @@
         "SFU-COMP-TERRITORIAL": 1217,
         "SFU-GATE-REL-HEADER": 1217,
         "SFU-COMP-ABOUT": 1201,
-        "SFU-COMP-QUALS": 1147,
         "SFU-LANG-CODED": 1067,
+        "SFU-COMP-QUALS": 944,
+        "SFU-STRUCT-ACTION-VERB": 903,
         "SFU-QUAL-DEGREE-DISCIPLINE": 888,
         "SFU-STRUCT-PLACEHOLDER": 838,
-        "SFU-COMP-DUTIES": 661,
-        "SFU-COMP-DECISION": 649,
-        "SFU-COMP-RELATIONSHIPS": 632,
-        "SFU-COMP-SUMMARY": 582,
-        "SFU-STRUCT-ACTION-VERB": 543,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 301,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 276,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 189,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 187,
-        "SFU-QUAL-EQUIVALENT": 157,
+        "SFU-COMP-DECISION": 650,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 649,
+        "SFU-COMP-RELATIONSHIPS": 492,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 478,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 400,
+        "SFU-COMP-DUTIES": 301,
+        "SFU-QUAL-SKILL-MODIFIER": 264,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 228,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 194,
+        "SFU-QUAL-EQUIVALENT": 156,
+        "SFU-COMP-SUMMARY": 87,
         "SFU-AUTH-TITLE-HR": 81,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 53,
-        "SFU-QUAL-SKILL-MODIFIER": 51,
-        "SFU-GATE-KSA-ORDER": 40,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 24,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 48,
         "SFU-GATE-DUTY-PCT": 9,
-        "SFU-AUTH-TITLE-REGISTRAR": 4,
+        "SFU-GATE-KSA-ORDER": 3,
+        "SFU-AUTH-SUMMARY-INCUMBENT": 1,
         "SFU-AUTH-TITLE-EXEC-DIR": 1,
-        "SFU-GATE-SENIOR-TITLE": 1
+        "SFU-AUTH-TITLE-REGISTRAR": 1
       },
-      "total_findings": 15376,
+      "total_findings": 15678,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 1217,
-        "SFU-APPROVE-GRADE-FLOOR": 1214,
-        "SFU-APPROVE-SCORE-FLOOR": 1214,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 1213,
-        "SFU-APPROVE-SEVERITY-FLOOR": 1213,
+        "SFU-APPROVE-GRADE-FLOOR": 1155,
+        "SFU-APPROVE-SCORE-FLOOR": 1155,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 985,
+        "SFU-APPROVE-SEVERITY-FLOOR": 985,
         "SFU-APPROVE-NO-PLACEHOLDERS": 838,
-        "SFU-APPROVE-SUMMARY-LENGTH": 187,
-        "SFU-APPROVE-QUAL-EQUIVALENT": 157,
-        "SFU-APPROVE-KSA-ORDER": 40,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 24,
+        "SFU-APPROVE-SUMMARY-LENGTH": 400,
+        "SFU-APPROVE-QUAL-EQUIVALENT": 156,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 48,
         "SFU-APPROVE-DUTY-ALLOCATION": 9,
-        "SFU-APPROVE-SENIOR-TITLE": 1
+        "SFU-APPROVE-KSA-ORDER": 3,
+        "SFU-APPROVE-SUMMARY-INCUMBENT": 1
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 1213,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 985,
         "SFU-APPROVE-NO-PLACEHOLDERS": 838
       }
     },
@@ -3194,9 +3775,9 @@
       "n_skipped": 16,
       "score": {
         "n": 1541,
-        "minimum": 13.76315000000001,
-        "median": 42.3941335,
-        "mean": 40.5476827846734,
+        "minimum": 15.575905000000006,
+        "median": 48.29415,
+        "mean": 50.363426873238744,
         "maximum": 75.29415,
         "histogram": [
           {
@@ -3207,32 +3788,32 @@
           {
             "lower": 10.0,
             "upper": 20.0,
-            "count": 137
+            "count": 10
           },
           {
             "lower": 20.0,
             "upper": 30.0,
-            "count": 64
+            "count": 32
           },
           {
             "lower": 30.0,
             "upper": 40.0,
-            "count": 259
+            "count": 179
           },
           {
             "lower": 40.0,
             "upper": 50.0,
-            "count": 1022
+            "count": 573
           },
           {
             "lower": 50.0,
             "upper": 60.0,
-            "count": 30
+            "count": 503
           },
           {
             "lower": 60.0,
             "upper": 70.0,
-            "count": 20
+            "count": 235
           },
           {
             "lower": 70.0,
@@ -3253,11 +3834,11 @@
       },
       "grades": {
         "B": 3,
-        "C": 26,
-        "D": 1052,
-        "F": 460
+        "C": 241,
+        "D": 1076,
+        "F": 221
       },
-      "mean_issue_count": 12.122647631408176,
+      "mean_issue_count": 12.146009085009734,
       "approved": 0,
       "approval_rate": 0.0,
       "rule_frequency": {
@@ -3267,45 +3848,314 @@
         "SFU-GATE-REL-HEADER": 1539,
         "SFU-COMP-ABOUT": 1537,
         "SFU-LANG-CODED": 1474,
+        "SFU-STRUCT-ACTION-VERB": 1461,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 1086,
         "SFU-QUAL-DEGREE-DISCIPLINE": 1015,
-        "SFU-COMP-QUALS": 969,
-        "SFU-STRUCT-ACTION-VERB": 784,
-        "SFU-STRUCT-SUMMARY-TOO-LONG": 783,
-        "SFU-COMP-DECISION": 749,
-        "SFU-COMP-RELATIONSHIPS": 747,
-        "SFU-COMP-DUTIES": 744,
+        "SFU-COMP-QUALS": 810,
+        "SFU-COMP-DECISION": 751,
+        "SFU-QUAL-SKILL-MODIFIER": 709,
         "SFU-STRUCT-PLACEHOLDER": 664,
-        "SFU-AUTH-ABILITIES-OBSERVABLE": 445,
-        "SFU-STRUCT-DUTIES-TOO-MANY": 394,
-        "SFU-STRUCT-SUMMARY-TOO-SHORT": 273,
-        "SFU-STRUCT-DUTIES-TOO-FEW": 250,
-        "SFU-COMP-SUMMARY": 216,
-        "SFU-AUTH-SUMMARY-CONDITIONS": 66,
-        "SFU-AUTH-TITLE-HR": 52,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 620,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 365,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 254,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 238,
+        "SFU-COMP-RELATIONSHIPS": 59,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 53,
+        "SFU-AUTH-TITLE-HR": 50,
+        "SFU-COMP-DUTIES": 48,
+        "SFU-COMP-SUMMARY": 43,
         "SFU-QUAL-EQUIVALENT": 43,
-        "SFU-QUAL-SKILL-MODIFIER": 37,
-        "SFU-GATE-KSA-ORDER": 27,
+        "SFU-GATE-SENIOR-TITLE": 18,
         "SFU-GATE-DUTY-PCT": 15,
+        "SFU-GATE-KSA-ORDER": 6,
         "SFU-AUTH-TITLE-REGISTRAR": 3,
-        "SFU-AUTH-TITLE-EXEC-DIR": 1
+        "SFU-AUTH-TITLE-EXEC-DIR": 2
       },
-      "total_findings": 18681,
+      "total_findings": 18717,
       "gate_frequency": {
         "SFU-APPROVE-EDI-FOOTER": 1541,
-        "SFU-APPROVE-GRADE-FLOOR": 1512,
-        "SFU-APPROVE-SCORE-FLOOR": 1512,
-        "SFU-APPROVE-MANDATORY-SECTIONS": 1510,
-        "SFU-APPROVE-SEVERITY-FLOOR": 1510,
-        "SFU-APPROVE-SUMMARY-LENGTH": 783,
+        "SFU-APPROVE-GRADE-FLOOR": 1297,
+        "SFU-APPROVE-SCORE-FLOOR": 1297,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 822,
+        "SFU-APPROVE-SEVERITY-FLOOR": 822,
         "SFU-APPROVE-NO-PLACEHOLDERS": 664,
-        "SFU-APPROVE-SUMMARY-CONDITIONS": 66,
+        "SFU-APPROVE-SUMMARY-LENGTH": 365,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 53,
         "SFU-APPROVE-QUAL-EQUIVALENT": 43,
-        "SFU-APPROVE-KSA-ORDER": 27,
-        "SFU-APPROVE-DUTY-ALLOCATION": 15
+        "SFU-APPROVE-SENIOR-TITLE": 18,
+        "SFU-APPROVE-DUTY-ALLOCATION": 15,
+        "SFU-APPROVE-KSA-ORDER": 6
       },
       "non_overridable_gate_frequency": {
-        "SFU-APPROVE-MANDATORY-SECTIONS": 1510,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 822,
         "SFU-APPROVE-NO-PLACEHOLDERS": 664
+      }
+    },
+    {
+      "population": "latest_per_position",
+      "dimension": "template",
+      "value": "jdfn",
+      "n_files": 4339,
+      "n_scored": 4339,
+      "n_skipped": 0,
+      "score": {
+        "n": 4339,
+        "minimum": 15.575905000000006,
+        "median": 67.705905,
+        "mean": 61.69499823473807,
+        "maximum": 100.0,
+        "histogram": [
+          {
+            "lower": 0.0,
+            "upper": 10.0,
+            "count": 0
+          },
+          {
+            "lower": 10.0,
+            "upper": 20.0,
+            "count": 10
+          },
+          {
+            "lower": 20.0,
+            "upper": 30.0,
+            "count": 71
+          },
+          {
+            "lower": 30.0,
+            "upper": 40.0,
+            "count": 406
+          },
+          {
+            "lower": 40.0,
+            "upper": 50.0,
+            "count": 1212
+          },
+          {
+            "lower": 50.0,
+            "upper": 60.0,
+            "count": 92
+          },
+          {
+            "lower": 60.0,
+            "upper": 70.0,
+            "count": 762
+          },
+          {
+            "lower": 70.0,
+            "upper": 80.0,
+            "count": 1226
+          },
+          {
+            "lower": 80.0,
+            "upper": 90.0,
+            "count": 496
+          },
+          {
+            "lower": 90.0,
+            "upper": 100.0,
+            "count": 64
+          }
+        ]
+      },
+      "grades": {
+        "A": 64,
+        "B": 1239,
+        "C": 1245,
+        "D": 1304,
+        "F": 487
+      },
+      "mean_issue_count": 7.972343858031804,
+      "approved": 522,
+      "approval_rate": 0.12030421756165015,
+      "rule_frequency": {
+        "SFU-COMP-TERRITORIAL": 3661,
+        "SFU-GATE-REL-HEADER": 3546,
+        "SFU-STRUCT-ACTION-VERB": 3037,
+        "SFU-LANG-CODED": 2872,
+        "SFU-COMP-PROBLEM": 2609,
+        "SFU-COMP-ABOUT": 2542,
+        "SFU-COMP-EDI": 2471,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 1878,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 1818,
+        "SFU-QUAL-DEGREE-DISCIPLINE": 1743,
+        "SFU-COMP-QUALS": 1724,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 1380,
+        "SFU-STRUCT-PLACEHOLDER": 1277,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 860,
+        "SFU-QUAL-EQUIVALENT": 390,
+        "SFU-QUAL-SKILL-MODIFIER": 257,
+        "SFU-AUTH-TITLE-HR": 173,
+        "SFU-COMP-DUTIES": 145,
+        "SFU-COMP-DECISION": 138,
+        "SFU-COMP-RELATIONSHIPS": 113,
+        "SFU-COMP-SUMMARY": 95,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 87,
+        "SFU-GATE-DUTY-PCT": 38,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 17,
+        "SFU-GATE-KSA-ORDER": 15,
+        "SFU-AUTH-TITLE-REGISTRAR": 8,
+        "SFU-AUTH-TITLE-EXEC-DIR": 2,
+        "SFU-QUAL-BANNED-PHRASE": 1
+      },
+      "total_findings": 34592,
+      "gate_frequency": {
+        "SFU-APPROVE-EDI-FOOTER": 3669,
+        "SFU-APPROVE-GRADE-FLOOR": 1791,
+        "SFU-APPROVE-SCORE-FLOOR": 1791,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 1777,
+        "SFU-APPROVE-SEVERITY-FLOOR": 1777,
+        "SFU-APPROVE-NO-PLACEHOLDERS": 1277,
+        "SFU-APPROVE-SUMMARY-LENGTH": 860,
+        "SFU-APPROVE-QUAL-EQUIVALENT": 390,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 87,
+        "SFU-APPROVE-DUTY-ALLOCATION": 38,
+        "SFU-APPROVE-KSA-ORDER": 15,
+        "SFU-APPROVE-QUAL-MINIMUM": 1
+      },
+      "non_overridable_gate_frequency": {
+        "SFU-APPROVE-MANDATORY-SECTIONS": 1777,
+        "SFU-APPROVE-NO-PLACEHOLDERS": 1277
+      }
+    },
+    {
+      "population": "latest_per_position",
+      "dimension": "template",
+      "value": "unknown",
+      "n_files": 25,
+      "n_scored": 0,
+      "n_skipped": 25,
+      "score": null,
+      "grades": {},
+      "mean_issue_count": null,
+      "approved": 0,
+      "approval_rate": null,
+      "rule_frequency": {},
+      "total_findings": 0,
+      "gate_frequency": {},
+      "non_overridable_gate_frequency": {}
+    },
+    {
+      "population": "latest_per_position",
+      "dimension": "template",
+      "value": "wjq",
+      "n_files": 1956,
+      "n_scored": 1956,
+      "n_skipped": 0,
+      "score": {
+        "n": 1956,
+        "minimum": 14.603500000000011,
+        "median": 58.675893450000004,
+        "mean": 53.0677971884637,
+        "maximum": 67.705905,
+        "histogram": [
+          {
+            "lower": 0.0,
+            "upper": 10.0,
+            "count": 0
+          },
+          {
+            "lower": 10.0,
+            "upper": 20.0,
+            "count": 12
+          },
+          {
+            "lower": 20.0,
+            "upper": 30.0,
+            "count": 242
+          },
+          {
+            "lower": 30.0,
+            "upper": 40.0,
+            "count": 153
+          },
+          {
+            "lower": 40.0,
+            "upper": 50.0,
+            "count": 24
+          },
+          {
+            "lower": 50.0,
+            "upper": 60.0,
+            "count": 1068
+          },
+          {
+            "lower": 60.0,
+            "upper": 70.0,
+            "count": 457
+          },
+          {
+            "lower": 70.0,
+            "upper": 80.0,
+            "count": 0
+          },
+          {
+            "lower": 80.0,
+            "upper": 90.0,
+            "count": 0
+          },
+          {
+            "lower": 90.0,
+            "upper": 100.0,
+            "count": 0
+          }
+        ]
+      },
+      "grades": {
+        "C": 457,
+        "D": 1092,
+        "F": 407
+      },
+      "mean_issue_count": 13.121676891615541,
+      "approved": 0,
+      "approval_rate": 0.0,
+      "rule_frequency": {
+        "SFU-COMP-ABOUT": 1956,
+        "SFU-COMP-DECISION": 1956,
+        "SFU-COMP-EDI": 1956,
+        "SFU-COMP-PROBLEM": 1956,
+        "SFU-COMP-TERRITORIAL": 1956,
+        "SFU-GATE-REL-HEADER": 1956,
+        "SFU-LANG-CODED": 1856,
+        "SFU-STRUCT-DUTIES-TOO-MANY": 1662,
+        "SFU-STRUCT-ACTION-VERB": 1651,
+        "SFU-QUAL-DEGREE-DISCIPLINE": 1593,
+        "SFU-QUAL-SKILL-MODIFIER": 1569,
+        "SFU-STRUCT-SUMMARY-TOO-SHORT": 808,
+        "SFU-AUTH-ABILITIES-OBSERVABLE": 632,
+        "SFU-COMP-RELATIONSHIPS": 497,
+        "SFU-STRUCT-SUMMARY-TOO-LONG": 485,
+        "SFU-COMP-QUALS": 379,
+        "SFU-STRUCT-PLACEHOLDER": 362,
+        "SFU-COMP-DUTIES": 274,
+        "SFU-AUTH-SUMMARY-CONDITIONS": 92,
+        "SFU-COMP-SUMMARY": 81,
+        "SFU-GATE-SENIOR-TITLE": 37,
+        "SFU-STRUCT-DUTIES-TOO-FEW": 12,
+        "SFU-GATE-KSA-ORDER": 8,
+        "SFU-QUAL-EQUIVALENT": 6,
+        "SFU-AUTH-TITLE-EXEC-DIR": 2,
+        "SFU-AUTH-SUMMARY-INCUMBENT": 1,
+        "SFU-QUAL-BANNED-PHRASE": 1
+      },
+      "total_findings": 25666,
+      "gate_frequency": {
+        "SFU-APPROVE-EDI-FOOTER": 1956,
+        "SFU-APPROVE-GRADE-FLOOR": 1499,
+        "SFU-APPROVE-SCORE-FLOOR": 1499,
+        "SFU-APPROVE-SUMMARY-LENGTH": 485,
+        "SFU-APPROVE-MANDATORY-SECTIONS": 431,
+        "SFU-APPROVE-SEVERITY-FLOOR": 431,
+        "SFU-APPROVE-NO-PLACEHOLDERS": 362,
+        "SFU-APPROVE-SUMMARY-CONDITIONS": 92,
+        "SFU-APPROVE-SENIOR-TITLE": 37,
+        "SFU-APPROVE-KSA-ORDER": 8,
+        "SFU-APPROVE-QUAL-EQUIVALENT": 6,
+        "SFU-APPROVE-QUAL-MINIMUM": 1,
+        "SFU-APPROVE-SUMMARY-INCUMBENT": 1
+      },
+      "non_overridable_gate_frequency": {
+        "SFU-APPROVE-MANDATORY-SECTIONS": 431,
+        "SFU-APPROVE-NO-PLACEHOLDERS": 362
       }
     }
   ],
