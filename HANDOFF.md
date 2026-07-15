@@ -1,7 +1,7 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-14 (**Phase 2–3.3 COMPLETE.** 3.1 Tier-1 dedup + 3.2 ingest/embeddings + 3.3 Tier-2 near-dup all merged and run over the real archive. **3.4 (title normalizer + Tier-3 role-equivalence) is next.** **TWO extraction defects now block 3.5, not 3.4:** the WJQ Custom template (29% of the archive our parser can't read) AND `_extract_docx` losing all table / content-control text (2,596 `.docx` lose >40% of their words). **HR numbers are unaffected by both — checked, not assumed.**)
+Last updated: 2026-07-15 (**Phase 2–3.3 + extraction defects COMPLETE.** 3.1 Tier-1 dedup + 3.2 ingest/embeddings + 3.3 Tier-2 near-dup + **both extraction defects** all merged and run. Archive **99.3% parseable** (4,984 → 1,706 → 105 broken parses). **3.5 (clustering) is now UNBLOCKED; 3.4 (title normalizer + Tier-3 role-equivalence) is next.** Pipeline refreshed end-to-end: **14,395 documents with vectors** (was 9,517), **36,174 section vectors** (was 22,922), **15,072 near-dup edges** (was 14,312, candidate waste removed). **HR numbers byte-identical** (874 cohort; both defects were outside it).)
 
 **Catching up? Read [`docs/status/2026-07-13-shipped.md`](docs/status/2026-07-13-shipped.md) first** —
 the one-pager on 2.5 / 2.6 / 3.1, and the basis of what we tell HR.
@@ -9,7 +9,10 @@ the one-pager on 2.5 / 2.6 / 3.1, and the basis of what we tell HR.
 **PR stack all MERGED:** [#19](https://github.com/humanaxiom/jd-assistant/pull/19) (2.5 baseline)
 → [#22](https://github.com/humanaxiom/jd-assistant/pull/22) (2.6 defects, re-opened after #20 auto-closed)
 → [#21](https://github.com/humanaxiom/jd-assistant/pull/21) (3.1 dedup) → [#23](https://github.com/humanaxiom/jd-assistant/pull/23) (3.2a ingest) → [#24](https://github.com/humanaxiom/jd-assistant/pull/24) (3.2b embeddings)
-→ [#26](https://github.com/humanaxiom/jd-assistant/pull/26) (nonstandard ports) → [#27](https://github.com/humanaxiom/jd-assistant/pull/27) (3.3 Tier-2 near-dup) → [#28](https://github.com/humanaxiom/jd-assistant/pull/28) (coverage-rate fix + docs).
+→ [#26](https://github.com/humanaxiom/jd-assistant/pull/26) (nonstandard ports) → [#27](https://github.com/humanaxiom/jd-assistant/pull/27) (3.3 Tier-2 near-dup) → [#28](https://github.com/humanaxiom/jd-assistant/pull/28) (coverage-rate fix + docs)
+→ [#30](https://github.com/humanaxiom/jd-assistant/pull/30) (extraction: docx tables/controls) → [#31](https://github.com/humanaxiom/jd-assistant/pull/31) (baseline refresh)
+→ [#32](https://github.com/humanaxiom/jd-assistant/pull/32) (WJQ parser) → [#33](https://github.com/humanaxiom/jd-assistant/pull/33) (baseline at v2)
+→ [#34](https://github.com/humanaxiom/jd-assistant/pull/34) (LSH retune) → [#35](https://github.com/humanaxiom/jd-assistant/pull/35) (pipeline refresh).
 
 Repo: **`C:\repos\JD-Assistant`** → GitHub **github.com/humanaxiom/jd-assistant**.
 
@@ -125,9 +128,9 @@ is defensible because it is *nearly inert*, not because the data carved a thresh
 
 ---
 
-## Current state — Phases 1–3.3 COMPLETE and merged; Phase 3.4 is next
+## Current state — Phases 1–3.3 + extraction defects COMPLETE and merged; Phase 3.4 is next
 
-Phases 1 and 2 are fully merged. Phase 3.1 (Tier-1 exact dedup), 3.2 (archive ingest + embeddings) and 3.3 (Tier-2 near-dup) are also fully merged and have RUN over the real archive. The validation engine, HR decision register, all EXTRACT-eligible `jd_core` modules, the full archive in Postgres, the embedding service (9,517 doc + 22,922 section vectors in Neo4j), and Tier-2 near-dup (14,312 edges) are all landed.
+Phases 1 and 2 are fully merged. Phase 3.1 (Tier-1 exact dedup), 3.2 (archive ingest + embeddings), 3.3 (Tier-2 near-dup), and both extraction defects (docx tables + WJQ parser) are fully merged and have RUN over the real archive. The validation engine, HR decision register, all EXTRACT-eligible `jd_core` modules, the full archive in Postgres, the embedding service (14,395 doc + 36,174 section vectors in Neo4j), and Tier-2 near-dup (15,072 edges) are all landed. **Archive is 99.3% parseable and 99.4% covered end-to-end.**
 
 | Phase | State | PR | Commit |
 |---|---|---|---|
@@ -148,7 +151,7 @@ Phases 1 and 2 are fully merged. Phase 3.1 (Tier-1 exact dedup), 3.2 (archive in
 | **3.3 Tier-2 near-dup** — MinHash/LSH → exact Jaccard; 14,312 edges; the reconcile | MERGED | [#27](https://github.com/humanaxiom/jd-assistant/pull/27) | — |
 
 Test suite: **1368 passing**, coverage **94.90%** (3.3 shingle/minhash/dedup tests added), all in Docker via `make gates`. Decision
-register grew from 58 to **140 decisions** (3.2b added HR-124..HR-130 for embeddings; 3.3 added HR-131..HR-140 for `dedup.yaml` and amended HR-093).
+register grew from 58 to **148 decisions** (3.2b added HR-124..HR-130 for embeddings; 3.3 added HR-131..HR-140 for `dedup.yaml` and amended HR-093; this session added HR-141..HR-148 for WJQ parsing).
 
 All 16 EXTRACT-mapped hris modules are now ported or explicitly deferred: `export.py` → 5.4,
 the 3 prompt templates (`sfu_jd_extract`/`jd_harmonize`/`jd_quality`) → 4.2, `jd_import_service`
@@ -158,10 +161,38 @@ and `drift` landed as pure, tested functions **deliberately not wired to anythin
 
 ---
 
-## This session: 3.1 + 3.2a + 3.2b all merged
+## This session: extraction defects FIXED + pipeline refreshed
 
-**The full archive is now in Postgres.** Every measured count independently reproduces a previously
-known number via a different code path, proving the ingest schema is sound:
+**Two extraction defects that were silently shrinking the visible archive are BOTH FIXED and the pipeline has been refreshed end-to-end.** The wins are documented with data; HR numbers remain unaffected (the defects were outside the 874-JD current-practice cohort).
+
+### Defect 1: docx table/content-control extraction (PR #30, #31)
+
+`_extract_docx` read only `document.paragraphs`, silently losing all text in TABLES and Word CONTENT CONTROLS (`<w:sdt>`). Fixed with a document-order body walk that recurses into `<w:tbl>` cells and `<w:sdtContent>`. **Measured recovery: files losing everything 24 → 0; files losing >40% of their text 2,596 → 1; ~20.7M characters recovered.** Byte-identical on plain-paragraph docs (bounded blast radius, pinned). Reviewer-approved (Opus), every safety claim mutation-verified.
+
+Baseline regenerated (PR #31): **HR cohort byte-identical** (874, 78.6%, median 79.0) — but the docx fix alone **rescued 3,278 files** from broken parse (parse_confidence <0.10: 4,984 → 1,706).
+
+### Defect 2: WJQ template parser (PR #32, #33)
+
+SFU's **Weighted Job Questionnaire (WJQ) Custom** form — **~4,300 files (29.5% of the archive)** — is a *different document template* the segmenter knew nothing about. A new **marker-routed** segmenter (`parser/wjq.py`) reads WJQ's 14-section template into `SFUJobDescription`; headings/labels/frequency-markers/instruction-cruft live as data in a new **hashed** `rules/wjq.yaml`. Two user decisions: **(1)** duty frequency markers `(D)/(W)/(M)/(S)` → a new additive `SFUDuty.frequency` (marker stripped); **(2)** **WJQ is parse-only and EXCLUDED from the approval-bar cohort** — the 874-JD current-practice cohort gains a `template != wjq` clause (HR-143). WJQ is CUPE; the bar was built only for JDFN/APSA and the rulebook defines no WJQ bar, so scoring WJQ under the JDFN gates is a category error.
+
+`PARSER_VERSION jd_segmenter_v1 → v2`; `ParseResult.template ∈ {jdfn,wjq,unknown}`. Register **HR-141..HR-148** (register now **148 entries**). Reviewer-approved (Opus) after two rounds and **two real defects**, both proven on the archive and both the class gates-green hides: (a) an uncapped summary fallback that **raised on 568 real files**; (b) loose union markers that **misrouted 69 genuine JDFN JDs** into WJQ — fixed with two-tier detection, misroutes 69→3.
+
+Baseline regenerated at v2 (PR #33): **HR cohort BYTE-IDENTICAL** (874, 78.6% approval / 687, median 79.0, grades 81A/551B/240C/2D) — the `template != wjq` exclusion did its job. Template facet: **jdfn 10,222 / wjq 4,300 / 43 skipped**.
+
+### The combined coverage win
+
+**Archive-wide broken parses (parse_confidence < 0.10): 4,984 → 1,706 (docx) → 105 (WJQ). The archive is now 99.3% parseable.** Of the 4,300 WJQ files, only 43 remain broken.
+
+### The pipeline refresh (PR #34, #35)
+
+`PARSER_VERSION v2` forced a full re-parse. Re-ran ingest → embed → near-dup with measured results:
+- **Re-parse:** 14,522 fresh v2 `parsed_jds` rows.
+- **Re-embed:** documents with a vector **9,517 → 14,395**; section vectors **22,922 → 36,174**; empty-serialization documents **5,005 → 118**. **11 documents hit `bad_requests`** — denser WJQ text still exceeds the model's 8192-token limit after truncation to `max_chars=10000`. Runner isolates+skips them (no crash), sections still embed — a 0.08% doc-vector gap + a `max_chars` follow-up.
+- **near-dup LSH retune (PR #34):** the recovered text (WJQ boilerplate, nearly identical across ~4,300 files) blew candidate count past `max_candidate_pairs` at the old `bands=32/rows=4`. Retuned to **`bands=16/rows=8`** (midpoint 0.707): **candidates 98,193+ → 23,705, edges 15,082 → 15,080** (unchanged — the boilerplate was candidate waste that never became an edge at jaccard_min=0.85). HR-136/137 updated.
+- **Re-near-dup:** **15,072 edges** (was 14,312 pre-fix), 99.6% coverage; reconcile updated 13,917 / wrote 1,155 / pruned 395. Cross-position still dominant (68%).
+- **Archive now ~99.4% covered end-to-end (parse → embed → dedup).**
+
+**The full archive is in Postgres.** Every measured count independently reproduces:
 
 | PostgreSQL | Value | Validates against |
 |---|---|---|
@@ -210,7 +241,7 @@ against the live endpoint + all 14,522 parsed JDs:
   `--strict-markers`). **`make embed`** runs them opt-in and local-only. New: `docs/embeddings/summary.json`
   (counts + stamps, **never vectors**).
 
-**Gates (as of 3.2b): 1256 passing, 95.55% coverage. After 3.3: 1368 passing, 94.90%.**
+**Gates: 3.2b 1256 passing / 95.55% · 3.3 1368 / 94.90% · after the WJQ parser + extraction fixes 1424 / 95.17%.**
 
 ---
 
@@ -281,7 +312,7 @@ the line-wrap had been hiding from the placeholder gate. Expect 2.5 to surface m
 
 `docs/decisions/HR-DECISION-REGISTER.md` (generated by `make register` from
 `core/src/jd_core/rules/decision_register.yaml`; `make register-check` fails the build on drift,
-also wired into CI). **123 decisions, all `open` — SFU HR has ratified nothing yet, but the packet
+also wired into CI). **148 decisions, all `open` — SFU HR has ratified nothing yet, but the packet
 is now written and the numbers in it are corrected: `docs/decisions/HR-REVIEW-PACKET.md`.**
 
 Provenance (as of the 108-entry snapshot): **19 our-invention · 71 hris-calibration · 18 SFU-rulebook**. The entire approval
@@ -528,7 +559,7 @@ it; do not invent a side file.
 blocking**, because we would then be *generating* the wording, not merely checking for it. Get the
 official text from HR in the same review.
 
-- **Phase 3 — dedup & clustering. 3.1 + 3.2 + 3.3 are DONE and have RUN over the archive; 3.4 (title normalizer + Tier-3 role-equivalence) is next. 3.5 (clustering) is BLOCKED — see the two extraction defects below.**
+- **Phase 3 — dedup & clustering. 3.1 + 3.2 + 3.3 + extraction defects are DONE and have RUN over the archive; 3.4 (title normalizer + Tier-3 role-equivalence) is next. 3.5 (clustering) is now UNBLOCKED.**
   - **3.1 landed a schema change worth knowing:** `source_documents` is now **one row per FILE**
     (the UNIQUE on `sha256` is gone), and dedup is a **finding** — `DedupEdge` rows — not a silent
     write-time collapse. It was a **provenance bug**: `ingest_document()` returned the existing row
@@ -569,19 +600,12 @@ official text from HR in the same review.
       distinct `sha256`), pinned by a 6-member star-group test — the naive "skip pairs with an EXACT edge"
       check is wrong under Tier-1's `star` topology (only 5 of a 6-group's 15 pairs carry an edge, so it
       would write the other 10).
-  - 🔴 **TWO extraction defects now block 3.5, and neither blocks 3.4.** Both silently shrink what the
-    system can see; a cluster report built on partial text would measure a corpus missing a fifth of its
-    own words. **HR numbers are unaffected by both — checked against the 874-JD cohort, not assumed.**
-    1. **WJQ Custom template** — 29% of the archive (4,226 files), a *different document template* the
-       segmenter can't read; 89% parse to zero content. (Full detail in "THE BIG NEW FINDING", above.)
-    2. **`_extract_docx` loses ALL table + Word content-control (`<w:sdtContent>`) text.** It reads only
-       `document.paragraphs`. Measured over all 9,947 `.docx`: **2,596 lose >40% of their text, 24 lose
-       everything** (e.g. `Registered_Nurse.docx` has 6,032 chars of real JD text and extracts to
-       nothing — its body is inside a content control), 561 (5.6%) carry a content control, **~20.7M
-       characters** never seen by any part of the system. Worst hit: the table-based templates
-       (*Secretary*, some JDFN). The fix rewrites stored text → moves `text_sha256` → re-parses/
-       re-embeds/re-shingles — **safe by design** (3.2b/3.3 are content-keyed and idempotent, a re-run
-       recovers), but its own deliberate task. It likely also rescues a chunk of the 5,005 empty-parse JDs.
+  - ✅ **Both extraction defects DONE.** WJQ Custom template parser (#32, #33) and `_extract_docx`
+    tables/controls fix (#30, #31) are merged. Archive-wide broken parses: 4,984 → 1,706 → 105 (99.3%).
+    **3.5 clustering is now UNBLOCKED.** Plus: **WJQ boilerplate redaction** (14-section scaffolding
+    near-identical across ~4,300 files) inflates their mutual similarity and is a **Phase-3.5 quality
+    follow-up** — not a blocker, but WJQ files will over-cluster on shared template unless the scaffolding
+    is redacted like JDFN's About-SFU/territorial/EDI passages.
   - **Still to wire up for 3.4: 2.4c's trio.** `similarity`, `clustering` and `drift` are pure, tested,
     *uncalled* functions: `skill_overlap` needs a skill ontology + idf corpus, `seniority_closeness`
     needs an education enum + years bar, and a `ParsedJD` has none of them. **3.4** must design the
@@ -613,6 +637,22 @@ official text from HR in the same review.
 
 ## Backlog (real, recorded — fold into cleanup PRs as they come up)
 
+- **`max_chars` is too high for WJQ text.** 11 documents exceed the 8192-token model limit after
+  truncation to 10,000 chars (`max_chars` was measured on JDFN-only serialized text, which maxes at 8,987;
+  WJQ Hay-factor prose is denser). They get sections but no document vector (runner isolates+skips, no
+  crash). Fix: lower `max_chars`, or truncate by tokens not chars. Register HR-124-adjacent.
+- **WJQ template boilerplate is not redacted for near-dup/clustering.** `redact_boilerplate` only knows
+  JDFN's About-SFU/territorial/EDI passages. WJQ's 14-section scaffolding (near-identical across ~4,300
+  files) inflates their mutual similarity — handled today only by the 0.85 jaccard_min and the 16/8
+  banding, but it's a **Phase-3.5 clustering-quality follow-up** (WJQ files will over-cluster on shared
+  template unless the scaffolding is redacted).
+- **The parse idempotency key is blind to the extractor.** `parse_and_store` keys on `(source_document_id,
+  parser_version)`; an extractor-only change (like #30) changes the text but not the key, so it does NOT
+  force a re-parse — the docx fix's re-parse only happened because the WJQ change bumped `PARSER_VERSION`.
+  Fold an extractor version into the key, or content-key the parse.
+- **The baseline stamp doesn't capture the extractor.** #31 regenerated the baseline with a byte-identical
+  `parser_version`/`rules_version` but different numbers (extraction changed). Fold an extractor version
+  into the baseline stamp.
 - **`sections_skipped_short` is a misnomer and the committed artifact says something false** (found by
   the first real embed run, `docs/embeddings/summary.json`). It reports **20,644** — but only **7**
   sections in the whole archive are actually *short* (1 summary + 6 duty-blocks, below
