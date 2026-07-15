@@ -151,8 +151,8 @@ Every policy call JD Bank currently makes **by default**, because SFU HR has not
 | [HR-133](#hr-133) | Is SFU's own mandated boilerplate (About-SFU / territorial acknowledgement / Employment Equity) cut out of a JD's text before it is shingled? | `true` | our invention |
 | [HR-134](#hr-134) | How few shingles can a document have before Tier-2 refuses to build a MinHash signature for it at all? | `20` | our invention |
 | [HR-135](#hr-135) | How many MinHash permutations make up one document's signature? | `128` | our invention |
-| [HR-136](#hr-136) | How many LSH bands is a MinHash signature split into? | `32` | our invention |
-| [HR-137](#hr-137) | How many MinHash values make up one LSH band (the other half of the S-curve, alongside `bands`)? | `4` | our invention |
+| [HR-136](#hr-136) | How many LSH bands is a MinHash signature split into? | `16` | our invention |
+| [HR-137](#hr-137) | How many MinHash values make up one LSH band (the other half of the S-curve, alongside `bands`)? | `8` | our invention |
 | [HR-138](#hr-138) | At what EXACT-Jaccard shingle similarity does a candidate pair become a `DedupEdge` at `tier=NEAR_DUPLICATE`? | `0.85` | our invention |
 | [HR-139](#hr-139) | Does Tier-2 additionally require a minimum DOCUMENT COSINE similarity (Neo4j vectors) before a Jaccard-qualifying candidate becomes an edge? | `null` | our invention |
 | [HR-140](#hr-140) | Does Tier-2 compare DISTINCT CONTENTS (one unit per Tier-1 sha256 group) or every individual FILE? | `content` | our invention |
@@ -552,18 +552,18 @@ The two bands now say two different, true things. The merged band said one false
 
 #### HR-136 — How many LSH bands is a MinHash signature split into?
 
-- **We ship:** `32`
+- **We ship:** `16`
 - **Configured in:** `dedup.yaml` → `dedup.bands`
 - **Where the default came from:** our invention
-- **Why it matters:** Together with `rows` (HR-137), this decides the LSH "S-curve" — the probability that two documents become a CANDIDATE (worth an exact-Jaccard comparison) as a function of their true Jaccard similarity. The curve's 50% midpoint is `(1/bands)^(1/rows)` — DERIVED, never a stored key (`Dedup.s_curve_threshold`), so it cannot drift from `bands`/`rows` the way a hand-maintained third number could. ✅ MEASURED at bands=32/rows=4: midpoint 0.420, 70,752 candidate pairs over the whole corpus, no measurable recall loss at any operating threshold tried. Recorded alternative: bands=16/rows=8 -> midpoint 0.707, 21,345 candidates — IDENTICAL edge count at Jaccard >= 0.9 and only -0.4% at Jaccard >= 0.8, i.e. a much tighter candidate set costs almost nothing at this corpus's actual operating point (`jaccard_min` = 0.85, HR-138).
+- **Why it matters:** Together with `rows` (HR-137), this decides the LSH "S-curve" — the probability that two documents become a CANDIDATE (worth an exact-Jaccard comparison) as a function of their true Jaccard similarity. The curve's 50% midpoint is `(1/bands)^(1/rows)` — DERIVED, never a stored key (`Dedup.s_curve_threshold`), so it cannot drift from `bands`/`rows` the way a hand-maintained third number could. ✅ MEASURED at bands=16/rows=8: midpoint 0.707, 23,705 candidate pairs -> 15,080 near-dup edges over the whole corpus. CHANGED from bands=32/rows=4 (midpoint 0.420) after the docx extraction fix (PR #30) + WJQ parser (PR #32) recovered ~20.7M chars dominated by SFU's shared WJQ template scaffolding, near-identical across ~4,300 WJQ files: at the loose 0.420 midpoint those collided into mega-buckets and blew past `max_candidate_pairs` (98,193+ candidates, the valve fired). 0.707 filters that low-Jaccard boilerplate noise WITHOUT losing edges (15,080 vs 15,082 — a 2-edge / 0.01% difference), 4x fewer candidates. The boilerplate never became an edge at `jaccard_min` = 0.85 (HR-138) anyway — it was pure candidate-generation waste.
 - **If it changes:** Moves `dedup.stamp`. Must satisfy `bands * rows == num_perm` (HR-135/HR-137, loader-enforced — the rulebook fails to load otherwise). More bands / fewer rows per band raises the candidate-generation recall (more true near-duplicates surfaced as candidates) at the cost of more candidate pairs to exact-Jaccard-score — bounded by `max_candidate_pairs`, the safety valve (trivial exemption, below).
 
 #### HR-137 — How many MinHash values make up one LSH band (the other half of the S-curve, alongside `bands`)?
 
-- **We ship:** `4`
+- **We ship:** `8`
 - **Configured in:** `dedup.yaml` → `dedup.rows`
 - **Where the default came from:** our invention
-- **Why it matters:** See HR-136 — `bands` and `rows` are a single decision (the LSH banding) split across two registered fields because both are independently meaningful numbers a reviewer could ask about, not because they are two separate policy calls. The measured basis (midpoint 0.420, 70,752 candidates, the bands=16/rows=8 alternative) is recorded once, on HR-136, rather than duplicated here.
+- **Why it matters:** See HR-136 — `bands` and `rows` are a single decision (the LSH banding) split across two registered fields because both are independently meaningful numbers a reviewer could ask about, not because they are two separate policy calls. The measured basis (midpoint 0.707, 23,705 candidates -> 15,080 edges, and why it was changed from 32/4 after the corpus grew) is recorded once, on HR-136, rather than duplicated here.
 - **If it changes:** Identical mechanism to HR-136: moves `dedup.stamp`, must satisfy `bands * rows == num_perm` (loader-enforced), and retunes the S-curve midpoint together with `bands`.
 
 #### HR-138 — At what EXACT-Jaccard shingle similarity does a candidate pair become a `DedupEdge` at `tier=NEAR_DUPLICATE`?

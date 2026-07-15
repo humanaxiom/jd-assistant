@@ -59,8 +59,8 @@ def test_the_measured_defaults_are_what_the_yaml_ships(rules: Rules) -> None:
     assert d.redact_boilerplate is True
     assert d.min_shingles == 20
     assert d.num_perm == 128
-    assert d.bands == 32
-    assert d.rows == 4
+    assert d.bands == 16
+    assert d.rows == 8
     assert d.jaccard_min == 0.85
     assert d.cosine_confirm_min is None
     assert d.edge_scope == "content"
@@ -68,7 +68,7 @@ def test_the_measured_defaults_are_what_the_yaml_ships(rules: Rules) -> None:
 
 
 def test_s_curve_threshold_matches_the_shipped_bands_and_rows(rules: Rules) -> None:
-    assert rules.dedup.s_curve_threshold == pytest.approx((1 / 32) ** (1 / 4))
+    assert rules.dedup.s_curve_threshold == pytest.approx((1 / 16) ** (1 / 8))
 
 
 # --- unhashed, but registered ---------------------------------------------------
@@ -119,7 +119,7 @@ def test_editing_a_real_rule_file_still_moves_rules_version(
         ("redact_boilerplate", False),
         ("min_shingles", 5),
         ("num_perm", 64),
-        ("bands", 16),
+        ("bands", 32),
         ("rows", 2),
         ("jaccard_min", 0.9),
         ("cosine_confirm_min", 0.9),
