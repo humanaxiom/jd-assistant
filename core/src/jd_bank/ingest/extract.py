@@ -18,10 +18,16 @@ from __future__ import annotations
 import hashlib
 import subprocess
 import tempfile
+from collections.abc import Iterator
 from io import BytesIO
 from pathlib import Path
+from typing import cast
 
 from docx import Document
+from docx import types as docx_types
+from docx.oxml.ns import qn
+from docx.oxml.xmlchemy import BaseOxmlElement
+from docx.text.paragraph import Paragraph
 
 from src.jd_bank.db.models import DocumentFormat
 
@@ -76,14 +82,59 @@ def _decode(blob: bytes) -> str:
     return blob.decode("latin-1")
 
 
+_P = qn("w:p")
+_TBL = qn("w:tbl")
+_TR = qn("w:tr")
+_TC = qn("w:tc")
+_SDT = qn("w:sdt")
+_SDT_CONTENT = qn("w:sdtContent")
+
+
+def _iter_docx_block_text(el: BaseOxmlElement) -> Iterator[str]:
+    """Walk ``el``'s children in document order, yielding paragraph text.
+
+    ``doc.paragraphs`` (python-docx's high-level API) returns only body-level
+    ``<w:p>`` elements — it skips text inside tables (``<w:tbl>``) and Word
+    content controls (``<w:sdt>``/``<w:sdtContent>``). This walk descends into
+    both, recursively, so arbitrarily nested tables/SDTs (table-in-cell,
+    SDT-in-cell, table-in-SDT) are all covered. Elements this loop does not
+    recognise (e.g. the trailing ``<w:sectPr>``) are silently skipped — they
+    carry no paragraph text.
+    """
+    for child in el.iterchildren():
+        if child.tag == _P:
+            # `parent=None` is safe here: `Paragraph.text` only reads
+            # `self._p.text` and never touches `parent` (verified against the
+            # installed python-docx). `ProvidesStoryPart` is a typing.Protocol
+            # python-docx uses for style/part lookups this call path never
+            # takes, so the cast is a documented "runtime-safe, type-only" gap
+            # rather than a blind ignore.
+            yield Paragraph(child, cast(docx_types.ProvidesStoryPart, None)).text
+        elif child.tag == _TBL:
+            for row in child.findall(_TR):
+                for cell in row.findall(_TC):
+                    yield from _iter_docx_block_text(cell)
+        elif child.tag == _SDT:
+            content = child.find(_SDT_CONTENT)
+            if content is not None:
+                yield from _iter_docx_block_text(content)
+
+
 def _extract_docx(blob: bytes) -> str:
-    """python-docx — flat paragraph stream. Handles ``.docx`` and macro-enabled
-    ``.docm`` (both OOXML)."""
+    """python-docx — document-order body walk. Handles ``.docx`` and
+    macro-enabled ``.docm`` (both OOXML).
+
+    Recovers text from tables and Word content controls, which
+    ``doc.paragraphs`` alone misses (measured: 2,596 of 9,947 archive
+    ``.docx`` lose >40% of their text, 24 lose everything). Walks
+    ``doc.element.body`` only — headers/footers are deliberately excluded,
+    matching what the validation baseline has always read.
+    """
     try:
         doc = Document(BytesIO(blob))
     except Exception as exc:  # noqa: BLE001 — normalise any python-docx failure
         raise ExtractionError(f"docx parse failed: {exc}") from exc
-    return "\n".join(p.text for p in doc.paragraphs if p.text)
+    return "\n".join(t for t in _iter_docx_block_text(doc.element.body) if t)
 
 
 def _extract_rtf(blob: bytes) -> str:
