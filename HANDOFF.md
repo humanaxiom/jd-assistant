@@ -1,14 +1,15 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-13 (**Phase 2–3.2 COMPLETE.** 3.1 Tier-1 dedup + 3.2a archive→Postgres + 3.2b embeddings all merged and shipped. **NEW: Our parser cannot read 29% of the archive — WJQ Custom form, not JDFN. This blocks 3.5, not 3.3/3.4; HR numbers are unaffected.** 3.3 is next.)
+Last updated: 2026-07-14 (**Phase 2–3.3 COMPLETE.** 3.1 Tier-1 dedup + 3.2 ingest/embeddings + 3.3 Tier-2 near-dup all merged and run over the real archive. **3.4 (title normalizer + Tier-3 role-equivalence) is next.** **TWO extraction defects now block 3.5, not 3.4:** the WJQ Custom template (29% of the archive our parser can't read) AND `_extract_docx` losing all table / content-control text (2,596 `.docx` lose >40% of their words). **HR numbers are unaffected by both — checked, not assumed.**)
 
 **Catching up? Read [`docs/status/2026-07-13-shipped.md`](docs/status/2026-07-13-shipped.md) first** —
 the one-pager on 2.5 / 2.6 / 3.1, and the basis of what we tell HR.
 
 **PR stack all MERGED:** [#19](https://github.com/humanaxiom/jd-assistant/pull/19) (2.5 baseline)
 → [#22](https://github.com/humanaxiom/jd-assistant/pull/22) (2.6 defects, re-opened after #20 auto-closed)
-→ [#21](https://github.com/humanaxiom/jd-assistant/pull/21) (3.1 dedup) → [#23](https://github.com/humanaxiom/jd-assistant/pull/23) (3.2a ingest) → [#24](https://github.com/humanaxiom/jd-assistant/pull/24) (3.2b embeddings).
+→ [#21](https://github.com/humanaxiom/jd-assistant/pull/21) (3.1 dedup) → [#23](https://github.com/humanaxiom/jd-assistant/pull/23) (3.2a ingest) → [#24](https://github.com/humanaxiom/jd-assistant/pull/24) (3.2b embeddings)
+→ [#26](https://github.com/humanaxiom/jd-assistant/pull/26) (nonstandard ports) → [#27](https://github.com/humanaxiom/jd-assistant/pull/27) (3.3 Tier-2 near-dup) → [#28](https://github.com/humanaxiom/jd-assistant/pull/28) (coverage-rate fix + docs).
 
 Repo: **`C:\repos\JD-Assistant`** → GitHub **github.com/humanaxiom/jd-assistant**.
 
@@ -124,9 +125,9 @@ is defensible because it is *nearly inert*, not because the data carved a thresh
 
 ---
 
-## Current state — Phases 1–3.2 COMPLETE and merged; Phase 3.3 is next
+## Current state — Phases 1–3.3 COMPLETE and merged; Phase 3.4 is next
 
-Phases 1 and 2 are fully merged. Phase 3.1 (Tier-1 exact dedup) and Phase 3.2 (archive ingest + embeddings) are also fully merged. The validation engine, HR decision register, all EXTRACT-eligible `jd_core` modules, the full archive in Postgres, and the embedding service are all landed.
+Phases 1 and 2 are fully merged. Phase 3.1 (Tier-1 exact dedup), 3.2 (archive ingest + embeddings) and 3.3 (Tier-2 near-dup) are also fully merged and have RUN over the real archive. The validation engine, HR decision register, all EXTRACT-eligible `jd_core` modules, the full archive in Postgres, the embedding service (9,517 doc + 22,922 section vectors in Neo4j), and Tier-2 near-dup (14,312 edges) are all landed.
 
 | Phase | State | PR | Commit |
 |---|---|---|---|
@@ -144,9 +145,10 @@ Phases 1 and 2 are fully merged. Phase 3.1 (Tier-1 exact dedup) and Phase 3.2 (a
 | **3.1 Tier-1 exact dedup** — one file per row; dedup a finding, not a silent collapse | MERGED | [#21](https://github.com/humanaxiom/jd-assistant/pull/21) | — |
 | **3.2a archive→Postgres ingest driver** — all 14,565 files in the ledger | MERGED | [#23](https://github.com/humanaxiom/jd-assistant/pull/23) | — |
 | **3.2b embedding service** — doc + section vectors on `aria-gb10-2` (Ollama + Neo4j) | MERGED | [#24](https://github.com/humanaxiom/jd-assistant/pull/24) | — |
+| **3.3 Tier-2 near-dup** — MinHash/LSH → exact Jaccard; 14,312 edges; the reconcile | MERGED | [#27](https://github.com/humanaxiom/jd-assistant/pull/27) | — |
 
-Test suite: **1256 passing**, coverage **95.55%** (3.2b integration tests added), all in Docker via `make gates`. Decision
-register grew from 58 to **130 decisions** (added HR-124..HR-130 for embeddings config in 3.2b).
+Test suite: **1368 passing**, coverage **94.90%** (3.3 shingle/minhash/dedup tests added), all in Docker via `make gates`. Decision
+register grew from 58 to **140 decisions** (3.2b added HR-124..HR-130 for embeddings; 3.3 added HR-131..HR-140 for `dedup.yaml` and amended HR-093).
 
 All 16 EXTRACT-mapped hris modules are now ported or explicitly deferred: `export.py` → 5.4,
 the 3 prompt templates (`sfu_jd_extract`/`jd_harmonize`/`jd_quality`) → 4.2, `jd_import_service`
@@ -208,7 +210,7 @@ against the live endpoint + all 14,522 parsed JDs:
   `--strict-markers`). **`make embed`** runs them opt-in and local-only. New: `docs/embeddings/summary.json`
   (counts + stamps, **never vectors**).
 
-**Gates: 1256 passing, 95.55% coverage.**
+**Gates (as of 3.2b): 1256 passing, 95.55% coverage. After 3.3: 1368 passing, 94.90%.**
 
 ---
 
@@ -362,7 +364,24 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
 
 ## Gotchas learned (save yourself the pain)
 
-- **The reviewer paid for itself again: 10 real defects across 3 rounds on 3.2b, 6 on 3.2a.**
+- **A test whose docstring NAMES a mechanism must be run against that mechanism being broken —
+  otherwise it is a decoy.** 3.3 shipped one: `shingles.py` passed `join_paragraphs=True` and its
+  docstring claimed *that* was what made a `.doc` and its `.docx` twin shingle identically. It is
+  **inert** — `textnorm.PARAGRAPH` is U+2029 and the tokenizer (`[a-z0-9]+`) discards it, so the token
+  stream is identical either way. Making the shingler consult HR-108 — *exactly the regression the
+  module exists to prevent* — left **all 20 tests green**, including the one whose docstring said it
+  would go red. The property was true; the stated mechanism was false; the pin was worthless. This is
+  the **third** appearance of "a correct fix pinned by nothing" (3.2a SAVEPOINT, 3.2b skip-predicate +
+  sha→vector binding, 3.3 this). **A green suite proves nothing about a guard you have not tried to
+  break — and if a test's docstring explains WHY it holds, break that why and watch it go red.**
+- **The reconcile prune deleted DATA on a class the design forgot (3.3).** A transient read failure
+  *pruned a document's real near-dup edges*, because the prune scope was derived from rows **fetched**
+  rather than documents **read**. The rule: an **unreadable** document is an *unknown, not a "no"* — it
+  must never prune. A **below-min-shingles** document is a deterministic function of config+text — it
+  **must** (raising `min_shingles` has to delete). Any prune/reconcile you write (Tier-3, re-cluster)
+  inherits this: derive the keep-list from what you *successfully processed*, and pin BOTH directions
+  (unreadable → no prune; below-threshold → prune).
+- **The reviewer paid for itself again: 10 real defects across 3 rounds on 3.2b, 6 on 3.2a, 4 on 3.3.**
   The two most dangerous on each were the **same class — a correct fix pinned by NOTHING**: (3.2a)
   the SAVEPOINT protecting a caller's uncommitted work — the exact bug 3.1 spent a migration fixing
   — had a race test whose racer *committed first*, so the pre-check short-circuited and the guarded
@@ -509,7 +528,7 @@ it; do not invent a side file.
 blocking**, because we would then be *generating* the wording, not merely checking for it. Get the
 official text from HR in the same review.
 
-- **Phase 3 — dedup & clustering. 3.1 + 3.2 (Tier-1 dedup + embeddings) are DONE; 3.3 (Tier-2 near-dup) is next.**
+- **Phase 3 — dedup & clustering. 3.1 + 3.2 + 3.3 are DONE and have RUN over the archive; 3.4 (title normalizer + Tier-3 role-equivalence) is next. 3.5 (clustering) is BLOCKED — see the two extraction defects below.**
   - **3.1 landed a schema change worth knowing:** `source_documents` is now **one row per FILE**
     (the UNIQUE on `sha256` is gone), and dedup is a **finding** — `DedupEdge` rows — not a silent
     write-time collapse. It was a **provenance bug**: `ingest_document()` returned the existing row
@@ -520,33 +539,56 @@ official text from HR in the same review.
     than one `position_id`** — 2,463 files. Those are **not re-saves**; they are *distinct positions
     sharing a byte-identical JD*. Only 141 groups are genuine re-saves. **Tier-1 hands clustering a
     role cluster with similarity pinned at 1.0, for free, before a single embedding is computed.**
-  - **Still to wire up: 2.4c's trio.** `similarity`, `clustering` and `drift` are pure, tested,
+  - **3.3 (Tier-2 near-dup) is DONE and RAN: 14,312 near-dup edges** over the archive (MinHash/LSH on
+    word-5-gram shingles → **exact Jaccard** confirm, `jaccard_min: 0.85`). **67.5% of edges span
+    different positions** — cross-position cloning again, consistent with 3.1's 77%. The reconcile is
+    proven idempotent on the real corpus (2nd pass: 0 written / 0 updated / 0 pruned). Two measurements
+    settled the design, both now in `dedup.yaml` + register HR-131..HR-140:
+    - 🔴 **`clone_threshold: 0.92` IS MEANINGLESS ON THIS CORPUS, and now it is MEASURED, not
+      predicted.** Nearest-neighbour document cosine: median **0.988**, **98% of JDs have a neighbour
+      ≥ 0.92** — a cosine bar confirms *everything*. Word-5-gram Jaccard on the same corpus discriminates
+      hugely: NN median **0.126**, random-pair median **0.0022** (p99.9 = 0.30). So **Jaccard drives and
+      `cosine_confirm_min` ships `null` (OFF)** — the path is implemented and tested, but a filter that
+      can never reject is HR-121's dead gate inverted. **HR-093 is amended with this measurement; it must
+      be re-derived before Tier-3 uses it.** Never quote a document-cosine similarity as evidence two SFU
+      JDs are the same role without stating the baseline neighbour cosine.
+    - 🔴 **The obvious oracle is WORSE than no oracle.** "Same `position_id` ⇒ duplicate" fails: same-
+      position pairs median Jaccard **0.30**; cross-position LSH candidates median **0.58** — *the
+      negatives are more similar than the positives*. Tuning `jaccard_min` on it pushes the threshold the
+      wrong way. `fixtures/labels/pairs.csv` (12 near-dup positives / 44 files / `best_guess_label` column
+      / authored against a census this repo later caught being wrong) **cannot be a precision/recall CI
+      gate** — one error swings recall 8 points. 3.3 ships a **pinned behavioural fixture** (exact
+      candidates/Jaccards/edges — move a knob → red) + an **adjudication sample**
+      (`docs/dedup/near-dup-adjudication-sample.csv`, 192 stratified pairs, empty `human_label`) so a real
+      label set can finally be built. *The old one is bad precisely because nobody ever generated
+      candidates to adjudicate.*
+    - **Two structural decisions carried forward:** Tier-2 edges are **NOT additive** (a Jaccard edge is
+      only true relative to a threshold + shingle config), so the runner **reconciles: insert / update /
+      prune** — a MERGE-only design would leave the DB full of edges from a config that no longer exists.
+      And the EXACT/NEAR ladder is closed **structurally** (candidates generated over one signature per
+      distinct `sha256`), pinned by a 6-member star-group test — the naive "skip pairs with an EXACT edge"
+      check is wrong under Tier-1's `star` topology (only 5 of a 6-group's 15 pairs carry an edge, so it
+      would write the other 10).
+  - 🔴 **TWO extraction defects now block 3.5, and neither blocks 3.4.** Both silently shrink what the
+    system can see; a cluster report built on partial text would measure a corpus missing a fifth of its
+    own words. **HR numbers are unaffected by both — checked against the 874-JD cohort, not assumed.**
+    1. **WJQ Custom template** — 29% of the archive (4,226 files), a *different document template* the
+       segmenter can't read; 89% parse to zero content. (Full detail in "THE BIG NEW FINDING", above.)
+    2. **`_extract_docx` loses ALL table + Word content-control (`<w:sdtContent>`) text.** It reads only
+       `document.paragraphs`. Measured over all 9,947 `.docx`: **2,596 lose >40% of their text, 24 lose
+       everything** (e.g. `Registered_Nurse.docx` has 6,032 chars of real JD text and extracts to
+       nothing — its body is inside a content control), 561 (5.6%) carry a content control, **~20.7M
+       characters** never seen by any part of the system. Worst hit: the table-based templates
+       (*Secretary*, some JDFN). The fix rewrites stored text → moves `text_sha256` → re-parses/
+       re-embeds/re-shingles — **safe by design** (3.2b/3.3 are content-keyed and idempotent, a re-run
+       recovers), but its own deliberate task. It likely also rescues a chunk of the 5,005 empty-parse JDs.
+  - **Still to wire up for 3.4: 2.4c's trio.** `similarity`, `clustering` and `drift` are pure, tested,
     *uncalled* functions: `skill_overlap` needs a skill ontology + idf corpus, `seniority_closeness`
-    needs an education enum + years bar, and a `ParsedJD` has none of them. 3.4 must design the
+    needs an education enum + years bar, and a `ParsedJD` has none of them. **3.4** must design the
     `ParsedJD → signals` adapter (where do skills come from? proposal: `qualifications` where
     `kind ∈ {knowledge, skill, ability}`) against the real corpus. That is a **new decision** — it
     wants an ADR and register entries. Note `families={}` degrades `skill_overlap` to plain
     idf-weighted Jaccard vs hris's ontology-aware scoring; record that when it lands.
-  - **3.3 is Tier-2 near-dup (MinHash/Jaccard on 5-gram shingles, cosine-confirmed).** Tune on the
-    label set (`fixtures/labels/pairs.csv`); gate precision/recall in CI so the learned model cannot
-    regress.
-  - 🔴 **READ THIS BEFORE YOU USE A COSINE THRESHOLD. `clone_threshold: 0.92` IS MEANINGLESS ON THIS
-    CORPUS — measured on the real vectors, not guessed.** Over 300 random JDs, **excluding self AND
-    excluding exact-duplicate content** (different `text_sha256`, so Tier-1's 1,972 byte-identical
-    files cannot inflate it), the nearest neighbour's document cosine is: **min 0.877 · p10 0.953 ·
-    median 0.988 · max 1.0 — and 98% (250/255) sit at or ABOVE 0.92.** Every SFU JD is written in the
-    same register, the same template, the same vocabulary, so **document-level cosine barely
-    discriminates at all** at that bar: a 0.92 threshold would declare *almost the entire archive* a
-    clone of something. `clone_threshold` was ported from hris, is **unratified**, and was already
-    flagged in this file as "pinned by value but behaviourally invisible". It is now **measured, and
-    the data says it is wrong here.**
-    **This does NOT break 3.3's design** — the plan is MinHash *first*, cosine only as a **confirm**,
-    which is exactly the right shape for a signal this compressed. But: (a) **recalibrate the
-    threshold against this distribution before it decides anything** (register it with the measured
-    basis; do not quietly patch it); (b) expect the useful signal to live in **section** vectors and
-    in MinHash, not in the document vector; (c) a precision/recall gate tuned against a 0.92 cosine
-    would be measuring nothing. **Never quote a document-cosine similarity as evidence two SFU JDs
-    are the same role without saying what the baseline neighbour cosine is.**
 - ~~**Rulebook work the baseline made urgent**~~ **ALL THREE DONE IN 2.6** (banned-phrase scoping,
   `HOW-WHY` unevaluable, 4th era band). Scores are now trustworthy. What is left is HR's, not ours.
 - **Extension-trust is silently losing recoverable JDs** (from the 2.5 skip ledger,
