@@ -193,6 +193,7 @@ def evaluate_file(
         sha256=sha256,
         byte_size=len(data),
         body_era=parsed.era,
+        template=parsed.template,
         parse_confidence=parsed.parse_confidence,
         char_count=len(text),
         score=report.overall_score,

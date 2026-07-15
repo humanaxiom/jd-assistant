@@ -1,0 +1,106 @@
+{
+  "era": "new",
+  "jd": {
+    "about_sfu_present": true,
+    "additional_context": "This position may require occasional travel between the Burnaby, Surrey and Vancouver campuses to support on-site project delivery.",
+    "decision_making": [
+      "The development and implementation of new project management frameworks.",
+      "The prioritization of projects within the designated portfolio."
+    ],
+    "department": "Office of the Vice-President Research",
+    "duties": [
+      {
+        "action_verb": "Manages",
+        "frequency": null,
+        "how_why": [],
+        "statement": "Manages a portfolio of academic projects"
+      },
+      {
+        "action_verb": "Monitoring",
+        "frequency": null,
+        "how_why": [],
+        "statement": "Monitoring timelines and providing updates to senior administrators on the achievement of project goals and objectives."
+      },
+      {
+        "action_verb": "Conducting",
+        "frequency": null,
+        "how_why": [],
+        "statement": "Conducting cost-benefit analysis and research to develop solutions and make recommendations in support of decision-making."
+      },
+      {
+        "action_verb": "Prioritizes",
+        "frequency": null,
+        "how_why": [],
+        "statement": "Prioritizes and identifies current and future projects"
+      },
+      {
+        "action_verb": "Managing",
+        "frequency": null,
+        "how_why": [],
+        "statement": "Managing a strategic roadmap to highlight, track and identify projects within a designated portfolio."
+      },
+      {
+        "action_verb": "Preparing",
+        "frequency": null,
+        "how_why": [],
+        "statement": "Preparing reports and quantifying issues for senior leadership."
+      }
+    ],
+    "employee_group": "apsa",
+    "employment_equity_present": true,
+    "grade": null,
+    "position_number": "90012345",
+    "position_summary": "The Manager, Special Projects is a key resource, responsible for the identification, design and implementation of a designated portfolio of high-priority academic and co-curricular projects in support of the overall goals and objectives of the unit. The Manager provides leadership and support to advance organization-wide projects, ensuring the achievement of quality standards, timelines, deliverables and risk mitigation.",
+    "problem_solving": [
+      "Conflicting demands for limited project resources across the portfolio.",
+      "Prioritization of workflow to meet inflexible reporting deadlines."
+    ],
+    "qualifications": [
+      {
+        "kind": "education",
+        "modifier": null,
+        "text": "Bachelor's degree in Business Administration, or a relevant discipline and five years of related project experience, or an equivalent combination of education, training and experience."
+      },
+      {
+        "kind": "knowledge",
+        "modifier": "excellent",
+        "text": "Excellent knowledge of project management methodologies and frameworks."
+      },
+      {
+        "kind": "skill",
+        "modifier": "advanced",
+        "text": "Advanced skills in MS Office including Excel, Word and PowerPoint."
+      },
+      {
+        "kind": "ability",
+        "modifier": null,
+        "text": "Ability to exercise mature judgment, initiative, diplomacy and tact."
+      }
+    ],
+    "relationships": {
+      "external": [
+        "Represents the unit with external project-management associations and vendor partners."
+      ],
+      "internal": [
+        "Works closely with faculties and administrative departments across all three campuses to advance projects."
+      ],
+      "supervisory": "Establishes and maintains relationships and alliances. Maintains effective communication. Shares information and readily determines to whom to go for relevant information."
+    },
+    "territorial_acknowledgement_present": true,
+    "title": "Manager, Special Projects"
+  },
+  "parse_confidence": 0.905,
+  "section_confidence": {
+    "about_sfu": 0.9,
+    "additional_context": 0.9,
+    "decision_making": 0.9,
+    "duties": 0.9,
+    "footer": 0.9,
+    "identification": 0.95,
+    "position_summary": 0.9,
+    "problem_solving": 0.9,
+    "qualifications": 0.9,
+    "relationships": 0.9
+  },
+  "template": "jdfn"
+}

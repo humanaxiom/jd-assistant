@@ -36,7 +36,11 @@ Public surface::
 Run it: ``make baseline JD_ARCHIVE_PATH=<archive>`` (see ``__main__.py``).
 """
 
-from src.jd_bank.baseline.aggregate import population, summarise
+from src.jd_bank.baseline.aggregate import (
+    current_practice_cohort,
+    population,
+    summarise,
+)
 from src.jd_bank.baseline.config import (
     POPULATIONS,
     ArchiveEra,
@@ -57,6 +61,7 @@ __all__ = [
     "FileFacets",
     "Segmentation",
     "SegmentStats",
+    "current_practice_cohort",
     "evaluate_file",
     "file_facets",
     "get_baseline_config",

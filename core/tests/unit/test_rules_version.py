@@ -75,6 +75,12 @@ MUTATIONS: Final[dict[str, Any]] = {
     "gates.yaml": lambda d: d.update(max_listed=d["max_listed"] + 1),
     # HR-108: flip the paragraph boundary and every scan reads the archive differently.
     "textnorm.yaml": lambda d: d.update(collapse_across_paragraph_break=True),
+    # HR-144: a WJQ heading decides which text becomes a WJQ JD's duties (Phase 3.4);
+    # `wjq.yaml` is HASHED (unlike segmentation/embeddings/dedup), so editing one moves
+    # the stamped version.
+    "wjq.yaml": lambda d: d["section_headings"].__setitem__(
+        "major_functions", ["PRIMARY FUNCTIONS"]
+    ),
 }
 
 

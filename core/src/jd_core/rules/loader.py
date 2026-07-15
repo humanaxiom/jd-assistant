@@ -68,6 +68,7 @@ from src.jd_core.models.bank import (
     TitleFamily,
     TitleFunction,
 )
+from src.jd_core.models.parsed_jd import SFUEmployeeGroup
 from src.jd_core.models.quality import (
     JDGrade,
     JDIssueCategory,
@@ -121,6 +122,11 @@ EMBEDDINGS_FILE: Final[str] = "embeddings.yaml"
 #: DOCUMENTS are similar to each other, never what the validator computes about a JD.
 DEDUP_FILE: Final[str] = "dedup.yaml"
 
+#: The CUPE/WJQ template map (Phase 3.4). UNLIKE the four unhashed files, this one
+#: DOES change what the validator computes about a JD — it decides which text becomes a
+#: WJQ JD's summary/duties/qualifications — so it is HASHED (part of ``rules_version``).
+WJQ_FILE: Final[str] = "wjq.yaml"
+
 #: The content-bearing SFU sections an embedding may be built from — the subset of
 #: :data:`~src.jd_core.models.quality.SFUSection` that carries free text at all.
 #: ``identification`` is structured columns, not prose; ``about_sfu`` /
@@ -160,6 +166,40 @@ DedupTextSource = Literal["raw_clean", "serialized"]
 #: Tier-2 runs over DISTINCT CONTENTS (one unit per Tier-1 sha256 group, ``content``)
 #: or over every individual FILE (``file``). See ``dedup.yaml`` header.
 DedupEdgeScope = Literal["content", "file"]
+
+#: The 14 sections of SFU's CUPE/WJQ Custom template (Phase 3.4). These KEYS are
+#: structural (like :class:`~src.jd_core.parser.headings.SectionKey`); the heading
+#: PHRASES that signal each are data in ``wjq.yaml``.
+WjqSection = Literal[
+    "position_identification",
+    "position_summary",
+    "major_functions",
+    "minor_functions",
+    "level_of_independence",
+    "training_exercised",
+    "direction_exercised",
+    "internal_external_contacts",
+    "impact_of_errors",
+    "effort",
+    "working_conditions",
+    "continuing_education",
+    "qualifications",
+    "approval_review",
+]
+
+#: WJQ POSITION IDENTIFICATION fields the segmenter maps to the SFU contract.
+WjqIdField = Literal["title", "department", "position_number", "grade"]
+
+#: WJQ Qualifications kinds (a subset of :data:`~src.jd_core.models.parsed_jd.
+#: QualificationKind`) the segmenter assigns from the section's block cues.
+WjqQualKind = Literal["education", "experience", "skill", "ability"]
+
+#: The complete set of WJQ section keys — derived from the Literal, so a new section
+#: added to the vocabulary makes the loader demand its heading vocabulary rather than
+#: silently never locating it.
+_WJQ_SECTIONS: Final[frozenset[str]] = frozenset(get_args(WjqSection))
+_WJQ_ID_FIELDS: Final[frozenset[str]] = frozenset(get_args(WjqIdField))
+_WJQ_QUAL_KINDS: Final[frozenset[str]] = frozenset(get_args(WjqQualKind))
 
 
 class RulesError(RuntimeError):
@@ -573,6 +613,11 @@ class Segmentation(_RuleFile):
     keep_files_without_position_id: bool
     #: How a bundled multi-position filename is attributed (HR-116).
     position_id_grouping: PositionIdGrouping
+    #: Are CUPE/WJQ-template JDs excluded from the JDFN approval-bar cohort (HR-143,
+    #: Phase 3.4)? Applied by ``baseline/aggregate.py :: current_practice_cohort``. Like
+    #: every other knob here it decides which population a number describes, never what
+    #: the validator computes about a JD — so it belongs in this UNHASHED file.
+    wjq_excluded_from_current_practice: bool
 
     #: Presentation only — neither can move a score, a grade, a gate or a segment.
     score_histogram_bin: float = Field(gt=0.0, le=100.0)
@@ -836,6 +881,163 @@ class Dedup(_RuleFile):
     def stamp(self) -> str:
         """What a ``DedupEdge.method`` embeds: ``<version>+<short digest>``. Distinct
         from :attr:`Rules.version` by construction — see the class docstring."""
+        return f"{self.version}{VERSION_SEPARATOR}{self.digest[:CONTENT_HASH_LENGTH]}"
+
+
+class Wjq(_RuleFile):
+    """The CUPE/WJQ Custom template map (``wjq.yaml``, Phase 3.4).
+
+    Rulebook-as-data for a SECOND document template. The base segmenter
+    (:mod:`src.jd_core.parser.headings`) knows only the APSA/APEX/POLY "JDFN" template;
+    this file teaches :mod:`src.jd_core.parser.wjq` SFU's Weighted Job Questionnaire —
+    the 14 section headings, the POSITION IDENTIFICATION field labels, the
+    ``(D)/(W)/(M)/(S)`` frequency markers, and the template-instruction cruft to ignore
+    (~29% of the archive routes here under the shipped two-tier detection; see the YAML
+    header for the measured counts).
+
+    **HASHED — part of ``rules_version``** (NOT in :data:`_UNHASHED_FILES`). This is the
+    one thing that sets it apart from ``segmentation.yaml`` / ``embeddings.yaml`` /
+    ``dedup.yaml``: those decide which files a baseline covers, or what an embedding /
+    near-dup pass sees, and can never move a JD's score. ``wjq.yaml`` decides *which
+    text becomes a WJQ JD's summary / duties / qualifications* — editing a heading
+    changes what the validator computes about that JD, so it must churn the content hash
+    exactly as ``patterns.yaml`` or ``qualifications.yaml`` does.
+
+    Shaped **flat**, like the other measured files and for the same reason
+    (:data:`_FLAT_SURFACE_FILES`): every field lands on the decision surface the moment
+    it is declared, and :func:`check_register` breaks the build until it is registered.
+    """
+
+    #: The DEFINITIVE detection phrase(s): any ONE present routes to the WJQ path
+    #: (whole-document, case-insensitive). The form's title phrase — a JDFN JD would
+    #: never carry it. See :meth:`~src.jd_core.parser.wjq.is_wjq`.
+    marker_primary: tuple[str, ...] = Field(min_length=1)
+    #: CORROBORATING markers: on their own each is too loose (``LOCAL 3338`` /
+    #: ``C.U.P.E`` also appear when a JDFN JD merely CITES the union in a duty), so at
+    #: least :attr:`corroborating_min` of them must co-occur to route a JD with no
+    #: primary phrase. MEASURED: a bare ``LOCAL 3338`` alone misrouted 69 real JDFN JDs.
+    marker_corroborating: tuple[str, ...] = Field(min_length=1)
+    #: How many corroborating markers must co-occur when no primary phrase is present.
+    corroborating_min: int = Field(gt=0)
+    #: The employee group the marker implies (validated against ``SFUEmployeeGroup``).
+    employee_group: str = Field(min_length=1)
+    #: WJQ section key -> uppercase heading-phrase variants. Must cover all 14 sections.
+    section_headings: Annotated[
+        Mapping[WjqSection, tuple[str, ...]], AfterValidator(_freeze)
+    ]
+    #: The ``(CONTINUED)`` recurrence suffix, stripped before a heading is matched.
+    continued_marker: str = Field(min_length=1)
+    #: POSITION IDENTIFICATION field -> inline label variants.
+    id_labels: Annotated[Mapping[WjqIdField, tuple[str, ...]], AfterValidator(_freeze)]
+    #: ``(D)/(W)/(M)/(S)`` letter -> frequency meaning (per-duty parenthetical marker).
+    frequency_markers: FrozenStrMap
+    #: Bare frequency HEADING word -> meaning (a group heading over a block of duties).
+    frequency_headings: FrozenStrMap
+    #: Qualification kind -> the block-cue fragments that switch the current kind.
+    qualification_cues: Annotated[
+        Mapping[WjqQualKind, tuple[str, ...]], AfterValidator(_freeze)
+    ]
+    #: The Hay-factor sections stored verbatim in ``additional_context`` (subset of the
+    #: 14 keys — loader-enforced).
+    context_sections: tuple[WjqSection, ...] = Field(min_length=1)
+    #: Verbatim template-instruction fragments to drop before structuring.
+    instruction_markers: tuple[str, ...] = Field(min_length=1)
+
+    @field_validator("marker_primary", "marker_corroborating", "instruction_markers")
+    @classmethod
+    def _fragments_are_scannable(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        _scannable("wjq fragment", values)
+        _no_repeats("wjq fragment list", values)
+        return values
+
+    @model_validator(mode="after")
+    def _corroboration_can_actually_fire(self) -> Wjq:
+        """``corroborating_min`` must be reachable — needing more corroborating markers
+        than exist is the "gate that can never fire" failure (the corroboration path
+        would be dead, and every non-primary WJQ file silently misses)."""
+        if self.corroborating_min > len(self.marker_corroborating):
+            raise ValueError(
+                f"wjq.corroborating_min ({self.corroborating_min}) exceeds the number "
+                f"of corroborating markers ({len(self.marker_corroborating)}) — the "
+                f"corroboration path could never fire"
+            )
+        return self
+
+    @field_validator("employee_group")
+    @classmethod
+    def _group_is_known(cls, group: str) -> str:
+        known = set(get_args(SFUEmployeeGroup))
+        if group not in known:
+            raise ValueError(
+                f"wjq.employee_group {group!r} is not a known SFUEmployeeGroup "
+                f"({sorted(known)})"
+            )
+        return group
+
+    @model_validator(mode="after")
+    def _section_headings_cover_all_sections(self) -> Wjq:
+        """Every WJQ section has heading vocabulary, and every ``context_sections`` /
+        heading key is a real section. A section with no heading could never be located
+        (the "gate that can never fire" failure); a ``context_sections`` member naming a
+        non-section would silently route nothing."""
+        got = set(self.section_headings)
+        if got != _WJQ_SECTIONS:
+            missing = sorted(_WJQ_SECTIONS - got)
+            unknown = sorted(got - _WJQ_SECTIONS)
+            raise ValueError(
+                f"wjq.section_headings must name exactly the 14 WJQ sections; "
+                f"missing {missing}, unknown {unknown}"
+            )
+        for section, phrases in self.section_headings.items():
+            if not phrases:
+                raise ValueError(
+                    f"wjq.section_headings[{section}] has no heading phrase"
+                )
+            _scannable(f"wjq heading ({section})", phrases)
+        _no_repeats("wjq.context_sections", self.context_sections)
+        stray = sorted(set(self.context_sections) - _WJQ_SECTIONS)
+        if stray:  # pragma: no cover - Literal already constrains membership
+            raise ValueError(f"wjq.context_sections names non-section(s) {stray}")
+        return self
+
+    @model_validator(mode="after")
+    def _label_and_cue_tables_are_complete(self) -> Wjq:
+        if set(self.id_labels) != _WJQ_ID_FIELDS:
+            raise ValueError(
+                f"wjq.id_labels must name exactly {sorted(_WJQ_ID_FIELDS)}; "
+                f"got {sorted(self.id_labels)}"
+            )
+        if set(self.qualification_cues) != _WJQ_QUAL_KINDS:
+            raise ValueError(
+                f"wjq.qualification_cues must name exactly {sorted(_WJQ_QUAL_KINDS)}; "
+                f"got {sorted(self.qualification_cues)}"
+            )
+        for field_name, table in (
+            ("id_labels", self.id_labels),
+            ("qualification_cues", self.qualification_cues),
+        ):
+            for key, values in table.items():
+                if not values:
+                    raise ValueError(f"wjq.{field_name}[{key}] has no entries")
+                _scannable(f"wjq.{field_name} ({key})", values)
+        for field_name, freq in (
+            ("frequency_markers", self.frequency_markers),
+            ("frequency_headings", self.frequency_headings),
+        ):
+            if not freq:
+                raise ValueError(f"wjq.{field_name} must not be empty")
+        return self
+
+    @property
+    def digest(self) -> str:
+        """SHA-256 over this file's canonicalised content — its own identity, for
+        symmetry with the other measured files (though ``wjq.yaml`` also rides in
+        ``rules_version`` because it IS hashed)."""
+        return _content_hash({"wjq": self})
+
+    @property
+    def stamp(self) -> str:
+        """``<version>+<short digest>`` — this file's own content stamp."""
         return f"{self.version}{VERSION_SEPARATOR}{self.digest[:CONTENT_HASH_LENGTH]}"
 
 
@@ -2229,6 +2431,8 @@ class Rules(BaseModel):
     embeddings: Embeddings
     #: On the register, but NOT in the content hash — see :class:`Dedup`.
     dedup: Dedup
+    #: On the register AND in the content hash — see :class:`Wjq` (Phase 3.4).
+    wjq: Wjq
     decision_register: DecisionRegister
 
     @property
@@ -2687,6 +2891,7 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "segmentation",
     "embeddings",
     "dedup",
+    "wjq",
 )
 
 
@@ -2902,6 +3107,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     ("gates.yaml", "gates", GatePolicy),
     (EMBEDDINGS_FILE, "embeddings", Embeddings),
     (DEDUP_FILE, "dedup", Dedup),
+    (WJQ_FILE, "wjq", Wjq),
     (REGISTER_FILE, "decision_register", DecisionRegister),
 )
 

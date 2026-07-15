@@ -1,0 +1,178 @@
+# The CUPE / Weighted Job Questionnaire (WJQ) template — rulebook-as-data
+# (CLAUDE.md non-negotiable #2). Phase 3.4.
+#
+# WHAT THIS FILE DECIDES
+# ----------------------
+# WHICH text on a WJQ-template JD becomes its `title`, `position_summary`, `duties`,
+# `qualifications`, `relationships` and `additional_context`. Unlike `segmentation.yaml`
+# (which only bands the archive by ERA and cannot move a single JD's score), and unlike
+# `embeddings.yaml` / `dedup.yaml` (which decide what an embedding/near-dup pass sees),
+# this file decides what the VALIDATOR computes about a WJQ JD — a heading pattern that
+# stops matching moves that JD's summary/duties/qualifications, which moves its findings
+# and its score. So it is **HASHED** — a member of `rules_version` (NOT in
+# `loader._UNHASHED_FILES`) — exactly like `patterns.yaml` or `qualifications.yaml`:
+# editing a heading here must churn `rules_version`, because it changes what a report
+# says about a real JD.
+#
+# WHY WJQ AT ALL (MEASURED — HANDOFF 2026-07-13 "THE BIG NEW FINDING")
+# -------------------------------------------------------------------
+# SFU's WJQ Custom form (CUPE 3338) is a DIFFERENT document template from the
+# APSA/APEX/POLY "JDFN" one the base segmenter (`parser/segmenter.py` +
+# `parser/headings.py`) knows, which the base parser reads as ~zero content. MEASURED
+# over the whole archive with the SHIPPED two-tier detection below: 4,300 of 14,565
+# files (29.5%) route to the WJQ segmenter (jdfn 10,222 / wjq 4,300 / skipped 43 — see
+# the `template` facet in `docs/baseline/summary.json`). (An earlier bare-marker scan
+# counted 5,032 by
+# firing on any passing union mention — see DETECTION.) WJQ would contaminate the
+# current-practice cohort if not excluded (it is; HR-143 and
+# `baseline/aggregate.py :: current_practice_cohort`).
+#
+# DETECTION IS MARKER-BASED, NEVER FILENAME-BASED (the `JDFN_CUPE` filename token covers
+# only ~771 files) AND TWO-TIER, so a JDFN JD that merely CITES the union in a duty (HR,
+# labour-relations, compensation roles write "CUPE, Local 3338") does not misroute: a
+# document routes to WJQ only if it carries the DEFINITIVE title phrase
+# `WEIGHTED JOB QUESTIONNAIRE`, OR at least `corroborating_min` of the looser markers
+# co-occur. MEASURED: a bare `LOCAL 3338` alone misrouted 69 real JDFN JDs (old 7 /
+# transition 51 / new 11) — emptying their rich parse AND stamping them `wjq`, which
+# excluded the 11 `new`-era ones from the very cohort HR ratifies the bar against. The
+# title phrase survives antiword on legacy `.doc`.
+#
+# CHECKBOXES ARE UNRELIABLE (MEASURED). The Hay-factor sections (5,6,7,9,10,11,12) are
+# checkbox grids; the ticked-box glyphs `[X]`/`[ ]` are present in only 280 of 2,553
+# `.docx` and 0 of 2,473 `.doc` (antiword drops them). So those sections are stored as
+# PLAIN TEXT in `additional_context` (lossless), never read as a chosen box. The
+# embedding-quality concern (checkbox boilerplate diluting WJQ vectors) is a Phase-3.5
+# follow-up (HR-145), NOT solved here.
+
+version: jd_rules_sfu_v4
+
+# --- detection (two-tier; whole-document, case-insensitive) -------------------------
+# A document routes to the WJQ segmenter (`parser/wjq.py`) if it carries ANY primary
+# phrase, OR at least `corroborating_min` corroborating markers. The primary phrase is
+# the form's own title — a JDFN JD would never carry it. The corroborating markers are
+# the union name/local, which ALSO appear when a JDFN JD merely cites CUPE in a duty, so
+# neither alone may route. See `parser/wjq.py :: is_wjq`.
+marker_primary:
+  - WEIGHTED JOB QUESTIONNAIRE
+marker_corroborating:
+  - LOCAL 3338
+  - C.U.P.E
+corroborating_min: 2
+
+# The employee group the marker implies. CUPE 3338 is the WJQ bargaining unit; the base
+# JDFN template covers APSA/APEX/POLY. Held as data (not hardcoded in `wjq.py`) and
+# validated against the `SFUEmployeeGroup` vocabulary at load.
+employee_group: cupe
+
+# --- the 14 WJQ sections -----------------------------------------------------------
+# section key -> the uppercase heading phrase variants that signal it. The segmenter
+# normalises a line (strips antiword table pipes, a leading `N.` number, and a trailing
+# `(CONTINUED)`), then matches these case-insensitively. `LEVEL OF` is the wrap variant
+# of `LEVEL OF INDEPENDENCE` (the heading wraps across two lines in some renders). Every
+# one of the 14 keys MUST appear (loader-enforced) — a WJQ section with no heading
+# vocabulary could never be located, the "a gate that can never fire" failure.
+section_headings:
+  position_identification: [POSITION IDENTIFICATION]
+  position_summary: [POSITION SUMMARY]
+  major_functions: [MAJOR FUNCTIONS]
+  minor_functions: [MINOR FUNCTIONS]
+  level_of_independence: [LEVEL OF INDEPENDENCE, LEVEL OF]
+  training_exercised: [TRAINING EXERCISED]
+  direction_exercised: [DIRECTION EXERCISED]
+  internal_external_contacts: [INTERNAL AND EXTERNAL CONTACTS]
+  impact_of_errors: [IMPACT OF ERRORS]
+  effort: [EFFORT]
+  working_conditions: [WORKING CONDITIONS]
+  continuing_education: [CONTINUING EDUCATION]
+  qualifications: [QUALIFICATIONS]
+  approval_review: [APPROVAL AND REVIEW]
+
+# Recurrence suffix: a long section repeats its heading with this suffix on a later page
+# (`3. MAJOR FUNCTIONS (CONTINUED)`). Stripped before matching so the continuation
+# concatenates onto the same section (same rule as the JDFN duplicate-heading concat).
+continued_marker: (CONTINUED)
+
+# --- POSITION IDENTIFICATION field labels ------------------------------------------
+# id field -> the inline label variants whose value is taken. MEASURED across `.doc`
+# (antiword) and `.docx` (python-docx): the `.docx` template carries `Department
+# Position Title`; many `.doc` renders omit it, leaving `title` to fall back to
+# `Untitled Position` rather than misreading the SFU/CUPE banner line.
+id_labels:
+  title: [Department Position Title, Position Title]
+  department: [Department Name]
+  position_number: [Position Number(s), Position Number]
+  grade: [Classification & Grade Approved, Classification and Grade Approved]
+
+# --- MAJOR/MINOR FUNCTIONS: frequency of performance -------------------------------
+# The parenthetical per-duty marker: letter -> meaning. Stripped from the duty statement;
+# the meaning lands in `SFUDuty.frequency` (HR-142). Detection is anchored to a
+# STANDALONE, UPPERCASE `(D)/(W)/(M)/(S)` token (line-start or line-end of a duty) — the
+# false-positive guard against lowercase `(s)` mid-word (`location(s)`), which is present
+# in the archive and must never be read as a frequency.
+frequency_markers:
+  D: daily
+  W: weekly
+  M: monthly
+  S: semester
+
+# The alternative form: duties grouped under a bare frequency HEADING line (MEASURED —
+# `DAILY` / `WEEKLY:` / `MONTHLY:` blocks are common). A line equal to one of these
+# (case-insensitive, trailing colon ignored) sets the frequency for the duties that
+# follow it until the next such heading. word -> meaning.
+frequency_headings:
+  DAILY: daily
+  WEEKLY: weekly
+  MONTHLY: monthly
+  SEMESTER: semester
+  SEMESTERLY: semester
+
+# --- QUALIFICATIONS: kind cues -----------------------------------------------------
+# The Qualifications section is a sequence of instruction lines each introducing a block.
+# A line CONTAINING one of these cue fragments switches the "current kind" for the
+# content lines that follow it (`kind` on `SFUQualification`); the cue line itself is an
+# instruction and is dropped. Grounded in the real form's wording.
+qualification_cues:
+  education: [formal education]
+  experience: [number of years, years of minimum experience, minimum experience]
+  skill: [occupational skill]
+  ability: [occupational requirement]
+
+# --- Hay-factor sections -> additional_context -------------------------------------
+# The point-factor sections are stored verbatim (under their heading) in
+# `additional_context` — lossless. They are NOT mapped to `decision_making` /
+# `problem_solving`: WJQ has no Hay Accountability / Problem-Solving prose, and
+# force-mapping IMPACT OF ERRORS -> decision_making would feed `bank/hay_signals.py` a
+# bogus signal (empty is honest; the text is preserved here). Every member must be one of
+# the 14 `section_headings` keys (loader-enforced).
+context_sections:
+  - level_of_independence
+  - training_exercised
+  - direction_exercised
+  - impact_of_errors
+  - effort
+  - working_conditions
+  - continuing_education
+
+# --- template-instruction ignore-list ----------------------------------------------
+# Verbatim template cruft that sits in the live document (the form's own guidance to the
+# author). A content line whose cleaned text CONTAINS one of these fragments
+# (case-insensitive) is dropped before it can become a duty / summary / qualification.
+# MEASURED against the real form; kept distinctive so it cannot eat real content.
+instruction_markers:
+  - list the duties and responsibilities
+  - list duties and responsibilities
+  - (w) weekly
+  - a summary of the major functions
+  - identify the highest level of formal schooling
+  - identify the certification or program of study
+  - the number of years of minimum experience
+  - minimum required to satisfactorily perform
+  - "occupational skills:  identify"
+  - occupational requirement
+  - identify skills specifically required
+  - identify non-skill requirements
+  - an equivalent combination of
+  - check one
+  - check each description that applies
+  - for each item start with an action verb
+  - for use by human resources

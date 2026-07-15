@@ -244,7 +244,7 @@ def test_whitespace_only_input() -> None:
 
 
 def test_parser_version_constant() -> None:
-    assert parse_jd("anything").parser_version == "jd_segmenter_v1"
+    assert parse_jd("anything").parser_version == "jd_segmenter_v2"
 
 
 # ── End-to-end on the real legacy .doc ───────────────────────────────────────

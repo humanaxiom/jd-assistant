@@ -136,6 +136,24 @@ keep_files_without_position_id: true
 # `open` (HR-116) precisely because it is a defensible call rather than an obvious one.
 position_id_grouping: first
 
+# --- the JDFN approval-bar cohort ---------------------------------------------
+# Are CUPE/WJQ-template JDs excluded from the "current practice" cohort the JDFN approval
+# bar is ratified against? (Phase 3.4, HR-143.) `true` = yes. The WJQ questionnaire
+# (`parser/wjq.py`) is a DIFFERENT template with no About-SFU/territorial footer by
+# design, so scoring it on the JDFN bar is a category error — SFU-APPROVE-EDI-FOOTER
+# fails it for a reason that has nothing to do with its quality. Whether CUPE gets an
+# approval bar of its OWN is a deferred HR decision; it is NOT built here, and it must not
+# be made by omission (silently letting WJQ contaminate the number HR ratifies).
+#
+# WHY THIS MATTERS NOW, AND NOT BEFORE. Before the WJQ router (parser v1) these files read
+# as ~empty and graded F, so they never reached the cohort. The v2 router parses them into
+# real content — MEASURED 1,011 `new` + 182 `current` WJQ files — so without this clause a
+# third of the archive's WJQ text would flow straight into the cohort. That is exactly why
+# the exclusion lands WITH the parser. Applied by `baseline/aggregate.py ::
+# current_practice_cohort`; pinned by mutation (`false` -> a current-era WJQ file enters
+# the cohort and moves its approval rate).
+wjq_excluded_from_current_practice: true
+
 # --- aggregation / reporting --------------------------------------------------
 # Presentation, not policy: neither changes any file's score, grade, gate decision or
 # segment. Both are explicitly exempted as `trivial` in the register, with reasons.

@@ -4149,6 +4149,228 @@ decisions:
       this decision exists to close off.
     status: open
 
+  # ═══ WJQ / CUPE TEMPLATE (Phase 3.4) ════════════════════════════════════════
+  # A SECOND document template. Everything below is `our_invention` and `open`: SFU
+  # publishes no machine-readable WJQ schema, and hris never taught a parser this form.
+  # `wjq.yaml` is HASHED (part of `rules_version`), unlike segmentation/embeddings/dedup —
+  # it decides which text becomes a WJQ JD's summary/duties/qualifications, which changes
+  # what the validator computes about that JD.
+
+  - id: HR-141
+    question: >-
+      How do we recognise that a job description is on SFU's CUPE / Weighted Job
+      Questionnaire template rather than the APSA/APEX/POLY one?
+    config:
+      file: wjq.yaml
+      path: wjq.marker_primary
+    current_default:
+      - WEIGHTED JOB QUESTIONNAIRE
+    provenance: our_invention
+    why_it_matters: >-
+      Detection is whole-document, case-insensitive, and MARKER-based, never
+      filename-based (the `JDFN_CUPE` filename token covers only ~771 files, so trusting
+      the name would miss ~85% of the WJQ corpus). It is also TWO-TIER: this DEFINITIVE
+      title phrase alone routes a document to WJQ, because a JDFN JD would never carry it;
+      the looser union markers (`LOCAL 3338` / `C.U.P.E`, `wjq.marker_corroborating`)
+      route only in pairs, because each ALSO appears when a JDFN JD merely cites the union
+      in a duty. ✅ MEASURED: a bare `LOCAL 3338` misrouted 69 real JDFN JDs (old 7 /
+      transition 51 / new 11) — emptying their rich parse and stamping them `wjq`, which
+      excluded the 11 `new`-era ones from the very cohort HR ratifies the bar against.
+      Under the shipped two-tier rule ~29% of the archive routes to WJQ. The title phrase
+      SURVIVES antiword on legacy `.doc`.
+    impact_if_changed: >-
+      Moves `rules_version` (this file is hashed). Dropping the primary phrase (or
+      loosening the corroboration to 1) re-admits the union-citation misroute; adding a
+      too-common phrase would pull JDFN JDs onto the WJQ path (they parse to ~nothing).
+      Pinned by mutation (`test_parser_wjq.py`: remove the marker from a WJQ fixture -> it
+      routes JDFN; a JDFN doc citing "CUPE, Local 3338" routes `jdfn`, not `wjq`).
+    status: open
+
+  - id: HR-142
+    question: >-
+      What does a WJQ duty's `(D)` / `(W)` / `(M)` / `(S)` frequency tag mean, and should
+      it be captured as a field on the duty?
+    config:
+      file: wjq.yaml
+      path: wjq.frequency_markers
+    current_default:
+      D: daily
+      W: weekly
+      M: monthly
+      S: semester
+    provenance: our_invention
+    why_it_matters: >-
+      SFU's WJQ MAJOR FUNCTIONS section tags each duty with how often it is performed.
+      The user's decision (Phase 3.4) is to ADD a `frequency` field to `SFUDuty`
+      (additive, optional; JDFN duties leave it `None`), strip the marker from the duty
+      statement, and store the meaning here. The detection is anchored to a STANDALONE,
+      UPPERCASE `(D)/(W)/(M)/(S)` token — the false-positive guard against lowercase
+      `(s)` mid-word (`location(s)`, ✅ present in the archive), which must never read as
+      a frequency.
+    impact_if_changed: >-
+      Moves `rules_version`. Pinned by mutation (`test_parser_wjq.py`: a duty with a
+      trailing `(D)` gets `frequency == "daily"` and the marker stripped; a duty
+      containing `location(s)` is neither split nor tagged).
+    status: open
+
+  - id: HR-143
+    question: >-
+      Should CUPE / WJQ-template job descriptions be excluded from the "current practice"
+      cohort that the JDFN approval bar is ratified against?
+    config:
+      file: segmentation.yaml
+      path: segmentation.wjq_excluded_from_current_practice
+    current_default: true
+    provenance: our_invention
+    why_it_matters: >-
+      The WJQ questionnaire is a DIFFERENT template with no About-SFU / territorial footer
+      by design, so `SFU-APPROVE-EDI-FOOTER` fails it for a reason that has nothing to do
+      with its quality — scoring it on the JDFN bar is a category error. ✅ MEASURED: the
+      WJQ marker's era split is old 1,848 / transition 1,991 / new 1,011 / current 182, so
+      without this exclusion 1,193 newly-parseable WJQ files (v2 router) would flow into
+      the 874-JD cohort and move the number HR ratifies. Whether CUPE gets an approval bar
+      of its OWN is a SEPARATE deferred HR decision — deliberately NOT built here.
+    impact_if_changed: >-
+      Does not move `rules_version` (segmentation.yaml is unhashed) but moves
+      `Segmentation.stamp`. `false` lets WJQ JDs into `current_practice_cohort` and shifts
+      its approval rate. Pinned by mutation (`test_baseline_aggregate.py`: a current-era
+      WJQ file is in the cohort under `false`, excluded under `true`).
+    status: open
+
+  - id: HR-144
+    question: >-
+      What are the 14 section headings of the WJQ template, and how is each recognised
+      (numbering, `(CONTINUED)` recurrence, line-wrap)?
+    config:
+      file: wjq.yaml
+      path: wjq.section_headings
+    current_default:
+      position_identification: [POSITION IDENTIFICATION]
+      position_summary: [POSITION SUMMARY]
+      major_functions: [MAJOR FUNCTIONS]
+      minor_functions: [MINOR FUNCTIONS]
+      level_of_independence: [LEVEL OF INDEPENDENCE, LEVEL OF]
+      training_exercised: [TRAINING EXERCISED]
+      direction_exercised: [DIRECTION EXERCISED]
+      internal_external_contacts: [INTERNAL AND EXTERNAL CONTACTS]
+      impact_of_errors: [IMPACT OF ERRORS]
+      effort: [EFFORT]
+      working_conditions: [WORKING CONDITIONS]
+      continuing_education: [CONTINUING EDUCATION]
+      qualifications: [QUALIFICATIONS]
+      approval_review: [APPROVAL AND REVIEW]
+    provenance: our_invention
+    why_it_matters: >-
+      This vocabulary is how a WJQ document is cut into sections, so it directly decides
+      which text becomes a JD's `position_summary` / `duties` / `qualifications` — which
+      is why the whole file is hashed. ✅ MEASURED heading counts (e.g. POSITION
+      IDENTIFICATION 2,109 · MAJOR FUNCTIONS 2,091 · QUALIFICATIONS present in nearly
+      every file). `LEVEL OF` is the wrap variant of `LEVEL OF INDEPENDENCE`; a repeated
+      heading with a `(CONTINUED)` suffix concatenates onto the same section.
+    impact_if_changed: >-
+      Moves `rules_version`. A heading that stops matching drops its whole section's
+      text from the parse. Pinned by mutation (`test_wjq_rules.py`: rename a heading and
+      a WJQ parse test goes red; `test_rules_version.py` proves the hash moved).
+    status: open
+
+  - id: HR-145
+    question: >-
+      Where do the WJQ point-factor (Hay) sections go — and is IMPACT OF ERRORS mapped to
+      the JDFN Decision-Making / Problem-Solving fields?
+    config:
+      file: wjq.yaml
+      path: wjq.context_sections
+    current_default:
+      - level_of_independence
+      - training_exercised
+      - direction_exercised
+      - impact_of_errors
+      - effort
+      - working_conditions
+      - continuing_education
+    provenance: our_invention
+    why_it_matters: >-
+      These seven checkbox/point-factor sections are stored VERBATIM in
+      `additional_context` (lossless), NOT mapped to `decision_making` / `problem_solving`
+      — which are left EMPTY. WJQ carries no Hay Accountability / Problem-Solving prose,
+      and force-mapping IMPACT OF ERRORS -> decision_making would feed
+      `bank/hay_signals.py` a bogus signal. ✅ MEASURED: the checkbox glyphs are
+      unreliable (present in 280/2,553 `.docx`, 0/2,473 `.doc`), so the sections are
+      treated as plain text. The embedding-quality concern (checkbox boilerplate diluting
+      WJQ vectors) is an explicit Phase-3.5 follow-up, NOT solved here.
+    impact_if_changed: >-
+      Moves `rules_version`. Removing a section here drops it from `additional_context`.
+      Pinned by mutation (`test_wjq_rules.py`).
+    status: open
+
+  - id: HR-146
+    question: >-
+      How is each WJQ qualification classified as education / experience / skill /
+      ability?
+    config:
+      file: wjq.yaml
+      path: wjq.qualification_cues
+    current_default:
+      education: [formal education]
+      experience: [number of years, years of minimum experience, minimum experience]
+      skill: [occupational skill]
+      ability: [occupational requirement]
+    provenance: our_invention
+    why_it_matters: >-
+      The WJQ QUALIFICATIONS section is a sequence of instruction-led blocks; a cue line
+      switches the `kind` of the qualifications that follow it (`SFUQualification.kind`).
+      Grounded in the real form's wording ("Formal education qualifications…",
+      "Occupational Skills…", "Occupational Requirement(s)…", "the number of years of
+      minimum experience…"). `kind` feeds the KSA-order gate, so it is on the hashed
+      surface.
+    impact_if_changed: >-
+      Moves `rules_version`. Pinned by mutation (`test_parser_wjq.py`: qualifications get
+      the expected kinds).
+    status: open
+
+  - id: HR-147
+    question: >-
+      Which WJQ POSITION IDENTIFICATION field labels supply the JD's title, department,
+      position number and grade?
+    config:
+      file: wjq.yaml
+      path: wjq.id_labels
+    current_default:
+      title: [Department Position Title, Position Title]
+      department: [Department Name]
+      position_number: [Position Number(s), Position Number]
+      grade: [Classification & Grade Approved, Classification and Grade Approved]
+    provenance: our_invention
+    why_it_matters: >-
+      These inline labels are read to populate `title` / `department` / `position_number`
+      / `grade`. ✅ MEASURED: the `.docx` template carries `Department Position Title`;
+      many `.doc` renders omit it, so `title` falls back to `Untitled Position` rather
+      than misreading the SFU/CUPE banner line (the base parser's WJQ title misread was
+      one of the finding's symptoms). Reading the label — not a hardcoded column — is
+      what makes the extraction data-driven.
+    impact_if_changed: >-
+      Moves `rules_version`. Pinned by mutation (`test_parser_wjq.py`: rename the title
+      label and `title` becomes `Untitled Position` — proving it reads the data, not a
+      hardcode).
+    status: open
+
+  - id: HR-148
+    question: What employee group does the WJQ marker imply?
+    config:
+      file: wjq.yaml
+      path: wjq.employee_group
+    current_default: cupe
+    provenance: our_invention
+    why_it_matters: >-
+      CUPE 3338 is the WJQ bargaining unit (the JDFN template covers APSA/APEX/POLY, which
+      are Hay-graded). Set on the parsed JD's `employee_group` so the two templates cannot
+      cross-apply. Held as data and validated against the `SFUEmployeeGroup` vocabulary at
+      load, rather than hardcoded in `parser/wjq.py`.
+    impact_if_changed: >-
+      Moves `rules_version`. Pinned by mutation (`test_parser_wjq.py`: a parsed WJQ JD has
+      `employee_group == "cupe"`).
+    status: open
+
 # ═════════════════════════════════════════════════════════════════════════════
 # TRIVIAL — on the decision surface, deliberately NOT a decision for HR.
 #
@@ -4524,3 +4746,41 @@ trivial:
       DedupEdge rows get written depends on this value — it either lets a normal run
       through unchanged, or stops an abnormal one before it does something expensive
       and probably wrong.
+
+  # --- wjq: mechanical, or decided elsewhere -----------------------------------
+  - config: {file: wjq.yaml, path: wjq.marker_corroborating}
+    reason: >-
+      The looser second tier of the SAME detection decision as HR-141: the union
+      name/local (`LOCAL 3338` / `C.U.P.E`) that on their own are too loose to route (each
+      also appears when a JDFN JD merely cites the union), so they only route in
+      combination. HR-141's `marker_primary` is the decision a reviewer rules on; this is
+      its corroboration list.
+    covered_by: HR-141
+  - config: {file: wjq.yaml, path: wjq.corroborating_min}
+    reason: >-
+      How many corroborating markers must co-occur to route a document with no primary
+      phrase — 2, so a single union mention never routes. Definitional given HR-141's
+      two-tier detection: it is loader-checked to be reachable (never more than the number
+      of corroborating markers) and is the knob that makes the misroute guard bite.
+    covered_by: HR-141
+  - config: {file: wjq.yaml, path: wjq.continued_marker}
+    reason: >-
+      The fixed `(CONTINUED)` suffix a WJQ section repeats its heading with on a later
+      page. Definitional given HR-144 (the heading vocabulary): it is stripped before a
+      heading is matched so the continuation concatenates onto the same section, exactly
+      like the JDFN duplicate-heading rule. A property of SFU's form, not a policy call.
+    covered_by: HR-144
+  - config: {file: wjq.yaml, path: wjq.frequency_headings}
+    reason: >-
+      The SAME frequency decision as HR-142, in its OTHER surface form: duties grouped
+      under a bare `DAILY` / `WEEKLY` heading rather than tagged per-duty with `(D)`/`(W)`.
+      The meanings and the field they populate (`SFUDuty.frequency`) are HR-142's; this
+      table only recognises the group-heading spelling of the same tags.
+    covered_by: HR-142
+  - config: {file: wjq.yaml, path: wjq.instruction_markers}
+    reason: >-
+      The verbatim template-instruction cruft the form prints for its author ("List the
+      duties...", "Check one:", "Occupational Requirement(s): Identify..."). Dropping these
+      lines is definitional given the section mapping (HR-144): they are the form's own
+      guidance, never a JD's content, so removing them is data cleaning, not a policy call.
+    covered_by: HR-144

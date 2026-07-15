@@ -452,6 +452,9 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         "segmentation",
         "embeddings",
         "dedup",
+        # `wjq.yaml` (Phase 3.4) — the CUPE/WJQ template map. Unlike the three above it
+        # IS hashed (it decides which text becomes a WJQ JD's summary/duties/quals).
+        "wjq",
     }
     # ...and that is every rule file there is, bar the register itself.
     described = {name.removesuffix(".yaml") for name in RULE_FILES}

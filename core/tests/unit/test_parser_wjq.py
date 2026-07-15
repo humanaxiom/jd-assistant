@@ -1,0 +1,300 @@
+"""The CUPE / Weighted Job Questionnaire (WJQ) segmenter (Phase 3.4).
+
+Two kinds of fixture: a hand-built synthetic WJQ document (docx-shaped, one cell per
+line) for PRECISE assertions — frequency stripping, the lowercase ``(s)`` guard,
+instruction-cruft removal, ``(CONTINUED)`` recurrence, the data-driven label mutation —
+and three REAL archive files (`fixtures/wjq_*`) as end-to-end regression anchors.
+
+Every behavioural claim is pinned so that a mutation of the shipped data or logic breaks
+it: the label-rename test proves extraction reads ``wjq.yaml`` and not a hardcode, and
+the marker-removal test proves the router, not the filename, decides the template.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from src.jd_bank.ingest.extract import extract_text_from_path
+from src.jd_core.parser import ParseResult, parse_jd
+from src.jd_core.parser.wjq import is_wjq, segment_wjq
+from src.jd_core.rules import Rules, get_rules
+
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
+
+
+@pytest.fixture(scope="module")
+def rules() -> Rules:
+    return get_rules()
+
+
+# A synthetic WJQ document in the python-docx render shape (one table cell per line).
+# Deliberately exercises: the id labels, the summary-instruction cruft, per-duty
+# `(D)/(W)/(S)` markers, a lowercase `location(s)` (the false-positive trap), a
+# `(CONTINUED)` recurrence, the KSA block cues, the contacts table, a Hay section, and
+# the dropped APPROVAL section.
+_WJQ = """SIMON FRASER UNIVERSITY & C.U.P.E., LOCAL 3338
+WEIGHTED JOB QUESTIONNAIRE (WJQ) CUSTOM
+PART 1: JOB DESCRIPTION
+1.  POSITION IDENTIFICATION
+Department Position Title:
+Program Assistant
+Department Name:
+Registrar
+Position Number(s):
+00099999
+Classification & Grade Approved:
+Grade 9
+2.  POSITION SUMMARY
+A summary of the major functions of the position in three or four sentences.
+Provides support to the Registrar across multiple location(s) on campus.
+3.  MAJOR FUNCTIONS
+List the duties and responsibilities of the position in order of frequency
+(i.e., (D) Daily; (W) Weekly; (M) Monthly; (S) Semester)
+Answers enquiries about registration at various location(s). (D)
+Prepares weekly enrolment reports for the Registrar. (W)
+3.  MAJOR FUNCTIONS (CONTINUED)
+Reconciles term statistics at semester end. (S)
+4.  MINOR FUNCTIONS
+List duties and responsibilities that occur annually throughout the year.
+Archives graduation records at year end.
+8.  INTERNAL AND EXTERNAL CONTACTS
+Type of Contact
+Faculty and staff
+External applicants and off campus vendors
+13.  QUALIFICATIONS
+Minimum required to satisfactorily perform the work.
+Formal education: identify the highest level of formal schooling required.
+High School graduation and a diploma in office administration.
+In addition to the above qualifications, the number of years of minimum experience are:
+2
+Occupational Skills:  Identify skills required to perform the work.
+Intermediate keyboarding skills.
+Occupational Requirement(s): Identify non-skill requirements.
+Ability to work flexible hours.
+9.  IMPACT OF ERRORS
+Errors in records can delay student registration.
+14.  APPROVAL AND REVIEW
+Name of Evaluating Supervisor
+"""
+
+
+@pytest.fixture()
+def parsed(rules: Rules) -> ParseResult:
+    return segment_wjq(_WJQ, rules.wjq)
+
+
+# ── Detection / routing ──────────────────────────────────────────────────────
+
+
+def test_marker_routes_to_the_wjq_path(rules: Rules) -> None:
+    assert is_wjq(_WJQ, rules.wjq) is True
+    assert parse_jd(_WJQ).template == "wjq"
+
+
+def test_removing_the_marker_routes_to_jdfn_and_wjq_sections_vanish(
+    rules: Rules,
+) -> None:
+    """Flip the guard: with no marker the document takes the JDFN path, which does not
+    know the WJQ headings — so its duties do not parse and no frequency is ever set."""
+    all_markers = rules.wjq.marker_primary + rules.wjq.marker_corroborating
+    no_marker = "\n".join(
+        line
+        for line in _WJQ.splitlines()
+        if not any(m.lower() in line.lower() for m in all_markers)
+    )
+    assert is_wjq(no_marker, rules.wjq) is False
+    result = parse_jd(no_marker)
+    assert result.template == "jdfn"
+    assert all(d.frequency is None for d in result.jd.duties)
+
+
+def test_a_jdfn_fixture_is_not_detected_as_wjq(rules: Rules) -> None:
+    jdfn = (FIXTURES / "sfu_new_template.txt").read_text(encoding="utf-8")
+    assert is_wjq(jdfn, rules.wjq) is False
+    assert parse_jd(jdfn).template == "jdfn"
+
+
+def test_a_jdfn_jd_that_only_cites_the_union_stays_jdfn(rules: Rules) -> None:
+    """MUST-FIX 2 (reviewer): a genuine JDFN JD — with real JDFN headings — that merely
+    MENTIONS "CUPE, Local 3338" in a duty must NOT route to WJQ. One loose union marker
+    is below the corroboration bar and there is no WJQ title phrase, so it stays JDFN
+    with its rich parse. Drop the `corroborating_min` guard (to 1) and this reds — the
+    exact 69-file misroute the reviewer measured."""
+    jdfn = (
+        "SIMON FRASER UNIVERSITY\n"
+        "JOB TITLE: Labour Relations Advisor\n"
+        "DEPARTMENT: Human Resources\n"
+        "POSITION SUMMARY\n"
+        "Advises managers on collective agreements.\n"
+        "DUTIES AND RESPONSIBILITIES\n"
+        "- Interprets the CUPE, Local 3338 collective agreement for managers.\n"
+        "SUPERVISION RECEIVED\n"
+        "Reports to the Director, Employee Relations.\n"
+        "MINIMUM ENTRANCE QUALIFICATIONS\n"
+        "Bachelor's degree and three years of labour-relations experience.\n"
+    )
+    assert is_wjq(jdfn, rules.wjq) is False
+    result = parse_jd(jdfn)
+    assert result.template == "jdfn"
+    assert result.jd.title == "Labour Relations Advisor"
+    assert result.jd.duties  # a rich JDFN parse, not the empty WJQ misread
+
+
+# ── Identification ───────────────────────────────────────────────────────────
+
+
+def test_identification_fields(parsed: ParseResult) -> None:
+    jd = parsed.jd
+    assert jd.title == "Program Assistant"
+    assert jd.department == "Registrar"
+    assert jd.position_number == "00099999"
+    assert jd.grade == "Grade 9"
+    assert jd.employee_group == "cupe"
+
+
+def test_title_reads_the_label_data_not_a_hardcode(rules: Rules) -> None:
+    """Rename the title label in the data → the title is no longer found and falls back.
+    Proves the extractor reads ``wjq.id_labels``, not a hardcoded column."""
+    mutated = rules.wjq.model_copy(
+        update={"id_labels": {**rules.wjq.id_labels, "title": ("No Such Label",)}}
+    )
+    assert segment_wjq(_WJQ, mutated).jd.title == "Untitled Position"
+
+
+# ── Position summary ─────────────────────────────────────────────────────────
+
+
+def test_heading_less_wjq_with_a_huge_id_block_does_not_raise(rules: Rules) -> None:
+    """MUST-FIX 1 (reviewer): when a WJQ form omits the `POSITION SUMMARY` heading
+    (common in legacy `.doc`), the fallback grabs the whole identification block — which
+    routinely exceeds `position_summary`'s 4000-char ceiling. Uncapped that raised
+    ValidationError on 568 real files and aborted the archive re-parse. `parse_jd` is
+    contractually total, so the fallback must cap. Drop the `[:_MAX_SUMMARY]` cap in
+    `_summary_fallback` and this reds with a ValidationError."""
+    huge = " ".join(f"sentence number {i} of the role." for i in range(400))
+    assert len(huge) > 4000
+    text = f"WEIGHTED JOB QUESTIONNAIRE\n1.  POSITION IDENTIFICATION\n{huge}\n"
+    result = segment_wjq(text, rules.wjq)  # must not raise
+    assert result.template == "wjq"
+    summary = result.jd.position_summary
+    assert summary is not None
+    assert len(summary) <= 4000
+
+
+def test_summary_keeps_prose_and_drops_the_instruction(parsed: ParseResult) -> None:
+    summary = parsed.jd.position_summary
+    assert summary is not None
+    assert "support to the Registrar" in summary
+    assert "A summary of the major functions" not in summary
+    # the lowercase `(s)` in the summary is untouched — it is not a frequency marker
+    assert "location(s)" in summary
+
+
+# ── Duties + frequency ───────────────────────────────────────────────────────
+
+
+def test_duty_frequencies_are_stripped_and_stored(parsed: ParseResult) -> None:
+    duties = parsed.jd.duties
+    by_freq = {d.frequency: d.statement for d in duties}
+    assert "daily" in by_freq and "weekly" in by_freq and "semester" in by_freq
+    # the marker itself is gone from the statement
+    assert all("(D)" not in d.statement and "(W)" not in d.statement for d in duties)
+
+
+def test_lowercase_s_is_not_a_frequency(parsed: ParseResult) -> None:
+    """`location(s)` occurs mid-sentence in a duty. It must survive verbatim, the duty
+    must not be split on it, and its frequency comes from the trailing `(D)` — never
+    from the `(s)`."""
+    duty = next(d for d in parsed.jd.duties if "location(s)" in d.statement)
+    assert duty.frequency == "daily"
+    assert "Answers enquiries" in duty.statement
+
+
+def test_continued_recurrence_is_concatenated(parsed: ParseResult) -> None:
+    """The duty under `MAJOR FUNCTIONS (CONTINUED)` lands on the same section."""
+    assert any(
+        "Reconciles term statistics" in d.statement and d.frequency == "semester"
+        for d in parsed.jd.duties
+    )
+
+
+def test_the_frequency_instruction_line_is_not_a_duty(parsed: ParseResult) -> None:
+    assert not any("Daily; " in d.statement for d in parsed.jd.duties)
+    assert not any("List the duties" in d.statement for d in parsed.jd.duties)
+
+
+# ── Qualifications ───────────────────────────────────────────────────────────
+
+
+def test_qualification_kinds(parsed: ParseResult) -> None:
+    quals = parsed.jd.qualifications
+    kinds = {q.kind for q in quals}
+    assert {"education", "experience", "skill", "ability"} <= kinds
+    education = next(q for q in quals if q.kind == "education")
+    assert "High School" in education.text
+
+
+# ── Relationships / context / Hay ────────────────────────────────────────────
+
+
+def test_contacts_split_best_effort(parsed: ParseResult) -> None:
+    rel = parsed.jd.relationships
+    assert rel is not None
+    assert rel.supervisory is None  # WJQ invents no supervisory signal
+    assert any("Faculty" in c for c in rel.internal)
+    assert any("off campus" in c.lower() for c in rel.external)
+
+
+def test_hay_sections_go_to_additional_context(parsed: ParseResult) -> None:
+    jd = parsed.jd
+    assert jd.additional_context is not None
+    assert "Errors in records" in jd.additional_context
+    # decision_making / problem_solving are left EMPTY (no bogus Hay signal)
+    assert jd.decision_making == []
+    assert jd.problem_solving == []
+
+
+def test_approval_section_is_dropped(parsed: ParseResult) -> None:
+    assert "Evaluating Supervisor" not in (parsed.jd.additional_context or "")
+
+
+def test_wjq_has_no_about_or_footer(parsed: ParseResult) -> None:
+    jd = parsed.jd
+    assert jd.about_sfu_present is False
+    assert jd.territorial_acknowledgement_present is False
+    assert jd.employment_equity_present is False
+
+
+# ── Real archive fixtures (end-to-end regression anchors) ────────────────────
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["wjq_markers_sample.docx", "wjq_grouped_sample.doc", "wjq_cupe_sample.doc"],
+)
+def test_real_wjq_fixture_parses(name: str) -> None:
+    text = extract_text_from_path(FIXTURES / name)
+    result = parse_jd(text)
+    assert result.template == "wjq"
+    jd = result.jd
+    assert jd.employee_group == "cupe"
+    assert len(jd.duties) >= 5
+    assert any(d.frequency for d in jd.duties)
+    assert jd.decision_making == [] and jd.problem_solving == []
+    assert jd.additional_context is not None
+
+
+def test_the_docx_fixture_recovers_all_the_id_fields() -> None:
+    """The `.docx` template carries `Department Position Title`, so the title is real
+    (not the `Untitled Position` fallback the `.doc` renders take)."""
+    text = extract_text_from_path(FIXTURES / "wjq_markers_sample.docx")
+    jd = parse_jd(text).jd
+    assert jd.title == "Directors Assistant"
+    assert jd.department == "Curriculum & Instruction"
+    assert jd.position_number == "01803"
+    assert {"education", "experience", "skill", "ability"} <= {
+        q.kind for q in jd.qualifications
+    }
+    assert {"daily", "weekly"} <= {d.frequency for d in jd.duties if d.frequency}
