@@ -1085,9 +1085,12 @@ def test_the_comparison_defaults_are_registered_as_nobodys_standard(
     ``comparison.yaml`` held only the 2.4c port, and Phase 3.1 made it false: HR-123
     (``exact_edge_topology``) is ``our_invention`` — hris had no Tier-1 dedup edges at
     all, so there is no hris number to have inherited, and claiming ``hris_calibration``
-    for it would be the *same* provenance lie in the opposite direction. The count below
-    is what stops the 22 genuinely-inherited numbers from being quietly relabelled
-    ``our_invention`` (or vice versa) on the way past.
+    for it would be the *same* provenance lie in the opposite direction. Phase 3.4a
+    added six more inventions (the ParsedJD -> JobSignals adapter knobs,
+    HR-149..HR-154): hris had a skill ontology + idf corpus JD Bank does not, so its
+    skill-bag / word-year / education- and experience-source defaults are ours, not
+    inherited. The set below is what stops the 22 genuinely-inherited numbers from being
+    quietly relabelled ``our_invention`` (or vice versa) on the way past.
     """
     register = rules.decision_register
     comparison = [d for d in register.decisions if d.config.file == "comparison.yaml"]
@@ -1100,10 +1103,19 @@ def test_the_comparison_defaults_are_registered_as_nobodys_standard(
     inherited = [d for d in comparison if d.provenance == "hris_calibration"]
     ours = [d for d in comparison if d.provenance == "our_invention"]
     assert len(inherited) >= 20, "the ported hris calibration was relabelled"
-    # The ONLY thing in this file that is ours: the Tier-1 edge topology (3.1). If this
-    # grows, a new invention has been added to a file whose whole header says the
-    # numbers came from hris — say so there too, or it is a lie by omission.
-    assert [d.id for d in ours] == ["HR-123"]
+    # Everything in this file that is OURS, not hris's: the Tier-1 edge topology (3.1)
+    # and the five ParsedJD -> JobSignals adapter knobs (3.4a). If this set grows, a new
+    # invention has been added to a file whose header must say so, or it is a lie by
+    # omission — the header is updated in lockstep (ADR-007).
+    assert {d.id for d in ours} == {
+        "HR-123",
+        "HR-149",
+        "HR-150",
+        "HR-151",
+        "HR-152",
+        "HR-153",
+        "HR-154",
+    }
 
 
 def test_the_hay_and_comparison_education_cues_cannot_drift_apart(

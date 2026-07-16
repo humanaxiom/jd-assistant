@@ -10,11 +10,17 @@
 # `docs/rulebook/sfu-jd-standards.txt` contains none of these words.
 #
 # The 22 calibration numbers (HR-082 … HR-103) are `hris_calibration` — inherited from
-# the hris pipeline. The ONE exception is `exact_edge_topology` (HR-123, Phase 3.1),
-# which is `our_invention`: hris had no Tier-1 dedup edges at all, so there is no hris
-# number to have inherited, and calling it `hris_calibration` would be the same
-# provenance lie pointing the other way. Pinned by
-# `test_the_comparison_defaults_are_registered_as_nobodys_standard`.
+# the hris pipeline. The EXCEPTIONS are `our_invention`, because hris had no equivalent
+# to inherit and calling them `hris_calibration` would be the same provenance lie
+# pointing the other way:
+#   * `exact_edge_topology` (HR-123, Phase 3.1) — hris had no Tier-1 dedup edges at all.
+#   * the ParsedJD -> JobSignals adapter knobs (HR-149 … HR-154, Phase 3.4a): the skill
+#     keyword-bag source kinds / stopwords / min-token-len, the spelled-out year map, and
+#     the education + experience source kinds. hris fed its similarity/drift maths from a
+#     skill ontology + idf corpus JD Bank does not have; these MEASURED defaults are how a
+#     parsed SFU JD becomes comparison features instead (ADR-007). Each is honest about
+#     its degradation (a keyword bag is not an ontology; 41% of JDs yield no skills).
+# Pinned by `test_the_comparison_defaults_are_registered_as_nobodys_standard`.
 #
 # Two of the inherited numbers come closest to an SFU source and STILL do not clear the
 # bar:
@@ -106,6 +112,25 @@ education_text_cues:
   masters: [master, msc, m.sc, mba]
   phd: [phd, ph.d, doctora, dphil]
 
+# Which QUALIFICATION KINDS an education requirement may be read out of (Phase 3.4a,
+# the ParsedJD -> JobSignals adapter). NOT the `education` kind alone, and NOT all kinds
+# either — `[education, knowledge]`, because two facts pull in opposite directions:
+#   * SFU's JDFN template embeds the degree inside the `knowledge` blob — e.g.
+#     "Bachelor's degree in Computing Science or related discipline, and five years of
+#     related experience" is filed under kind=knowledge, not kind=education. So `knowledge`
+#     is REQUIRED beyond `education`.
+#   * the bachelors cue list contains the bare substring `degree` (see education_text_cues),
+#     and SFU's CUPE clerical JDs are full of "55 wpm keyboarding skill with a high degree
+#     of accuracy" filed under kind=skill/ability — which `degree` misreads as a bachelors.
+# MEASURED over the whole v2 corpus with the real `education_level_from_quals`:
+#   * all-6 kinds:            8,417 extractions, but 1,161 are "degree of ..." false-positive
+#                             bachelors (18.6% of all bachelors — a systematic clerical bias);
+#   * [education, knowledge]: 7,880 (93.6% of the all-6 win) with only 4 such FPs (-99.7%);
+#   * [education] alone:      3,307 (loses the JDFN knowledge-blob degrees).
+# So `[education, knowledge]` keeps almost the whole win and removes almost all the noise.
+# It is DATA: adding skill/ability back re-injects the "degree of accuracy" FPs. HR-153.
+education_source_kinds: [education, knowledge]
+
 # ── Similarity: sim = w_vec*vector + w_skill*skills + w_sen*seniority ────────
 # Title-agnostic BY CONSTRUCTION: titles are not a term of the score, so "Software
 # Engineer" and "Applications Programmer" can be the same role. The weights must sum
@@ -165,6 +190,55 @@ title_stopwords:
   - "4"
   - "5"
 
+# ── Skills: the keyword-bag adapter (Phase 3.4a) ─────────────────────────────
+# `bank/signals.py` derives a per-JD skill SET from the parsed qualifications so the
+# 2.4c similarity/clustering/drift maths finally has an input. This is NOT a skill
+# ontology (SFU publishes none, and the archive's skill vocabulary is 5,584 free-text
+# tokens — building an ontology is a project of its own, needing a JD SME; deferred,
+# see ADR-007). It is a KEYWORD BAG: lowercase `[a-z0-9]+` tokens, minus a stopword
+# list and minus tokens shorter than `skill_min_token_len`. idf-weighting — which is
+# what actually rescues this bag into signal — is Phase 3.4b.
+#
+# Which qual kinds feed skills. `skill`/`knowledge`/`ability` — NOT `experience` or
+# `education`, which inject year-counts and degree words as if they were skills. Note
+# `knowledge` also feeds education detection above: the same blob legitimately carries
+# both a degree and a domain ("Computing Science"). HR-149.
+skill_source_kinds: [skill, knowledge, ability]
+# Tokens shorter than this are dropped before they reach the bag (drops 1-2 char noise
+# like "a", "of", "hr"). HR-151.
+skill_min_token_len: 3
+# The NOISE words stripped from the bag. MEASURED: these are the 20 most frequent
+# tokens across the archive's 5,584-token skill vocabulary — `ability, excellent,
+# knowledge, ...` — and they dominate it, so without this list the bag is meaningless.
+# ⚠ HONEST CONSEQUENCE: real signal like `management` / `applications` is stripped too;
+# that is acceptable ONLY because the bag is not an ontology and idf (3.4b) is what will
+# separate distinctive skills from ubiquitous ones. Do not read this as a curated skill
+# list. AND this list does NOT make the bag clean — grammatical noise survives it
+# (measured corpus-wide: `and` 8,528, `combination` 4,666, `the` 4,201, plus `bachelor`
+# leaking out of the knowledge blob). The 20 tokens are the worst offenders, not a
+# filter; the bag is genuinely meaningless until idf weights it in 3.4b. HR-150.
+skill_stopwords:
+  - ability
+  - excellent
+  - knowledge
+  - skills
+  - with
+  - experience
+  - work
+  - degree
+  - good
+  - related
+  - level
+  - high
+  - education
+  - management
+  - accuracy
+  - years
+  - equivalent
+  - word
+  - training
+  - applications
+
 # What an UNKNOWN signal is worth on the 0-1 seniority scale — an absent experience
 # bar, or an education level that is not on the ladder. 0.7 is a guess: high enough
 # not to punish a JD for what it does not say, low enough not to reward it.
@@ -200,10 +274,50 @@ material_years_delta: 2
 material_reports_delta: 5
 
 # The first explicit year-count in a free-text experience requirement ("5 years",
-# "3+ years"). No number -> no signal.
+# "3+ years"). No number -> no signal. This is the DIGIT primitive; spelled-out numbers
+# are handled by `experience_word_numbers` below (which the reader tries in parallel and
+# takes whichever match comes first). HR-102.
 experience_years_pattern:
   pattern: '(\d{1,2})\s*\+?\s*year'
   ignore_case: true
+# Spelled-out year counts. MEASURED, and a real bug the digit pattern alone caused: SFU's
+# JDFN template WRITES YEARS OUT — "five years of related experience", "(one|two|…|ten)
+# years" — so the digit-only regex matched only 226 JDFN JDs where 4,585 of 4,888 are
+# derivable. The word->int map is DATA (non-negotiable #2 — the number words are NOT
+# hardcoded in drift.py); `Comparison.experience_word_year_pattern` DERIVES the matcher
+# from these keys (single source of truth), requiring the word be followed by "year" just
+# as the digit pattern is, so "an equivalent combination" never reads as a year count.
+# `a`/`an` are deliberately EXCLUDED (an unmeasured call; "a year" is rare in these
+# requirements and mapping it to 1 risks reading determiners as counts). HR-152.
+experience_word_numbers:
+  one: 1
+  two: 2
+  three: 3
+  four: 4
+  five: 5
+  six: 6
+  seven: 7
+  eight: 8
+  nine: 9
+  ten: 10
+  eleven: 11
+  twelve: 12
+  thirteen: 13
+  fourteen: 14
+  fifteen: 15
+  sixteen: 16
+  seventeen: 17
+  eighteen: 18
+  nineteen: 19
+  twenty: 20
+# Which QUALIFICATION KINDS the adapter reads the experience bar from, IN ORDER: the
+# `experience` quals are authoritative and tried first; `knowledge` is the FALLBACK,
+# because JDFN spells the years inside the same knowledge blob that carries the degree
+# ("...and five years of related experience"). Order is policy (fallback, not union): a
+# JD stating "2 years" under experience and "10 years" inside a knowledge blob reads as
+# 2, not 10. `experience` alone would miss every JDFN JD whose bar lives only in the
+# blob. Held as DATA, not a literal tuple in signals.py (non-negotiable #2). HR-154.
+experience_source_kinds: [experience, knowledge]
 # The first direct-reports count in a free-text supervisory statement ("supervises 4
 # coordinators" -> 4; "manages a team of 8" -> 8). A qualitative statement ("supervises
 # the comms team") names no number -> no signal. Heuristic: the first small integer.

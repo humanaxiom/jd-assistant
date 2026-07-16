@@ -40,9 +40,11 @@ threshold here is registered ``hris_calibration``, ``open``. See ``comparison.ya
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from src.jd_core.models.bank import DriftLevel
+from src.jd_core.models.parsed_jd import SFUQualification
 from src.jd_core.rules import Comparison, Rules, get_rules
 
 #: The level a JD sits at before any cutoff or escalation moves it.
@@ -91,10 +93,51 @@ def education_level_from_text(text: str, *, rules: Rules | None = None) -> int |
 
 
 def experience_years_from_text(text: str, *, rules: Rules | None = None) -> int | None:
-    """The first explicit year-count in a free-text experience requirement (e.g.
-    "5 years", "3+ years"). ``None`` when the text names no number."""
-    match = _comparison(rules).experience_years_pattern.search(text)
-    return int(match.group(1)) if match else None
+    """The first explicit year-count in a free-text experience requirement.
+
+    Recognises both digits ("5 years", "3+ years") and SFU's JDFN spelling ("five
+    years") — the digit path and the word path (``comparison.experience_word_numbers``,
+    HR-152) are searched in parallel and whichever count appears FIRST in the text wins,
+    so "first explicit year-count" holds across both forms. ``None`` when the text names
+    no number. **Measured**: the digit-only regex matched 226 JDFN JDs; the word path
+    lifts that to 4,585 of 4,888 derivable.
+    """
+    comparison = _comparison(rules)
+    best_start: int | None = None
+    value: int | None = None
+
+    digit = comparison.experience_years_pattern.search(text)
+    if digit is not None:
+        best_start, value = digit.start(), int(digit.group(1))
+
+    word_pattern = comparison.experience_word_year_pattern
+    if word_pattern is not None:
+        word = word_pattern.search(text)
+        if word is not None and (best_start is None or word.start() < best_start):
+            value = comparison.experience_word_numbers[word.group(1).lower()]
+    return value
+
+
+def education_level_from_quals(
+    quals: Iterable[SFUQualification], *, rules: Rules | None = None
+) -> int | None:
+    """Education ordinal read over the qualifications of the registered kinds.
+
+    Runs :func:`education_level_from_text` over the *concatenation* of every qual whose
+    ``kind`` is in ``comparison.education_source_kinds`` (HR-153, default
+    ``[education, knowledge]``) — SFU's JDFN template files the degree inside the
+    ``knowledge`` blob, not under ``kind == education``. **Measured** (v2 corpus):
+    ``[education]`` alone extracts 3,307 corpus-wide (scoped to JDFN, a degree in only
+    ~40 of ~10,000); ``[education, knowledge]`` extracts 7,880 with only 4 of the
+    ``degree``-substring false positives that ``skill``/``ability`` quals ("high degree
+    of accuracy") inject. ``None`` when no cue matches — conservative, never an
+    escalation.
+    """
+    kinds = _comparison(rules).education_source_kinds
+    texts = [qual.text for qual in quals if qual.kind in kinds]
+    if not texts:
+        return None
+    return education_level_from_text(" ".join(texts), rules=rules)
 
 
 def supervisory_reports_from_text(

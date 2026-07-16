@@ -68,7 +68,7 @@ from src.jd_core.models.bank import (
     TitleFamily,
     TitleFunction,
 )
-from src.jd_core.models.parsed_jd import SFUEmployeeGroup
+from src.jd_core.models.parsed_jd import QualificationKind, SFUEmployeeGroup
 from src.jd_core.models.quality import (
     JDGrade,
     JDIssueCategory,
@@ -83,6 +83,7 @@ _SEVERITIES: Final[frozenset[str]] = frozenset(get_args(JDIssueSeverity))
 _CATEGORIES: Final[frozenset[str]] = frozenset(get_args(JDIssueCategory))
 _SECTIONS: Final[frozenset[str]] = frozenset(get_args(SFUSection))
 _GRADES: Final[frozenset[str]] = frozenset(get_args(JDGrade))
+_QUALIFICATION_KINDS: Final[frozenset[str]] = frozenset(get_args(QualificationKind))
 
 #: The explicit "no keyword matched" state of BOTH title dimensions. It is a
 #: member of the :data:`TitleFamily` / :data:`TitleFunction` vocabularies but
@@ -1498,6 +1499,18 @@ class Comparison(_RuleFile):
     education_ladder: tuple[str, ...] = Field(min_length=2)
     #: rung -> the lower-cased substring cues that place a requirement on it.
     education_text_cues: FrozenCueMap
+    #: Which qualification KINDS an education requirement may be read out of — JDFN
+    #: embeds the degree in the ``knowledge`` blob, not ``kind == education`` (HR-153).
+    education_source_kinds: frozenset[str] = Field(min_length=1)
+
+    #: Which qualification KINDS feed the skill keyword-bag (HR-149).
+    skill_source_kinds: frozenset[str] = Field(min_length=1)
+    #: Noise tokens dropped from the skill keyword-bag — the measured top-20 (HR-150).
+    #: May be empty (no filtering) — that is exactly the mutation the bag is pinned
+    #: against, so it is a representable state rather than a load error.
+    skill_stopwords: frozenset[str] = Field(default_factory=frozenset)
+    #: Tokens shorter than this are not skill keywords (HR-151).
+    skill_min_token_len: int = Field(gt=0)
 
     #: sim = weight_vector*vector + weight_skill*skills + weight_seniority*seniority.
     #: The three must sum to 1.0 — that is what makes the score a 0-1 number.
@@ -1539,8 +1552,16 @@ class Comparison(_RuleFile):
 
     experience_years_pattern: Regex
     supervisory_reports_pattern: Regex
+    #: Spelled-out year counts (JDFN writes "five years") -> int. The number words are
+    #: DATA, not hardcoded in drift.py; :attr:`experience_word_year_pattern` derives the
+    #: matcher from these keys, so this map is the single source of truth (HR-152).
+    experience_word_numbers: FrozenRankMap
+    #: Which qualification KINDS the adapter reads the experience bar from, IN ORDER —
+    #: ``experience`` first (authoritative), ``knowledge`` the JDFN fallback (HR-154).
+    #: A tuple, not a set: the order is the fallback policy, so it is on the hash.
+    experience_source_kinds: tuple[str, ...] = Field(min_length=1)
 
-    @field_validator("non_matchable_families", "title_stopwords")
+    @field_validator("non_matchable_families", "title_stopwords", "skill_stopwords")
     @classmethod
     def _tokens_are_lowercase(cls, tokens: frozenset[str]) -> frozenset[str]:
         for token in sorted(tokens):
@@ -1549,6 +1570,43 @@ class Comparison(_RuleFile):
             if token != token.strip().lower():
                 raise ValueError(f"token {token!r} must be lowercase and stripped")
         return tokens
+
+    @field_validator("education_source_kinds", "skill_source_kinds")
+    @classmethod
+    def _are_known_qualification_kinds(cls, kinds: frozenset[str]) -> frozenset[str]:
+        unknown = sorted(kinds - _QUALIFICATION_KINDS)
+        if unknown:
+            raise ValueError(
+                f"qualification kind(s) {unknown} are not a "
+                f"QualificationKind ({sorted(_QUALIFICATION_KINDS)})"
+            )
+        return kinds
+
+    @field_validator("experience_source_kinds")
+    @classmethod
+    def _ordered_kinds_are_known_and_unique(
+        cls, kinds: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        _no_repeats("experience_source_kinds", kinds)
+        unknown = sorted(set(kinds) - _QUALIFICATION_KINDS)
+        if unknown:
+            raise ValueError(
+                f"qualification kind(s) {unknown} are not a "
+                f"QualificationKind ({sorted(_QUALIFICATION_KINDS)})"
+            )
+        return kinds
+
+    @field_validator("experience_word_numbers")
+    @classmethod
+    def _word_numbers_are_well_formed(
+        cls, mapping: Mapping[str, int]
+    ) -> Mapping[str, int]:
+        for word, value in mapping.items():
+            if word != word.strip().lower() or not word:
+                raise ValueError(f"number word {word!r} must be lowercase and stripped")
+            if value < 1:
+                raise ValueError(f"number word {word!r} must map to a positive int")
+        return mapping
 
     @field_validator("education_text_cues")
     @classmethod
@@ -1636,6 +1694,23 @@ class Comparison(_RuleFile):
         if rung is None or rung not in self.education_ladder:
             return None
         return self.education_ladder.index(rung)
+
+    @property
+    def experience_word_year_pattern(self) -> re.Pattern[str] | None:
+        """The spelled-out-years matcher — **derived** from the word-number map.
+
+        ``None`` when the map is empty (word support off, digits still work). Words are
+        tried LONGEST-first so "seventeen" cannot be shadowed by "seven", and the count
+        must be followed by "year" exactly as :attr:`experience_years_pattern` requires,
+        so a bare determiner ("an equivalent combination") never reads as a year count.
+        Not a stored key: a second copy of the number words next to the map is the
+        ``max_listed`` duplicate-knob landmine.
+        """
+        if not self.experience_word_numbers:
+            return None
+        words = sorted(self.experience_word_numbers, key=len, reverse=True)
+        alternation = "|".join(re.escape(word) for word in words)
+        return re.compile(rf"\b({alternation})\b\s*\+?\s*year", re.IGNORECASE)
 
 
 class GradeBand(BaseModel):
