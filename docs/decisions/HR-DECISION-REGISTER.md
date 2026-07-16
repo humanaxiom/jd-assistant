@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+c8ec90d74eb5` · **148 decisions** (148 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 209 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+d5c41b7df4d0` · **154 decisions** (154 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 215 parameters on the decision surface, all accounted for.
 
 ## What this is
 
@@ -164,6 +164,12 @@ Every policy call JD Bank currently makes **by default**, because SFU HR has not
 | [HR-146](#hr-146) | How is each WJQ qualification classified as education / experience / skill / ability? | `education` → ['formal education']; `experience` → ['number of years', 'years of minimum experience', 'minimum experience']; `skill` → ['occupational skill']; `ability` → ['occupational requirement'] | our invention |
 | [HR-147](#hr-147) | Which WJQ POSITION IDENTIFICATION field labels supply the JD's title, department, position number and grade? | `title` → ['Department Position Title', 'Position Title']; `department` → ['Department Name']; `position_number` → ['Position Number(s)', 'Position Number']; `grade` → ['Classification & Grade Approved', 'Classification and Grade Approved'] | our invention |
 | [HR-148](#hr-148) | What employee group does the WJQ marker imply? | `cupe` | our invention |
+| [HR-149](#hr-149) | Which qualification kinds are treated as the source of a JD's SKILLS? | `ability`, `knowledge`, `skill` | our invention |
+| [HR-150](#hr-150) | Which noise tokens are stripped from the skill keyword-bag? | *20 entries — see below* | our invention |
+| [HR-151](#hr-151) | What is the minimum length of a skill keyword? | `3` | our invention |
+| [HR-152](#hr-152) | Are SPELLED-OUT year counts ("five years") read as an experience bar, and which words map to which numbers? | *20 entries — see below* | our invention |
+| [HR-153](#hr-153) | Which qualification kinds may an EDUCATION requirement be read out of? | `education`, `knowledge` | our invention |
+| [HR-154](#hr-154) | Which qualification kinds is a JD's EXPERIENCE bar read from, and in what fallback order? | `experience`, `knowledge` | our invention |
 
 ### Our invention — nobody has ratified these
 
@@ -653,6 +659,54 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** our invention
 - **Why it matters:** CUPE 3338 is the WJQ bargaining unit (the JDFN template covers APSA/APEX/POLY, which are Hay-graded). Set on the parsed JD's `employee_group` so the two templates cannot cross-apply. Held as data and validated against the `SFUEmployeeGroup` vocabulary at load, rather than hardcoded in `parser/wjq.py`.
 - **If it changes:** Moves `rules_version`. Pinned by mutation (`test_parser_wjq.py`: a parsed WJQ JD has `employee_group == "cupe"`).
+
+#### HR-149 — Which qualification kinds are treated as the source of a JD's SKILLS?
+
+- **We ship:** `ability`, `knowledge`, `skill`
+- **Configured in:** `comparison.yaml` → `comparison.skill_source_kinds`
+- **Where the default came from:** our invention
+- **Why it matters:** The skill keyword-bag is built ONLY from these kinds. `skill`/`knowledge`/`ability` carry what a role needs to know and do; `experience` and `education` are deliberately EXCLUDED because they inject year-counts ("five years") and degree words ("bachelor") into the bag as if they were skills. MEASURED context: 41% of archive JDs have zero qualifications of any kind, so their skill bag is empty — an honest consequence, not a bug (`build_job_signals` returns `frozenset()`). Note `knowledge` ALSO feeds education detection (HR-153): the same JDFN blob legitimately states both a degree and a domain.
+- **If it changes:** Moves `rules_version`. Adding `experience`/`education` would pollute the bag with seniority tokens; dropping `knowledge` would empty the bag for JDFN JDs that state their competencies only in the knowledge blob. Pinned by mutation in `test_bank_signals.py`.
+
+#### HR-150 — Which noise tokens are stripped from the skill keyword-bag?
+
+- **We ship:** `ability`, `accuracy`, `applications`, `degree`, `education`, `equivalent`, `excellent`, `experience`, `good`, `high`, `knowledge`, `level`, `management`, `related`, `skills`, `training`, `with`, `word`, `work`, `years`
+- **Configured in:** `comparison.yaml` → `comparison.skill_stopwords`
+- **Where the default came from:** our invention
+- **Why it matters:** MEASURED: these are the 20 most frequent tokens across the archive's 5,584-token skill vocabulary, and they dominate it — `ability, excellent, knowledge, skills, with, experience, work, degree, good, related, ...`. Without stripping them the bag is meaningless (every JD "overlaps" on `ability` and `experience`). ⚠ HONEST CONSEQUENCE: genuinely contentful tokens like `management` and `applications` are stripped too. That is acceptable ONLY because this is a keyword bag, not an ontology, and idf-weighting (Phase 3.4b) is what will actually separate distinctive skills from ubiquitous ones — a stopword list is the crude stand-in until then. Do NOT read this as a curated skill vocabulary.
+- **If it changes:** Moves `rules_version`. Emptying it re-floods the bag with the top-20 noise (pinned by mutation in `test_bank_signals.py`: a CUPE skill-list JD's bag gains `experience` / `knowledge` once the list is emptied). A real fix is idf, not a longer list.
+
+#### HR-151 — What is the minimum length of a skill keyword?
+
+- **We ship:** `3`
+- **Configured in:** `comparison.yaml` → `comparison.skill_min_token_len`
+- **Where the default came from:** our invention
+- **Why it matters:** Tokens shorter than this are dropped before they reach the bag, removing 1-2 char noise (`a`, `of`, stray list-numbering). 3 keeps `hr`, `it`, `qa`? — no, those are length 2 and are dropped; a genuinely 2-letter skill acronym would be lost, which is the cost of a blunt length cut and another reason the bag is a stopgap for idf.
+- **If it changes:** Moves `rules_version`. Raising it drops more short tokens; lowering it to 1 lets single characters in. Pinned by mutation in `test_bank_signals.py`.
+
+#### HR-152 — Are SPELLED-OUT year counts ("five years") read as an experience bar, and which words map to which numbers?
+
+- **We ship:** `eight` → 8; `eighteen` → 18; `eleven` → 11; `fifteen` → 15; `five` → 5; `four` → 4; `fourteen` → 14; `nine` → 9; `nineteen` → 19; `one` → 1; `seven` → 7; `seventeen` → 17; `six` → 6; `sixteen` → 16; `ten` → 10; `thirteen` → 13; `three` → 3; `twelve` → 12; `twenty` → 20; `two` → 2
+- **Configured in:** `comparison.yaml` → `comparison.experience_word_numbers`
+- **Where the default came from:** our invention
+- **Why it matters:** A real, MEASURED bug in the digit-only `experience_years_pattern` (HR-102): SFU's JDFN template WRITES YEARS OUT — "five years of related experience", "(one|two|…|ten) years" — so the digit regex matched only 226 JDFN JDs where 4,585 of 4,888 are derivable. The number words are DATA (non-negotiable #2 — NOT hardcoded in `drift.py`); `Comparison.experience_word_year_pattern` derives the matcher from these keys (single source of truth), requiring the count be followed by "year" exactly as the digit path does, so a bare determiner never reads as a year count. `a`/`an` are deliberately EXCLUDED — an unmeasured call, and mapping determiners to 1 risks false counts; flagged for review.
+- **If it changes:** Moves `rules_version`. Emptying the map turns word support off (digits still work) — pinned by mutation in `test_bank_drift.py` / `test_bank_signals.py`: a JDFN blob "five years of related experience" yields None once the map is emptied, proving the fix is load-bearing.
+
+#### HR-153 — Which qualification kinds may an EDUCATION requirement be read out of?
+
+- **We ship:** `education`, `knowledge`
+- **Configured in:** `comparison.yaml` → `comparison.education_source_kinds`
+- **Where the default came from:** our invention
+- **Why it matters:** Two facts pull in opposite directions and `[education, knowledge]` is the balance point. (1) SFU's JDFN template files the degree inside the `knowledge` blob — "Bachelor's degree in Computing Science or related discipline, and five years of related experience" is kind=knowledge, not kind=education — so `knowledge` is REQUIRED beyond `education`. Scoped to JDFN, reading `kind == education` alone finds a degree in only ~40 of ~10,000 JDFN JDs. (2) BUT the bachelors cue list contains the bare substring `degree`, and SFU's CUPE clerical JDs say "55 wpm keyboarding skill with a high degree of accuracy" under kind=skill/ability, which `degree` misreads as a bachelors. MEASURED over the WHOLE v2 corpus with the real `education_level_from_quals`: all-6-kinds -> 8,417 extractions but 1,161 are "degree of ..." FALSE-POSITIVE bachelors (18.6% of all bachelors, a systematic clerical-typist upward bias); [education, knowledge] -> 7,880 (93.6% of the all-6 win) with only 4 such FPs (-99.7%); [education] alone -> 3,307 (loses the JDFN blob degrees). So `[education, knowledge]` keeps almost the whole win and removes almost all the noise, and it is DATA.
+- **If it changes:** Moves `rules_version`. Adding `skill`/`ability` back re-injects the ~1,161 "degree of accuracy" false positives; dropping `knowledge` loses the JDFN blob degrees. Pinned by mutation in `test_bank_drift.py` / `test_bank_signals.py`: a JD whose only degree signal is in a `knowledge` qual yields None under `[education]`, and a `skill` qual saying "high degree of accuracy" yields an ordinal once `skill` is added back.
+
+#### HR-154 — Which qualification kinds is a JD's EXPERIENCE bar read from, and in what fallback order?
+
+- **We ship:** `experience`, `knowledge`
+- **Configured in:** `comparison.yaml` → `comparison.experience_source_kinds`
+- **Where the default came from:** our invention
+- **Why it matters:** The adapter reads the years bar from these kinds IN ORDER — the first that yields any count wins. `experience` quals are authoritative; `knowledge` is the JDFN fallback, because JDFN spells the years inside the same knowledge blob that carries the degree ("...and five years of related experience"). Order is policy, not cosmetic: a JD stating "2 years" under experience and "10 years" inside a knowledge blob reads as 2, not 10 (fallback, not union). Held as DATA so this matches its siblings HR-149 (skills) / HR-153 (education) rather than being a bare literal tuple in signals.py — the standing rule is that every non-trivial signal-source decision is on the surface.
+- **If it changes:** Moves `rules_version`. `[experience]` alone would miss every JDFN JD whose bar lives only in the knowledge blob; reordering to `[knowledge, experience]` would let a blob count override an explicit experience qual. Pinned by mutation in `test_bank_signals.py` (a knowledge-only JD yields its blob years; emptying the fallback loses them).
 
 ### Inherited hris calibration — not an SFU-published number
 
@@ -1218,7 +1272,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 - **We ship:** `(\d{1,2})\s*\+?\s*year`
 - **Configured in:** `comparison.yaml` → `comparison.experience_years_pattern`
 - **Where the default came from:** hris calibration
-- **Why it matters:** The regex takes the FIRST year-count it finds, so "3 to 5 years" reads as 3 (the minimum — defensible) and "5 years in a role requiring 2 years of supervision" reads as 5 (the first, not the relevant one). It is capped at two digits. This is a heuristic feeding HR-100's escalation, and it is data so that fixing it is a config change, not a code change.
+- **Why it matters:** The regex takes the FIRST year-count it finds, so "3 to 5 years" reads as 3 (the minimum — defensible) and "5 years in a role requiring 2 years of supervision" reads as 5 (the first, not the relevant one). It is capped at two digits. This is the DIGIT primitive only: SFU's JDFN template spells years out ("five years"), and those are handled by the sibling `experience_word_numbers` (HR-152, added Phase 3.4a), which the reader searches in parallel and merges by first-position. This is a heuristic feeding HR-100's escalation, and it is data so that fixing it is a config change, not a code change.
 - **If it changes:** Config only; advisory. Text that names no number yields no signal and never escalates.
 
 #### HR-103 — How is a direct-reports count read out of a free-text supervisory statement?

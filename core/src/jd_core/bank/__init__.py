@@ -41,6 +41,7 @@ from src.jd_core.bank.clustering import build_clusters, cluster_label, cluster_m
 from src.jd_core.bank.drift import (
     DriftResult,
     compute_drift,
+    education_level_from_quals,
     education_level_from_text,
     education_ordinal,
     experience_years_from_text,
@@ -55,6 +56,10 @@ from src.jd_core.bank.embed_text import (
 from src.jd_core.bank.hay_signals import estimate_hay_signals
 from src.jd_core.bank.provenance import skill_frequency
 from src.jd_core.bank.render import render_sfu_jd_text
+from src.jd_core.bank.signals import (
+    build_job_signals,
+    canonical_title,
+)
 from src.jd_core.bank.similarity import (
     clone_verdict,
     normalize_title,
@@ -74,6 +79,8 @@ __all__ = [
     "DriftResult",
     "SerializedText",
     "build_clusters",
+    "build_job_signals",
+    "canonical_title",
     "classify_title",
     "classify_title_family",
     "classify_title_function",
@@ -81,6 +88,7 @@ __all__ = [
     "cluster_label",
     "cluster_metrics",
     "compute_drift",
+    "education_level_from_quals",
     "education_level_from_text",
     "education_ordinal",
     "estimate_hay_signals",

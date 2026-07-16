@@ -16,11 +16,13 @@ import pytest
 
 from src.jd_core.bank import (
     compute_drift,
+    education_level_from_quals,
     education_level_from_text,
     education_ordinal,
     experience_years_from_text,
     supervisory_reports_from_text,
 )
+from src.jd_core.models.parsed_jd import SFUQualification
 from src.jd_core.rules import Rules, get_rules
 from tests.unit.retuned_rules import retuned as _retuned
 
@@ -125,6 +127,81 @@ def test_experience_years_from_text() -> None:
     assert experience_years_from_text("5 years of progressive experience") == 5
     assert experience_years_from_text("3+ years in a similar role") == 3
     assert experience_years_from_text("experience preferred") is None
+
+
+def test_experience_years_reads_spelled_out_numbers() -> None:
+    """JDFN writes years out — "five years" must read as 5 (HR-152). The digit path
+    keeps working, and the first count in the text wins across both forms."""
+    assert experience_years_from_text("five years of related experience") == 5
+    assert experience_years_from_text("a minimum of ten years' experience") == 10
+    # digit path unchanged
+    assert experience_years_from_text("5 years of progressive experience") == 5
+    # first count wins whichever form it takes
+    assert experience_years_from_text("3 years, sometimes five years") == 3
+    assert experience_years_from_text("five years, up to 10 years") == 5
+    # a word not followed by "year" is not a count; noise yields nothing
+    assert experience_years_from_text("five locations across two campuses") is None
+    assert experience_years_from_text("experience in several locations") is None
+
+
+def test_the_spelled_out_year_words_are_data_not_hardcoded(rules: Rules) -> None:
+    """The number words live in comparison.yaml, so emptying the map turns word support
+    off (digits still work) — proof `drift.py` reads the YAML, not a Python dict.
+    This is the mutation that proves the JDFN word-years fix is load-bearing."""
+    off = _retuned(rules, experience_word_numbers={})
+    assert experience_years_from_text("five years of experience") == 5
+    assert experience_years_from_text("five years of experience", rules=off) is None
+    # digits are unaffected by removing the word map
+    assert experience_years_from_text("5 years of experience", rules=off) == 5
+
+
+def _quals(*pairs: tuple[str, str]) -> list[SFUQualification]:
+    return [SFUQualification(text=text, kind=kind) for kind, text in pairs]  # type: ignore[arg-type]
+
+
+def test_education_level_from_quals_reads_the_jdfn_knowledge_blob() -> None:
+    """JDFN files the degree inside a `knowledge` qual, not `kind == education`
+    (HR-153). Reading over all qual kinds finds it; the primitive is unchanged."""
+    quals = _quals(
+        (
+            "knowledge",
+            "Bachelor's degree in Computing Science or related discipline, and "
+            "five years of related experience; or an equivalent combination.",
+        ),
+        ("skill", "Excellent communication skills"),
+    )
+    assert education_level_from_quals(quals) == 2  # bachelors
+    # empty / no-cue quals -> None, never an escalation
+    assert education_level_from_quals([]) is None
+    assert education_level_from_quals(_quals(("skill", "Strong teamwork"))) is None
+
+
+def test_education_source_kinds_are_data_not_hardcoded(rules: Rules) -> None:
+    """Restricting the source kinds to `[education]` makes the JDFN knowledge-blob
+    degree disappear again — the mutation that proves 40 -> 8,414 is load-bearing and
+    driven by comparison.yaml, not code."""
+    quals = _quals(
+        ("knowledge", "Bachelor's degree in Computing Science, five years experience"),
+    )
+    assert education_level_from_quals(quals) == 2
+    education_only = _retuned(rules, education_source_kinds=["education"])
+    assert education_level_from_quals(quals, rules=education_only) is None
+
+
+def test_degree_of_accuracy_is_not_read_as_a_bachelors(rules: Rules) -> None:
+    """The bachelors cue list holds the bare substring `degree`, and CUPE clerical JDs
+    say "high degree of accuracy" under kind=skill/ability. The shipped
+    `education_source_kinds` ([education, knowledge]) keeps that ~1,161-JD false
+    positive out. MUTATION: add `skill` back and the false-positive bachelors reappears
+    -- proof the exclusion is load-bearing, and why the sources are not "all kinds"."""
+    typist = _quals(
+        ("skill", "55 wpm keyboarding skill with a high degree of accuracy"),
+    )
+    assert education_level_from_quals(typist) is None
+    with_skill = _retuned(
+        rules, education_source_kinds=["education", "knowledge", "skill"]
+    )
+    assert education_level_from_quals(typist, rules=with_skill) == 2  # FP bachelors
 
 
 def test_supervisory_reports_from_text() -> None:

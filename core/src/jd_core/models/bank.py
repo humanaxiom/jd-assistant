@@ -259,6 +259,54 @@ class TitleClassification(BaseModel):
     comma_supervisory: bool = False  # title format ("Manager, X") implies supervision
 
 
+# ---------- comparison signals: the ParsedJD -> JobSignals adapter (Phase 3.4a) ----
+
+
+class CanonicalTitle(BaseModel):
+    """A title reduced to the comparison-ready anchors: its normalized stem, both SFU
+    title dimensions, the comma-format supervision signal, and whether it uses an
+    SFU-reserved phrase. Produced by :func:`~src.jd_core.bank.signals.canonical_title`
+    from ``similarity.normalize_title`` + ``title_family.classify_title`` +
+    ``titles.yaml :: restricted``. Advisory, like the classifiers it composes."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    raw: str
+    normalized: str  # normalize_title stem — seniority/level markers dropped
+    family: TitleFamily
+    function: TitleFunction
+    comma_supervisory: bool = False  # "Manager, X" format implies supervision
+    restricted: bool = False  # uses an SFU-reserved title phrase (Part 3.5)
+
+
+class JobSignals(BaseModel):
+    """The single comparison-feature object Tier-3 / drift / clustering consume, derived
+    from a parsed SFU JD by :func:`~src.jd_core.bank.signals.build_job_signals`.
+
+    :attr:`skills` is a **keyword bag, not a canonical skill set** (ADR-007): lowercase
+    tokens from the ``skill``/``knowledge``/``ability`` qualifications minus a measured
+    stopword list, with idf-weighting deferred to Phase 3.4b. It is ``frozenset()`` for
+    the ~41% of archive JDs that carry no qualifications at all — an honest, registered
+    consequence, not a bug. The seniority signals (:attr:`education_ordinal`,
+    :attr:`experience_years`, :attr:`supervisory_reports`) are ``None`` when the JD
+    states no readable value; a missing signal never manufactures similarity/drift."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    skills: frozenset[str]  # keyword bag (NOT an ontology); empty when no quals
+    education_ordinal: int | None  # index on comparison.education_ladder
+    experience_years: int | None
+    supervisory_reports: int | None
+    title: str
+    normalized_title: str
+    family: TitleFamily
+    function: TitleFunction
+    comma_supervisory: bool
+    restricted: bool
+    employee_group: str | None = None
+    department: str | None = None
+
+
 # ---------- drift detection (advisory) ----------
 
 DriftLevel = Literal["aligned", "minor", "major"]
