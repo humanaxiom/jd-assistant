@@ -3,8 +3,9 @@
 Read this first every session. Single source of truth for current state + how we work.
 Last updated: 2026-07-15 (**Phase 2–3.3 + extraction defects COMPLETE.** 3.1 Tier-1 dedup + 3.2 ingest/embeddings + 3.3 Tier-2 near-dup + **both extraction defects** all merged and run. Archive **99.3% parseable** (4,984 → 1,706 → 105 broken parses). **3.5 (clustering) is now UNBLOCKED; 3.4 (title normalizer + Tier-3 role-equivalence) is next.** Pipeline refreshed end-to-end: **14,395 documents with vectors** (was 9,517), **36,174 section vectors** (was 22,922), **15,072 near-dup edges** (was 14,312, candidate waste removed). **HR numbers byte-identical** (874 cohort; both defects were outside it).)
 
-**Catching up? Read [`docs/status/2026-07-13-shipped.md`](docs/status/2026-07-13-shipped.md) first** —
-the one-pager on 2.5 / 2.6 / 3.1, and the basis of what we tell HR.
+**Catching up? Read [`docs/status/2026-07-15-shipped.md`](docs/status/2026-07-15-shipped.md) first** —
+the current one-pager (3.2 embeddings, 3.3 near-dup, both extraction defects), and the basis of what
+we tell HR. The prior [`2026-07-13-shipped.md`](docs/status/2026-07-13-shipped.md) covers 2.5 / 2.6 / 3.1.
 
 **PR stack all MERGED:** [#19](https://github.com/humanaxiom/jd-assistant/pull/19) (2.5 baseline)
 → [#22](https://github.com/humanaxiom/jd-assistant/pull/22) (2.6 defects, re-opened after #20 auto-closed)
@@ -763,8 +764,9 @@ official text from HR in the same review.
 
 ## Authoritative references
 
-- **`docs/status/2026-07-13-shipped.md` — the one-pager.** What shipped in 2.5/2.6/3.1, for the team
-  and as the basis of what we tell HR. **Start here if you are catching up.**
+- **`docs/status/2026-07-15-shipped.md` — the current one-pager.** 3.2 embeddings, 3.3 near-dup, and
+  both extraction defects, for the team and as the basis of what we tell HR. **Start here if catching
+  up.** (`2026-07-13-shipped.md` covers the earlier 2.5/2.6/3.1.)
 - `docs/plan.md` — full build plan, architecture, phase breakdown (current).
 - **`docs/baseline/README.md` — THE ARCHIVE BASELINE (2.5).** The measured read of all 14,565 JDs.
   Read before making any claim about the archive. Regenerate with `make baseline`.

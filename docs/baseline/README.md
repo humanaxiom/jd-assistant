@@ -6,15 +6,28 @@
 |---|---|
 | Archive | `C:\repos\hris\fixtures\SFU_JDs` (READ-ONLY), 14,565 files |
 | Accounted for | **14,522 scored + 43 skipped = 14,565.** No silent drops. |
-| Rules | `jd_rules_sfu_v4+8c004c4dadd1` *(post-2.6)* |
-| Parser | `jd_segmenter_v1` |
-| Segmentation | `jd_rules_sfu_v4+d4c4e253c13a` *(post-2.6)* |
+| Rules | `jd_rules_sfu_v4+c8ec90d74eb5` *(post-WJQ)* |
+| Parser | `jd_segmenter_v2` *(WJQ template router)* |
+| Segmentation | `jd_rules_sfu_v4+d4c4e253c13a` |
 | Regenerate | `make baseline JD_ARCHIVE_PATH=<archive>` (~9 min) |
+
+> **⚠️ Regenerated at `jd_segmenter_v2` (2026-07-15) after two extraction fixes.** Two defects that
+> silently shrank what the parser could read were fixed: `_extract_docx` now reads TABLE and Word
+> CONTENT-CONTROL text (PR #30, ~20.7M chars recovered), and a new WJQ/CUPE-3338 template parser (PR
+> #32) reads the ~4,300 files (29.5%) the segmenter never understood. **Effect on this baseline:**
+> **archive-wide broken parses (`parse_confidence < 0.10`) fell 4,984 → 105** (99.3% now parseable),
+> median archive score rose 19 → 42.8, and a **`template` facet** was added — **jdfn 10,222 / wjq
+> 4,300 / 43 skipped**. **The 874-JD current-practice cohort below is BYTE-IDENTICAL** (approval
+> 78.6%, median 79.0, 81A/551B/240C/2D): WJQ is CUPE — a different template with no rulebook bar —
+> so it is EXCLUDED from the cohort (`template != wjq`, HR-143) and scoring it under the JDFN gates
+> is a category error deferred to HR. **So every cohort claim below still holds; only the
+> archive-wide framing gained the WJQ/extraction context** (the old "~5% — a category error" number
+> is now largely *explained*: a third of the archive was a template we could not read).
 
 > **History.** Phase **2.5** built this baseline and ran it against rulebook `…+2cb6723a5241`. It
 > exposed three defects **in our own rules**, which Phase **2.6** then fixed — so the numbers below
 > are the *corrected* ones. Where a 2.5 figure is still quoted it is labelled **(pre-2.6)**.
-> Both runs are over the identical 14,565 files.
+> All runs are over the identical 14,565 files.
 
 ---
 
@@ -59,7 +72,7 @@ between SFU and an approvable JD bank.
 
 | Population | Approval | Why the number is what it is |
 |---|---|---|
-| All 14,522 scored | ~5% | A category error — judges 1967 JDs against the 2019 template. |
+| All 14,522 scored | ~5% | A category error — and now largely *explained*: a third of it (4,300 WJQ/CUPE files) is a template with **no rulebook bar**, plus 1967-era JDs judged against the 2019 template. |
 | Era `new` (2019–2023) | **1.0%** | **Still an artefact** — see the date detector below. |
 | Era `current` (2024+) | **61.2%** | A *date* band, not a practice band. |
 | **Current practice** (n=874) | **78.6%** | **The bar's actual trial.** |
