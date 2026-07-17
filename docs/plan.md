@@ -462,6 +462,12 @@ The register enforces the record: a `ratified` decision **must** carry `decided_
   rebuild — pure functions, heavy unit tests, no LLM. Uses `bank/provenance.py` (#11).
 - **4.2** Rewrite passes: hris prompts (#17/#18); prompt + post-check + retry + anti-fabrication
   guard; validator-as-oracle snapshot tests.
+  - **4.2a** ✅ **MERGED** (PR #49) — harmonize rewrite (`jd_harmonize_v1`): LLM scaffolding
+    (`jd_bank/llm/` `ChatClient` + prompt loader) + `rewrite_merged_role` (grounded 4.1 draft →
+    LLM → anti-fabrication scrub → validator → frozen `RewrittenDraft`, drafts only). `rewrite.yaml`
+    registered+unhashed, HR-176..184 `open`. Gates 1615 / 93.72%.
+  - **4.2b** NEXT — quality audit (`jd_quality_v1`): nuanced inclusive-language/clarity/seniority
+    pass with verbatim-evidence anti-fab scrub; reuses 4.2a scaffolding.
 - **4.3** Change-log / diff generator; render via `bank/render.py` (#12).
 - **4.4** Review queue: FastAPI + minimal UI + audit-log wiring (hris routes/service as reference).
 - **4.5** Pilot: 5–10 clusters end to end with a real HR reviewer; feedback becomes fixtures/rules.
