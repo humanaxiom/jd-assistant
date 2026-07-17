@@ -365,6 +365,27 @@ services:
       postgres: { condition: service_healthy }
     command: ["python", "-m", "src.jd_bank.harmonize"]
 
+  # ─── Phase-4.2a LLM rewrite golden (opt-in, LOCAL-ONLY) ────────────────────
+  # Runs the live rewrite golden against the REAL chat model on `aria-gb10-2`
+  # (OLLAMA_BASE_URL, ADR-003) — NEVER part of `make gates` / CI (a cloud runner cannot
+  # route to a private internal host, and the whole suite must not depend on a live
+  # endpoint). Needs NO data stores: the golden builds a MergedRole in-memory and asserts
+  # the validator post-state of the reworded draft (a RELATION, never verbatim model text).
+  # Self-skips per-test if the endpoint is unreachable (off-VPN). Mirrors `embed` /
+  # `harmonize`; not started by `up` (profile: tools).
+  #
+  #   make rewrite-golden
+  rewrite:
+    profiles: ["tools"]
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    environment:
+      <<: *app_env
+    volumes:
+      - ./core:/app
+    command: ["pytest", "tests/live/test_rewrite_live.py", "-m", "live", "--timeout=300", "-q"]
+
 volumes:
   pgdata:
   neo4jdata:

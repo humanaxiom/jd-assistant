@@ -1,0 +1,72 @@
+# LLM harmonize REWRITE pass (Phase 4.2a) — rulebook-as-data (CLAUDE.md §2).
+#
+# WHAT THIS FILE DECIDES
+# ----------------------
+# HOW the self-hosted LLM rewrites a Phase-4.1 merge DRAFT (already a valid
+# SFUJobDescription) into cleaner, template-faithful prose — which chat model, at what
+# temperature/budget, how invalid JSON is retried, and how aggressively the
+# anti-fabrication guard scrubs/flag content the model INTRODUCED. It decides NOTHING
+# about how a JD is SCORED or APPROVED: the approval bar lives in the HASHED files
+# (gates/scoring/rule_catalog/...). A rewrite-policy change must therefore NOT churn
+# `rules_version` — that digest identifies *which rules scored a JD*, and rewording a
+# draft scores nothing. So, exactly like `harmonization.yaml`, this file is REGISTERED
+# and on the decision surface but EXCLUDED from `rules_version` (`loader._UNHASHED_FILES`).
+#
+# PROVENANCE + CALIBRATION
+# ------------------------
+# EVERY value here is `our_invention`, `status: open` (HR-176…HR-184). SFU publishes no
+# rewrite policy, and hris used an LLM prompt only (no anti-fabrication or grounding
+# policy to have inherited). All defaults below are PROVISIONAL STARTING VALUES, to be
+# calibrated at the 4.5 pilot — NOT settled, and NOT backed by measured evidence we do
+# not yet have. Each register entry says so in `why_it_matters`.
+#
+# OUT OF SCOPE (do not add knobs for these here): the `jd_quality` nuanced audit pass
+# (4.2b), %-rebalance of duty allocations, diff/change-log, review queue, DB persistence.
+
+version: jd_rules_sfu_v4
+
+# --- chat model + sampling ---------------------------------------------------------
+# The chat model that rewrites the draft. A rulebook decision (NEVER `settings.agent_model`,
+# the harness's own coder-agent model). `gpt-oss:120b` is the strongest general instruct
+# on the host today (best JSON-schema adherence for the SFUJobDescription output);
+# alternatives available: gpt-oss:20b, qwen3.5:latest, gemma4:26b, llama4:latest. HR-176.
+model: gpt-oss:120b
+
+# Sampling temperature. 0.0 -> deterministic: a rewrite is a transform (reword the grounded
+# draft), not a brainstorm, and determinism is what makes a re-run reproducible. HR-177.
+temperature: 0.0
+
+# Token budget for one rewrite completion (mirrors hris's 2048). HR-178.
+max_tokens: 2048
+
+# How many times an INVALID-JSON / schema-mismatch response is re-requested with a terse
+# repair nudge before raising LLMOutputInvalidError. Transient network/5xx retries are
+# SEPARATE (fixed in the client, never a 400). HR-179.
+max_retries: 1
+
+# Which prompt template the rewrite loads (the versioned pair under jd_bank/llm/templates/:
+# `<name>.system.j2` + `.user.j2`). The loaded template's own version stamps
+# RewrittenDraft.prompt_version. HR-180.
+prompt_version: jd_harmonize_v1
+
+# --- anti-fabrication guard (the heart of 4.2a) ------------------------------------
+# Whether the guard runs at all. `true` scrubs ungrounded qualifications and flags
+# no-overlap duties; `false` ships the model's output UNSCRUBBED (the escape hatch,
+# registered so flipping it cannot be quiet). HR-181.
+anti_fabrication_enabled: true
+
+# How a rewritten qualification's grounding is decided against the merge draft's
+# vocabulary. `token_overlap`: grounded iff the fraction of its content tokens present in
+# the vocabulary reaches `skill_grounding_threshold`. `all_grounded`: grounded only if
+# EVERY content token is in the vocabulary (strict; the threshold is inert under it). HR-182.
+skill_grounding_policy: token_overlap
+
+# The fraction of a rewritten qualification's content tokens that must appear in the merge
+# draft's vocabulary for it to be KEPT. Below it, the qualification is SCRUBBED (dropped)
+# and recorded. PROVISIONAL — to be calibrated at the 4.5 pilot. HR-183.
+skill_grounding_threshold: 0.5
+
+# The minimum token-Jaccard a rewritten DUTY must share with SOME draft duty. Below it the
+# duty is FLAGGED (recorded, never dropped — a duty may legitimately rephrase, so a
+# low-overlap duty is an HR eyeball, not a scrub). PROVISIONAL. HR-184.
+duty_flag_threshold: 0.2

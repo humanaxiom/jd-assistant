@@ -134,6 +134,12 @@ WJQ_FILE: Final[str] = "wjq.yaml"
 #: ``rules_version`` (:data:`_UNHASHED_FILES`).
 HARMONIZATION_FILE: Final[str] = "harmonization.yaml"
 
+#: How the LLM harmonize REWRITE pass (Phase 4.2a) rewrites a 4.1 merge draft into
+#: cleaner, template-faithful prose. Like ``harmonization.yaml`` it decides how a draft
+#: is *worded*, not how a JD is *scored* — registered and on the surface but NOT hashed
+#: into ``rules_version`` (:data:`_UNHASHED_FILES`).
+REWRITE_FILE: Final[str] = "rewrite.yaml"
+
 #: The content-bearing SFU sections an embedding may be built from — the subset of
 #: :data:`~src.jd_core.models.quality.SFUSection` that carries free text at all.
 #: ``identification`` is structured columns, not prose; ``about_sfu`` /
@@ -193,6 +199,14 @@ SecurityPolicy = Literal["union", "core_only"]
 
 #: How the EDUCATION / EXPERIENCE bar is chosen across members (HR-175).
 SeniorityBarPolicy = Literal["max", "modal"]
+
+#: How the LLM-rewrite anti-fabrication guard decides a rewritten qualification is
+#: GROUNDED in the merge draft's vocabulary (Phase 4.2a, HR-182). ``token_overlap``:
+#: grounded iff the fraction of its content tokens present in the draft vocabulary
+#: reaches ``skill_grounding_threshold``. ``all_grounded``: grounded only if EVERY
+#: content token is in the vocabulary — the strict setting, under which the threshold
+#: is inert (documented coupling, like ``security_policy``/``core_skill_min_fraction``).
+SkillGroundingPolicy = Literal["token_overlap", "all_grounded"]
 
 #: The 14 sections of SFU's CUPE/WJQ Custom template (Phase 3.4). These KEYS are
 #: structural (like :class:`~src.jd_core.parser.headings.SectionKey`); the heading
@@ -1111,6 +1125,68 @@ class Harmonization(_RuleFile):
     security_policy: SecurityPolicy
     #: How the education / experience bar is chosen across members (HR-175).
     seniority_bar_policy: SeniorityBarPolicy
+
+
+class Rewrite(_RuleFile):
+    """How the LLM harmonize REWRITE pass rewrites a 4.1 merge draft into cleaner,
+    template-faithful prose (``rewrite.yaml``, Phase 4.2a).
+
+    The rewrite takes the deterministic 4.1 :class:`~src.jd_core.models.bank.MergedRole`
+    draft — already a valid ``SFUJobDescription`` — and has a self-hosted LLM reword it,
+    WITHOUT inventing skills/duties the draft did not contain. The output is an explicit
+    DRAFT scored by the validator (nothing auto-publishes — non-negotiable #1).
+
+    Every value here is ``our_invention`` and PROVISIONAL — SFU publishes no rewrite
+    policy, and hris used an LLM prompt only (no anti-fabrication or grounding policy to
+    inherit). These are STARTING values, to be calibrated at the 4.5 pilot; see the YAML
+    header + HR-176…HR-184. We do NOT claim measured evidence we do not have.
+
+    **On the register, but NOT in the content hash** (:data:`_UNHASHED_FILES`) — the
+    sixth file in that category. A rewrite-policy change decides how a draft is *worded*
+    (and how aggressively fabricated content is scrubbed), never how a JD is *scored* or
+    *approved*: the same class as ``harmonization.yaml``, so re-tuning a rewrite knob
+    cannot make a single JD's ``ValidationReport`` look stale. Like harmonization it
+    carries NO ``stamp`` — Phase 4.2a is an in-memory pass and nothing persists a
+    rewrite-config identity yet.
+
+    Shaped **flat**, like the other measured files and for the same reason
+    (:data:`_FLAT_SURFACE_FILES`): every knob lands on the decision surface when it is
+    declared, and :func:`check_register` breaks the build until it is registered.
+    """
+
+    #: The chat model that rewrites the draft (HR-176). A rulebook decision — NEVER
+    #: ``settings.agent_model`` (the harness's own coder-agent model). Available on the
+    #: host today: gpt-oss:120b, gpt-oss:20b, qwen3.5:latest, gemma4:26b, llama4:latest.
+    model: str = Field(min_length=1)
+    #: Sampling temperature passed to the chat API (HR-177). ``0.0`` -> deterministic
+    #: (a rewrite is a transform, not a brainstorm; determinism is what makes a re-run
+    #: reproducible).
+    temperature: float = Field(ge=0.0, le=2.0)
+    #: Token budget for one rewrite completion (HR-178).
+    max_tokens: int = Field(gt=0)
+    #: How many times an INVALID-JSON / schema-mismatch response is re-requested with a
+    #: terse repair nudge before :class:`LLMOutputInvalidError` (HR-179). Transient
+    #: network/5xx retries are separate and fixed in the client.
+    max_retries: int = Field(ge=0)
+    #: Which prompt template the rewrite loads (HR-180). Names the versioned template
+    #: pair under ``jd_bank/llm/templates/`` (``<name>.system.j2`` + ``.user.j2``); the
+    #: loaded template's own version is what stamps ``RewrittenDraft.prompt_version``.
+    prompt_version: str = Field(min_length=1)
+    #: Whether the anti-fabrication guard runs at all (HR-181). ``false`` ships the
+    #: model's output UNSCRUBBED — the escape hatch, registered so flipping it cannot be
+    #: quiet.
+    anti_fabrication_enabled: bool
+    #: How a rewritten qualification's grounding is decided (HR-182). See
+    #: :data:`SkillGroundingPolicy`.
+    skill_grounding_policy: SkillGroundingPolicy
+    #: The fraction of a rewritten qualification's content tokens that must appear in
+    #: the merge draft's vocabulary for it to be kept (HR-183). Below it the
+    #: qualification is SCRUBBED (dropped) and recorded. Inert under ``all_grounded``.
+    skill_grounding_threshold: float = Field(ge=0.0, le=1.0)
+    #: The minimum token-Jaccard a rewritten DUTY must share with a draft duty (HR-184).
+    #: Below it the duty is FLAGGED (recorded, never dropped — a duty may legitimately
+    #: rephrase, so a low-overlap duty is an HR eyeball, not a scrub).
+    duty_flag_threshold: float = Field(ge=0.0, le=1.0)
 
 
 class Patterns(_RuleFile):
@@ -2662,6 +2738,8 @@ class Rules(BaseModel):
     wjq: Wjq
     #: On the register, but NOT in the content hash — see :class:`Harmonization`.
     harmonization: Harmonization
+    #: On the register, but NOT in the content hash — see :class:`Rewrite` (Phase 4.2a).
+    rewrite: Rewrite
     decision_register: DecisionRegister
 
     @property
@@ -3124,6 +3202,7 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "dedup",
     "wjq",
     "harmonization",
+    "rewrite",
 )
 
 
@@ -3341,6 +3420,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     (DEDUP_FILE, "dedup", Dedup),
     (WJQ_FILE, "wjq", Wjq),
     (HARMONIZATION_FILE, "harmonization", Harmonization),
+    (REWRITE_FILE, "rewrite", Rewrite),
     (REGISTER_FILE, "decision_register", DecisionRegister),
 )
 
@@ -3364,7 +3444,14 @@ RULE_FILES: Final[tuple[str, ...]] = tuple(name for name, _, _ in _FILE_MODELS)
 #: merge policy invalidated the stamp on every report ever produced — while no rule had
 #: moved at all. See :meth:`Rules.content_hash`.
 _UNHASHED_FILES: Final[frozenset[str]] = frozenset(
-    {REGISTER_FILE, SEGMENTATION_FILE, EMBEDDINGS_FILE, DEDUP_FILE, HARMONIZATION_FILE}
+    {
+        REGISTER_FILE,
+        SEGMENTATION_FILE,
+        EMBEDDINGS_FILE,
+        DEDUP_FILE,
+        HARMONIZATION_FILE,
+        REWRITE_FILE,
+    }
 )
 
 #: The :class:`Rules` fields whose content identifies a validation result — every
