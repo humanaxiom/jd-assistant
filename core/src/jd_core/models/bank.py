@@ -73,7 +73,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.jd_core.models.parsed_jd import SFUJobDescription
-from src.jd_core.models.quality import JDGrade
+from src.jd_core.models.quality import JDGrade, JDQualityIssue
 
 # ---------- similarity: the "Similar roles" surface ----------
 
@@ -183,6 +183,61 @@ class MergedRole(BaseModel):
     #: The harmonized draft (a plain ``SFUJobDescription`` — a draft, never canonical).
     draft: SFUJobDescription
     provenance: MergeProvenance
+
+
+# ---------- LLM rewrite pass (Phase 4.2a) — still a DRAFT ----------
+
+
+class AntiFabricationRecord(BaseModel):
+    """What the rewrite's anti-fabrication guard scrubbed / flagged (Phase 4.2a).
+
+    The rewrite may REPHRASE the grounded 4.1 draft but may not INTRODUCE skills, duties
+    or qualifications the draft did not contain. This record is the audit trail of that
+    guard: every ungrounded qualification it DROPPED, and every duty it FLAGGED
+    (recorded, never dropped — a duty may rephrase, so a low-overlap duty is
+    an HR eyeball). Frozen: it is evidence, not a scratchpad.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: Whether the guard ran (``rewrite.anti_fabrication_enabled``). When ``False`` the
+    #: model's output ships unscrubbed and both lists below are empty — recorded so a
+    #: disabled guard is visible in the draft's own provenance.
+    enabled: bool = True
+    #: The text of every rewritten qualification DROPPED as ungrounded in the draft.
+    scrubbed_skills: tuple[str, ...] = ()
+    #: The statement of every rewritten duty FLAGGED (no token overlap to a draft duty),
+    #: kept in the draft, surfaced for the 4.4 human reviewer.
+    flagged_duties: tuple[str, ...] = ()
+
+
+class RewrittenDraft(BaseModel):
+    """A 4.1 merge draft reworded by the LLM into cleaner prose — **still a DRAFT**.
+
+    Non-negotiable #1: there is NO approval / canonical / published field here. The
+    rewritten JD is an ordinary ``SFUJobDescription`` (a draft), scored by the validator
+    (the oracle) and carrying the anti-fabrication record + the provenance that traces
+    it to the model, prompt and rules that produced it. Nothing here publishes anything.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: The reworded draft (a plain ``SFUJobDescription`` — a draft, never canonical).
+    draft: SFUJobDescription
+    #: The validator's score of the reworded draft (the oracle — see ``score_issues``).
+    score: float
+    #: The validator's grade of the reworded draft.
+    grade: JDGrade
+    #: Every issue the validator raised on the reworded draft, in the engine's order.
+    issues: tuple[JDQualityIssue, ...] = ()
+    #: What the anti-fabrication guard scrubbed / flagged.
+    anti_fabrication: AntiFabricationRecord
+    #: The chat model that produced the rewrite (``rewrite.model``).
+    model: str
+    #: The prompt template version stamped from the loaded prompt (``prompt.version``).
+    prompt_version: str
+    #: The rulebook version the draft was scored under (``Rules.version``).
+    rules_version: str
 
 
 # ---------- Hay-factor signals (advisory — NEVER a grade) ----------

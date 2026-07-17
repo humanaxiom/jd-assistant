@@ -459,6 +459,10 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         # Unhashed like segmentation/embeddings/dedup: it decides HOW JDs are merged
         # into a draft, never how a JD is scored/approved.
         "harmonization",
+        # `rewrite.yaml` (Phase 4.2a) — the LLM rewrite pass's knobs. Unhashed like
+        # harmonization: it decides how a draft is WORDED (and how fabrication is
+        # scrubbed), never how a JD is scored/approved.
+        "rewrite",
     }
     # ...and that is every rule file there is, bar the register itself.
     described = {name.removesuffix(".yaml") for name in RULE_FILES}
@@ -486,6 +490,7 @@ def test_the_unhashed_files_are_the_ones_that_cannot_change_a_jds_score() -> Non
         "embeddings.yaml",
         "dedup.yaml",
         "harmonization.yaml",
+        "rewrite.yaml",
     }
     hashed = set(loader._HASHED_FIELDS)
     assert "segmentation" not in hashed

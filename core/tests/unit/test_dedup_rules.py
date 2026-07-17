@@ -82,6 +82,8 @@ def test_dedup_is_the_fourth_unhashed_file(rules: Rules) -> None:
         "dedup.yaml",
         # Phase 4.1 added a fifth: the harmonization merge engine's knobs.
         "harmonization.yaml",
+        # Phase 4.2a added a sixth: the LLM rewrite pass's knobs.
+        "rewrite.yaml",
     }
     assert "dedup" not in loader._HASHED_FIELDS
 

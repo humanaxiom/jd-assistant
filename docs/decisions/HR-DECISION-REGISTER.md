@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+90af5e27dc83` · **175 decisions** (175 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 236 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+90af5e27dc83` · **184 decisions** (184 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 245 parameters on the decision surface, all accounted for.
 
 ## What this is
 
@@ -191,6 +191,15 @@ Every policy call JD Bank currently makes **by default**, because SFU HR has not
 | [HR-173](#hr-173) | What fraction of a cluster's members must require a skill before it is treated as a CORE qualification (kept) rather than an incidental one (dropped)? | `0.5` | our invention |
 | [HR-174](#hr-174) | How should SECURITY qualifications (e.g. a criminal-record check) be combined across a cluster's members? | `union` | our invention |
 | [HR-175](#hr-175) | How should the required EDUCATION and EXPERIENCE bars be chosen when a cluster's members disagree? | `max` | our invention |
+| [HR-176](#hr-176) | Which self-hosted chat model should rewrite a merge draft into cleaner, template-faithful prose? | `gpt-oss:120b` | our invention |
+| [HR-177](#hr-177) | At what sampling temperature should the rewrite model run? | `0.0` | our invention |
+| [HR-178](#hr-178) | What token budget should one rewrite completion get? | `2048` | our invention |
+| [HR-179](#hr-179) | How many times should an invalid-JSON rewrite response be re-requested before the pass gives up? | `1` | our invention |
+| [HR-180](#hr-180) | Which prompt template should the rewrite pass use? | `jd_harmonize_v1` | our invention |
+| [HR-181](#hr-181) | Should the anti-fabrication guard run at all on the rewrite output? | `true` | our invention |
+| [HR-182](#hr-182) | How should the guard decide a rewritten qualification is grounded in the merge draft's vocabulary? | `token_overlap` | our invention |
+| [HR-183](#hr-183) | What fraction of a rewritten qualification's content tokens must be grounded in the merge draft for it to be kept? | `0.5` | our invention |
+| [HR-184](#hr-184) | Below what token-Jaccard with any draft duty should a rewritten duty be flagged for HR review? | `0.2` | our invention |
 
 ### Our invention — nobody has ratified these
 
@@ -896,6 +905,78 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** our invention
 - **Why it matters:** `max` takes the highest bar any member states (a masters over a bachelors, 5 years over 3) and emits the representative qualification whose parsed bar matches — the conservative "the role needs at least the strongest stated bar" reading. `modal` takes the most common bar instead, which better reflects the typical member but can understate a genuinely senior role. The bar is read from the SAME parsers `build_job_signals` uses (`education_level_from_text` / `experience_years_from_text`), so it never manufactures a bar no member stated. MEASURED (1,801 JDFN clusters): bars rarely diverge — education spread is 0 in 817/844 clusters that state one, experience spread is 0 in 756/843 — and `max` differs from `modal` in only 16 (education) / 61 (experience) clusters. Kept at `max` (do not understate a stated requirement). ⚠ On those ~77 divergent clusters, max-vs-modal is arguably an HR POLICY call, not a pure measurement — flag it for the 4.5 pilot.
 - **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by mutation in the KSA seniority test (a cluster mixing a bachelors and a masters emits the masters qualification under `max` and the modal (bachelors) one under `modal`).
+
+#### HR-176 — Which self-hosted chat model should rewrite a merge draft into cleaner, template-faithful prose?
+
+- **We ship:** `gpt-oss:120b`
+- **Configured in:** `rewrite.yaml` → `rewrite.model`
+- **Where the default came from:** our invention
+- **Why it matters:** The rewrite pass asks the model to reword the grounded 4.1 draft and return the SFUJobDescription schema as JSON, so JSON-schema adherence matters most. `gpt-oss:120b` is the strongest general instruct on `aria-gb10-2` today (available alternatives: gpt-oss:20b, qwen3.5:latest, gemma4:26b, llama4:latest). It is a RULEBOOK decision, NOT `settings.agent_model` (the harness's own coder-agent model) — the two are free to diverge, and reading the setting would make a JD Bank rewrite silently follow a change nobody made to the JD Bank rulebook. PROVISIONAL — pick the model that best holds the schema at the 4.5 pilot; no comparative measurement exists yet.
+- **If it changes:** Does NOT move `rules_version` (rewrite.yaml is unhashed). Changes only which model words the draft; the anti-fabrication guard + validator still bound the result. Pinned by mutation in the client model-source test (rules.rewrite.model and settings.agent_model are DISTINCT strings; the call must carry the rules value).
+
+#### HR-177 — At what sampling temperature should the rewrite model run?
+
+- **We ship:** `0.0`
+- **Configured in:** `rewrite.yaml` → `rewrite.temperature`
+- **Where the default came from:** our invention
+- **Why it matters:** A rewrite is a TRANSFORM of a grounded draft, not a brainstorm, so determinism is what makes a re-run reproducible and an audit trail meaningful. `0.0` picks the greedy decode. Raising it trades reproducibility for phrasing variety — a decision to make deliberately, not a default to drift. PROVISIONAL.
+- **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the client discipline test (the temperature passed to the chat API is `rules.rewrite.temperature`; a fake asserts the exact value flows through, so a hardcoded temperature goes red).
+
+#### HR-178 — What token budget should one rewrite completion get?
+
+- **We ship:** `2048`
+- **Configured in:** `rewrite.yaml` → `rewrite.max_tokens`
+- **Where the default came from:** our invention
+- **Why it matters:** The whole SFUJobDescription JSON must fit in one completion; too small truncates the JSON (which then fails to parse and burns a retry). 2048 mirrors hris's harmonize call. PROVISIONAL — size it against real cluster outputs at the 4.5 pilot.
+- **If it changes:** Does NOT move `rules_version`. Operational headroom, not a policy lever on the output content. Pinned by mutation in the rewrite consumer test (the value the consumer reads from `rules.rewrite.max_tokens` is the one passed to `chat_json`).
+
+#### HR-179 — How many times should an invalid-JSON rewrite response be re-requested before the pass gives up?
+
+- **We ship:** `1`
+- **Configured in:** `rewrite.yaml` → `rewrite.max_retries`
+- **Where the default came from:** our invention
+- **Why it matters:** When the model returns JSON that does not parse or does not match the schema, the client re-asks once with a terse repair nudge before raising LLMOutputInvalidError. Transient network/5xx retries are SEPARATE (fixed in the client, and a 400 is NEVER retried). 1 mirrors hris. Higher spends more inference on a model that keeps missing the schema; 0 makes the first miss fatal. PROVISIONAL.
+- **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the client discipline test (invalid JSON is retried exactly `max_retries` times, then LLMOutputInvalidError — the call count is asserted, so changing the budget without the register goes red on drift).
+
+#### HR-180 — Which prompt template should the rewrite pass use?
+
+- **We ship:** `jd_harmonize_v1`
+- **Configured in:** `rewrite.yaml` → `rewrite.prompt_version`
+- **Where the default came from:** our invention
+- **Why it matters:** Names the versioned template pair under `jd_bank/llm/templates/` (`jd_harmonize_v1.system.j2` + `.user.j2`, ported from hris and kept faithful save the grounding instruction). The loaded template's own version is what stamps `RewrittenDraft.prompt_version`, so provenance traces to the exact wording. Swapping this selects a different template version. PROVISIONAL — the prompt is refined at the 4.5 pilot, and each refinement is a new versioned template, not an in-place edit.
+- **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the prompt-loader test (the loaded prompt's `.version` is stamped onto `RewrittenDraft.prompt_version`; a missing template variable RAISES rather than shipping a `{{ x }}` in the prompt).
+
+#### HR-181 — Should the anti-fabrication guard run at all on the rewrite output?
+
+- **We ship:** `true`
+- **Configured in:** `rewrite.yaml` → `rewrite.anti_fabrication_enabled`
+- **Where the default came from:** our invention
+- **Why it matters:** THE core safety of 4.2a. The rewrite may rephrase the grounded draft but must not INTRODUCE skills/duties/qualifications the merge draft did not contain. With the guard ON, any output qualification whose skill/knowledge/ability content is not grounded in the draft's vocabulary is SCRUBBED (dropped, recorded), and a duty with no token overlap to any draft duty is FLAGGED (recorded, not dropped). `false` ships the model's output unscrubbed — the escape hatch, registered so flipping it can never be quiet. There is no reason to ship it off; it exists so a deliberate off-switch is a visible, ratifiable decision rather than a code edit. PROVISIONAL calibration of the thresholds below, but the guard itself should stay ON.
+- **If it changes:** Does NOT move `rules_version`. Pinned BY MUTATION (acceptance #2): with the guard on, a fake LLM that injects a skill NOT in the merge draft has it scrubbed and absent from the returned draft; flip this to `false` (and update this entry so the drift alarm stays silent) and a BEHAVIOURAL assertion — the injected skill is gone — goes red.
+
+#### HR-182 — How should the guard decide a rewritten qualification is grounded in the merge draft's vocabulary?
+
+- **We ship:** `token_overlap`
+- **Configured in:** `rewrite.yaml` → `rewrite.skill_grounding_policy`
+- **Where the default came from:** our invention
+- **Why it matters:** `token_overlap` keeps a qualification iff the fraction of its content tokens present in the draft's vocabulary (built from the draft's own text + its member-derived skill-frequency names) reaches `skill_grounding_threshold` — tolerant of rephrasing, strict about wholly new content. `all_grounded` keeps it only if EVERY content token is in the vocabulary (the threshold is inert under it — a documented coupling, mirroring security_policy/core_skill_min_fraction), which is stricter and would scrub a legitimate synonym. PROVISIONAL — calibrate against real rewrites at the 4.5 pilot.
+- **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the anti-fabrication test (a qualification that is partially grounded is KEPT under `token_overlap` at the shipped threshold and SCRUBBED under `all_grounded`).
+
+#### HR-183 — What fraction of a rewritten qualification's content tokens must be grounded in the merge draft for it to be kept?
+
+- **We ship:** `0.5`
+- **Configured in:** `rewrite.yaml` → `rewrite.skill_grounding_threshold`
+- **Where the default came from:** our invention
+- **Why it matters:** Under `token_overlap`, a qualification is KEPT iff at least this fraction of its content tokens (stopword/short-token filtered, the same filter the skill signals use) appear in the draft's vocabulary; below it the qualification is SCRUBBED and recorded. Too high scrubs legitimate rephrasings; too low lets fabricated content through. 0.5 is a provisional midpoint. NOT backed by measured evidence — calibrate at the 4.5 pilot.
+- **If it changes:** Does NOT move `rules_version`. Pinned by a BOUNDARY mutation in the anti-fabrication test (a qualification whose grounded-token fraction sits just at 0.5 is kept at the shipped threshold and scrubbed when the knob is raised past it).
+
+#### HR-184 — Below what token-Jaccard with any draft duty should a rewritten duty be flagged for HR review?
+
+- **We ship:** `0.2`
+- **Configured in:** `rewrite.yaml` → `rewrite.duty_flag_threshold`
+- **Where the default came from:** our invention
+- **Why it matters:** A rewritten duty is FLAGGED (recorded in the anti-fabrication record, never dropped) when its best token-Jaccard against any draft duty falls below this — the signal that the model may have invented a duty rather than reworded one. Duties are flagged, not scrubbed, because a legitimate rewrite can rephrase heavily; the human reviewer (4.4) decides. Too high floods the reviewer; too low never catches an invented duty. 0.2 is a provisional low bar. NOT measured — calibrate at the 4.5 pilot.
+- **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the anti-fabrication test (a duty with no overlap to any draft duty is flagged at the shipped threshold; raising the knob flags a duty that shared some overlap, and disabling the guard clears the flags).
 
 ### Inherited hris calibration — not an SFU-published number
 
