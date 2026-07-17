@@ -1561,6 +1561,48 @@ class Comparison(_RuleFile):
     #: A tuple, not a set: the order is the fallback policy, so it is on the hash.
     experience_source_kinds: tuple[str, ...] = Field(min_length=1)
 
+    # ── Tier-3 role-equivalence (Phase 3.4b) — see the YAML header + HR-155…HR-160.
+    #: The blended ``score_job_similarity`` two JDs must clear to be ROLE-EQUIVALENT
+    #: (``DedupEdge(tier=ROLE_EQUIVALENT)``). MEASURED 0.5; ships with an adjudication
+    #: sample, NOT a P/R gate (the 3.3 lesson). HR-158.
+    role_equiv_threshold: float = Field(ge=0.0, le=1.0)
+    #: family -> seniority BAND for the hard "conflict veto" (>``max_band_gap`` apart =
+    #: never role-equivalent). ``unmapped`` is FORBIDDEN as a key — an unmapped title
+    #: carries no seniority signal, so the veto must not fire on it (70% of titles are
+    #: unmapped; the veto is partial BY DESIGN). The family names live here as DATA,
+    #: never hardcoded in the runner (non-negotiable #2). HR-155.
+    family_band_ladder: Annotated[Mapping[TitleFamily, int], AfterValidator(_freeze)]
+    #: MORE than this many bands apart -> the conflict veto fires. HR-156.
+    max_band_gap: int = Field(ge=0)
+    #: The SOFT veto: drop a pair whose two employee groups are BOTH known and DIFFER
+    #: (never when either is null). HR-157.
+    group_conflict_veto: bool
+    #: k nearest cosine neighbours per JD (within its ``function`` bucket) for Tier-3
+    #: candidate generation — a starting value to be tuned by the adjudication sample,
+    #: not a measured optimum. HR-159.
+    candidate_k: int = Field(gt=0)
+    #: Also seed candidates from Tier-2 ``NEAR_DUPLICATE`` edges (a near-dup IS
+    #: role-equivalent, and reaches Tier-3 even when a JD has no vector). HR-160.
+    seed_from_near_dup: bool
+
+    @field_validator("family_band_ladder")
+    @classmethod
+    def _bands_are_a_real_ladder(cls, ladder: Mapping[str, int]) -> Mapping[str, int]:
+        """``unmapped`` carries no band, so the conflict veto never fires on it — an
+        unmapped title is a "no seniority signal", not a conflict (the veto is partial
+        BY DESIGN; HR-155). A band FOR it would silently veto the 70% of titles the
+        HR-059 ladder cannot classify — the "gate that fires when it must not" inverse
+        of this rulebook's standing "a gate that can never fire" failure."""
+        if not ladder:
+            raise ValueError("family_band_ladder must not be empty")
+        if UNMAPPED in ladder:
+            raise ValueError(
+                f"family_band_ladder must not give {UNMAPPED!r} a band — an unmapped "
+                f"title carries no seniority signal, so the conflict veto must not "
+                f"fire on it"
+            )
+        return ladder
+
     @field_validator("non_matchable_families", "title_stopwords", "skill_stopwords")
     @classmethod
     def _tokens_are_lowercase(cls, tokens: frozenset[str]) -> frozenset[str]:

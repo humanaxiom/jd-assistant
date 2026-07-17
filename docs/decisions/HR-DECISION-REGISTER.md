@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+d5c41b7df4d0` · **154 decisions** (154 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 215 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+4b1d3baf3b60` · **160 decisions** (160 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 221 parameters on the decision surface, all accounted for.
 
 ## What this is
 
@@ -170,6 +170,12 @@ Every policy call JD Bank currently makes **by default**, because SFU HR has not
 | [HR-152](#hr-152) | Are SPELLED-OUT year counts ("five years") read as an experience bar, and which words map to which numbers? | *20 entries — see below* | our invention |
 | [HR-153](#hr-153) | Which qualification kinds may an EDUCATION requirement be read out of? | `education`, `knowledge` | our invention |
 | [HR-154](#hr-154) | Which qualification kinds is a JD's EXPERIENCE bar read from, and in what fallback order? | `experience`, `knowledge` | our invention |
+| [HR-155](#hr-155) | Which title seniority bands are "too far apart to be the same role", and where does each title family sit on that band ladder? | *7 entries — see below* | our invention |
+| [HR-156](#hr-156) | How many seniority bands apart may two titles be and still be considered the same role? | `1` | our invention |
+| [HR-157](#hr-157) | Should two JDs from DIFFERENT employee groups (e.g. APSA vs CUPE) be barred from being the same role? | `true` | our invention |
+| [HR-158](#hr-158) | What blended similarity score must two JDs reach before they are recorded as the SAME ROLE (role-equivalent)? | `0.5` | our invention |
+| [HR-159](#hr-159) | How many nearest neighbours per JD are generated as role-equivalence CANDIDATES? | `25` | our invention |
+| [HR-160](#hr-160) | Should every Tier-2 near-duplicate pair be treated as a guaranteed role-equivalence candidate? | `true` | our invention |
 
 ### Our invention — nobody has ratified these
 
@@ -707,6 +713,54 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** our invention
 - **Why it matters:** The adapter reads the years bar from these kinds IN ORDER — the first that yields any count wins. `experience` quals are authoritative; `knowledge` is the JDFN fallback, because JDFN spells the years inside the same knowledge blob that carries the degree ("...and five years of related experience"). Order is policy, not cosmetic: a JD stating "2 years" under experience and "10 years" inside a knowledge blob reads as 2, not 10 (fallback, not union). Held as DATA so this matches its siblings HR-149 (skills) / HR-153 (education) rather than being a bare literal tuple in signals.py — the standing rule is that every non-trivial signal-source decision is on the surface.
 - **If it changes:** Moves `rules_version`. `[experience]` alone would miss every JDFN JD whose bar lives only in the knowledge blob; reordering to `[knowledge, experience]` would let a blob count override an explicit experience qual. Pinned by mutation in `test_bank_signals.py` (a knowledge-only JD yields its blob years; emptying the fallback loses them).
+
+#### HR-155 — Which title seniority bands are "too far apart to be the same role", and where does each title family sit on that band ladder?
+
+- **We ship:** `assistant` → 0; `associate` → 1; `chief` → 5; `director` → 4; `lead` → 2; `manager` → 3; `vp` → 6
+- **Configured in:** `comparison.yaml` → `comparison.family_band_ladder`
+- **Where the default came from:** our invention
+- **Why it matters:** This is the HARD constraint on role-equivalence: a pair whose title families sit more than `max_band_gap` (HR-156) bands apart is NEVER role-equivalent, whatever the blended score. The bands are the reverse-index of the HR-059 seniority ladder (`titles.yaml :: families`), highest first. ⚠ PARTIAL BY DESIGN: `unmapped` carries NO band (the loader FORBIDS giving it one), and MEASURED 70% of archive titles are `unmapped` — the HR-059 ladder classifies only ~30% — so the veto fires ONLY when BOTH sides map. On that 30% it cleanly stops director<->assistant merges; the threshold (HR-158) does the rest. Note the ladder itself is inherited hris calibration nobody at SFU has ratified (HR-059), so this band map inherits that caveat: it is a defensible ordering, not an SFU standard.
+- **If it changes:** Moves `rules_version`. Collapsing all families to one band disables the veto; giving adjacent families the same band widens what counts as "same band". Pinned by mutation in `test_dedup_role_pure.py` (a director<->assistant pair is dropped pre-scoring even at blended 1.0; setting `max_band_gap` high lets it survive) and by the loader refusing to load an `unmapped` band.
+
+#### HR-156 — How many seniority bands apart may two titles be and still be considered the same role?
+
+- **We ship:** `1`
+- **Configured in:** `comparison.yaml` → `comparison.max_band_gap`
+- **Where the default came from:** our invention
+- **Why it matters:** The conflict veto (HR-155) fires when the two families' bands differ by MORE than this. 1 keeps adjacent rungs admissible (a Manager and a Lead can still be scored as the same role) while vetoing a two-rung gap (Director vs Lead) and anything wider (Director vs Assistant). It only bites on the ~30% of pairs where BOTH titles map to a band.
+- **If it changes:** Moves `rules_version`. 0 would require the SAME band exactly; a large value disables the veto entirely (everything is "close enough"). Pinned by mutation in `test_dedup_role_pure.py`.
+
+#### HR-157 — Should two JDs from DIFFERENT employee groups (e.g. APSA vs CUPE) be barred from being the same role?
+
+- **We ship:** `true`
+- **Configured in:** `comparison.yaml` → `comparison.group_conflict_veto`
+- **Where the default came from:** our invention
+- **Why it matters:** A SOFT veto: when `true`, a pair whose two `employee_group`s are BOTH known and DIFFER is dropped before scoring — an APSA role and a CUPE role are governed by different agreements and instruments and are not the same position. It vetoes ONLY when both sides state a group; an unknown group is NOT a conflict (a null never vetoes), so a JD whose group could not be read is still eligible.
+- **If it changes:** Moves `rules_version`. `false` lets cross-group pairs through to scoring. Pinned by mutation in `test_dedup_role_pure.py` (an apsa<->cupe pair is dropped, but an apsa<->null pair is never dropped; turning the veto off lets the apsa<->cupe pair survive).
+
+#### HR-158 — What blended similarity score must two JDs reach before they are recorded as the SAME ROLE (role-equivalent)?
+
+- **We ship:** `0.5`
+- **Configured in:** `comparison.yaml` → `comparison.role_equiv_threshold`
+- **Where the default came from:** our invention
+- **Why it matters:** The threshold on the blended `score_job_similarity` (vector + idf-weighted skill overlap + seniority). MEASURED: on real pairs, Tier-2 near-dup weak-positives vs random-same-function negatives separate at 0.5 -> 99.2% positive / 3.0% negative. ⚠ HONEST CAVEAT (the SAME lesson as 3.3's `jaccard_min`, HR-138): the positives are Tier-2 near-dup WEAK LABELS and are vector-dominated; genuinely-different-text same-role pairs lean on skill overlap, and there is NO honest precision/recall oracle — so this ships with a pinned behavioural fixture + a stratified adjudication sample (`docs/dedup/role-equiv-adjudication-sample.csv`), and CI is NOT gated on P/R. The blended score is BIMODAL: 41% of JDs have empty skills and floor ~0.52 on vector+seniority alone; skill-overlapping pairs reach 0.9+. Honest, not a bug.
+- **If it changes:** Moves `rules_version` AND re-reconciles every Tier-3 edge (the threshold rides in the edge `method` stamp, so a retune UPDATES or PRUNES existing rows, never leaves them stale). Raising it demands more agreement; lowering it merges more aggressively. Pinned by mutation in `test_dedup_role_pure.py` (0.5 in / 0.4999 out at the default; raising the threshold drops a boundary pair) and by the integration reconcile test.
+
+#### HR-159 — How many nearest neighbours per JD are generated as role-equivalence CANDIDATES?
+
+- **We ship:** `25`
+- **Configured in:** `comparison.yaml` → `comparison.candidate_k`
+- **Where the default came from:** our invention
+- **Why it matters:** Candidate generation buckets JDs by their functional title `function` and, within a bucket, takes each JD's top-`candidate_k` cosine neighbours as candidate pairs (plus the Tier-2 near-dup seeds, HR-160). This is a candidate-GENERATION knob (recall vs cost), NOT a decision about whether a given pair is the same role — the veto (HR-155) and threshold (HR-158) decide that. ⚠ A STARTING VALUE, not a measured optimum: cosine is saturated on this corpus (98% of JDs have a neighbour >= 0.92), so k-NN alone returns a dense blob and 25 is a first cut to be TUNED by the adjudication sample once a human has labelled candidates.
+- **If it changes:** Moves `rules_version`. Larger = more candidates surfaced (more recall, more scoring cost); it does not change any surviving edge's score. Pinned by the pure candidate test. ⚠ PERF FOLLOW-UP (not a 3.4b blocker): candidate generation is O(bucket²) — Python all-pairs cosine within each `function` bucket. The largest real bucket is `unmapped` (~8,215 docs) -> ~44 min for that bucket, ~1 hour whole-archive; it COMPLETES (candidates are k-bounded, no overflow). The 3.5-era optimization is to use the existing Neo4j 768-dim cosine vector index for true top-k retrieval instead of the all-pairs scan.
+
+#### HR-160 — Should every Tier-2 near-duplicate pair be treated as a guaranteed role-equivalence candidate?
+
+- **We ship:** `true`
+- **Configured in:** `comparison.yaml` → `comparison.seed_from_near_dup`
+- **Where the default came from:** our invention
+- **Why it matters:** When `true`, every existing `DedupEdge(tier=NEAR_DUPLICATE)` pair is admitted as a candidate in addition to the cosine k-NN — a near-dup IS role-equivalent, so it must not be missed. It also lets a pair reach Tier-3 when one side has NO document vector (118 empty-serialization + 11 token-limit JDs): such a pair cannot be a cosine neighbour, but it can be a near-dup seed, and it scores with `vector_score` 0.0 on skill + seniority alone.
+- **If it changes:** Moves `rules_version`. `false` restricts candidates to cosine k-NN and silently drops the vector-less near-dups. Pinned by the pure candidate test (a near-dup-seeded pair with no vector still scores).
 
 ### Inherited hris calibration — not an SFU-published number
 

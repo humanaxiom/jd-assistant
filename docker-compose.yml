@@ -276,6 +276,36 @@ services:
       postgres: { condition: service_healthy }
     command: ["python", "-m", "src.jd_bank.dedup.near"]
 
+  # ─── Tier-3 role-equivalence dedup (Phase 3.4b) ───────────────────────────
+  # SAME-ROLE `dedup_edges` rows at `tier=ROLE_EQUIVALENT`. Reuses the 2.4c comparison
+  # maths (`build_job_signals` -> skill_overlap + seniority_closeness +
+  # score_job_similarity) with an idf corpus computed in the runner, and the hard
+  # family-band conflict veto. UNLIKE near-dup it needs BOTH Postgres AND Neo4j (the doc
+  # vectors Phase 3.2b wrote) and NO archive bind — it reads signals from `parsed_jds`
+  # and vectors from Neo4j, never the raw files. Run `make ingest` then `make embed`
+  # first. It only READS Neo4j (never constructs an embed client), so no Ollama.
+  #
+  #   make dedup-role
+  #   make dedup-role DEDUPROLE_ARGS="--limit 200"
+  #
+  # Not started by `up` (profile: tools). Committed artifacts (counts/stamps/filenames
+  # ONLY — never document text): docs/dedup/role-equiv-summary.json,
+  # docs/dedup/role-equiv-adjudication-sample.csv.
+  dedup-role:
+    profiles: ["tools"]
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    environment:
+      <<: *app_env
+    volumes:
+      - ./core:/app
+      - ./docs/dedup:/committed
+    depends_on:
+      postgres: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+    command: ["python", "-m", "src.jd_bank.dedup.role"]
+
 volumes:
   pgdata:
   neo4jdata:
