@@ -1,7 +1,7 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-15 (**Phase 2–3.3 + extraction defects COMPLETE.** 3.1 Tier-1 dedup + 3.2 ingest/embeddings + 3.3 Tier-2 near-dup + **both extraction defects** all merged and run. Archive **99.3% parseable** (4,984 → 1,706 → 105 broken parses). **3.5 (clustering) is now UNBLOCKED; 3.4 (title normalizer + Tier-3 role-equivalence) is next.** Pipeline refreshed end-to-end: **14,395 documents with vectors** (was 9,517), **36,174 section vectors** (was 22,922), **15,072 near-dup edges** (was 14,312, candidate waste removed). **HR numbers byte-identical** (874 cohort; both defects were outside it).)
+Last updated: 2026-07-16 (**Phase 2–3.4 (a+b) + extraction defects COMPLETE and MERGED.** 3.1 Tier-1 dedup + 3.2 ingest/embeddings + 3.3 Tier-2 near-dup + **both extraction defects** + 3.4a ParsedJD→JobSignals adapter + 3.4b Tier-3 role-equivalence all merged and run. Archive **99.3% parseable** (4,984 → 1,706 → 105 broken parses). **Tier-3 archive run IN PROGRESS; 3.5 (clustering) DESIGNED and next.** Tier-3 ROLE_EQUIVALENT edges + summaries TBD (candidate gen ~1hr). Test suite **1480 passing, 94.66%**; HR decision register **148 → 160** (3.4a HR-149..154, 3.4b HR-155..160).)
 
 **Catching up? Read [`docs/status/2026-07-15-shipped.md`](docs/status/2026-07-15-shipped.md) first** —
 the current one-pager (3.2 embeddings, 3.3 near-dup, both extraction defects), and the basis of what
@@ -129,7 +129,7 @@ is defensible because it is *nearly inert*, not because the data carved a thresh
 
 ---
 
-## Current state — Phases 1–3.3 + extraction defects COMPLETE and merged; Phase 3.4 is next
+## Current state — Phases 1–3.4 (a+b) + extraction defects COMPLETE and merged; Phase 3.5 DESIGNED and next
 
 Phases 1 and 2 are fully merged. Phase 3.1 (Tier-1 exact dedup), 3.2 (archive ingest + embeddings), 3.3 (Tier-2 near-dup), and both extraction defects (docx tables + WJQ parser) are fully merged and have RUN over the real archive. The validation engine, HR decision register, all EXTRACT-eligible `jd_core` modules, the full archive in Postgres, the embedding service (14,395 doc + 36,174 section vectors in Neo4j), and Tier-2 near-dup (15,072 edges) are all landed. **Archive is 99.3% parseable and 99.4% covered end-to-end.**
 
@@ -151,8 +151,8 @@ Phases 1 and 2 are fully merged. Phase 3.1 (Tier-1 exact dedup), 3.2 (archive in
 | **3.2b embedding service** — doc + section vectors on `aria-gb10-2` (Ollama + Neo4j) | MERGED | [#24](https://github.com/humanaxiom/jd-assistant/pull/24) | — |
 | **3.3 Tier-2 near-dup** — MinHash/LSH → exact Jaccard; 14,312 edges; the reconcile | MERGED | [#27](https://github.com/humanaxiom/jd-assistant/pull/27) | — |
 
-Test suite: **1368 passing**, coverage **94.90%** (3.3 shingle/minhash/dedup tests added), all in Docker via `make gates`. Decision
-register grew from 58 to **148 decisions** (3.2b added HR-124..HR-130 for embeddings; 3.3 added HR-131..HR-140 for `dedup.yaml` and amended HR-093; this session added HR-141..HR-148 for WJQ parsing).
+Test suite: **1480 passing**, coverage **94.66%** (3.4a/3.4b signal + role-equivalence tests added), all in Docker via `make gates`. Decision
+register grew from 58 to **160 decisions** (3.2b added HR-124..HR-130 for embeddings; 3.3 added HR-131..HR-140 for `dedup.yaml` and amended HR-093; this session added HR-141..HR-148 for WJQ parsing; 3.4a added HR-149..HR-154 for JobSignals; 3.4b added HR-155..HR-160 for Tier-3 role-equivalence).
 
 All 16 EXTRACT-mapped hris modules are now ported or explicitly deferred: `export.py` → 5.4,
 the 3 prompt templates (`sfu_jd_extract`/`jd_harmonize`/`jd_quality`) → 4.2, `jd_import_service`
@@ -176,7 +176,7 @@ Baseline regenerated (PR #31): **HR cohort byte-identical** (874, 78.6%, median 
 
 SFU's **Weighted Job Questionnaire (WJQ) Custom** form — **~4,300 files (29.5% of the archive)** — is a *different document template* the segmenter knew nothing about. A new **marker-routed** segmenter (`parser/wjq.py`) reads WJQ's 14-section template into `SFUJobDescription`; headings/labels/frequency-markers/instruction-cruft live as data in a new **hashed** `rules/wjq.yaml`. Two user decisions: **(1)** duty frequency markers `(D)/(W)/(M)/(S)` → a new additive `SFUDuty.frequency` (marker stripped); **(2)** **WJQ is parse-only and EXCLUDED from the approval-bar cohort** — the 874-JD current-practice cohort gains a `template != wjq` clause (HR-143). WJQ is CUPE; the bar was built only for JDFN/APSA and the rulebook defines no WJQ bar, so scoring WJQ under the JDFN gates is a category error.
 
-`PARSER_VERSION jd_segmenter_v1 → v2`; `ParseResult.template ∈ {jdfn,wjq,unknown}`. Register **HR-141..HR-148** (register now **148 entries**). Reviewer-approved (Opus) after two rounds and **two real defects**, both proven on the archive and both the class gates-green hides: (a) an uncapped summary fallback that **raised on 568 real files**; (b) loose union markers that **misrouted 69 genuine JDFN JDs** into WJQ — fixed with two-tier detection, misroutes 69→3.
+`PARSER_VERSION jd_segmenter_v1 → v2`; `ParseResult.template ∈ {jdfn,wjq,unknown}`. Register **HR-141..HR-148** (which took the register to 148; it is **160** after 3.4). Reviewer-approved (Opus) after two rounds and **two real defects**, both proven on the archive and both the class gates-green hides: (a) an uncapped summary fallback that **raised on 568 real files**; (b) loose union markers that **misrouted 69 genuine JDFN JDs** into WJQ — fixed with two-tier detection, misroutes 69→3.
 
 Baseline regenerated at v2 (PR #33): **HR cohort BYTE-IDENTICAL** (874, 78.6% approval / 687, median 79.0, grades 81A/551B/240C/2D) — the `template != wjq` exclusion did its job. Template facet: **jdfn 10,222 / wjq 4,300 / 43 skipped**.
 
@@ -313,7 +313,7 @@ the line-wrap had been hiding from the placeholder gate. Expect 2.5 to surface m
 
 `docs/decisions/HR-DECISION-REGISTER.md` (generated by `make register` from
 `core/src/jd_core/rules/decision_register.yaml`; `make register-check` fails the build on drift,
-also wired into CI). **148 decisions, all `open` — SFU HR has ratified nothing yet, but the packet
+also wired into CI). **160 decisions, all `open` — SFU HR has ratified nothing yet, but the packet
 is now written and the numbers in it are corrected: `docs/decisions/HR-REVIEW-PACKET.md`.**
 
 Provenance (as of the 108-entry snapshot): **19 our-invention · 71 hris-calibration · 18 SFU-rulebook**. The entire approval
@@ -560,7 +560,7 @@ it; do not invent a side file.
 blocking**, because we would then be *generating* the wording, not merely checking for it. Get the
 official text from HR in the same review.
 
-- **Phase 3 — dedup & clustering. 3.1 + 3.2 + 3.3 + extraction defects are DONE and have RUN over the archive; 3.4 (title normalizer + Tier-3 role-equivalence) is next. 3.5 (clustering) is now UNBLOCKED.**
+- **Phase 3 — dedup & clustering. 3.1 + 3.2 + 3.3 + extraction defects + 3.4a (JobSignals adapter) + 3.4b (Tier-3 role-equivalence) are all DONE and MERGED; Tier-3 archive run IN PROGRESS; 3.5 (clustering) DESIGNED and next.**
   - **3.1 landed a schema change worth knowing:** `source_documents` is now **one row per FILE**
     (the UNIQUE on `sha256` is gone), and dedup is a **finding** — `DedupEdge` rows — not a silent
     write-time collapse. It was a **provenance bug**: `ingest_document()` returned the existing row
@@ -607,13 +607,10 @@ official text from HR in the same review.
     near-identical across ~4,300 files) inflates their mutual similarity and is a **Phase-3.5 quality
     follow-up** — not a blocker, but WJQ files will over-cluster on shared template unless the scaffolding
     is redacted like JDFN's About-SFU/territorial/EDI passages.
-  - **Still to wire up for 3.4: 2.4c's trio.** `similarity`, `clustering` and `drift` are pure, tested,
-    *uncalled* functions: `skill_overlap` needs a skill ontology + idf corpus, `seniority_closeness`
-    needs an education enum + years bar, and a `ParsedJD` has none of them. **3.4** must design the
-    `ParsedJD → signals` adapter (where do skills come from? proposal: `qualifications` where
-    `kind ∈ {knowledge, skill, ability}`) against the real corpus. That is a **new decision** — it
-    wants an ADR and register entries. Note `families={}` degrades `skill_overlap` to plain
-    idf-weighted Jaccard vs hris's ontology-aware scoring; record that when it lands.
+  - ✅ **3.4a — ParsedJD → JobSignals adapter + title normalizer** (PR #38, MERGED). Wired 2.4c's pure-but-uncalled `similarity`/`clustering`/`drift`. New `jd_core/bank/signals.py`: `build_job_signals(jd) -> JobSignals` (skills = an **idf-less keyword bag** from `{skill,knowledge,ability}` quals minus stopwords — honestly degraded vs an ontology, empty for ~41% of JDs with no quals) + `canonical_title`. Frozen `JobSignals`/`CanonicalTitle` in `models/bank.py`. Two measured drift fixes: **word-number years** (1,116 → 5,573 derivable) and **education from `[education, knowledge]` quals** (JDFN's degree in `knowledge` blob → 1,161 false-positive "bachelors" reduced to 4 FPs). Register **HR-149..HR-154**; ADR-007. Reviewer-approved (Opus); the one defect (all-6-kinds education FP) caught by measuring against the archive.
+  - ✅ **3.4b — Tier-3 role-equivalence runner** (PR #39, MERGED). Writes `DedupEdge(tier=ROLE_EQUIVALENT)` blending doc-vector cosine + idf skill overlap + seniority via 2.4c's `score_job_similarity`. **Two user decisions:** skills = the idf keyword bag (`families={}`, ontology deferred; idf computed in-runner, floored at 0); the over-merge guard = **title-family-band CONFLICT veto** (bands >`max_band_gap`(1) apart never role-equivalent; `employee_group` soft veto both-known-and-differ; `grade` unused). **`role_equiv_threshold = 0.5`** — measured: 99.2% pos / 3.0% neg. **Honest limitations, all registered:** 70% of titles `family=="unmapped"` so band veto is partial (~30%); positives are Tier-2 weak labels (no honest P/R gate — ships pinned fixture + stratified adjudication sample); blended score bimodal (41% empty-skills pairs floor ~0.52). Register **HR-155..HR-160**; `make dedup-role` + compose service. Reviewer-approved (Opus) after one round; **two defects were real crashes on real data that synthetic fixtures hid** — near-identical 768-dim embeddings compute cosine >1.0 (16% of real pairs) → ValidationError; ubiquitous skill's negative idf. Both clamped + pinned with real-magnitude fixtures. **Perf follow-up (HR-159 note):** candidate gen O(bucket²) in 8,215-doc `unmapped` bucket (~1hr whole-archive; completes) — Neo4j vector-index top-k is the follow-up.
+  - **Tier-3 archive run: IN PROGRESS.** `make dedup-role` running over full archive now; will write ROLE_EQUIVALENT edges + `docs/dedup/role-equiv-summary.json` + `role-equiv-adjudication-sample.csv` at completion. **Edge count TBD** — run in progress, not inventing a number.
+  - **3.5 (clustering) DESIGNED** (Opus design pass done) — **report-only, not persistent** (re-cluster reconcile would cascade-delete approved canonicals; report suffices). **Per-tier edge admission, NOT scalar threshold** (🔴 **key landmine**: edge scores incomparable across tiers [EXACT=1.0, NEAR∈[0.85,1.0], ROLE bimodal ∈[0.5,1.0]]; naive 0.80 threshold silently discards every ROLE edge in [0.5,0.80)). **Synthesize EXACT connectivity in-runner from sha256** (Tier-2 structurally excludes byte-identical pairs). **Two-stage over-merge guard:** edge admissibility (reuse 3.4b band/group veto) pre-union-find + post-union-find band-spread/group-mix/oversize **cohesion cap that FLAGS (not auto-splits)** for HR eyeball pass. **WJQ boilerplate redaction may become a blocker** (WJQ is CUPE + unmapped titles, so shared scaffolding over-clusters on template+seniority alone — measure after Tier-3, redact-and-rerun if needed). New register knobs **HR-161..HR-166** (cluster_tiers, cluster_role_equiv_min, cluster_max_band_spread, cluster_group_homogeneous, cluster_max_size, cluster_representative_policy) — defaults measured after Tier-3 run. Deliverable: `docs/cluster/` report (summary.json + cluster-report.csv with `human_verdict` column + cluster-members.csv), counts/labels/filenames only, never JD text.
 - ~~**Rulebook work the baseline made urgent**~~ **ALL THREE DONE IN 2.6** (banned-phrase scoping,
   `HOW-WHY` unevaluable, 4th era band). Scores are now trustworthy. What is left is HR's, not ours.
 - **Extension-trust is silently losing recoverable JDs** (from the 2.5 skip ledger,
@@ -647,6 +644,8 @@ official text from HR in the same review.
   files) inflates their mutual similarity — handled today only by the 0.85 jaccard_min and the 16/8
   banding, but it's a **Phase-3.5 clustering-quality follow-up** (WJQ files will over-cluster on shared
   template unless the scaffolding is redacted).
+- **Tier-3 candidate-gen perf (3.4b follow-up).** O(bucket²) scan in the 8,215-doc `unmapped` title bucket completes in ~1hr whole-archive, but it is not scaling. Replace with Neo4j vector-index top-k (compute seniority delta over candidates only, not all pairs in the bucket). No blast radius (candidate gen is deterministic from config+vectors).
+- **Wire `run_tier1` to persist EXACT edges.** Tier-1 currently **has no DB caller** — SHA-256 exact dedup runs but never writes to `dedup_edges`. Clustering must add EXACT connectivity or identical dups split. Cheap wiring task, no new logic.
 - **The parse idempotency key is blind to the extractor.** `parse_and_store` keys on `(source_document_id,
   parser_version)`; an extractor-only change (like #30) changes the text but not the key, so it does NOT
   force a re-parse — the docx fix's re-parse only happened because the WJQ change bumped `PARSER_VERSION`.
