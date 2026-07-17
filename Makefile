@@ -4,7 +4,7 @@
 # bind-mounted at /app, so no rebuild is needed after edits). Run `make up` first.
 .PHONY: up down gates gates-fast gates-integration gates-live migrate logs shell \
         hook-install register register-check baseline dedup ingest embed near-dup \
-        dedup-role
+        dedup-role cluster
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -27,6 +27,7 @@ INGEST_ARGS     ?=
 EMBED_ARGS      ?=
 NEARDUP_ARGS    ?=
 DEDUPROLE_ARGS  ?=
+CLUSTER_ARGS    ?=
 export JD_ARCHIVE_PATH
 export JD_BASELINE_OUT
 
@@ -151,6 +152,19 @@ near-dup:         ## Tier-2 near-duplicate dedup into dedup_edges (needs `make i
 dedup-role:       ## Tier-3 role-equivalence dedup into dedup_edges (needs ingest + embed first)
 	docker compose run --rm -T dedup-role python -m src.jd_bank.dedup.role $(DEDUPROLE_ARGS)
 	@echo "✅ role-equiv summary written to docs/dedup/role-equiv-summary.json"
+
+# ── Phase-3.5 role clustering (report-only) ────────────────────────────────
+# Connected components over the ADMITTED Tier-1/2/3 edge graph + the HR eyeball report.
+# Needs Postgres (parsed_jds + dedup_edges — run `make ingest`, `make near-dup`, `make
+# dedup-role` first). Neo4j is OPTIONAL (the documents_with_vector column only); pass
+# CLUSTER_ARGS="--no-vectors" to skip it. PERSISTS NOTHING — no `Cluster` row is written
+# (Phase 4 owns that). NB it is CLUSTER_ARGS.
+#
+#   make cluster
+#   make cluster CLUSTER_ARGS="--limit 500"
+cluster:          ## Phase-3.5 role clustering report over dedup_edges (needs ingest + near-dup + dedup-role)
+	docker compose run --rm -T cluster python -m src.jd_bank.cluster $(CLUSTER_ARGS)
+	@echo "✅ cluster report written to docs/cluster/cluster-summary.json"
 
 # ── Migrations (already Docker) ────────────────────────────────────────────
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).

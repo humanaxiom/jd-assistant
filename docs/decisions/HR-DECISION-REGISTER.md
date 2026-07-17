@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+4b1d3baf3b60` · **160 decisions** (160 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 221 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+90af5e27dc83` · **166 decisions** (166 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 227 parameters on the decision surface, all accounted for.
 
 ## What this is
 
@@ -176,6 +176,12 @@ Every policy call JD Bank currently makes **by default**, because SFU HR has not
 | [HR-158](#hr-158) | What blended similarity score must two JDs reach before they are recorded as the SAME ROLE (role-equivalent)? | `0.5` | our invention |
 | [HR-159](#hr-159) | How many nearest neighbours per JD are generated as role-equivalence CANDIDATES? | `25` | our invention |
 | [HR-160](#hr-160) | Should every Tier-2 near-duplicate pair be treated as a guaranteed role-equivalence candidate? | `true` | our invention |
+| [HR-161](#hr-161) | Which dedup tiers (exact, near-duplicate, role-equivalent) may connect two JDs into the same role cluster? | `exact`, `near_duplicate`, `role_equivalent` | our invention |
+| [HR-162](#hr-162) | How strong must a role-equivalence (Tier-3) edge be before it is allowed to MERGE two JDs into the same cluster? | `0.75` | our invention |
+| [HR-163](#hr-163) | How many seniority bands may a role cluster's members span before it is flagged for HR review? | `1` | our invention |
+| [HR-164](#hr-164) | Should a role cluster that mixes more than one known employee group (e.g. APSA + CUPE) be flagged for HR review? | `true` | our invention |
+| [HR-165](#hr-165) | Above how many members is a role cluster flagged as oversize (too big for one canonical JD without HR eyes)? | `50` | our invention |
+| [HR-166](#hr-166) | How does a role cluster pick the member that every other member's drift is measured against (and that the report names)? | `max_parse_confidence` | our invention |
 
 ### Our invention — nobody has ratified these
 
@@ -762,6 +768,54 @@ The two bands now say two different, true things. The merged band said one false
 - **Why it matters:** When `true`, every existing `DedupEdge(tier=NEAR_DUPLICATE)` pair is admitted as a candidate in addition to the cosine k-NN — a near-dup IS role-equivalent, so it must not be missed. It also lets a pair reach Tier-3 when one side has NO document vector (118 empty-serialization + 11 token-limit JDs): such a pair cannot be a cosine neighbour, but it can be a near-dup seed, and it scores with `vector_score` 0.0 on skill + seniority alone.
 - **If it changes:** Moves `rules_version`. `false` restricts candidates to cosine k-NN and silently drops the vector-less near-dups. Pinned by the pure candidate test (a near-dup-seeded pair with no vector still scores).
 
+#### HR-161 — Which dedup tiers (exact, near-duplicate, role-equivalent) may connect two JDs into the same role cluster?
+
+- **We ship:** `exact`, `near_duplicate`, `role_equivalent`
+- **Configured in:** `comparison.yaml` → `comparison.cluster_tiers`
+- **Where the default came from:** our invention
+- **Why it matters:** Clustering runs connected-components over the `dedup_edges` graph. EXACT (byte- identical, score 1.0) and NEAR (MinHash/Jaccard >= 0.85) are always-in: they are strong, well-scaled evidence of the same role. ROLE_EQUIVALENT edges are additionally gated by `cluster_role_equiv_min` (HR-162), because the raw Tier-3 score is bimodal and clustering over it at the Tier-3 bar collapses the archive into one blob. Dropping a tier here removes a whole class of evidence; adding a tier JD Bank does not write is inert (no such edge exists).
+- **If it changes:** Moves `rules_version`. Report-only — persists nothing. Pinned by mutation in the pure admit tests (an EXACT edge is dropped when `exact` is removed from the set) and by the integration clustering test.
+
+#### HR-162 — How strong must a role-equivalence (Tier-3) edge be before it is allowed to MERGE two JDs into the same cluster?
+
+- **We ship:** `0.75`
+- **Configured in:** `comparison.yaml` → `comparison.cluster_role_equiv_min`
+- **Where the default came from:** our invention
+- **Why it matters:** THE load-bearing clustering decision, and it is ABOVE the Tier-3 `role_equiv_threshold` (0.5, HR-158) BY DESIGN: Tier-3 records a same-role PAIR, clustering takes the TRANSITIVE CLOSURE, so the bar to merge must be higher than the bar to record one edge. MEASURED sweep of the ROLE gate against the largest resulting cluster: 0.5->8884-JD blob (61% of the archive), 0.6->1940, 0.65->1302, 0.7->696, 0.75->132, 0.8->61. 0.75 is the knee — the first gate at which no cluster exceeds ~200 members and the archive-wide blob breaks apart. ⚠ The Tier-3 ROLE score is BIMODAL (41% skill-empty pairs floor ~0.52 on vector+seniority alone), which is exactly why a low gate over-merges. ⚠ Note that once the runner calls `build_clusters(threshold=0.0)` on the admitted edges, the DERIVED `cluster_threshold` (HR-096) / `cluster_threshold_floor` (HR-095) no longer gate this path — this knob replaces them for clustering.
+- **If it changes:** Moves `rules_version`. Report-only. THE blob lever: lower it and clusters merge into a giant blob (0.5 -> 8,884 JDs in one), raise it and the Bank finds less redundancy to harmonize. Pinned by mutation in the "blob guard" test — a fixture whose low-score ROLE edges transitively merge a blob at 0.5 but NOT at 0.75; setting this knob to 0.5 makes the blob reappear (red).
+
+#### HR-163 — How many seniority bands may a role cluster's members span before it is flagged for HR review?
+
+- **We ship:** `1`
+- **Configured in:** `comparison.yaml` → `comparison.cluster_max_band_spread`
+- **Where the default came from:** our invention
+- **Why it matters:** The cohesion cap on seniority: a cluster whose MAPPED members (the ~30% on the HR-059 family band ladder) span more than this many bands is FLAGGED (never split) as possibly welding a director to an assistant. Set to `max_band_gap` (HR-156) by intent — the same "how far apart is too far" call, applied to the whole cluster rather than a single edge. ⚠ NEAR-INERT on this corpus: 70% of titles are `unmapped` (no band), so the check bites only where both a spread and a mapping exist; the ROLE gate and the size cap do the real work. A cheap correctness backstop, honestly weak.
+- **If it changes:** Moves `rules_version`. Report-only — it sets a `constraint_violations` flag and the report's sort order, never the cluster membership. Pinned by mutation in the pure cohesion-cap test (a band-0/1/2 chain flags `band_spread` at 1 but not when raised).
+
+#### HR-164 — Should a role cluster that mixes more than one known employee group (e.g. APSA + CUPE) be flagged for HR review?
+
+- **We ship:** `true`
+- **Configured in:** `comparison.yaml` → `comparison.cluster_group_homogeneous`
+- **Where the default came from:** our invention
+- **Why it matters:** The cohesion cap on employee group: when `true`, a cluster spanning more than one KNOWN `employee_group` is FLAGGED (never split). An unknown group is never a mix (a null never flags). ⚠ NEAR-INERT: `employee_group` is non-null on only 36% of JDs, so most clusters cannot trip this at all — it catches the clear APSA<->CUPE case a null-group JD bridged, and nothing more. The ROLE gate + the human eyeball carry the cohesion argument; this is a backstop.
+- **If it changes:** Moves `rules_version`. Report-only (a flag + sort order, not membership). Pinned by mutation in the pure cohesion-cap test (a null-group-bridged APSA+CUPE cluster flags `group_mix` when `true`, and does not when `false`).
+
+#### HR-165 — Above how many members is a role cluster flagged as oversize (too big for one canonical JD without HR eyes)?
+
+- **We ship:** `50`
+- **Configured in:** `comparison.yaml` → `comparison.cluster_max_size`
+- **Where the default came from:** our invention
+- **Why it matters:** The cohesion cap on size: a cluster with more than this many members is FLAGGED (never split). MEASURED at gate 0.75 the clusters with >50 members are [132, 108, 74, 57, 52] — exactly the ones an HR reviewer must eyeball before they become a single canonical role. A flag, not a split: a report surfaces them; it does not silently break a real role apart on a member count.
+- **If it changes:** Moves `rules_version`. Report-only. Lower it and more clusters carry the `oversize` flag (more HR review); raise it and the biggest clusters pass unremarked. Pinned by mutation in the pure cohesion-cap test.
+
+#### HR-166 — How does a role cluster pick the member that every other member's drift is measured against (and that the report names)?
+
+- **We ship:** `max_parse_confidence`
+- **Configured in:** `comparison.yaml` → `comparison.cluster_representative_policy`
+- **Where the default came from:** our invention
+- **Why it matters:** The cluster's drift/report anchor. `max_parse_confidence` picks the best-parsed member (tie-break: the `order_key` archive order, deterministic), so the within-cluster drift roll-up compares every member to the most reliably-read JD rather than an arbitrary one. A closed set (like `cluster_algo`, HR-093): a data-only switch to an unimplemented policy fails to LOAD rather than stamping a report with an anchor the runner never used.
+- **If it changes:** Moves `rules_version`. Report-only — it changes which member is the drift baseline and the `representative_filename` column, never the cluster membership. Pinned by the pure representative test (highest parse_confidence wins; ties break on `order_key`).
+
 ### Inherited hris calibration — not an SFU-published number
 
 Carried over from the hris pipeline's calibration (`jd_rules_sfu_v3`). SFU publishes no scoring model at all, so these numbers were somebody else's judgement, not policy.
@@ -1271,7 +1325,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 - **Configured in:** `comparison.yaml` → `comparison.cluster_threshold_floor`
 - **Where the default came from:** hris calibration
 - **Why it matters:** A precision call: cluster only on STRONG edges, well above the per-JD "show me similar" floor of 0.60, because clustering merges roles and a false merge produces a canonical JD that describes two different jobs. Connected components is transitive, so one bad edge can chain two clusters together — the threshold is the only thing holding that back (with HR-094).
-- **If it changes:** This is THE lever on how much of the archive gets harmonized. Lower it and clusters grow (and over-merge); raise it and the Bank finds no redundancy to consolidate. Phase 3 must justify it against the real corpus, not inherit it.
+- **If it changes:** This is THE lever on how much of the archive gets harmonized. Lower it and clusters grow (and over-merge); raise it and the Bank finds no redundancy to consolidate. Phase 3 must justify it against the real corpus, not inherit it. ⚠ RETIRED FOR THE PHASE-3.5 CLUSTER PATH: the clustering runner calls `build_clusters(threshold=0.0)` on edges already gated by tier + `cluster_role_equiv_min` (HR-162), so this floor no longer decides which JDs cluster. It remains live for any OTHER `build_clusters` caller that relies on the derived `cluster_threshold`.
 
 #### HR-096 — DERIVED — the effective cluster threshold: max(sim_threshold, cluster_threshold_floor). Is a derived-not-duplicated threshold the right shape?
 
@@ -1279,7 +1333,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 - **Configured in:** `comparison.yaml` → `comparison.cluster_threshold`
 - **Where the default came from:** hris calibration
 - **Why it matters:** hris wrote `CLUSTER_THRESHOLD = max(SIM_THRESHOLD, 0.80)`: the cluster threshold is never allowed below the noise floor. Shipping the ANSWER (0.80) as a third YAML key would be two knobs holding one value with nothing keeping them in step — the exact `max_listed` landmine on the backlog. So it is computed, and this entry pins the computed value: raise HR-092 (the noise floor) above 0.80 and the effective cluster threshold moves with it, and this register entry breaks the build until HR is told.
-- **If it changes:** Not directly settable — it changes only when HR-092 or HR-095 changes. It is on the register because the number REVIEWERS care about is the effective one, and because it is the tripwire proving the two knobs stayed in step.
+- **If it changes:** Not directly settable — it changes only when HR-092 or HR-095 changes. It is on the register because the number REVIEWERS care about is the effective one, and because it is the tripwire proving the two knobs stayed in step. ⚠ RETIRED FOR THE PHASE-3.5 CLUSTER PATH: that runner passes `threshold=0.0` to `build_clusters` and gates ROLE edges upstream via `cluster_role_equiv_min` (HR-162), so this derived value no longer gates clustering. It survives only for any other caller that omits an explicit threshold.
 
 #### HR-097 — Is a pair of near-duplicate JDs already a "cluster", or does it take three?
 

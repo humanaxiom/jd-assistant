@@ -384,3 +384,51 @@ candidate_k: 25
 # so those pairs are guaranteed-admissible candidates (and reach Tier-3 even when a JD has
 # no vector — it scores with vector_score 0.0). `true` = seed. HR-160.
 seed_from_near_dup: true
+
+# ── Clustering: the Phase-3.5 role-cluster runner (report-only) ───────────────
+# `jd_bank/cluster/runner.py` groups JDs into role clusters by connected-components over
+# the ADMITTED Tier-1/2/3 edge graph and writes an HR "eyeball" report. It persists
+# NOTHING (the `Cluster` table + its `canonical_jds` CASCADE are Phase 4). Every value is
+# `our_invention`, MEASURED against the live `dedup_edges` graph (15,072 NEAR + 133,842
+# ROLE edges). HR-161 … HR-166.
+#
+# ⚠ Why a SCALAR threshold over the mixed tiers is WRONG, and what replaces it. The three
+# tiers do NOT share a score scale: EXACT=1.0, NEAR∈[0.85,1.0], ROLE∈[0.5,1.0] and ROLE is
+# BIMODAL (41% skill-empty pairs floor ~0.52). Clustering NEAR+ROLE at the raw 0.5 bar
+# collapses via transitive closure into ONE 8,884-JD blob — 61% of the archive. MEASURED
+# sweep of the ROLE gate -> largest cluster: 0.5->8884, 0.6->1940, 0.65->1302, 0.7->696,
+# 0.75->132, 0.8->61. The blob breaks at 0.75 (first gate with no cluster >200). So EXACT
+# and NEAR are always-in; ROLE is gated at `cluster_role_equiv_min`, and the runner then
+# calls `build_clusters(threshold=0.0)` on the ADMITTED edges (the tier gate + the ROLE
+# gate did the thresholding upstream — do NOT re-threshold on the incomparable raw score).
+#
+# ⚠ The derived `cluster_threshold` / `cluster_threshold_floor` (HR-095/HR-096) are
+# RETIRED FOR THIS PATH: `build_clusters(threshold=0.0)` bypasses them. They remain for any
+# other `build_clusters` caller, and `min_cluster_size` (HR-097) still excludes singletons.
+#
+# Which tiers connect a cluster. EXACT + NEAR always-in; ROLE additionally gated by
+# `cluster_role_equiv_min`. HR-161.
+cluster_tiers: [exact, near_duplicate, role_equivalent]
+# The ROLE_EQUIVALENT edge-score gate for clustering. 0.75 is the measured knee where the
+# archive-wide blob breaks (sweep above). ABOVE the Tier-3 `role_equiv_threshold` (0.5) BY
+# DESIGN: Tier-3 edges are pairwise, clustering is transitive, so the bar to MERGE must be
+# higher than the bar to record a single same-role pair. HR-162.
+cluster_role_equiv_min: 0.75
+# The cohesion cap: a cluster whose MAPPED members span more than this many seniority
+# bands is FLAGGED (never split) for HR eyes. = `max_band_gap` by intent — the same "how
+# far apart is too far" call, applied to the whole cluster rather than one edge. HR-163.
+cluster_max_band_spread: 1
+# Flag a cluster that mixes more than one KNOWN employee group. ⚠ The band/group cohesion
+# checks are NEAR-INERT on this corpus (70% of titles are family=unmapped, 64% group-null,
+# and at the edge level the veto drops just 30 of 148,914) — the ROLE gate, the size cap
+# and the human eyeball do the real work. Kept as a cheap correctness backstop. HR-164.
+cluster_group_homogeneous: true
+# A cluster larger than this is FLAGGED as oversize. At gate 0.75 the clusters with >50
+# members are [132, 108, 74, 57, 52] — exactly the ones an HR reviewer must eyeball. Flag,
+# not split: a report surfaces them, it does not silently break them up. HR-165.
+cluster_max_size: 50
+# How a cluster picks the member every other member's drift is measured against, and the
+# row the report names. `max_parse_confidence` (tie-break: the `order_key` archive order)
+# anchors on the best-parsed member. A closed set (a data-only switch to an unimplemented
+# policy fails at load). HR-166.
+cluster_representative_policy: max_parse_confidence

@@ -60,8 +60,8 @@ from sqlalchemy import Table, bindparam, delete, select, tuple_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.jd_bank.db.models import DedupEdge, DedupTier, ParsedJDRow, SourceDocument
-from src.jd_bank.dedup.models import DocumentRef, order_key
+from src.jd_bank.db.models import DedupEdge, DedupTier
+from src.jd_bank.dedup.models import order_key
 from src.jd_bank.dedup.role.idf import IdfCorpus, compute_idf
 from src.jd_bank.dedup.role.models import (
     ROLE_EQUIV_VERSION,
@@ -71,15 +71,13 @@ from src.jd_bank.dedup.role.models import (
     ScoredRolePair,
     Tier3Result,
 )
-from src.jd_core.bank.signals import build_job_signals
+from src.jd_bank.dedup.signals_load import load_signed_corpus
 from src.jd_core.bank.similarity import (
     score_job_similarity,
     seniority_closeness,
     skill_overlap,
 )
 from src.jd_core.models.bank import JobSignals
-from src.jd_core.models.parsed_jd import SFUJobDescription
-from src.jd_core.parser import PARSER_VERSION
 from src.jd_core.rules import Comparison, Rules, get_rules
 from src.settings import get_settings
 
@@ -350,57 +348,11 @@ def build_plan(
     return _Plan(edges=edges, pairs=tuple(pairs))
 
 
-# --- I/O: load signals, fetch vectors, fetch near-dup seeds ------------------
-
-
-@dataclass(frozen=True, slots=True)
-class _Signed:
-    signals: dict[UUID, JobSignals]
-    refs: dict[UUID, DocumentRef]
-    seen: int
-    unsignable: int
-
-
-async def _load_signals(
-    session: AsyncSession, *, rules: Rules, limit: int | None
-) -> _Signed:
-    """Every v2 ``parsed_jds`` row turned into :class:`JobSignals`, joined to its
-    ``source_documents`` row for orientation + filenames. A row that fails to
-    validate/sign is COUNTED (``unsignable``) and dropped — never crashed on, and never
-    in prune scope."""
-    stmt = (
-        select(
-            ParsedJDRow.source_document_id,
-            SourceDocument.sha256,
-            SourceDocument.storage_ref,
-            SourceDocument.filename,
-            ParsedJDRow.parsed,
-        )
-        .join(SourceDocument, SourceDocument.id == ParsedJDRow.source_document_id)
-        .where(ParsedJDRow.parser_version == PARSER_VERSION)
-        .order_by(SourceDocument.storage_ref, ParsedJDRow.source_document_id)
-    )
-    if limit is not None:
-        stmt = stmt.limit(limit)
-    rows = await session.execute(stmt)
-
-    signals: dict[UUID, JobSignals] = {}
-    refs: dict[UUID, DocumentRef] = {}
-    seen = 0
-    unsignable = 0
-    for source_id, sha256, storage_ref, filename, parsed in rows:
-        seen += 1
-        try:
-            jd = SFUJobDescription.model_validate(parsed)
-            job_signals = build_job_signals(jd, rules=rules)
-        except Exception:  # noqa: BLE001 - an unsignable JD is UNKNOWN, never a crash
-            unsignable += 1
-            continue
-        signals[source_id] = job_signals
-        refs[source_id] = DocumentRef(
-            id=source_id, sha256=sha256, storage_ref=storage_ref, filename=filename
-        )
-    return _Signed(signals=signals, refs=refs, seen=seen, unsignable=unsignable)
+# --- I/O: fetch vectors, fetch near-dup seeds --------------------------------
+#
+# The ``parsed_jds -> JobSignals`` load lives in :mod:`src.jd_bank.dedup.signals_load`
+# (``load_signed_corpus``), shared with the Phase-3.5 clustering runner so the two
+# callers cannot drift on which JDs are in scope.
 
 
 async def _fetch_vectors(
@@ -571,7 +523,7 @@ async def run_tier3(
     comparison = rulebook.comparison
     batch_size = get_settings().neardup_batch_size
 
-    signed = await _load_signals(pg_session, rules=rulebook, limit=limit)
+    signed = await load_signed_corpus(pg_session, rules=rulebook, limit=limit)
     signed_ids = set(signed.signals)
 
     idf = compute_idf(signed.signals[i].skills for i in sorted(signed_ids, key=str))
