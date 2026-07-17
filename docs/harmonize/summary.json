@@ -1,0 +1,188 @@
+{
+  "generated_at": "2026-07-17T19:02:55.531052Z",
+  "result": {
+    "additional_context_policy": "drop",
+    "boilerplate_agreement": {
+      "about_sfu": {
+        "all_false": 1339,
+        "all_true": 353,
+        "mixed": 106
+      },
+      "equity": {
+        "all_false": 1296,
+        "all_true": 373,
+        "mixed": 129
+      },
+      "territorial": {
+        "all_false": 1551,
+        "all_true": 68,
+        "mixed": 179
+      }
+    },
+    "boilerplate_presence_policy": "or_across_members",
+    "chosen_summary_wordcount_buckets": {
+      "100-150": 731,
+      "<100": 626,
+      ">150": 424
+    },
+    "clusters_fully_wjq_excluded": 657,
+    "clusters_mixed_jdfn_wjq": 10,
+    "clusters_recomputed": 2458,
+    "clusters_with_any_security": 0,
+    "clusters_with_multi_context": 12,
+    "core_skill_min_fraction": 0.5,
+    "deduped_duty_count_histogram": {
+      "0": 57,
+      "1": 580,
+      "10": 46,
+      "11": 51,
+      "12": 237,
+      "13": 28,
+      "14": 8,
+      "15": 9,
+      "16": 6,
+      "17": 8,
+      "18": 5,
+      "19": 2,
+      "2": 105,
+      "20": 3,
+      "21": 2,
+      "22": 2,
+      "23": 4,
+      "24": 1,
+      "25": 2,
+      "28": 2,
+      "29": 1,
+      "3": 101,
+      "30": 1,
+      "34": 1,
+      "4": 115,
+      "5": 119,
+      "57": 1,
+      "6": 107,
+      "7": 82,
+      "8": 66,
+      "9": 46
+    },
+    "distinct_normalized_title_histogram": {
+      "1": 1297,
+      "2": 393,
+      "3": 74,
+      "4": 20,
+      "5": 6,
+      "6": 5,
+      "7": 2,
+      "9": 1
+    },
+    "documents_seen": 14522,
+    "documents_signed": 14522,
+    "documents_unsignable": 0,
+    "duties_over_cap": {
+      "10": 374,
+      "12": 86,
+      "5": 721,
+      "8": 466
+    },
+    "duty_dedup_jaccard_min": 0.7,
+    "education_bar_spread_histogram": {
+      "0": 817,
+      "1": 26,
+      "2": 1
+    },
+    "education_max_differs_from_modal": 16,
+    "experience_bar_spread_histogram": {
+      "0": 756,
+      "1": 27,
+      "2": 32,
+      "3": 17,
+      "4": 10,
+      "5": 1
+    },
+    "experience_max_differs_from_modal": 61,
+    "flag_counts": {
+      "duties_over_max": 86,
+      "employee_group_disagreement": 1,
+      "no_core_skills": 854,
+      "sections_not_merged": 1762,
+      "single_member": 3
+    },
+    "harmonize_stamp": "harmonize_v1+bb968be96d7e",
+    "harmonized_clusters": 1801,
+    "jdfn_members_merged": 7391,
+    "jdfn_members_with_context": 44,
+    "max_duties": 12,
+    "member_rows_dropped_unvalidatable": 0,
+    "modal_group_fraction_histogram": {
+      "0.2-0.3": 7,
+      "0.3-0.4": 16,
+      "0.4-0.5": 16,
+      "0.5-0.6": 221,
+      "0.6-0.7": 119,
+      "0.7-0.8": 65,
+      "0.8-0.9": 46,
+      "0.9-1.0": 1308
+    },
+    "multi_member_clusters": 1798,
+    "no_core_skills_by_fraction": {
+      "0.3": 852,
+      "0.4": 852,
+      "0.5": 852,
+      "0.6": 853,
+      "0.7": 854
+    },
+    "pairwise_duty_jaccard_histogram": {
+      "0.00-0.05": 362314,
+      "0.05-0.10": 257068,
+      "0.10-0.15": 143028,
+      "0.15-0.20": 53778,
+      "0.20-0.25": 19733,
+      "0.25-0.30": 6826,
+      "0.30-0.35": 4192,
+      "0.35-0.40": 832,
+      "0.40-0.45": 1091,
+      "0.45-0.50": 628,
+      "0.50-0.55": 455,
+      "0.55-0.60": 614,
+      "0.60-0.65": 405,
+      "0.65-0.70": 322,
+      "0.70-0.75": 288,
+      "0.75-0.80": 522,
+      "0.80-0.85": 1342,
+      "0.85-0.90": 1968,
+      "0.90-0.95": 3059,
+      "0.95-1.00": 109797
+    },
+    "security_count_histogram": {},
+    "security_policy": "union",
+    "seniority_bar_policy": "max",
+    "single_member_clusters": 3,
+    "singletons": 3620,
+    "skill_fraction_histogram": {
+      "0.0-0.1": 208,
+      "0.1-0.2": 247,
+      "0.2-0.3": 357,
+      "0.3-0.4": 436,
+      "0.4-0.5": 120,
+      "0.5-0.6": 968,
+      "0.6-0.7": 463,
+      "0.7-0.8": 191,
+      "0.8-0.9": 231,
+      "0.9-1.0": 21335
+    },
+    "summary_in_range_available_clusters": 731,
+    "summary_no_in_range_clusters": 1050,
+    "summary_policy": "within_target_then_central",
+    "title_policy": "modal_normalized",
+    "total_deduped_duties_by_threshold": {
+      "0.5": 9419,
+      "0.6": 9542,
+      "0.7": 9660,
+      "0.8": 9786,
+      "0.9": 10093
+    },
+    "wjq_members_dropped": 3511,
+    "wjq_members_frequency_confirmed": 2747
+  },
+  "rules_version": "jd_rules_sfu_v4+90af5e27dc83",
+  "source": "parsed_jds + dedup_edges (recomputed clusters; JDFN only)"
+}

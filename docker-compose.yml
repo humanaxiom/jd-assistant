@@ -336,6 +336,35 @@ services:
       neo4j: { condition: service_healthy }
     command: ["python", "-m", "src.jd_bank.cluster"]
 
+  # ─── Phase-4.1 harmonization measurement (report-only) ────────────────────
+  # Drive the pure `merge_cluster` engine over the real JDFN role clusters (recomputed
+  # in-process from the `dedup_edges` graph) and MEASURE the distributions the 9
+  # harmonization.yaml knobs (HR-167..175) cut on. WJQ (CUPE) members are excluded and
+  # counted. Needs Postgres (parsed_jds + dedup_edges — run `make ingest`, `make
+  # near-dup`, `make dedup-role` first); does NOT need Neo4j or Ollama (clustering is over
+  # the edge graph, and merge_cluster is pure/LLM-free).
+  #
+  #   make harmonize-measure
+  #   make harmonize-measure HARMONIZE_ARGS="--limit 2000"
+  #
+  # PERSISTS NOTHING and picks NO knob value (the coder MEASURES, the orchestrator
+  # DECIDES). Not started by `up` (profile: tools). Committed artifacts
+  # (counts/labels/stamps ONLY — never document text): docs/harmonize/summary.json,
+  # docs/harmonize/clusters.csv.
+  harmonize:
+    profiles: ["tools"]
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    environment:
+      <<: *app_env
+    volumes:
+      - ./core:/app
+      - ./docs/harmonize:/committed
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: ["python", "-m", "src.jd_bank.harmonize"]
+
 volumes:
   pgdata:
   neo4jdata:

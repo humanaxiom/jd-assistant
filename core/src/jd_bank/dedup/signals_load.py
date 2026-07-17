@@ -16,6 +16,7 @@ extraction is behaviour-preserving for it (pinned by the unchanged Tier-3 suite)
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -103,3 +104,37 @@ async def load_signed_corpus(
         seen=seen,
         unsignable=unsignable,
     )
+
+
+async def load_member_jds(
+    session: AsyncSession, source_ids: Collection[UUID]
+) -> tuple[dict[UUID, SFUJobDescription], int]:
+    """The v2-parsed :class:`SFUJobDescription` for each of ``source_ids``, keyed by
+    ``source_document_id``.
+
+    Sibling to :func:`load_signed_corpus`: that returns :class:`JobSignals` (the
+    comparison features), losing the JD object; the Phase-4.1 harmonization runner needs
+    the JD ITSELF to feed ``merge_cluster``. Same discipline — a row that fails to
+    validate is DROPPED with a counter (``dropped``), never crashed on (mirrors the
+    ``unsignable`` handling and the 3.3 drop-not-crash rule). Pure; commits nothing.
+
+    Returns ``(jds_by_source_id, dropped)``. An empty ``source_ids`` reads nothing.
+    """
+    ids = set(source_ids)
+    if not ids:
+        return {}, 0
+    stmt = (
+        select(ParsedJDRow.source_document_id, ParsedJDRow.parsed)
+        .where(ParsedJDRow.parser_version == PARSER_VERSION)
+        .where(ParsedJDRow.source_document_id.in_(ids))
+        .order_by(ParsedJDRow.source_document_id)
+    )
+    rows = await session.execute(stmt)
+    jds: dict[UUID, SFUJobDescription] = {}
+    dropped = 0
+    for source_id, parsed in rows:
+        try:
+            jds[source_id] = SFUJobDescription.model_validate(parsed)
+        except Exception:  # noqa: BLE001 - an unvalidatable row is dropped, never fatal
+            dropped += 1
+    return jds, dropped
