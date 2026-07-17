@@ -128,6 +128,12 @@ DEDUP_FILE: Final[str] = "dedup.yaml"
 #: WJQ JD's summary/duties/qualifications — so it is HASHED (part of ``rules_version``).
 WJQ_FILE: Final[str] = "wjq.yaml"
 
+#: How a cluster's members are merged into a canonical DRAFT (Phase 4.1). It decides
+#: HOW JDs are harmonized, never how a JD is SCORED/APPROVED — so, like the other three
+#: measured files, it is registered and on the surface but NOT hashed into
+#: ``rules_version`` (:data:`_UNHASHED_FILES`).
+HARMONIZATION_FILE: Final[str] = "harmonization.yaml"
+
 #: The content-bearing SFU sections an embedding may be built from — the subset of
 #: :data:`~src.jd_core.models.quality.SFUSection` that carries free text at all.
 #: ``identification`` is structured columns, not prose; ``about_sfu`` /
@@ -167,6 +173,26 @@ DedupTextSource = Literal["raw_clean", "serialized"]
 #: Tier-2 runs over DISTINCT CONTENTS (one unit per Tier-1 sha256 group, ``content``)
 #: or over every individual FILE (``file``). See ``dedup.yaml`` header.
 DedupEdgeScope = Literal["content", "file"]
+
+#: How the harmonization engine picks the canonical TITLE (Phase 4.1, HR-167).
+#: ``modal_normalized`` = the representative of the modal ``normalize_title`` group;
+#: ``first_raw`` = the lexicographically-first raw title, modality ignored.
+TitlePolicy = Literal["modal_normalized", "first_raw"]
+
+#: How the engine picks the POSITION SUMMARY representative (HR-168).
+SummaryPolicy = Literal["within_target_then_central", "most_central"]
+
+#: What the engine does with ADDITIONAL CONTEXT across members (HR-169).
+AdditionalContextPolicy = Literal["drop", "longest"]
+
+#: How the engine sets the boilerplate presence booleans (HR-170).
+BoilerplatePresencePolicy = Literal["or_across_members", "all_present"]
+
+#: How SECURITY qualifications are combined in the KSA rebuild (HR-174).
+SecurityPolicy = Literal["union", "core_only"]
+
+#: How the EDUCATION / EXPERIENCE bar is chosen across members (HR-175).
+SeniorityBarPolicy = Literal["max", "modal"]
 
 #: The 14 sections of SFU's CUPE/WJQ Custom template (Phase 3.4). These KEYS are
 #: structural (like :class:`~src.jd_core.parser.headings.SectionKey`); the heading
@@ -1040,6 +1066,51 @@ class Wjq(_RuleFile):
     def stamp(self) -> str:
         """``<version>+<short digest>`` — this file's own content stamp."""
         return f"{self.version}{VERSION_SEPARATOR}{self.digest[:CONTENT_HASH_LENGTH]}"
+
+
+class Harmonization(_RuleFile):
+    """How a cluster's members are merged into a canonical DRAFT
+    (``harmonization.yaml``, Phase 4.1).
+
+    Every value here is ``our_invention`` and PROVISIONAL — SFU publishes no
+    harmonization policy and hris harmonized via an LLM prompt (no deterministic merge
+    policy to inherit). The defaults are starting values to be calibrated by a post-run
+    measurement pass over the real JDFN clusters; see the YAML header + HR-167…HR-175.
+
+    **On the register, but NOT in the content hash** (:data:`_UNHASHED_FILES`) — the
+    fifth file in that category, after ``decision_register.yaml`` /
+    ``segmentation.yaml`` / ``embeddings.yaml`` / ``dedup.yaml``, and for the identical
+    reason: it decides HOW JDs are merged into a draft, never how a JD is SCORED or
+    APPROVED, so re-tuning a
+    merge knob cannot make a single JD's ``ValidationReport`` look stale. Unlike those
+    three it carries NO ``stamp``: Phase 4.1 is pure in-memory functions and nothing
+    persists a merge-config identity (the runner that would is a later task).
+
+    Shaped **flat**, like the other measured files and for the same reason
+    (:data:`_FLAT_SURFACE_FILES`): every knob lands on the decision surface the moment
+    it is declared, and :func:`check_register` breaks the build until it is registered.
+    """
+
+    #: How the canonical title is chosen (HR-167).
+    title_policy: TitlePolicy
+    #: How the position-summary representative is picked (HR-168).
+    summary_policy: SummaryPolicy
+    #: What to do with additional_context across members (HR-169).
+    additional_context_policy: AdditionalContextPolicy
+    #: How the boilerplate presence booleans are set (HR-170).
+    boilerplate_presence_policy: BoilerplatePresencePolicy
+    #: Token-Jaccard at/above which two duty (or qualification) statements collapse
+    #: onto one representative (HR-171).
+    duty_dedup_jaccard_min: float = Field(ge=0.0, le=1.0)
+    #: Max deduped duties carried into the draft; above it -> keep top-by-coverage and
+    #: flag ``duties_over_max``. Bounded by the model's own 12-duty cap (HR-172).
+    max_duties: int = Field(gt=0, le=12)
+    #: Fraction of members that must require a skill token for it to be CORE (HR-173).
+    core_skill_min_fraction: float = Field(ge=0.0, le=1.0)
+    #: How security qualifications are combined (HR-174).
+    security_policy: SecurityPolicy
+    #: How the education / experience bar is chosen across members (HR-175).
+    seniority_bar_policy: SeniorityBarPolicy
 
 
 class Patterns(_RuleFile):
@@ -2589,6 +2660,8 @@ class Rules(BaseModel):
     dedup: Dedup
     #: On the register AND in the content hash — see :class:`Wjq` (Phase 3.4).
     wjq: Wjq
+    #: On the register, but NOT in the content hash — see :class:`Harmonization`.
+    harmonization: Harmonization
     decision_register: DecisionRegister
 
     @property
@@ -2601,16 +2674,18 @@ class Rules(BaseModel):
         ``PYTHONHASHSEED`` (sets are canonicalised sorted, mappings by sorted key).
 
         :data:`_UNHASHED_FILES` is deliberately **excluded** —
-        ``decision_register.yaml``, ``segmentation.yaml``, ``embeddings.yaml`` and
-        ``dedup.yaml``. None of the four changes what the validator computes about a
-        JD: the first *describes* the rules, the second decides which **files** an
-        archive-baseline number is computed over, the third decides what text a JD
-        becomes **for an embedding model**, the fourth decides which **documents** are
-        similar to each other (Tier-2) — none of it is about JD quality. Including any
-        of them would mean a copy-edit to a ``why_it_matters`` paragraph, a re-banding
-        of the archive's eras, retuning ``max_chars``, or retuning ``jaccard_min``
-        invalidated every previously stamped report, while no rule had moved at all. And
-        nothing is lost by it: every one of the four files' ``current_default`` values
+        ``decision_register.yaml``, ``segmentation.yaml``, ``embeddings.yaml``,
+        ``dedup.yaml`` and ``harmonization.yaml``. None of the five changes what the
+        validator computes about a JD: the first *describes* the rules, the second
+        decides which **files** an archive-baseline number is computed over, the third
+        decides what text a JD becomes **for an embedding model**, the fourth decides
+        which **documents** are similar to each other (Tier-2), the fifth decides
+        **how** a cluster is merged into a draft (Phase 4.1) — none of it is about JD
+        quality. Including any of them would mean a copy-edit to a ``why_it_matters``
+        paragraph, a re-banding of the archive's eras, retuning ``max_chars``, retuning
+        ``jaccard_min``, or retuning a merge policy invalidated every previously stamped
+        report, while no rule had moved at all. And nothing is lost by it: every one of
+        the unhashed files' ``current_default`` values
         is cross-checked against the live rules (:func:`check_register`), so a real
         change to any of them is caught anyway, and ``segmentation.yaml`` /
         ``embeddings.yaml`` / ``dedup.yaml`` each carry their own content identity
@@ -3048,6 +3123,7 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "embeddings",
     "dedup",
     "wjq",
+    "harmonization",
 )
 
 
@@ -3264,6 +3340,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     (EMBEDDINGS_FILE, "embeddings", Embeddings),
     (DEDUP_FILE, "dedup", Dedup),
     (WJQ_FILE, "wjq", Wjq),
+    (HARMONIZATION_FILE, "harmonization", Harmonization),
     (REGISTER_FILE, "decision_register", DecisionRegister),
 )
 
@@ -3278,14 +3355,16 @@ RULE_FILES: Final[tuple[str, ...]] = tuple(name for name, _, _ in _FILE_MODELS)
 #: * ``decision_register.yaml`` *describes* the rules;
 #: * ``segmentation.yaml`` decides which FILES a baseline number is computed over;
 #: * ``embeddings.yaml`` decides what text a JD becomes FOR AN EMBEDDING MODEL;
-#: * ``dedup.yaml`` decides which DOCUMENTS are similar to each other (Tier-2).
+#: * ``dedup.yaml`` decides which DOCUMENTS are similar to each other (Tier-2);
+#: * ``harmonization.yaml`` decides HOW a cluster's members are merged into a DRAFT
+#:   (Phase 4.1) — never how a JD is scored/approved.
 #:
 #: Hashing any of them would mean a copy-edit to an HR-facing paragraph, a re-banding of
-#: the archive's eras, retuning ``max_chars``, or retuning ``jaccard_min`` invalidated
-#: the stamp on every report ever produced — while no rule had moved at all. See
-#: :meth:`Rules.content_hash`.
+#: the archive's eras, retuning ``max_chars``, retuning ``jaccard_min``, or retuning a
+#: merge policy invalidated the stamp on every report ever produced — while no rule had
+#: moved at all. See :meth:`Rules.content_hash`.
 _UNHASHED_FILES: Final[frozenset[str]] = frozenset(
-    {REGISTER_FILE, SEGMENTATION_FILE, EMBEDDINGS_FILE, DEDUP_FILE}
+    {REGISTER_FILE, SEGMENTATION_FILE, EMBEDDINGS_FILE, DEDUP_FILE, HARMONIZATION_FILE}
 )
 
 #: The :class:`Rules` fields whose content identifies a validation result — every

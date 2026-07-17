@@ -80,6 +80,8 @@ def test_dedup_is_the_fourth_unhashed_file(rules: Rules) -> None:
         "segmentation.yaml",
         "embeddings.yaml",
         "dedup.yaml",
+        # Phase 4.1 added a fifth: the harmonization merge engine's knobs.
+        "harmonization.yaml",
     }
     assert "dedup" not in loader._HASHED_FIELDS
 

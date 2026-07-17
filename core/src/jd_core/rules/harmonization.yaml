@@ -1,0 +1,86 @@
+# Deterministic harmonization merge engine (Phase 4.1) — rulebook-as-data (CLAUDE.md §2).
+#
+# WHAT THIS FILE DECIDES
+# ----------------------
+# HOW a cluster's member JDs are merged into a single canonical *draft* — which
+# scalar/text section wins, how duties are deduped and ordered, and how the KSA
+# (Qualifications) block is rebuilt from the cluster's skill/education/experience
+# evidence. It decides NOTHING about how a JD is SCORED or APPROVED: the approval bar
+# lives in the HASHED files (gates/scoring/rule_catalog/...). A merge-policy change
+# must therefore NOT churn `rules_version` — that digest identifies *which rules
+# scored a JD*, and re-tuning a merge knob scores nothing. So, exactly like
+# `dedup.yaml` / `embeddings.yaml` / `segmentation.yaml`, this file is REGISTERED and
+# on the decision surface but EXCLUDED from `rules_version` (`loader._UNHASHED_FILES`).
+#
+# PROVENANCE + CALIBRATION
+# ------------------------
+# EVERY value here is `our_invention`, `status: open` (HR-167…HR-175). SFU publishes no
+# harmonization policy, and hris harmonized via an LLM prompt only — there is no
+# deterministic merge policy to have inherited. All defaults below are PROVISIONAL
+# STARTING VALUES, to be calibrated by a post-run measurement pass over the real JDFN
+# role clusters (mirroring 3.5's measure-after pattern) — NOT settled numbers. Each
+# register entry says so in `why_it_matters`.
+#
+# OUT OF SCOPE (do not add knobs for these here): %-rebalance of duty allocations, any
+# LLM rewrite / anti-fabrication pass, diff/change-log, review queue, DB persistence.
+
+version: jd_rules_sfu_v4
+
+# --- section selection (scalars / text) --------------------------------------------
+# How the canonical TITLE is chosen. `modal_normalized`: group members by their
+# `normalize_title` stem, take the most-populous group (the modal role), and within it
+# pick the representative raw title by SHORTEST then lexicographic — a deterministic
+# tie-break, not the caller's input order. `first_raw`: the lexicographically-first raw
+# title, modality ignored. No rewrite (that is 4.2). HR-167.
+title_policy: modal_normalized
+
+# How the POSITION SUMMARY representative is picked (verbatim, NO rewrite — 4.2 rewrites).
+# `within_target_then_central`: among member summaries whose word count falls in SFU's
+# published 100–150 target (`thresholds.summary_min_words`/`summary_max_words` — one
+# rulebook fact, one home), pick the most-central (highest token-Jaccard to the others);
+# if none is in range, fall back to the most-central over all. `most_central` skips the
+# in-range preference. HR-168.
+summary_policy: within_target_then_central
+
+# What to do with ADDITIONAL CONTEXT across members. `drop`: omit it (a union of
+# per-member contextual notes is noisy and often position-specific). `longest`: carry the
+# single longest member note verbatim. HR-169.
+additional_context_policy: drop
+
+# The presence booleans (`about_sfu_present`, `territorial_acknowledgement_present`,
+# `employment_equity_present`). `or_across_members`: assert present iff ANY member had it
+# (honest — a draft does not carry the boilerplate TEXT, so a re-parse still trips the
+# footer/About gates; see bank/render.py). `all_present`: always assert present. ⚠ This
+# flips to `all_present` ONLY IF HR ratifies composer auto-insert of the footer
+# (HR-pending) — do NOT pre-empt that ruling by shipping `all_present`. HR-170.
+boilerplate_presence_policy: or_across_members
+
+# --- duty union / dedup / reorder --------------------------------------------------
+# Token-Jaccard at or above which two duty STATEMENTS are treated as the same duty and
+# collapsed onto one representative. PROVISIONAL — to be calibrated against real clusters.
+# Also reused for near-identical QUALIFICATION text dedup (one Jaccard, one home). HR-171.
+duty_dedup_jaccard_min: 0.7
+
+# The maximum number of deduped duties carried into the draft. Above this, the top-by-
+# member-coverage duties are kept and the draft is FLAGGED `duties_over_max` (never a
+# silent drop). Bounded by the model's own `SFUJobDescription.duties` cap of 12; informed
+# by SFU's "3–5 major duties" guidance but set higher because real JDs carry more and
+# dropping a real duty is destructive. PROVISIONAL. HR-172.
+max_duties: 10
+
+# --- KSA rebuild (Qualifications) --------------------------------------------------
+# The fraction of members that must require a skill token for it to be CORE (its
+# representative qualification survives; below this it is incidental and dropped — SFU is
+# minimum-not-desired, so one-offs are not carried as "desired"). At or above (`>=`).
+# PROVISIONAL — to be calibrated against real clusters. HR-173.
+core_skill_min_fraction: 0.5
+
+# How SECURITY qualifications are combined. `union`: keep every distinct security
+# requirement any member states (deduped near-identical). `core_only`: keep a security
+# requirement only when required by >= `core_skill_min_fraction` of members. HR-174.
+security_policy: union
+
+# How the EDUCATION and EXPERIENCE bars are chosen across members. `max`: take the
+# highest bar any member states, and emit the representative qualification whose parsed
+# bar matches it. `modal`: take the most common bar instead. HR-175.
+seniority_bar_policy: max
