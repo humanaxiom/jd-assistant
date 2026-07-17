@@ -306,6 +306,36 @@ services:
       neo4j: { condition: service_healthy }
     command: ["python", "-m", "src.jd_bank.dedup.role"]
 
+  # ─── Phase-3.5 role clustering (report-only) ──────────────────────────────
+  # Connected components over the ADMITTED Tier-1/2/3 `dedup_edges` graph + the HR
+  # eyeball report. Reads NEAR/ROLE edges from Postgres and synthesizes EXACT
+  # connectivity from `source_documents.sha256`; NO archive bind. Neo4j is OPTIONAL
+  # (the `documents_with_vector` report column only — clustering itself is over the edge
+  # graph), so it is listed as a dependency for the convenience of the default run;
+  # `--no-vectors` runs Postgres-only. Run `make ingest`, `make near-dup` and `make
+  # dedup-role` first.
+  #
+  #   make cluster
+  #   make cluster CLUSTER_ARGS="--limit 500"
+  #
+  # PERSISTS NOTHING — writes no `Cluster` row (Phase 4). Not started by `up` (profile:
+  # tools). Committed artifacts (counts/stamps/filenames ONLY — never document text):
+  # docs/cluster/cluster-summary.json, cluster-report.csv, cluster-members.csv.
+  cluster:
+    profiles: ["tools"]
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    environment:
+      <<: *app_env
+    volumes:
+      - ./core:/app
+      - ./docs/cluster:/committed
+    depends_on:
+      postgres: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+    command: ["python", "-m", "src.jd_bank.cluster"]
+
 volumes:
   pgdata:
   neo4jdata:

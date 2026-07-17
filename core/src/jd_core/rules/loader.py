@@ -1458,6 +1458,19 @@ ClusterAlgorithm = Literal["connected_components"]
 #: ``clique`` N(N-1)/2 edges — every unordered pair.
 ExactEdgeTopology = Literal["star", "clique"]
 
+#: Which dedup tiers connect a Phase-3.5 role cluster (``cluster_tiers``, HR-161). The
+#: names are the ``DedupTier`` VALUES (``jd_bank.db.models``), mirrored here as a
+#: Literal because ``jd_core`` must not import ``jd_bank`` (the layering ratchet). A
+#: tier no JD Bank pass writes can never appear on an edge, so the closed set is the
+#: three tiers.
+ClusterTier = Literal["exact", "near_duplicate", "role_equivalent"]
+
+#: How a Phase-3.5 role cluster picks the member every other member's drift is measured
+#: against (``cluster_representative_policy``, HR-166). A closed set, like
+#: :data:`ClusterAlgorithm`: a data-only switch to an unimplemented policy fails at load
+#: rather than stamping a report with an anchor the runner never used.
+ClusterRepresentativePolicy = Literal["max_parse_confidence"]
+
 
 class Comparison(_RuleFile):
     """Calibration for similarity, clustering and drift (``comparison.yaml``).
@@ -1584,6 +1597,32 @@ class Comparison(_RuleFile):
     #: Also seed candidates from Tier-2 ``NEAR_DUPLICATE`` edges (a near-dup IS
     #: role-equivalent, and reaches Tier-3 even when a JD has no vector). HR-160.
     seed_from_near_dup: bool
+
+    # ── Clustering: the Phase-3.5 role-cluster runner (report-only) ──────────────
+    # See the YAML header + HR-161…HR-166. The clustering runner groups JDs into role
+    # clusters by connected-components over the admitted Tier-1/2/3 graph and writes
+    # an HR "eyeball" report; it persists NOTHING (the Cluster table is Phase 4).
+    #: Which dedup tiers connect a cluster. EXACT + NEAR are always-in; a ROLE edge is
+    #: additionally gated by :attr:`cluster_role_equiv_min`. HR-161.
+    cluster_tiers: frozenset[ClusterTier] = Field(min_length=1)
+    #: The ROLE_EQUIVALENT edge-score gate for clustering — ABOVE the Tier-3
+    #: role_equiv_threshold, because Tier-3 clusters over transitive closure and the raw
+    #: role score is bimodal (41% skill-empty pairs floor ~0.52). MEASURED sweep of the
+    #: largest cluster: 0.5->8884-blob, 0.7->696, 0.75->132, 0.8->61 — 0.75 is the knee
+    #: where the archive-wide blob breaks. HR-162.
+    cluster_role_equiv_min: float = Field(ge=0.0, le=1.0)
+    #: A cluster whose MAPPED members span more than this many bands is FLAGGED
+    #: (not split) for HR eyes — the cohesion cap. = ``max_band_gap`` by intent. HR-163.
+    cluster_max_band_spread: int = Field(ge=0)
+    #: Flag a cluster that mixes more than one KNOWN employee group (an unknown group is
+    #: never a mix). HR-164.
+    cluster_group_homogeneous: bool
+    #: A cluster with more than this many members is FLAGGED as oversize — at gate 0.75
+    #: the >50 clusters are [132, 108, 74, 57, 52], the ones needing HR eyes. HR-165.
+    cluster_max_size: int = Field(gt=0)
+    #: How a cluster picks its drift/report anchor (``ClusterRepresentativePolicy``).
+    #: HR-166.
+    cluster_representative_policy: ClusterRepresentativePolicy
 
     @field_validator("family_band_ladder")
     @classmethod
