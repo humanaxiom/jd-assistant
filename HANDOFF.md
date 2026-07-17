@@ -1,7 +1,7 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-17 (**Phase 3 COMPLETE; Phase 4 next.** 3.1–3.5 all merged and run. Archive **99.3% parseable**; **2,458 role clusters** over 14,522 signed JDs; **133,842 ROLE_EQUIVALENT edges** (clustered at gate 0.75); **9 flagged** for HR review; 75.1% coverage. Test suite **1518 passing, 94.02%**; HR decision register **160 → 166** (3.5 clustering HR-161..166).)
+Last updated: 2026-07-17 (**Phase 4 STARTED — 4.1 merge engine MERGED; 4.2 next.** Phase 3 complete (3.1–3.5). Archive **99.3% parseable**; **2,458 role clusters** over 14,522 signed JDs; **133,842 ROLE_EQUIVALENT edges** (clustered at gate 0.75); **9 flagged** for HR review; 75.1% coverage. Test suite **1552 passing, 94.06%**; HR decision register **166 → 175** (4.1 harmonization HR-167..175, all `open`, unhashed `harmonization.yaml`).)
 
 **Catching up? Read [`docs/status/2026-07-15-shipped.md`](docs/status/2026-07-15-shipped.md) first** —
 the current one-pager (3.2 embeddings, 3.3 near-dup, both extraction defects), and the basis of what
@@ -129,7 +129,23 @@ is defensible because it is *nearly inert*, not because the data carved a thresh
 
 ---
 
-## Current state — Phase 3 COMPLETE; Phase 4 next
+## Current state — Phase 4 STARTED (4.1 merge engine MERGED); 4.2 next
+
+**Phase 4.1 — the deterministic harmonization merge engine — is MERGED (PR #46).** A pure,
+LLM-free `jd_core/bank/merge.py` (`merge_cluster(members) -> MergedRole`): section selection,
+duty union/dedup/reorder, KSA rebuild, composing the existing `provenance`/`signals`/`similarity`
+primitives. **The output is an explicit DRAFT — nothing auto-canonical** (non-negotiable #1);
+`MergedRole`/`MergeProvenance` are frozen with no approval field. **9 knobs** in the new
+**registered-but-UNHASHED** `harmonization.yaml` (HR-167..175, all `open`, `our_invention`) — a
+merge-policy change decides how JDs are *merged*, not how a JD is *scored*, so it is excluded from
+the `rules_version` digest (same pattern as dedup/embeddings/segmentation). Every knob
+mutation-pinned; order-invariance pinned byte-identical; validator-as-oracle honest (the draft
+trips the boilerplate gates, never "approved"). Reviewer-approved (Opus) after one round + a
+focused confirm — the one real defect (experience-bar inflation: a `frozenset` dropped
+`experience_source_kinds`' ordered fallback, so a `knowledge`-blob number could inflate the bar and
+get relabeled `kind="experience"`) is fixed and pinned by a regression that goes red under the old
+behaviour. **Two follow-ups this created (see Next up):** calibrate the 9 defaults against the real
+clusters (a measurement pass, the 3.5 pattern), and the deferred **%-rebalance** of duty allocations.
 
 **Phase 3 is done.** All of 3.1–3.5 are merged and have run over the real archive. The dedup engine (Tier-1 exact, Tier-2 near-dup, Tier-3 role-equivalence) is complete; the clustering runner generated a full cluster report; all core subsystems landed. **Archive is 99.3% parseable and 99.4% covered end-to-end** (parse → embed → dedup). The validation engine, HR decision register, all EXTRACT-eligible `jd_core` modules, the full archive in Postgres, the embedding service (14,395 doc + 36,174 section vectors in Neo4j), Tier-2 near-dup (15,072 edges), Tier-3 role-equivalence (133,842 edges), and role-clustering (2,458 clusters) are all landed.
 
@@ -535,6 +551,41 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
 
 ## Next up
 
+### ⏭ Phase 4 — Harmonization & review. **4.1 merge engine MERGED (PR #46); 4.2 next.**
+
+Task files now live under `docs/tasks/` (started this session; `phase-4.1-merge-engine.md` is the
+template — goal / files-in-scope / design contract / acceptance / out-of-scope).
+
+- **4.1 merge engine — DONE (PR #46).** See Current state. Pure `bank/merge.py`, drafts only.
+- **4.2 rewrite passes — NEXT.** hris prompts (`sfu_jd_extract` / `jd_harmonize` / `jd_quality`);
+  prompt + post-check + retry + anti-fabrication guard; validator-as-oracle snapshot tests. **No
+  LLM client or prompt loader exists yet** — that scaffolding is part of 4.2. ⚠ **The live golden
+  test must be opt-in and local-only** (CI cannot reach `aria-gb10-2`; see the Ollama gotcha). The
+  merge engine gives 4.2 a grounded, attributable draft to rewrite rather than free-associate.
+- **4.3** change-log/diff (render via `bank/render.py`); **4.4** review queue (FastAPI + minimal UI
+  + audit-log); **4.5** pilot 5–10 clusters with a real HR reviewer.
+
+**Follow-ups 4.1 created (do before/with the harmonization pilot):**
+1. **Calibrate the 9 `harmonization.yaml` defaults against the real clusters** — they shipped
+   *provisional*, exactly like 3.5's post-run measurement. Run the merge over real cluster members,
+   measure the distributions the knobs cut on (`duty_dedup_jaccard_min`, `core_skill_min_fraction`,
+   `max_duties`, the summary/title policies), and register the measured values. **Do not let a
+   provisional default harden by inertia** — the HR-093/HR-121 lesson.
+2. **%-rebalance of duty allocations — DEFERRED from 4.1, its own task.** Allocations are free-text
+   `(NN%)` inside duty statements (validator regex, Part-11.6 duty-total gate), **not** a structured
+   `SFUDuty` field. Merged drafts currently carry duty statements *verbatim*, so a merge of two
+   members can produce allocations that don't sum to 100. Rebalancing needs allocation extraction +
+   the Part-11.6 gate interaction — a deliberate change, not a drive-by.
+3. **A `jd_bank` runner that loads real clusters and drives the merge** — 4.1 is pure in-memory
+   functions only; nothing yet reads the cluster report / Postgres and produces drafts at scale.
+   This is where follow-up #1's measurement actually runs.
+4. **The un-merged sections** (`decision_making` / `problem_solving` / `relationships` /
+   `position_number`) are left at model defaults by 4.1 and surfaced by the `sections_not_merged`
+   provenance flag. Merging them each needs its own registered per-section policy — fold into 4.2/4.3
+   or a dedicated task; the flag keeps the gap honest for the 4.4 reviewer meanwhile.
+5. **WJQ harmonization stays BLOCKED** on WJQ boilerplate redaction + `.doc` title extraction (the
+   Phase-4-priority follow-ups from Phase 3) — the merge engine is exercised on JDFN clusters only.
+
 ### ⏭ HR ratification. **Read `docs/decisions/HR-REVIEW-PACKET.md` + `POST-REVIEW-CHANGE-PLAN.md`.**
 
 **Phase 2.6 is done: the three defects that were distorting HR's numbers are fixed and the archive
@@ -667,6 +718,11 @@ official text from HR in the same review.
   empty index (`text_sha256`, `model`, `embed_stamp`). Harmless — it is the skip-first query running
   before any node exists — but it is noise at the top of every fresh run's log and will train people
   to ignore warnings. Quiet it (or state in the runner why it is expected on a cold index).
+- **CI enforces a branch-name gate: `^(agent|feat|fix|chore)/<slug>$`.** A bare topic branch like
+  `phase-4.1-merge-engine` **fails** the `Gate: branch-name` job, and every other gate `skipping`s
+  behind it (so it reads like a total CI stall, not a naming nit). GitHub cannot re-point a PR's head
+  branch, so the fix is: `git branch -m feat/<slug>`, push, close the old PR + delete its branch,
+  reopen. **Name the branch `feat/…` from the start** (4.1 hit this — cost a PR reopen, #45 → #46).
 - **Stacked PR merge gotcha — record this in lore.** Merging #19 with `--delete-branch` deleted its
   base branch, which **auto-closed PR #20** (2.6). GitHub will not reopen a PR whose head was rebased
   after closing, so 2.6 was re-opened as a **fresh PR #22** linked back to #20 for review history.
