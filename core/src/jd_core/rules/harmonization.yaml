@@ -63,10 +63,12 @@ duty_dedup_jaccard_min: 0.7
 
 # The maximum number of deduped duties carried into the draft. Above this, the top-by-
 # member-coverage duties are kept and the draft is FLAGGED `duties_over_max` (never a
-# silent drop). Bounded by the model's own `SFUJobDescription.duties` cap of 12; informed
-# by SFU's "3–5 major duties" guidance but set higher because real JDs carry more and
-# dropping a real duty is destructive. PROVISIONAL. HR-172.
-max_duties: 10
+# silent drop). Set to the model's own `SFUJobDescription.duties` cap of 12 (MEASURED:
+# deduped-duty count spikes at exactly 12 — 237 real clusters sit at the model ceiling —
+# and a cap of 10 flagged 20.8% of clusters, 288 of which held 11–12 duties the model
+# could keep; at 12 the flag fires only when the model cap forces a real drop, 4.8%).
+# HR-172.
+max_duties: 12
 
 # --- KSA rebuild (Qualifications) --------------------------------------------------
 # The fraction of members that must require a skill token for it to be CORE (its

@@ -1,7 +1,15 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-17 (**Phase 4 STARTED — 4.1 merge engine MERGED; 4.2 next.** Phase 3 complete (3.1–3.5). Archive **99.3% parseable**; **2,458 role clusters** over 14,522 signed JDs; **133,842 ROLE_EQUIVALENT edges** (clustered at gate 0.75); **9 flagged** for HR review; 75.1% coverage. Test suite **1552 passing, 94.06%**; HR decision register **166 → 175** (4.1 harmonization HR-167..175, all `open`, unhashed `harmonization.yaml`).)
+Last updated: 2026-07-17 (**Phase 4 STARTED — 4.1 merge engine MERGED + calibrated; 4.2 next.**
+4.1 follow-ups #1 (calibrate) + #3 (runner) DONE this session: the new read-only `jd_bank/harmonize/`
+runner measured the merge over **1,801 JDFN clusters**; the 9 `harmonization.yaml` knobs are now
+registered with measured evidence — **one default moved (`max_duties` 10 → 12**, aligned to the
+model's 12-duty cap; `duties_over_max` flag 20.8% → 4.8%), the other 8 kept as measured-well-placed.
+Phase 3 complete (3.1–3.5). Archive **99.3% parseable**; **2,458 role clusters** over 14,522 signed
+JDs; **133,842 ROLE_EQUIVALENT edges** (clustered at gate 0.75); **9 flagged** for HR review; 75.1%
+coverage. Test suite **1577 passing, 93.60%**; HR decision register **175** (HR-167..175 all `open`,
+unhashed `harmonization.yaml`; measured evidence written into each `why_it_matters`).)
 
 **Catching up? Read [`docs/status/2026-07-15-shipped.md`](docs/status/2026-07-15-shipped.md) first** —
 the current one-pager (3.2 embeddings, 3.3 near-dup, both extraction defects), and the basis of what
@@ -551,12 +559,16 @@ surface silently missing 4 of 10 rule files. Coders were competent but consisten
 
 ## Next up
 
-### ⏭ Phase 4 — Harmonization & review. **4.1 merge engine MERGED (PR #46); 4.2 next.**
+### ⏭ Phase 4 — Harmonization & review. **4.1 merge engine MERGED + calibrated; 4.2 next.**
 
-Task files now live under `docs/tasks/` (started this session; `phase-4.1-merge-engine.md` is the
-template — goal / files-in-scope / design contract / acceptance / out-of-scope).
+Task files now live under `docs/tasks/` (`phase-4.1-merge-engine.md` and
+`phase-4.1-followup-merge-runner.md` are the templates — goal / files-in-scope / design contract /
+acceptance / out-of-scope).
 
 - **4.1 merge engine — DONE (PR #46).** See Current state. Pure `bank/merge.py`, drafts only.
+- **4.1 calibration + runner — DONE (this session).** The `jd_bank/harmonize/` measurement runner and
+  the knob calibration (follow-ups #1/#3). One default moved (`max_duties` 10 → 12), 8 kept with
+  measured evidence in the register. `docs/harmonize/summary.json` is the measurement of record.
 - **4.2 rewrite passes — NEXT.** hris prompts (`sfu_jd_extract` / `jd_harmonize` / `jd_quality`);
   prompt + post-check + retry + anti-fabrication guard; validator-as-oracle snapshot tests. **No
   LLM client or prompt loader exists yet** — that scaffolding is part of 4.2. ⚠ **The live golden
@@ -566,25 +578,57 @@ template — goal / files-in-scope / design contract / acceptance / out-of-scope
   + audit-log); **4.5** pilot 5–10 clusters with a real HR reviewer.
 
 **Follow-ups 4.1 created (do before/with the harmonization pilot):**
-1. **Calibrate the 9 `harmonization.yaml` defaults against the real clusters** — they shipped
-   *provisional*, exactly like 3.5's post-run measurement. Run the merge over real cluster members,
-   measure the distributions the knobs cut on (`duty_dedup_jaccard_min`, `core_skill_min_fraction`,
-   `max_duties`, the summary/title policies), and register the measured values. **Do not let a
-   provisional default harden by inertia** — the HR-093/HR-121 lesson.
+1. ✅ **DONE (this session) — calibrated the 9 `harmonization.yaml` defaults against the real
+   clusters.** Built the runner (#3 below), ran the merge over **1,801 JDFN clusters**, measured the
+   distributions each knob cuts on, and registered the measured evidence into HR-167..175 (so none
+   hardens by inertia — the HR-093/HR-121 lesson). **Only ONE default moved: `max_duties` 10 → 12**
+   (HR-172), aligned to the model's own `duties` cap (`parsed_jd.py:104`, `max_length=12`): at 10 the
+   `duties_over_max` flag fired on 374/20.8% of clusters, 288 of which held 11–12 duties the model
+   could keep; at 12 it fires only on the 86/4.8% where the cap forces a *real* drop. Mutation-pinned
+   (reverting to 10 goes red on a behavioural assertion, not the drift alarm). The other 8 knobs are
+   **well-supported as-is** and kept: `duty_dedup_jaccard_min` 0.7 sits at the pairwise-Jaccard
+   **valley floor** (global min 0.70–0.75; outcome threshold-insensitive); `core_skill_min_fraction`
+   0.5 sits in the sparse valley of a bimodal skill distribution; the title/summary/context/presence
+   policies all match the measured shape. Artifacts: **`docs/harmonize/summary.json`** (the measured
+   distributions) + `clusters.csv` (per-cluster scalars, counts-only). See Current state.
 2. **%-rebalance of duty allocations — DEFERRED from 4.1, its own task.** Allocations are free-text
    `(NN%)` inside duty statements (validator regex, Part-11.6 duty-total gate), **not** a structured
    `SFUDuty` field. Merged drafts currently carry duty statements *verbatim*, so a merge of two
    members can produce allocations that don't sum to 100. Rebalancing needs allocation extraction +
    the Part-11.6 gate interaction — a deliberate change, not a drive-by.
-3. **A `jd_bank` runner that loads real clusters and drives the merge** — 4.1 is pure in-memory
-   functions only; nothing yet reads the cluster report / Postgres and produces drafts at scale.
-   This is where follow-up #1's measurement actually runs.
+3. ✅ **DONE (this session) — the `jd_bank/harmonize/` runner that loads real clusters and drives the
+   merge.** Read-only (rollback, no `Cluster` row), deterministic (byte-identical over two runs),
+   single-process. Recomputes clusters in-process via `run_clustering` (NOT the lossy filename-keyed
+   3.5 CSV), reloads each member `SFUJobDescription` (`signals_load.load_member_jds`), JDFN-only.
+   `make harmonize-measure` + a `harmonize` compose service. This is where #1's measurement ran.
 4. **The un-merged sections** (`decision_making` / `problem_solving` / `relationships` /
    `position_number`) are left at model defaults by 4.1 and surfaced by the `sections_not_merged`
    provenance flag. Merging them each needs its own registered per-section policy — fold into 4.2/4.3
-   or a dedicated task; the flag keeps the gap honest for the 4.4 reviewer meanwhile.
+   or a dedicated task; the flag keeps the gap honest for the 4.4 reviewer meanwhile. **Measured: the
+   flag fires on 1,762/1,801 (97.8%) of JDFN clusters** — nearly universal, so the un-merged sections
+   are the norm, not an edge case. Prioritise a per-section merge policy accordingly.
 5. **WJQ harmonization stays BLOCKED** on WJQ boilerplate redaction + `.doc` title extraction (the
    Phase-4-priority follow-ups from Phase 3) — the merge engine is exercised on JDFN clusters only.
+
+**New follow-ups this calibration created:**
+6. **Persist `ParseResult.template`.** `jd_core/parser/store.py` drops it, so the harmonize runner
+   filters WJQ by the `employee_group == "cupe"` proxy — which conservatively **over-excludes ~189
+   genuine JDFN docs that merely name CUPE** (safe direction for the JDFN bar, and *counted*, never
+   silent — but imprecise). Persisting `template` makes WJQ filtering exact here and unblocks the WJQ
+   work (#5). A schema/parse-key change, its own task.
+7. **The 3.5 cluster artifacts leak JD prose the same way `clusters.csv` almost did** — `docs/cluster/
+   cluster-report.csv` + `cluster-members.csv` commit `cluster_label` = the modal member `title`,
+   which the parser frequently fills with a whole summary/boilerplate paragraph (~46% of rows). Same
+   root cause the 4.1-followup reviewer caught and we fixed in `harmonize/clusters.csv` (dropped the
+   `label` column; pinned by `test_clusters_csv_has_no_jd_title_or_text_derived_column`). **Scrub the
+   3.5 artifacts on a chore branch** (drop/replace the prose label), NOT mid-feature. Artifact-hygiene,
+   not a privacy breach (JD prose, not incumbent PII), but these are HR records and the rule is
+   counts/labels/filenames only.
+8. **`seniority_bar_policy` max-vs-modal is an HR policy call, not an engineering one.** Measured: bars
+   rarely diverge (education spread 0 in 817/844; experience 0 in 756/843), but `max` differs from
+   `modal` on ~77 clusters. Kept `max` (do not understate a stated requirement), registered HR-175 —
+   but whether a harmonized role should take the **highest** or the **most-common** stated bar is a
+   ruling for the 4.5 pilot, not a default to flip unilaterally.
 
 ### ⏭ HR ratification. **Read `docs/decisions/HR-REVIEW-PACKET.md` + `POST-REVIEW-CHANGE-PLAN.md`.**
 

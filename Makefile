@@ -4,7 +4,7 @@
 # bind-mounted at /app, so no rebuild is needed after edits). Run `make up` first.
 .PHONY: up down gates gates-fast gates-integration gates-live migrate logs shell \
         hook-install register register-check baseline dedup ingest embed near-dup \
-        dedup-role cluster
+        dedup-role cluster harmonize-measure
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -28,6 +28,7 @@ EMBED_ARGS      ?=
 NEARDUP_ARGS    ?=
 DEDUPROLE_ARGS  ?=
 CLUSTER_ARGS    ?=
+HARMONIZE_ARGS  ?=
 export JD_ARCHIVE_PATH
 export JD_BASELINE_OUT
 
@@ -165,6 +166,20 @@ dedup-role:       ## Tier-3 role-equivalence dedup into dedup_edges (needs inges
 cluster:          ## Phase-3.5 role clustering report over dedup_edges (needs ingest + near-dup + dedup-role)
 	docker compose run --rm -T cluster python -m src.jd_bank.cluster $(CLUSTER_ARGS)
 	@echo "✅ cluster report written to docs/cluster/cluster-summary.json"
+
+# ── Phase-4.1 harmonization measurement (report-only) ──────────────────────
+# Drive the pure merge_cluster engine over the real JDFN role clusters and MEASURE the
+# distributions the 9 harmonization.yaml knobs (HR-167..175) cut on. Recomputes clusters
+# in-process (reuses 3.5), reconstructs each member JD, EXCLUDES WJQ (CUPE), and picks NO
+# knob value (the coder MEASURES, the orchestrator DECIDES). Needs Postgres (parsed_jds +
+# dedup_edges — run `make ingest`, `make near-dup`, `make dedup-role` first); no Neo4j.
+# PERSISTS NOTHING. NB it is HARMONIZE_ARGS.
+#
+#   make harmonize-measure
+#   make harmonize-measure HARMONIZE_ARGS="--limit 2000"
+harmonize-measure:  ## Drive merge_cluster over real JDFN clusters; measure the 9 knobs (needs ingest + cluster deps)
+	docker compose run --rm -T harmonize python -m src.jd_bank.harmonize $(HARMONIZE_ARGS)
+	@echo "✅ harmonization measurement written to docs/harmonize/summary.json"
 
 # ── Migrations (already Docker) ────────────────────────────────────────────
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).

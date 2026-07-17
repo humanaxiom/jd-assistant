@@ -292,6 +292,28 @@ def test_duties_over_max_keeps_top_by_coverage_and_flags(rules: Rules) -> None:
     assert "duties_over_max" in capped.provenance.flags
 
 
+def test_max_duties_boundary_at_the_shipped_twelve_is_pinned_by_mutation(
+    rules: Rules,
+) -> None:
+    """The calibrated value is 12 — the model's own `SFUJobDescription.duties` cap
+    (HR-172). A cluster that dedups to EXACTLY 12 distinct duties keeps all 12 and does
+    not flag at the shipped default; lowering the cap to 11 forces a real drop and the
+    flag. This makes 12 the oracle: reverting the YAML to 10 (register silenced) turns
+    this red."""
+    twelve = [_duty(f"duty statement number {i:02d} unique") for i in range(12)]
+    cluster = [_member(duties=twelve)]
+
+    # shipped default (12): all twelve survive, NO flag.
+    default = merge_cluster(cluster, rules=rules)
+    assert len(default.draft.duties) == 12
+    assert "duties_over_max" not in default.provenance.flags
+
+    # cap lowered to 11: exactly one real drop, flag fires.
+    lowered = merge_cluster(cluster, rules=_with(rules, max_duties=11))
+    assert len(lowered.draft.duties) == 11
+    assert "duties_over_max" in lowered.provenance.flags
+
+
 # --- KSA rebuild (HR-173, HR-174, HR-175) ------------------------------------------
 
 
