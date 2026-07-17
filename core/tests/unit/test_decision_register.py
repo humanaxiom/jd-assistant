@@ -1089,8 +1089,10 @@ def test_the_comparison_defaults_are_registered_as_nobodys_standard(
     added six more inventions (the ParsedJD -> JobSignals adapter knobs,
     HR-149..HR-154): hris had a skill ontology + idf corpus JD Bank does not, so its
     skill-bag / word-year / education- and experience-source defaults are ours, not
-    inherited. The set below is what stops the 22 genuinely-inherited numbers from being
-    quietly relabelled ``our_invention`` (or vice versa) on the way past.
+    inherited. Phase 3.4b added six more (the Tier-3 role-equivalence knobs,
+    HR-155..HR-160): hris had no Tier-3 role-equivalence pass to inherit. The set below
+    is what stops the 22 genuinely-inherited numbers from being quietly relabelled
+    ``our_invention`` (or vice versa) on the way past.
     """
     register = rules.decision_register
     comparison = [d for d in register.decisions if d.config.file == "comparison.yaml"]
@@ -1103,10 +1105,11 @@ def test_the_comparison_defaults_are_registered_as_nobodys_standard(
     inherited = [d for d in comparison if d.provenance == "hris_calibration"]
     ours = [d for d in comparison if d.provenance == "our_invention"]
     assert len(inherited) >= 20, "the ported hris calibration was relabelled"
-    # Everything in this file that is OURS, not hris's: the Tier-1 edge topology (3.1)
-    # and the five ParsedJD -> JobSignals adapter knobs (3.4a). If this set grows, a new
-    # invention has been added to a file whose header must say so, or it is a lie by
-    # omission — the header is updated in lockstep (ADR-007).
+    # Everything in this file that is OURS, not hris's: the Tier-1 edge topology (3.1),
+    # the six ParsedJD -> JobSignals adapter knobs (3.4a) and the six Tier-3
+    # role-equivalence knobs (3.4b). If this set grows, a new invention was added to a
+    # file whose header must say so, or it is a lie by omission — update the header in
+    # lockstep (ADR-007).
     assert {d.id for d in ours} == {
         "HR-123",
         "HR-149",
@@ -1115,6 +1118,12 @@ def test_the_comparison_defaults_are_registered_as_nobodys_standard(
         "HR-152",
         "HR-153",
         "HR-154",
+        "HR-155",
+        "HR-156",
+        "HR-157",
+        "HR-158",
+        "HR-159",
+        "HR-160",
     }
 
 

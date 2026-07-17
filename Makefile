@@ -3,7 +3,8 @@
 # all project code, tests, and linters run INSIDE the `api` container (source is
 # bind-mounted at /app, so no rebuild is needed after edits). Run `make up` first.
 .PHONY: up down gates gates-fast gates-integration gates-live migrate logs shell \
-        hook-install register register-check baseline dedup ingest embed near-dup
+        hook-install register register-check baseline dedup ingest embed near-dup \
+        dedup-role
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -25,6 +26,7 @@ DEDUP_ARGS      ?=
 INGEST_ARGS     ?=
 EMBED_ARGS      ?=
 NEARDUP_ARGS    ?=
+DEDUPROLE_ARGS  ?=
 export JD_ARCHIVE_PATH
 export JD_BASELINE_OUT
 
@@ -137,6 +139,18 @@ embed:            ## Embed parsed_jds into Neo4j's vector index (needs `make ing
 near-dup:         ## Tier-2 near-duplicate dedup into dedup_edges (needs `make ingest` first)
 	docker compose run --rm -T near-dup python -m src.jd_bank.dedup.near $(NEARDUP_ARGS)
 	@echo "✅ near-dup summary written to docs/dedup/near-dup-summary.json"
+
+# ── Tier-3 role-equivalence dedup (Phase 3.4b) ─────────────────────────────
+# Signals (`parsed_jds`) + idf-weighted skills + doc vectors (Neo4j), veto-constrained,
+# DB-reconciled `dedup_edges` at `tier=ROLE_EQUIVALENT`. Needs Postgres AND Neo4j — NO
+# archive bind (reads signals + vectors from the DB/store, never the raw files). Run
+# `make ingest` then `make embed` first. NB it is DEDUPROLE_ARGS.
+#
+#   make dedup-role
+#   make dedup-role DEDUPROLE_ARGS="--limit 200"
+dedup-role:       ## Tier-3 role-equivalence dedup into dedup_edges (needs ingest + embed first)
+	docker compose run --rm -T dedup-role python -m src.jd_bank.dedup.role $(DEDUPROLE_ARGS)
+	@echo "✅ role-equiv summary written to docs/dedup/role-equiv-summary.json"
 
 # ── Migrations (already Docker) ────────────────────────────────────────────
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).

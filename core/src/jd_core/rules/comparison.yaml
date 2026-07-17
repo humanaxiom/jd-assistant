@@ -20,6 +20,11 @@
 #     skill ontology + idf corpus JD Bank does not have; these MEASURED defaults are how a
 #     parsed SFU JD becomes comparison features instead (ADR-007). Each is honest about
 #     its degradation (a keyword bag is not an ontology; 41% of JDs yield no skills).
+#   * the Tier-3 role-equivalence knobs (HR-155 … HR-160, Phase 3.4b): the blended
+#     `role_equiv_threshold`, the family->seniority-band ladder + `max_band_gap` "conflict
+#     veto", the `group_conflict_veto`, the candidate-generation `candidate_k`, and
+#     `seed_from_near_dup`. hris had no Tier-3 role-equivalence pass to inherit; these are
+#     JD Bank's own, MEASURED on the real archive (see each key's comment + register entry).
 # Pinned by `test_the_comparison_defaults_are_registered_as_nobodys_standard`.
 #
 # Two of the inherited numbers come closest to an SFU source and STILL do not clear the
@@ -324,3 +329,58 @@ experience_source_kinds: [experience, knowledge]
 supervisory_reports_pattern:
   pattern: '\b(\d{1,3})\b'
   ignore_case: false
+
+# ── Tier-3 role-equivalence (Phase 3.4b) ─────────────────────────────────────
+# The runner (`jd_bank/dedup/role/runner.py`) writes `DedupEdge(tier=ROLE_EQUIVALENT)`
+# for pairs that are the SAME ROLE (possibly DIFFERENT text — that is Tier-3's added
+# value over Tier-2's near-dup). It reuses this file's now-wired maths: `build_job_signals`
+# -> `skill_overlap` (idf-weighted, computed in the runner) + `seniority_closeness` +
+# `score_job_similarity`. NOTHING here is SFU-published and NOTHING is inherited from hris;
+# every value is `our_invention`, MEASURED on the real archive. HR-155 … HR-160.
+#
+# The blended score two JDs must clear to be ROLE-EQUIVALENT (on `score_job_similarity`).
+# MEASURED: on real pairs, Tier-2 near-dup weak-positives vs random-same-function negatives
+# separate at 0.5 -> 99.2% pos / 3.0% neg. ⚠ HONEST CAVEAT: the positives are Tier-2
+# near-dup weak labels (vector-dominated); genuinely-different-text same-role pairs lean on
+# skill overlap and there is NO honest precision/recall gate (the 3.3 lesson) — so this
+# ships with a pinned fixture + a stratified adjudication sample, NOT a CI P/R gate. The
+# score is BIMODAL: 41% of JDs have empty skills and floor ~0.52 on vector+seniority alone;
+# skill-overlapping pairs reach 0.9+. That is honest, not a bug. HR-158 (the number).
+role_equiv_threshold: 0.5
+
+# The family -> seniority-BAND map for the hard "conflict veto": a pair whose title
+# seniority-bands are MORE THAN `max_band_gap` rungs apart is NEVER role-equivalent,
+# whatever the blended score. The bands are the reverse-index of the HR-059 seniority
+# ladder (`titles.yaml :: families`), highest first — DATA, so the family names are NOT
+# hardcoded in the runner (non-negotiable #2). ⚠ PARTIAL BY DESIGN: `unmapped` carries NO
+# band (it is deliberately absent below), and 70% of archive titles are `unmapped` (the
+# HR-059 ladder classifies only ~30%), so the veto fires ONLY when BOTH sides map. On the
+# laddered 30% it cleanly stops director<->assistant merges; the threshold does the rest.
+# HR-155.
+family_band_ladder:
+  vp: 6
+  chief: 5
+  director: 4
+  manager: 3
+  lead: 2
+  associate: 1
+  assistant: 0
+# MORE than this many bands apart -> the conflict veto fires (drops the pair before
+# scoring). 1 keeps adjacent rungs (manager<->lead) admissible while vetoing
+# director<->assistant. HR-156.
+max_band_gap: 1
+
+# The SOFT veto: drop a pair whose two `employee_group`s are BOTH known and DIFFER (an
+# APSA role is not a CUPE role). Vetoes ONLY when both sides state a group — never when
+# either is null (an unknown is not a conflict). `true` = on. HR-157.
+group_conflict_veto: true
+
+# Candidate generation: k nearest cosine neighbours per JD (within its `function` bucket)
+# become candidate pairs. A STARTING value to be tuned by the adjudication sample — not a
+# measured optimum. Larger = more candidates (recall) at more scoring cost. HR-159.
+candidate_k: 25
+
+# Also SEED candidates from Tier-2 `NEAR_DUPLICATE` edges: a near-dup IS role-equivalent,
+# so those pairs are guaranteed-admissible candidates (and reach Tier-3 even when a JD has
+# no vector — it scores with vector_score 0.0). `true` = seed. HR-160.
+seed_from_near_dup: true
