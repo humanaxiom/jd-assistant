@@ -455,6 +455,10 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         # `wjq.yaml` (Phase 3.4) — the CUPE/WJQ template map. Unlike the three above it
         # IS hashed (it decides which text becomes a WJQ JD's summary/duties/quals).
         "wjq",
+        # `harmonization.yaml` (Phase 4.1) — the deterministic merge engine's knobs.
+        # Unhashed like segmentation/embeddings/dedup: it decides HOW JDs are merged
+        # into a draft, never how a JD is scored/approved.
+        "harmonization",
     }
     # ...and that is every rule file there is, bar the register itself.
     described = {name.removesuffix(".yaml") for name in RULE_FILES}
@@ -473,13 +477,15 @@ def test_the_unhashed_files_are_the_ones_that_cannot_change_a_jds_score() -> Non
     ``segmentation.yaml`` decides which FILES a baseline number is computed over;
     ``embeddings.yaml`` (Phase 3.2b) decides what text a JD becomes for an embedding
     model; ``dedup.yaml`` (Phase 3.3) decides which DOCUMENTS are similar to each
-    other. None of the four can move a score, a grade or a gate.
+    other; ``harmonization.yaml`` (Phase 4.1) decides HOW a cluster is merged into a
+    draft. None of the five can move a score, a grade or a gate.
     """
     assert loader._UNHASHED_FILES == {
         REGISTER_FILE,
         "segmentation.yaml",
         "embeddings.yaml",
         "dedup.yaml",
+        "harmonization.yaml",
     }
     hashed = set(loader._HASHED_FIELDS)
     assert "segmentation" not in hashed

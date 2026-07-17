@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+90af5e27dc83` · **166 decisions** (166 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 227 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+90af5e27dc83` · **175 decisions** (175 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 236 parameters on the decision surface, all accounted for.
 
 ## What this is
 
@@ -182,6 +182,15 @@ Every policy call JD Bank currently makes **by default**, because SFU HR has not
 | [HR-164](#hr-164) | Should a role cluster that mixes more than one known employee group (e.g. APSA + CUPE) be flagged for HR review? | `true` | our invention |
 | [HR-165](#hr-165) | Above how many members is a role cluster flagged as oversize (too big for one canonical JD without HR eyes)? | `50` | our invention |
 | [HR-166](#hr-166) | How does a role cluster pick the member that every other member's drift is measured against (and that the report names)? | `max_parse_confidence` | our invention |
+| [HR-167](#hr-167) | How should the harmonization engine choose the canonical TITLE for a role cluster's merged draft? | `modal_normalized` | our invention |
+| [HR-168](#hr-168) | How should the engine pick which member's POSITION SUMMARY becomes the draft's summary (with no rewrite)? | `within_target_then_central` | our invention |
+| [HR-169](#hr-169) | What should the engine do with members' ADDITIONAL CONTEXTUAL INFORMATION when merging a cluster? | `drop` | our invention |
+| [HR-170](#hr-170) | How should the engine set the boilerplate PRESENCE booleans (About SFU, territorial acknowledgement, employment equity) on the merged draft? | `or_across_members` | our invention |
+| [HR-171](#hr-171) | At what token-Jaccard similarity should two DUTY statements be treated as the same duty and collapsed onto one representative? | `0.7` | our invention |
+| [HR-172](#hr-172) | How many deduped duties may a merged draft carry before the extras are dropped and the draft is flagged for HR review? | `10` | our invention |
+| [HR-173](#hr-173) | What fraction of a cluster's members must require a skill before it is treated as a CORE qualification (kept) rather than an incidental one (dropped)? | `0.5` | our invention |
+| [HR-174](#hr-174) | How should SECURITY qualifications (e.g. a criminal-record check) be combined across a cluster's members? | `union` | our invention |
+| [HR-175](#hr-175) | How should the required EDUCATION and EXPERIENCE bars be chosen when a cluster's members disagree? | `max` | our invention |
 
 ### Our invention — nobody has ratified these
 
@@ -815,6 +824,78 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** our invention
 - **Why it matters:** The cluster's drift/report anchor. `max_parse_confidence` picks the best-parsed member (tie-break: the `order_key` archive order, deterministic), so the within-cluster drift roll-up compares every member to the most reliably-read JD rather than an arbitrary one. A closed set (like `cluster_algo`, HR-093): a data-only switch to an unimplemented policy fails to LOAD rather than stamping a report with an anchor the runner never used.
 - **If it changes:** Moves `rules_version`. Report-only — it changes which member is the drift baseline and the `representative_filename` column, never the cluster membership. Pinned by the pure representative test (highest parse_confidence wins; ties break on `order_key`).
+
+#### HR-167 — How should the harmonization engine choose the canonical TITLE for a role cluster's merged draft?
+
+- **We ship:** `modal_normalized`
+- **Configured in:** `harmonization.yaml` → `harmonization.title_policy`
+- **Where the default came from:** our invention
+- **Why it matters:** The draft's title is descriptive, not authoritative (a human approves it later). ⚠ PROVISIONAL, to be calibrated post-run. `modal_normalized` groups members by their `normalize_title` stem, takes the most-populous group (the role the cluster mostly is), and picks the representative raw title by SHORTEST-then-lexicographic — a deterministic tie-break so the same member SET yields a byte-identical draft in any order. It does NOT rewrite the title (that is 4.2). `first_raw` is the trivial alternative (lexicographically-first raw title, modality ignored).
+- **If it changes:** Does NOT move `rules_version` (harmonization.yaml is unhashed). Pure, report-only — it only changes the drafted title a human reviews. Pinned by mutation in the pure title-selection test (a cluster whose modal-group representative differs from the lexicographically-first raw title flips its drafted title when set to `first_raw`).
+
+#### HR-168 — How should the engine pick which member's POSITION SUMMARY becomes the draft's summary (with no rewrite)?
+
+- **We ship:** `within_target_then_central`
+- **Configured in:** `harmonization.yaml` → `harmonization.summary_policy`
+- **Where the default came from:** our invention
+- **Why it matters:** 4.1 is deterministic and LLM-free, so it SELECTS an existing member summary verbatim rather than composing one (rewrite is 4.2). ⚠ PROVISIONAL. `within_target_then_central` prefers a summary already inside SFU's published 100–150-word range (`thresholds.summary_min_words`/`_max_words` — one rulebook fact, one home), then the most-central (highest token-Jaccard to the others), falling back to most-central over all when none is in range. `most_central` drops the in-range preference. Choosing an in-range summary is what keeps the draft from tripping SUMMARY-LENGTH — the single biggest operative gate (HANDOFF: 134 of 187 current-practice blocks).
+- **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by mutation in the pure summary-selection test (a cluster whose most-central summary is OUT of range but has an in-range alternative picks the in-range one by default, and the out-of-range central one when set to `most_central`).
+
+#### HR-169 — What should the engine do with members' ADDITIONAL CONTEXTUAL INFORMATION when merging a cluster?
+
+- **We ship:** `drop`
+- **Configured in:** `harmonization.yaml` → `harmonization.additional_context_policy`
+- **Where the default came from:** our invention
+- **Why it matters:** Additional context is free-text and often position-specific (one incumbent's parking, one office's hours), so a union across members is noisy. ⚠ PROVISIONAL. `drop` omits it from the draft (the reviewer/LLM pass can add role-level context deliberately); `longest` carries the single longest member note verbatim.
+- **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by mutation in the pure section-selection test (a cluster with per-member context yields no `additional_context` by default and the longest note when set to `longest`).
+
+#### HR-170 — How should the engine set the boilerplate PRESENCE booleans (About SFU, territorial acknowledgement, employment equity) on the merged draft?
+
+- **We ship:** `or_across_members`
+- **Configured in:** `harmonization.yaml` → `harmonization.boilerplate_presence_policy`
+- **Where the default came from:** our invention
+- **Why it matters:** The model carries these as presence BOOLEANS, not boilerplate TEXT (bank/render.py), so a draft asserting "present" still cannot render the mandated paragraphs — a re-parse trips SFU-COMP-ABOUT / the footer gates regardless. `or_across_members` asserts present iff ANY member had it — the honest reading. ⚠ This flips to `all_present` ONLY IF HR ratifies composer auto-insert of the footer (an HR-pending decision — see the HR-REVIEW-PACKET footer question); shipping `all_present` now would pre-empt that ruling and make the draft claim compliance it does not carry. ⚠ PROVISIONAL only in the sense that HR's footer ruling settles it.
+- **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by mutation in the draft-is-a-draft test (a cluster whose members all LACK the footer yields `territorial_acknowledgement_present=False` by default — so the draft honestly trips the footer gate — and True when set to `all_present`).
+
+#### HR-171 — At what token-Jaccard similarity should two DUTY statements be treated as the same duty and collapsed onto one representative?
+
+- **We ship:** `0.7`
+- **Configured in:** `harmonization.yaml` → `harmonization.duty_dedup_jaccard_min`
+- **Where the default came from:** our invention
+- **Why it matters:** Duties are unioned across members and near-identical statements deduped so the draft carries each real duty once (coverage-ordered). ⚠ PROVISIONAL STARTING VALUE — to be calibrated by the post-run measurement pass over real clusters; 0.7 is a first cut (share ~70% of tokens -> same duty). Also reused for near-identical QUALIFICATION-text dedup (one Jaccard threshold, one home). Too low welds distinct duties; too high leaves obvious paraphrases as separate duties and burns the `max_duties` budget.
+- **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by a BOUNDARY mutation in the duty-dedup test: a duty pair whose exact token-Jaccard is 0.75 collapses to one representative at the shipped 0.7 and splits into two when the knob is raised past it (0.8) — the deduped duty count goes 1 -> 2 (red).
+
+#### HR-172 — How many deduped duties may a merged draft carry before the extras are dropped and the draft is flagged for HR review?
+
+- **We ship:** `10`
+- **Configured in:** `harmonization.yaml` → `harmonization.max_duties`
+- **Where the default came from:** our invention
+- **Why it matters:** Above this many deduped duties, the top-by-member-coverage duties are kept and the draft is FLAGGED `duties_over_max` (never a silent drop — HR eyeballs it). ⚠ PROVISIONAL. Bounded by the model's own `SFUJobDescription.duties` cap of 12; SFU's Toolkit guidance is "3–5 major duties" but real JDs carry more and dropping a real duty is destructive, so 10 is a deliberately generous first cut to be calibrated against real cluster duty counts.
+- **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by mutation in the duty-cap test (a cluster with 3 distinct deduped duties keeps all 3 and does not flag at the shipped value, and drops to the top 2 with a `duties_over_max` flag when set to 2).
+
+#### HR-173 — What fraction of a cluster's members must require a skill before it is treated as a CORE qualification (kept) rather than an incidental one (dropped)?
+
+- **We ship:** `0.5`
+- **Configured in:** `harmonization.yaml` → `harmonization.core_skill_min_fraction`
+- **Where the default came from:** our invention
+- **Why it matters:** The KSA rebuild keeps a skill token's representative qualification iff at least this fraction of members require it (at/above, `>=`), and drops one-offs — SFU is minimum-not-desired, so an incidental skill is not carried as "desired". ⚠ PROVISIONAL STARTING VALUE — to be calibrated post-run (the skill bag is a keyword bag, not an ontology; ~41% of archive JDs carry no skill quals at all, so this interacts with the `no_core_skills` flag). Too low keeps every one-off; too high strips a cluster to nothing.
+- **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by a BOUNDARY mutation in the KSA test: a skill required by exactly 2 of 4 members (fraction 0.5) is CORE at the shipped 0.5 and DROPPED when the knob is raised to 0.6 (the surviving qualification disappears — red).
+
+#### HR-174 — How should SECURITY qualifications (e.g. a criminal-record check) be combined across a cluster's members?
+
+- **We ship:** `union`
+- **Configured in:** `harmonization.yaml` → `harmonization.security_policy`
+- **Where the default came from:** our invention
+- **Why it matters:** A security requirement is a hard legal/role constraint, so `union` keeps every distinct security qualification ANY member states (deduped near-identical) — a requirement one member states is real even if the others omit it. ⚠ PROVISIONAL. `core_only` instead keeps a security qualification only when required by >= `core_skill_min_fraction` of members (treating it like a skill), which risks dropping a genuine requirement a single JD carried. ⚠ COUPLING: under `core_only` this SHARES `core_skill_min_fraction` (HR-173) — re-calibrating that knob would move the security threshold too. Inert today (default `union`).
+- **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by mutation in the KSA security test (a security qualification stated by only 1 of 3 members survives under `union` and is dropped under `core_only`).
+
+#### HR-175 — How should the required EDUCATION and EXPERIENCE bars be chosen when a cluster's members disagree?
+
+- **We ship:** `max`
+- **Configured in:** `harmonization.yaml` → `harmonization.seniority_bar_policy`
+- **Where the default came from:** our invention
+- **Why it matters:** `max` takes the highest bar any member states (a masters over a bachelors, 5 years over 3) and emits the representative qualification whose parsed bar matches — the conservative "the role needs at least the strongest stated bar" reading. ⚠ PROVISIONAL, to be calibrated post-run. `modal` takes the most common bar instead, which better reflects the typical member but can understate a genuinely senior role. The bar is read from the SAME parsers `build_job_signals` uses (`education_level_from_text` / `experience_years_from_text`), so it never manufactures a bar no member stated.
+- **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by mutation in the KSA seniority test (a cluster mixing a bachelors and a masters emits the masters qualification under `max` and the modal (bachelors) one under `modal`).
 
 ### Inherited hris calibration — not an SFU-published number
 

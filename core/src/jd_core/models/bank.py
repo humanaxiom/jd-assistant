@@ -137,6 +137,54 @@ class CanonicalRole(BaseModel):
     issue_count: int = Field(ge=0)
 
 
+# ---------- harmonization: the deterministic merge engine (Phase 4.1) ----------
+
+
+class MergeProvenance(BaseModel):
+    """Verifiable provenance for one harmonized draft — computed BEFORE any model
+    touches the text (Phase 4.1). Frozen: it is an audit record, not a scratchpad.
+
+    Every member index here is a position in the engine's OWN canonical member
+    ordering (members sorted by content), never the caller's input order — that is
+    what lets :func:`~src.jd_core.bank.merge.merge_cluster` promise a byte-identical
+    draft + provenance for the same set of members in any order.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: How many member JDs fed this draft.
+    member_count: int = Field(ge=1)
+    #: ``(skill, members_requiring_it)`` most-common-first — from
+    #: :func:`~src.jd_core.bank.provenance.skill_frequency`.
+    skill_frequency: tuple[tuple[str, int], ...] = ()
+    #: A deduped duty statement -> the number of distinct members it was drawn from.
+    duty_coverage: tuple[tuple[str, int], ...] = ()
+    #: Which member indices fed each chosen scalar/text section: ``(section, indices)``.
+    section_contributors: tuple[tuple[str, tuple[int, ...]], ...] = ()
+    #: HR-eyeball flags (never an auto-fix): ``grade_disagreement``,
+    #: ``employee_group_disagreement``, ``duties_over_max``, ``no_core_skills``,
+    #: ``single_member``, and ``sections_not_merged`` (a member carried content in a
+    #: section 4.1 does not merge — decision_making / problem_solving / relationships /
+    #: position_number — so the draft dropped it; the 4.4 reviewer is told, not
+    #: surprised). Kept as an open, extensible tuple.
+    flags: tuple[str, ...] = ()
+
+
+class MergedRole(BaseModel):
+    """A cluster harmonized into a single **draft** JD + its provenance.
+
+    Non-negotiable #1: the draft is NOT approved and NOT canonical — it is the pure,
+    attributable starting point a human reviewer (4.4) and the LLM rewrite pass (4.2)
+    act on. Nothing here publishes anything.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: The harmonized draft (a plain ``SFUJobDescription`` — a draft, never canonical).
+    draft: SFUJobDescription
+    provenance: MergeProvenance
+
+
 # ---------- Hay-factor signals (advisory — NEVER a grade) ----------
 
 HAY_SIGNALS_VERSION = "hay_signals_v1"

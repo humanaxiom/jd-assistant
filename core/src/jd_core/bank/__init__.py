@@ -54,6 +54,7 @@ from src.jd_core.bank.embed_text import (
     serialize_section,
 )
 from src.jd_core.bank.hay_signals import estimate_hay_signals
+from src.jd_core.bank.merge import merge_cluster
 from src.jd_core.bank.provenance import skill_frequency
 from src.jd_core.bank.render import render_sfu_jd_text
 from src.jd_core.bank.signals import (
@@ -93,6 +94,7 @@ __all__ = [
     "education_ordinal",
     "estimate_hay_signals",
     "experience_years_from_text",
+    "merge_cluster",
     "normalize_title",
     "render_sfu_jd_text",
     "score_job_similarity",
