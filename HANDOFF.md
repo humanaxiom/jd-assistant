@@ -1,8 +1,17 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-17 (**Phase 4 STARTED — 4.1 merge engine MERGED + calibrated; 4.2 next.**
-4.1 follow-ups #1 (calibrate) + #3 (runner) DONE this session: the new read-only `jd_bank/harmonize/`
+Last updated: 2026-07-17 (**Phase 4 — 4.1 merge engine MERGED + calibrated; 4.2a rewrite pass MERGED
+(PR #49); 4.2b next.** 4.2a is Phase 4's FIRST LLM pass: `jd_bank/rewrite/harmonize.py`
+rewords the deterministic 4.1 merge draft into cleaner prose via self-hosted Ollama
+(`gpt-oss:120b` on `aria-gb10-2`) under an **anti-fabrication guard** — output is an explicit DRAFT
+scored by the validator, nothing auto-publishes. Reusable LLM scaffolding landed: `jd_bank/llm/`
+`ChatClient` (JSON mode, deterministic temp 0.0, never-retry-400, model from `rules.rewrite.model`)
++ prompt loader (ported `jd_harmonize_v1`). New **UNHASHED** `rewrite.yaml` (HR-176..184, all `open`,
+provisional — calibrate at 4.5 pilot). Reviewer (Opus) APPROVED after one must-fix: `_flatten_jd`
+dropped the Relationships section from the validator's text so a coded term the LLM wrote there was
+invisible to the oracle — fixed + mutation-pinned. Gates **1615 passing, 93.72%**.
+4.1 follow-ups #1 (calibrate) + #3 (runner) DONE: the read-only `jd_bank/harmonize/`
 runner measured the merge over **1,801 JDFN clusters**; the 9 `harmonization.yaml` knobs are now
 registered with measured evidence — **one default moved (`max_duties` 10 → 12**, aligned to the
 model's 12-duty cap; `duties_over_max` flag 20.8% → 4.8%), the other 8 kept as measured-well-placed.
@@ -569,11 +578,21 @@ acceptance / out-of-scope).
 - **4.1 calibration + runner — DONE (this session).** The `jd_bank/harmonize/` measurement runner and
   the knob calibration (follow-ups #1/#3). One default moved (`max_duties` 10 → 12), 8 kept with
   measured evidence in the register. `docs/harmonize/summary.json` is the measurement of record.
-- **4.2 rewrite passes — NEXT.** hris prompts (`sfu_jd_extract` / `jd_harmonize` / `jd_quality`);
-  prompt + post-check + retry + anti-fabrication guard; validator-as-oracle snapshot tests. **No
-  LLM client or prompt loader exists yet** — that scaffolding is part of 4.2. ⚠ **The live golden
-  test must be opt-in and local-only** (CI cannot reach `aria-gb10-2`; see the Ollama gotcha). The
-  merge engine gives 4.2 a grounded, attributable draft to rewrite rather than free-associate.
+- **4.2a harmonize rewrite pass — DONE (PR #49).** LLM scaffolding (`jd_bank/llm/` `ChatClient` +
+  prompt loader, ported `jd_harmonize_v1`) + the consumer `jd_bank/rewrite/harmonize.py::rewrite_merged_role`:
+  feeds the GROUNDED 4.1 draft (not raw members), anti-fabrication guard scrubs ungrounded
+  skill/knowledge/ability quals + flags invented duties, scores via the validator → frozen
+  `RewrittenDraft` (no approval field, NN #1). `rewrite.yaml` REGISTERED + UNHASHED (wording ≠
+  scoring; not in `rules_version`), HR-176..184 all `open`/`our_invention`, PROVISIONAL. Live golden
+  opt-in/local-only (`make rewrite-golden`). Task file: `docs/tasks/phase-4.2a-harmonize-rewrite.md`.
+- **4.2b quality audit pass — NEXT.** Port `jd_quality_v1` (nuanced inclusive-language / clarity /
+  seniority-mismatch audit with **verbatim-evidence anti-fab scrub** — an issue whose `evidence`
+  quote is not found in the JD is dropped). Reuses 4.2a's `ChatClient` + prompt loader. Structural/
+  quantitative problems stay with the deterministic validator; the LLM does the NUANCED layer only.
+  ⚠ Live golden opt-in/local-only. **Also decide (reviewer follow-up from 4.2a):** whether to extend
+  the anti-fabrication guard to the structural bars (`education`/`experience`/`security` quals) — 4.2a
+  scrubs only skill/knowledge/ability, so an LLM inflating "Bachelor's → PhD" passes through today
+  (same class as the 4.1 experience-bar-inflation defect). Register `open` if added.
 - **4.3** change-log/diff (render via `bank/render.py`); **4.4** review queue (FastAPI + minimal UI
   + audit-log); **4.5** pilot 5–10 clusters with a real HR reviewer.
 
