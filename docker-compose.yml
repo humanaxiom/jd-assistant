@@ -365,6 +365,38 @@ services:
       postgres: { condition: service_healthy }
     command: ["python", "-m", "src.jd_bank.harmonize"]
 
+  # ─── Phase-4.4a canonical-draft producer (WRITES DRAFT canonical_jds) ──────
+  # Drive the Phase-4 pipeline over the real JDFN role clusters (recomputed in-process
+  # from the `dedup_edges` graph) and PERSIST the result as DRAFT `canonical_jds` rows —
+  # the 4.4 review work-list. UNLIKE `harmonize` this WRITES to Postgres (clusters /
+  # canonical_jds / audit_log). Idempotent + never clobbers a reviewer-touched canonical;
+  # NOTHING publishes (non-negotiable #1). Needs Postgres (parsed_jds + dedup_edges — run
+  # `make ingest`, `make near-dup`, `make dedup-role` first); no Neo4j (clustering is over
+  # the edge graph). The FULL pipeline (4.2a rewrite + 4.2b audit) needs a reachable Ollama
+  # on `aria-gb10-2` (OLLAMA_BASE_URL, from `*app_env`, ADR-003) — so the real run is
+  # LOCAL-ONLY; `CANONICAL_ARGS="--no-llm"` persists the deterministic 4.1 merge draft only
+  # and needs no model endpoint.
+  #
+  #   make canonical-drafts
+  #   make canonical-drafts CANONICAL_ARGS="--no-llm"
+  #   make canonical-drafts CANONICAL_ARGS="--limit 500"
+  #
+  # Not started by `up` (profile: tools). The COMMITTED artifact
+  # (docs/canonical/summary.json) carries COUNTS + STAMPS only — never JD text.
+  canonical:
+    profiles: ["tools"]
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    environment:
+      <<: *app_env
+    volumes:
+      - ./core:/app
+      - ./docs/canonical:/committed
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: ["python", "-m", "src.jd_bank.canonical"]
+
   # ─── Phase-4.2a LLM rewrite golden (opt-in, LOCAL-ONLY) ────────────────────
   # Runs the live rewrite golden against the REAL chat model on `aria-gb10-2`
   # (OLLAMA_BASE_URL, ADR-003) — NEVER part of `make gates` / CI (a cloud runner cannot
