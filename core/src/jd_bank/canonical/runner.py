@@ -264,9 +264,18 @@ async def _process_cluster(
     jdfn_ids = [mid for mid, _ in jdfn_pairs]
     jdfn_members = [jd for _, jd in jdfn_pairs]
 
-    # 1. NO-CLOBBER — look up any existing canonical for this cluster FIRST.
+    # 1. NO-CLOBBER — look up the LATEST existing canonical for this cluster FIRST.
+    # `order_by(version desc)` so a cluster that a reviewer edit (4.4b) has grown a v2
+    # on
+    # resolves to the NEWEST version, never a stale v1 — the multi-version follow-up
+    # 4.4a
+    # deferred. The newest version is the one that carries the reviewer's EDIT action,
+    # so
+    # the reviewer-touched check below sees it and the producer leaves the edit alone.
     existing = await session.scalar(
-        select(CanonicalJD).where(CanonicalJD.cluster_id == cluster_id)
+        select(CanonicalJD)
+        .where(CanonicalJD.cluster_id == cluster_id)
+        .order_by(CanonicalJD.version.desc())
     )
     if existing is not None:
         action_count = await session.scalar(
