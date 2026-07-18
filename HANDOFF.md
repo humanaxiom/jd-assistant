@@ -1,8 +1,24 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-18 (**Phase 4 — 4.1 merge engine MERGED + calibrated; 4.2a rewrite pass MERGED
-(PR #49); 4.2b quality-audit pass MERGED (PR #51); 4.3 change-log/diff MERGED (PR #52); 4.4 next.**
+Last updated: 2026-07-18 (**Phase 4 — 4.1 merge MERGED + calibrated; 4.2a rewrite MERGED (PR #49);
+4.2b quality-audit MERGED (PR #51); 4.3 change-log/diff MERGED (PR #52); 4.4a canonical-draft
+PRODUCER MERGED (PR #53); 4.4b next.** 4.4a is the first slice of the review queue:
+`jd_bank/canonical/runner.py::run_canonical_producer` drives the full Phase-4 pipeline per JDFN
+cluster (4.1→4.2a→4.2b→4.3→validator) and PERSISTS a DRAFT `canonical_jds` row — the work-list 4.4b/4.4d
+consume. NOTHING publishes (NN #1; draft's `GateDecision.approved=False` while gates block). IDEMPOTENT
+(clusters upserted on the stable `cluster_id_for` uuid5; canonical refreshed in place). **NO-CLOBBER**
+(a canonical with `status!=DRAFT` OR any `review_actions` row is left byte-identical + counted
+`skipped_reviewer_touched` — never overwrites/cascade-deletes a human artifact; mutation-pinned both
+halves). APPEND-ONLY `audit_log` per persist/refresh/skip. Best-effort LLM INJECTED + mockable
+(`client=None`→deterministic merge draft; per-cluster failure isolates via SAVEPOINT, pinned by
+fault-injection). Roll-up + 4.3 diff + provenance live in `canonical_jds.change_log`;
+`validation_report_id`=NULL (validation_reports is parsed_jd-keyed). No new knob. Reviewer (Opus)
+APPROVED after one must-fix (untested SAVEPOINT branch) + focused confirm. Gates **1678, 93.41%**.
+**Two follow-ups (see 4.4 Next-up):** split `rewrite_client`/`audit_client` before the two LLM YAMLs
+diverge; multi-version no-clobber lookup for 4.4b. 4.4 slicing (user-chosen): producer→service→routes→
+server-rendered UI. 4.3 is the harmonization CHANGE-LOG / per-source diff:
+`jd_core/bank/change_log.py::build_harmonization_diff`
 4.3 is the harmonization CHANGE-LOG / per-source diff: `jd_core/bank/change_log.py::build_harmonization_diff`
 — pure/deterministic/order-invariant, no LLM/DB, gives the 4.4 reviewer a per-source diff (which
 sections each member fed; duties kept vs folded/dropped) + a "removed content and why" change log.
@@ -631,11 +647,32 @@ acceptance / out-of-scope).
   `removed` list is NOT exhaustive over the KSA rebuild's incidental non-core-skill drops** — those are
   deliberately outside `RemovedReason`, visible instead via `MergeProvenance.skill_frequency` (noted in
   the `change_log.py` docstring); the runner/4.4 UI should surface skill_frequency alongside `removed`.
-- **4.4** review queue (FastAPI + minimal UI + audit-log); **4.5** pilot 5–10 clusters with a real HR
-  reviewer. **4.4 is NEXT** — assembles the reviewer surface: cluster view, the 4.3 draft-vs-sources
-  diff + `removed` change-log, the ValidationReport (validator is the oracle), approve/edit/reject with
-  a mandatory written reason on any blocking-gate override (`GateOverride`, NN #1). hris `routes/jd_bank.py`
-  + `jd_bank_service.py` are the API/behaviour reference; nothing publishes without human approval.
+- **4.4 review queue — decomposed (user-chosen slicing): producer → service → routes → server-rendered UI.**
+  - **4.4a canonical-draft PRODUCER — DONE (PR #53).** See header. Clusters → persisted DRAFT `canonical_jds`.
+    Task file: `docs/tasks/phase-4.4a-canonical-draft-producer.md`.
+  - **4.4b review SERVICE + audit — NEXT.** The domain layer over the persisted drafts (NO HTTP): list the
+    review queue (DRAFT canonicals needing eyes), assemble the reviewer packet (draft `content` + the 4.3
+    diff/`removed` change-log + validator roll-up/`GateDecision`, all already in `change_log`), and the
+    decision operations — approve / reject / edit / override — writing `canonical_jds` status transitions +
+    `review_actions` + **append-only** `audit_log`. **The invariant spine:** nothing publishes without an
+    explicit human approve (NN #1); approval BLOCKED while gates block unless a blocking gate is overridden
+    with a **written reason** (`GateOverride` won't construct without one; the `review_actions.reason` NOT-NULL
+    is enforced in the service). hris `apps/api/services/jd_bank_service.py` is the behaviour reference (the
+    Neo4j recall ports; the write path is JD Bank's own tables). Integration-test the transitions + the
+    append-only audit against real Postgres (testcontainers). **Fold in 4.4a follow-up:** the multi-version
+    no-clobber lookup (`order_by(version desc)`) — 4.4b is where a v2 first appears (edit → new version).
+  - **4.4c FastAPI routes** — thin HTTP over 4.4b (TestClient-tested), hung off `core/src/api/main.py`
+    (the existing harness app) or a JD-Bank router; reviewer identity = a caller-supplied string for the
+    pilot (no SFU SSO — the `review_actions.reviewer_id` column already models it).
+  - **4.4d server-rendered UI** (user-chosen: minimal, LAST slice) — queue list → cluster detail (draft +
+    diff + validation report + approve/edit/reject/override buttons). No JS build step.
+  - **4.5** pilot 5–10 clusters with a real HR reviewer; feedback → fixtures/rules.
+- **4.4a follow-up (do before the live producer output is trusted): split the injected LLM `client` into
+  `rewrite_client`/`audit_client`.** Today `rewrite.yaml` and `quality.yaml` are both `gpt-oss:120b`/`0.0`
+  so a single client is byte-identical; the moment `quality.yaml`'s model/temp is retuned, the audit would
+  silently run under the rewrite model while `QualityAudit.model`/`summary.quality_model` claim the quality
+  model — a provenance lie (NN #6). Split before that divergence (or gate the two YAMLs so they can't diverge
+  while one client is used). Register nothing new; it is a wiring change.
 
 **Follow-ups 4.2b created:**
 - **Structural-bar inflation guard (DEFERRED, its own task).** Decided in 4.2b, NOT implemented: the
