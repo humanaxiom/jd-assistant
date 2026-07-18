@@ -185,6 +185,89 @@ class MergedRole(BaseModel):
     provenance: MergeProvenance
 
 
+# ---------- harmonization change-log / per-source diff (Phase 4.3) ----------
+
+#: Why a piece of member content is absent from the harmonized draft. Every value is a
+#: DROP the merge (or the optional rewrite scrub) actually made, never a policy verdict:
+#: ``duty_deduplicated`` — a member duty folded onto another member's near-identical
+#: representative; ``duty_dropped_over_max`` — a member duty the ``max_duties`` cap
+#: dropped (only reachable when the ``duties_over_max`` flag is set);
+#: ``section_not_merged`` — content in a section 4.1 does not merge (decision_making /
+#: problem_solving / relationships / position_number); and
+#: ``qualification_scrubbed_ungrounded`` — a rewrite-stage qualification the guard
+#: dropped as ungrounded (not tied to a member).
+RemovedReason = Literal[
+    "duty_deduplicated",
+    "duty_dropped_over_max",
+    "section_not_merged",
+    "qualification_scrubbed_ungrounded",
+]
+
+
+class RemovedContent(BaseModel):
+    """One piece of member content the harmonization dropped, with the reason — so
+    nothing vanishes silently (non-negotiable #6). Frozen: an audit artifact."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: The dropped content, verbatim.
+    content: str
+    #: Why it is not in the draft (see :data:`RemovedReason`).
+    reason: RemovedReason
+    #: The canonical member index it came from, or ``None`` for a rewrite-stage scrub
+    #: not tied to any single member.
+    member_index: int | None = None
+
+
+class SourceContribution(BaseModel):
+    """How ONE cluster member fed the harmonized draft: which scalar/text sections it
+    contributed, and which of its duties survived vs were folded/dropped. Frozen.
+
+    ``member_index`` is the merge's OWN canonical member index (the same order
+    :class:`MergeProvenance.section_contributors` uses), never the caller's input
+    order — so this and the provenance point at the same member.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: Position in the merge's canonical member ordering.
+    member_index: int
+    #: This member's own title (the source, not the merged draft's title).
+    title: str
+    #: Scalar/text sections this member fed (from ``section_contributors``).
+    contributed_sections: tuple[str, ...] = ()
+    #: This member's duty statements that survived VERBATIM as a draft duty.
+    duties_kept: tuple[str, ...] = ()
+    #: This member's duty statements that did NOT survive verbatim (folded onto another
+    #: member's representative, or dropped by the ``max_duties`` cap).
+    duties_folded_or_dropped: tuple[str, ...] = ()
+
+
+class HarmonizationDiff(BaseModel):
+    """The legibility artifact for one harmonized draft (Phase 4.3): the rendered
+    draft, the per-source contribution breakdown, and the "removed content and why"
+    change log.
+
+    Descriptive, never a decision (non-negotiable #1): there is NO approval /
+    canonical / published / score field. Pure + deterministic + order-invariant — the
+    same cluster in any input order yields a byte-identical diff. Frozen: an audit
+    artifact.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: The draft rendered to text for human display (``render_sfu_jd_text`` — display
+    #: only, never re-parsed).
+    rendered_draft: str
+    #: One entry per member, in canonical order.
+    per_source: tuple[SourceContribution, ...] = ()
+    #: Every dropped piece of member content, with its reason.
+    removed: tuple[RemovedContent, ...] = ()
+    #: Rewrite-stage duties FLAGGED (low overlap) — kept in the draft, surfaced for the
+    #: reviewer. Flagged ≠ removed: a flagged duty is NOT in :attr:`removed`.
+    flagged_duties: tuple[str, ...] = ()
+
+
 # ---------- LLM rewrite pass (Phase 4.2a) — still a DRAFT ----------
 
 

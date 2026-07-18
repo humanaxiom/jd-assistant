@@ -73,6 +73,64 @@ def _jaccard(a: frozenset[str], b: frozenset[str]) -> float:
     return len(a & b) / len(union)
 
 
+# --- shared couplings: the canonical member order + the actual duty-group fate -------
+#
+# These are PUBLIC so the change-log generator (``bank/change_log.py``) consumes the
+# SAME ordering and the SAME duty grouping the merge does — one rulebook fact, one home.
+# This repo has been bitten by a second copy of the tokenizer/ordering that silently
+# disagrees; ``merge_cluster`` and the diff MUST route through exactly these.
+
+
+def canonical_member_order(
+    members: Sequence[SFUJobDescription],
+) -> list[SFUJobDescription]:
+    """The merge's canonical member ordering: members sorted by their own JSON content,
+    so it is independent of the caller's input order. EVERY "member index" in a
+    :class:`~src.jd_core.models.bank.MergeProvenance` (and in a
+    :class:`~src.jd_core.models.bank.HarmonizationDiff`) is a position in THIS order."""
+    return sorted(members, key=lambda jd: jd.model_dump_json())
+
+
+def dropped_duty_occurrences(
+    ordered: Sequence[SFUJobDescription], harmon: Harmonization
+) -> frozenset[tuple[int, str]]:
+    """The ``(member_index, statement)`` duty occurrences whose group the ``max_duties``
+    cap DROPPED — the merge's ACTUAL group fate, not a re-derived Jaccard proxy.
+
+    This is the authoritative "dropped vs merely folded" verdict for the change-log: an
+    occurrence is here IFF its duty group is one of the low-coverage groups sliced off
+    by the cap. A member duty that folded onto a SURVIVING group's representative is NOT
+    here, even when that representative drifted below the dedup threshold from it (the
+    greedy grouping matches the group SEED, but the representative is re-picked by
+    richest ``how_why`` — so ``jaccard(member_duty, representative)`` cannot tell them
+    apart; only the real group fate can). Shares :func:`_resolve_duty_groups` with
+    :func:`_merge_duties`, so the diff and the draft can never disagree on which duties
+    the cap cut.
+    """
+    resolved = _resolve_duty_groups(ordered, harmon)
+    dropped = resolved[harmon.max_duties :]
+    return frozenset(occ for group in dropped for occ in group.occurrences)
+
+
+def unmerged_content(jd: SFUJobDescription) -> list[str]:
+    """The actual content pieces a member carries in a section 4.1 does NOT merge —
+    decision_making / problem_solving / relationships / position_number — verbatim and
+    in a deterministic order. Empty iff the member has nothing in those sections; that
+    emptiness is exactly the ``sections_not_merged`` trigger (see
+    :func:`_has_unmerged_content`). Relationships count only when they carry a real
+    value (a present-but-empty ``SFURelationships`` is not content)."""
+    pieces: list[str] = list(jd.decision_making) + list(jd.problem_solving)
+    rel = jd.relationships
+    if rel is not None:
+        if rel.supervisory:
+            pieces.append(rel.supervisory)
+        pieces += list(rel.internal)
+        pieces += list(rel.external)
+    if jd.position_number:
+        pieces.append(jd.position_number)
+    return pieces
+
+
 # --- section selection: scalars / text ---------------------------------------------
 
 
@@ -211,16 +269,29 @@ class _DutyGroup:
     rep_tokens: frozenset[str]
 
 
-def _merge_duties(
-    ordered: Sequence[SFUJobDescription], harmon: Harmonization
-) -> tuple[list[SFUDuty], tuple[tuple[str, int], ...], bool]:
-    """Union every duty, dedup near-identical STATEMENTS by token-Jaccard, keep a
-    deterministic representative per group, reorder by member-coverage.
+@dataclass
+class _ResolvedDutyGroup:
+    """A finalized duty group: its verbatim representative, its member-coverage, and the
+    ``(member_index, statement)`` occurrences that fell into it. Ordered position in the
+    resolved list is coverage-desc then statement — so ``[:max_duties]`` are the
+    survivors and ``[max_duties:]`` are exactly the groups the cap drops."""
 
-    Returns ``(duties, coverage, over_max)``. Statements are carried verbatim on the
-    representative (richest ``how_why``, then longest statement); %-rebalance is out of
-    scope. If the deduped duties exceed ``max_duties`` the top-by-coverage survive and
-    ``over_max`` is set (the caller flags ``duties_over_max`` — never a silent drop).
+    representative: SFUDuty
+    coverage: int
+    occurrences: tuple[tuple[int, str], ...]
+
+
+def _resolve_duty_groups(
+    ordered: Sequence[SFUJobDescription], harmon: Harmonization
+) -> list[_ResolvedDutyGroup]:
+    """Union every duty, dedup near-identical STATEMENTS by token-Jaccard, pick a
+    deterministic representative per group, and return the groups ordered by
+    member-coverage (desc) then statement.
+
+    The SINGLE home of the merge's duty grouping — :func:`_merge_duties` (the draft) and
+    :func:`dropped_duty_occurrences` (the change-log's drop verdict) both consume this,
+    so they can never disagree. Representative = richest ``how_why``, then longest
+    statement, carried verbatim; %-rebalance is out of scope.
     """
     occ: list[tuple[int, SFUDuty]] = [
         (i, d) for i, jd in enumerate(ordered) for d in jd.duties
@@ -239,7 +310,7 @@ def _merge_duties(
         else:
             groups.append(_DutyGroup(items=[(i, duty)], members={i}, rep_tokens=toks))
 
-    built: list[tuple[SFUDuty, int]] = []
+    resolved: list[_ResolvedDutyGroup] = []
     for group in groups:
         _, rep = max(
             group.items,
@@ -250,21 +321,41 @@ def _merge_duties(
                 it[0],
             ),
         )
-        built.append((rep, len(group.members)))
-    built.sort(key=lambda b: (-b[1], b[0].statement))
+        resolved.append(
+            _ResolvedDutyGroup(
+                representative=rep,
+                coverage=len(group.members),
+                occurrences=tuple((i, d.statement) for i, d in group.items),
+            )
+        )
+    resolved.sort(key=lambda g: (-g.coverage, g.representative.statement))
+    return resolved
 
-    over_max = len(built) > harmon.max_duties
-    kept = built[: harmon.max_duties]
+
+def _merge_duties(
+    ordered: Sequence[SFUJobDescription], harmon: Harmonization
+) -> tuple[list[SFUDuty], tuple[tuple[str, int], ...], bool]:
+    """Union every duty, dedup near-identical STATEMENTS by token-Jaccard, keep a
+    deterministic representative per group, reorder by member-coverage.
+
+    Returns ``(duties, coverage, over_max)``. Statements are carried verbatim on the
+    representative (richest ``how_why``, then longest statement); %-rebalance is out of
+    scope. If the deduped duties exceed ``max_duties`` the top-by-coverage survive and
+    ``over_max`` is set (the caller flags ``duties_over_max`` — never a silent drop).
+    """
+    resolved = _resolve_duty_groups(ordered, harmon)
+    over_max = len(resolved) > harmon.max_duties
+    kept = resolved[: harmon.max_duties]
     duties = [
         SFUDuty(
-            action_verb=rep.action_verb,
-            statement=rep.statement,
-            how_why=list(rep.how_why),
-            frequency=rep.frequency,
+            action_verb=group.representative.action_verb,
+            statement=group.representative.statement,
+            how_why=list(group.representative.how_why),
+            frequency=group.representative.frequency,
         )
-        for rep, _ in kept
+        for group in kept
     ]
-    coverage = tuple((rep.statement, count) for rep, count in kept)
+    coverage = tuple((group.representative.statement, group.coverage) for group in kept)
     return duties, coverage, over_max
 
 
@@ -533,7 +624,7 @@ def merge_cluster(
         raise ValueError("cannot merge an empty cluster: there is no title to draft")
 
     harmon = active.harmonization
-    ordered = sorted(members, key=lambda jd: jd.model_dump_json())
+    ordered = canonical_member_order(members)
     sigs = [build_job_signals(jd, rules=active) for jd in ordered]
     n = len(ordered)
 
@@ -633,15 +724,7 @@ def _as_group(value: object | None) -> SFUEmployeeGroup | None:
 
 def _has_unmerged_content(jd: SFUJobDescription) -> bool:
     """Whether a member carries content in a section 4.1 does NOT merge — the trigger
-    for the ``sections_not_merged`` provenance flag. Relationships count only when they
-    carry a real value (a present-but-empty ``SFURelationships`` is not content)."""
-    rel = jd.relationships
-    rel_has_content = rel is not None and bool(
-        rel.supervisory or rel.internal or rel.external
-    )
-    return bool(
-        jd.decision_making
-        or jd.problem_solving
-        or rel_has_content
-        or jd.position_number
-    )
+    for the ``sections_not_merged`` provenance flag. The notion of "unmerged content"
+    is :func:`unmerged_content` (one home): the flag fires iff that content is
+    non-empty, so the change-log lists exactly what the flag warns about."""
+    return bool(unmerged_content(jd))

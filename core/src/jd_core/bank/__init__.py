@@ -37,6 +37,7 @@ otherwise; do not invent a skill source to make them callable.
 Everything in here is pure and deterministic, so it is unit-tested in isolation.
 """
 
+from src.jd_core.bank.change_log import build_harmonization_diff
 from src.jd_core.bank.clustering import build_clusters, cluster_label, cluster_metrics
 from src.jd_core.bank.drift import (
     DriftResult,
@@ -54,7 +55,12 @@ from src.jd_core.bank.embed_text import (
     serialize_section,
 )
 from src.jd_core.bank.hay_signals import estimate_hay_signals
-from src.jd_core.bank.merge import merge_cluster
+from src.jd_core.bank.merge import (
+    canonical_member_order,
+    dropped_duty_occurrences,
+    merge_cluster,
+    unmerged_content,
+)
 from src.jd_core.bank.provenance import skill_frequency
 from src.jd_core.bank.render import render_sfu_jd_text
 from src.jd_core.bank.signals import (
@@ -80,7 +86,9 @@ __all__ = [
     "DriftResult",
     "SerializedText",
     "build_clusters",
+    "build_harmonization_diff",
     "build_job_signals",
+    "canonical_member_order",
     "canonical_title",
     "classify_title",
     "classify_title_family",
@@ -89,6 +97,7 @@ __all__ = [
     "cluster_label",
     "cluster_metrics",
     "compute_drift",
+    "dropped_duty_occurrences",
     "education_level_from_quals",
     "education_level_from_text",
     "education_ordinal",
@@ -105,4 +114,5 @@ __all__ = [
     "skill_overlap",
     "supervisory_reports_from_text",
     "title_comma_supervisory",
+    "unmerged_content",
 ]
