@@ -73,7 +73,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.jd_core.models.parsed_jd import SFUJobDescription
-from src.jd_core.models.quality import JDGrade, JDQualityIssue
+from src.jd_core.models.quality import JDGrade, JDQualityFinding, JDQualityIssue
 
 # ---------- similarity: the "Similar roles" surface ----------
 
@@ -237,6 +237,47 @@ class RewrittenDraft(BaseModel):
     #: The prompt template version stamped from the loaded prompt (``prompt.version``).
     prompt_version: str
     #: The rulebook version the draft was scored under (``Rules.version``).
+    rules_version: str
+
+
+# ---------- LLM nuanced quality-audit pass (Phase 4.2b) — advisory only ----------
+
+
+class QualityAudit(BaseModel):
+    """The nuanced LLM quality audit of a JD — **advisory, never a score** (Phase 4.2b).
+
+    A self-hosted LLM reports only the three dimensions a regex validator cannot judge —
+    ``inclusive_language`` / ``clarity`` / ``seniority_mismatch`` — and every finding
+    must cite a VERBATIM quote from the JD. The anti-fabrication guard drops any finding
+    whose ``evidence`` is not found verbatim in the flattened JD
+    (:func:`~src.jd_bank.jd_text.flatten_jd`), recording it in :attr:`dropped` so a
+    fabricated citation is visible, not invisible.
+
+    Non-negotiables #1 / #3: there is NO score / grade / approval / canonical /
+    published / ``job_id`` / ``generated_at`` field here. The deterministic validator
+    remains the scoring oracle; this pass never competes with it. It emits advisory
+    *issues*, nothing persists (DB is 4.4), nothing publishes. Frozen: it is an audit
+    record, not a scratchpad. (Same trim discipline the module docstring documents for
+    ``CanonicalRole`` — the hris persistence/scoring fields are dropped.)
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: The surviving nuanced findings, each ``source="llm"`` and ``rule_id=None`` —
+    #: their ``evidence`` is a verbatim substring of the flattened JD.
+    issues: tuple[JDQualityIssue, ...] = ()
+    #: The findings the scrub REMOVED (ungrounded / missing evidence). The audit trail;
+    #: frozen evidence of what the guard dropped, not a scratchpad.
+    dropped: tuple[JDQualityFinding, ...] = ()
+    #: Whether the anti-fabrication scrub ran (``quality.anti_fabrication_enabled``).
+    #: When ``False`` every finding ships unscrubbed and :attr:`dropped` is empty —
+    #: recorded so a disabled guard is visible in the audit's own provenance.
+    anti_fabrication_enabled: bool
+    #: The chat model that produced the audit (``quality.model``).
+    model: str
+    #: The prompt template version stamped from the loaded prompt (``prompt.version``).
+    prompt_version: str
+    #: The rulebook version the audit ran under (``Rules.version``).
     rules_version: str
 
 

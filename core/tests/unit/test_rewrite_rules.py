@@ -82,7 +82,7 @@ def test_the_provisional_defaults_are_what_the_yaml_ships(rules: Rules) -> None:
 # --- registered, on the surface, unhashed ---------------------------------------
 
 
-def test_rewrite_is_the_sixth_unhashed_file(rules: Rules) -> None:
+def test_rewrite_is_an_unhashed_file(rules: Rules) -> None:
     assert loader._UNHASHED_FILES == {
         "decision_register.yaml",
         "segmentation.yaml",
@@ -90,6 +90,8 @@ def test_rewrite_is_the_sixth_unhashed_file(rules: Rules) -> None:
         "dedup.yaml",
         "harmonization.yaml",
         "rewrite.yaml",
+        # 4.2b added `quality.yaml` — the seventh unhashed file (test_quality_rules).
+        "quality.yaml",
     }
     assert "rewrite" not in loader._HASHED_FIELDS
 

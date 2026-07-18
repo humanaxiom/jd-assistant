@@ -140,6 +140,12 @@ HARMONIZATION_FILE: Final[str] = "harmonization.yaml"
 #: into ``rules_version`` (:data:`_UNHASHED_FILES`).
 REWRITE_FILE: Final[str] = "rewrite.yaml"
 
+#: How the LLM nuanced quality-AUDIT pass (Phase 4.2b) audits a JD for the three
+#: nuanced dimensions a regex validator cannot judge. Like ``rewrite.yaml`` it decides
+#: how a JD is *audited* (advisory), not how a JD is *scored/approved* — registered and
+#: on the surface but NOT hashed into ``rules_version`` (:data:`_UNHASHED_FILES`).
+QUALITY_FILE: Final[str] = "quality.yaml"
+
 #: The content-bearing SFU sections an embedding may be built from — the subset of
 #: :data:`~src.jd_core.models.quality.SFUSection` that carries free text at all.
 #: ``identification`` is structured columns, not prose; ``about_sfu`` /
@@ -1187,6 +1193,61 @@ class Rewrite(_RuleFile):
     #: Below it the duty is FLAGGED (recorded, never dropped — a duty may legitimately
     #: rephrase, so a low-overlap duty is an HR eyeball, not a scrub).
     duty_flag_threshold: float = Field(ge=0.0, le=1.0)
+
+
+class QualityAuditRules(_RuleFile):
+    """How the LLM nuanced quality-AUDIT pass audits a JD (``quality.yaml``, Phase
+    4.2b).
+
+    Named ``QualityAuditRules`` (not ``QualityAudit``) to avoid colliding with the
+    :class:`~src.jd_core.models.bank.QualityAudit` value object the pass PRODUCES. The
+    audit takes an already-parsed ``SFUJobDescription`` and has a self-hosted LLM report
+    only the three NUANCED dimensions a regex validator cannot judge —
+    inclusive_language / clarity / seniority_mismatch — each backed by a verbatim JD
+    quote. It is ADVISORY: it computes NO score and no grade (the deterministic
+    validator remains the oracle, non-negotiable #3), and nothing auto-publishes
+    (non-negotiable #1).
+
+    Every value here is ``our_invention`` and PROVISIONAL — SFU publishes no audit
+    policy, and hris merged+scored rule and LLM findings (no advisory-only audit policy
+    to inherit). These are STARTING values, to be calibrated at the 4.5 pilot; see the
+    YAML header + HR-185…HR-190. We do NOT claim measured evidence we do not have.
+    SEPARATE from ``rewrite.yaml``: the audit model is its own decision, so a
+    rewrite-policy change cannot silently move it.
+
+    **On the register, but NOT in the content hash** (:data:`_UNHASHED_FILES`) — the
+    seventh file in that category. A quality-AUDIT-policy change decides how a JD is
+    *audited* (advisory), never how a JD is *scored* or *approved*: the same class as
+    ``rewrite.yaml`` / ``harmonization.yaml``, so re-tuning an audit knob cannot make a
+    single JD's ``ValidationReport`` look stale. Like those it carries NO ``stamp`` —
+    Phase 4.2b is an in-memory pass and nothing persists an audit-config identity yet.
+
+    Shaped **flat**, like the other measured files and for the same reason
+    (:data:`_FLAT_SURFACE_FILES`): every knob lands on the decision surface when it is
+    declared, and :func:`check_register` breaks the build until it is registered.
+    """
+
+    #: The chat model that audits the JD (HR-185). A rulebook decision — NEVER
+    #: ``settings.agent_model`` — and SEPARATE from ``rewrite.model``. Available on the
+    #: host today: gpt-oss:120b, gpt-oss:20b, qwen3.5:latest, gemma4:26b, llama4:latest.
+    model: str = Field(min_length=1)
+    #: Sampling temperature passed to the chat API (HR-186). ``0.0`` -> deterministic
+    #: (an audit should be reproducible, not a brainstorm).
+    temperature: float = Field(ge=0.0, le=2.0)
+    #: Token budget for one audit completion (HR-187). 1024 mirrors hris for this pass.
+    max_tokens: int = Field(gt=0)
+    #: How many times an INVALID-JSON / schema-mismatch response is re-requested with a
+    #: terse repair nudge before :class:`LLMOutputInvalidError` (HR-188). Transient
+    #: network/5xx retries are separate and fixed in the client.
+    max_retries: int = Field(ge=0)
+    #: Which prompt template the audit loads (HR-190). Names the versioned template
+    #: pair under ``jd_bank/llm/templates/`` (``<name>.system.j2`` + ``.user.j2``); the
+    #: loaded template's own version is what stamps ``QualityAudit.prompt_version``.
+    prompt_version: str = Field(min_length=1)
+    #: Whether the anti-fabrication (verbatim-evidence) guard runs at all (HR-189).
+    #: ``false`` keeps every finding UNSCRUBBED — the escape hatch, registered so
+    #: flipping it cannot be quiet.
+    anti_fabrication_enabled: bool
 
 
 class Patterns(_RuleFile):
@@ -2740,6 +2801,9 @@ class Rules(BaseModel):
     harmonization: Harmonization
     #: On the register, but NOT in the content hash — see :class:`Rewrite` (Phase 4.2a).
     rewrite: Rewrite
+    #: On the register, but NOT in the content hash — see :class:`QualityAuditRules`
+    #: (Phase 4.2b).
+    quality: QualityAuditRules
     decision_register: DecisionRegister
 
     @property
@@ -3203,6 +3267,7 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "wjq",
     "harmonization",
     "rewrite",
+    "quality",
 )
 
 
@@ -3421,6 +3486,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     (WJQ_FILE, "wjq", Wjq),
     (HARMONIZATION_FILE, "harmonization", Harmonization),
     (REWRITE_FILE, "rewrite", Rewrite),
+    (QUALITY_FILE, "quality", QualityAuditRules),
     (REGISTER_FILE, "decision_register", DecisionRegister),
 )
 
@@ -3451,6 +3517,7 @@ _UNHASHED_FILES: Final[frozenset[str]] = frozenset(
         DEDUP_FILE,
         HARMONIZATION_FILE,
         REWRITE_FILE,
+        QUALITY_FILE,
     }
 )
 

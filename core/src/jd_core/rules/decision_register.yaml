@@ -5339,6 +5339,144 @@ decisions:
       flags a duty that shared some overlap, and disabling the guard clears the flags).
     status: open
 
+  # ── LLM nuanced QUALITY-AUDIT pass (Phase 4.2b). HR-185…HR-190.
+  # Every default is our_invention and PROVISIONAL — SFU publishes no audit policy and hris
+  # merged+scored rule and LLM findings (no advisory-only audit policy to inherit). These are
+  # STARTING values, to be calibrated at the 4.5 pilot; NOT backed by measured evidence we do
+  # not yet have. They live in the UNHASHED `quality.yaml` (a quality-AUDIT-policy change
+  # decides how a JD is AUDITED — advisory — not how a JD is SCORED). SEPARATE file from
+  # rewrite.yaml so a rewrite-policy change cannot silently move the audit model.
+  - id: HR-185
+    question: >-
+      Which self-hosted chat model should run the nuanced quality audit of a JD?
+    config:
+      file: quality.yaml
+      path: quality.model
+    current_default: gpt-oss:120b
+    provenance: our_invention
+    why_it_matters: >-
+      The audit pass asks the model to return the JDQualityFindings schema as JSON, each
+      finding backed by a verbatim JD quote, so JSON-schema adherence and quote fidelity
+      matter most. `gpt-oss:120b` is the strongest general instruct on `aria-gb10-2` today
+      (available alternatives: gpt-oss:20b, qwen3.5:latest, gemma4:26b, llama4:latest). It is
+      a RULEBOOK decision, NOT `settings.agent_model` (the harness's own coder-agent model),
+      and a SEPARATE decision from the rewrite model (`rewrite.model`, HR-176) — a
+      rewrite-policy change must not silently move the audit model, which is why this is its
+      own file. PROVISIONAL — pick the model that best holds the schema and grounds its
+      quotes at the 4.5 pilot; no comparative measurement exists yet.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (quality.yaml is unhashed). Changes only which model
+      audits the JD; the audit is advisory and the anti-fabrication guard still drops
+      ungrounded findings. Pinned by mutation in the client model-source test
+      (quality.model, rewrite.model and settings.agent_model are THREE DISTINCT strings; the
+      audit's call must carry quality.model).
+    status: open
+
+  - id: HR-186
+    question: >-
+      At what sampling temperature should the quality-audit model run?
+    config:
+      file: quality.yaml
+      path: quality.temperature
+    current_default: 0.0
+    provenance: our_invention
+    why_it_matters: >-
+      An audit should be REPRODUCIBLE — the same JD yields the same findings on a re-run, so
+      an audit trail is meaningful — not a brainstorm. `0.0` picks the greedy decode. Raising
+      it trades reproducibility for finding variety, a decision to make deliberately, not a
+      default to drift. PROVISIONAL.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Pinned by mutation in the client generalization test
+      (the temperature passed to the chat API is the audit override `quality.temperature`; a
+      fake asserts the exact value flows through, so a hardcoded temperature goes red).
+    status: open
+
+  - id: HR-187
+    question: >-
+      What token budget should one quality-audit completion get?
+    config:
+      file: quality.yaml
+      path: quality.max_tokens
+    current_default: 1024
+    provenance: our_invention
+    why_it_matters: >-
+      The nuanced findings list must fit in one completion; too small truncates the JSON
+      (which then fails to parse and burns a retry). 1024 mirrors hris's value for THIS pass
+      (the findings list is far smaller than a full SFUJobDescription rewrite, which gets
+      2048). PROVISIONAL — size it against real audit outputs at the 4.5 pilot.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Operational headroom, not a policy lever on the findings
+      content. Pinned by mutation in the audit consumer test (the value the consumer reads
+      from `quality.max_tokens` is the one passed to `chat_json`).
+    status: open
+
+  - id: HR-188
+    question: >-
+      How many times should an invalid-JSON audit response be re-requested before the pass
+      gives up?
+    config:
+      file: quality.yaml
+      path: quality.max_retries
+    current_default: 1
+    provenance: our_invention
+    why_it_matters: >-
+      When the model returns JSON that does not parse or does not match the JDQualityFindings
+      schema, the client re-asks once with a terse repair nudge before raising
+      LLMOutputInvalidError. Transient network/5xx retries are SEPARATE (fixed in the client,
+      and a 400 is NEVER retried). 1 mirrors hris. Higher spends more inference on a model
+      that keeps missing the schema; 0 makes the first miss fatal. PROVISIONAL.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Pinned by mutation in the audit consumer test (the value
+      the consumer reads from `quality.max_retries` is the one passed to `chat_json`), and
+      the reused client's own discipline test asserts the retry/400 behaviour.
+    status: open
+
+  - id: HR-189
+    question: >-
+      Should the anti-fabrication (verbatim-evidence) guard run at all on the audit findings?
+    config:
+      file: quality.yaml
+      path: quality.anti_fabrication_enabled
+    current_default: true
+    provenance: our_invention
+    why_it_matters: >-
+      THE core safety of 4.2b. Every audit finding must cite a VERBATIM quote from the JD;
+      with the guard ON, any finding whose `evidence` is not a casefold substring of the
+      flattened JD (empty/None evidence included) is DROPPED and recorded in the audit's
+      `dropped` list — so a model that fabricates a quote cannot inject an ungrounded issue.
+      `false` keeps every finding unscrubbed — the escape hatch, registered so flipping it can
+      never be quiet. There is no reason to ship it off; it exists so a deliberate off-switch
+      is a visible, ratifiable decision rather than a code edit. The guard itself should stay
+      ON.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Pinned BY MUTATION (acceptance #2): with the guard on, a
+      fake LLM finding whose evidence is NOT in the JD is dropped and absent from `issues`;
+      flip this to `false` (and update this entry so the drift alarm stays silent) and a
+      BEHAVIOURAL assertion — the fabricated finding is absent — goes red, because it now
+      survives unscrubbed.
+    status: open
+
+  - id: HR-190
+    question: >-
+      Which prompt template should the quality-audit pass use?
+    config:
+      file: quality.yaml
+      path: quality.prompt_version
+    current_default: jd_quality_v1
+    provenance: our_invention
+    why_it_matters: >-
+      Names the versioned template pair under `jd_bank/llm/templates/`
+      (`jd_quality_v1.system.j2` + `.user.j2`, ported faithfully from hris). Its only variable
+      is `{{ jd_text }}` (the flattened JD). The loaded template's own version is what stamps
+      `QualityAudit.prompt_version`, so provenance traces to the exact wording. Swapping this
+      selects a different template version. PROVISIONAL — the prompt is refined at the 4.5
+      pilot, and each refinement is a new versioned template, not an in-place edit.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Pinned by mutation in the prompt-loader test (the loaded
+      prompt's `.version` is stamped onto `QualityAudit.prompt_version`; a missing `jd_text`
+      variable RAISES rather than shipping a `{{ jd_text }}` in the prompt).
+    status: open
+
 # ═════════════════════════════════════════════════════════════════════════════
 # TRIVIAL — on the decision surface, deliberately NOT a decision for HR.
 #
