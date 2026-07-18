@@ -1,8 +1,19 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-17 (**Phase 4 — 4.1 merge engine MERGED + calibrated; 4.2a rewrite pass MERGED
-(PR #49); 4.2b quality-audit pass MERGED (PR #51); 4.3 next.** 4.2b is Phase 4's SECOND LLM pass:
+Last updated: 2026-07-18 (**Phase 4 — 4.1 merge engine MERGED + calibrated; 4.2a rewrite pass MERGED
+(PR #49); 4.2b quality-audit pass MERGED (PR #51); 4.3 change-log/diff MERGED (PR #52); 4.4 next.**
+4.3 is the harmonization CHANGE-LOG / per-source diff: `jd_core/bank/change_log.py::build_harmonization_diff`
+— pure/deterministic/order-invariant, no LLM/DB, gives the 4.4 reviewer a per-source diff (which
+sections each member fed; duties kept vs folded/dropped) + a "removed content and why" change log.
+Drop-vs-dedup is authoritative from the merge's ACTUAL cap-dropped groups (`merge.dropped_duty_occurrences`),
+NOT a Jaccard proxy — the reviewer proved the proxy mislabels a duty that folds into a SURVIVING group
+but drifts from its re-picked representative; fixed + mutation-pinned both directions. `merge.py`
+exposes shared `canonical_member_order`/`dropped_duty_occurrences`/`unmerged_content` (one home);
+`merge_cluster` byte-identical. Frozen `HarmonizationDiff`, no approval/score field (NN #1); NO new
+knobs, `rules_version` untouched. Reviewer (Opus) APPROVED after one must-fix round + a focused
+mutation-verified confirm. Gates **1655 passing, 93.84%**. Follow-up: a `jd_bank/` runner to produce
+change-logs over real clusters (mirrors 4.1's measure-after runner). 4.2b is Phase 4's SECOND LLM pass:
 `jd_bank/quality/audit.py::audit_quality` — the NUANCED audit (`inclusive_language`/`clarity`/
 `seniority_mismatch`) with a **verbatim-evidence anti-fab scrub** (a finding whose `evidence` is not
 found verbatim in the JD is dropped). **Advisory — computes NO score/grade** (validator stays the
@@ -608,8 +619,23 @@ acceptance / out-of-scope).
   (guard-off ships the fabricated finding; flattener dropping a section reds the Relationships pin;
   wrong model source reds; un-hashing reds). Task file: `docs/tasks/phase-4.2b-quality-audit.md`.
   Gates **1641 passing, 93.76%**. Two follow-ups it created (see below).
-- **4.3** change-log/diff (render via `bank/render.py`); **4.4** review queue (FastAPI + minimal UI
-  + audit-log); **4.5** pilot 5–10 clusters with a real HR reviewer. **4.3 is NEXT.**
+- **4.3 change-log/diff — DONE (PR #52).** Pure `jd_core/bank/change_log.py::build_harmonization_diff(merged, members, *, rewrite=None)`
+  → frozen `HarmonizationDiff` (`rendered_draft` via `render.py` display-only, `per_source`
+  `SourceContribution`, `removed` `RemovedContent`, `flagged_duties`). Reuses the merge's exact
+  ordering + group fate (shared public `merge.canonical_member_order`/`dropped_duty_occurrences`/
+  `unmerged_content`; `merge_cluster` byte-identical). Optional 4.2a rewrite folding (scrubbed skills →
+  `removed`; flagged duties → `flagged_duties`, not removed). NO new knobs; `rules_version` untouched.
+  Task file: `docs/tasks/phase-4.3-change-log-diff.md`. **Follow-up:** a `jd_bank/` runner that loads
+  real clusters and writes a change-log artifact over the archive (out of scope in 4.3 — the pure
+  generator landed first, exactly as the 4.1 merge engine did before its measurement runner). **⚠ the
+  `removed` list is NOT exhaustive over the KSA rebuild's incidental non-core-skill drops** — those are
+  deliberately outside `RemovedReason`, visible instead via `MergeProvenance.skill_frequency` (noted in
+  the `change_log.py` docstring); the runner/4.4 UI should surface skill_frequency alongside `removed`.
+- **4.4** review queue (FastAPI + minimal UI + audit-log); **4.5** pilot 5–10 clusters with a real HR
+  reviewer. **4.4 is NEXT** — assembles the reviewer surface: cluster view, the 4.3 draft-vs-sources
+  diff + `removed` change-log, the ValidationReport (validator is the oracle), approve/edit/reject with
+  a mandatory written reason on any blocking-gate override (`GateOverride`, NN #1). hris `routes/jd_bank.py`
+  + `jd_bank_service.py` are the API/behaviour reference; nothing publishes without human approval.
 
 **Follow-ups 4.2b created:**
 - **Structural-bar inflation guard (DEFERRED, its own task).** Decided in 4.2b, NOT implemented: the
