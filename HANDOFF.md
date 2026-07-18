@@ -2,7 +2,16 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 Last updated: 2026-07-17 (**Phase 4 — 4.1 merge engine MERGED + calibrated; 4.2a rewrite pass MERGED
-(PR #49); 4.2b next.** 4.2a is Phase 4's FIRST LLM pass: `jd_bank/rewrite/harmonize.py`
+(PR #49); 4.2b quality-audit pass MERGED (PR #51); 4.3 next.** 4.2b is Phase 4's SECOND LLM pass:
+`jd_bank/quality/audit.py::audit_quality` — the NUANCED audit (`inclusive_language`/`clarity`/
+`seniority_mismatch`) with a **verbatim-evidence anti-fab scrub** (a finding whose `evidence` is not
+found verbatim in the JD is dropped). **Advisory — computes NO score/grade** (validator stays the
+oracle, NN #3); frozen `QualityAudit`, no approval field (NN #1). Reuses 4.2a's `ChatClient`
+(generalized with optional model/temp overrides) + prompt loader; `flatten_jd` now SHARED in
+`jd_bank/jd_text.py`. New **UNHASHED** `quality.yaml` (HR-185..190, all `open`, provisional). Reviewer
+(Opus) APPROVED after breaking all four load-bearing mutation pins. Gates **1641 passing, 93.76%**.
+Two follow-ups recorded (structural-bar inflation guard for the 4.2a rewrite; provenance-stamp/
+category-filter note for 4.4 wiring). 4.2a is Phase 4's FIRST LLM pass: `jd_bank/rewrite/harmonize.py`
 rewords the deterministic 4.1 merge draft into cleaner prose via self-hosted Ollama
 (`gpt-oss:120b` on `aria-gb10-2`) under an **anti-fabrication guard** — output is an explicit DRAFT
 scored by the validator, nothing auto-publishes. Reusable LLM scaffolding landed: `jd_bank/llm/`
@@ -585,16 +594,39 @@ acceptance / out-of-scope).
   `RewrittenDraft` (no approval field, NN #1). `rewrite.yaml` REGISTERED + UNHASHED (wording ≠
   scoring; not in `rules_version`), HR-176..184 all `open`/`our_invention`, PROVISIONAL. Live golden
   opt-in/local-only (`make rewrite-golden`). Task file: `docs/tasks/phase-4.2a-harmonize-rewrite.md`.
-- **4.2b quality audit pass — NEXT.** Port `jd_quality_v1` (nuanced inclusive-language / clarity /
-  seniority-mismatch audit with **verbatim-evidence anti-fab scrub** — an issue whose `evidence`
-  quote is not found in the JD is dropped). Reuses 4.2a's `ChatClient` + prompt loader. Structural/
-  quantitative problems stay with the deterministic validator; the LLM does the NUANCED layer only.
-  ⚠ Live golden opt-in/local-only. **Also decide (reviewer follow-up from 4.2a):** whether to extend
-  the anti-fabrication guard to the structural bars (`education`/`experience`/`security` quals) — 4.2a
-  scrubs only skill/knowledge/ability, so an LLM inflating "Bachelor's → PhD" passes through today
-  (same class as the 4.1 experience-bar-inflation defect). Register `open` if added.
+- **4.2b quality audit pass — DONE (PR #51).** `jd_bank/quality/audit.py::audit_quality(jd)` — the
+  nuanced LLM pass (`inclusive_language`/`clarity`/`seniority_mismatch`) with the **verbatim-evidence
+  anti-fab scrub** (a finding whose `evidence` is not a casefold substring of the JD is DROPPED,
+  ported from hris `_merge_llm_findings`). **Advisory: computes NO score/grade** — the deterministic
+  validator stays the oracle (NN #3); frozen `QualityAudit` has no approval/canonical field (NN #1).
+  Reuses 4.2a's `ChatClient` (now generalized with optional `model`/`temperature` overrides,
+  back-compat) + prompt loader. `_flatten_jd` extracted to a SHARED `jd_bank/jd_text.py::flatten_jd`
+  (the 4.2a Relationships must-fix made structural — audit haystack == rewrite serialization, one
+  home). New `quality.yaml` REGISTERED + UNHASHED (7th unhashed file), HR-185..190 all
+  `open`/`our_invention`, PROVISIONAL (calibrate at 4.5). `make quality-golden` opt-in/local-only.
+  Reviewer (Opus) APPROVED — independently re-ran gates and broke all four load-bearing pins
+  (guard-off ships the fabricated finding; flattener dropping a section reds the Relationships pin;
+  wrong model source reds; un-hashing reds). Task file: `docs/tasks/phase-4.2b-quality-audit.md`.
+  Gates **1641 passing, 93.76%**. Two follow-ups it created (see below).
 - **4.3** change-log/diff (render via `bank/render.py`); **4.4** review queue (FastAPI + minimal UI
-  + audit-log); **4.5** pilot 5–10 clusters with a real HR reviewer.
+  + audit-log); **4.5** pilot 5–10 clusters with a real HR reviewer. **4.3 is NEXT.**
+
+**Follow-ups 4.2b created:**
+- **Structural-bar inflation guard (DEFERRED, its own task).** Decided in 4.2b, NOT implemented: the
+  4.2a *rewrite* guard scrubs only `skill/knowledge/ability`, so an LLM inflating "Bachelor's → PhD"
+  in a rewrite still passes (same class as the 4.1 experience-bar-inflation defect). 4.2b's audit is
+  READ-ONLY and cannot inflate a bar, so the risk lives in 4.2a. Catching it needs a level-COMPARISON
+  (education ordinal / experience years), not the token-grounding the guard does — a deliberate change
+  with its own blast radius. Register `open` when added.
+- **Provenance stamp can outrun the injected client (4.4 wiring note).** `audit_quality` stamps
+  `QualityAudit.model = rules.quality.model`, but the `ChatClient` is injected and could be bound to a
+  different model (faithful to 4.2a's `rewrite_merged_role` pattern — nothing asserts stamp == actual
+  client model). When 4.4 wires the caller, bind `ChatClient(model=rules.quality.model, ...)` so the
+  stamp cannot lie. Optional defense-in-depth: pin the scrub's accepted categories to the 3 nuanced
+  ones (`JDQualityFinding.category` currently accepts all 9 `JDIssueCategory` values; only the system
+  prompt, not code, constrains output — a model returning a structural category with grounded evidence
+  passes through as an advisory `source="llm"` issue). Within contract today (audit is advisory), but
+  worth closing.
 
 **Follow-ups 4.1 created (do before/with the harmonization pilot):**
 1. ✅ **DONE (this session) — calibrated the 9 `harmonization.yaml` defaults against the real
