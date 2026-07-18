@@ -4,7 +4,7 @@
 # bind-mounted at /app, so no rebuild is needed after edits). Run `make up` first.
 .PHONY: up down gates gates-fast gates-integration gates-live migrate logs shell \
         hook-install register register-check baseline dedup ingest embed near-dup \
-        dedup-role cluster harmonize-measure rewrite-golden quality-golden
+        dedup-role cluster harmonize-measure canonical-drafts rewrite-golden quality-golden
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -29,6 +29,7 @@ NEARDUP_ARGS    ?=
 DEDUPROLE_ARGS  ?=
 CLUSTER_ARGS    ?=
 HARMONIZE_ARGS  ?=
+CANONICAL_ARGS  ?=
 export JD_ARCHIVE_PATH
 export JD_BASELINE_OUT
 
@@ -196,6 +197,26 @@ cluster:          ## Phase-3.5 role clustering report over dedup_edges (needs in
 harmonize-measure:  ## Drive merge_cluster over real JDFN clusters; measure the 9 knobs (needs ingest + cluster deps)
 	docker compose run --rm -T harmonize python -m src.jd_bank.harmonize $(HARMONIZE_ARGS)
 	@echo "✅ harmonization measurement written to docs/harmonize/summary.json"
+
+# ── Phase-4.4a canonical-draft producer (WRITES DRAFT canonical_jds) ───────
+# Drive the Phase-4 pipeline (4.1 merge -> 4.2a rewrite -> 4.2b audit -> 4.3 change-log
+# -> validator) over the real JDFN role clusters and PERSIST the result as DRAFT
+# canonical_jds rows — the 4.4 review work-list. UNLIKE harmonize-measure this WRITES to
+# Postgres (clusters / canonical_jds / audit_log). Idempotent + never clobbers a
+# reviewer-touched canonical; NOTHING publishes (non-negotiable #1). Recomputes clusters
+# in-process (reuses 3.5); needs Postgres (parsed_jds + dedup_edges — run `make up`,
+# `make migrate`, `make ingest`, `make near-dup`, `make dedup-role` first); no Neo4j.
+#
+# The FULL pipeline needs a reachable Ollama on `aria-gb10-2` (ADR-003) — so it is
+# LOCAL-ONLY, exactly like `make embed` / `make rewrite-golden`. `--no-llm` persists the
+# deterministic 4.1 merge draft only and needs NO model endpoint. NB it is CANONICAL_ARGS.
+#
+#   make canonical-drafts                              # full pipeline (needs Ollama)
+#   make canonical-drafts CANONICAL_ARGS="--no-llm"    # deterministic-only (no Ollama)
+#   make canonical-drafts CANONICAL_ARGS="--limit 500"
+canonical-drafts: ## Phase-4.4a: produce DRAFT canonical_jds over real clusters (local-only; --no-llm for no Ollama)
+	docker compose run --rm -T canonical python -m src.jd_bank.canonical $(CANONICAL_ARGS)
+	@echo "✅ canonical-producer summary written to docs/canonical/summary.json"
 
 # ── Migrations (already Docker) ────────────────────────────────────────────
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).
