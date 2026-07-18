@@ -5,14 +5,18 @@ Same client shape and discipline as :class:`~src.jd_bank.embeddings.client.Embed
 transient errors retried with exponential backoff, and a **400 never retried** — an
 over-length or malformed request is a permanent property of the request, not a blip.
 
-**The model comes from ``get_rules().rewrite.model`` — NEVER ``settings.agent_model``.**
-``settings.agent_model`` is the harness's OWN coder-agent model (``core/src/agents``);
-``rules.rewrite.model`` is JD Bank's *rulebook* decision (HR-176), stamped onto
-every :class:`~src.jd_core.models.bank.RewrittenDraft`. Reading the harness setting
-here would make a JD Bank rewrite silently follow a change nobody made to the JD Bank
-rulebook — the two must be free to diverge. (This is the exact invariant the embed
-client's header spends a paragraph on; the mutation-proof test drives a rules model that
-is a DISTINCT string from ``settings.agent_model`` so the two can be told apart.)
+**The model comes from the RULEBOOK — NEVER ``settings.agent_model``.** Which section
+of the rulebook is the CALLER's choice: the 4.2a rewrite constructs the client on
+``rules.rewrite.model`` (HR-176, the default fallback), and the 4.2b nuanced quality
+audit passes ``model=rules.quality.model`` /
+``temperature=rules.quality.temperature`` (HR-185/HR-186) — a SEPARATE decision, so a
+rewrite-policy change cannot silently move the audit model. ``settings.agent_model`` is
+the harness's OWN coder-agent model (``core/src/agents``) and is never read here: doing
+so would make a JD Bank pass silently follow a change nobody made to the JD Bank
+rulebook — the two must be free to diverge.
+(This is the exact invariant the embed client's header spends a paragraph on; the
+mutation-proof tests drive rewrite / quality / agent models as three DISTINCT strings so
+they can be told apart.)
 """
 
 from __future__ import annotations
@@ -69,16 +73,28 @@ class ChatClient:
     validate the reply into a pydantic model with a bounded repair retry."""
 
     def __init__(
-        self, *, client: AsyncOpenAI | None = None, rules: Rules | None = None
+        self,
+        *,
+        client: AsyncOpenAI | None = None,
+        rules: Rules | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
     ) -> None:
         settings = get_settings()
         self._client = client or AsyncOpenAI(
             base_url=settings.ollama_base_url, api_key="ollama"
         )
         rewrite = (rules if rules is not None else get_rules()).rewrite
-        # Rulebook decision (HR-176) — see docstring. NEVER settings.agent_model.
-        self._model = rewrite.model
-        self._temperature = rewrite.temperature
+        # The model / temperature are a RULEBOOK decision — of the pass that
+        # constructs the client. When an explicit ``model`` / ``temperature`` is given
+        # they WIN (the 4.2b audit binds them to ``rules.quality.*``, HR-185/HR-186);
+        # otherwise they fall back to ``rules.rewrite.*`` (HR-176/HR-177) so every 4.2a
+        # rewrite call-site is byte-identical. NEVER ``settings.agent_model`` — see the
+        # class docstring.
+        self._model = model if model is not None else rewrite.model
+        self._temperature = (
+            temperature if temperature is not None else rewrite.temperature
+        )
 
     async def close(self) -> None:
         await self._client.close()

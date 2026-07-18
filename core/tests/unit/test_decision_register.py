@@ -463,6 +463,10 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         # harmonization: it decides how a draft is WORDED (and how fabrication is
         # scrubbed), never how a JD is scored/approved.
         "rewrite",
+        # `quality.yaml` (Phase 4.2b) — the LLM nuanced quality-audit pass's knobs.
+        # Unhashed like rewrite: it decides how a JD is AUDITED (advisory), never how a
+        # JD is scored/approved.
+        "quality",
     }
     # ...and that is every rule file there is, bar the register itself.
     described = {name.removesuffix(".yaml") for name in RULE_FILES}
@@ -482,7 +486,9 @@ def test_the_unhashed_files_are_the_ones_that_cannot_change_a_jds_score() -> Non
     ``embeddings.yaml`` (Phase 3.2b) decides what text a JD becomes for an embedding
     model; ``dedup.yaml`` (Phase 3.3) decides which DOCUMENTS are similar to each
     other; ``harmonization.yaml`` (Phase 4.1) decides HOW a cluster is merged into a
-    draft. None of the five can move a score, a grade or a gate.
+    draft; ``rewrite.yaml`` (Phase 4.2a) decides how a draft is WORDED; ``quality.yaml``
+    (Phase 4.2b) decides how a JD is AUDITED (advisory). None of them can move a score,
+    a grade or a gate.
     """
     assert loader._UNHASHED_FILES == {
         REGISTER_FILE,
@@ -491,6 +497,7 @@ def test_the_unhashed_files_are_the_ones_that_cannot_change_a_jds_score() -> Non
         "dedup.yaml",
         "harmonization.yaml",
         "rewrite.yaml",
+        "quality.yaml",
     }
     hashed = set(loader._HASHED_FIELDS)
     assert "segmentation" not in hashed

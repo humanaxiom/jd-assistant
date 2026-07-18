@@ -4,7 +4,7 @@
 # bind-mounted at /app, so no rebuild is needed after edits). Run `make up` first.
 .PHONY: up down gates gates-fast gates-integration gates-live migrate logs shell \
         hook-install register register-check baseline dedup ingest embed near-dup \
-        dedup-role cluster harmonize-measure rewrite-golden
+        dedup-role cluster harmonize-measure rewrite-golden quality-golden
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -81,6 +81,14 @@ gates-live:       ## Opt-in, LOCAL-ONLY live embedding golden tests (never in CI
 rewrite-golden:   ## Opt-in, LOCAL-ONLY live LLM rewrite golden (never in CI/gates)
 	docker compose run --rm rewrite
 	@echo "✅ rewrite golden complete"
+
+# Opt-in, LOCAL-ONLY live LLM nuanced quality-AUDIT golden (Phase 4.2b) against the real
+# chat model on `aria-gb10-2` (ADR-003). NEVER part of `make gates` / CI — same live-endpoint
+# guard as `gates-live` / `rewrite-golden`. Runs through the `quality` compose service;
+# self-skips per-test if the endpoint is unreachable.
+quality-golden:   ## Opt-in, LOCAL-ONLY live LLM quality-audit golden (never in CI/gates)
+	docker compose run --rm quality
+	@echo "✅ quality golden complete"
 
 # ── HR decision register (rules/decision_register.yaml -> Markdown for HR) ──
 # The register is DATA; the Markdown is a rendered VIEW of it, never hand-edited.

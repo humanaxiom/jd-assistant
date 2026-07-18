@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+90af5e27dc83` · **184 decisions** (184 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 245 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+90af5e27dc83` · **190 decisions** (190 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 251 parameters on the decision surface, all accounted for.
 
 ## What this is
 
@@ -200,6 +200,12 @@ Every policy call JD Bank currently makes **by default**, because SFU HR has not
 | [HR-182](#hr-182) | How should the guard decide a rewritten qualification is grounded in the merge draft's vocabulary? | `token_overlap` | our invention |
 | [HR-183](#hr-183) | What fraction of a rewritten qualification's content tokens must be grounded in the merge draft for it to be kept? | `0.5` | our invention |
 | [HR-184](#hr-184) | Below what token-Jaccard with any draft duty should a rewritten duty be flagged for HR review? | `0.2` | our invention |
+| [HR-185](#hr-185) | Which self-hosted chat model should run the nuanced quality audit of a JD? | `gpt-oss:120b` | our invention |
+| [HR-186](#hr-186) | At what sampling temperature should the quality-audit model run? | `0.0` | our invention |
+| [HR-187](#hr-187) | What token budget should one quality-audit completion get? | `1024` | our invention |
+| [HR-188](#hr-188) | How many times should an invalid-JSON audit response be re-requested before the pass gives up? | `1` | our invention |
+| [HR-189](#hr-189) | Should the anti-fabrication (verbatim-evidence) guard run at all on the audit findings? | `true` | our invention |
+| [HR-190](#hr-190) | Which prompt template should the quality-audit pass use? | `jd_quality_v1` | our invention |
 
 ### Our invention — nobody has ratified these
 
@@ -977,6 +983,54 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** our invention
 - **Why it matters:** A rewritten duty is FLAGGED (recorded in the anti-fabrication record, never dropped) when its best token-Jaccard against any draft duty falls below this — the signal that the model may have invented a duty rather than reworded one. Duties are flagged, not scrubbed, because a legitimate rewrite can rephrase heavily; the human reviewer (4.4) decides. Too high floods the reviewer; too low never catches an invented duty. 0.2 is a provisional low bar. NOT measured — calibrate at the 4.5 pilot.
 - **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the anti-fabrication test (a duty with no overlap to any draft duty is flagged at the shipped threshold; raising the knob flags a duty that shared some overlap, and disabling the guard clears the flags).
+
+#### HR-185 — Which self-hosted chat model should run the nuanced quality audit of a JD?
+
+- **We ship:** `gpt-oss:120b`
+- **Configured in:** `quality.yaml` → `quality.model`
+- **Where the default came from:** our invention
+- **Why it matters:** The audit pass asks the model to return the JDQualityFindings schema as JSON, each finding backed by a verbatim JD quote, so JSON-schema adherence and quote fidelity matter most. `gpt-oss:120b` is the strongest general instruct on `aria-gb10-2` today (available alternatives: gpt-oss:20b, qwen3.5:latest, gemma4:26b, llama4:latest). It is a RULEBOOK decision, NOT `settings.agent_model` (the harness's own coder-agent model), and a SEPARATE decision from the rewrite model (`rewrite.model`, HR-176) — a rewrite-policy change must not silently move the audit model, which is why this is its own file. PROVISIONAL — pick the model that best holds the schema and grounds its quotes at the 4.5 pilot; no comparative measurement exists yet.
+- **If it changes:** Does NOT move `rules_version` (quality.yaml is unhashed). Changes only which model audits the JD; the audit is advisory and the anti-fabrication guard still drops ungrounded findings. Pinned by mutation in the client model-source test (quality.model, rewrite.model and settings.agent_model are THREE DISTINCT strings; the audit's call must carry quality.model).
+
+#### HR-186 — At what sampling temperature should the quality-audit model run?
+
+- **We ship:** `0.0`
+- **Configured in:** `quality.yaml` → `quality.temperature`
+- **Where the default came from:** our invention
+- **Why it matters:** An audit should be REPRODUCIBLE — the same JD yields the same findings on a re-run, so an audit trail is meaningful — not a brainstorm. `0.0` picks the greedy decode. Raising it trades reproducibility for finding variety, a decision to make deliberately, not a default to drift. PROVISIONAL.
+- **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the client generalization test (the temperature passed to the chat API is the audit override `quality.temperature`; a fake asserts the exact value flows through, so a hardcoded temperature goes red).
+
+#### HR-187 — What token budget should one quality-audit completion get?
+
+- **We ship:** `1024`
+- **Configured in:** `quality.yaml` → `quality.max_tokens`
+- **Where the default came from:** our invention
+- **Why it matters:** The nuanced findings list must fit in one completion; too small truncates the JSON (which then fails to parse and burns a retry). 1024 mirrors hris's value for THIS pass (the findings list is far smaller than a full SFUJobDescription rewrite, which gets 2048). PROVISIONAL — size it against real audit outputs at the 4.5 pilot.
+- **If it changes:** Does NOT move `rules_version`. Operational headroom, not a policy lever on the findings content. Pinned by mutation in the audit consumer test (the value the consumer reads from `quality.max_tokens` is the one passed to `chat_json`).
+
+#### HR-188 — How many times should an invalid-JSON audit response be re-requested before the pass gives up?
+
+- **We ship:** `1`
+- **Configured in:** `quality.yaml` → `quality.max_retries`
+- **Where the default came from:** our invention
+- **Why it matters:** When the model returns JSON that does not parse or does not match the JDQualityFindings schema, the client re-asks once with a terse repair nudge before raising LLMOutputInvalidError. Transient network/5xx retries are SEPARATE (fixed in the client, and a 400 is NEVER retried). 1 mirrors hris. Higher spends more inference on a model that keeps missing the schema; 0 makes the first miss fatal. PROVISIONAL.
+- **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the audit consumer test (the value the consumer reads from `quality.max_retries` is the one passed to `chat_json`), and the reused client's own discipline test asserts the retry/400 behaviour.
+
+#### HR-189 — Should the anti-fabrication (verbatim-evidence) guard run at all on the audit findings?
+
+- **We ship:** `true`
+- **Configured in:** `quality.yaml` → `quality.anti_fabrication_enabled`
+- **Where the default came from:** our invention
+- **Why it matters:** THE core safety of 4.2b. Every audit finding must cite a VERBATIM quote from the JD; with the guard ON, any finding whose `evidence` is not a casefold substring of the flattened JD (empty/None evidence included) is DROPPED and recorded in the audit's `dropped` list — so a model that fabricates a quote cannot inject an ungrounded issue. `false` keeps every finding unscrubbed — the escape hatch, registered so flipping it can never be quiet. There is no reason to ship it off; it exists so a deliberate off-switch is a visible, ratifiable decision rather than a code edit. The guard itself should stay ON.
+- **If it changes:** Does NOT move `rules_version`. Pinned BY MUTATION (acceptance #2): with the guard on, a fake LLM finding whose evidence is NOT in the JD is dropped and absent from `issues`; flip this to `false` (and update this entry so the drift alarm stays silent) and a BEHAVIOURAL assertion — the fabricated finding is absent — goes red, because it now survives unscrubbed.
+
+#### HR-190 — Which prompt template should the quality-audit pass use?
+
+- **We ship:** `jd_quality_v1`
+- **Configured in:** `quality.yaml` → `quality.prompt_version`
+- **Where the default came from:** our invention
+- **Why it matters:** Names the versioned template pair under `jd_bank/llm/templates/` (`jd_quality_v1.system.j2` + `.user.j2`, ported faithfully from hris). Its only variable is `{{ jd_text }}` (the flattened JD). The loaded template's own version is what stamps `QualityAudit.prompt_version`, so provenance traces to the exact wording. Swapping this selects a different template version. PROVISIONAL — the prompt is refined at the 4.5 pilot, and each refinement is a new versioned template, not an in-place edit.
+- **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the prompt-loader test (the loaded prompt's `.version` is stamped onto `QualityAudit.prompt_version`; a missing `jd_text` variable RAISES rather than shipping a `{{ jd_text }}` in the prompt).
 
 ### Inherited hris calibration — not an SFU-published number
 

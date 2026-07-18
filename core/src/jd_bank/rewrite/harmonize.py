@@ -23,6 +23,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 
+from src.jd_bank.jd_text import flatten_jd as _flatten_jd
 from src.jd_bank.llm.client import ChatClient
 from src.jd_bank.llm.prompts import load_prompt
 from src.jd_core.models.bank import (
@@ -65,32 +66,6 @@ def _jaccard(a: frozenset[str], b: frozenset[str]) -> float:
     if not union:
         return 1.0
     return len(a & b) / len(union)
-
-
-def _flatten_jd(jd: SFUJobDescription) -> str:
-    """Flatten a JD into a text blob — the ``member_jds`` prompt slot AND the
-    validator's ``raw_text`` argument (the auditor's inclusive-language / banned-word /
-    placeholder / equivalent-combination scans read ONLY this text, not the structured
-    object — so a section omitted here is invisible to the oracle and its score is
-    inflated). Mirrors hris ``_canonical_text`` but includes EVERY content section the
-    prompt schema lets the model populate: Relationships is scanned too (the LLM can
-    write ``supervisory`` / ``internal`` / ``external`` prose, and a coded term there
-    must still trip ``SFU-LANG-CODED``)."""
-    parts: list[str] = [jd.title, jd.position_summary or ""]
-    for duty in jd.duties:
-        parts.append(duty.statement)
-        parts.extend(duty.how_why)
-    parts.extend(jd.decision_making)
-    parts.extend(jd.problem_solving)
-    if jd.relationships is not None:
-        if jd.relationships.supervisory:
-            parts.append(jd.relationships.supervisory)
-        parts.extend(jd.relationships.internal)
-        parts.extend(jd.relationships.external)
-    parts.extend(qual.text for qual in jd.qualifications)
-    if jd.additional_context:
-        parts.append(jd.additional_context)
-    return "\n".join(part for part in parts if part)
 
 
 def _skill_frequency_lines(freq: Sequence[tuple[str, int]]) -> str:

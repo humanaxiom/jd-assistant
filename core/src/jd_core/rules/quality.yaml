@@ -1,0 +1,65 @@
+# LLM nuanced QUALITY-AUDIT pass (Phase 4.2b) — rulebook-as-data (CLAUDE.md §2).
+#
+# WHAT THIS FILE DECIDES
+# ----------------------
+# HOW the self-hosted LLM AUDITS a JD (an already-parsed SFUJobDescription — a 4.1 merge
+# draft or a 4.2a rewritten draft) for the three NUANCED dimensions a regex validator
+# cannot judge (inclusive_language / clarity / seniority_mismatch): which chat model, at
+# what temperature/budget, how invalid JSON is retried, which prompt version, and whether
+# the anti-fabrication (verbatim-evidence) guard runs. The audit is ADVISORY — it computes
+# NO score and no grade; the deterministic validator (the HASHED files) remains the scoring
+# oracle. A quality-AUDIT-policy change decides how a JD is *audited*, NOT how it is
+# *scored/approved*, so — exactly like `rewrite.yaml` / `harmonization.yaml` — this file is
+# REGISTERED and on the decision surface but EXCLUDED from `rules_version`
+# (`loader._UNHASHED_FILES`): re-tuning an audit knob cannot make a single JD's
+# ValidationReport look stale.
+#
+# SEPARATE FROM THE REWRITE. This is NOT a reuse of `rewrite.yaml`'s knobs: the audit model
+# is its own decision, so a rewrite-policy change (e.g. swapping the rewrite model) must not
+# silently move the audit model. Hence a distinct file.
+#
+# PROVENANCE + CALIBRATION
+# ------------------------
+# EVERY value here is `our_invention`, `status: open` (HR-185…HR-190). SFU publishes no
+# audit policy, and hris merged+scored rule and LLM findings (no advisory-only audit policy
+# to inherit). All defaults below are PROVISIONAL STARTING VALUES, to be calibrated at the
+# 4.5 pilot — NOT settled, and NOT backed by measured evidence we do not yet have. Each
+# register entry says so in `why_it_matters`.
+#
+# OUT OF SCOPE (do not add knobs for these here): the 4.2a rewrite pass, any score/grade
+# computation by the LLM, the structural-bar inflation guard (a recorded 4.2a follow-up),
+# DB persistence / review queue / diff (4.3/4.4).
+
+version: jd_rules_sfu_v4
+
+# --- chat model + sampling ---------------------------------------------------------
+# The chat model that audits the JD. A rulebook decision (NEVER `settings.agent_model`, the
+# harness's own coder-agent model) and SEPARATE from the rewrite model. `gpt-oss:120b` is
+# the strongest general instruct on the host today (best JSON-schema adherence for the
+# JDQualityFindings output); alternatives available: gpt-oss:20b, qwen3.5:latest,
+# gemma4:26b, llama4:latest. HR-185.
+model: gpt-oss:120b
+
+# Sampling temperature. 0.0 -> deterministic: an audit should be reproducible (the same JD
+# yields the same findings on a re-run), not a brainstorm. HR-186.
+temperature: 0.0
+
+# Token budget for one audit completion. 1024 mirrors hris's value for THIS pass (the
+# nuanced findings list is far smaller than a full SFUJobDescription rewrite). HR-187.
+max_tokens: 1024
+
+# How many times an INVALID-JSON / schema-mismatch response is re-requested with a terse
+# repair nudge before raising LLMOutputInvalidError. Transient network/5xx retries are
+# SEPARATE (fixed in the client, never a 400). HR-188.
+max_retries: 1
+
+# Which prompt template the audit loads (the versioned pair under jd_bank/llm/templates/:
+# `<name>.system.j2` + `.user.j2`). The loaded template's own version stamps
+# QualityAudit.prompt_version. HR-190.
+prompt_version: jd_quality_v1
+
+# --- anti-fabrication guard (the heart of 4.2b) ------------------------------------
+# Whether the guard runs at all. `true` DROPS any finding whose `evidence` is not a verbatim
+# substring of the flattened JD (recording it as dropped); `false` keeps every finding
+# UNSCRUBBED (the escape hatch, registered so flipping it cannot be quiet). HR-189.
+anti_fabrication_enabled: true
