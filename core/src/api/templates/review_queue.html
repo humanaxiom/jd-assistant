@@ -1,0 +1,43 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — Review Queue{% endblock %}
+{% block content %}
+<div class="panel">
+  <h2>Review queue</h2>
+  {% if items %}
+  <table>
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Cluster / version</th>
+        <th>Status</th>
+        <th>Score</th>
+        <th>Grade</th>
+        <th>Blocking gates</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{ item.title }}</td>
+        <td>{{ item.cluster_id }} / v{{ item.version }}</td>
+        <td>{{ item.status.value }}</td>
+        <td>{{ item.stored_score if item.stored_score is not none else "—" }}</td>
+        <td>{{ item.stored_grade if item.stored_grade is not none else "—" }}</td>
+        <td>
+          {% if item.stored_blocking_gate_count %}
+          <span class="badge blocked">{{ item.stored_blocking_gate_count }}</span>
+          {% else %}
+          <span class="badge ok">0</span>
+          {% endif %}
+        </td>
+        <td><a href="/jd-bank/ui/review/{{ item.canonical_id }}">Review →</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No drafts awaiting review.</p>
+  {% endif %}
+</div>
+{% endblock %}

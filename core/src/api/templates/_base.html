@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}JD Bank — Review{% endblock %}</title>
+  <style>
+    :root {
+      --bg:#0d1117; --panel:#161b22; --fg:#e6edf3; --accent:#2f81f7;
+      --green:#3fb950; --red:#f85149; --muted:#8b949e; --border:#30363d;
+    }
+    body { background:var(--bg); color:var(--fg); font-family:ui-monospace,monospace; margin:0; padding:2rem; }
+    h1 { font-size:1.4rem; }
+    h2 { font-size:1.1rem; margin-top:0; }
+    a { color:var(--accent); }
+    .panel { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:1.25rem; margin-bottom:1rem; max-width:900px; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { text-align:left; padding:.5rem; border-bottom:1px solid var(--border); vertical-align:top; }
+    label { display:block; margin:.6rem 0 .2rem; font-size:.85rem; color:var(--muted); }
+    input, textarea { width:100%; background:#0d1117; color:var(--fg); border:1px solid var(--border); border-radius:6px; padding:.5rem; box-sizing:border-box; font-family:inherit; }
+    textarea { min-height:80px; }
+    button { margin-top:.8rem; background:var(--accent); color:#fff; border:0; border-radius:6px; padding:.55rem 1.1rem; cursor:pointer; font-family:inherit; }
+    button.danger { background:var(--red); }
+    .badge { display:inline-block; padding:.15rem .5rem; border-radius:4px; font-size:.8rem; }
+    .badge.blocked { background:rgba(248,81,73,.15); color:var(--red); }
+    .badge.ok { background:rgba(63,185,80,.15); color:var(--green); }
+    .flash.error { color:var(--red); white-space:pre-wrap; }
+    .gate { border:1px solid var(--border); border-radius:6px; padding:.75rem; margin-bottom:.75rem; }
+    .gate .meta { color:var(--muted); font-size:.8rem; }
+    pre { white-space:pre-wrap; word-break:break-word; background:#0d1117; border:1px solid var(--border); border-radius:6px; padding:.75rem; max-height:400px; overflow:auto; }
+    .empty { color:var(--muted); }
+    .meta { color:var(--muted); font-size:.85rem; }
+  </style>
+</head>
+<body>
+  <h1>🧰 JD Bank — Review</h1>
+  {% block content %}{% endblock %}
+</body>
+</html>
