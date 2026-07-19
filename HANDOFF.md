@@ -100,9 +100,11 @@ JDs; **133,842 ROLE_EQUIVALENT edges** (clustered at gate 0.75); **9 flagged** f
 coverage. Test suite **1577 passing, 93.60%**; HR decision register **175** (HR-167..175 all `open`,
 unhashed `harmonization.yaml`; measured evidence written into each `why_it_matters`).)
 
-**Catching up? Read [`docs/status/2026-07-15-shipped.md`](docs/status/2026-07-15-shipped.md) first** —
-the current one-pager (3.2 embeddings, 3.3 near-dup, both extraction defects), and the basis of what
-we tell HR. The prior [`2026-07-13-shipped.md`](docs/status/2026-07-13-shipped.md) covers 2.5 / 2.6 / 3.1.
+**Catching up? Read [`docs/status/2026-07-19-shipped.md`](docs/status/2026-07-19-shipped.md) first** —
+the current one-pager (Phase 4.1–4.4: the harmonization pipeline + the human-approval review queue,
+complete end to end), and the basis of what we tell HR. The prior
+[`2026-07-15-shipped.md`](docs/status/2026-07-15-shipped.md) covers 3.2 / 3.3 + the extraction defects;
+[`2026-07-13-shipped.md`](docs/status/2026-07-13-shipped.md) covers 2.5 / 2.6 / 3.1.
 
 **PR stack all MERGED:** [#19](https://github.com/humanaxiom/jd-assistant/pull/19) (2.5 baseline)
 → [#22](https://github.com/humanaxiom/jd-assistant/pull/22) (2.6 defects, re-opened after #20 auto-closed)

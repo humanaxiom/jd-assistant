@@ -458,19 +458,44 @@ The register enforces the record: a `ratified` decision **must** carry `decided_
 - Honest quality limit identified + documented: WJQ `.doc` artifacts over-cluster on template (Phase-4 follow-up)
 
 ### Phase 4 — Harmonization & review
-- **4.1** Merge engine (NEW): section selection, duty union/dedup/reorder, % rebalance, KSA
-  rebuild — pure functions, heavy unit tests, no LLM. Uses `bank/provenance.py` (#11).
-- **4.2** Rewrite passes: hris prompts (#17/#18); prompt + post-check + retry + anti-fabrication
-  guard; validator-as-oracle snapshot tests.
+**4.1–4.4 COMPLETE.** The full pipeline exists end to end — merge → rewrite → audit → change-log →
+review queue (producer → service → routes → UI). **4.5 (the human pilot) is the only piece left.**
+- **4.1** ✅ **MERGED + calibrated** (PR #46). Deterministic merge engine (`bank/merge.py`): section
+  selection, duty union/dedup/reorder, KSA rebuild — pure, no LLM, drafts only. 9 knobs in registered/
+  unhashed `harmonization.yaml` (HR-167..175). Calibrated over 1,801 JDFN clusters via the
+  `jd_bank/harmonize/` runner; one default moved (`max_duties` 10→12). **%-rebalance DEFERRED** (its
+  own task — allocations are free-text, need extraction + the Part-11.6 gate interaction).
+- **4.2** ✅ Rewrite passes (both LLM, self-hosted Ollama, anti-fabrication guards, validator-as-oracle).
   - **4.2a** ✅ **MERGED** (PR #49) — harmonize rewrite (`jd_harmonize_v1`): LLM scaffolding
     (`jd_bank/llm/` `ChatClient` + prompt loader) + `rewrite_merged_role` (grounded 4.1 draft →
     LLM → anti-fabrication scrub → validator → frozen `RewrittenDraft`, drafts only). `rewrite.yaml`
-    registered+unhashed, HR-176..184 `open`. Gates 1615 / 93.72%.
-  - **4.2b** NEXT — quality audit (`jd_quality_v1`): nuanced inclusive-language/clarity/seniority
-    pass with verbatim-evidence anti-fab scrub; reuses 4.2a scaffolding.
-- **4.3** Change-log / diff generator; render via `bank/render.py` (#12).
-- **4.4** Review queue: FastAPI + minimal UI + audit-log wiring (hris routes/service as reference).
-- **4.5** Pilot: 5–10 clusters end to end with a real HR reviewer; feedback becomes fixtures/rules.
+    registered+unhashed, HR-176..184 `open`.
+  - **4.2b** ✅ **MERGED** (PR #51) — quality audit (`jd_quality_v1`): nuanced inclusive-language/
+    clarity/seniority pass with verbatim-evidence anti-fab scrub; ADVISORY (no score/grade — validator
+    stays oracle). `quality.yaml` registered+unhashed, HR-185..190 `open`. `flatten_jd` shared.
+- **4.3** ✅ **MERGED** (PR #52). Change-log / per-source diff (`bank/change_log.py`): pure
+  `build_harmonization_diff` → frozen `HarmonizationDiff` (rendered draft + per-source contributions +
+  removed-content log + flagged duties). Drop-vs-dedup authoritative from the merge's cap-dropped groups.
+- **4.4** ✅ Review queue (user-chosen slicing: producer → service → routes → UI).
+  - **4.4a** ✅ **MERGED** (PR #53) — canonical-draft PRODUCER (`canonical/runner.py`): JDFN clusters →
+    persisted DRAFT `canonical_jds`. Idempotent, no-clobber over human artifacts, append-only audit.
+  - **4.4b** ✅ **MERGED** (PR #54) — review SERVICE (`review/service.py`): the human-approval spine.
+    list/packet/approve/reject/edit/override; approve PUBLISHES only when the re-validated gate decision
+    permits (NN #1, the only publish path); validator-as-oracle on current content; `FOR UPDATE` lock.
+  - **4.4c** ✅ **MERGED** (PR #55) — thin FastAPI routes (`api/routes/jd_bank.py`) over the service;
+    typed-error→status map; commit discipline pinned.
+  - **4.4d** ✅ **MERGED locally** (PR #56 — GitHub Actions billing-blocked at merge, PR open/unmerged).
+    Minimal server-rendered UI inside FastAPI (`api/routes/ui.py` + Jinja2 templates): queue → detail
+    (draft + 4.3 diff + validation report) → approve/edit/reject/override. Transport only; no new
+    dependency (stdlib form parsing). **Reconcile PR #56 + re-run CI once billing is restored.**
+- **4.5** NEXT — Pilot: 5–10 clusters end to end with a real HR reviewer through the 4.4d UI; feedback
+  becomes fixtures/rules (NN #7). Where the 4.2/4.3/4.4 provisional `open` defaults meet human judgment.
+
+**Pre-pilot follow-ups (engineering, can land before 4.5):** split `rewrite_client`/`audit_client`
+(4.4a — before the two LLM YAMLs diverge and provenance lies); a `jd_bank/` change-log runner over real
+clusters (4.3); `get_session`→`api/deps.py` (drops the two routers' circular-import shim); concurrent
+double-approve test (4.4b). Deferred product gap: the 4.4d edit view is a raw-JSON `<textarea>` — a
+structured per-field editor is a later task.
 
 **Exit:** first human-approved canonical JDs published; audit trail complete.
 
