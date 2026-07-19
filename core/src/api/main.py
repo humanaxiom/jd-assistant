@@ -115,3 +115,10 @@ async def similar(q: str, k: int = 5) -> list[dict[str, Any]]:
 async def run_gates(branch: str) -> dict[str, str]:
     job = await app.state.arq.enqueue_job("run_gates_job", branch=branch)
     return {"job_id": job.job_id}
+
+
+# Imported here (not with the top-of-file imports) because the router imports
+# `get_session` back from this module — importing it at the top would be circular.
+from src.api.routes.jd_bank import router as jd_bank_router  # noqa: E402
+
+app.include_router(jd_bank_router)
