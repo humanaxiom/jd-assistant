@@ -1,8 +1,19 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-18 (**Phase 4 — 4.1 merge MERGED + calibrated; 4.2a rewrite MERGED (PR #49);
-4.2b quality-audit MERGED (PR #51); 4.3 change-log/diff MERGED (PR #52); 4.4a canonical-draft
+Last updated: 2026-07-19 (**4.4b review SERVICE MERGED (PR #54); 4.4c routes next.**
+`jd_bank/review/service.py` is the human-approval spine (NN #1): list queue / assemble packet /
+approve·reject·edit·override over the 4.4a DRAFT canonicals, writing status transition +
+`review_actions` + append-only `audit_log`. **approve PUBLISHES only when the gate decision permits**
+— it RE-VALIDATES current `content` (validator-as-oracle, NN #3; never trusts the stored `change_log`
+roll-up), runs `evaluate_gates`→`apply_overrides`, else raises `NotApprovableError` (the ONLY publish
+path). Override needs a written reason (reuses `apply_overrides`). `get_review_packet` surfaces a
+FRESHLY recomputed `GateDecision` (stored roll-up display-only — pinned). edit → new `version+1` DRAFT
+(prior ARCHIVED, EDIT action on v2); folded in the 4.4a follow-up (producer no-clobber now
+`order_by(version desc)`). `FOR UPDATE` lock serializes approves. No schema change, no new knob.
+Reviewer (Opus) APPROVED after one must-fix (unpinned packet recompute) + focused confirm. Gates
+**1701, 93.54%**. Follow-up: a concurrent double-approve test (lock is real; backlog for the pilot).
+Prior line — 4.4a canonical-draft
 PRODUCER MERGED (PR #53); 4.4b next.** 4.4a is the first slice of the review queue:
 `jd_bank/canonical/runner.py::run_canonical_producer` drives the full Phase-4 pipeline per JDFN
 cluster (4.1→4.2a→4.2b→4.3→validator) and PERSISTS a DRAFT `canonical_jds` row — the work-list 4.4b/4.4d
@@ -650,20 +661,19 @@ acceptance / out-of-scope).
 - **4.4 review queue — decomposed (user-chosen slicing): producer → service → routes → server-rendered UI.**
   - **4.4a canonical-draft PRODUCER — DONE (PR #53).** See header. Clusters → persisted DRAFT `canonical_jds`.
     Task file: `docs/tasks/phase-4.4a-canonical-draft-producer.md`.
-  - **4.4b review SERVICE + audit — NEXT.** The domain layer over the persisted drafts (NO HTTP): list the
-    review queue (DRAFT canonicals needing eyes), assemble the reviewer packet (draft `content` + the 4.3
-    diff/`removed` change-log + validator roll-up/`GateDecision`, all already in `change_log`), and the
-    decision operations — approve / reject / edit / override — writing `canonical_jds` status transitions +
-    `review_actions` + **append-only** `audit_log`. **The invariant spine:** nothing publishes without an
-    explicit human approve (NN #1); approval BLOCKED while gates block unless a blocking gate is overridden
-    with a **written reason** (`GateOverride` won't construct without one; the `review_actions.reason` NOT-NULL
-    is enforced in the service). hris `apps/api/services/jd_bank_service.py` is the behaviour reference (the
-    Neo4j recall ports; the write path is JD Bank's own tables). Integration-test the transitions + the
-    append-only audit against real Postgres (testcontainers). **Fold in 4.4a follow-up:** the multi-version
-    no-clobber lookup (`order_by(version desc)`) — 4.4b is where a v2 first appears (edit → new version).
-  - **4.4c FastAPI routes** — thin HTTP over 4.4b (TestClient-tested), hung off `core/src/api/main.py`
-    (the existing harness app) or a JD-Bank router; reviewer identity = a caller-supplied string for the
-    pilot (no SFU SSO — the `review_actions.reviewer_id` column already models it).
+  - **4.4b review SERVICE + audit — DONE (PR #54).** `jd_bank/review/service.py` — list_review_queue /
+    get_review_packet / approve / reject / edit over the DRAFT canonicals; the human-approval spine (see
+    header). Task file: `docs/tasks/phase-4.4b-review-service.md`. **Follow-up:** a concurrent double-approve
+    test (the `FOR UPDATE` lock is real + the sequential stale-status guard is pinned, so the invariant holds;
+    a true concurrency test is a pilot backlog line).
+  - **4.4c FastAPI routes — NEXT.** Thin HTTP over the 4.4b service (TestClient-tested), a JD-Bank router hung
+    off `core/src/api/main.py` (the existing harness app). Endpoints: list queue, get packet, approve (body
+    carries `reviewer_id` + optional `overrides`), reject (reason), edit (new content + reason). Map the
+    service's typed errors → HTTP status (`NotApprovableError`/`GateOverrideError` → 409/422, not-found →
+    404, missing-reason → 422). **Reviewer identity = a caller-supplied string** (header/body) for the pilot,
+    no SFU SSO — the `review_actions.reviewer_id` column already models it. The service already owns the
+    invariants; routes must add NONE of their own (no second publish path, no gate logic in a handler). hris
+    `apps/api/routes/jd_bank.py` is the API-shape reference; JD Bank's write path is its own.
   - **4.4d server-rendered UI** (user-chosen: minimal, LAST slice) — queue list → cluster detail (draft +
     diff + validation report + approve/edit/reject/override buttons). No JS build step.
   - **4.5** pilot 5–10 clusters with a real HR reviewer; feedback → fixtures/rules.
