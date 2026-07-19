@@ -179,34 +179,47 @@ class _Outcome:
 async def _run_llm_passes(
     merged: MergedRole,
     *,
-    client: ChatClient | None,
+    rewrite_client: ChatClient | None,
+    audit_client: ChatClient | None,
     rules: Rules,
     outcome: _Outcome,
 ) -> tuple[SFUJobDescription, RewrittenDraft | None, QualityAudit | None]:
-    """Drive the 4.2a rewrite + 4.2b audit, best-effort.
+    """Drive the 4.2a rewrite + 4.2b audit, best-effort — each on its OWN client.
 
-    ``client=None`` -> the deterministic merge draft, no rewrite, no audit. Otherwise a
-    rewrite is attempted (a failure falls back to the merge draft and sets
-    ``rewrite_failed``), then the advisory audit is attempted on the CHOSEN draft (a
-    failure omits it and sets ``audit_failed``). Neither failure ever aborts — the
-    deterministic draft is never lost (mirrors hris ``evaluate_jd_quality`` +
-    the embed runner's isolate-and-skip)."""
-    if client is None:
+    The rewrite runs the model of ``rules.rewrite`` and the audit the model of
+    ``rules.quality``; these are SEPARATE rulebook decisions (see ``llm/client.py``), so
+    the caller injects a client bound to each. ``QualityAudit.model`` stamps
+    ``rules.quality.model`` regardless of the client, so a single shared client bound to
+    the rewrite model would make that stamp a provenance lie the moment ``quality.yaml``
+    is retuned (NN #6) — hence two clients, each bound to its own model.
+
+    ``rewrite_client=None`` -> the deterministic merge draft, no rewrite, no audit (the
+    ``--no-llm`` path). Otherwise a rewrite is attempted (a failure falls back to the
+    merge draft and sets ``rewrite_failed``), then the advisory audit is attempted on
+    the CHOSEN draft with ``audit_client`` when one is provided (a failure omits it and
+    sets ``audit_failed``). Neither failure ever aborts — the deterministic draft is
+    never lost (mirrors hris ``evaluate_jd_quality`` + the embed isolate-and-skip)."""
+    if rewrite_client is None:
         return merged.draft, None, None
 
     rewritten: RewrittenDraft | None = None
     try:
-        rewritten = await rewrite_merged_role(merged, client=client, rules=rules)
+        rewritten = await rewrite_merged_role(
+            merged, client=rewrite_client, rules=rules
+        )
         final_draft = rewritten.draft
     except Exception:  # noqa: BLE001 - a model failure isolates, never aborts the run
         outcome.rewrite_failed = True
         final_draft = merged.draft
 
     quality_audit: QualityAudit | None = None
-    try:
-        quality_audit = await audit_quality(final_draft, client=client, rules=rules)
-    except Exception:  # noqa: BLE001 - the audit is advisory; drop it on failure
-        outcome.audit_failed = True
+    if audit_client is not None:
+        try:
+            quality_audit = await audit_quality(
+                final_draft, client=audit_client, rules=rules
+            )
+        except Exception:  # noqa: BLE001 - the audit is advisory; drop it on failure
+            outcome.audit_failed = True
 
     return final_draft, rewritten, quality_audit
 
@@ -253,7 +266,8 @@ async def _process_cluster(
     jdfn_pairs: Sequence[tuple[UUID, SFUJobDescription]],
     *,
     wjq_excluded: int,
-    client: ChatClient | None,
+    rewrite_client: ChatClient | None,
+    audit_client: ChatClient | None,
     rules: Rules,
 ) -> _Outcome:
     """Merge -> (best-effort LLM) -> validate -> upsert cluster + persist/refresh DRAFT
@@ -304,7 +318,11 @@ async def _process_cluster(
     # 2. The deterministic merge draft + the best-effort LLM passes.
     merged = merge_cluster(jdfn_members, rules=rules)
     final_draft, rewritten, quality_audit = await _run_llm_passes(
-        merged, client=client, rules=rules, outcome=outcome
+        merged,
+        rewrite_client=rewrite_client,
+        audit_client=audit_client,
+        rules=rules,
+        outcome=outcome,
     )
 
     # 3. The validator roll-up on the FINAL draft (validator-as-oracle, NN #3).
@@ -328,7 +346,7 @@ async def _process_cluster(
         grade=grade,
         gate_decision=gate_decision,
         rules_version=rules.version,
-        llm_enabled=client is not None,
+        llm_enabled=rewrite_client is not None,
         rewrite_failed=outcome.rewrite_failed,
         audit_failed=outcome.audit_failed,
     )
@@ -419,15 +437,19 @@ async def _process_cluster(
 async def run_canonical_producer(
     session: AsyncSession,
     *,
-    client: ChatClient | None = None,
+    rewrite_client: ChatClient | None = None,
+    audit_client: ChatClient | None = None,
     rules: Rules | None = None,
     limit: int | None = None,
 ) -> CanonicalProducerResult:
     """Produce persisted DRAFT ``canonical_jds`` over the real JDFN role clusters.
 
-    ``client=None`` -> deterministic-only (the 4.1 merge draft is persisted; the rewrite
-    and audit are recorded as skipped) — runnable without Ollama. A provided ``client``
-    drives the full pipeline; a per-cluster model failure isolates + counts, not aborts.
+    ``rewrite_client=None`` -> deterministic-only (the 4.1 merge draft is persisted; the
+    rewrite and audit are recorded as skipped) — runnable without Ollama. A provided
+    ``rewrite_client`` drives the 4.2a rewrite and a provided ``audit_client`` the 4.2b
+    audit; each is bound to its own rulebook model (``rules.rewrite`` vs
+    ``rules.quality`` — separate decisions) so the ``QualityAudit.model`` stamp cannot
+    lie (NN #6). A per-cluster model failure isolates + counts, not aborts.
 
     Deterministic + single-process for the deterministic parts; idempotent persistence.
     The CALLER owns the transaction and the commit — this runner does not commit (each
@@ -489,7 +511,8 @@ async def run_canonical_producer(
                     record,
                     jdfn_pairs,
                     wjq_excluded=len(wjq),
-                    client=client,
+                    rewrite_client=rewrite_client,
+                    audit_client=audit_client,
                     rules=rulebook,
                 )
         except Exception:  # noqa: BLE001 - isolate a per-cluster failure, keep the run
@@ -522,7 +545,7 @@ async def run_canonical_producer(
         rewrite_failures=rewrite_failures,
         audit_failures=audit_failures,
         rules_version=rulebook.version,
-        llm_enabled=client is not None,
+        llm_enabled=rewrite_client is not None,
         rewrite_model=rulebook.rewrite.model,
         rewrite_prompt_version=rulebook.rewrite.prompt_version,
         quality_model=rulebook.quality.model,

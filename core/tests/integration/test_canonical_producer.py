@@ -8,7 +8,7 @@ real migration. What only a real database can prove:
    wrong).
 3. IDEMPOTENT: two runs -> one cluster row, one canonical v1 (no dup versions), the
    second run reports 0 persisted / 1 refreshed and the same content.
-4. LLM best-effort + injected: ``client=None`` persists the merge draft (rewrite/audit
+4. LLM best-effort + injected: no client persists the merge draft (rewrite/audit
    recorded skipped); a client that RAISES on rewrite still persists the merge draft and
    counts ``rewrite_failures``; a valid rewrite lands the rewritten content + the
    anti-fab record; a failing audit omits the advisory audit but persists the draft.
@@ -116,6 +116,10 @@ class _FakeChat:
         self._rewrite_jd = rewrite_jd or _rewrite_jd()
         self._findings = findings or JDQualityFindings(issues=[])
         self._raise_on = raise_on
+        #: Every schema this client was asked to complete — so a test can prove the
+        #: producer routed the rewrite and the audit to their OWN injected clients and
+        #: never crossed them (the point of the two-client split, NN #6).
+        self.seen: list[type[object]] = []
 
     async def chat_json(
         self,
@@ -125,6 +129,7 @@ class _FakeChat:
         max_tokens: int,
         max_retries: int,
     ) -> object:
+        self.seen.append(model_cls)
         if model_cls is SFUJobDescription:
             if self._raise_on == "rewrite":
                 raise RuntimeError("simulated rewrite failure")
@@ -241,7 +246,7 @@ async def test_the_producer_persists_a_draft_a_human_still_has_to_approve(
         await _seed_pair(session)
         await session.commit()
 
-        result = await run_canonical_producer(session, client=None)
+        result = await run_canonical_producer(session, rewrite_client=None)
         await session.commit()
 
         assert result.drafts_persisted == 1
@@ -319,7 +324,7 @@ async def test_a_published_canonical_is_left_byte_identical_and_counted(
         )
 
     async with session_maker() as session:
-        result = await run_canonical_producer(session, client=None)
+        result = await run_canonical_producer(session, rewrite_client=None)
         await session.commit()
 
         assert result.skipped_reviewer_touched == 1
@@ -360,7 +365,7 @@ async def test_a_draft_a_reviewer_acted_on_is_left_untouched_and_counted(
         )
 
     async with session_maker() as session:
-        result = await run_canonical_producer(session, client=None)
+        result = await run_canonical_producer(session, rewrite_client=None)
         await session.commit()
         assert result.skipped_reviewer_touched == 1
         assert result.drafts_refreshed == 0
@@ -384,7 +389,7 @@ async def test_running_twice_yields_the_same_rows(
         await _seed_pair(session)
         await session.commit()
 
-        first = await run_canonical_producer(session, client=None)
+        first = await run_canonical_producer(session, rewrite_client=None)
         await session.commit()
         assert first.drafts_persisted == 1
         assert first.drafts_refreshed == 0
@@ -394,7 +399,7 @@ async def test_running_twice_yields_the_same_rows(
         assert canonical is not None
         first_content = canonical.content
 
-        second = await run_canonical_producer(session, client=None)
+        second = await run_canonical_producer(session, rewrite_client=None)
         await session.commit()
         # No new cluster, no new canonical version — an untouched DRAFT is refreshed.
         assert second.drafts_persisted == 0
@@ -420,7 +425,7 @@ async def test_client_none_persists_the_deterministic_merge_draft(
         await _seed_pair(session)
         await session.commit()
 
-        result = await run_canonical_producer(session, client=None)
+        result = await run_canonical_producer(session, rewrite_client=None)
         await session.commit()
         assert result.llm_enabled is False
         assert result.rewrite_failures == 0
@@ -460,7 +465,9 @@ async def test_a_valid_rewrite_lands_the_rewritten_content_and_anti_fab_record(
         await session.commit()
 
         client = _FakeChat(findings=findings)
-        result = await run_canonical_producer(session, client=client)
+        result = await run_canonical_producer(
+            session, rewrite_client=client, audit_client=client
+        )
         await session.commit()
 
         assert result.llm_enabled is True
@@ -492,7 +499,9 @@ async def test_a_rewrite_failure_falls_back_to_the_merge_draft_and_is_counted(
         await session.commit()
 
         client = _FakeChat(raise_on="rewrite")
-        result = await run_canonical_producer(session, client=client)
+        result = await run_canonical_producer(
+            session, rewrite_client=client, audit_client=client
+        )
         await session.commit()
 
         # The run did NOT abort — the draft was still persisted.
@@ -521,7 +530,9 @@ async def test_an_audit_failure_omits_the_advisory_audit_but_persists_the_draft(
         await session.commit()
 
         client = _FakeChat(raise_on="audit")
-        result = await run_canonical_producer(session, client=client)
+        result = await run_canonical_producer(
+            session, rewrite_client=client, audit_client=client
+        )
         await session.commit()
 
         assert result.drafts_persisted == 1
@@ -536,6 +547,46 @@ async def test_an_audit_failure_omits_the_advisory_audit_but_persists_the_draft(
         assert canonical.change_log["quality_audit"] is None
 
 
+@pytest.mark.asyncio
+async def test_rewrite_and_audit_are_routed_to_their_own_injected_clients(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """The two-client split (NN #6): the producer sends the 4.2a rewrite ONLY to
+    ``rewrite_client`` and the 4.2b audit ONLY to ``audit_client``. A regression that
+    re-merged them (one client bound to the rewrite model passed to both) would either
+    leave the audit client unused OR route the audit through the rewrite client, and the
+    ``QualityAudit.model`` stamp — always ``rules.quality.model`` — would silently lie.
+    Distinct fakes make the crossing observable: each must see ONLY its own schema.
+    """
+    findings = JDQualityFindings(
+        issues=[
+            JDQualityFinding(
+                category="clarity",
+                severity="medium",
+                message="A nuance the regex validator cannot judge.",
+                evidence="attention to detail",  # verbatim substring of the rewrite
+            )
+        ]
+    )
+    async with session_maker() as session:
+        await _seed_pair(session)
+        await session.commit()
+
+        rewrite_client = _FakeChat()
+        audit_client = _FakeChat(findings=findings)
+        result = await run_canonical_producer(
+            session, rewrite_client=rewrite_client, audit_client=audit_client
+        )
+        await session.commit()
+
+        assert result.rewrite_failures == 0
+        assert result.audit_failures == 0
+        # The rewrite client saw ONLY the rewrite schema; the audit client ONLY the
+        # audit schema. Neither saw the other's — the passes never share a client.
+        assert rewrite_client.seen == [SFUJobDescription]
+        assert audit_client.seen == [JDQualityFindings]
+
+
 # --- acceptance #5: APPEND-ONLY audit ------------------------------------------------
 
 
@@ -547,7 +598,7 @@ async def test_each_persist_and_refresh_writes_an_append_only_audit_row(
         await _seed_pair(session)
         await session.commit()
 
-        await run_canonical_producer(session, client=None)
+        await run_canonical_producer(session, rewrite_client=None)
         await session.commit()
 
     async with session_maker() as session:
@@ -561,7 +612,7 @@ async def test_each_persist_and_refresh_writes_an_append_only_audit_row(
         assert "cluster_id" in rows[0].payload
         assert "title" not in rows[0].payload
 
-        await run_canonical_producer(session, client=None)
+        await run_canonical_producer(session, rewrite_client=None)
         await session.commit()
 
     async with session_maker() as session:
@@ -589,7 +640,7 @@ async def test_a_skip_writes_an_append_only_audit_row(
         )
 
     async with session_maker() as session:
-        await run_canonical_producer(session, client=None)
+        await run_canonical_producer(session, rewrite_client=None)
         await session.commit()
 
     async with session_maker() as session:
@@ -622,7 +673,7 @@ async def test_wjq_members_are_excluded_and_counted(
         await session.commit()
 
         result = await run_canonical_producer(
-            session, client=None, rules=_no_group_veto(rules)
+            session, rewrite_client=None, rules=_no_group_veto(rules)
         )
         await session.commit()
 
@@ -652,7 +703,7 @@ async def test_a_fully_wjq_cluster_is_excluded_and_persists_nothing(
         await _role_edge(session, a.id, b.id)
         await session.commit()
 
-        result = await run_canonical_producer(session, client=None)
+        result = await run_canonical_producer(session, rewrite_client=None)
         await session.commit()
 
         assert result.clusters_fully_wjq_excluded == 1
@@ -679,7 +730,7 @@ async def test_a_single_jdfn_member_cluster_is_counted_single(
         await session.commit()
 
         result = await run_canonical_producer(
-            session, client=None, rules=_no_group_veto(rules)
+            session, rewrite_client=None, rules=_no_group_veto(rules)
         )
         await session.commit()
 
@@ -737,7 +788,7 @@ async def test_a_mid_persist_failure_isolates_one_cluster_and_the_rest_persist(
         await _role_edge(session, c.id, d.id)
         await session.commit()
 
-        result = await run_canonical_producer(session, client=None)
+        result = await run_canonical_producer(session, rewrite_client=None)
         await session.commit()
 
     # (d) the run completed; (c) exactly one cluster failed, the other persisted.

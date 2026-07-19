@@ -12,6 +12,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
+from src.jd_bank.canonical import __main__ as cli
 from src.jd_bank.canonical import runner as canon_runner
 from src.jd_bank.canonical.models import CanonicalProducerResult
 from src.jd_bank.canonical.runner import (
@@ -28,6 +29,7 @@ from src.jd_core.models.bank import (
 )
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.models.quality import GateDecision, GateReason
+from src.jd_core.rules import get_rules
 
 # --- the no-clobber predicate (all four combinations) ---------------------------------
 
@@ -189,3 +191,51 @@ def test_the_result_is_frozen_and_counts_only() -> None:
     # Counts-only: no field carries JD prose (content lives on the persisted rows).
     forbidden = {"content", "draft", "drafts", "clusters", "jds", "members"}
     assert not (set(CanonicalProducerResult.model_fields) & forbidden)
+
+
+# --- the two-client CLI wiring (NN #6: the audit stamp cannot lie) --------------------
+
+
+def test_build_clients_binds_the_audit_client_to_the_quality_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``_build_clients`` must bind the audit client EXPLICITLY to ``rules.quality`` so
+    ``QualityAudit.model`` (always stamped ``rules.quality.model``) cannot lie once the
+    rewrite and quality YAMLs diverge (NN #6). The rewrite client is left on the
+    ``ChatClient`` default (``rules.rewrite.model`` — no explicit ``model`` kwarg).
+    Forces the two models apart so a regression that binds the audit to the rewrite
+    model — or reuses one client for both — is caught, not masked by identical defaults.
+    """
+    built: list[dict[str, object]] = []
+
+    class _RecordingClient:
+        def __init__(self, **kwargs: object) -> None:
+            built.append(kwargs)
+
+    monkeypatch.setattr(cli, "ChatClient", _RecordingClient)
+
+    rules = get_rules()
+    rules = rules.model_copy(
+        update={
+            "quality": rules.quality.model_copy(
+                update={"model": "QUALITY-ONLY-MODEL", "temperature": 0.42}
+            )
+        }
+    )
+
+    rewrite_client, audit_client = cli._build_clients(rules, no_llm=False)
+
+    assert rewrite_client is not None
+    assert audit_client is not None
+    assert len(built) == 2
+    rewrite_kwargs, audit_kwargs = built
+    # Rewrite: no explicit model -> ChatClient falls back to rules.rewrite.model.
+    assert rewrite_kwargs.get("model") is None
+    # Audit: bound to the quality model/temperature, distinct from the rewrite default.
+    assert audit_kwargs["model"] == "QUALITY-ONLY-MODEL"
+    assert audit_kwargs["temperature"] == 0.42
+
+
+def test_build_clients_no_llm_yields_no_clients() -> None:
+    """``--no-llm`` -> ``(None, None)``: the deterministic path, no Ollama needed."""
+    assert cli._build_clients(get_rules(), no_llm=True) == (None, None)

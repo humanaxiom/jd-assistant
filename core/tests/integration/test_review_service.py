@@ -820,7 +820,7 @@ async def test_a_real_producer_draft_can_be_rejected_end_to_end(
     async with session_maker() as session:
         await _seed_producer_cluster(session)
         await session.commit()
-        result = await run_canonical_producer(session, client=None)
+        result = await run_canonical_producer(session, rewrite_client=None)
         await session.commit()
         assert result.drafts_persisted == 1
 
@@ -836,7 +836,7 @@ async def test_a_real_producer_draft_can_be_rejected_end_to_end(
         await session.commit()
 
     async with session_maker() as session:
-        again = await run_canonical_producer(session, client=None)
+        again = await run_canonical_producer(session, rewrite_client=None)
         await session.commit()
         assert again.skipped_reviewer_touched == 1
         assert again.drafts_persisted == 0
@@ -867,7 +867,7 @@ async def test_the_producer_no_clobber_resolves_to_the_latest_version(
         )
         await session.commit()
 
-        result = await run_canonical_producer(session, client=None)
+        result = await run_canonical_producer(session, rewrite_client=None)
         await session.commit()
         assert result.drafts_refreshed == 1
         assert result.drafts_persisted == 0

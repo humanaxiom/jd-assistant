@@ -21,11 +21,12 @@ member-id list that could reconstruct prose; that lives in the persisted rows).
 **Nothing is published or approved** (non-negotiable #1): every row is a DRAFT a human
 still has to approve.
 
-⚠ SINGLE INJECTED CLIENT: the producer takes one ``ChatClient`` and passes it to BOTH
-the 4.2a rewrite and the 4.2b audit, so this entrypoint binds it to the rewrite model.
-If the audit must run under its own ``rules.quality.model`` (the two are separate
-rulebook decisions — see ``llm/client.py``), that is a follow-up: split the producer's
-``client`` into ``rewrite_client`` / ``audit_client``. Recorded, not silently carried.
+TWO INJECTED CLIENTS: the producer takes a ``rewrite_client`` and an ``audit_client``,
+each bound to its OWN rulebook model — the 4.2a rewrite to ``rules.rewrite.model`` and
+the 4.2b audit to ``rules.quality.model`` (separate rulebook decisions — see
+``llm/client.py``). :func:`_build_clients` binds them so that when ``quality.yaml`` is
+retuned the audit actually runs under the quality model and ``QualityAudit.model``
+cannot become a provenance lie (NN #6). ``--no-llm`` -> both are ``None``.
 """
 
 from __future__ import annotations
@@ -43,7 +44,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from src.jd_bank.canonical.models import CanonicalProducerResult
 from src.jd_bank.canonical.runner import run_canonical_producer
 from src.jd_bank.llm.client import ChatClient
-from src.jd_core.rules import get_rules
+from src.jd_core.rules import Rules, get_rules
 from src.settings import get_settings
 
 
@@ -89,22 +90,50 @@ def _write_summary(result: CanonicalProducerResult, *, path: Path, source: str) 
     return path
 
 
+def _build_clients(
+    rules: Rules, *, no_llm: bool
+) -> tuple[ChatClient | None, ChatClient | None]:
+    """The ``(rewrite_client, audit_client)`` pair, each bound to its own model.
+
+    The rewrite client falls back to ``rules.rewrite.model`` /
+    ``rules.rewrite.temperature`` (HR-176/HR-177 — the ``ChatClient`` default); the
+    audit client is bound EXPLICITLY to ``rules.quality.model`` /
+    ``rules.quality.temperature`` (HR-185/HR-186) so the ``QualityAudit.model`` stamp
+    cannot lie once the two YAMLs diverge (NN #6).
+    ``--no-llm`` -> ``(None, None)``: the deterministic-only path, no Ollama needed.
+    """
+    if no_llm:
+        return None, None
+    rewrite_client = ChatClient(rules=rules)
+    audit_client = ChatClient(
+        rules=rules,
+        model=rules.quality.model,
+        temperature=rules.quality.temperature,
+    )
+    return rewrite_client, audit_client
+
+
 async def _run(args: argparse.Namespace) -> CanonicalProducerResult:
     settings = get_settings()
     rules = get_rules()
     engine = create_async_engine(settings.database_url)
     session_maker = async_sessionmaker(engine, expire_on_commit=False)
-    client = None if args.no_llm else ChatClient(rules=rules)
+    rewrite_client, audit_client = _build_clients(rules, no_llm=args.no_llm)
     try:
         async with session_maker() as session:
             result = await run_canonical_producer(
-                session, client=client, rules=rules, limit=args.limit
+                session,
+                rewrite_client=rewrite_client,
+                audit_client=audit_client,
+                rules=rules,
+                limit=args.limit,
             )
             # The producer does not commit — the caller owns it. Persist the run.
             await session.commit()
     finally:
-        if client is not None:
-            await client.close()
+        for client in (rewrite_client, audit_client):
+            if client is not None:
+                await client.close()
         await engine.dispose()
     return result
 
