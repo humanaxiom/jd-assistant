@@ -1,7 +1,28 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-19 (**4.4c review ROUTES MERGED (PR #55); 4.4d server-rendered UI next.**
+Last updated: 2026-07-19 (**4.4d review UI MERGED LOCALLY (PR #56, git-only — see below); 4.5 HR pilot
+next. The Phase-4.4 review queue is COMPLETE: producer → service → routes → UI.**
+`core/src/api/routes/ui.py` is a MINIMAL server-rendered UI INSIDE the FastAPI app (`/jd-bank/ui`) —
+chosen over the untested Flask `frontend/` so the human-approval surface stays under `make gates`
+(mypy --strict + coverage + TestClient). `GET /queue` · `GET /review/{id}` (404 page on unknown) ·
+`POST /review/{id}/{approve,reject,edit}` → 303 to the queue on success, RE-RENDER the detail page with
+the error + NO commit on a service error (pinned both directions). Jinja2 templates (`_base`/`review_
+queue`/`review_detail`/`review_not_found`) mirror the dashboard theme. TRANSPORT ONLY — the 4.4b service
+keeps every invariant; override construction builds one `GateOverride` per FILLED overridable-gate reason
+field (blanks skipped, never synthesized — service re-checks). **NO new runtime dependency:**
+`request.form()` asserts `python-multipart` (absent) on the installed Starlette even for urlencoded
+bodies, so POST bodies parse via stdlib `urllib.parse.parse_qsl` on the raw body. Autoescape on, no
+`|safe` on archive text; the 4.3 diff renders from `change_log["harmonization_diff"]`. Reviewer (Opus)
+APPROVED after one must-fix (a rendered-draft assertion that was TAUTOLOGICAL with the title — a wrong
+`change_log` key would have passed silently, the recurring silent-empty trap; now asserts a draft-unique
+string). Gates **1731, 93.67%** (`ui.py` 99%). No knob; `rules_version` untouched. **⚠ MERGED LOCALLY,
+NOT via GitHub:** GitHub Actions was billing-blocked at merge time ("recent account payments have failed
+/ spending limit") so CI could not run — `main` was fast-forwarded locally (`make gates` is CI-identical
+per ADR-006). **PR #56 is open + unmerged on GitHub; re-run its CI and reconcile once billing is fixed.**
+Follow-ups (out of scope): the edit view uses a raw JSON `<textarea>` (structured per-field editor
+deferred); the pre-existing `jd_core→jd_bank` edge (`parser/store.py`) still open. Prior line — 4.4c
+review ROUTES MERGED (PR #55).
 `core/src/api/routes/jd_bank.py` is THIN HTTP over the 4.4b service — a `/jd-bank` router on the
 harness app. Five endpoints: `GET review/queue?limit=` · `GET review/{id}` (404 on unknown) ·
 `POST review/{id}/{approve,reject,edit}` (`reviewer_id` in the BODY, pilot model, no SSO). Routes add
@@ -682,11 +703,17 @@ acceptance / out-of-scope).
     (`core/src/api/routes/jd_bank.py`), TestClient-tested, error→status map + commit discipline pinned.
     Task file: `docs/tasks/phase-4.4c-review-routes.md`. Two follow-ups (both out of scope, in header):
     pre-existing `jd_core→jd_bank` edge in `parser/store.py`; optional `get_session`→`api/deps.py`.
-  - **4.4d server-rendered UI — NEXT** (user-chosen: minimal, LAST slice) — queue list → cluster detail
-    (draft + 4.3 diff + validation report + approve/edit/reject/override buttons) over the 4.4c routes.
-    No JS build step. Surface `MergeProvenance.skill_frequency` alongside the 4.3 `removed` list (the
-    `removed` list is NOT exhaustive over incidental KSA-rebuild skill drops — 4.3 note).
-  - **4.5** pilot 5–10 clusters with a real HR reviewer; feedback → fixtures/rules.
+  - **4.4d server-rendered UI — DONE (PR #56, MERGED LOCALLY — GitHub CI billing-blocked, PR still open).**
+    See header. Minimal `/jd-bank/ui` inside FastAPI (user-chosen: server-rendered, gated). Task file:
+    `docs/tasks/phase-4.4d-review-ui.md`. **Reconcile PR #56 on GitHub once Actions billing is restored**
+    (re-run CI; the branch `feat/4.4d-review-ui` is already ff-merged into local `main`). Follow-ups: the
+    edit view's raw-JSON `<textarea>` → a structured per-field editor; surface
+    `MergeProvenance.skill_frequency` alongside the 4.3 `removed` list (not exhaustive over incidental
+    KSA-rebuild skill drops — 4.3 note) — neither built in 4.4d (minimal).
+  - **4.5 — NEXT.** Pilot 5–10 clusters with a real HR reviewer over the now-complete review queue
+    (producer → service → routes → UI); feedback → fixtures/rules. Every pilot bug becomes a regression
+    fixture (NN #7). This is where the 4.2/4.3/4.4 provisional `open` defaults get calibrated against a
+    human's judgment.
 - **4.4a follow-up (do before the live producer output is trusted): split the injected LLM `client` into
   `rewrite_client`/`audit_client`.** Today `rewrite.yaml` and `quality.yaml` are both `gpt-oss:120b`/`0.0`
   so a single client is byte-identical; the moment `quality.yaml`'s model/temp is retuned, the audit would
