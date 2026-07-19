@@ -1,7 +1,19 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-19 (**4.4b review SERVICE MERGED (PR #54); 4.4c routes next.**
+Last updated: 2026-07-19 (**4.4c review ROUTES MERGED (PR #55); 4.4d server-rendered UI next.**
+`core/src/api/routes/jd_bank.py` is THIN HTTP over the 4.4b service — a `/jd-bank` router on the
+harness app. Five endpoints: `GET review/queue?limit=` · `GET review/{id}` (404 on unknown) ·
+`POST review/{id}/{approve,reject,edit}` (`reviewer_id` in the BODY, pilot model, no SSO). Routes add
+ZERO invariants — the service keeps NN #1 publish gate / validator-as-oracle / override-needs-reason /
+append-only audit; a handler unpacks → calls ONE service fn → COMMITS on success → serializes. The ONLY
+route logic is the typed-error→status map: `CanonicalNotFound`/None-packet→404; `IllegalTransition`+
+`NotApprovable`→409; `GateOverrideError`+`MissingReason`+malformed-edit `ValidationError`→422.
+Commit-on-success / no-commit-on-error pinned BOTH directions; TestClient units monkeypatch the service.
+Reviewer (Opus) APPROVED, no must-fix, re-ran gates. Gates **1716, 93.61%**. No schema/knob change.
+**Two follow-ups (out of scope, recorded):** a pre-existing `jd_core→jd_bank` edge (`parser/store.py`
+imports `jd_bank.db.models`) — its own chore; optional `get_session`→`api/deps.py` to drop the router's
+bottom-of-file circular-import shim (`# noqa: E402`). Prior line — 4.4b review SERVICE MERGED (PR #54).
 `jd_bank/review/service.py` is the human-approval spine (NN #1): list queue / assemble packet /
 approve·reject·edit·override over the 4.4a DRAFT canonicals, writing status transition +
 `review_actions` + append-only `audit_log`. **approve PUBLISHES only when the gate decision permits**
@@ -666,16 +678,14 @@ acceptance / out-of-scope).
     header). Task file: `docs/tasks/phase-4.4b-review-service.md`. **Follow-up:** a concurrent double-approve
     test (the `FOR UPDATE` lock is real + the sequential stale-status guard is pinned, so the invariant holds;
     a true concurrency test is a pilot backlog line).
-  - **4.4c FastAPI routes — NEXT.** Thin HTTP over the 4.4b service (TestClient-tested), a JD-Bank router hung
-    off `core/src/api/main.py` (the existing harness app). Endpoints: list queue, get packet, approve (body
-    carries `reviewer_id` + optional `overrides`), reject (reason), edit (new content + reason). Map the
-    service's typed errors → HTTP status (`NotApprovableError`/`GateOverrideError` → 409/422, not-found →
-    404, missing-reason → 422). **Reviewer identity = a caller-supplied string** (header/body) for the pilot,
-    no SFU SSO — the `review_actions.reviewer_id` column already models it. The service already owns the
-    invariants; routes must add NONE of their own (no second publish path, no gate logic in a handler). hris
-    `apps/api/routes/jd_bank.py` is the API-shape reference; JD Bank's write path is its own.
-  - **4.4d server-rendered UI** (user-chosen: minimal, LAST slice) — queue list → cluster detail (draft +
-    diff + validation report + approve/edit/reject/override buttons). No JS build step.
+  - **4.4c FastAPI routes — DONE (PR #55).** See header. Thin `/jd-bank` router over the 4.4b service
+    (`core/src/api/routes/jd_bank.py`), TestClient-tested, error→status map + commit discipline pinned.
+    Task file: `docs/tasks/phase-4.4c-review-routes.md`. Two follow-ups (both out of scope, in header):
+    pre-existing `jd_core→jd_bank` edge in `parser/store.py`; optional `get_session`→`api/deps.py`.
+  - **4.4d server-rendered UI — NEXT** (user-chosen: minimal, LAST slice) — queue list → cluster detail
+    (draft + 4.3 diff + validation report + approve/edit/reject/override buttons) over the 4.4c routes.
+    No JS build step. Surface `MergeProvenance.skill_frequency` alongside the 4.3 `removed` list (the
+    `removed` list is NOT exhaustive over incidental KSA-rebuild skill drops — 4.3 note).
   - **4.5** pilot 5–10 clusters with a real HR reviewer; feedback → fixtures/rules.
 - **4.4a follow-up (do before the live producer output is trusted): split the injected LLM `client` into
   `rewrite_client`/`audit_client`.** Today `rewrite.yaml` and `quality.yaml` are both `gpt-oss:120b`/`0.0`
