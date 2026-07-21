@@ -1,0 +1,229 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — Deduplication (Tier 1/2/3){% endblock %}
+{% block content %}
+<style>
+  .kpis { display:flex; flex-wrap:wrap; gap:1rem; }
+  .kpi { background:#0d1117; border:1px solid var(--border); border-radius:8px; padding:.9rem 1.1rem; min-width:120px; }
+  .kpi .n { font-size:1.6rem; font-weight:600; }
+  .kpi .k { color:var(--muted); font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; }
+  .note { border-left:3px solid var(--accent); background:rgba(47,129,247,.08); padding:.75rem 1rem; margin:1rem 0; border-radius:0 6px 6px 0; }
+  .bar-wrap { background:#0d1117; border:1px solid var(--border); border-radius:4px; height:14px; overflow:hidden; min-width:60px; }
+  .bar { height:100%; background:var(--accent); }
+  .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .stamp { font-size:.8rem; color:var(--muted); }
+  .stamp code { color:var(--fg); }
+  .files { font-size:.82rem; color:var(--muted); word-break:break-word; }
+  h3 { font-size:1rem; margin:1.2rem 0 .4rem; }
+</style>
+
+{% macro kpi(n, k) %}<div class="kpi"><div class="n">{{ n }}</div><div class="k">{{ k }}</div></div>{% endmacro %}
+
+{% macro bar_table(rows, head) %}
+<table>
+  <thead><tr><th>{{ head }}</th><th class="num">Count</th><th>Share</th></tr></thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.label }}</td>
+      <td class="num">{{ row.count }}</td>
+      <td><div class="bar-wrap"><div class="bar" style="width:{{ '%.1f'|format(row.pct) }}%"></div></div></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}
+
+{% macro pctl_table(rows, unit) %}
+<table>
+  <thead><tr><th>Percentile</th><th class="num">{{ unit }}</th><th>&nbsp;</th></tr></thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.label }}</td>
+      <td class="num">{{ '%.3f'|format(row.value) }}</td>
+      <td><div class="bar-wrap"><div class="bar" style="width:{{ '%.1f'|format(row.pct) }}%"></div></div></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}
+
+<div class="panel">
+  <h2>Deduplication &mdash; Tier 1 / Tier 2 / Tier 3</h2>
+  <p class="meta"><a href="/jd-bank/ui/dashboard">&larr; Dashboards</a></p>
+  <p class="meta">
+    Read-only. Every figure below is read at request time from the committed dedup
+    artifacts under <code>docs/dedup/</code> &mdash; nothing here is hardcoded, and each
+    tier renders independently.
+  </p>
+</div>
+
+<!-- ================= Tier 1 — exact duplicates ================= -->
+<div class="panel">
+  <h2>Tier 1 &mdash; exact duplicates</h2>
+  {% if tier1 is none %}
+  <p class="empty">
+    The Tier-1 exact-duplicate report has not been generated (or
+    <code>docs/dedup/summary.json</code> is not readable here). Run
+    <code>make dedup</code> to produce it, then reload.
+  </p>
+  {% else %}
+  {% set r = tier1.r %}
+  <p class="stamp">
+    Generated <code>{{ r.generated_at }}</code> · rules <code>{{ r.rules_version }}</code>
+    · source <code>{{ r.source }}</code>
+  </p>
+  <div class="kpis">
+    {{ kpi(r.group_count, "Duplicate groups") }}
+    {{ kpi(r.redundant_files, "Redundant files") }}
+    {{ kpi("%.1f"|format(r.redundancy_rate * 100) ~ "%", "Redundancy rate") }}
+    {{ kpi(r.largest_group_size, "Largest group") }}
+    {{ kpi(r.hashed, "Files hashed") }}
+    {{ kpi(r.distinct_sha256, "Distinct contents") }}
+  </div>
+  <div class="note">
+    Most exact-duplicate groups span <strong>multiple positions</strong> &mdash; different
+    positions sharing one byte-identical JD, i.e. <strong>cross-position cloning</strong>,
+    not re-saves. The "same position &rArr; duplicate" assumption fails on this archive
+    (see <code>docs/dedup/README.md</code>); nothing is ever deleted, at any setting.
+  </div>
+  <h3>What the duplicates are</h3>
+  <table>
+    <tbody>
+      <tr><th>Groups spanning multiple positions</th><td class="num">{{ r.groups_spanning_multiple_positions }}</td></tr>
+      <tr><th>Groups within one position (re-saves)</th><td class="num">{{ r.groups_within_one_position }}</td></tr>
+      <tr><th>Groups without a position id</th><td class="num">{{ r.groups_without_position_id }}</td></tr>
+      <tr><th>Files in multi-position groups</th><td class="num">{{ r.files_in_multi_position_groups }}</td></tr>
+    </tbody>
+  </table>
+  <h3>Edges (topology: {{ r.topology }})</h3>
+  <table>
+    <tbody>
+      <tr><th>Edges at live topology</th><td class="num">{{ r.edges_at_topology }}</td></tr>
+      <tr><th>Star would write</th><td class="num">{{ r.edges_star }}</td></tr>
+      <tr><th>Clique would write</th><td class="num">{{ r.edges_clique }}</td></tr>
+    </tbody>
+  </table>
+  <h3>Group size distribution</h3>
+  {{ bar_table(tier1.size_bars, "Group size") }}
+  <h3>Biggest groups</h3>
+  <table>
+    <thead><tr><th class="num">Size</th><th class="num">Bytes</th><th>Files</th></tr></thead>
+    <tbody>
+      {% for g in r.biggest_groups %}
+      <tr>
+        <td class="num">{{ g.size }}</td>
+        <td class="num">{% if g.byte_size is not none %}{{ g.byte_size }}{% else %}&mdash;{% endif %}</td>
+        <td class="files">{{ g.filenames | join(", ") }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+
+<!-- ================= Tier 2 — near duplicates ================= -->
+<div class="panel">
+  <h2>Tier 2 &mdash; near duplicates</h2>
+  {% if tier2 is none %}
+  <p class="empty">
+    The Tier-2 near-duplicate report has not been generated (or
+    <code>docs/dedup/near-dup-summary.json</code> is not readable here). Run
+    <code>make near-dup</code> to produce it, then reload.
+  </p>
+  {% else %}
+  {% set r = tier2.r %}
+  <p class="stamp">
+    Generated <code>{{ r.generated_at }}</code> · rules <code>{{ r.rules_version }}</code>
+    · dedup stamp <code>{{ r.dedup_stamp }}</code>
+  </p>
+  <div class="kpis">
+    {{ kpi(r.edges_written, "Edges written") }}
+    {{ kpi(r.qualifying_pairs, "Qualifying pairs") }}
+    {{ kpi(r.candidate_pairs, "Candidate pairs") }}
+    {{ kpi("%.1f"|format(r.coverage_rate * 100) ~ "%", "Coverage (of contents)") }}
+    {{ kpi("%.2f"|format(r.jaccard_min), "Jaccard min") }}
+  </div>
+  <div class="note">
+    Coverage is signed contents &divide; <strong>distinct contents</strong> (never files):
+    Tier-2 runs one signature per distinct <code>sha256</code>, so the byte-identical
+    copies Tier-1 already folded are not double-counted here.
+  </div>
+  <h3>Corpus</h3>
+  <table>
+    <tbody>
+      <tr><th>Documents seen</th><td class="num">{{ r.documents_seen }}</td></tr>
+      <tr><th>Distinct contents</th><td class="num">{{ r.distinct_contents }}</td></tr>
+      <tr><th>Signed (signatured)</th><td class="num">{{ r.documents_signed }}</td></tr>
+      <tr><th>Unreadable</th><td class="num">{{ r.documents_unreadable }}</td></tr>
+      <tr><th>Below min shingles</th><td class="num">{{ r.documents_below_min_shingles }}</td></tr>
+    </tbody>
+  </table>
+  <h3>Edge position split</h3>
+  <table>
+    <tbody>
+      <tr><th>Cross-position edges</th><td class="num">{{ r.cross_position_edges }}</td></tr>
+      <tr><th>Same-position edges</th><td class="num">{{ r.same_position_edges }}</td></tr>
+      <tr><th>Unknown-position edges</th><td class="num">{{ r.unknown_position_edges }}</td></tr>
+    </tbody>
+  </table>
+  <h3>Reconcile</h3>
+  <table>
+    <tbody>
+      <tr><th>Written</th><td class="num">{{ r.edges_written }}</td></tr>
+      <tr><th>Updated</th><td class="num">{{ r.edges_updated }}</td></tr>
+      <tr><th>Unchanged</th><td class="num">{{ r.edges_unchanged }}</td></tr>
+      <tr><th>Pruned</th><td class="num">{{ r.edges_pruned }}</td></tr>
+    </tbody>
+  </table>
+  <h3>Jaccard percentiles (qualifying pairs)</h3>
+  {{ pctl_table(tier2.jaccard_rows, "Jaccard") }}
+  {% endif %}
+</div>
+
+<!-- ================= Tier 3 — role equivalence ================= -->
+<div class="panel">
+  <h2>Tier 3 &mdash; role equivalence</h2>
+  {% if tier3 is none %}
+  <p class="empty">
+    The Tier-3 role-equivalence report has not been generated (or
+    <code>docs/dedup/role-equiv-summary.json</code> is not readable here). Run
+    <code>make dedup-role</code> to produce it, then reload.
+  </p>
+  {% else %}
+  {% set r = tier3.r %}
+  <p class="stamp">
+    Generated <code>{{ r.generated_at }}</code> · rules <code>{{ r.rules_version }}</code>
+    · dedup stamp <code>{{ r.dedup_stamp }}</code> · idf <code>{{ r.idf_stamp }}</code>
+  </p>
+  <div class="kpis">
+    {{ kpi(r.edges_written, "Edges written") }}
+    {{ kpi("%.2f"|format(r.role_equiv_threshold), "Equivalence threshold") }}
+    {{ kpi(r.candidate_pairs, "Candidate pairs") }}
+    {{ kpi(r.admissible_pairs, "Admissible pairs") }}
+    {{ kpi(r.restricted_flagged, "Restricted flagged") }}
+  </div>
+  <div class="note">
+    A role-equivalence edge is only true relative to the threshold, the veto ladder and
+    the idf corpus &mdash; the restricted-title edges are <strong>flagged for HR review,
+    never silently merged</strong>.
+  </div>
+  <h3>Vetoes &amp; function split</h3>
+  <table>
+    <tbody>
+      <tr><th>Band-conflict vetoed</th><td class="num">{{ r.band_vetoed }}</td></tr>
+      <tr><th>Employee-group vetoed</th><td class="num">{{ r.group_vetoed }}</td></tr>
+      <tr><th>Same-function edges</th><td class="num">{{ r.same_function_edges }}</td></tr>
+      <tr><th>Cross-function edges</th><td class="num">{{ r.cross_function_edges }}</td></tr>
+      <tr><th>Documents with a vector</th><td class="num">{{ r.documents_with_vector }}</td></tr>
+      <tr><th>Documents without a vector</th><td class="num">{{ r.documents_without_vector }}</td></tr>
+      <tr><th>Distinct idf skills</th><td class="num">{{ r.idf_skills }}</td></tr>
+    </tbody>
+  </table>
+  <h3>Blended score percentiles (qualifying pairs)</h3>
+  {{ pctl_table(tier3.score_rows, "Score") }}
+  <h3>Title-family distribution (signed JDs)</h3>
+  {{ bar_table(tier3.family_bars, "Family") }}
+  {% endif %}
+</div>
+{% endblock %}

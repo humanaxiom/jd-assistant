@@ -1,0 +1,34 @@
+{
+  "source": "sentinel-dedup-source",
+  "generated_at": "2097-03-04T05:06:07.111111Z",
+  "total_documents": 70001,
+  "hashed": 70000,
+  "unhashed": 3,
+  "distinct_sha256": 60002,
+  "group_count": 5051,
+  "files_in_groups": 9091,
+  "redundant_files": 4747,
+  "redundancy_rate": 0.211111,
+  "group_size_distribution": { "2": 4111, "3": 2111, "7": 611 },
+  "largest_group_size": 7,
+  "biggest_groups": [
+    {
+      "sha256": "SENTINELHASHdedup01deadbeef",
+      "size": 7,
+      "byte_size": 424242,
+      "filenames": [
+        "SENTINEL_dupe_alpha.docx",
+        "SENTINEL_dupe_beta.docx"
+      ]
+    }
+  ],
+  "groups_spanning_multiple_positions": 3131,
+  "groups_within_one_position": 1717,
+  "groups_without_position_id": 909,
+  "files_in_multi_position_groups": 8181,
+  "edges_star": 4141,
+  "edges_clique": 9393,
+  "topology": "star",
+  "edges_at_topology": 4141,
+  "rules_version": "SENTINEL_DEDUP_RULES+aa11bb22"
+}

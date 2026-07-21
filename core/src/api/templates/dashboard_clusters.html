@@ -1,0 +1,103 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — Role clusters{% endblock %}
+{% block content %}
+<style>
+  .kpis { display:flex; flex-wrap:wrap; gap:1rem; }
+  .kpi { background:#0d1117; border:1px solid var(--border); border-radius:8px; padding:.9rem 1.1rem; min-width:120px; }
+  .kpi .n { font-size:1.6rem; font-weight:600; }
+  .kpi .k { color:var(--muted); font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; }
+  .note { border-left:3px solid var(--accent); background:rgba(47,129,247,.08); padding:.75rem 1rem; margin:1rem 0; border-radius:0 6px 6px 0; }
+  .bar-wrap { background:#0d1117; border:1px solid var(--border); border-radius:4px; height:14px; overflow:hidden; min-width:60px; }
+  .bar { height:100%; background:var(--accent); }
+  .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .stamp { font-size:.8rem; color:var(--muted); word-break:break-word; }
+  .stamp code { color:var(--fg); }
+  h3 { font-size:1rem; margin:1.2rem 0 .4rem; }
+</style>
+
+{% macro kpi(n, k) %}<div class="kpi"><div class="n">{{ n }}</div><div class="k">{{ k }}</div></div>{% endmacro %}
+
+{% macro bar_table(rows, head) %}
+<table>
+  <thead><tr><th>{{ head }}</th><th class="num">Count</th><th>Share</th></tr></thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.label }}</td>
+      <td class="num">{{ row.count }}</td>
+      <td><div class="bar-wrap"><div class="bar" style="width:{{ '%.1f'|format(row.pct) }}%"></div></div></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}
+
+<div class="panel">
+  <h2>Role clusters</h2>
+  <p class="meta"><a href="/jd-bank/ui/dashboard">&larr; Dashboards</a></p>
+
+  {% if cluster is none %}
+  <p class="empty">
+    The role-clustering report has not been generated (or
+    <code>docs/cluster/cluster-summary.json</code> is not readable here). Run
+    <code>make cluster</code> to produce it, then reload this page.
+  </p>
+  {% else %}
+  {% set r = cluster.r %}
+  <p class="stamp">
+    Generated <code>{{ r.generated_at }}</code> · rules <code>{{ r.rules_version }}</code>
+    · cluster stamp <code>{{ r.cluster_stamp }}</code>
+  </p>
+  <div class="kpis">
+    {{ kpi(r.cluster_count, "Clusters") }}
+    {{ kpi(r.clustered_documents, "Clustered JDs") }}
+    {{ kpi("%.1f"|format(r.coverage_rate * 100) ~ "%", "Coverage") }}
+    {{ kpi(r.largest_cluster, "Largest cluster") }}
+    {{ kpi(r.singletons, "Singletons") }}
+    {{ kpi(r.flagged_clusters, "Flagged for HR") }}
+  </div>
+  <div class="note">
+    Coverage is the share of signed JDs that land in a cluster of at least the minimum
+    size; the remainder are <strong>singletons</strong> (about a quarter of the corpus,
+    by design). This is a report-only "eyeball pass" &mdash; it persists nothing and
+    <strong>splits nothing</strong>; a risky cluster is flagged, never auto-resolved.
+  </div>
+</div>
+
+<div class="panel">
+  <h3>Cross-cutting reach</h3>
+  <table>
+    <tbody>
+      <tr><th>Cross-department clusters</th><td class="num">{{ r.cross_department_clusters }}</td></tr>
+      <tr><th>Cross-group clusters</th><td class="num">{{ r.cross_group_clusters }}</td></tr>
+      <tr><th>Restricted-touching clusters</th><td class="num">{{ r.restricted_touching_clusters }}</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Edges</h3>
+  <table>
+    <tbody>
+      <tr><th>Considered</th><td class="num">{{ r.edges_considered }}</td></tr>
+      <tr><th>Admitted</th><td class="num">{{ r.edges_admitted }}</td></tr>
+      <tr><th>Exact synthesized</th><td class="num">{{ r.exact_synthesized }}</td></tr>
+      <tr><th>Below role-equiv min</th><td class="num">{{ r.role_below_min }}</td></tr>
+      <tr><th>Band vetoed</th><td class="num">{{ r.band_vetoed }}</td></tr>
+      <tr><th>Group vetoed</th><td class="num">{{ r.group_vetoed }}</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Tier contribution (clusters with an internal edge of this tier)</h3>
+  {{ bar_table(cluster.tier_bars, "Tier") }}
+
+  <h3>Cluster size distribution</h3>
+  {{ bar_table(cluster.size_bars, "Cluster size") }}
+
+  <h3>Title-family distribution (signed JDs)</h3>
+  {{ bar_table(cluster.family_bars, "Family") }}
+
+  <p class="stamp">
+    Edge method stamps: {% for m in r.edge_method_stamps %}<code>{{ m }}</code>{% if not loop.last %} · {% endif %}{% endfor %}
+  </p>
+  {% endif %}
+</div>
+{% endblock %}

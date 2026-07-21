@@ -86,6 +86,17 @@ class Settings(BaseSettings):
     # dependency — so a unit test can aim the loader at a fixture without a real mount.
     baseline_summary_path: str = "/docs/baseline/summary.json"
 
+    # The dedup (Tier 1/2/3) + cluster read-only dashboards (Phase 4.6c slices 2+3) read
+    # the SAME committed artifacts `make dedup` / `make near-dup` / `make dedup-role` /
+    # `make cluster` write, mounted at `/docs/...` by the compose api service's
+    # `./docs:/docs:ro` bind. Each mirrors `baseline_summary_path`: env-overridable
+    # (DEDUP_SUMMARY_PATH etc.) and, in tests, aimed at a fixture via the matching
+    # `get_*_summary_path` FastAPI dependency — so no real mount is needed to unit-test.
+    dedup_summary_path: str = "/docs/dedup/summary.json"
+    near_dup_summary_path: str = "/docs/dedup/near-dup-summary.json"
+    role_equiv_summary_path: str = "/docs/dedup/role-equiv-summary.json"
+    cluster_summary_path: str = "/docs/cluster/cluster-summary.json"
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
