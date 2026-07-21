@@ -1,6 +1,25 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
+
+**NEWEST (2026-07-20 — UI reprioritization, user-directed): Phase 4.6 (Visibility & local-only
+assurance) now runs AHEAD of the 4.5 pilot.** The backend was substantial but invisible beyond
+test-pass claims, and the proprietary archive must be provably local. **4.6c slice 1 DONE + MERGED
+LOCALLY** (`agent/4.6c-baseline-dashboard`): a read-only server-rendered **Archive Baseline dashboard**
+inside the FastAPI api service (`GET /jd-bank/ui/dashboard` + `/dashboard/baseline`), rendering the
+Phase-2.5 baseline READ FROM `docs/baseline/summary.json` — **mutation-pinned so hardcoding a headline
+number goes red** (this is the answer to "no visibility besides test-pass claims"). The aggregator now
+emits the **874-JD current-practice cohort** as a segment (`SegmentDimension += "cohort"`) so the
+headline (874 · 78.6% · median 79.05 · A81/B551/C240/D2) lives in the committed artifact and headlines
+the page; whole-archive rate demoted with its "category error — never quote" warning. `make baseline`
+re-run to regenerate the artifact. Opus-approved (every pin mutation-verified). Gates **1743, 93.92%**.
+**Local boundary RATIFIED: "not cloud" — internal `aria-gb10-2` OK** (NN #5 / ADR-003); dev-box-only
+declined. **Egress evidence:** the only two content network sinks (`jd_bank/llm/client.py`,
+`jd_bank/embeddings/client.py`) both point at `settings.ollama_base_url` (internal, default
+`http://aria-gb10-2:11434/v1`) — **NO cloud/third-party LLM API anywhere in jd_bank/jd_core.** **NEXT
+(user order): 4.6a egress guard (make no-cloud executable) → dedup/cluster dashboards → 4.6b seed the
+review queue with real DRAFT canonicals.** GitHub CI still billing-blocked — merge was local, no push.
+
 Last updated: 2026-07-20 (**4.4a follow-up DONE — the producer's injected LLM client is now SPLIT into
 `rewrite_client`/`audit_client` so the `QualityAudit.model` stamp can't lie once `quality.yaml` retunes
 (NN #6); MERGED LOCALLY (PR #57, git-only — GitHub CI still billing-blocked, see 4.4a-followup below).
