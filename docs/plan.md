@@ -459,7 +459,11 @@ The register enforces the record: a `ratified` decision **must** carry `decided_
 
 ### Phase 4 — Harmonization & review
 **4.1–4.4 COMPLETE.** The full pipeline exists end to end — merge → rewrite → audit → change-log →
-review queue (producer → service → routes → UI). **4.5 (the human pilot) is the only piece left.**
+review queue (producer → service → routes → UI). **REPRIORITIZED (2026-07-20, user):** the codebase
+is substantial but its only visible surface is the transport-only review queue — everything else
+(baseline, dedup, clusters, harmonization diffs) exists only as DB rows and "gates pass" claims. So
+**Phase 4.6 (Visibility & local-only assurance) is now sequenced AHEAD of the 4.5 human pilot** — the
+work must be *seen* and *proven local* before a real HR reviewer is asked to trust it.
 - **4.1** ✅ **MERGED + calibrated** (PR #46). Deterministic merge engine (`bank/merge.py`): section
   selection, duty union/dedup/reorder, KSA rebuild — pure, no LLM, drafts only. 9 knobs in registered/
   unhashed `harmonization.yaml` (HR-167..175). Calibrated over 1,801 JDFN clusters via the
@@ -495,16 +499,63 @@ review queue (producer → service → routes → UI). **4.5 (the human pilot) i
     `_build_clients` (both-or-neither) in `canonical/__main__.py`; pure wiring, nothing registered. Two pins
     (routing + binding), both proven RED under their regression. Gates 1734/93.89%; Opus-approved.
     **Reconcile PR #57 + re-run CI once billing is restored.**
-- **4.5** NEXT — Pilot: 5–10 clusters end to end with a real HR reviewer through the 4.4d UI; feedback
+- **4.5** — Pilot: 5–10 clusters end to end with a real HR reviewer through the review UI; feedback
   becomes fixtures/rules (NN #7). Where the 4.2/4.3/4.4 provisional `open` defaults meet human judgment.
+  **Now sequenced AFTER 4.6** — the pilot needs the queue populated with real drafts and the dashboards
+  in place, and the reviewer needs the local-only guarantee proven before touching proprietary content.
 
 **Pre-pilot follow-ups (engineering, can land before 4.5):** ~~split `rewrite_client`/`audit_client`~~
 ✅ DONE (4.4a-followup, PR #57). Remaining: a `jd_bank/` change-log runner over real clusters (4.3);
 `get_session`→`api/deps.py` (drops the two routers' circular-import shim); concurrent double-approve test
-(4.4b). Deferred product gap: the 4.4d edit view is a raw-JSON `<textarea>` — a structured per-field
-editor is a later task.
+(4.4b). Deferred product gap: the review-queue edit view is a raw-JSON `<textarea>` — a structured
+per-field editor is a later task.
 
 **Exit:** first human-approved canonical JDs published; audit trail complete.
+
+### Phase 4.6 — Visibility & local-only assurance (⬅ NEXT — user-prioritized, 2026-07-20)
+
+**Why now:** we have built a large backend whose only evidence of working is "gates pass" — and the
+proprietary archive's content must be provably local. This phase makes the pipeline's output *visible*
+in a browser and makes the no-cloud-egress invariant *executable* rather than a claim. **Guardrails
+the user set: NO service-plan change, NO major rewrites.** Extend the server-rendered Jinja UI that
+already lives inside the FastAPI `api` service and runs under `make gates` (mypy --strict + coverage +
+TestClient) — the deliberate 4.4d choice. All new UI pages are **read-only** over data the pipeline
+already produced; the review queue stays the only mutation surface (the 4.4b service remains the sole
+authority, NN #1). Everything content-analyzing stays on internal infra we control (NN #5 / ADR-003).
+
+- **4.6a — Local-only egress guard (do FIRST; it is the trust foundation).** Turn NN #5 from prose
+  into an executable, adversarially-pinned check. A single allowlist of permitted inference hosts
+  (config, registered `open`) that **both** content network clients (`llm/client.py`,
+  `embeddings/client.py`) resolve their `base_url` against at construction — a base_url whose host is
+  not on the allowlist raises before any content is sent, and `make gates` fails if any client is
+  wired to a non-allowlisted host. Pin BOTH directions (internal host → allowed; a cloud host like
+  `api.openai.com` → rejected, test goes red if the guard is removed). Ship a short evidence artifact
+  (`docs/security/egress-audit.md`) enumerating every content network sink and where it points.
+  **Interpretation RATIFIED (2026-07-20, user):** "local" = *not cloud/third-party* — content may
+  cross the private network to internal infra we control (`aria-gb10-2`), consistent with NN #5 /
+  ADR-003. *Never leaves the dev box* was considered and **declined** (would move Ollama onto the dev
+  box, an ADR-003 amendment). So the allowlist permits internal hosts and REJECTS any public/cloud
+  host; register the allowlist as `open`, the interpretation as decided.
+- **4.6b — Seed real data + live review queue.** Run `make dedup-role` → `make canonical` over the
+  real archive so genuine DRAFT `canonical_jds` populate the queue, and drive the existing UI
+  (`/jd-bank/ui/queue` → detail → approve/edit/reject) end to end against real drafts. Deliverable:
+  the human-approval spine demonstrably working on real content, not fixtures. (This is also the 4.5
+  pilot's prerequisite.)
+- **4.6c — Read-only pipeline dashboards.** New Jinja pages under the same `api` service, each a thin
+  read over data already in Postgres/Neo4j/the committed report artifacts — no new pipeline logic:
+  (1) **Archive baseline** (parse rate, era bands, current-practice cohort, approval/score/grade
+  distribution — from `docs/baseline/`); (2) **Dedup** (Tier-1 exact groups, Tier-2 near-dup, Tier-3
+  role-equivalent — counts + drill-in to a group's members); (3) **Clusters** (the 2,458 role clusters,
+  the 9 flagged, coverage); (4) **Harmonization diff** per cluster (reuse the 4.3 `HarmonizationDiff`
+  the review detail already renders). Autoescape on; no `|safe` on archive text (untrusted). Sliced as
+  separate tasks (baseline → dedup → clusters) so each is one session and lands independently.
+- **4.6d — Remove the dead Flask `frontend` compose service.** It points at a `frontend/` package that
+  does not exist (the abandoned pre-4.4d approach) and publishes host port 25500 for nothing. Chore
+  branch; delete the service + its env; scrub references. Keeps the compose file honest.
+
+**Exit:** a reviewer can open a browser and see the archive analysis, the dedup/cluster findings, and
+real canonical drafts moving through approve/reject — and the no-cloud-egress invariant fails the build
+if violated, rather than resting on a code read.
 
 ### Phase 5 — JD Composer
 - **5.1** Search API: Neo4j vector semantic search + Postgres facet filters.
