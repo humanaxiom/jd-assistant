@@ -30,6 +30,7 @@ from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
 from openai.types.shared_params import ResponseFormatJSONObject
 from pydantic import BaseModel, ValidationError
 
+from src.jd_bank.security.egress import assert_inference_host_allowed
 from src.jd_core.rules import Rules, get_rules
 from src.settings import get_settings
 
@@ -81,9 +82,20 @@ class ChatClient:
         temperature: float | None = None,
     ) -> None:
         settings = get_settings()
-        self._client = client or AsyncOpenAI(
-            base_url=settings.ollama_base_url, api_key="ollama"
-        )
+        if client is None:
+            # NN #5 (build-enforced): never construct a content client against a
+            # cloud/third-party host. Runs BEFORE the AsyncOpenAI client exists, so no
+            # JD content can leak. An injected client (the test-fake path) is not built
+            # from settings and so is not re-checked. See jd_bank.security.egress.
+            assert_inference_host_allowed(
+                settings.ollama_base_url,
+                allowed_hosts=settings.allowed_inference_hosts,
+            )
+            self._client = AsyncOpenAI(
+                base_url=settings.ollama_base_url, api_key="ollama"
+            )
+        else:
+            self._client = client
         rewrite = (rules if rules is not None else get_rules()).rewrite
         # The model / temperature are a RULEBOOK decision — of the pass that
         # constructs the client. When an explicit ``model`` / ``temperature`` is given

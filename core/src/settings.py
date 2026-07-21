@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -17,7 +18,33 @@ class Settings(BaseSettings):
     # NOTE: local `make gates` reaches this host; CI (`ubuntu-latest`) CANNOT, and never
     # will. Nothing on the `make gates` path may call a live endpoint. See ADR-003.
     ollama_base_url: str = "http://aria-gb10-2:11434/v1"
+    # Phase 4.6a — the build-enforced form of CLAUDE.md NN #5 (no vendor egress of JD
+    # content). OPS/SECURITY config, NOT a JD-scoring rule: it changes no JD's score, so
+    # it lives here and NOT in `jd_core/rules/` or the HR decision register. The two
+    # JD-content network sinks (`jd_bank.llm.client.ChatClient`,
+    # `jd_bank.embeddings.client.EmbedClient`) refuse to build against a host not on
+    # this list — see `jd_bank.security.egress` and docs/security/egress-audit.md. The
+    # default admits the internal Ollama host (`aria-gb10-2`) plus loopback / the docker
+    # host (a future dev-box Ollama is a permitted INTERNAL case); private/RFC-1918 IP
+    # literals are allowed by the guard directly. Override with the comma-separated env
+    # var ALLOWED_INFERENCE_HOSTS. If the inference host ever moves OFF a trusted
+    # segment this is a FIPPA question (NN #5) — re-decide it, don't just append here.
+    allowed_inference_hosts: list[str] = [
+        "aria-gb10-2",
+        "localhost",
+        "127.0.0.1",
+        "host.docker.internal",
+    ]
     agent_model: str = "qwen2.5-coder:14b"
+
+    @field_validator("allowed_inference_hosts", mode="before")
+    @classmethod
+    def _split_allowed_hosts(cls, value: object) -> object:
+        """Accept a comma-separated string (the natural env form) as a host list."""
+        if isinstance(value, str):
+            return [host.strip() for host in value.split(",") if host.strip()]
+        return value
+
     # The HARNESS agent-memory embedding model (`memory.graph.GraphMemory`'s
     # `artifact_embeddings` index — lineage-graph retrieval). NOT what JD Bank
     # embeds a parsed JD with — that is `get_rules().embeddings.model` (HR-124),
