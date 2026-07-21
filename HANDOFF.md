@@ -28,10 +28,19 @@ cluster-summary.json`, reusing the existing `extra="forbid"` report models (veri
 each REAL artifact validates). Opus-approved (reads-from-file + per-tier graceful-degrade
 mutation-verified). Gates **1773, 93.94%**. LIVE numbers confirmed: dedup 1037 groups/1972 redundant/
 15,072 near-dup/133,842 role-equiv; clusters 2,458/75.1%/3,620 singletons/largest 132. Follow-up
-(non-blocking): tighten 2 secondary cluster-KPI pins to collision-free sentinels. **NEXT (user order):
-4.6b — seed the review queue with real DRAFT canonicals (`make canonical-drafts`, in progress — Ollama
-`gpt-oss:120b` reachable, egress guard permits `aria-gb10-2`).** GitHub CI still billing-blocked —
-merges were local, no push.
+(non-blocking): tighten 2 secondary cluster-KPI pins to collision-free sentinels. **4.6b REVIEW QUEUE SEEDED + DEMONSTRABLE (data, not a code merge):**
+`make canonical-drafts CANONICAL_ARGS="--no-llm --limit 5000"` persisted **379 DRAFT canonical_jds**
+(378 multi-member role clusters + 1 singleton; 751 clusters recomputed from the 133,842 role-equiv
+edges over the first 5000 parsed_jds), each with an append-only `audit_log` row. The live review UI is
+now POPULATED: `/jd-bank/ui/queue` lists 379 drafts; a detail page (`/review/{id}`) renders the real
+harmonized draft + score + SFU gates + approve/reject/edit/override controls. **NOTE:** these are the
+DETERMINISTIC 4.1 merge drafts (`--no-llm`, zero egress) — the 4.2 LLM rewrite/audit (`gpt-oss:120b` on
+`aria-gb10-2`, guard-permitted) can REFRESH them in place (no-clobber only skips reviewer-touched rows).
+`--limit` bounds INPUT parsed_jds rows, NOT output drafts (a 3-row smoke test formed 0 clusters). The
+seed is DB data (`docs/canonical/summary.json` is a partial-run artifact, left uncommitted). **Phase 4.6
+(Visibility) COMPLETE: 3 read-only dashboards + a populated review queue + a build-enforced egress
+guard — the backend is now visible end to end.** GitHub CI still billing-blocked — merges were local, no
+push.
 
 Last updated: 2026-07-20 (**4.4a follow-up DONE — the producer's injected LLM client is now SPLIT into
 `rewrite_client`/`audit_client` so the `QualityAudit.model` stamp can't lie once `quality.yaml` retunes
