@@ -32,9 +32,16 @@ Per run::
   back to the merge draft; audit is advisory -> omit on failure). ``client=None`` ->
   deterministic-only (merge draft persisted; rewrite/audit recorded as skipped).
 
-**Persistence discipline** mirrors :mod:`src.jd_bank.ingest.driver`: the CALLER owns the
-transaction and the commit; each cluster runs inside a ``begin_nested`` SAVEPOINT so a
-per-cluster failure isolates that cluster and never corrupts the rest of the run.
+**Persistence discipline** mirrors :mod:`src.jd_bank.ingest.driver`: by default the
+CALLER owns the transaction and the commit; each cluster runs inside a ``begin_nested``
+SAVEPOINT so a per-cluster failure isolates that cluster and never corrupts the rest of
+the run. For a long (multi-hour) LLM run an optional ``commit_every=N`` makes completed
+work crash-safe: the runner commits the session BETWEEN clusters every N processed —
+never inside a cluster's SAVEPOINT, so a partial cluster is never committed — and an
+idempotent re-run cheaply refreshes/skips what already landed. ``commit_every=None``
+(the default) is byte-identical to before: the runner never commits and the caller owns
+the single final commit. An optional ``progress_every=N`` prints a counts-only progress
+line to STDERR at the same cadence so the run is watchable via the container logs.
 
 ``jd_core`` is never imported the other way round — the producer is ``jd_bank`` and it
 drives ``jd_core`` (merge / diff / validator / gates) freely.
@@ -42,6 +49,8 @@ drives ``jd_core`` (merge / diff / validator / gates) freely.
 
 from __future__ import annotations
 
+import sys
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -431,6 +440,31 @@ async def _process_cluster(
     return outcome
 
 
+# --- progress logging (operational, counts-only) -------------------------------------
+
+
+def _log_progress(
+    *,
+    processed: int,
+    total: int,
+    persisted: int,
+    refreshed: int,
+    skipped: int,
+    cluster_failures: int,
+    elapsed_s: float,
+) -> None:
+    """Emit one counts-only progress line to STDERR — makes a multi-hour run watchable
+    via the container logs. Counts/timing only, NEVER JD text (mirrors the counts-only
+    ``summary.json`` discipline, NN #6)."""
+    print(
+        f"[canonical-producer] {processed}/{total} clusters | "
+        f"persisted={persisted} refreshed={refreshed} skipped={skipped} "
+        f"failures={cluster_failures} | elapsed={elapsed_s:.1f}s",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
 # --- the pass ------------------------------------------------------------------------
 
 
@@ -441,6 +475,8 @@ async def run_canonical_producer(
     audit_client: ChatClient | None = None,
     rules: Rules | None = None,
     limit: int | None = None,
+    commit_every: int | None = None,
+    progress_every: int | None = None,
 ) -> CanonicalProducerResult:
     """Produce persisted DRAFT ``canonical_jds`` over the real JDFN role clusters.
 
@@ -452,8 +488,21 @@ async def run_canonical_producer(
     lie (NN #6). A per-cluster model failure isolates + counts, not aborts.
 
     Deterministic + single-process for the deterministic parts; idempotent persistence.
-    The CALLER owns the transaction and the commit — this runner does not commit (each
-    cluster runs inside a ``begin_nested`` SAVEPOINT so a per-cluster failure isolates).
+
+    ``commit_every=None`` (the DEFAULT) -> the runner NEVER commits; the CALLER owns the
+    transaction and the single final commit (byte-identical to before). A set
+    ``commit_every=N`` -> for crash-safety on a long run the runner commits the session
+    after every N processed clusters, but ONLY between clusters — after a cluster's
+    ``begin_nested`` SAVEPOINT has released (success or isolated failure), so a partial
+    cluster is never committed. Work committed at a checkpoint is durable if the run
+    later dies, and an idempotent re-run cheaply refreshes/skips what already landed.
+    The caller still owns the final commit for the remainder.
+
+    ``progress_every=N`` -> emit a counts-only progress line to STDERR every N processed
+    clusters so the run is watchable via the container logs (``None`` -> silent).
+
+    Each cluster runs inside a ``begin_nested`` SAVEPOINT so a per-cluster failure
+    isolates that cluster and never aborts the run.
     """
     rulebook = rules if rules is not None else get_rules()
 
@@ -479,6 +528,13 @@ async def run_canonical_producer(
     cluster_failures = 0
     rewrite_failures = 0
     audit_failures = 0
+
+    #: JDFN clusters that have entered + released their SAVEPOINT — the cadence counter
+    #: for the between-cluster checkpoint commit and the progress line. ``total`` is the
+    #: denominator (all recomputed clusters; some are fully-WJQ and never processed).
+    processed = 0
+    total = len(clustering.clusters)
+    started_at = time.monotonic()
 
     # Deterministic cluster order (content-derived id); member order by source_id.
     for record in sorted(clustering.clusters, key=lambda r: str(r.cluster_id)):
@@ -517,13 +573,29 @@ async def run_canonical_producer(
                 )
         except Exception:  # noqa: BLE001 - isolate a per-cluster failure, keep the run
             cluster_failures += 1
-            continue
+        else:
+            persisted += int(outcome.persisted)
+            refreshed += int(outcome.refreshed)
+            skipped += int(outcome.skipped)
+            rewrite_failures += int(outcome.rewrite_failed)
+            audit_failures += int(outcome.audit_failed)
 
-        persisted += int(outcome.persisted)
-        refreshed += int(outcome.refreshed)
-        skipped += int(outcome.skipped)
-        rewrite_failures += int(outcome.rewrite_failed)
-        audit_failures += int(outcome.audit_failed)
+        # BETWEEN clusters ONLY — the SAVEPOINT above has released (success or isolated
+        # failure), so the checkpoint commit can never persist a partial cluster. The
+        # caller still owns the final commit for whatever follows the last checkpoint.
+        processed += 1
+        if commit_every is not None and processed % commit_every == 0:
+            await session.commit()
+        if progress_every is not None and processed % progress_every == 0:
+            _log_progress(
+                processed=processed,
+                total=total,
+                persisted=persisted,
+                refreshed=refreshed,
+                skipped=skipped,
+                cluster_failures=cluster_failures,
+                elapsed_s=time.monotonic() - started_at,
+            )
 
     return CanonicalProducerResult(
         documents_seen=clustering.documents_seen,

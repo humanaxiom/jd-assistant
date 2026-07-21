@@ -67,6 +67,14 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="deterministic-only: persist the 4.1 merge draft, no Ollama call",
     )
     parser.add_argument(
+        "--commit-every",
+        type=int,
+        default=25,
+        help="commit every N processed clusters (crash-safety on a long LLM run) and "
+        "print a progress line to stderr at the same cadence; 0 disables (single final "
+        "commit only). The final commit is always the backstop for the remainder.",
+    )
+    parser.add_argument(
         "--summary-out",
         type=str,
         default="/committed/summary.json",
@@ -119,6 +127,10 @@ async def _run(args: argparse.Namespace) -> CanonicalProducerResult:
     engine = create_async_engine(settings.database_url)
     session_maker = async_sessionmaker(engine, expire_on_commit=False)
     rewrite_client, audit_client = _build_clients(rules, no_llm=args.no_llm)
+    # 0 (or a negative) disables incremental commit -> a single final commit only.
+    commit_every = (
+        args.commit_every if args.commit_every and args.commit_every > 0 else None
+    )
     try:
         async with session_maker() as session:
             result = await run_canonical_producer(
@@ -127,8 +139,11 @@ async def _run(args: argparse.Namespace) -> CanonicalProducerResult:
                 audit_client=audit_client,
                 rules=rules,
                 limit=args.limit,
+                commit_every=commit_every,
+                progress_every=commit_every,
             )
-            # The producer does not commit — the caller owns it. Persist the run.
+            # The producer may checkpoint-commit between clusters (``--commit-every``);
+            # this final commit is the backstop for the remainder after the last one.
             await session.commit()
     finally:
         for client in (rewrite_client, audit_client):
