@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from openai import omit
 
 from src.jd_bank.llm.client import ChatClient
 from src.jd_core.models.parsed_jd import SFUJobDescription
@@ -125,3 +126,64 @@ async def test_the_audit_model_source_is_quality_not_rewrite_nor_settings(
     assert create.call_args.kwargs["model"] == quality_model
     assert create.call_args.kwargs["model"] != rewrite_model
     assert create.call_args.kwargs["model"] != harness_model
+
+
+# --- per-pass reasoning_effort (HR-191 rewrite / HR-192 audit) --------------------
+
+
+@pytest.mark.asyncio
+async def test_reasoning_effort_from_the_shipped_quality_rules_flows_into_the_request() -> (  # noqa: E501
+    None
+):
+    """The audit binds ``ChatClient(reasoning_effort=rules.quality.reasoning_effort)``
+    (HR-192, shipped ``low``); the value must actually reach the chat API. Driven off
+    the SHIPPED rules so a change to the default that forgets the register is caught."""
+    rules = get_rules()
+    assert rules.quality.reasoning_effort == "low"  # the shipped default (HR-192)
+
+    create = AsyncMock(return_value=_response([(0, _VALID_JSON)]))
+    client = ChatClient(
+        client=_fake_openai(create),
+        rules=rules,
+        model=rules.quality.model,
+        temperature=rules.quality.temperature,
+        reasoning_effort=rules.quality.reasoning_effort,
+    )
+
+    await _drive(client)
+
+    assert create.call_args.kwargs["reasoning_effort"] == "low"
+
+
+@pytest.mark.asyncio
+async def test_an_explicit_reasoning_effort_wins_over_the_rewrite_fallback() -> None:
+    """An explicit ``reasoning_effort`` override must WIN over the ``rewrite.*``
+    fallback, exactly like ``model`` / ``temperature`` — or the audit's cheaper effort
+    would be silently overridden by the rewrite's."""
+    create = AsyncMock(return_value=_response([(0, _VALID_JSON)]))
+    client = ChatClient(
+        client=_fake_openai(create),
+        rules=get_rules(),
+        reasoning_effort="high",
+    )
+
+    await _drive(client)
+
+    assert create.call_args.kwargs["reasoning_effort"] == "high"
+
+
+@pytest.mark.asyncio
+async def test_unset_reasoning_effort_is_omitted_so_the_request_is_pre_4_6() -> None:
+    """The rewrite ships ``reasoning_effort: null`` (HR-191). Null/unset must send the
+    parameter NOWHERE — the SDK ``omit`` sentinel — so the request is byte-identical to
+    the pre-4.6 one and the model runs at its own default effort. A client that passed
+    ``None`` (which the server could read as effort ``none``) goes red here."""
+    rules = get_rules()
+    assert rules.rewrite.reasoning_effort is None  # shipped unset (HR-191)
+
+    create = AsyncMock(return_value=_response([(0, _VALID_JSON)]))
+    client = ChatClient(client=_fake_openai(create), rules=rules)
+
+    await _drive(client)
+
+    assert create.call_args.kwargs["reasoning_effort"] is omit

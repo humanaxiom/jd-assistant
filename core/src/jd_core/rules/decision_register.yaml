@@ -5477,6 +5477,68 @@ decisions:
       variable RAISES rather than shipping a `{{ jd_text }}` in the prompt).
     status: open
 
+  # ── Per-pass reasoning-effort knob (Phase 4.6). HR-191 rewrite, HR-192 audit. ──
+  # A reasoning model (gpt-oss:120b) emits a SEPARATE reasoning stream before its answer,
+  # and that stream — not the JSON output — dominates latency. MEASURED on `aria-gb10-2`:
+  # ~1000 reasoning tokens vs ~164 output tokens per audit (~6x), and `reasoning_effort: low`
+  # cuts the reasoning ~5x (1000 -> ~194). So it is a per-pass SPEED/quality tradeoff, and —
+  # like `model` / `temperature` — a rulebook decision each pass owns separately: the audit
+  # can run cheap while the rewrite keeps full reasoning. `our_invention` (no SFU or hris
+  # precedent); both `open`. Lives in the UNHASHED rewrite.yaml / quality.yaml — a
+  # reasoning-effort change decides how a JD is WORDED / AUDITED, never how it is SCORED, so
+  # it must not churn `rules_version`. `null`/unset sends the parameter NOWHERE (the model's
+  # own default = pre-4.6 behaviour).
+  - id: HR-191
+    question: >-
+      How hard should the reasoning model think before rewriting a merge draft — and should
+      we constrain its reasoning effort at all?
+    config:
+      file: rewrite.yaml
+      path: rewrite.reasoning_effort
+    current_default: null
+    provenance: our_invention
+    why_it_matters: >-
+      gpt-oss is a reasoning model: it produces a reasoning stream (separate from the JSON
+      content) whose length dominates latency — measured ~6x the output tokens, and
+      `reasoning_effort: low` cuts it ~5x. But the rewrite produces PROSE, and prose quality
+      benefits from full reasoning, so unlike the audit (HR-192, which ships `low`) the
+      rewrite leaves this UNSET (`null`): the client sends no `reasoning_effort` and the model
+      runs at its own default, exactly as it did before 4.6. Setting it to `low`|`medium`|`high`
+      is a deliberate speed/quality trade to make at the 4.5 pilot, not a default to drift.
+      PROVISIONAL. NB `high` can exhaust the token budget with reasoning and return empty
+      content (observed live), so raising it must be sized against `max_tokens`.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (rewrite.yaml is unhashed). `null` -> the parameter is
+      omitted from the chat request entirely (pre-4.6 behaviour); a level flows straight
+      through to the API. Pinned by mutation in the client test (the effort the client sends
+      is `rules.rewrite.reasoning_effort`; unset omits the kwarg, a value passes it verbatim).
+    status: open
+
+  - id: HR-192
+    question: >-
+      How hard should the reasoning model think before running the nuanced quality audit?
+    config:
+      file: quality.yaml
+      path: quality.reasoning_effort
+    current_default: low
+    provenance: our_invention
+    why_it_matters: >-
+      The audit reports nuanced findings, each quoted VERBATIM from the JD — it does not need
+      deep chain-of-thought. But gpt-oss's reasoning stream dominates latency: MEASURED
+      ~1000 reasoning tokens vs ~164 output tokens per audit (~6x), and `reasoning_effort: low`
+      cuts the reasoning ~5x (to ~194) with no loss of schema adherence in testing. So `low`
+      is the disciplined, far cheaper default. It is SEPARATE from the rewrite's effort
+      (HR-191, unset): a rewrite-policy change must not silently move the audit's, which is
+      why each pass owns its own knob in its own file. PROVISIONAL — confirm the quality/speed
+      trade at the 4.5 pilot.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (quality.yaml is unhashed). `low` flows through to the
+      chat API; set it to `null` and the parameter is omitted (the model runs at full default
+      effort — slower). Pinned by mutation in the client generalization test (the effort the
+      audit sends is the override `quality.reasoning_effort`; a fake asserts the exact value
+      flows through, and that `null` omits the kwarg).
+    status: open
+
 # ═════════════════════════════════════════════════════════════════════════════
 # TRIVIAL — on the decision surface, deliberately NOT a decision for HR.
 #

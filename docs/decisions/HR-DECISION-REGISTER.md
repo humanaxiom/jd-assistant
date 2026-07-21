@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+90af5e27dc83` · **190 decisions** (190 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 251 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+90af5e27dc83` · **192 decisions** (192 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 253 parameters on the decision surface, all accounted for.
 
 ## What this is
 
@@ -206,6 +206,8 @@ Every policy call JD Bank currently makes **by default**, because SFU HR has not
 | [HR-188](#hr-188) | How many times should an invalid-JSON audit response be re-requested before the pass gives up? | `1` | our invention |
 | [HR-189](#hr-189) | Should the anti-fabrication (verbatim-evidence) guard run at all on the audit findings? | `true` | our invention |
 | [HR-190](#hr-190) | Which prompt template should the quality-audit pass use? | `jd_quality_v1` | our invention |
+| [HR-191](#hr-191) | How hard should the reasoning model think before rewriting a merge draft — and should we constrain its reasoning effort at all? | `null` | our invention |
+| [HR-192](#hr-192) | How hard should the reasoning model think before running the nuanced quality audit? | `low` | our invention |
 
 ### Our invention — nobody has ratified these
 
@@ -1031,6 +1033,22 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** our invention
 - **Why it matters:** Names the versioned template pair under `jd_bank/llm/templates/` (`jd_quality_v1.system.j2` + `.user.j2`, ported faithfully from hris). Its only variable is `{{ jd_text }}` (the flattened JD). The loaded template's own version is what stamps `QualityAudit.prompt_version`, so provenance traces to the exact wording. Swapping this selects a different template version. PROVISIONAL — the prompt is refined at the 4.5 pilot, and each refinement is a new versioned template, not an in-place edit.
 - **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the prompt-loader test (the loaded prompt's `.version` is stamped onto `QualityAudit.prompt_version`; a missing `jd_text` variable RAISES rather than shipping a `{{ jd_text }}` in the prompt).
+
+#### HR-191 — How hard should the reasoning model think before rewriting a merge draft — and should we constrain its reasoning effort at all?
+
+- **We ship:** `null`
+- **Configured in:** `rewrite.yaml` → `rewrite.reasoning_effort`
+- **Where the default came from:** our invention
+- **Why it matters:** gpt-oss is a reasoning model: it produces a reasoning stream (separate from the JSON content) whose length dominates latency — measured ~6x the output tokens, and `reasoning_effort: low` cuts it ~5x. But the rewrite produces PROSE, and prose quality benefits from full reasoning, so unlike the audit (HR-192, which ships `low`) the rewrite leaves this UNSET (`null`): the client sends no `reasoning_effort` and the model runs at its own default, exactly as it did before 4.6. Setting it to `low`|`medium`|`high` is a deliberate speed/quality trade to make at the 4.5 pilot, not a default to drift. PROVISIONAL. NB `high` can exhaust the token budget with reasoning and return empty content (observed live), so raising it must be sized against `max_tokens`.
+- **If it changes:** Does NOT move `rules_version` (rewrite.yaml is unhashed). `null` -> the parameter is omitted from the chat request entirely (pre-4.6 behaviour); a level flows straight through to the API. Pinned by mutation in the client test (the effort the client sends is `rules.rewrite.reasoning_effort`; unset omits the kwarg, a value passes it verbatim).
+
+#### HR-192 — How hard should the reasoning model think before running the nuanced quality audit?
+
+- **We ship:** `low`
+- **Configured in:** `quality.yaml` → `quality.reasoning_effort`
+- **Where the default came from:** our invention
+- **Why it matters:** The audit reports nuanced findings, each quoted VERBATIM from the JD — it does not need deep chain-of-thought. But gpt-oss's reasoning stream dominates latency: MEASURED ~1000 reasoning tokens vs ~164 output tokens per audit (~6x), and `reasoning_effort: low` cuts the reasoning ~5x (to ~194) with no loss of schema adherence in testing. So `low` is the disciplined, far cheaper default. It is SEPARATE from the rewrite's effort (HR-191, unset): a rewrite-policy change must not silently move the audit's, which is why each pass owns its own knob in its own file. PROVISIONAL — confirm the quality/speed trade at the 4.5 pilot.
+- **If it changes:** Does NOT move `rules_version` (quality.yaml is unhashed). `low` flows through to the chat API; set it to `null` and the parameter is omitted (the model runs at full default effort — slower). Pinned by mutation in the client generalization test (the effort the audit sends is the override `quality.reasoning_effort`; a fake asserts the exact value flows through, and that `null` omits the kwarg).
 
 ### Inherited hris calibration — not an SFU-published number
 

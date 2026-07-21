@@ -214,6 +214,15 @@ SeniorityBarPolicy = Literal["max", "modal"]
 #: is inert (documented coupling, like ``security_policy``/``core_skill_min_fraction``).
 SkillGroundingPolicy = Literal["token_overlap", "all_grounded"]
 
+#: How much the reasoning model "thinks" before answering, per LLM pass (HR-191 rewrite,
+#: HR-192 quality/audit). A reasoning model (gpt-oss) emits a separate reasoning stream
+#: whose length dominates latency; ``low`` cuts it sharply, ``high`` deepens it.
+#: ``null`` (the field default) sends NOTHING — the model's own default, i.e. today's
+#: behaviour. The three levels are the subset of the OpenAI/Ollama ``reasoning_effort``
+#: vocabulary the rulebook exposes; the audit defaults to ``low`` (disciplined, far
+#: cheaper), the rewrite leaves it unset (prose quality benefits from full reasoning).
+ReasoningEffortLevel = Literal["low", "medium", "high"]
+
 #: The 14 sections of SFU's CUPE/WJQ Custom template (Phase 3.4). These KEYS are
 #: structural (like :class:`~src.jd_core.parser.headings.SectionKey`); the heading
 #: PHRASES that signal each are data in ``wjq.yaml``.
@@ -1168,6 +1177,12 @@ class Rewrite(_RuleFile):
     #: (a rewrite is a transform, not a brainstorm; determinism is what makes a re-run
     #: reproducible).
     temperature: float = Field(ge=0.0, le=2.0)
+    #: How hard the reasoning model thinks before answering (HR-191). ``null`` (unset,
+    #: the default) sends the parameter NOWHERE — the model's own default, i.e. today's
+    #: behaviour. The rewrite ships ``null`` on purpose: unlike the audit it produces
+    #: PROSE, which full reasoning improves, so we do NOT blanket-drop it. Same
+    #: per-pass, unhashed knob shape as ``model`` / ``temperature``.
+    reasoning_effort: ReasoningEffortLevel | None = None
     #: Token budget for one rewrite completion (HR-178).
     max_tokens: int = Field(gt=0)
     #: How many times an INVALID-JSON / schema-mismatch response is re-requested with a
@@ -1234,6 +1249,13 @@ class QualityAuditRules(_RuleFile):
     #: Sampling temperature passed to the chat API (HR-186). ``0.0`` -> deterministic
     #: (an audit should be reproducible, not a brainstorm).
     temperature: float = Field(ge=0.0, le=2.0)
+    #: How hard the reasoning model thinks before answering (HR-192). Defaults to
+    #: ``low``: the audit does NOT need deep reasoning (it reports nuanced findings,
+    #: each quoted verbatim from the JD), and a reasoning model's reasoning stream
+    #: dominates latency — measured ~6x the output tokens, and ``low`` cuts it ~5x.
+    #: ``null`` sends nothing (the model default). Same per-pass, unhashed knob shape
+    #: as the rewrite's.
+    reasoning_effort: ReasoningEffortLevel | None = None
     #: Token budget for one audit completion (HR-187). 1024 mirrors hris for this pass.
     max_tokens: int = Field(gt=0)
     #: How many times an INVALID-JSON / schema-mismatch response is re-requested with a

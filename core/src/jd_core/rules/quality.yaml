@@ -44,6 +44,14 @@ model: gpt-oss:120b
 # yields the same findings on a re-run), not a brainstorm. HR-186.
 temperature: 0.0
 
+# How hard the reasoning model thinks before answering. `low`|`medium`|`high`, or `null` to
+# send NOTHING (the model default). Ships `low`: the audit reports nuanced findings each
+# quoted verbatim from the JD — it does NOT need deep reasoning — and a reasoning model's
+# reasoning stream dominates latency (measured ~6x the output tokens; `low` cuts it ~5x).
+# Passed through the client like model/temperature; UNHASHED (never moves rules_version).
+# Conservative default, `open` — HR-192.
+reasoning_effort: low
+
 # Token budget for one audit completion. 1024 mirrors hris's value for THIS pass (the
 # nuanced findings list is far smaller than a full SFUJobDescription rewrite). HR-187.
 max_tokens: 1024

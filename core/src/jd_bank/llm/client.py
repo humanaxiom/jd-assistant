@@ -1,4 +1,12 @@
-"""Ollama chat client (Phase 4.2a) — ``AsyncOpenAI`` chat completions in JSON mode.
+"""Ollama chat client (Phase 4.2a) — ``AsyncOpenAI`` **schema-constrained** completions.
+
+Since Phase 4.6 the request carries the caller's pydantic JSON Schema as the
+``response_format`` (OpenAI "structured outputs" / Ollama native ``format``), not loose
+JSON mode, so the server constrains generation to the schema — enums and required keys
+included — instead of merely to valid JSON. A per-pass ``reasoning_effort`` knob
+(HR-191/HR-192) rides the same rulebook path as ``model``/``temperature``; when unset it
+is omitted, leaving the request identical to the pre-4.6 one. See :func:`
+_schema_response_format`.
 
 Same client shape and discipline as :class:`~src.jd_bank.embeddings.client.EmbedClient`
 (ADR-003): the OpenAI-compatible ``/v1`` surface, ``api_key="ollama"`` (ignored),
@@ -25,9 +33,10 @@ import asyncio
 from collections.abc import Sequence
 from typing import Final, TypeVar
 
-from openai import AsyncOpenAI, BadRequestError
+from openai import AsyncOpenAI, BadRequestError, Omit, omit
+from openai.types import ReasoningEffort
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
-from openai.types.shared_params import ResponseFormatJSONObject
+from openai.types.shared_params import ResponseFormatJSONSchema
 from pydantic import BaseModel, ValidationError
 
 from src.jd_bank.security.egress import assert_inference_host_allowed
@@ -39,10 +48,6 @@ from src.settings import get_settings
 _MAX_ATTEMPTS: Final[int] = 3
 _BACKOFF_SECONDS: Final[float] = 1.0
 
-#: JSON mode — the model returns a single JSON object (the SFU schema). Typed once so
-#: mypy --strict accepts it against the SDK's ``response_format`` union.
-_JSON_OBJECT: Final[ResponseFormatJSONObject] = {"type": "json_object"}
-
 #: The terse repair nudge appended when a reply does not validate — one more chance to
 #: return clean JSON before :class:`LLMOutputInvalidError`.
 _REPAIR_NUDGE: Final[str] = (
@@ -51,6 +56,32 @@ _REPAIR_NUDGE: Final[str] = (
 )
 
 _M = TypeVar("_M", bound=BaseModel)
+
+
+def _schema_response_format(model_cls: type[BaseModel]) -> ResponseFormatJSONSchema:
+    """The **constrained-decoding** response format for ``model_cls``.
+
+    Instead of loose JSON mode (``{"type": "json_object"}``, which lets the model return
+    syntactically-valid JSON that still violates the schema — a Title-Case enum value, a
+    missing required key — and fails ``model_validate_json``), we hand the server the
+    model's own JSON Schema and ask it to constrain generation to it
+    (OpenAI "structured outputs" / Ollama native ``format``). Verified live against
+    ``aria-gb10-2`` (gpt-oss:120b): a reply that returns ``"Inclusive Language"`` under
+    JSON mode is coerced to the enum member ``"inclusive_language"`` under this form, so
+    the audit no longer drops ~24% of JDs to a schema mismatch. The bounded repair retry
+    in :meth:`ChatClient.chat_json` stays as the fallback for anything still missed.
+
+    ``strict=True`` asks for exact adherence; ``name`` is the model's class name (a-z /
+    0-9 / ``_`` / ``-``, ≤64 chars — every SFU model qualifies).
+    """
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": model_cls.__name__,
+            "schema": model_cls.model_json_schema(),
+            "strict": True,
+        },
+    }
 
 
 class ChatBadRequestError(RuntimeError):
@@ -80,6 +111,7 @@ class ChatClient:
         rules: Rules | None = None,
         model: str | None = None,
         temperature: float | None = None,
+        reasoning_effort: ReasoningEffort | None = None,
     ) -> None:
         settings = get_settings()
         if client is None:
@@ -107,14 +139,37 @@ class ChatClient:
         self._temperature = (
             temperature if temperature is not None else rewrite.temperature
         )
+        # Reasoning effort is the SAME per-pass, unhashed decision shape as model /
+        # temperature (HR-191 rewrite, HR-192 audit): an explicit value WINS (the 4.2b
+        # audit binds it to ``rules.quality.reasoning_effort`` = ``low``), else it falls
+        # back to ``rules.rewrite.reasoning_effort`` (``null`` today) so the rewrite
+        # call-sites are byte-identical. ``None`` means "send nothing" — the model's own
+        # default, i.e. the pre-4.6 request — and is honoured in :meth:`_create`.
+        self._reasoning_effort: ReasoningEffort | None = (
+            reasoning_effort
+            if reasoning_effort is not None
+            else rewrite.reasoning_effort
+        )
 
     async def close(self) -> None:
         await self._client.close()
 
     async def _create(
-        self, messages: Sequence[ChatCompletionMessageParam], max_tokens: int
+        self,
+        messages: Sequence[ChatCompletionMessageParam],
+        max_tokens: int,
+        response_format: ResponseFormatJSONSchema,
     ) -> ChatCompletion:
-        """One completion, transient errors retried. A 400 is never retried."""
+        """One completion, transient errors retried. A 400 is never retried.
+
+        ``response_format`` carries the schema constraint built from the caller's
+        ``model_cls`` (:func:`_schema_response_format`). ``reasoning_effort`` is sent
+        only when the rulebook set one; ``None`` -> :data:`openai.omit`, so the request
+        is byte-identical to the pre-4.6 one (the model runs at its own default effort).
+        """
+        effort: ReasoningEffort | Omit = (
+            self._reasoning_effort if self._reasoning_effort is not None else omit
+        )
         last_exc: Exception | None = None
         for attempt in range(_MAX_ATTEMPTS):
             try:
@@ -123,7 +178,8 @@ class ChatClient:
                     messages=list(messages),
                     temperature=self._temperature,
                     max_tokens=max_tokens,
-                    response_format=_JSON_OBJECT,
+                    response_format=response_format,
+                    reasoning_effort=effort,
                 )
             except BadRequestError as exc:
                 # Permanent — re-sending an invalid/over-length request cannot fix it.
@@ -164,14 +220,19 @@ class ChatClient:
     ) -> _M:
         """Complete ``messages`` and validate the JSON reply into ``model_cls``.
 
-        On invalid JSON / a schema mismatch, re-ask up to ``max_retries`` times with a
-        terse repair nudge, then raise :class:`LLMOutputInvalidError`. The MODEL id is
-        the rulebook's ``rewrite.model``, never ``settings.agent_model``.
+        The request is **schema-constrained** to ``model_cls`` (:func:`
+        _schema_response_format`), so the server forces the reply to the schema —
+        enums, required keys and all — rather than merely to valid JSON. On anything
+        constrained decoding still misses (invalid JSON / a schema mismatch), re-ask up
+        to ``max_retries`` times with a terse repair nudge, then raise
+        :class:`LLMOutputInvalidError`. The MODEL id is the rulebook's ``rewrite.model``
+        (or the caller's override), never ``settings.agent_model``.
         """
+        response_format = _schema_response_format(model_cls)
         convo: list[ChatCompletionMessageParam] = list(messages)
         last_error: Exception | None = None
         for attempt in range(max_retries + 1):
-            response = await self._create(convo, max_tokens)
+            response = await self._create(convo, max_tokens, response_format)
             content = self._content_of(response)
             try:
                 return model_cls.model_validate_json(content)

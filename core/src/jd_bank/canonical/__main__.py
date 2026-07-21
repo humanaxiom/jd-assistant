@@ -104,10 +104,12 @@ def _build_clients(
     """The ``(rewrite_client, audit_client)`` pair, each bound to its own model.
 
     The rewrite client falls back to ``rules.rewrite.model`` /
-    ``rules.rewrite.temperature`` (HR-176/HR-177 — the ``ChatClient`` default); the
-    audit client is bound EXPLICITLY to ``rules.quality.model`` /
-    ``rules.quality.temperature`` (HR-185/HR-186) so the ``QualityAudit.model`` stamp
-    cannot lie once the two YAMLs diverge (NN #6).
+    ``.temperature`` / ``.reasoning_effort`` (HR-176 / HR-177 / HR-191 — the
+    ``ChatClient`` default, the last ``null``/unset); the audit client is bound
+    EXPLICITLY to ``rules.quality.model`` / ``.temperature`` / ``.reasoning_effort``
+    (HR-185 / HR-186 / HR-192 — the last ``low``) so both the ``QualityAudit.model``
+    stamp and the audit's cheaper reasoning cannot silently follow the rewrite once the
+    two YAMLs diverge (NN #6).
     ``--no-llm`` -> ``(None, None)``: the deterministic-only path, no Ollama needed.
     """
     if no_llm:
@@ -117,6 +119,7 @@ def _build_clients(
         rules=rules,
         model=rules.quality.model,
         temperature=rules.quality.temperature,
+        reasoning_effort=rules.quality.reasoning_effort,
     )
     return rewrite_client, audit_client
 
