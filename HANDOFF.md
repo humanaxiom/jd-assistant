@@ -182,7 +182,7 @@ Ran all **14,565** files → 14,522 scored, 43 skipped, every file accounted for
 | Era `current` (2024+) | 61.2% | A *date* band, not a practice band. |
 | **Current practice** (n=874) | **78.6%** | The bar's real trial. |
 
-On current practice: median **79.0**, **99.8% clear the score floor of 60**, grades 82 A / 550 B /
+On current practice: median **79.0**, **99.8% clear the score floor of 60**, grades 81 A / 551 B /
 240 C / 2 D / **zero F**. **The score floor rejects 2 JDs out of 874.**
 
 > ⚠️ **The cohort filter changed in 2.6.** It is now `era ∈ {new, current}` ∧ no
