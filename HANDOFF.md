@@ -21,8 +21,17 @@ declined. **Egress evidence:** the only two content network sinks (`jd_bank/llm/
 `settings.allowed_inference_hosts` (env `ALLOWED_INFERENCE_HOSTS`; default `aria-gb10-2` + loopback/
 private), called by BOTH content clients before the `AsyncOpenAI` client is built. Opus-reviewed:
 fail-closed mutation-verified, every bypass trick rejected. `docs/security/egress-audit.md` is the
-evidence artifact. Gates **1763, 93.93%**. **NEXT (user order): dedup/cluster dashboards → 4.6b seed the
-review queue with real DRAFT canonicals.** GitHub CI still billing-blocked — merges were local, no push.
+evidence artifact. Gates **1763, 93.93%**. **Dedup + Cluster dashboards DONE + MERGED LOCALLY**
+(`agent/4.6c-dedup-cluster-dashboards`): two more read-only pages — `/jd-bank/ui/dashboard/dedup`
+(Tier 1/2/3) + `/dashboard/clusters` — over the committed `docs/dedup/*.json` + `docs/cluster/
+cluster-summary.json`, reusing the existing `extra="forbid"` report models (verified in-container that
+each REAL artifact validates). Opus-approved (reads-from-file + per-tier graceful-degrade
+mutation-verified). Gates **1773, 93.94%**. LIVE numbers confirmed: dedup 1037 groups/1972 redundant/
+15,072 near-dup/133,842 role-equiv; clusters 2,458/75.1%/3,620 singletons/largest 132. Follow-up
+(non-blocking): tighten 2 secondary cluster-KPI pins to collision-free sentinels. **NEXT (user order):
+4.6b — seed the review queue with real DRAFT canonicals (`make canonical-drafts`, in progress — Ollama
+`gpt-oss:120b` reachable, egress guard permits `aria-gb10-2`).** GitHub CI still billing-blocked —
+merges were local, no push.
 
 Last updated: 2026-07-20 (**4.4a follow-up DONE — the producer's injected LLM client is now SPLIT into
 `rewrite_client`/`audit_client` so the `QualityAudit.model` stamp can't lie once `quality.yaml` retunes
