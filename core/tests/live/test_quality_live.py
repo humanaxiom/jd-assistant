@@ -35,15 +35,25 @@ pytestmark = pytest.mark.live
 def _probe_reachable() -> bool:
     async def _try() -> bool:
         rules = get_rules()
+        # `reasoning_effort="low"` + a 256-token budget so gpt-oss's reasoning stream
+        # does NOT starve the content: at full effort with only 64 tokens the reasoning
+        # eats the whole budget, the reply comes back empty, and this probe would report
+        # a WARM endpoint as unreachable — a false skip that silently disables the
+        # golden.
         client = ChatClient(
-            model=rules.quality.model, temperature=rules.quality.temperature
+            model=rules.quality.model,
+            temperature=rules.quality.temperature,
+            reasoning_effort="low",
         )
         try:
+            # Probe target is SFUJobDescription (title REQUIRED), so ask for a
+            # title-shaped reply — `{"issues": []}` has no title and would fail
+            # validation on a warm endpoint, self-skipping the golden for good.
             await asyncio.wait_for(
                 client.chat_json(
-                    [{"role": "user", "content": 'Reply with {"issues": []}'}],
+                    [{"role": "user", "content": 'Reply with {"title": "x"}'}],
                     SFUJobDescription,
-                    max_tokens=64,
+                    max_tokens=256,
                     max_retries=0,
                 ),
                 timeout=30.0,
@@ -157,6 +167,7 @@ async def test_constrained_decoding_yields_a_schema_valid_audit_with_no_repair()
             JDQualityFindings,
             max_tokens=rules.quality.max_tokens,
             max_retries=0,
+            constrain_to_schema=True,
         )
     finally:
         await client.close()

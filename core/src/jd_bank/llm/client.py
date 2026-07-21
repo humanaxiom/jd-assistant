@@ -1,12 +1,25 @@
-"""Ollama chat client (Phase 4.2a) — ``AsyncOpenAI`` **schema-constrained** completions.
+"""Ollama chat client (Phase 4.2a) — ``AsyncOpenAI`` JSON completions.
 
-Since Phase 4.6 the request carries the caller's pydantic JSON Schema as the
-``response_format`` (OpenAI "structured outputs" / Ollama native ``format``), not loose
-JSON mode, so the server constrains generation to the schema — enums and required keys
-included — instead of merely to valid JSON. A per-pass ``reasoning_effort`` knob
-(HR-191/HR-192) rides the same rulebook path as ``model``/``temperature``; when unset it
-is omitted, leaving the request identical to the pre-4.6 one. See :func:`
-_schema_response_format`.
+Two request shapes, chosen PER CALL by ``chat_json(..., constrain_to_schema=...)``:
+
+* **loose JSON mode** (``{"type": "json_object"}``, the default) — the pre-4.6
+  behaviour: the model returns a JSON object and the reply is validated into the
+  pydantic model with a bounded repair retry. The 4.2a **rewrite** uses this: its target
+  (``SFUJobDescription``) is a large nested schema, and — verified live against
+  ``aria-gb10-2`` (gpt-oss:120b) — handing that grammar to Ollama's structured-output
+  builder 500s (``failed to load model vocabulary required for format``), which would
+  make every rewrite fall back to the deterministic draft. Loose mode rewrites at ~99%.
+* **schema-constrained decoding** (``constrain_to_schema=True``) — the request carries
+  the caller's own JSON Schema (:func:`_schema_response_format`), so the server
+  constrains generation to it (enums and required keys included), not merely to valid
+  JSON. The 4.2b **audit** uses this: its target (``JDQualityFindings``) is a small flat
+  schema that the builder handles cleanly, and it is what stops gpt-oss returning a
+  Title-Case ``"Inclusive Language"`` where ``JDIssueCategory`` wants the enum member —
+  the ~24% schema-mismatch that used to drop audits.
+
+A per-pass ``reasoning_effort`` knob (HR-191/HR-192) rides the same rulebook path as
+``model``/``temperature``; when unset it is omitted, leaving the request identical to
+the pre-4.6 one.
 
 Same client shape and discipline as :class:`~src.jd_bank.embeddings.client.EmbedClient`
 (ADR-003): the OpenAI-compatible ``/v1`` surface, ``api_key="ollama"`` (ignored),
@@ -36,7 +49,10 @@ from typing import Final, TypeVar
 from openai import AsyncOpenAI, BadRequestError, Omit, omit
 from openai.types import ReasoningEffort
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
-from openai.types.shared_params import ResponseFormatJSONSchema
+from openai.types.shared_params import (
+    ResponseFormatJSONObject,
+    ResponseFormatJSONSchema,
+)
 from pydantic import BaseModel, ValidationError
 
 from src.jd_bank.security.egress import assert_inference_host_allowed
@@ -47,6 +63,12 @@ from src.settings import get_settings
 #: a permanent property of the request and is never retried (mirrors the embed client).
 _MAX_ATTEMPTS: Final[int] = 3
 _BACKOFF_SECONDS: Final[float] = 1.0
+
+#: Loose JSON mode — the model returns a single JSON object (validated + repaired
+#: client-side). Typed once so mypy --strict accepts it against the SDK's
+#: ``response_format`` union. The DEFAULT ``chat_json`` shape and the rewrite's, for the
+#: reason in the module docstring (constrained decoding 500s on the big rewrite schema).
+_JSON_OBJECT: Final[ResponseFormatJSONObject] = {"type": "json_object"}
 
 #: The terse repair nudge appended when a reply does not validate — one more chance to
 #: return clean JSON before :class:`LLMOutputInvalidError`.
@@ -59,17 +81,22 @@ _M = TypeVar("_M", bound=BaseModel)
 
 
 def _schema_response_format(model_cls: type[BaseModel]) -> ResponseFormatJSONSchema:
-    """The **constrained-decoding** response format for ``model_cls``.
+    """The **constrained-decoding** response format for ``model_cls`` — opt-in, small
+    flat schemas only.
 
-    Instead of loose JSON mode (``{"type": "json_object"}``, which lets the model return
-    syntactically-valid JSON that still violates the schema — a Title-Case enum value, a
-    missing required key — and fails ``model_validate_json``), we hand the server the
-    model's own JSON Schema and ask it to constrain generation to it
-    (OpenAI "structured outputs" / Ollama native ``format``). Verified live against
-    ``aria-gb10-2`` (gpt-oss:120b): a reply that returns ``"Inclusive Language"`` under
-    JSON mode is coerced to the enum member ``"inclusive_language"`` under this form, so
-    the audit no longer drops ~24% of JDs to a schema mismatch. The bounded repair retry
-    in :meth:`ChatClient.chat_json` stays as the fallback for anything still missed.
+    Hands the server the model's own JSON Schema so it constrains generation to it
+    (OpenAI "structured outputs" / Ollama native ``format``) rather than merely to valid
+    JSON. Verified live against ``aria-gb10-2`` (gpt-oss:120b): a reply that returns
+    ``"Inclusive Language"`` under loose JSON mode is coerced to the enum member
+    ``"inclusive_language"`` under this form, so the audit no longer drops ~24% of JDs
+    to a schema mismatch. The bounded repair retry in :meth:`ChatClient.chat_json` stays
+    as the fallback for anything still missed.
+
+    **Small schemas only.** Ollama's builder 500s on a LARGE nested grammar
+    (``SFUJobDescription``: ``failed to load model vocabulary required for format``), so
+    this is opt-in via ``chat_json(constrain_to_schema=True)`` and used ONLY by the
+    audit (``JDQualityFindings`` — 1 def, flat). The rewrite keeps loose mode. See the
+    module docstring.
 
     ``strict=True`` asks for exact adherence; ``name`` is the model's class name (a-z /
     0-9 / ``_`` / ``-``, ≤64 chars — every SFU model qualifies).
@@ -158,14 +185,15 @@ class ChatClient:
         self,
         messages: Sequence[ChatCompletionMessageParam],
         max_tokens: int,
-        response_format: ResponseFormatJSONSchema,
+        response_format: ResponseFormatJSONObject | ResponseFormatJSONSchema,
     ) -> ChatCompletion:
         """One completion, transient errors retried. A 400 is never retried.
 
-        ``response_format`` carries the schema constraint built from the caller's
-        ``model_cls`` (:func:`_schema_response_format`). ``reasoning_effort`` is sent
-        only when the rulebook set one; ``None`` -> :data:`openai.omit`, so the request
-        is byte-identical to the pre-4.6 one (the model runs at its own default effort).
+        ``response_format`` is loose JSON mode (the default / rewrite) or the
+        schema-constrained form (the audit's opt-in), chosen by the caller in
+        :meth:`chat_json`. ``reasoning_effort`` is sent only when the rulebook set one;
+        ``None`` -> :data:`openai.omit`, so the request is byte-identical to the pre-4.6
+        one (the model runs at its own default effort).
         """
         effort: ReasoningEffort | Omit = (
             self._reasoning_effort if self._reasoning_effort is not None else omit
@@ -217,18 +245,29 @@ class ChatClient:
         *,
         max_tokens: int,
         max_retries: int,
+        constrain_to_schema: bool = False,
     ) -> _M:
         """Complete ``messages`` and validate the JSON reply into ``model_cls``.
 
-        The request is **schema-constrained** to ``model_cls`` (:func:`
-        _schema_response_format`), so the server forces the reply to the schema —
-        enums, required keys and all — rather than merely to valid JSON. On anything
-        constrained decoding still misses (invalid JSON / a schema mismatch), re-ask up
-        to ``max_retries`` times with a terse repair nudge, then raise
-        :class:`LLMOutputInvalidError`. The MODEL id is the rulebook's ``rewrite.model``
-        (or the caller's override), never ``settings.agent_model``.
+        ``constrain_to_schema`` picks the request shape (see the module docstring):
+
+        * ``False`` (default) — **loose JSON mode**: the model returns a JSON object,
+          validated into ``model_cls`` with the bounded repair retry below. The 4.2a
+          rewrite uses this; constraining its large ``SFUJobDescription`` grammar 500s
+          Ollama's builder, so loose mode is the safe, ~99% path.
+        * ``True`` — **schema-constrained decoding**: the request carries the schema of
+          ``model_cls`` (:func:`_schema_response_format`) so the server forces the reply
+          to it (enums, required keys and all). The 4.2b audit uses this on its small
+          ``JDQualityFindings`` schema; it is what fixes the ~24% enum mismatch.
+
+        On invalid JSON / a schema mismatch, re-ask up to ``max_retries`` times with a
+        terse repair nudge, then raise :class:`LLMOutputInvalidError`. The MODEL id is
+        the rulebook's ``rewrite.model`` (or the caller's override), never
+        ``settings.agent_model``.
         """
-        response_format = _schema_response_format(model_cls)
+        response_format: ResponseFormatJSONObject | ResponseFormatJSONSchema = (
+            _schema_response_format(model_cls) if constrain_to_schema else _JSON_OBJECT
+        )
         convo: list[ChatCompletionMessageParam] = list(messages)
         last_error: Exception | None = None
         for attempt in range(max_retries + 1):

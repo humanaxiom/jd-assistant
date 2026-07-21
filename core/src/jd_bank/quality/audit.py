@@ -92,11 +92,18 @@ async def audit_quality(
 
     jd_text = flatten_jd(jd)
     prompt = load_prompt(quality.prompt_version, jd_text=jd_text)
+    # Constrained decoding (opt-in): the audit's JDQualityFindings is a small flat
+    # schema the Ollama builder handles cleanly, and forcing it stops gpt-oss returning
+    # a Title-Case `"Inclusive Language"` where JDIssueCategory wants the enum member
+    # (the ~24% schema-mismatch that dropped audits). The rewrite's large
+    # SFUJobDescription grammar 500s the builder, so it stays on loose mode — see
+    # ChatClient.chat_json.
     findings = await client.chat_json(
         prompt.messages,
         JDQualityFindings,
         max_tokens=quality.max_tokens,
         max_retries=quality.max_retries,
+        constrain_to_schema=True,
     )
 
     issues, dropped = _scrub(findings, jd_text, quality)

@@ -170,6 +170,12 @@ async def rewrite_merged_role(
         skill_frequency=_skill_frequency_lines(merged.provenance.skill_frequency),
         member_jds=_flatten_jd(merged.draft),
     )
+    # Loose JSON mode + repair retry (the default; NOT constrained decoding). Handing
+    # Ollama's structured-output builder the large nested SFUJobDescription grammar 500s
+    # it live (`failed to load model vocabulary required for format`), which would drop
+    # every rewrite to the deterministic fallback. Loose mode is the ~99% pre-4.6 path;
+    # only the audit's small schema opts into `constrain_to_schema` — see
+    # ChatClient.chat_json.
     llm_jd = await client.chat_json(
         prompt.messages,
         SFUJobDescription,
