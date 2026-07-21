@@ -57,8 +57,13 @@ class _FakeChat:
         *,
         max_tokens: int,
         max_retries: int,
+        constrain_to_schema: bool = False,
     ) -> JDQualityFindings:
         assert model_cls is JDQualityFindings
+        # The audit MUST opt into constrained decoding on its small findings schema —
+        # that is what forces gpt-oss to the JDIssueCategory enum (the ~24% fix). Pinned
+        # here so a caller that drops the flag (reverting to loose mode) goes red.
+        assert constrain_to_schema is True
         contents = tuple(m["content"] for m in messages)  # type: ignore[union-attr]
         self.calls.append((contents, max_tokens, max_retries))
         return self._findings.model_copy(deep=True)

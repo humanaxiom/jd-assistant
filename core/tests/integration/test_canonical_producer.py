@@ -128,13 +128,18 @@ class _FakeChat:
         *,
         max_tokens: int,
         max_retries: int,
+        constrain_to_schema: bool = False,
     ) -> object:
         self.seen.append(model_cls)
         if model_cls is SFUJobDescription:
+            # the rewrite must NOT constrain — its large schema 500s Ollama's builder
+            assert constrain_to_schema is False
             if self._raise_on == "rewrite":
                 raise RuntimeError("simulated rewrite failure")
             return self._rewrite_jd.model_copy(deep=True)
         if model_cls is JDQualityFindings:
+            # the audit constrains on its small schema (the ~24% enum fix)
+            assert constrain_to_schema is True
             if self._raise_on == "audit":
                 raise RuntimeError("simulated audit failure")
             return self._findings.model_copy(deep=True)

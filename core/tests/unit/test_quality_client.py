@@ -19,6 +19,7 @@ from openai import omit
 
 from src.jd_bank.llm.client import ChatClient
 from src.jd_core.models.parsed_jd import SFUJobDescription
+from src.jd_core.models.quality import JDQualityFindings
 from src.jd_core.rules import get_rules
 from src.settings import get_settings
 
@@ -187,3 +188,45 @@ async def test_unset_reasoning_effort_is_omitted_so_the_request_is_pre_4_6() -> 
     await _drive(client)
 
     assert create.call_args.kwargs["reasoning_effort"] is omit
+
+
+# --- response-format scoping: audit constrains, rewrite (default) stays loose ------
+
+
+@pytest.mark.asyncio
+async def test_the_audit_path_constrains_to_the_findings_schema() -> None:
+    """The audit opts in (``constrain_to_schema=True``) on its SMALL
+    ``JDQualityFindings`` schema — that is what forces gpt-oss to the
+    ``JDIssueCategory`` enum instead of a Title-Case label (the ~24% mismatch). The
+    outgoing request carries the ``json_schema`` form with THIS model's schema,
+    strictly."""
+    create = AsyncMock(return_value=_response([(0, '{"issues": []}')]))
+    client = ChatClient(client=_fake_openai(create), rules=get_rules())
+
+    await client.chat_json(
+        [{"role": "user", "content": "audit"}],
+        JDQualityFindings,
+        max_tokens=256,
+        max_retries=0,
+        constrain_to_schema=True,
+    )
+
+    response_format = create.call_args.kwargs["response_format"]
+    assert response_format["type"] == "json_schema"
+    json_schema = response_format["json_schema"]
+    assert json_schema["name"] == "JDQualityFindings"
+    assert json_schema["strict"] is True
+    assert json_schema["schema"] == JDQualityFindings.model_json_schema()
+
+
+@pytest.mark.asyncio
+async def test_the_default_path_is_loose_json_object_not_constrained() -> None:
+    """``constrain_to_schema`` defaults to ``False`` — loose JSON mode. This is what
+    keeps the rewrite (which never passes the flag) on its ~99% pre-4.6 path, since
+    constraining the large ``SFUJobDescription`` grammar 500s Ollama's builder."""
+    create = AsyncMock(return_value=_response([(0, _VALID_JSON)]))
+    client = ChatClient(client=_fake_openai(create), rules=get_rules())
+
+    await _drive(client)  # drives chat_json WITHOUT constrain_to_schema
+
+    assert create.call_args.kwargs["response_format"] == {"type": "json_object"}

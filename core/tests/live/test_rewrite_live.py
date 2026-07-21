@@ -33,13 +33,18 @@ pytestmark = pytest.mark.live
 
 def _probe_reachable() -> bool:
     async def _try() -> bool:
-        client = ChatClient(rules=get_rules())
+        # `reasoning_effort="low"` + a 256-token budget so gpt-oss's reasoning stream
+        # does NOT starve the content: at full effort with only 64 tokens the reasoning
+        # eats the whole budget, the reply comes back empty, and this probe would report
+        # a WARM endpoint as unreachable — a false skip that silently disables the
+        # golden.
+        client = ChatClient(rules=get_rules(), reasoning_effort="low")
         try:
             await asyncio.wait_for(
                 client.chat_json(
                     [{"role": "user", "content": 'Reply with {"title": "x"}'}],
                     SFUJobDescription,
-                    max_tokens=64,
+                    max_tokens=256,
                     max_retries=0,
                 ),
                 timeout=30.0,
