@@ -36,6 +36,13 @@ model: gpt-oss:120b
 # draft), not a brainstorm, and determinism is what makes a re-run reproducible. HR-177.
 temperature: 0.0
 
+# How hard the reasoning model thinks before answering. `low`|`medium`|`high`, or `null` to
+# send NOTHING (the model's own default = today's behaviour). Unset here ON PURPOSE: the
+# rewrite produces PROSE, which full reasoning improves, so — unlike the audit (quality.yaml
+# ships `low`) — we do NOT blanket-drop it. Passed through the client like model/temperature;
+# UNHASHED (never moves rules_version). HR-191.
+reasoning_effort: null
+
 # Token budget for one rewrite completion (mirrors hris's 2048). HR-178.
 max_tokens: 2048
 

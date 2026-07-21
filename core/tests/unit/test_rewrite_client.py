@@ -92,9 +92,13 @@ async def test_a_response_missing_the_intended_choice_raises() -> None:
 
 
 @pytest.mark.asyncio
-async def test_temperature_from_rules_and_json_mode_are_passed_to_the_api() -> None:
+async def test_temperature_from_rules_and_schema_constraint_are_passed_to_the_api() -> (
+    None
+):
     """The rewrite is a transform, not a brainstorm — the temperature is a rulebook knob
-    (HR-177) and must actually flow through, and the response format must be JSON mode.
+    (HR-177) and must actually flow through, and (Phase 4.6) the response format must be
+    the SCHEMA-CONSTRAINED form (``json_schema`` carrying ``model_cls``'s JSON Schema),
+    not loose JSON mode — that is what stops the server returning schema-invalid JSON.
     """
     create = AsyncMock(return_value=_response([(0, _VALID_JSON)]))
     rules = get_rules()
@@ -111,8 +115,14 @@ async def test_temperature_from_rules_and_json_mode_are_passed_to_the_api() -> N
     )
 
     assert create.call_args.kwargs["temperature"] == 0.7
-    assert create.call_args.kwargs["response_format"] == {"type": "json_object"}
     assert create.call_args.kwargs["max_tokens"] == 256
+    response_format = create.call_args.kwargs["response_format"]
+    assert response_format["type"] == "json_schema"
+    # the constraint carries THIS model's schema, strictly — not a generic json_object
+    json_schema = response_format["json_schema"]
+    assert json_schema["name"] == "SFUJobDescription"
+    assert json_schema["strict"] is True
+    assert json_schema["schema"] == SFUJobDescription.model_json_schema()
 
 
 @pytest.mark.asyncio
