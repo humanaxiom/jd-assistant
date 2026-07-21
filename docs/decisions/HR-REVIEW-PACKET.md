@@ -19,12 +19,14 @@ We built a tool that reads a job description and decides **whether an HR reviewe
 it**. It never approves anything itself — a human always decides. But it can *block* the approve
 button, and it scores every JD out of 100.
 
-To do that, we had to pick **119 numbers, word lists and rules**. Roughly a hundred of them come
-from SFU's own JD Toolkit. **The rest we invented**, because the Toolkit doesn't say. Those
-invented ones are now silently deciding which of your job descriptions are acceptable.
+To do that, we had to pick **190 numbers, word lists and rules** across the whole system. Only **19**
+come straight from SFU's own JD Toolkit; **72** are calibrated from the system this one replaces; and
+**99 we invented**, because the Toolkit is silent. Many of the invented ones govern the pipeline's
+machinery (deduplication, clustering, embeddings), but a core set silently decide which of your job
+descriptions are acceptable — and those are what this document puts to you.
 
 We have run all of them against your entire archive. **This document asks you to ratify or change
-the nine that actually matter.** The other 110 are recorded in
+the nine that actually matter.** The other 181 are recorded in
 [`HR-DECISION-REGISTER.md`](HR-DECISION-REGISTER.md) and can wait — the archive shows they change
 almost nothing.
 
@@ -41,7 +43,7 @@ almost nothing.
 | JDs measured | **874** (those written under current practice) |
 | **Would be approvable** | **687 — 78.6%** |
 | Median quality score | **79 / 100** |
-| Grades | 82 A · 550 B · 240 C · 2 D · **no F** |
+| Grades | 81 A · 551 B · 240 C · 2 D · **no F** |
 | Rejected on quality score | **2** |
 
 That is a healthy result. Nearly eight in ten of your current job descriptions would pass straight
@@ -228,7 +230,7 @@ numbers we were most worried about, precisely because we made them up.
 > - The floor is defensible because it is **nearly inert**, *not* because 60 is a magic number. It
 >   rejects two job descriptions.
 > - If you want a **more demanding** bar later, the data supports raising it — the median current JD
->   now scores **79**, and 82 of them score an A. A floor of 70 would be a real bar rather than a
+>   now scores **79**, and 81 of them score an A. A floor of 70 would be a real bar rather than a
 >   formality. That is a policy choice, not a technical one, and it is yours.
 
 *(Register: HR-001, HR-002, HR-003)*
@@ -288,7 +290,9 @@ re-run the full 14,565-JD baseline, and show you the before/after. Nothing is ha
 nothing requires a rebuild.
 
 The exact change for each possible ruling — which file, which value, what it moves — is written up
-in [`POST-REVIEW-CHANGE-PLAN.md`](POST-REVIEW-CHANGE-PLAN.md).
+in [`POST-REVIEW-CHANGE-PLAN.md`](POST-REVIEW-CHANGE-PLAN.md). A plain-language, one-page walk-through
+of these decisions — no code, written to be read on its own — is in
+[`HR-DECISION-MATRIX.md`](HR-DECISION-MATRIX.md).
 
-**Until you rule, we change nothing.** Every one of the 119 decisions stays flagged `open`, and
+**Until you rule, we change nothing.** Every one of the 190 decisions stays flagged `open`, and
 the system's own build fails if anyone quietly edits one without recording it.

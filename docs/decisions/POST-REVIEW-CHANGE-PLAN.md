@@ -270,7 +270,7 @@ re-baselined, so the distribution HR ratifies against is the one that will actua
 the floors are *more* inert than before (5 → 2 rejections), which strengthens the case rather than
 weakening it.
 
-**Worth putting to HR explicitly:** at a median of **79** with 82 A-grades, a floor of 60 is a
+**Worth putting to HR explicitly:** at a median of **79** with 81 A-grades, a floor of 60 is a
 formality. **A floor of 70 would be a real bar.** We are not recommending it — that is a policy
 choice about how demanding SFU wants to be — but HR should know the option exists and is cheap
 (one YAML value + a re-baseline).

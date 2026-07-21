@@ -419,7 +419,9 @@ human work; never commit to `main`.
 - **Human approval:** canonical JDs are drafts until an HR reviewer approves. Nothing auto-publishes.
 - **Rulebook as data:** gates/word-lists/verb-lists live in versioned YAML under `jd_core/rules/` — never hardcoded.
 - **Validator as oracle:** LLM-touching tests assert validator post-state, never verbatim model text.
-- **Local-first:** Ollama only; JD content never leaves the machine. Incumbent names are
+- **Local-first:** Ollama only; JD content never leaves infrastructure we control — no cloud or
+  third-party API; it may cross a private network to the internal host `aria-gb10-2` (NN #5 / ADR-003,
+  enforced by the 4.6a egress guard). Incumbent names are
   normalized out of *canonical* JDs as a **rulebook quality step** (job-not-person) — not a
   resume-grade privacy gate (these are JDs, not resumes).
 - **Storage:** Neo4j = vectors + graph; Postgres = all SQL; Redis/arq = queue. **No pgvector.**

@@ -462,8 +462,9 @@ The register enforces the record: a `ratified` decision **must** carry `decided_
 review queue (producer → service → routes → UI). **REPRIORITIZED (2026-07-20, user):** the codebase
 is substantial but its only visible surface is the transport-only review queue — everything else
 (baseline, dedup, clusters, harmonization diffs) exists only as DB rows and "gates pass" claims. So
-**Phase 4.6 (Visibility & local-only assurance) is now sequenced AHEAD of the 4.5 human pilot** — the
-work must be *seen* and *proven local* before a real HR reviewer is asked to trust it.
+**Phase 4.6 (Visibility & local-only assurance) was sequenced AHEAD of the 4.5 human pilot and is now
+COMPLETE (shipped 2026-07-21)** — the work had to be *seen* and *proven local* before a real HR
+reviewer is asked to trust it. **4.5 (the human pilot) is now the next milestone.**
 - **4.1** ✅ **MERGED + calibrated** (PR #46). Deterministic merge engine (`bank/merge.py`): section
   selection, duty union/dedup/reorder, KSA rebuild — pure, no LLM, drafts only. 9 knobs in registered/
   unhashed `harmonization.yaml` (HR-167..175). Calibrated over 1,801 JDFN clusters via the
@@ -501,8 +502,9 @@ work must be *seen* and *proven local* before a real HR reviewer is asked to tru
     **Reconcile PR #57 + re-run CI once billing is restored.**
 - **4.5** — Pilot: 5–10 clusters end to end with a real HR reviewer through the review UI; feedback
   becomes fixtures/rules (NN #7). Where the 4.2/4.3/4.4 provisional `open` defaults meet human judgment.
-  **Now sequenced AFTER 4.6** — the pilot needs the queue populated with real drafts and the dashboards
-  in place, and the reviewer needs the local-only guarantee proven before touching proprietary content.
+  **⬅ NEXT — 4.6 is complete: the queue is populated with real drafts and the dashboards are in place**,
+  and the reviewer needs the local-only guarantee proven before touching proprietary content. (LLM
+  enrichment of the draft prose is in progress so the pilot reviews real prose, not deterministic merges.)
 
 **Pre-pilot follow-ups (engineering, can land before 4.5):** ~~split `rewrite_client`/`audit_client`~~
 ✅ DONE (4.4a-followup, PR #57). Remaining: a `jd_bank/` change-log runner over real clusters (4.3);
@@ -512,7 +514,7 @@ per-field editor is a later task.
 
 **Exit:** first human-approved canonical JDs published; audit trail complete.
 
-### Phase 4.6 — Visibility & local-only assurance (⬅ NEXT — user-prioritized, 2026-07-20)
+### Phase 4.6 — Visibility & local-only assurance — ✅ COMPLETE (shipped 2026-07-21)
 
 **Why now:** we have built a large backend whose only evidence of working is "gates pass" — and the
 proprietary archive's content must be provably local. This phase makes the pipeline's output *visible*

@@ -3388,7 +3388,7 @@ decisions:
       "Every score in the archive rose" would be false, and a false number under a
       ✅ MEASURED banner is precisely what this register exists to prevent.
       The current-practice cohort (n=874) moved as follows — median **77.3 -> 79.0**, mean 76.4
-      -> **79.5**, grades **5 A / 509 B / 355 C / 5 D -> 82 A / 550 B / 240 C / 2 D** (zero
+      -> **79.5**, grades **5 A / 509 B / 355 C / 5 D -> 81 A / 551 B / 240 C / 2 D** (zero
       F throughout), and the share clearing the score floor of 60 went 99.4% -> **99.8%**.
       IT MOVED ZERO APPROVALS, and that is the honest headline: the rule never blocked, and
       no JD was blocked by the score/grade floors ALONE, so retiring it changed what every
@@ -3497,13 +3497,13 @@ decisions:
       the two 2.6 fixes combined. Even inside the 874-JD cohort, 4 scores do not move.
       "Every score in the archive rose" is NOT true and is not claimed.
       On the current-practice cohort (874 JDs): median **77.3 -> 79.0**, mean 76.4 ->
-      **79.5**, grades **5 A / 509 B / 355 C / 5 D -> 82 A / 550 B / 240 C / 2 D** (zero F
+      **79.5**, grades **5 A / 509 B / 355 C / 5 D -> 81 A / 551 B / 240 C / 2 D** (zero F
       before and after), score floor cleared by 99.4% -> **99.8%**, and the score floor's
       rejections fall from 5 to 2.
       AND IT MOVED **ZERO APPROVALS** — the rule never blocked, and nothing was blocked by
       the floors alone. It changed what every JD is WORTH, not what any JD is PERMITTED.
       Say that plainly to HR: the score distribution they are about to ratify HR-001/002/003
-      against has moved up by ~2 points and gained 77 A grades, and not one JD changed
+      against has moved up by ~2 points and gained 76 A grades, and not one JD changed
       status. That is what a constant looks like when you remove it.
     impact_if_changed: >-
       Adding a rule here silences its finding wherever it fired and lifts the score of

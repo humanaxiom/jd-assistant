@@ -292,10 +292,10 @@ Every decision above is a **configuration value**. Once you rule:
    of the rulebook's provenance.
 
 **A decision is recorded even when you keep a setting unchanged.** "HR reviewed this and kept it" is a
-different, stronger fact than "nobody has looked yet" — and every one of the ~119 settings in the
+different, stronger fact than "nobody has looked yet" — and every one of the ~190 settings in the
 rulebook currently sits at the second.
 
-The seven above are the ones that **matter to the numbers**. The remaining ~110 settings are recorded
+The seven above are the ones that **matter to the numbers**. The remaining ~183 settings are recorded
 in [`HR-DECISION-REGISTER.md`](HR-DECISION-REGISTER.md); the archive shows they change almost nothing,
 so they can be ratified in bulk or reviewed at your leisure.
 

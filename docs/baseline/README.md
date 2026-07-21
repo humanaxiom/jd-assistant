@@ -61,7 +61,7 @@ barely even binding:
 | **Approval rate** | 71.9% | **78.6%** |
 | Median score | 77.3 | **79.0** |
 | **Clear the score floor of 60** | 99.4% | **99.8%** |
-| Grades | 5 A · 509 B · 355 C · 5 D · 0 F | **82 A · 550 B · 240 C · 2 D · 0 F** |
+| Grades | 5 A · 509 B · 355 C · 5 D · 0 F | **81 A · 551 B · 240 C · 2 D · 0 F** |
 | Blocked | 246 | **187** |
 | **Rejected by the score floor** | 5 | **2** |
 
