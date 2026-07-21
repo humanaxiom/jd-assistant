@@ -2,45 +2,44 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-07-20 — UI reprioritization, user-directed): Phase 4.6 (Visibility & local-only
-assurance) now runs AHEAD of the 4.5 pilot.** The backend was substantial but invisible beyond
-test-pass claims, and the proprietary archive must be provably local. **4.6c slice 1 DONE + MERGED
-LOCALLY** (`agent/4.6c-baseline-dashboard`): a read-only server-rendered **Archive Baseline dashboard**
-inside the FastAPI api service (`GET /jd-bank/ui/dashboard` + `/dashboard/baseline`), rendering the
-Phase-2.5 baseline READ FROM `docs/baseline/summary.json` — **mutation-pinned so hardcoding a headline
-number goes red** (this is the answer to "no visibility besides test-pass claims"). The aggregator now
-emits the **874-JD current-practice cohort** as a segment (`SegmentDimension += "cohort"`) so the
-headline (874 · 78.6% · median 79.05 · A81/B551/C240/D2) lives in the committed artifact and headlines
-the page; whole-archive rate demoted with its "category error — never quote" warning. `make baseline`
-re-run to regenerate the artifact. Opus-approved (every pin mutation-verified). Gates **1743, 93.92%**.
-**Local boundary RATIFIED: "not cloud" — internal `aria-gb10-2` OK** (NN #5 / ADR-003); dev-box-only
-declined. **Egress evidence:** the only two content network sinks (`jd_bank/llm/client.py`,
-`jd_bank/embeddings/client.py`) both point at `settings.ollama_base_url` (internal, default
-`http://aria-gb10-2:11434/v1`) — **NO cloud/third-party LLM API anywhere in jd_bank/jd_core.** **4.6a egress guard DONE + MERGED LOCALLY** (`agent/4.6a-egress-guard`): NN #5 is now a BUILD FAILURE —
-`core/src/jd_bank/security/egress.py::assert_inference_host_allowed` raises for any host not on
-`settings.allowed_inference_hosts` (env `ALLOWED_INFERENCE_HOSTS`; default `aria-gb10-2` + loopback/
-private), called by BOTH content clients before the `AsyncOpenAI` client is built. Opus-reviewed:
-fail-closed mutation-verified, every bypass trick rejected. `docs/security/egress-audit.md` is the
-evidence artifact. Gates **1763, 93.93%**. **Dedup + Cluster dashboards DONE + MERGED LOCALLY**
-(`agent/4.6c-dedup-cluster-dashboards`): two more read-only pages — `/jd-bank/ui/dashboard/dedup`
-(Tier 1/2/3) + `/dashboard/clusters` — over the committed `docs/dedup/*.json` + `docs/cluster/
-cluster-summary.json`, reusing the existing `extra="forbid"` report models (verified in-container that
-each REAL artifact validates). Opus-approved (reads-from-file + per-tier graceful-degrade
-mutation-verified). Gates **1773, 93.94%**. LIVE numbers confirmed: dedup 1037 groups/1972 redundant/
-15,072 near-dup/133,842 role-equiv; clusters 2,458/75.1%/3,620 singletons/largest 132. Follow-up
-(non-blocking): tighten 2 secondary cluster-KPI pins to collision-free sentinels. **4.6b REVIEW QUEUE SEEDED + DEMONSTRABLE (data, not a code merge):**
-`make canonical-drafts CANONICAL_ARGS="--no-llm --limit 5000"` persisted **379 DRAFT canonical_jds**
-(378 multi-member role clusters + 1 singleton; 751 clusters recomputed from the 133,842 role-equiv
-edges over the first 5000 parsed_jds), each with an append-only `audit_log` row. The live review UI is
-now POPULATED: `/jd-bank/ui/queue` lists 379 drafts; a detail page (`/review/{id}`) renders the real
-harmonized draft + score + SFU gates + approve/reject/edit/override controls. **NOTE:** these are the
-DETERMINISTIC 4.1 merge drafts (`--no-llm`, zero egress) — the 4.2 LLM rewrite/audit (`gpt-oss:120b` on
-`aria-gb10-2`, guard-permitted) can REFRESH them in place (no-clobber only skips reviewer-touched rows).
-`--limit` bounds INPUT parsed_jds rows, NOT output drafts (a 3-row smoke test formed 0 clusters). The
-seed is DB data (`docs/canonical/summary.json` is a partial-run artifact, left uncommitted). **Phase 4.6
-(Visibility) COMPLETE: 3 read-only dashboards + a populated review queue + a build-enforced egress
-guard — the backend is now visible end to end.** GitHub CI still billing-blocked — merges were local, no
-push.
+**NEWEST (2026-07-21): Phase 4.6 (Visibility & local-only assurance) COMPLETE — SHIPPED, PUSHED, CI
+GREEN.** User-reprioritized *ahead* of the 4.5 pilot (the backend was substantial but invisible beyond
+"tests pass", and the proprietary archive had to be provably local). All merged to `main` and **pushed**;
+CI is green (7m41s full Docker suite — first green run since the billing block); PRs #56/#57 reconciled
+(auto-closed as MERGED). **1,773 tests · 93.94% · register in step · `rules_version` unchanged** (this
+phase adds no scoring rule). One-pager: **`docs/status/2026-07-21-shipped.md`**. What shipped:
+
+- **Three read-only dashboards** inside the FastAPI `api` service (server-rendered Jinja, under
+  `make gates`, no new dep): `/jd-bank/ui/dashboard/{baseline,dedup,clusters}` render committed report
+  artifacts (`docs/baseline/summary.json`, `docs/dedup/*.json`, `docs/cluster/cluster-summary.json`),
+  reusing the existing `extra="forbid"` report models (verified in-container each REAL artifact
+  validates). **Every headline figure is READ from the artifact and mutation-pinned** — hardcoding a
+  number turns tests red (the answer to "no visibility besides test-pass claims"). Graceful empty-states
+  (200, never 500), incl. per-tier degrade on dedup. The baseline aggregator now emits the **874-JD
+  current-practice cohort** as a segment (`SegmentDimension += "cohort"`) so THE headline
+  (874 · 78.6% · median 79.05 · A81/B551/C240/D2) lives in the committed artifact; whole-archive rate
+  demoted with its "category error — never quote" warning.
+- **Egress guard — NN #5 is now a BUILD FAILURE** (`core/src/jd_bank/security/egress.py`).
+  `assert_inference_host_allowed(base_url)` raises for any host not on `settings.allowed_inference_hosts`
+  (default `aria-gb10-2` + loopback/private; env `ALLOWED_INFERENCE_HOSTS`); BOTH content clients
+  (`jd_bank/llm/client.py`, `embeddings/client.py`) call it before building `AsyncOpenAI`. Opus
+  security-reviewed: fail-closed mutation-verified, every bypass trick rejected (`aria-gb10-2@api.openai.com`,
+  `127.0.0.1.evil.com`, encoded IPs, case, trailing-dot, public IPv6). Evidence: `docs/security/egress-audit.md`.
+  **Boundary RATIFIED: "local" = not cloud; internal `aria-gb10-2` OK** (NN #5/ADR-003); dev-box-only declined.
+- **Review queue SEEDED (data, not a code merge):** `make canonical-drafts CANONICAL_ARGS="--no-llm
+  --limit 5000"` persisted **379 DRAFT canonical_jds** (378 multi-member clusters + 1 singleton; 751
+  clusters recomputed from the 133,842 role-equiv edges over the first 5,000 parsed_jds), each with an
+  audit-log row. Live UI populated: `/jd-bank/ui/queue` → detail → approve/reject/edit/override. **These
+  are DETERMINISTIC 4.1 merge drafts (`--no-llm`, zero egress)** — the 4.2 LLM rewrite/audit
+  (`gpt-oss:120b`, guard-permitted) can REFRESH them in place. **`--limit` bounds INPUT parsed_jds rows,
+  NOT output drafts** (a 3-row smoke test formed 0 clusters). Seed is DB data; `docs/canonical/summary.json`
+  is a partial-run working artifact (not committed).
+
+**NEXT: 4.5 pilot** (5–10 clusters with a real HR reviewer through the now-populated UI). **Open
+follow-ups:** LLM-enrich a batch and/or full-archive seed (for real prose / the complete bank); tighten
+2 secondary cluster-KPI pins (`largest_cluster`, `flagged_clusters`) to collision-free sentinels;
+review-queue **edit** view is still a raw-JSON `<textarea>` (structured editor deferred); remove the dead
+Flask `frontend` compose service (4.6d, not yet done). App runs at `:25800` (`docker compose up -d api`).
 
 Last updated: 2026-07-20 (**4.4a follow-up DONE — the producer's injected LLM client is now SPLIT into
 `rewrite_client`/`audit_client` so the `QualityAudit.model` stamp can't lie once `quality.yaml` retunes
@@ -144,9 +143,11 @@ JDs; **133,842 ROLE_EQUIVALENT edges** (clustered at gate 0.75); **9 flagged** f
 coverage. Test suite **1577 passing, 93.60%**; HR decision register **175** (HR-167..175 all `open`,
 unhashed `harmonization.yaml`; measured evidence written into each `why_it_matters`).)
 
-**Catching up? Read [`docs/status/2026-07-19-shipped.md`](docs/status/2026-07-19-shipped.md) first** —
-the current one-pager (Phase 4.1–4.4: the harmonization pipeline + the human-approval review queue,
-complete end to end), and the basis of what we tell HR. The prior
+**Catching up? Read [`docs/status/2026-07-21-shipped.md`](docs/status/2026-07-21-shipped.md) first** —
+the current one-pager (Phase 4.6: the read-only dashboards + build-enforced egress guard + seeded review
+queue — the backend made visible end to end). The prior
+[`2026-07-19-shipped.md`](docs/status/2026-07-19-shipped.md) covers Phase 4.1–4.4 (the harmonization
+pipeline + the human-approval review queue). Before that,
 [`2026-07-15-shipped.md`](docs/status/2026-07-15-shipped.md) covers 3.2 / 3.3 + the extraction defects;
 [`2026-07-13-shipped.md`](docs/status/2026-07-13-shipped.md) covers 2.5 / 2.6 / 3.1.
 
