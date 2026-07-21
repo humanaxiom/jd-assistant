@@ -16,9 +16,13 @@ re-run to regenerate the artifact. Opus-approved (every pin mutation-verified). 
 **Local boundary RATIFIED: "not cloud" — internal `aria-gb10-2` OK** (NN #5 / ADR-003); dev-box-only
 declined. **Egress evidence:** the only two content network sinks (`jd_bank/llm/client.py`,
 `jd_bank/embeddings/client.py`) both point at `settings.ollama_base_url` (internal, default
-`http://aria-gb10-2:11434/v1`) — **NO cloud/third-party LLM API anywhere in jd_bank/jd_core.** **NEXT
-(user order): 4.6a egress guard (make no-cloud executable) → dedup/cluster dashboards → 4.6b seed the
-review queue with real DRAFT canonicals.** GitHub CI still billing-blocked — merge was local, no push.
+`http://aria-gb10-2:11434/v1`) — **NO cloud/third-party LLM API anywhere in jd_bank/jd_core.** **4.6a egress guard DONE + MERGED LOCALLY** (`agent/4.6a-egress-guard`): NN #5 is now a BUILD FAILURE —
+`core/src/jd_bank/security/egress.py::assert_inference_host_allowed` raises for any host not on
+`settings.allowed_inference_hosts` (env `ALLOWED_INFERENCE_HOSTS`; default `aria-gb10-2` + loopback/
+private), called by BOTH content clients before the `AsyncOpenAI` client is built. Opus-reviewed:
+fail-closed mutation-verified, every bypass trick rejected. `docs/security/egress-audit.md` is the
+evidence artifact. Gates **1763, 93.93%**. **NEXT (user order): dedup/cluster dashboards → 4.6b seed the
+review queue with real DRAFT canonicals.** GitHub CI still billing-blocked — merges were local, no push.
 
 Last updated: 2026-07-20 (**4.4a follow-up DONE — the producer's injected LLM client is now SPLIT into
 `rewrite_client`/`audit_client` so the `QualityAudit.model` stamp can't lie once `quality.yaml` retunes
