@@ -235,6 +235,16 @@ async def _seed_pair(
     return a, b
 
 
+async def _seed_n_clusters(session: AsyncSession, n: int) -> None:
+    """Seed ``n`` INDEPENDENT two-analyst JDFN clusters (``n`` role edges, no shared
+    members) — the multi-cluster corpus the incremental-commit cadence needs."""
+    for i in range(n):
+        ra, rb = f"c{i}a", f"c{i}b"
+        a = await _seed_jd(session, storage_ref=ra, sha256=_sha(ra), parsed=_analyst())
+        b = await _seed_jd(session, storage_ref=rb, sha256=_sha(rb), parsed=_analyst())
+        await _role_edge(session, a.id, b.id)
+
+
 # --- acceptance #1 + #6: DRAFT-only, honest un-approvable draft ----------------------
 
 
@@ -809,3 +819,205 @@ async def test_a_mid_persist_failure_isolates_one_cluster_and_the_rest_persist(
     assert audit[0].event_type == "canonical_draft.persisted"
     assert str(healthy) in str(audit[0].payload)
     assert str(poisoned) not in str(audit[0].payload)
+
+
+# --- incremental commit + progress logging (crash-safe, observable long runs) --------
+
+
+@pytest.mark.asyncio
+async def test_commit_every_checkpoints_between_clusters(
+    session_maker: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``commit_every=N`` commits the session once per N processed clusters. With 3
+    clusters and N=2 the runner fires EXACTLY one in-run commit (after cluster #2); the
+    remainder is the caller's backstop. A spy on ``session.commit`` counts the
+    cadence."""
+    async with session_maker() as session:
+        await _seed_n_clusters(session, 3)
+        await session.commit()
+
+        real_commit = session.commit
+        commit_calls = 0
+
+        async def _counting_commit(*args: object, **kwargs: object) -> None:
+            nonlocal commit_calls
+            commit_calls += 1
+            await real_commit(*args, **kwargs)
+
+        monkeypatch.setattr(session, "commit", _counting_commit)
+
+        result = await run_canonical_producer(
+            session, rewrite_client=None, commit_every=2
+        )
+        # 3 processed, checkpoint at #2 only -> ONE runner-initiated commit.
+        assert commit_calls == 1
+        assert result.clusters_seen == 3
+        assert result.drafts_persisted == 3
+
+        await real_commit()  # caller backstop for the remaining cluster #3
+
+    async with session_maker() as session:
+        assert await session.scalar(select(func.count()).select_from(CanonicalJD)) == 3
+
+
+@pytest.mark.asyncio
+async def test_committed_clusters_survive_a_crash_mid_run(
+    session_maker: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """THE crash-safety property. With ``commit_every=1`` each cluster is committed at a
+    checkpoint. If the run dies AFTER a checkpoint (the 3rd commit raises — a simulated
+    process death), the work durably committed before it survives: a FRESH session/
+    transaction sees exactly the 2 clusters that checkpointed, and the partially
+    processed 3rd (its SAVEPOINT released but its checkpoint never committed) rolled
+    back, never a half-written row. Without incremental commit ALL work is lost."""
+    async with session_maker() as session:
+        await _seed_n_clusters(session, 3)
+        await session.commit()
+
+    async with session_maker() as session:
+        real_commit = session.commit
+        commit_calls = 0
+
+        async def _crashing_commit(*args: object, **kwargs: object) -> None:
+            nonlocal commit_calls
+            commit_calls += 1
+            if commit_calls >= 3:  # the 3rd checkpoint "crashes" before committing
+                raise RuntimeError("simulated crash at checkpoint 3")
+            await real_commit(*args, **kwargs)
+
+        monkeypatch.setattr(session, "commit", _crashing_commit)
+
+        with pytest.raises(RuntimeError, match="simulated crash"):
+            await run_canonical_producer(session, rewrite_client=None, commit_every=1)
+
+    # Fresh transaction: the two checkpointed clusters are DURABLE; the 3rd rolled back.
+    async with session_maker() as session:
+        assert await session.scalar(select(func.count()).select_from(CanonicalJD)) == 2
+        assert await session.scalar(select(func.count()).select_from(Cluster)) == 2
+
+
+@pytest.mark.asyncio
+async def test_progress_is_logged_to_stderr_at_the_cadence(
+    session_maker: async_sessionmaker[AsyncSession],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A multi-hour run must be watchable via container logs: with ``progress_every=2``
+    the runner prints a progress line to STDERR at the cadence (processed/total +
+    persisted/refreshed/skipped/failures + elapsed). 3 clusters -> one line at #2."""
+    async with session_maker() as session:
+        await _seed_n_clusters(session, 3)
+        await session.commit()
+        await run_canonical_producer(
+            session, rewrite_client=None, commit_every=2, progress_every=2
+        )
+        await session.commit()
+
+    err = capsys.readouterr().err
+    assert "canonical-producer" in err  # the progress marker
+    assert "2/3" in err  # processed / total clusters
+    assert "persisted=" in err
+    assert "elapsed=" in err
+
+
+@pytest.mark.asyncio
+async def test_default_path_does_not_commit_or_log_progress(
+    session_maker: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The DEFAULT (``commit_every=None``, ``progress_every=None``) is byte-identical to
+    today: the runner NEVER commits (the caller owns the single final commit) and emits
+    NO progress output. Pins that existing callers/tests are untouched."""
+    async with session_maker() as session:
+        await _seed_n_clusters(session, 2)
+        await session.commit()
+
+        real_commit = session.commit
+        commit_calls = 0
+
+        async def _counting_commit(*args: object, **kwargs: object) -> None:
+            nonlocal commit_calls
+            commit_calls += 1
+            await real_commit(*args, **kwargs)
+
+        monkeypatch.setattr(session, "commit", _counting_commit)
+
+        result = await run_canonical_producer(session, rewrite_client=None)
+        assert commit_calls == 0  # the runner did not commit — caller owns it
+        assert result.drafts_persisted == 2
+
+        await real_commit()
+
+    err = capsys.readouterr().err
+    assert "canonical-producer" not in err  # no progress output on the default path
+
+
+@pytest.mark.asyncio
+async def test_idempotent_rerun_with_commit_every_yields_the_same_rows(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """IDEMPOTENT still holds with checkpointing on: a first run persists 3 DRAFTs; an
+    idempotent re-run (also checkpointed) persists 0 and refreshes the same 3 in place —
+    no dup clusters, no dup versions."""
+    async with session_maker() as session:
+        await _seed_n_clusters(session, 3)
+        await session.commit()
+        first = await run_canonical_producer(
+            session, rewrite_client=None, commit_every=1
+        )
+        await session.commit()
+        assert first.drafts_persisted == 3
+        assert first.drafts_refreshed == 0
+
+    async with session_maker() as session:
+        second = await run_canonical_producer(
+            session, rewrite_client=None, commit_every=1
+        )
+        await session.commit()
+        assert second.drafts_persisted == 0
+        assert second.drafts_refreshed == 3
+
+    async with session_maker() as session:
+        assert await session.scalar(select(func.count()).select_from(Cluster)) == 3
+        assert await session.scalar(select(func.count()).select_from(CanonicalJD)) == 3
+
+
+@pytest.mark.asyncio
+async def test_reviewer_touched_still_skipped_and_only_draft_written_with_commit_every(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """NO-CLOBBER + DRAFT-only hold with checkpointing on: a PUBLISHED canonical is left
+    byte-identical and counted skipped, while the other clusters persist as DRAFT."""
+    human_content = {"title": "HUMAN APPROVED — DO NOT TOUCH"}
+    async with session_maker() as session:
+        # The published/no-clobber cluster is the two-analyst ("a","b") cluster.
+        _cluster_id, canonical_id = await _seed_cluster_and_canonical(
+            session, status=CanonicalStatus.PUBLISHED, content=human_content
+        )
+        # Plus two fresh JDFN clusters that MUST persist as DRAFT.
+        await _seed_n_clusters(session, 2)
+        await session.commit()
+
+    async with session_maker() as session:
+        result = await run_canonical_producer(
+            session, rewrite_client=None, commit_every=1
+        )
+        await session.commit()
+        assert result.skipped_reviewer_touched == 1
+        assert result.drafts_persisted == 2
+
+    async with session_maker() as session:
+        row = await session.get(CanonicalJD, canonical_id)
+        assert row is not None
+        assert row.status is CanonicalStatus.PUBLISHED  # never demoted
+        assert row.content == human_content  # never overwritten
+        # Every producer-written canonical is a DRAFT (NN #1).
+        drafts = (
+            await session.scalars(
+                select(CanonicalJD).where(CanonicalJD.status == CanonicalStatus.DRAFT)
+            )
+        ).all()
+        assert len(drafts) == 2
+        assert all(d.status is CanonicalStatus.DRAFT for d in drafts)
