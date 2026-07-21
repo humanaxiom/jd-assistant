@@ -1,8 +1,11 @@
 # JD Bank — Session Handoff
 
 Read this first every session. Single source of truth for current state + how we work.
-Last updated: 2026-07-19 (**4.4d review UI MERGED LOCALLY (PR #56, git-only — see below); 4.5 HR pilot
-next. The Phase-4.4 review queue is COMPLETE: producer → service → routes → UI.**
+Last updated: 2026-07-20 (**4.4a follow-up DONE — the producer's injected LLM client is now SPLIT into
+`rewrite_client`/`audit_client` so the `QualityAudit.model` stamp can't lie once `quality.yaml` retunes
+(NN #6); MERGED LOCALLY (PR #57, git-only — GitHub CI still billing-blocked, see 4.4a-followup below).
+Gates 1734, 93.89%. 4.5 HR pilot still next. The Phase-4.4 review queue is COMPLETE: producer → service
+→ routes → UI.**
 `core/src/api/routes/ui.py` is a MINIMAL server-rendered UI INSIDE the FastAPI app (`/jd-bank/ui`) —
 chosen over the untested Flask `frontend/` so the human-approval surface stays under `make gates`
 (mypy --strict + coverage + TestClient). `GET /queue` · `GET /review/{id}` (404 page on unknown) ·
@@ -716,12 +719,22 @@ acceptance / out-of-scope).
     (producer → service → routes → UI); feedback → fixtures/rules. Every pilot bug becomes a regression
     fixture (NN #7). This is where the 4.2/4.3/4.4 provisional `open` defaults get calibrated against a
     human's judgment.
-- **4.4a follow-up (do before the live producer output is trusted): split the injected LLM `client` into
-  `rewrite_client`/`audit_client`.** Today `rewrite.yaml` and `quality.yaml` are both `gpt-oss:120b`/`0.0`
-  so a single client is byte-identical; the moment `quality.yaml`'s model/temp is retuned, the audit would
-  silently run under the rewrite model while `QualityAudit.model`/`summary.quality_model` claim the quality
-  model — a provenance lie (NN #6). Split before that divergence (or gate the two YAMLs so they can't diverge
-  while one client is used). Register nothing new; it is a wiring change.
+- **4.4a follow-up — DONE (PR #57, MERGED LOCALLY — GitHub CI still billing-blocked, PR open).** Split the
+  injected LLM `client` into `rewrite_client` (bound to `rules.rewrite.model`, the `ChatClient` default) +
+  `audit_client` (bound EXPLICITLY to `rules.quality.model`/`temperature`). `run_canonical_producer` /
+  `_process_cluster` / `_run_llm_passes` take both; `llm_enabled = rewrite_client is not None`; the advisory
+  audit runs only when an `audit_client` is provided; `rewrite_client=None` is the deterministic `--no-llm`
+  path. New `__main__._build_clients(rules, *, no_llm)` constructs the pair (both-or-neither) and `_run`
+  closes both. **Why it mattered:** `audit_quality` always stamps `QualityAudit.model = rules.quality.model`
+  from the RULES, not the client — so with one rewrite-bound client the audit stamp becomes a lie the moment
+  `quality.yaml` is retuned (NN #6). Today the two YAMLs are byte-identical so nothing lied yet; the split
+  makes the audit follow `quality.yaml`. **Pure wiring — no rules/YAML/register/schema change** (registered
+  nothing, as specified). Two pins, both proven RED by the Opus reviewer under their regression: routing
+  (distinct fakes each see only their own schema — re-merging reds it) + binding (`_build_clients` forces
+  the two models apart so identical defaults can't mask a regression). Gates **1734, 93.89%**. **Reconcile
+  PR #57 on GitHub once Actions billing is restored** (branch `chore/4.4a-split-llm-clients` is ff-merged
+  into local `main`; the "Gate: branch-name" failure is the billing block — the runner never starts — not a
+  real gate failure, same as #56).
 
 **Follow-ups 4.2b created:**
 - **Structural-bar inflation guard (DEFERRED, its own task).** Decided in 4.2b, NOT implemented: the
