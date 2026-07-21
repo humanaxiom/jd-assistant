@@ -43,7 +43,14 @@ RowStatus = Literal["scored", "skipped"]
 #: What a segment slices the population by. ``all`` is the un-sliced whole. ``template``
 #: (Phase 3.4) reports the CUPE/WJQ population as its own facet, so nobody quotes a WJQ
 #: JD's JDFN-bar score as if it belonged to the current-practice cohort.
-SegmentDimension = Literal["all", "format", "era", "template"]
+#:
+#: ``cohort`` (Phase 4.6c) is NOT a per-value facet like the others — it carries the ONE
+#: cross-cutting current-practice cohort (``era ∈ {new, current}`` ∧ territorial present
+#: ∧ non-WJQ; see ``aggregate.current_practice_cohort``), emitted as a single segment
+#: ``dimension="cohort", value="current_practice"`` so the population the approval bar
+#: is actually ratified against is IN the artifact rather than only derivable from
+#: ``rows.jsonl``. Not iterated over distinct values the way format/era/template are.
+SegmentDimension = Literal["all", "format", "era", "template", "cohort"]
 
 
 class BaselineFinding(BaseModel):

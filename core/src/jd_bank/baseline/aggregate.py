@@ -361,6 +361,24 @@ def summarise(
                     )
                 )
 
+    # The current-practice cohort (Phase 4.6c). Unlike everything above, this is NOT a
+    # dedup population nor a per-value dimension slice — it is the ONE cross-cutting
+    # population the JDFN approval bar is actually tried against (era ∈ {new, current} ∧
+    # SFU-COMP-TERRITORIAL absent ∧ non-WJQ; see `current_practice_cohort`). It rides as
+    # `population="all", dimension="cohort", value="current_practice"` so its n,
+    # approval rate, median and grades are IN the artifact, not only derivable from it.
+    # `_stats` computes them the same way as every other segment, over exactly the rows
+    # `current_practice_cohort` selects — the two cannot silently diverge.
+    segments.append(
+        _stats(
+            current_practice_cohort(rows, config=cfg),
+            population="all",
+            dimension="cohort",
+            value="current_practice",
+            config=cfg,
+        )
+    )
+
     skipped = [row for row in rows if row.status == "skipped"]
     return BaselineSummary(
         archive_root=archive_root,

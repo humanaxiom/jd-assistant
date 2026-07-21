@@ -1,0 +1,28 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — Dashboards{% endblock %}
+{% block content %}
+<div class="panel">
+  <h2>Read-only dashboards</h2>
+  <p class="meta">
+    Browsable views over committed pipeline artifacts. Read-only — these pages render
+    numbers straight from the artifacts and change nothing.
+  </p>
+  {% if pages %}
+  <table>
+    <thead>
+      <tr><th>Dashboard</th><th>What it shows</th></tr>
+    </thead>
+    <tbody>
+      {% for page in pages %}
+      <tr>
+        <td><a href="{{ page.href }}">{{ page.title }} &rarr;</a></td>
+        <td class="meta">{{ page.blurb }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No dashboards available yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

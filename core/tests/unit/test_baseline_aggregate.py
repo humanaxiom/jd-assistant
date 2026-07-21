@@ -99,6 +99,46 @@ def test_the_shipped_default_excludes_wjq() -> None:
     assert get_baseline_config().wjq_excluded_from_current_practice is True
 
 
+def test_summarise_emits_exactly_one_cohort_segment(
+    cohort_rows: list[BaselineRow],
+) -> None:
+    """Phase 4.6c: the cohort rides in the artifact as ONE cross-cutting segment
+    (``dimension="cohort", value="current_practice"``), not a per-value facet — so the
+    dashboard can render the population the bar is ratified against straight from
+    ``summary.json``."""
+    summary = summarise(
+        cohort_rows, archive_root="archive", generated_at=dt.datetime(2026, 7, 15)
+    )
+    cohort_segments = [seg for seg in summary.segments if seg.dimension == "cohort"]
+    assert len(cohort_segments) == 1
+    assert cohort_segments[0].value == "current_practice"
+
+
+def test_cohort_segment_stats_track_current_practice_cohort_exactly(
+    cohort_rows: list[BaselineRow],
+) -> None:
+    """The pin that stops the segment silently diverging from the function: every
+    headline number on the segment must equal what ``current_practice_cohort`` + a
+    direct count give. ``cohort_rows`` mixes in-cohort rows with rows excluded by each
+    of the three clauses (old era, territorial firing, WJQ), so the exclusions are
+    exercised: the segment is over the filtered set, never the raw rows."""
+    cohort = current_practice_cohort(cohort_rows, config=get_baseline_config())
+    assert {row.filename for row in cohort} == {"jdfn.docx"}  # the exclusions bit
+
+    summary = summarise(
+        cohort_rows, archive_root="archive", generated_at=dt.datetime(2026, 7, 15)
+    )
+    seg = next(seg for seg in summary.segments if seg.dimension == "cohort")
+
+    scored = [row for row in cohort if row.status == "scored"]
+    expected_approved = sum(1 for row in scored if row.approved)
+    assert seg.n_files == len(cohort)
+    assert seg.n_scored == len(scored)
+    assert seg.approved == expected_approved
+    assert seg.approval_rate == expected_approved / len(scored)
+    assert seg.grades == {"B": len(scored)}
+
+
 def test_template_is_reported_as_its_own_facet() -> None:
     """WJQ appears as a `template` segment, so nobody quotes its JDFN-bar score inside
     the current-practice cohort."""

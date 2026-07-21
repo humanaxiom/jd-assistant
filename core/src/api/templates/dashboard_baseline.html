@@ -1,0 +1,189 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — Archive Baseline{% endblock %}
+{% block content %}
+<style>
+  .kpis { display:flex; flex-wrap:wrap; gap:1rem; }
+  .kpi { background:#0d1117; border:1px solid var(--border); border-radius:8px; padding:.9rem 1.1rem; min-width:120px; }
+  .kpi .n { font-size:1.6rem; font-weight:600; }
+  .kpi .k { color:var(--muted); font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; }
+  .note { border-left:3px solid var(--accent); background:rgba(47,129,247,.08); padding:.75rem 1rem; margin:1rem 0; border-radius:0 6px 6px 0; }
+  .warn { border-left-color:var(--red); background:rgba(248,81,73,.08); }
+  .bar-wrap { background:#0d1117; border:1px solid var(--border); border-radius:4px; height:14px; overflow:hidden; min-width:60px; }
+  .bar { height:100%; background:var(--accent); }
+  .num { text-align:right; font-variant-numeric:tabular-nums; }
+  .stamp { font-size:.8rem; color:var(--muted); }
+  .stamp code { color:var(--fg); }
+</style>
+
+{% macro grade_table(seg) %}
+<table>
+  <thead><tr><th>Grade</th><th class="num">Count</th><th>Share</th></tr></thead>
+  <tbody>
+    {% for row in seg.grade_rows %}
+    <tr>
+      <td>{{ row.grade }}</td>
+      <td class="num">{{ row.count }}</td>
+      <td>
+        <div class="bar-wrap"><div class="bar" style="width:{{ '%.1f'|format(row.pct) }}%"></div></div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}
+
+{% macro grade_inline(seg) %}
+{%- for row in seg.grade_rows -%}
+{{ row.grade }}&nbsp;{{ row.count }}{% if not loop.last %} · {% endif %}
+{%- endfor -%}
+{% endmacro %}
+
+<div class="panel">
+  <h2>Archive baseline</h2>
+  <p class="meta"><a href="/jd-bank/ui/dashboard">&larr; Dashboards</a></p>
+
+  {% if summary is none %}
+  <p class="empty">
+    The archive baseline has not been generated yet (or <code>docs/baseline/summary.json</code>
+    is not readable from this container). Run <code>make baseline JD_ARCHIVE_PATH=&lt;archive&gt;</code>
+    to produce it, then reload this page.
+  </p>
+  {% else %}
+
+  <!-- Provenance: exactly which run produced every number below. -->
+  <p class="stamp">
+    Generated <code>{{ summary.generated_at }}</code> ·
+    rules <code>{{ summary.rules_version }}</code> ·
+    parser <code>{{ summary.parser_version }}</code> ·
+    segmentation <code>{{ summary.config_stamp }}</code>
+  </p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="n">{{ summary.file_count }}</div><div class="k">Files</div></div>
+    <div class="kpi"><div class="n">{{ summary.scored }}</div><div class="k">Scored</div></div>
+    <div class="kpi"><div class="n">{{ summary.skipped }}</div><div class="k">Skipped</div></div>
+  </div>
+</div>
+
+<!-- HEADLINE: the current-practice cohort — the population HR actually ratifies the bar
+     against. Rendered first and most prominently; every other number is context. -->
+<div class="panel">
+  <div class="note">
+    <strong>The bar's real trial &mdash; the population HR ratifies against.</strong>
+    The current-practice cohort is the JDs SFU writes today under the current template
+    with the mandated territorial acknowledgement actually present (era new/current,
+    non-WJQ). This is the ONE number to quote about the approval bar; everything below is
+    context. See <code>docs/baseline/README.md</code>.
+  </div>
+  {% if cohort %}
+  <h2>Current practice ({{ cohort.n_scored }} JDs)</h2>
+  <div class="kpis">
+    <div class="kpi">
+      <div class="n">{% if cohort.approval_rate is not none %}{{ "%.1f"|format(cohort.approval_rate * 100) }}%{% else %}&mdash;{% endif %}</div>
+      <div class="k">Approvable under the bar</div>
+    </div>
+    <div class="kpi">
+      <div class="n">{% if cohort.median is not none %}{{ "%.1f"|format(cohort.median) }}{% else %}&mdash;{% endif %}</div>
+      <div class="k">Median score</div>
+    </div>
+    <div class="kpi">
+      <div class="n">{{ cohort.n_scored }}</div>
+      <div class="k">JDs in cohort</div>
+    </div>
+  </div>
+  <p class="meta">{{ cohort.approved }} of {{ cohort.n_scored }} scored JDs are approvable.</p>
+  {{ grade_table(cohort) }}
+  {% else %}
+  <h2>Current practice</h2>
+  <p class="empty">
+    This <code>summary.json</code> predates the current-practice cohort segment.
+    Regenerate with <code>make baseline JD_ARCHIVE_PATH=&lt;archive&gt;</code> to
+    populate the cohort headline.
+  </p>
+  {% endif %}
+</div>
+
+<div class="panel">
+  <div class="note warn">
+    <strong>Do not quote the whole-archive approval rate.</strong> A single blended,
+    whole-corpus number is a <strong>category error</strong>: the mandated-section rules
+    fire on nearly every pre-2019 JD because those sections did not exist in the template
+    those JDs were written under. The whole-archive figures are shown for completeness
+    only. Read the segmented numbers below.
+  </div>
+
+  {% if overall %}
+  <h2>Whole archive (all {{ overall.n_scored }} scored)</h2>
+  <table>
+    <tbody>
+      <tr><th>Approval permitted</th>
+        <td class="num">
+          {% if overall.approval_rate is not none %}{{ "%.1f"|format(overall.approval_rate * 100) }}%
+          <span class="meta">({{ overall.approved }} of {{ overall.n_scored }})</span>
+          {% else %}&mdash;{% endif %}
+        </td></tr>
+      <tr><th>Median score</th>
+        <td class="num">{% if overall.median is not none %}{{ "%.1f"|format(overall.median) }}{% else %}&mdash;{% endif %}</td></tr>
+    </tbody>
+  </table>
+  {{ grade_table(overall) }}
+  {% endif %}
+</div>
+
+<div class="panel">
+  <h2>By era band</h2>
+  <div class="note">
+    <strong>An era is a date band, not a quality cohort.</strong> The <code>current</code>
+    band (2024+) is a <em>date</em> band &mdash; <strong>not the cohort</strong>. It counts
+    every JD dated 2024+, including those still missing the mandated footer, so its
+    approval rate reads lower than the current-practice cohort shown at the top. Quote the
+    band only for claims about a <em>date</em>; quote the cohort headline for claims about
+    the bar.
+  </div>
+  <table>
+    <thead>
+      <tr><th>Era</th><th class="num">Files</th><th class="num">Median</th>
+          <th class="num">Approval permitted</th><th>Grades (A&ndash;F)</th></tr>
+    </thead>
+    <tbody>
+      {% for e in eras %}
+      <tr>
+        <td>{{ e.value }}</td>
+        <td class="num">{{ e.n_files }}</td>
+        <td class="num">{% if e.median is not none %}{{ "%.1f"|format(e.median) }}{% else %}&mdash;{% endif %}</td>
+        <td class="num">{% if e.approval_rate is not none %}{{ "%.1f"|format(e.approval_rate * 100) }}%{% else %}&mdash;{% endif %}</td>
+        <td>{{ grade_inline(e) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="panel">
+  <h2>By template</h2>
+  <div class="note">
+    <strong>WJQ (CUPE) is a different template with no JDFN approval bar.</strong> It has
+    no About-SFU / territorial footer by design, so scoring it against the JDFN gates is a
+    category error (HR-143). It is shown as its own facet and is excluded from the
+    current-practice cohort.
+  </div>
+  <table>
+    <thead>
+      <tr><th>Template</th><th class="num">Files</th><th class="num">Scored</th>
+          <th class="num">Median</th><th class="num">Approval permitted</th></tr>
+    </thead>
+    <tbody>
+      {% for t in templates %}
+      <tr>
+        <td>{{ t.value }}</td>
+        <td class="num">{{ t.n_files }}</td>
+        <td class="num">{{ t.n_scored }}</td>
+        <td class="num">{% if t.median is not none %}{{ "%.1f"|format(t.median) }}{% else %}&mdash;{% endif %}</td>
+        <td class="num">{% if t.approval_rate is not none %}{{ "%.1f"|format(t.approval_rate * 100) }}%{% else %}&mdash;{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+  {% endif %}
+{% endblock %}

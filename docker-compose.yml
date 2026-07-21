@@ -74,7 +74,12 @@ services:
       # Kept: testcontainers still resolves sibling containers via the host gateway. It is
       # no longer how Ollama is reached.
       - "host.docker.internal:host-gateway"
-    volumes: ["./core:/app"]
+    volumes:
+      - ./core:/app
+      # Read-only dashboards (Phase 4.6c) serve committed pipeline artifacts. `docs/`
+      # lives at the repo ROOT (not under ./core, which is /app), so bind it read-only —
+      # these pages only ever READ it. See settings.baseline_summary_path.
+      - ./docs:/docs:ro
     depends_on:
       postgres: { condition: service_healthy }
       neo4j: { condition: service_healthy }

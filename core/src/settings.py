@@ -51,6 +51,14 @@ class Settings(BaseSettings):
     max_review_iterations: int = 5
     coverage_threshold: int = 80
 
+    # Read-only dashboards (Phase 4.6c): where the committed archive-baseline artifact
+    # is mounted INSIDE the api container. `docs/` lives at the repo root (NOT under
+    # `core/`, which binds to /app), so the compose api service binds `./docs:/docs:ro`
+    # and this points at the baseline summary within it. Overridable (env
+    # BASELINE_SUMMARY_PATH) and, in tests, via the `get_baseline_summary_path`
+    # dependency — so a unit test can aim the loader at a fixture without a real mount.
+    baseline_summary_path: str = "/docs/baseline/summary.json"
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

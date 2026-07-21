@@ -1,0 +1,183 @@
+{
+  "archive_root": "/sentinel-archive",
+  "file_count": 91237,
+  "scored": 90111,
+  "skipped": 1126,
+  "rules_version": "SENTINEL_RULES_vZ+deadbeef1234",
+  "parser_version": "SENTINEL_PARSER_vZ",
+  "config_stamp": "SENTINEL_CONFIG+cafef00d5678",
+  "generated_at": "2099-01-02T03:04:05.678901Z",
+  "segments": [
+    {
+      "population": "all",
+      "dimension": "all",
+      "value": "all",
+      "n_files": 91237,
+      "n_scored": 90111,
+      "n_skipped": 1126,
+      "score": {
+        "n": 90111,
+        "minimum": 3.14,
+        "median": 41.4159,
+        "mean": 44.4444,
+        "maximum": 99.99,
+        "histogram": []
+      },
+      "grades": { "A": 111, "B": 222, "C": 333, "D": 444, "F": 555 },
+      "mean_issue_count": 7.77,
+      "approved": 1717,
+      "approval_rate": 0.019073
+    },
+    {
+      "population": "all",
+      "dimension": "cohort",
+      "value": "current_practice",
+      "n_files": 863,
+      "n_scored": 863,
+      "n_skipped": 0,
+      "score": {
+        "n": 863,
+        "minimum": 40.0,
+        "median": 79.3111,
+        "mean": 78.0,
+        "maximum": 96.0,
+        "histogram": []
+      },
+      "grades": { "A": 71, "B": 559, "C": 231, "D": 2, "F": 0 },
+      "mean_issue_count": 3.5,
+      "approved": 682,
+      "approval_rate": 0.790266
+    },
+    {
+      "population": "all",
+      "dimension": "era",
+      "value": "old",
+      "n_files": 8811,
+      "n_scored": 8800,
+      "n_skipped": 11,
+      "score": {
+        "n": 8800,
+        "minimum": 5.0,
+        "median": 22.2222,
+        "mean": 23.0,
+        "maximum": 60.0,
+        "histogram": []
+      },
+      "grades": { "C": 100, "D": 200, "F": 300 },
+      "mean_issue_count": 12.0,
+      "approved": 0,
+      "approval_rate": 0.0
+    },
+    {
+      "population": "all",
+      "dimension": "era",
+      "value": "transition",
+      "n_files": 7722,
+      "n_scored": 7700,
+      "n_skipped": 22,
+      "score": {
+        "n": 7700,
+        "minimum": 6.0,
+        "median": 33.3333,
+        "mean": 34.0,
+        "maximum": 70.0,
+        "histogram": []
+      },
+      "grades": { "B": 50, "C": 150, "D": 250, "F": 350 },
+      "mean_issue_count": 11.0,
+      "approved": 0,
+      "approval_rate": 0.0
+    },
+    {
+      "population": "all",
+      "dimension": "era",
+      "value": "new",
+      "n_files": 6633,
+      "n_scored": 6600,
+      "n_skipped": 33,
+      "score": {
+        "n": 6600,
+        "minimum": 15.0,
+        "median": 55.5555,
+        "mean": 56.0,
+        "maximum": 100.0,
+        "histogram": []
+      },
+      "grades": { "A": 10, "B": 500, "C": 900, "D": 400, "F": 90 },
+      "mean_issue_count": 8.0,
+      "approved": 61,
+      "approval_rate": 0.009242
+    },
+    {
+      "population": "all",
+      "dimension": "era",
+      "value": "current",
+      "n_files": 4488,
+      "n_scored": 4488,
+      "n_skipped": 0,
+      "score": {
+        "n": 4488,
+        "minimum": 36.0,
+        "median": 87.6111,
+        "mean": 85.0,
+        "maximum": 95.0,
+        "histogram": []
+      },
+      "grades": { "A": 700, "B": 2000, "C": 1500, "D": 280, "F": 8 },
+      "mean_issue_count": 4.0,
+      "approved": 2929,
+      "approval_rate": 0.652629
+    },
+    {
+      "population": "all",
+      "dimension": "template",
+      "value": "jdfn",
+      "n_files": 50000,
+      "n_scored": 50000,
+      "n_skipped": 0,
+      "score": {
+        "n": 50000,
+        "minimum": 10.0,
+        "median": 58.1234,
+        "mean": 57.0,
+        "maximum": 100.0,
+        "histogram": []
+      },
+      "grades": { "A": 100, "B": 1000, "C": 2000, "D": 1500, "F": 400 },
+      "mean_issue_count": 9.0,
+      "approved": 1700,
+      "approval_rate": 0.034
+    },
+    {
+      "population": "all",
+      "dimension": "template",
+      "value": "wjq",
+      "n_files": 30000,
+      "n_scored": 30000,
+      "n_skipped": 0,
+      "score": {
+        "n": 30000,
+        "minimum": 12.0,
+        "median": 48.9111,
+        "mean": 47.0,
+        "maximum": 68.0,
+        "histogram": []
+      },
+      "grades": { "C": 900, "D": 2000, "F": 1000 },
+      "mean_issue_count": 13.0,
+      "approved": 0,
+      "approval_rate": 0.0
+    },
+    {
+      "population": "all",
+      "dimension": "template",
+      "value": "unknown",
+      "n_files": 1126,
+      "n_scored": 0,
+      "n_skipped": 1126,
+      "grades": {},
+      "approved": 0
+    }
+  ],
+  "skip_reasons": { "sentinel-unreadable": 1126 }
+}
