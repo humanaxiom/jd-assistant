@@ -488,14 +488,21 @@ review queue (producer → service → routes → UI). **4.5 (the human pilot) i
     Minimal server-rendered UI inside FastAPI (`api/routes/ui.py` + Jinja2 templates): queue → detail
     (draft + 4.3 diff + validation report) → approve/edit/reject/override. Transport only; no new
     dependency (stdlib form parsing). **Reconcile PR #56 + re-run CI once billing is restored.**
+  - **4.4a-followup** ✅ **MERGED locally** (PR #57 — GitHub Actions still billing-blocked, PR open/unmerged).
+    Split the producer's single injected LLM client into `rewrite_client` (bound to `rules.rewrite.model`) +
+    `audit_client` (bound EXPLICITLY to `rules.quality.model`), so the `QualityAudit.model` stamp — always
+    taken from the RULES, not the client — stops being a latent NN #6 lie once `quality.yaml` retunes.
+    `_build_clients` (both-or-neither) in `canonical/__main__.py`; pure wiring, nothing registered. Two pins
+    (routing + binding), both proven RED under their regression. Gates 1734/93.89%; Opus-approved.
+    **Reconcile PR #57 + re-run CI once billing is restored.**
 - **4.5** NEXT — Pilot: 5–10 clusters end to end with a real HR reviewer through the 4.4d UI; feedback
   becomes fixtures/rules (NN #7). Where the 4.2/4.3/4.4 provisional `open` defaults meet human judgment.
 
-**Pre-pilot follow-ups (engineering, can land before 4.5):** split `rewrite_client`/`audit_client`
-(4.4a — before the two LLM YAMLs diverge and provenance lies); a `jd_bank/` change-log runner over real
-clusters (4.3); `get_session`→`api/deps.py` (drops the two routers' circular-import shim); concurrent
-double-approve test (4.4b). Deferred product gap: the 4.4d edit view is a raw-JSON `<textarea>` — a
-structured per-field editor is a later task.
+**Pre-pilot follow-ups (engineering, can land before 4.5):** ~~split `rewrite_client`/`audit_client`~~
+✅ DONE (4.4a-followup, PR #57). Remaining: a `jd_bank/` change-log runner over real clusters (4.3);
+`get_session`→`api/deps.py` (drops the two routers' circular-import shim); concurrent double-approve test
+(4.4b). Deferred product gap: the 4.4d edit view is a raw-JSON `<textarea>` — a structured per-field
+editor is a later task.
 
 **Exit:** first human-approved canonical JDs published; audit trail complete.
 
