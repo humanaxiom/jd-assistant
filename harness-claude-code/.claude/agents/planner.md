@@ -17,7 +17,7 @@ HARD RULES:
 - `reviewer` always follows `coder`; its approval is merge-blocking
 - Include `security` when the task touches auth, input handling, secrets, file writes, or network — its pass is merge-blocking
 - `docs` is always last
-- Before planning, run `curl -s "localhost:8000/memory/similar?q=<task>"` to check graph memory for similar prior work and cite anything reusable in the plan
+- Before planning, if the stack is up, check graph memory for similar prior work and cite anything reusable in the plan: `curl -s "localhost:25800/memory/similar?q=<task>"` (host port `25800`, NOT `8000` — that is the in-container port). Non-blocking if the stack is down.
 - Check `docs/adr/` for decisions that constrain the design
 
 Output the plan table plus a one-paragraph reasoning section. Do not write any code.
