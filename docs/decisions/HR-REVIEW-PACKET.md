@@ -19,14 +19,14 @@ We built a tool that reads a job description and decides **whether an HR reviewe
 it**. It never approves anything itself — a human always decides. But it can *block* the approve
 button, and it scores every JD out of 100.
 
-To do that, we had to pick **190 numbers, word lists and rules** across the whole system. Only **19**
+To do that, we had to pick **192 numbers, word lists and rules** across the whole system. Only **19**
 come straight from SFU's own JD Toolkit; **72** are calibrated from the system this one replaces; and
-**99 we invented**, because the Toolkit is silent. Many of the invented ones govern the pipeline's
+**101 we invented**, because the Toolkit is silent. Many of the invented ones govern the pipeline's
 machinery (deduplication, clustering, embeddings), but a core set silently decide which of your job
 descriptions are acceptable — and those are what this document puts to you.
 
 We have run all of them against your entire archive. **This document asks you to ratify or change
-the nine that actually matter.** The other 181 are recorded in
+the nine that actually matter.** The other 183 are recorded in
 [`HR-DECISION-REGISTER.md`](HR-DECISION-REGISTER.md) and can wait — the archive shows they change
 almost nothing.
 
@@ -294,5 +294,5 @@ in [`POST-REVIEW-CHANGE-PLAN.md`](POST-REVIEW-CHANGE-PLAN.md). A plain-language,
 of these decisions — no code, written to be read on its own — is in
 [`HR-DECISION-MATRIX.md`](HR-DECISION-MATRIX.md).
 
-**Until you rule, we change nothing.** Every one of the 190 decisions stays flagged `open`, and
+**Until you rule, we change nothing.** Every one of the 192 decisions stays flagged `open`, and
 the system's own build fails if anyone quietly edits one without recording it.

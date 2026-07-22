@@ -502,15 +502,21 @@ reviewer is asked to trust it. **4.5 (the human pilot) is now the next milestone
     **Reconcile PR #57 + re-run CI once billing is restored.**
 - **4.5** — Pilot: 5–10 clusters end to end with a real HR reviewer through the review UI; feedback
   becomes fixtures/rules (NN #7). Where the 4.2/4.3/4.4 provisional `open` defaults meet human judgment.
-  **⬅ NEXT — 4.6 is complete: the queue is populated with real drafts and the dashboards are in place**,
-  and the reviewer needs the local-only guarantee proven before touching proprietary content. (LLM
-  enrichment of the draft prose is in progress so the pilot reviews real prose, not deterministic merges.)
+  **⬅ NEXT — 4.6 is complete AND the queue is now LLM-ENRICHED**: all 379 drafts were refreshed in place
+  by a crash-safe ~10h `gpt-oss:120b` run (384 with real rewrite prose, 291 audited, 0 cluster failures),
+  so the reviewer sees real prose, not deterministic merges. The dashboards are in place and the local-only
+  guarantee is proven (4.6a egress guard).
 
-**Pre-pilot follow-ups (engineering, can land before 4.5):** ~~split `rewrite_client`/`audit_client`~~
-✅ DONE (4.4a-followup, PR #57). Remaining: a `jd_bank/` change-log runner over real clusters (4.3);
-`get_session`→`api/deps.py` (drops the two routers' circular-import shim); concurrent double-approve test
-(4.4b). Deferred product gap: the review-queue edit view is a raw-JSON `<textarea>` — a structured
-per-field editor is a later task.
+**Pre-pilot follow-ups (engineering):** ~~split `rewrite_client`/`audit_client`~~ ✅ DONE (PR #57).
+~~LLM-enrich the seed~~ ✅ DONE ([PR #58](https://github.com/humanaxiom/jd-assistant/pull/58)) — plus the
+**producer crash-safety** (`commit_every`/`progress_every`, `--commit-every`; checkpoints a long run) and
+**LLM robustness** it required: constrained decoding (`json_schema`) **scoped to the audit** (fixes a ~24%
+enum-mismatch failure) while the **rewrite stays loose** (its large `SFUJobDescription` grammar 500s Ollama —
+the live gate caught this pre-merge), and a per-pass `reasoning_effort` knob (**HR-191** rewrite=`null`,
+**HR-192** quality=`low`; register 190→192). Remaining: a **full-archive** enrichment on this improved code;
+a `jd_bank/` change-log runner over real clusters (4.3); `get_session`→`api/deps.py` (drops the two routers'
+circular-import shim); concurrent double-approve test (4.4b). Deferred product gap: the review-queue edit
+view is a raw-JSON `<textarea>` — a structured per-field editor is a later task.
 
 **Exit:** first human-approved canonical JDs published; audit trail complete.
 
