@@ -82,7 +82,8 @@ make hook-install                  # Docker-only git pre-commit hook (branch gat
 ```
 
 `docker compose up -d` starts: `postgres`, `neo4j`, `redis`, `api` (FastAPI :8000),
-`worker` (arq), `frontend` (Flask :5000). Containers reach Ollama on the host via
+`worker` (arq). The review UI is server-rendered inside `api` under `/jd-bank/ui` (there is no
+separate frontend service). Containers reach Ollama on the host via
 `host.docker.internal:11434` — preconfigured with `extra_hosts: host-gateway` so it works on
 Linux too, not just Docker Desktop.
 
@@ -99,7 +100,7 @@ Run these in order — each proves one layer works. **Everything here is Docker-
 ```bash
 # 3.1 Services healthy
 docker compose ps
-# Every service should show "healthy" or "running" (frontend has no healthcheck)
+# Every service should show "healthy" or "running"
 
 # 3.2 API responds
 curl -s http://localhost:8000/health          # {"status":"ok"}

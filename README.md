@@ -143,7 +143,7 @@ JD-Assistant/
 │   │   ├── jd_core/               # (Phase 1+) parse, validate, bias, titles, KSA, scrub
 │   │   ├── jd_bank/               # (Phase 1+) ingest, dedup, cluster, harmonize, review, composer
 │   │   ├── api/  agents/  memory/  models/  worker/  gates/   # harness core
-│   ├── frontend/                  # Flask dashboard
+│   │   │                          # review UI is server-rendered under api/ (/jd-bank/ui)
 │   ├── db/migrations/             # Alembic (Postgres) + Cypher (Neo4j)
 │   └── tests/{unit,integration}/
 ├── harness-claude-code/           # CLAUDE.md base rules + .claude/ (subagents, settings)
@@ -163,7 +163,7 @@ OLLAMA_HOST=0.0.0.0 ollama serve &
 ollama pull qwen2.5-coder:14b nomic-embed-text
 
 # 1. Bring up the stack (everything but Ollama)
-docker compose up -d          # postgres, neo4j, redis, api, worker, frontend
+docker compose up -d          # postgres, neo4j, redis, api, worker
 
 # 2. Migrations + git pre-commit hook
 make migrate
