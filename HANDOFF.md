@@ -2,7 +2,57 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-07-21, later): review queue LLM-ENRICHED + producer/LLM hardening MERGED ([PR #58](https://github.com/humanaxiom/jd-assistant/pull/58), CI green).**
+**NEWEST (2026-07-21, latest): FULL-ARCHIVE enrichment run IN FLIGHT + 4.6 follow-ups MERGED
+([PR #59](https://github.com/humanaxiom/jd-assistant/pull/59), CI green, rebase-merged).**
+
+**① The full-archive canonical enrichment is RUNNING** — the complete bank, LLM pipeline, on the
+new constrained-decode/`reasoning_effort` code. Detached crash-safe container **`jd-canonical-fullrun`**
+(`docker compose run -d ... canonical python -m src.jd_bank.canonical --commit-every 25`), full LLM
+pipeline (rewrite `gpt-oss:120b` + audit) over **ALL 2458 recomputed clusters**. **Watch:**
+`docker logs -f jd-canonical-fullrun` (stderr progress every 25 clusters). **Resume if it dies:** re-run
+the same command — idempotent, refreshes/skips what already landed. Summary → `docs/canonical/summary.json`
+on completion. As of this handoff: **150/2458, 0 failures, ~63 s/cluster steady-state, ETA ~44h (~2 days).**
+Verified before launch: Ollama reachable on `aria-gb10-2`, `gpt-oss:120b` loaded, egress allow-list intact,
+`review_actions=0` (nothing human-touched to clobber). **MUST run WITH the LLM** — a `--no-llm` full run
+would refresh the existing enriched drafts back to deterministic prose (no no-clobber protection at
+`review_actions=0`).
+
+> **⚠ POST-RUN CLEANUP (record this):** the full-corpus clustering yields **different `cluster_id`s**
+> than the earlier `--limit 5000` seed (membership differs → different `cluster_id_for` uuid5), so the run
+> **PERSISTS NEW drafts alongside** the seed's 389 rather than refreshing them (only ~17% coincidental
+> refresh: 26/150 at checkpoint 6). `canonical_jds` will grow to ~2000+. The **superseded seed drafts**
+> (all `DRAFT`, `review_actions=0` → safe to delete) should be **pruned after the run** so the review
+> queue doesn't show near-duplicate drafts of the same role. Do NOT prune mid-run.
+
+**② [PR #59](https://github.com/humanaxiom/jd-assistant/pull/59) — three 4.6 follow-ups + a CI fix, MERGED**
+(gates **1784 · 93.94%**; `rules_version` untouched — no rule/decision-param change):
+- **4.6d dead Flask `frontend` REMOVED** — compose service + env/port, the `core/frontend/` scaffold
+  package (superseded by the FastAPI `/jd-bank/ui`), the now-unused `flask` dep, and README/DEVELOPER_GUIDE
+  refs. **Surfaced a latent bug:** `jinja2` (used directly by the FastAPI dashboards/review UI) was only
+  installed **transitively via flask** — the clean CI build broke (`ModuleNotFoundError: jinja2`) while
+  local `make gates` masked it (`docker compose run` reuses a stale image, doesn't rebuild on a
+  requirements change). Fixed by declaring `jinja2>=3.1.0` explicitly; verified against a from-scratch
+  `docker compose build gates`. **Lesson: `make gates` does NOT rebuild — `docker compose build gates`
+  first when deps change, or CI will catch what you didn't.**
+- **Two secondary cluster-KPI test pins tightened** — `largest_cluster` (`"133"`, which doubled as a
+  `size_distribution` key) and `flagged_clusters` (`"11"`, a substring of 10911/150911/47111/1191) were
+  collision-prone; replaced with collision-free `9092`/`4707`, `largest_cluster` decoupled from the size
+  buckets so each pin uniquely guards its KPI.
+- **jdbank-scrub open flag CLOSED** — repo-wide search found no reference treating `C:\repos\jdbank` as
+  authoritative; every mention is an intentional "it's stale" note or the unrelated `jdBank.ts` hris TS
+  filename. Nothing to scrub.
+
+**STILL DEFERRED:** the **`max_chars`/dense-WJQ embedding** follow-up (11 docs exceed the 8192-token limit
+after truncation) — it changes a registered decision param AND needs the Ollama host the full run now
+monopolizes. Do it AFTER the run frees `aria-gb10-2`. Also still open: the 4.5 HR pilot; review-queue
+structured edit view.
+
+**NEXT SESSION:** (1) check `docker logs jd-canonical-fullrun` — if done, read `docs/canonical/summary.json`,
+prune the superseded seed drafts, re-baseline/update docs; if dead, re-run to resume. (2) then `max_chars`.
+
+---
+
+**PRIOR (2026-07-21, later): review queue LLM-ENRICHED + producer/LLM hardening MERGED ([PR #58](https://github.com/humanaxiom/jd-assistant/pull/58), CI green).**
 The 379-draft queue now carries REAL prose: a crash-safe ~10h `gpt-oss:120b` run refreshed all **379 in
 place** (384 drafts have real rewrite prose, 291 audited; **0 cluster failures**). Two hardening features
 landed on `main` to make that — and the future full-archive run — safe and observable:
