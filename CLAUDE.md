@@ -88,8 +88,12 @@ hooks: no-commit-to-main, ruff auto-fix) for sessions run from the repo root, a 
 - Territorial acknowledgement wording: verify against SFU's current official text before
   any external distribution. Phase 6 sign-off task — blocks publish, not development.
 - Footer wording lives in a single config constant — never inline it.
-- Stale `jdbank` path references linger in older notes — scrub on a chore branch, not
-  mid-feature. (`agent-harnesses-v2` is NOT stale — it is the live upstream harness.)
+- ~~Stale `jdbank` path references linger in older notes — scrub on a chore branch.~~
+  **SCRUBBED (verified 2026-07-21):** a repo-wide search found no reference that treats
+  `C:\repos\jdbank` as authoritative. The only mentions are the intentional "jdbank is
+  STALE — ignore it" notes in ADR-004 / HANDOFF / this file (keep those), plus the
+  unrelated `jdBank.ts` hris TypeScript filename in `docs/audit/hris-reuse-map.md`.
+  (`agent-harnesses-v2` is NOT stale — it is the live upstream harness.)
 
 ## Stack
 Python 3.11+ · FastAPI · **PostgreSQL 16 (all relational/transactional SQL)** · **Neo4j

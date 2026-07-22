@@ -223,13 +223,18 @@ def test_clusters_page_renders_numbers_from_the_file() -> None:
     body = resp.text
 
     assert "2461" in body  # cluster_count
-    assert "133" in body  # largest_cluster (and size_distribution key)
+    # largest_cluster: a collision-free sentinel that is deliberately NOT one of the
+    # size_distribution keys ({2,3,50}), so this pins the "Largest cluster" KPI itself.
+    # (The old "133" doubled as a size_distribution key, so the pin passed even if the
+    # KPI stopped rendering.)
+    assert "9092" in body  # largest_cluster
     assert "3611" in body  # singletons
     assert "10911" in body  # clustered_documents
     assert "75.1" in body  # coverage_rate 0.751234 -> 75.1%
     assert "150911" in body  # edges_considered
     assert "47111" in body  # edges_admitted
-    assert "11" in body  # flagged_clusters
+    assert "4707" in body  # flagged_clusters (collision-free sentinel; old "11" was a
+    # substring of 10911 / 150911 / 47111 / 1191, so the pin never actually guarded it)
     assert "372" in body  # cross_department_clusters
     assert "151" in body  # restricted_touching_clusters
     assert "1966" in body  # exact_synthesized

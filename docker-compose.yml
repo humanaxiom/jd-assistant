@@ -99,18 +99,6 @@ services:
       neo4j: { condition: service_healthy }
       redis: { condition: service_healthy }
 
-  frontend:
-    build:
-      context: ./core
-      dockerfile: Dockerfile
-    command: flask --app frontend.app run --host 0.0.0.0 --port 5000 --debug
-    ports: ["${JD_FRONTEND_PORT:-25500}:5000"]
-    environment:
-      API_BASE_URL: http://api:8000
-      FLASK_SECRET_KEY: dev-only-change-me
-    volumes: ["./core:/app"]
-    depends_on: [api]
-
   # ─── Gate runner (Docker-only testing, ADR-006) ──────────────────────────
   # One-shot, CI-identical suite: static + unit(cov) + integration. Integration
   # tests use testcontainers → the Docker socket is mounted here (in-compose mount

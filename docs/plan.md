@@ -557,9 +557,11 @@ authority, NN #1). Everything content-analyzing stays on internal infra we contr
   the 9 flagged, coverage); (4) **Harmonization diff** per cluster (reuse the 4.3 `HarmonizationDiff`
   the review detail already renders). Autoescape on; no `|safe` on archive text (untrusted). Sliced as
   separate tasks (baseline → dedup → clusters) so each is one session and lands independently.
-- **4.6d — Remove the dead Flask `frontend` compose service.** It points at a `frontend/` package that
-  does not exist (the abandoned pre-4.4d approach) and publishes host port 25500 for nothing. Chore
-  branch; delete the service + its env; scrub references. Keeps the compose file honest.
+- **4.6d — Remove the dead Flask `frontend` compose service. — DONE.** It ran the abandoned pre-4.4d
+  harness scaffold dashboard (`core/frontend/`, a tasks/runs Flask app superseded by the FastAPI
+  `/jd-bank/ui`) and published host port 25500 for nothing. Removed the compose service + its env/port,
+  deleted the dead `core/frontend/` package, and scrubbed README/DEVELOPER_GUIDE references. Compose file
+  is honest again.
 
 **Exit:** a reviewer can open a browser and see the archive analysis, the dedup/cluster findings, and
 real canonical drafts moving through approve/reject — and the no-cloud-egress invariant fails the build
