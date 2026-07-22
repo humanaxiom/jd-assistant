@@ -1,5 +1,7 @@
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
+jinja2>=3.1.0           # FastAPI Jinja2Templates (dashboards + review UI); was
+                        # previously satisfied only transitively via flask
 pydantic>=2.9.0
 pydantic-settings>=2.5.0
 sqlalchemy[asyncio]>=2.0.35
