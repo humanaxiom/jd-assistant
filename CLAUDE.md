@@ -41,6 +41,24 @@ pass are merge-blocking. Claude Code subagent definitions live in
 hooks: no-commit-to-main, ruff auto-fix) for sessions run from the repo root, a root
 `.claude/` is required — not yet set up.
 
+## Coordinating subagents — trust & verification (harness lessons; see docs/HARNESS_LESSONS.md)
+- **A subagent's claim of green is not evidence of green.** Require the pasted command and its
+  real output; if a report only summarizes a diff, treat the work as UNVERIFIED and re-run the
+  gate yourself before committing. This is cheap and has already caught real defects.
+- **Re-run `make gates` yourself before committing subagent work** — and pick the gate by what
+  the diff touches, not by what is fastest. If correctness depends on how a real Postgres/Neo4j/
+  driver behaves (schema, SQL, stores, embeddings, dedup, migrations), `make gates-fast` cannot
+  prove it — run the full `make gates`. Pure functions / rules YAML / docs: `gates-fast` is enough.
+- **Read the diff, don't just read the report.** A missing `DEFAULT` or foreign key is visible in
+  a 50-line diff and invisible in a prose summary.
+- **Check your prompt before blaming the agent.** A thin report usually means a thin instruction
+  (asking for "a diff summary" and getting one is a prompt bug, not agent misbehaviour).
+- **Prefer fixing the agent definition over re-explaining in the prompt.** A prompt fix helps one
+  run; an edit to `harness-claude-code/.claude/agents/` helps every future run.
+- **Verify state against the remote before trusting HANDOFF.md.** Local branches and handoff notes
+  lag; `git fetch` + a PR status check costs seconds. Record ratified decisions in the register/ADR,
+  not just in chat — conversation state is lost at session end.
+
 ## Non-negotiables
 1. HUMAN APPROVAL: canonical JDs are drafts until an HR reviewer explicitly approves.
    Nothing auto-publishes. Gate overrides require a written reason in the audit log.

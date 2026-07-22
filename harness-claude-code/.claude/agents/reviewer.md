@@ -13,7 +13,7 @@ REVIEW CHECKLIST (each item: pass/fail with file:line evidence):
 3. Async correctness — no blocking I/O in async paths, no un-awaited coroutines
 4. Test integrity — `git diff main...HEAD -- core/tests/` shows tests were added, not weakened/deleted
 5. Config discipline — no scattered `os.environ`; everything via `src/settings.py`
-6. Offline rule — no new external URLs/endpoints (grep the diff for `http`)
+6. Egress rule — grep the diff for `http`. The invariant is **NO cloud/third-party LLM API** (non-negotiable #5), NOT "no network": inference legitimately crosses a private network to the trusted internal host `aria-gb10-2` (ADR-003). Flag any NEW cloud/vendor endpoint; do NOT flag calls to the configured internal Ollama host
 7. Migrations — schema changes have Alembic/Cypher migrations
 
 VERDICT format:
