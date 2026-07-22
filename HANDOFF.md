@@ -42,13 +42,21 @@ would refresh the existing enriched drafts back to deterministic prose (no no-cl
   authoritative; every mention is an intentional "it's stale" note or the unrelated `jdBank.ts` hris TS
   filename. Nothing to scrub.
 
-**STILL DEFERRED:** the **`max_chars`/dense-WJQ embedding** follow-up (11 docs exceed the 8192-token limit
-after truncation) — it changes a registered decision param AND needs the Ollama host the full run now
-monopolizes. Do it AFTER the run frees `aria-gb10-2`. Also still open: the 4.5 HR pilot; review-queue
-structured edit view.
+**STILL DEFERRED — and now BIGGER than it looked:** the **`max_chars`/dense-WJQ embedding** follow-up.
+Re-measured over the v2 corpus this session (read-only, no Ollama), **HR-126 was falsified**: it is not
+"11 docs" — **1,400 docs (~9.6%) are TRUNCATED** at `max_chars=10000` (the WJQ re-parse recovered dense
+text; median 2,559→3,909, MAX 8,987→13,486), and the 11 `bad_requests` are just the densest subset where
+even the truncated text still 400s past the 8,192-token limit. **There is no single `max_chars` that both
+avoids truncation and avoids the 400** — it is now an OPEN DESIGN DECISION (progressive-backoff-on-400 /
+chunk+pool / rely on section vectors / lower to a token-safe floor). HR-126 in the register carries the
+corrected numbers + the four options ([PR #62](https://github.com/humanaxiom/jd-assistant/pull/62)). Needs
+a design call AND the Ollama host (busy with the run) to re-embed + validate — do it AFTER `aria-gb10-2`
+frees. Also still open: the 4.5 HR pilot; review-queue structured edit view.
 
 **NEXT SESSION:** (1) check `docker logs jd-canonical-fullrun` — if done, read `docs/canonical/summary.json`,
-prune the superseded seed drafts, re-baseline/update docs; if dead, re-run to resume. (2) then `max_chars`.
+**prune the superseded seed drafts** (full-run cluster_ids ≠ the 389 seed's → they coexist), re-baseline/
+update docs; if dead, re-run the same command to resume. (2) then the `max_chars` DESIGN decision (read the
+corrected HR-126 first). This session merged **PRs #59 (4.6 + jinja2), #61 (this handoff), #62 (HR-126)**.
 
 ---
 
