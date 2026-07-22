@@ -115,9 +115,16 @@ class EmbedRunResult(BaseModel):
     #: Node-slots that needed a FRESH embedding but reused one already computed
     #: earlier in THIS run, by `text_sha256` (byte-identical archive duplicates).
     embed_texts_reused_memo: int = Field(ge=0)
-    #: Texts the server 400'd on (a permanent property of the input, never
-    #: retried) — the corresponding node(s) are skipped, not crashed past.
+    #: Texts the server 400'd on at `max_chars` AND at every `max_chars_fallback`
+    #: rung (a permanent property of the input, never retried) — the corresponding
+    #: node(s) are skipped, not crashed past. With a non-empty fallback ladder this
+    #: should be ~0: the ladder rescues the over-window texts into `texts_backed_off`.
     bad_requests: int = Field(ge=0)
+    #: Over-long texts (`max_chars` output still 400'd) that a shorter
+    #: `max_chars_fallback` rung DID embed — rescued to a best-effort backed-off
+    #: vector instead of no vector at all (HR-193). Zero when the ladder is empty
+    #: (the pre-HR-193 behavior) or nothing was over-window.
+    texts_backed_off: int = Field(ge=0)
     model: str
     dimensions: int
     embed_stamp: str

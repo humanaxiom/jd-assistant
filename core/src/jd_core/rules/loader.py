@@ -784,9 +784,22 @@ class Embeddings(_RuleFile):
     dimensions: int = Field(gt=0)
     #: The embedding server's hard ceiling is ~12,000 chars (8,192 tokens at this
     #: corpus's measured ~1.5 chars/token) and it 400s rather than truncating. This
-    #: sits below that with margin, and — measured — above every real JD in the
-    #: archive, so it truncates nothing that exists today.
+    #: sits below that with margin — but the v2 (post-WJQ) corpus has 1,400 docs
+    #: (~9.6%) longer than 10,000, so it DOES truncate (whole-unit) today; see HR-126
+    #: and ``docs/embeddings/max-chars-decision.md``.
     max_chars: int = Field(gt=0)
+    #: Fallback char caps the runner re-cuts an over-long text to, in order, when
+    #: :attr:`max_chars` itself still 400s (dense WJQ text whose serialization exceeds
+    #: the model's 8,192-token window even after :attr:`max_chars` truncation — ~11
+    #: docs). Each rung is tried until one embeds; the node then carries a best-effort
+    #: backed-off vector rather than none, and the whole-document identity stays keyed
+    #: on the ``max_chars`` text so skip-first idempotency holds (HR-193,
+    #: ``docs/embeddings/max-chars-decision.md``). Empty = the pre-HR-193 behavior:
+    #: an over-long text is written off (counted ``bad_requests``), no vector at all.
+    #: Strictly descending and positive (loader-enforced); NOT coupled to
+    #: ``max_chars`` — the two are independent knobs, and a rung that happens to be ≥
+    #: ``max_chars`` is harmlessly skipped at runtime, never rejected at load.
+    max_chars_fallback: tuple[int, ...] = Field(default=())
     #: A section shorter than this is not embedded at all (no unit, no node) — a
     #: guard-rail against a near-empty section producing an unreliable vector, not a
     #: filter that trims real content. May be 0 to disable it outright.
@@ -829,6 +842,31 @@ class Embeddings(_RuleFile):
                 f"not in embeddings.document_sections — a section embedding must "
                 f"come from content the document text itself includes"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _fallback_ladder_strictly_descends(self) -> Embeddings:
+        # Positive and strictly descending AMONG THEMSELVES — but deliberately NOT
+        # coupled to `max_chars`: `max_chars` (HR-126) and this ladder (HR-193) are
+        # independent knobs, and tuning one must not force the other. A rung that
+        # happens to be ≥ `max_chars` is harmless — the runner re-cuts the already-
+        # `max_chars`-length text to it, gets the same text back, and its
+        # `shorter == attempted` guard skips it — so only an out-of-order or
+        # non-positive rung (a typo, never a real ladder) is worth rejecting here.
+        prev: int | None = None
+        for rung in self.max_chars_fallback:
+            if rung <= 0:
+                raise ValueError(
+                    f"embeddings.max_chars_fallback has a non-positive rung {rung} — "
+                    f"a fallback cap is a character budget, not a flag"
+                )
+            if prev is not None and rung >= prev:
+                raise ValueError(
+                    f"embeddings.max_chars_fallback must strictly descend; rung "
+                    f"{rung} is not below the previous cap {prev} — a rung ≥ its "
+                    f"predecessor re-cuts to the same-or-longer text, buying nothing"
+                )
+            prev = rung
         return self
 
     @property

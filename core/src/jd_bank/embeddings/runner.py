@@ -45,6 +45,20 @@ way, forever, while the process exits 0. On a 400 the chunk is therefore retried
 skips a 400" as the safety story for raising ``max_chars``; this is what makes that
 story true at batch granularity rather than only at text granularity.
 
+**And an over-long text should get a vector, not a gap (HR-193).** A handful of dense
+WJQ documents exceed the model's 8,192-token window even after ``max_chars``
+truncation, so the single-text retry above still 400s and the document would get NO
+vector at all. When ``embeddings.max_chars_fallback`` is non-empty, such a text is
+re-cut (on whole-line boundaries, :func:`~src.jd_core.bank.embed_text.
+retruncate_within`) to each fallback cap in turn and the first the server accepts is
+embedded — a best-effort *shorter* vector counted in ``texts_backed_off``. The vector
+is memoised under the text's ORIGINAL (``max_chars``) ``text_sha256``, so the node's
+skip-first identity stays keyed on the full text and an unchanged-corpus re-run still
+embeds nothing; the cost is that this ~11-document path re-runs on each *full*
+re-embed (a stamp change), which is bounded and deliberate — see
+``docs/embeddings/max-chars-decision.md``. An empty ladder restores the pre-HR-193
+behavior exactly: the text is written off to ``bad_requests``.
+
 **Does not commit the Postgres session** — it only reads. Neo4j writes are
 auto-commit per statement (the driver's normal ``session.run`` semantics) and are
 issued in ``batch_size`` chunks, never one statement for the whole archive — the
@@ -81,6 +95,7 @@ from src.jd_bank.embeddings.store import (
 from src.jd_core.bank.embed_text import (
     SERIALIZER_VERSION,
     SerializedText,
+    retruncate_within,
     serialize_document,
     serialize_section,
 )
@@ -160,6 +175,7 @@ async def run_embeddings(
 
     embed_stamp = embeddings_rules.stamp
     model = embeddings_rules.model
+    fallback_ladder = embeddings_rules.max_chars_fallback
 
     rows = await _candidate_rows(pg_session, limit=limit)
     existing_docs = await fetch_existing_document_keys(neo4j_driver)
@@ -244,6 +260,7 @@ async def run_embeddings(
     memo: dict[str, list[float]] = {}
     embed_calls = 0
     bad_requests = 0
+    texts_backed_off = 0
 
     shas = list(to_embed)
     for start in range(0, len(shas), batch):
@@ -262,11 +279,32 @@ async def run_embeddings(
             for sha, text in zip(chunk, texts, strict=True):
                 embed_calls += 1
                 try:
-                    single = await embed_client.embed_batch([text])
-                except EmbeddingBadRequestError:
-                    bad_requests += 1
+                    memo[sha] = (await embed_client.embed_batch([text]))[0]
                     continue
-                memo[sha] = single[0]
+                except EmbeddingBadRequestError:
+                    pass
+                # `max_chars` truncation STILL 400'd (dense text past the model's
+                # window). Walk the fallback ladder (HR-193): re-cut the ORIGINAL text
+                # to each shorter cap and embed the first that lands. Store under the
+                # original `sha` so the node's skip-first identity stays keyed on the
+                # full text. Empty ladder -> the loop body never runs -> `bad_requests`.
+                rescued = False
+                attempted = text
+                for rung in fallback_ladder:
+                    shorter = retruncate_within(text, rung)
+                    if not shorter or shorter == attempted:
+                        continue  # nothing new (or non-empty) to try at this rung
+                    attempted = shorter
+                    embed_calls += 1  # a real round-trip, like the retries above
+                    try:
+                        memo[sha] = (await embed_client.embed_batch([shorter]))[0]
+                    except EmbeddingBadRequestError:
+                        continue
+                    texts_backed_off += 1
+                    rescued = True
+                    break
+                if not rescued:
+                    bad_requests += 1
             continue
         for sha, vector in zip(chunk, vectors, strict=True):
             memo[sha] = vector
@@ -340,6 +378,7 @@ async def run_embeddings(
         embed_calls=embed_calls,
         embed_texts_reused_memo=max(0, total_slots - len(to_embed)),
         bad_requests=bad_requests,
+        texts_backed_off=texts_backed_off,
         model=model,
         dimensions=embeddings_rules.dimensions,
         embed_stamp=embed_stamp,

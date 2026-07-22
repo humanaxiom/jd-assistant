@@ -31,7 +31,11 @@ from testcontainers.postgres import PostgresContainer
 from src.jd_bank.db.models import DocumentFormat, ParsedJDRow, SourceDocument
 from src.jd_bank.embeddings.client import EmbeddingBadRequestError
 from src.jd_bank.embeddings.runner import run_embeddings
-from src.jd_core.bank.embed_text import serialize_document, serialize_section
+from src.jd_core.bank.embed_text import (
+    retruncate_within,
+    serialize_document,
+    serialize_section,
+)
 from src.jd_core.models.parsed_jd import (
     SFUDuty,
     SFUJobDescription,
@@ -703,6 +707,103 @@ async def test_one_over_long_text_does_not_cost_its_batch_mates_their_vectors(
     # 400'd and every one-at-a-time retry it triggered. Pinned against the number of
     # calls the fake genuinely saw, so the counter cannot drift from the docstring.
     assert result.embed_calls == fake.call_count
+
+
+# --- HR-193: an over-window text is RESCUED by the fallback ladder ----------------
+
+
+def _long_doc_jd() -> SFUJobDescription:
+    """A JD whose serialized document text exceeds ``max_chars`` — 40 qualification
+    lines of ~380 chars each (~15k total, within the model's per-field caps) — so it
+    truncates to the ``max_chars`` cap, and that truncated text is still long enough
+    that re-cutting it to the first fallback rung (8,000) yields a DIFFERENT, shorter
+    text. Models the dense WJQ docs that 400 even after truncation."""
+    return _jd(
+        qualifications=[
+            SFUQualification(
+                text=f"qualification {i}: " + "requirement detail " * 19, kind="skill"
+            )
+            for i in range(40)
+        ]
+    )
+
+
+@pytest.mark.asyncio
+async def test_an_over_window_text_is_rescued_by_the_fallback_ladder(
+    pg_sessionmaker: async_sessionmaker[AsyncSession], neo4j_driver: AsyncDriver
+) -> None:
+    """**A 400 that survives ``max_chars`` truncation is backed off, not written off.**
+
+    The shipped ladder is ``[8000, 6000, 4000]``. A doc whose ``max_chars`` text the
+    server rejects gets re-cut to the first rung the server accepts, so it lands a
+    best-effort (shorter) vector instead of none — the HR-193 resolution of HR-126.
+    """
+    rules = get_rules()
+    assert rules.embeddings.max_chars_fallback[0] == 8_000  # the ladder under test
+    doomed, _ = await _seed_parsed_jd(pg_sessionmaker, _long_doc_jd())
+
+    # The exact ``max_chars`` text the runner builds — and what the first rung re-cuts
+    # it to. Only the full text 400s; the shorter re-cut is accepted.
+    doomed_serialized = serialize_document(_long_doc_jd(), rules.embeddings)
+    doomed_text = doomed_serialized.text
+    assert doomed_serialized.truncated is True  # sanity: it truncated at max_chars
+    backed_off_text = retruncate_within(doomed_text, 8_000)
+    assert 0 < len(backed_off_text) < len(doomed_text)
+    fake = _FakeEmbedClient(
+        rules.embeddings.dimensions, bad_request_texts=frozenset({doomed_text})
+    )
+
+    async with pg_sessionmaker() as session:
+        result = await run_embeddings(session, neo4j_driver, rules=rules, client=fake)
+
+    assert result.texts_backed_off == 1
+    assert result.bad_requests == 0  # rescued, not written off
+    assert result.documents_embedded == 1
+
+    node = await _document_node(neo4j_driver, doomed)
+    assert node is not None  # it got a vector, unlike the pre-HR-193 behavior
+    # ...and it is the vector of the BACKED-OFF (shorter) text, not the doomed one.
+    dim = rules.embeddings.dimensions
+    assert node["embedding"] == _vector_for(backed_off_text, dim)
+    assert node["embedding"] != _vector_for(doomed_text, dim)
+    # Identity stays keyed on the full ``max_chars`` text (its sha), so a re-run is a
+    # no-op — the skip-first idempotency guarantee survives the backoff.
+    assert node["text_sha256"] == doomed_serialized.text_sha256
+
+    fresh = _FakeEmbedClient(dim, bad_request_texts=frozenset({doomed_text}))
+    async with pg_sessionmaker() as session:
+        second = await run_embeddings(session, neo4j_driver, rules=rules, client=fresh)
+    assert second.documents_embedded == 0  # unchanged corpus -> nothing re-embedded
+    assert fresh.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_an_empty_fallback_ladder_writes_off_an_over_window_text(
+    pg_sessionmaker: async_sessionmaker[AsyncSession], neo4j_driver: AsyncDriver
+) -> None:
+    """With ``max_chars_fallback = []`` the runner keeps the exact pre-HR-193
+    behavior: the over-window text is counted ``bad_requests`` and gets NO node — so
+    the knob's empty-list alternative is real, not decorative."""
+    rules = get_rules()
+    no_ladder = rules.model_copy(
+        update={
+            "embeddings": rules.embeddings.model_copy(update={"max_chars_fallback": ()})
+        }
+    )
+    doomed, _ = await _seed_parsed_jd(pg_sessionmaker, _long_doc_jd())
+    doomed_text = serialize_document(_long_doc_jd(), no_ladder.embeddings).text
+    fake = _FakeEmbedClient(
+        no_ladder.embeddings.dimensions, bad_request_texts=frozenset({doomed_text})
+    )
+
+    async with pg_sessionmaker() as session:
+        result = await run_embeddings(
+            session, neo4j_driver, rules=no_ladder, client=fake
+        )
+
+    assert result.texts_backed_off == 0
+    assert result.bad_requests == 1
+    assert await _document_node(neo4j_driver, doomed) is None
 
 
 # --- the reconcile: a node that should no longer exist is DELETED, not left stale --

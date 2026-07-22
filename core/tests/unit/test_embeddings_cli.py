@@ -31,6 +31,7 @@ def _result() -> EmbedRunResult:
         embed_calls=1,
         embed_texts_reused_memo=1,
         bad_requests=0,
+        texts_backed_off=0,
         model="nomic-embed-text",
         dimensions=768,
         embed_stamp="jd_rules_sfu_v4+deadbeefcafe",

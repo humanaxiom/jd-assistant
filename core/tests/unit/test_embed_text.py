@@ -18,6 +18,7 @@ import pytest
 
 from src.jd_core.bank.embed_text import (
     SERIALIZER_VERSION,
+    retruncate_within,
     serialize_document,
     serialize_section,
 )
@@ -253,6 +254,31 @@ def test_an_untruncated_text_reports_truncated_false_and_equal_lengths(
     result = serialize_document(jd, rules.embeddings)
     assert result.truncated is False
     assert result.text_chars == len(result.text)
+
+
+# --- the HR-193 over-length fallback re-cut (retruncate_within) -----------------
+
+
+def test_retruncate_within_returns_the_text_unchanged_when_it_fits() -> None:
+    text = "line one\nline two\nline three"
+    assert retruncate_within(text, 1000) == text
+
+
+def test_retruncate_within_drops_whole_trailing_lines() -> None:
+    """The fallback cuts on the same ``\\n`` boundary the serializer joins units on,
+    so a re-cut keeps whole lines — never a fragment of one."""
+    text = "aaaa\nbbbb\ncccc\ndddd"  # 4 lines, 4 chars each, joined = 19 chars
+    # Room for "aaaa\nbbbb" (9) but not the next "\ncccc" (would be 14).
+    assert retruncate_within(text, 11) == "aaaa\nbbbb"
+    # Every survivor is a whole original line.
+    for line in retruncate_within(text, 11).split("\n"):
+        assert line in {"aaaa", "bbbb", "cccc", "dddd"}
+
+
+def test_retruncate_within_returns_empty_when_not_one_line_fits() -> None:
+    """The caller must treat ``""`` as "no rung fit" and never embed it — a zero
+    vector is exactly what the whole pipeline forbids."""
+    assert retruncate_within("a-long-first-line\nsecond", 3) == ""
 
 
 # --- section vectors: no unit below min_section_chars, none for empty JD ------

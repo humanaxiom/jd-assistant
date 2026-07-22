@@ -94,7 +94,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"(< min_section_chars)\n"
         f"nodes pruned (no longer planned): {result.nodes_pruned}\n"
         f"embed calls: {result.embed_calls}  reused-by-memo: "
-        f"{result.embed_texts_reused_memo}  bad_requests: {result.bad_requests}\n"
+        f"{result.embed_texts_reused_memo}  bad_requests: {result.bad_requests}  "
+        f"backed_off: {result.texts_backed_off}\n"
         f"model={result.model} dimensions={result.dimensions} "
         f"embed_stamp={result.embed_stamp}",
         file=sys.stderr,
