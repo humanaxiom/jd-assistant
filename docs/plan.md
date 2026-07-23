@@ -567,14 +567,42 @@ authority, NN #1). Everything content-analyzing stays on internal infra we contr
 real canonical drafts moving through approve/reject — and the no-cloud-egress invariant fails the build
 if violated, rather than resting on a code read.
 
-### Phase 5 — JD Composer
-- **5.1** Search API: Neo4j vector semantic search + Postgres facet filters.
-- **5.2** Guided authoring (JAQ question set → draft assembly) + live validation endpoint.
-- **5.3** Composer UI (lean: server-rendered or small React app — decide via ADR).
-- **5.4** `jd_export`: port `bank/export.py` (#13) + add SFU-template styling + snapshot tests.
-- **5.5** Composer drafts → review queue integration.
+### Phase 5 — JD Builder (forward-looking JD Composer) — PLANNED
 
-**Exit:** recruiter can find, clone, compose, validate, and export a JD; drafts land in review.
+**The project's first forward-looking, user-facing product**: everything to date analyses the
+*existing* archive; the Builder helps a hiring manager/recruiter **author a new SFU-compliant JD**
+with live compliance feedback, routed into the same human-approval review queue. **Detailed,
+session-sized, TDD task breakdown: `docs/tasks/phase-5-jd-builder.md`.** Slots as a **parallel
+track to the 4.5 HR pilot** (independent engineering; they meet at the review queue) and the **MVP
+needs no GPU** (compliance = the deterministic `evaluate_jd_rules`; LLM-assist is optional and
+mock-testable). Scope = **JDFN (APSA/APEX/POLY) template** — the validator defines a bar only there
+(HR-143). Reuses the validator (NN #3), the review service as sole publish authority (NN #1), and
+the build-enforced egress guard (NN #5); extends the server-rendered `/jd-bank/ui`, no new service
+plan.
+
+- **5.1** Live-compliance service + `POST /jd-bank/compose/validate` — `SFUJobDescription` →
+  `evaluate_jd_rules`/`build_report`, with a draft-mode split (incomplete=guidance vs
+  non-compliant=finding). *The core; do first.*
+- **5.2** Guided-authoring question set as rules-as-data (`composer_questions.yaml` from
+  `jd-authoring-guide.docx`) + deterministic `assemble_jd(answers) -> SFUJobDescription`.
+- **5.3** Builder UI (server-rendered Jinja, dependency-free POST-re-render) — guided form + live
+  compliance panel.
+- **5.4** Search + "start from an existing JD" — **new Neo4j vector query** (the missing read side
+  of 3.2b) + Postgres facets + clone-to-draft.
+- **5.5** LLM authoring assist (optional, guard-permitted, decision-support) — reuse the 4.2
+  `ChatClient`/prompts + anti-fab guard; asserts validator post-state, never model text.
+- **5.6** Composed draft → review queue (DRAFT `canonical_jds`, provenance `composed`); the 4.4b
+  service stays the sole publish path.
+- **5.7** `jd_export`: port `bank/export.py` (#13) + SFU-template styling (TNR-10, footer) +
+  snapshot tests. Footer wording = the Phase-6 sign-off flag.
+
+**MVP (user-decided 2026-07-22) = {5.1+5.2+5.3 guided builder} → 5.5 LLM-assist → 5.6 review queue**
+(full guided author → live-validate → assist → submit). Search corpus = cluster reps + published
+canonicals. LLM-assist is mock-tested under gates; its live sign-off waits for the GPU (held by the
+full-archive run). 5.4 (search/clone) and 5.7 (export) layer on.
+
+**Exit:** recruiter/hiring-manager can find, compose, validate live, and export a JD; drafts land
+in review.
 
 ### Phase 6 — Hardening & handover
 Auth, rate/size limits, backup + reindex runbooks, ops docs, and the
