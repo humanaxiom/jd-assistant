@@ -11,16 +11,36 @@ Phase 5.1 — the live-compliance core::
     assessment = assess_draft(jd)   # SFUJobDescription -> DraftAssessment
 """
 
+from src.jd_bank.composer.answers import (
+    ComposerAnswers,
+    DutyAnswer,
+    ModifiedQual,
+)
+from src.jd_bank.composer.assemble import assemble_jd
 from src.jd_bank.composer.models import (
     DraftAssessment,
     DraftSectionStatus,
     SectionState,
 )
+from src.jd_bank.composer.questions import (
+    Question,
+    QuestionSet,
+    QuestionSetError,
+    load_question_set,
+)
 from src.jd_bank.composer.validate import assess_draft
 
 __all__ = [
+    "ComposerAnswers",
     "DraftAssessment",
     "DraftSectionStatus",
+    "DutyAnswer",
+    "ModifiedQual",
+    "Question",
+    "QuestionSet",
+    "QuestionSetError",
     "SectionState",
+    "assemble_jd",
     "assess_draft",
+    "load_question_set",
 ]
