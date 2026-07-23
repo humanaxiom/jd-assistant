@@ -75,6 +75,19 @@
       {% endfor %}
     </tbody>
   </table>
+
+  <h3>Submit for review</h3>
+  <p class="meta">
+    Sends this draft to the HR review queue. It stays a draft — nothing is published
+    until a reviewer approves it{% if not assessment.approvable %}, and it is not
+    approvable yet{% endif %}.
+  </p>
+  <form method="post" action="/jd-bank/ui/compose/submit">
+    <input type="hidden" name="answers_json" value="{{ answers_json }}">
+    <label for="author-id">Your name / id</label>
+    <input id="author-id" name="author_id" required>
+    <button type="submit">Submit for review →</button>
+  </form>
 </div>
 {% endif %}
 

@@ -22,6 +22,7 @@ from src.jd_bank.composer.models import (
     DraftSectionStatus,
     SectionState,
 )
+from src.jd_bank.composer.persist import COMPOSED_ORIGIN, submit_composed_draft
 from src.jd_bank.composer.questions import (
     Question,
     QuestionSet,
@@ -31,6 +32,7 @@ from src.jd_bank.composer.questions import (
 from src.jd_bank.composer.validate import assess_draft
 
 __all__ = [
+    "COMPOSED_ORIGIN",
     "ComposerAnswers",
     "DraftAssessment",
     "DraftSectionStatus",
@@ -43,4 +45,5 @@ __all__ = [
     "assemble_jd",
     "assess_draft",
     "load_question_set",
+    "submit_composed_draft",
 ]

@@ -29,11 +29,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl
 
-from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.main import get_session
 from src.jd_bank.composer import (
     ComposerAnswers,
     DraftAssessment,
@@ -42,6 +44,7 @@ from src.jd_bank.composer import (
     assemble_jd,
     assess_draft,
     load_question_set,
+    submit_composed_draft,
 )
 from src.jd_core.models.quality import SFUSection
 
@@ -166,6 +169,7 @@ def _context(
     assessment: DraftAssessment | None,
     error: str | None,
     boilerplate_checked: bool,
+    answers_json: str = "",
 ) -> dict[str, Any]:
     return {
         "request": request,
@@ -175,6 +179,10 @@ def _context(
         "error": error,
         "boilerplate_checked": boilerplate_checked,
         "state_badge": _STATE_BADGE,
+        # The exact answers this assessment was built from, JSON-encoded, so the
+        # "Submit for review" form can carry them in one hidden field and /submit
+        # rebuilds the identical draft (no fragile per-field round-trip).
+        "answers_json": answers_json,
     }
 
 
@@ -225,5 +233,47 @@ async def check_draft(request: Request) -> HTMLResponse:
             assessment=assessment,
             error=None,
             boilerplate_checked=checked,
+            answers_json=answers.model_dump_json(),
         ),
     )
+
+
+@router.post("/submit")
+async def submit_draft(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Submit the composed draft into the review queue and redirect to its review
+    page. The answers ride in one hidden ``answers_json`` field (written by the
+    check step); this rebuilds the identical draft, persists it as a DRAFT
+    ``canonical_jds`` row (:func:`~src.jd_bank.composer.submit_composed_draft`), and
+    commits. Nothing publishes (NN #1) — it enters the same queue as any draft."""
+    pairs = await _read_form(request)
+    values = _first_values(pairs)
+    author_id = values.get("author_id", "").strip()
+    try:
+        answers = ComposerAnswers.model_validate_json(values.get("answers_json", ""))
+    except ValidationError as exc:
+        # The hidden field was produced by our own check step, so this is unexpected;
+        # re-render the empty form with the error rather than 500.
+        return templates.TemplateResponse(
+            request,
+            "compose_new.html",
+            _context(
+                request,
+                values={},
+                assessment=None,
+                error=str(exc),
+                boilerplate_checked=True,
+            ),
+        )
+    canonical = await submit_composed_draft(
+        session, assemble_jd(answers), author_id=author_id
+    )
+    await session.commit()
+    return RedirectResponse(url=f"/jd-bank/ui/review/{canonical.id}", status_code=303)
+
+
+async def _read_form(request: Request) -> list[tuple[str, str]]:
+    body = await request.body()
+    return parse_qsl(body.decode("utf-8"), keep_blank_values=True)
