@@ -17,6 +17,7 @@ from src.jd_bank.composer.answers import (
     ModifiedQual,
 )
 from src.jd_bank.composer.assemble import assemble_jd
+from src.jd_bank.composer.assist import SummarySuggestion, suggest_summary
 from src.jd_bank.composer.models import (
     DraftAssessment,
     DraftSectionStatus,
@@ -42,8 +43,10 @@ __all__ = [
     "QuestionSet",
     "QuestionSetError",
     "SectionState",
+    "SummarySuggestion",
     "assemble_jd",
     "assess_draft",
     "load_question_set",
     "submit_composed_draft",
+    "suggest_summary",
 ]
