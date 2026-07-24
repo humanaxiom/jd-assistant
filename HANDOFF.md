@@ -41,9 +41,14 @@ validator (NN #3), JDFN-scoped (HR-143/HR-194). Latest `make gates`: **1830 pass
 - **HR-194 is `open`** — HR has not ruled on whether the Bank should ever serve CUPE. Until then the
   Builder is JDFN-only *on purpose*. If SFU wants CUPE authoring, that is a real project: define a CUPE
   quality bar (a WJQ ruleset with an oracle) BEFORE wiring it. Roadmapped under Phase 7.
-- **Prune the superseded 389-draft `--limit 5000` seed** — full-run `cluster_id`s ≠ the seed's, so they
-  COEXIST; the review queue shows near-duplicate drafts. All seed drafts are `DRAFT`, `review_actions=0`
-  → safe to delete.
+- ~~**Prune the superseded `--limit 5000` seed.**~~ **DONE (2026-07-24).** The handoff's "389" was
+  imprecise: **313 of the 389 seed drafts were REFRESHED in place by the full run** (they ARE its current
+  drafts — deleting them would drop 313 live roles), so only the **76** truly-orphaned seed drafts
+  (created & last-updated 07-21, never touched by the full run) were prunable. Verified before deleting:
+  all 76 `DRAFT`, `review_actions=0`, cluster_ids disjoint from the kept set, and a coverage check proved
+  **0 of their 530 source docs were orphaned** (every role stays covered by a kept full-run draft).
+  Transactional delete → **queue 1,877 → 1,801** (== the full run's JDFN drafts), confirmed live at
+  `:25800`. (76 now-orphaned `clusters` rows remain — invisible to the queue, harmless; left in place.)
 - **HR-126 (`max_chars`/dense-WJQ embedding)** — its fix is on `feat/hr126-max-chars-fallback`, based on
   pre-#64 `main` (same stale-base trap). Rebase onto current `main`, `make embed` (GPU on `aria-gb10-2`
   is free), re-measure (`bad_requests`→0), merge. **NOTE:** that branch reserves **HR-193**; the CUPE
