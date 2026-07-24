@@ -48,7 +48,8 @@ validator (NN #3), JDFN-scoped (HR-143/HR-194). Latest `make gates`: **1830 pass
   all 76 `DRAFT`, `review_actions=0`, cluster_ids disjoint from the kept set, and a coverage check proved
   **0 of their 530 source docs were orphaned** (every role stays covered by a kept full-run draft).
   Transactional delete → **queue 1,877 → 1,801** (== the full run's JDFN drafts), confirmed live at
-  `:25800`. (76 now-orphaned `clusters` rows remain — invisible to the queue, harmless; left in place.)
+  `:25800`. The 76 now-orphaned `clusters` rows (seed leftovers, no FK/role impact) were then also
+  deleted, so `clusters` == `canonical_jds` == **1,801** (one draft per cluster; `audit_log` retained).
 - **HR-126 (`max_chars`/dense-WJQ embedding)** — its fix is on `feat/hr126-max-chars-fallback`, based on
   pre-#64 `main` (same stale-base trap). Rebase onto current `main`, `make embed` (GPU on `aria-gb10-2`
   is free), re-measure (`bad_requests`→0), merge. **NOTE:** that branch reserves **HR-193**; the CUPE
