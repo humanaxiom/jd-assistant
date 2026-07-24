@@ -154,6 +154,22 @@ position_id_grouping: first
 # the cohort and moves its approval rate).
 wjq_excluded_from_current_practice: true
 
+# --- served bargaining units (JDFN scope) -------------------------------------
+# Which bargaining units does the JDFN template — and the approval bar ratified over it
+# — apply to, and therefore which may the Phase-5 Builder AUTHOR? (HR-194.) MEASURED
+# filename split over 4,536 JDFN-named files: APSA 3,351 / CUPE 771 / APEX 329 / POLY 49.
+#
+# CUPE is the elephant this list keeps honest: it is ~29.5% of the whole archive (~4,300
+# files on the WJQ instrument, `parser/wjq.py`) and it is DELIBERATELY NOT here. There is
+# no ratified CUPE quality bar, so the validator cannot score a CUPE JD — putting it on
+# the JDFN bar is the category error HR-143 keeps out of the cohort — and the Builder must
+# not offer to author a role it cannot check. `excluded`/exempt executives are out for the
+# same reason (different process, no JDFN bar). Serving a group means HR defines its bar
+# FIRST; adding a token here without one would surface it in the Builder with no oracle
+# behind it. This makes the scope a decision on the register, not a tuple buried in UI code
+# (CLAUDE.md §2). Read by `api/routes/compose_ui.py` (the employee-group dropdown).
+jdfn_employee_groups: [apsa, apex, poly]
+
 # --- aggregation / reporting --------------------------------------------------
 # Presentation, not policy: neither changes any file's score, grade, gate decision or
 # segment. Both are explicitly exempted as `trivial` in the register, with reasons.

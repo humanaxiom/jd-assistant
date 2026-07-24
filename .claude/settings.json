@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk 'NR==82||NR==85||NR==88||NR==91||NR==109||NR==146||NR==162||NR==201||NR==252 {printf \"%d: %s\\\\n\", NR, $0}' core/src/jd_core/rules/loader.py)",
+      "Bash(git status *)",
+      "Bash(make gates *)",
+      "Bash(git add *)",
+      "Bash(git commit -q -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh pr create --base main --head agent/p2.1-rules-as-data --title 'Phase 2.1 — rules-as-data \\(versioned YAML + typed loader\\)' --body ' *)",
+      "Bash(gh pr *)",
+      "Bash(awk '{printf \"%d: %s\\\\n\", NR+255, substr\\($0, index\\($0,$2\\)\\)}')",
+      "PowerShell(make gates 2>&1)",
+      "Bash(git check-ignore *)",
+      "Bash(make register *)",
+      "Bash(make register-check *)",
+      "PowerShell(docker compose run --rm gates sh -c 'ruff check src tests; black --check src tests 2>&1 | tail -20')",
+      "PowerShell(docker compose run --rm gates sh -c 'black src tests 2>&1 | tail -5 && ruff check src tests && echo RUFF_OK')",
+      "PowerShell(docker compose run --rm gates sh -c 'mypy src --strict 2>&1 | tail -20')",
+      "PowerShell(docker compose run --rm gates sh -c 'mypy src --strict 2>&1 | tail -12')",
+      "PowerShell(docker compose run --rm gates sh -c 'pytest tests/unit -q --timeout=120 2>&1 | tail -40')",
+      "PowerShell(make register 2>&1)",
+      "PowerShell(make register-check 2>&1)",
+      "PowerShell(docker compose run --rm gates sh -c 'python -c \"from src.jd_core.rules import get_rules; get_rules\\(\\)\" 2>&1 | tail -4; echo \"--- and make register-check: ---\"')",
+      "Bash(awk '{print} /^    comma_supervisory_families: frozenset\\\\[TitleFamily\\\\] = Field\\\\\\(min_length=1\\\\\\)/{print \"    #: SMUGGLED unregistered policy knob \\(reviewer experiment\\)\"; print \"    sneaky_bonus: float = 0.0\"}' core/src/jd_core/rules/loader.py)",
+      "Bash(cp /tmp/l.py core/src/jd_core/rules/loader.py)",
+      "Bash(echo \"register-check EXIT=$?\")",
+      "Bash(cp __TRACKED_VAR__/loader.py core/src/jd_core/rules/loader.py)",
+      "Bash(cp __TRACKED_VAR__/titles.yaml core/src/jd_core/rules/titles.yaml)",
+      "Bash(awk '{print} /^ evidence_cap: int = Field\\\\\\(gt=0\\\\\\)/{print \"\"; print \" sneaky_weight: float = 0.0\"}' core/src/jd_core/rules/loader.py)",
+      "Bash(cp /tmp/l2.py core/src/jd_core/rules/loader.py)",
+      "Bash(git diff *)",
+      "Bash(make gates-fast *)",
+      "PowerShell(docker compose run --rm gates sh -c 'black src tests 2>&1 | tail -4 && ruff check src tests && mypy src --strict 2>&1 | tail -8')",
+      "PowerShell(docker compose run --rm gates sh -c 'pytest tests/unit -q --timeout=120 --cov=src/jd_core/bank --cov-report=term-missing 2>&1 | grep -E \"hay_signals|title_family|passed|failed|FAILED\"')"
+    ]
+  }
+}

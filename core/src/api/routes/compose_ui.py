@@ -47,6 +47,7 @@ from src.jd_bank.composer import (
     submit_composed_draft,
 )
 from src.jd_core.models.quality import SFUSection
+from src.jd_core.rules import get_rules
 
 router: APIRouter = APIRouter(prefix="/jd-bank/ui/compose")
 
@@ -80,7 +81,6 @@ _STRING_LIST_TARGETS = {
     "abilities",
 }
 _MODIFIED_LIST_TARGETS = {"knowledge", "skills"}
-_EMPLOYEE_GROUPS = ("apsa", "apex", "poly")
 
 #: state -> the badge class defined in ``_base.html``.
 _STATE_BADGE = {"ok": "ok", "needs_attention": "blocked", "empty": "muted"}
@@ -174,7 +174,10 @@ def _context(
     return {
         "request": request,
         "groups": _grouped_questions(values),
-        "employee_groups": _EMPLOYEE_GROUPS,
+        # The bargaining units the Builder authors — rulebook DATA, not a hardcoded
+        # tuple (CLAUDE.md §2). CUPE/WJQ is deliberately absent (HR-194/HR-143): no
+        # ratified CUPE bar, so nothing here can score it.
+        "employee_groups": get_rules().segmentation.jdfn_employee_groups,
         "assessment": assessment,
         "error": error,
         "boilerplate_checked": boilerplate_checked,

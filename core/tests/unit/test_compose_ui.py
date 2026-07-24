@@ -55,6 +55,24 @@ def test_get_renders_the_guided_form() -> None:
     assert "Live compliance" not in html
 
 
+def test_employee_group_options_come_from_the_rulebook_and_exclude_cupe() -> None:
+    """The Builder's employee-group dropdown is rulebook DATA (HR-194), not a hardcoded
+    tuple: it must equal ``segmentation.jdfn_employee_groups`` and must NOT offer CUPE —
+    there is no CUPE bar for the validator to score against (HR-143). A regression that
+    re-hardcodes the list, or slips CUPE in, turns this red."""
+    from src.jd_core.rules import get_rules
+
+    served = get_rules().segmentation.jdfn_employee_groups
+    assert served == ("apsa", "apex", "poly")
+    assert "cupe" not in served
+
+    html = _client().get("/jd-bank/ui/compose/new").text
+    for group in served:
+        assert f'value="{group}"' in html
+    # CUPE must never be an authorable option in the Builder.
+    assert 'value="cupe"' not in html
+
+
 def test_post_shows_the_live_panel_for_an_empty_draft() -> None:
     resp = _client().post("/jd-bank/ui/compose/new", data={"title": "New Role"})
     assert resp.status_code == 200
