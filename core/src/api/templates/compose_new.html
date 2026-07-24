@@ -1,0 +1,129 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — Builder{% endblock %}
+{% block header %}🧱 JD Bank — Builder{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <h2>Build a new SFU-compliant job description</h2>
+  <p class="meta">
+    Answer the guided questions, then <strong>Check compliance</strong> to see how the
+    draft measures against SFU standards. Scope: APSA / APEX / POLY (JDFN) template.
+    Nothing is saved or published here — this is authoring with live feedback.
+  </p>
+</div>
+
+{% if error %}
+<div class="panel flash error"><strong>Could not read the draft:</strong> {{ error }}</div>
+{% endif %}
+
+{% if assessment %}
+<div class="panel">
+  <h2>Live compliance</h2>
+  <p>
+    Score: <strong>{{ assessment.report.overall_score }}</strong> ·
+    Grade: <strong>{{ assessment.report.grade }}</strong> ·
+    {% if assessment.approvable %}
+    <span class="badge ok">ready for review</span>
+    {% else %}
+    <span class="badge blocked">not approvable yet</span>
+    {% endif %}
+  </p>
+  <p class="meta">
+    Summary: {{ assessment.summary_word_count }} words (target 100–150) ·
+    Duties: {{ assessment.duty_count }} (target 3–5)
+  </p>
+
+  {% if assessment.report.gate_decision and assessment.report.gate_decision.blocking %}
+  <h3>Blocking gates</h3>
+  {% for gate in assessment.report.gate_decision.blocking %}
+  <div class="gate">
+    <div class="meta">{{ gate.gate_id }} · {{ gate.source_part }}</div>
+    <p>{{ gate.reason }}</p>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if assessment.guidance %}
+  <h3>Still to write</h3>
+  <ul>
+    {% for issue in assessment.guidance %}
+    <li>{{ issue.message }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if assessment.findings %}
+  <h3>Fix these</h3>
+  <ul>
+    {% for issue in assessment.findings %}
+    <li>
+      [{{ issue.severity }}] {{ issue.message }}
+      {% if issue.suggestion %}<span class="meta">— {{ issue.suggestion }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  <h3>Sections</h3>
+  <table>
+    <tbody>
+      {% for section in assessment.sections %}
+      <tr>
+        <td>{{ section.label }}</td>
+        <td><span class="badge {{ state_badge.get(section.state, 'muted') }}">{{ section.state }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h3>Submit for review</h3>
+  <p class="meta">
+    Sends this draft to the HR review queue. It stays a draft — nothing is published
+    until a reviewer approves it{% if not assessment.approvable %}, and it is not
+    approvable yet{% endif %}.
+  </p>
+  <form method="post" action="/jd-bank/ui/compose/submit">
+    <input type="hidden" name="answers_json" value="{{ answers_json }}">
+    <label for="author-id">Your name / id</label>
+    <input id="author-id" name="author_id" required>
+    <button type="submit">Submit for review →</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="panel">
+  <form method="post" action="/jd-bank/ui/compose/new">
+    {% for group in groups %}
+    <h3>{{ group.label }}</h3>
+    {% for q in group.questions %}
+      {% if q.kind == "checkbox" %}
+      <label>
+        <input type="checkbox" name="{{ q.target }}" value="on"
+               style="width:auto"{% if boilerplate_checked %} checked{% endif %}>
+        {{ q.prompt }}
+      </label>
+      {% else %}
+      <label for="f-{{ q.target }}">{{ q.prompt }}</label>
+      {% if q.kind == "text" %}
+      <input id="f-{{ q.target }}" name="{{ q.target }}" value="{{ q.value }}">
+      {% elif q.kind == "select" %}
+      <select id="f-{{ q.target }}" name="{{ q.target }}"
+              style="width:100%;background:#0d1117;color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:.5rem">
+        <option value="">—</option>
+        {% for group_option in employee_groups %}
+        <option value="{{ group_option }}"{% if q.value == group_option %} selected{% endif %}>{{ group_option }}</option>
+        {% endfor %}
+      </select>
+      {% else %}
+      <textarea id="f-{{ q.target }}" name="{{ q.target }}"
+                {% if q.kind == "list" %}placeholder="one per line"{% endif %}>{{ q.value }}</textarea>
+      {% endif %}
+      {% endif %}
+      {% if q.hint %}<p class="meta">{{ q.hint }}</p>{% endif %}
+    {% endfor %}
+    {% endfor %}
+    <button type="submit">Check compliance</button>
+  </form>
+</div>
+
+{% endblock %}

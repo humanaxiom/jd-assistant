@@ -37,7 +37,7 @@ from src.jd_bank.composer.models import (
     DraftSectionStatus,
     SectionState,
 )
-from src.jd_core.bank import render_sfu_jd_text
+from src.jd_bank.jd_text import flatten_jd
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.models.quality import JDQualityIssue, SFUSection
 from src.jd_core.quality import build_report, evaluate_jd_rules
@@ -98,7 +98,12 @@ def assess_draft(
     """Run the deterministic rulebook over a draft and split findings for a live
     authoring panel. ``rules`` defaults to the shipped rulebook."""
     rulebook = rules if rules is not None else get_rules()
-    text = render_sfu_jd_text(jd)
+    # Flatten with the SAME flattener the review service re-validates a submitted
+    # draft with (``flatten_jd`` — see review.service._recompute), so the live panel's
+    # "ready for review" verdict matches what the reviewer sees once the draft reaches
+    # the queue (5.6). A different serialization here could make a draft look approvable
+    # in the Builder but blocked in the queue.
+    text = flatten_jd(jd)
     issues = evaluate_jd_rules(jd, text, rules=rulebook)
     report = build_report(
         job_id=_UNSAVED_DRAFT,

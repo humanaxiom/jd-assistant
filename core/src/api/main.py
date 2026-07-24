@@ -120,6 +120,7 @@ async def run_gates(branch: str) -> dict[str, str]:
 # Imported here (not with the top-of-file imports) because the router imports
 # `get_session` back from this module — importing it at the top would be circular.
 from src.api.routes.compose import router as jd_bank_compose_router  # noqa: E402
+from src.api.routes.compose_ui import router as jd_bank_compose_ui_router  # noqa: E402
 from src.api.routes.dashboard import router as jd_bank_dashboard_router  # noqa: E402
 from src.api.routes.jd_bank import router as jd_bank_router  # noqa: E402
 from src.api.routes.ui import router as jd_bank_ui_router  # noqa: E402
@@ -128,3 +129,4 @@ app.include_router(jd_bank_router)
 app.include_router(jd_bank_ui_router)
 app.include_router(jd_bank_dashboard_router)
 app.include_router(jd_bank_compose_router)
+app.include_router(jd_bank_compose_ui_router)
