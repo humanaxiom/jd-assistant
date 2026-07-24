@@ -1,0 +1,30 @@
+{
+  "generated_at": "2026-07-23T10:35:39.028220+00:00",
+  "result": {
+    "audit_failures": 0,
+    "cluster_failures": 0,
+    "clusters_fully_wjq_excluded": 657,
+    "clusters_mixed_jdfn_wjq": 10,
+    "clusters_recomputed": 2458,
+    "clusters_seen": 1801,
+    "documents_seen": 14522,
+    "documents_signed": 14522,
+    "documents_unsignable": 0,
+    "drafts_persisted": 1488,
+    "drafts_refreshed": 313,
+    "llm_enabled": true,
+    "member_rows_dropped_unvalidatable": 0,
+    "multi_member_clusters": 1798,
+    "quality_model": "gpt-oss:120b",
+    "quality_prompt_version": "jd_quality_v1",
+    "rewrite_failures": 49,
+    "rewrite_model": "gpt-oss:120b",
+    "rewrite_prompt_version": "jd_harmonize_v1",
+    "rules_version": "jd_rules_sfu_v4+90af5e27dc83",
+    "single_member_clusters": 3,
+    "skipped_reviewer_touched": 0,
+    "wjq_members_excluded": 3511,
+    "wjq_members_frequency_confirmed": 2747
+  },
+  "source": "parsed_jds + dedup_edges (recomputed clusters; JDFN only)"
+}

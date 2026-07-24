@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+90af5e27dc83` · **192 decisions** (192 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 253 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+90af5e27dc83` · **193 decisions** (193 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 254 parameters on the decision surface, all accounted for.
 
 ## What this is
 
@@ -208,6 +208,7 @@ Every policy call JD Bank currently makes **by default**, because SFU HR has not
 | [HR-190](#hr-190) | Which prompt template should the quality-audit pass use? | `jd_quality_v1` | our invention |
 | [HR-191](#hr-191) | How hard should the reasoning model think before rewriting a merge draft — and should we constrain its reasoning effort at all? | `null` | our invention |
 | [HR-192](#hr-192) | How hard should the reasoning model think before running the nuanced quality audit? | `low` | our invention |
+| [HR-194](#hr-194) | Which bargaining units does the JD Bank serve under the JDFN approval bar — and therefore which may the Phase-5 Builder author? Specifically: should CUPE (and exempt/`excluded`) roles remain OUT until HR defines a quality bar for them? | `apsa`, `apex`, `poly` | our invention |
 
 ### Our invention — nobody has ratified these
 
@@ -1049,6 +1050,14 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** our invention
 - **Why it matters:** The audit reports nuanced findings, each quoted VERBATIM from the JD — it does not need deep chain-of-thought. But gpt-oss's reasoning stream dominates latency: MEASURED ~1000 reasoning tokens vs ~164 output tokens per audit (~6x), and `reasoning_effort: low` cuts the reasoning ~5x (to ~194) with no loss of schema adherence in testing. So `low` is the disciplined, far cheaper default. It is SEPARATE from the rewrite's effort (HR-191, unset): a rewrite-policy change must not silently move the audit's, which is why each pass owns its own knob in its own file. PROVISIONAL — confirm the quality/speed trade at the 4.5 pilot.
 - **If it changes:** Does NOT move `rules_version` (quality.yaml is unhashed). `low` flows through to the chat API; set it to `null` and the parameter is omitted (the model runs at full default effort — slower). Pinned by mutation in the client generalization test (the effort the audit sends is the override `quality.reasoning_effort`; a fake asserts the exact value flows through, and that `null` omits the kwarg).
+
+#### HR-194 — Which bargaining units does the JD Bank serve under the JDFN approval bar — and therefore which may the Phase-5 Builder author? Specifically: should CUPE (and exempt/`excluded`) roles remain OUT until HR defines a quality bar for them?
+
+- **We ship:** `apsa`, `apex`, `poly`
+- **Configured in:** `segmentation.yaml` → `segmentation.jdfn_employee_groups`
+- **Where the default came from:** our invention
+- **Why it matters:** This is the scope boundary of the whole product, made explicit. CUPE is ~29.5% of the archive (~4,300 WJQ-instrument files, `parser/wjq.py`) — a major bargaining unit, not an edge case. It is deliberately absent because there is NO ratified CUPE quality bar: the validator (the oracle for everything the Builder does — NN #3) can only score the JDFN template, so scoring a CUPE JD on the JDFN gates is a category error (the same one HR-143 keeps out of the baseline cohort), and the Builder must not offer to author a role it cannot check. Before Phase 5 this list lived as a hardcoded tuple in `compose_ui.py`; lifting it here makes "the Bank does not serve ~30% of SFU JDs" a decision HR can see and change on purpose, not one made silently by omission — exactly what this register exists to prevent. To SERVE CUPE the order is: HR defines a CUPE bar (a WJQ ruleset with an oracle) FIRST, THEN a token is added here. Adding one without a bar would surface the group in the Builder with nothing behind it. Whether that CUPE bar should be built at all is the real open question this entry raises.
+- **If it changes:** Does NOT move `rules_version` (segmentation.yaml is unhashed) but moves `Segmentation.stamp`. The list is the employee-group dropdown the Builder offers and the only groups it will assemble a draft for. Adding `cupe` here would surface CUPE in the Builder and let a user author a CUPE JD that the validator then mis-scores on the JDFN bar — do not, until a CUPE bar exists. Pinned by mutation (`test_compose_ui.py`: the dropdown equals this list and excludes `cupe`).
 
 ### Inherited hris calibration — not an SFU-published number
 

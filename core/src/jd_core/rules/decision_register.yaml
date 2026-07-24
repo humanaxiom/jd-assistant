@@ -5553,6 +5553,39 @@ decisions:
       flows through, and that `null` omits the kwarg).
     status: open
 
+  - id: HR-194
+    question: >-
+      Which bargaining units does the JD Bank serve under the JDFN approval bar — and
+      therefore which may the Phase-5 Builder author? Specifically: should CUPE (and
+      exempt/`excluded`) roles remain OUT until HR defines a quality bar for them?
+    config:
+      file: segmentation.yaml
+      path: segmentation.jdfn_employee_groups
+    current_default: [apsa, apex, poly]
+    provenance: our_invention
+    why_it_matters: >-
+      This is the scope boundary of the whole product, made explicit. CUPE is ~29.5% of
+      the archive (~4,300 WJQ-instrument files, `parser/wjq.py`) — a major bargaining unit,
+      not an edge case. It is deliberately absent because there is NO ratified CUPE quality
+      bar: the validator (the oracle for everything the Builder does — NN #3) can only
+      score the JDFN template, so scoring a CUPE JD on the JDFN gates is a category error
+      (the same one HR-143 keeps out of the baseline cohort), and the Builder must not
+      offer to author a role it cannot check. Before Phase 5 this list lived as a hardcoded
+      tuple in `compose_ui.py`; lifting it here makes "the Bank does not serve ~30% of SFU
+      JDs" a decision HR can see and change on purpose, not one made silently by omission —
+      exactly what this register exists to prevent. To SERVE CUPE the order is: HR defines a
+      CUPE bar (a WJQ ruleset with an oracle) FIRST, THEN a token is added here. Adding one
+      without a bar would surface the group in the Builder with nothing behind it. Whether
+      that CUPE bar should be built at all is the real open question this entry raises.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (segmentation.yaml is unhashed) but moves
+      `Segmentation.stamp`. The list is the employee-group dropdown the Builder offers and
+      the only groups it will assemble a draft for. Adding `cupe` here would surface CUPE in
+      the Builder and let a user author a CUPE JD that the validator then mis-scores on the
+      JDFN bar — do not, until a CUPE bar exists. Pinned by mutation (`test_compose_ui.py`:
+      the dropdown equals this list and excludes `cupe`).
+    status: open
+
 # ═════════════════════════════════════════════════════════════════════════════
 # TRIVIAL — on the decision surface, deliberately NOT a decision for HR.
 #

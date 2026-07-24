@@ -675,6 +675,18 @@ class Segmentation(_RuleFile):
     #: the validator computes about a JD — so it belongs in this UNHASHED file.
     wjq_excluded_from_current_practice: bool
 
+    #: The bargaining units the JDFN template + its approval bar apply to, and therefore
+    #: the ONLY groups the Builder (Phase 5) will author (HR-194). CUPE uses the WJQ
+    #: instrument and has NO ratified quality bar, so it is deliberately absent: the
+    #: validator cannot score a CUPE JD (on the JDFN bar that is the category error
+    #: HR-143 keeps out of the cohort), and the Builder must not offer to author one it
+    #: cannot check. ``excluded``/exempt executives likewise use a different process.
+    #: Serving a new group requires HR to first define its bar — do not add a token here
+    #: before that exists. Read by ``api/routes/compose_ui.py`` (the group dropdown), so
+    #: it is data, not a hardcoded tuple (CLAUDE.md §2). Decides scope, never a score —
+    #: this UNHASHED file's charter.
+    jdfn_employee_groups: tuple[str, ...] = Field(min_length=1)
+
     #: Presentation only — neither can move a score, a grade, a gate or a segment.
     score_histogram_bin: float = Field(gt=0.0, le=100.0)
     evidence_max_chars: int = Field(gt=0)
