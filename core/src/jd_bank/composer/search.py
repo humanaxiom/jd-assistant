@@ -1,0 +1,207 @@
+"""Find an existing JD and start from it (Phase 5.4).
+
+Two capabilities for the JD Builder's "start from an existing JD" flow:
+
+* :func:`search_similar_jds` — semantic search. Embeds the query with the same
+  self-hosted model the archive was embedded with (egress-guarded, NN #5), runs a
+  top-k query over Neo4j's ``jd_document_embeddings`` vector index (the read side of
+  Phase 3.2b — 3.2b only ever wrote), and joins each hit back to its parsed JD in
+  Postgres for a title + facets.
+* :func:`jd_to_answers` — the clone transform. Turns an existing
+  :class:`~src.jd_core.models.parsed_jd.SFUJobDescription` back into
+  :class:`~src.jd_bank.composer.answers.ComposerAnswers` so the guided Builder can be
+  pre-filled from it. The inverse of
+  :func:`~src.jd_bank.composer.assemble.assemble_jd`.
+
+**Corpus (v1).** The only vectors that exist are the archive **document** embeddings
+(keyed on ``source_document_id``). Cluster representatives are archive documents and
+so are searchable; **published canonicals are not yet embedded**, so searching them
+semantically is a follow-up (it needs a small new write path — embed canonical
+content into the index). v1 searches the embedded archive, **JDFN-scoped** (CUPE/WJQ
+excluded — the Builder authors the JDFN template, HR-143), and is honest about it.
+
+**Read-only.** Nothing here writes or publishes; cloning pre-fills a draft the author
+still builds and submits through the review queue (NN #1).
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from uuid import UUID
+
+from neo4j import AsyncDriver
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.jd_bank.composer.answers import ComposerAnswers, DutyAnswer, ModifiedQual
+from src.jd_bank.db.models import ParsedJDRow
+from src.jd_bank.embeddings.client import EmbedClient
+from src.jd_core.models.parsed_jd import SFUJobDescription
+from src.jd_core.rules import Rules, get_rules
+
+#: The Neo4j vector index built in ``core/db/migrations/002_jd_vectors.cypher``.
+_DOCUMENT_INDEX = "jd_document_embeddings"
+
+#: The employee group whose JDs are NOT JDFN (CUPE uses the WJQ instrument, HR-143) —
+#: excluded from Builder search results, which only ever start a JDFN draft.
+_NON_JDFN_GROUP = "cupe"
+
+#: Over-fetch factor: the vector index may return CUPE/WJQ hits or documents whose
+#: parsed JD has since been pruned, so fetch more than ``limit`` and filter down.
+_OVERFETCH = 3
+
+_NEAREST = """
+CALL db.index.vector.queryNodes($index, $k, $vector)
+YIELD node, score
+RETURN node.id AS id, score
+ORDER BY score DESC
+"""
+
+
+class SearchHit(BaseModel):
+    """One "start from this" candidate: the archive document, its role title and
+    facets, and how similar it is to the query (cosine, higher = closer)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_document_id: UUID
+    title: str
+    employee_group: str | None = None
+    score: float = Field(ge=-1.0, le=1.0)
+
+
+def jd_to_answers(jd: SFUJobDescription) -> ComposerAnswers:
+    """Turn an existing JD back into guided-authoring answers, so the Builder can be
+    pre-filled from it (the inverse of :func:`assemble_jd`).
+
+    Qualifications are split back out by kind into the answer fields; ``security``
+    qualifications have no Builder field and are dropped (the guided flow does not
+    collect them — a v1 limitation, recorded). The SFU boilerplate flag is set iff the
+    source carries all three mandated presence booleans.
+    """
+    rel = jd.relationships
+    return ComposerAnswers(
+        title=jd.title,
+        department=jd.department,
+        employee_group=jd.employee_group,
+        position_summary=jd.position_summary,
+        duties=[
+            DutyAnswer(action_verb=d.action_verb, statement=d.statement)
+            for d in jd.duties
+        ],
+        decision_making=list(jd.decision_making),
+        problem_solving=list(jd.problem_solving),
+        supervisory=rel.supervisory if rel is not None else None,
+        internal=list(rel.internal) if rel is not None else [],
+        external=list(rel.external) if rel is not None else [],
+        education=[q.text for q in jd.qualifications if q.kind == "education"],
+        experience=[q.text for q in jd.qualifications if q.kind == "experience"],
+        knowledge=[
+            ModifiedQual(text=q.text, modifier=q.modifier)
+            for q in jd.qualifications
+            if q.kind == "knowledge"
+        ],
+        skills=[
+            ModifiedQual(text=q.text, modifier=q.modifier)
+            for q in jd.qualifications
+            if q.kind == "skill"
+        ],
+        abilities=[q.text for q in jd.qualifications if q.kind == "ability"],
+        include_sfu_boilerplate=(
+            jd.about_sfu_present
+            and jd.territorial_acknowledgement_present
+            and jd.employment_equity_present
+        ),
+        additional_context=jd.additional_context,
+    )
+
+
+async def _nearest_source_ids(
+    driver: AsyncDriver, vector: Sequence[float], k: int
+) -> list[tuple[UUID, float]]:
+    """Top-``k`` archive documents by cosine similarity to ``vector`` — the Neo4j
+    vector-index read. Returns ``(source_document_id, score)`` best-first."""
+    async with driver.session() as session:
+        result = await session.run(
+            _NEAREST, index=_DOCUMENT_INDEX, k=k, vector=list(vector)
+        )
+        records = [record async for record in result]
+    return [
+        (UUID(record["id"]), float(record["score"]))
+        for record in records
+        if record["id"] is not None
+    ]
+
+
+async def _load_latest_parsed(
+    session: AsyncSession, ids: Sequence[UUID]
+) -> dict[UUID, SFUJobDescription]:
+    """The most recent parsed JD for each source document id (empty for ids with no
+    parse row — a pruned/unparsed document is simply skipped)."""
+    if not ids:
+        return {}
+    rows = (
+        await session.scalars(
+            select(ParsedJDRow)
+            .where(ParsedJDRow.source_document_id.in_(list(ids)))
+            .order_by(ParsedJDRow.source_document_id, ParsedJDRow.created_at.desc())
+        )
+    ).all()
+    latest: dict[UUID, SFUJobDescription] = {}
+    for row in rows:
+        if row.source_document_id not in latest:  # first = newest per the order_by
+            latest[row.source_document_id] = SFUJobDescription.model_validate(
+                row.parsed
+            )
+    return latest
+
+
+async def search_similar_jds(
+    query_text: str,
+    *,
+    embed_client: EmbedClient,
+    neo4j_driver: AsyncDriver,
+    session: AsyncSession,
+    limit: int = 10,
+    rules: Rules | None = None,
+) -> list[SearchHit]:
+    """Semantic search over the embedded archive for JDs like ``query_text``.
+
+    Embeds the query (self-hosted, egress-guarded), fetches the nearest archive
+    documents, joins each to its parsed JD, and returns the JDFN ones as
+    "start from this" candidates, best-first, capped at ``limit``. Injected
+    ``embed_client`` / ``neo4j_driver`` / ``session`` (all mockable)."""
+    _ = rules if rules is not None else get_rules()
+    if not query_text.strip():
+        return []
+    vector = (await embed_client.embed_batch([query_text]))[0]
+    nearest = await _nearest_source_ids(neo4j_driver, vector, limit * _OVERFETCH)
+    parsed = await _load_latest_parsed(session, [sid for sid, _ in nearest])
+
+    hits: list[SearchHit] = []
+    for source_id, score in nearest:
+        jd = parsed.get(source_id)
+        if jd is None or jd.employee_group == _NON_JDFN_GROUP:
+            continue  # pruned/unparsed, or CUPE/WJQ — the Builder is JDFN-only
+        hits.append(
+            SearchHit(
+                source_document_id=source_id,
+                title=jd.title,
+                employee_group=jd.employee_group,
+                score=score,
+            )
+        )
+        if len(hits) >= limit:
+            break
+    return hits
+
+
+async def load_clone_answers(
+    session: AsyncSession, source_document_id: UUID
+) -> ComposerAnswers | None:
+    """The guided-authoring answers to pre-fill the Builder from an existing archive
+    document, or ``None`` if it has no parsed JD."""
+    parsed = await _load_latest_parsed(session, [source_document_id])
+    jd = parsed.get(source_document_id)
+    return jd_to_answers(jd) if jd is not None else None
