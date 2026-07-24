@@ -30,10 +30,18 @@
     pre { white-space:pre-wrap; word-break:break-word; background:#0d1117; border:1px solid var(--border); border-radius:6px; padding:.75rem; max-height:400px; overflow:auto; }
     .empty { color:var(--muted); }
     .meta { color:var(--muted); font-size:.85rem; }
+    nav.nav { display:flex; flex-wrap:wrap; gap:.4rem; margin:0 0 1.25rem; max-width:900px; }
+    nav.nav a { display:inline-block; padding:.4rem .8rem; border:1px solid var(--border); border-radius:6px; background:var(--panel); color:var(--fg); text-decoration:none; font-size:.85rem; }
+    nav.nav a:hover { border-color:var(--accent); color:var(--accent); }
   </style>
 </head>
 <body>
   <h1>{% block header %}🧰 JD Bank — Review{% endblock %}</h1>
+  <nav class="nav">
+    <a href="/jd-bank/ui/compose/new">🧱 Builder</a>
+    <a href="/jd-bank/ui/queue">📋 Review queue</a>
+    <a href="/jd-bank/ui/dashboard">📊 Dashboards</a>
+  </nav>
   {% block content %}{% endblock %}
 </body>
 </html>
