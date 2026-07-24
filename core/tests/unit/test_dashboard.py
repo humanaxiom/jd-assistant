@@ -54,6 +54,21 @@ def test_index_renders_and_links_to_baseline_page() -> None:
     assert "/jd-bank/ui/dashboard/baseline" in resp.text
 
 
+def test_global_nav_links_every_ui_feature() -> None:
+    """The shared ``_base.html`` nav must reach every top-level UI feature (Builder,
+    review queue, dashboards) from any page — pinned here on the dashboard index so a
+    dropped nav link turns this red."""
+    client = _client(_SENTINEL)
+
+    resp = client.get("/jd-bank/ui/dashboard")
+
+    assert resp.status_code == 200
+    body = resp.text
+    assert 'href="/jd-bank/ui/compose/new"' in body  # Builder
+    assert 'href="/jd-bank/ui/queue"' in body  # Review queue
+    assert 'href="/jd-bank/ui/dashboard"' in body  # Dashboards
+
+
 # --- GET /jd-bank/ui/dashboard/baseline (the read-only baseline dashboard) -----------
 
 
