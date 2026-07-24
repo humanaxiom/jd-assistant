@@ -2,7 +2,71 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-07-21, latest): FULL-ARCHIVE enrichment run IN FLIGHT + 4.6 follow-ups MERGED
+**NEWEST (2026-07-24): PHASE 5 — the JD BUILDER / COMPOSER — is COMPLETE (all 7 tasks).**
+The project's first forward-looking, user-facing product: a hiring manager/recruiter can now
+**find or compose a JD, validate it live against SFU standards, get an LLM assist on the weakest
+section, export it to the official SFU `.docx`, and submit it into the HR review queue** — nothing
+auto-publishes (NN #1), all inference self-hosted (NN #5), every LLM touch judged by the validator
+(NN #3), JDFN-scoped (HR-143). Detailed task doc: **`docs/tasks/phase-5-jd-builder.md`**.
+
+**What shipped (all under `make gates`, latest 1822 · 94.12%; NO `rules_version` / HR-register
+change — the whole phase reuses registered decisions):**
+- **5.1** live compliance — `POST /jd-bank/compose/validate` → `DraftAssessment` (draft-mode split:
+  *guidance* = still-to-write vs *findings* = present-but-non-compliant), over the real validator.
+- **5.2** guided question set (`composer_questions_v1.yaml`, jd_bank-local authoring DATA — NOT the
+  scoring rulebook) + `assemble_jd` (KSA order + `(NN%)` allocations enforced structurally).
+- **5.3** guided Builder UI — `/jd-bank/ui/compose/new` (server-rendered Jinja, dependency-free).
+- **5.6** submit → review queue — `submit_composed_draft` persists a DRAFT `canonical_jds` under a
+  synthetic `origin="composed"` cluster; the 4.4b service stays the ONLY publish path.
+- **5.5** LLM Position-Summary assist — `POST /compose/assist/summary`; reuses the 4.2 `ChatClient`
+  + `rules.rewrite` model + a new `jd_compose_summary_v1` prompt; asserts validator post-state.
+- **5.4** search + start-from-existing — `search_similar_jds` is the **read side of the Neo4j vector
+  index** (3.2b only ever wrote) + `jd_to_answers` clone (inverse of `assemble_jd`); routes
+  `GET /compose/search`, `GET /compose/clone/{id}`.
+- **5.7** export — new `jd_export` package: `render_sfu_docx` (TNR-10, bold headers, bullets,
+  rulebook-sourced footer, empty sections dropped) + `POST /compose/export`.
+
+**⚠ MERGE STATE — read before you branch:**
+- **On `main`:** 5.1 + 5.2 + 5.3 + 5.5 + 5.6 (via the consolidation **[PR #70](https://github.com/humanaxiom/jd-assistant/pull/70)**, MERGED).
+- **OPEN, ready to merge:** **[#71](https://github.com/humanaxiom/jd-assistant/pull/71)** (5.4 search — was stacked on #70; retarget to `main` if it didn't auto) · **[#72](https://github.com/humanaxiom/jd-assistant/pull/72)** (5.7 export, off `main`).
+- **CLOSE:** **[#69](https://github.com/humanaxiom/jd-assistant/pull/69)** (old 5.5 PR — its content is on `main` via #70). The stale `feat/phase-5.1…`→`5.6…` branches can be deleted.
+
+> **🔴 MERGE-TOPOLOGY LESSON (this cost a detour — record it).** The Phase-5 MVP was built as a
+> STACK of PRs (#65→#66→#67→#68→#69). GitHub reported #66–#68 "merged", but a stacked PR merges into
+> its **base BRANCH, not `main`** — so only **5.1 (#65)** actually reached `main`; 5.2–5.6 accumulated
+> in the feature chain. Worse, the stack was branched from **pre-#64 `main`**, so fast-forwarding any
+> of it would have **REVERTED the harness-lessons work (#64)** (it showed as a `HARNESS_LESSONS.md`
+> deletion). Fix: a fresh **consolidation branch off _current_ `main`** carrying ONLY the composer
+> files (#70), reverting nothing. **Takeaway: don't deep-stack PRs off a moving `main`; rebase on
+> current `main` before merging, and confirm each PR's diff vs `main` doesn't delete unrelated work.**
+
+**FULL-ARCHIVE canonical enrichment — DONE (this is the run the prior handoff had "in flight").**
+Container `jd-canonical-fullrun` **Exited (0) 2026-07-23**; `docs/canonical/summary.json` written:
+**2,458 clusters recomputed, 1,801 JDFN clusters, 1,488 drafts persisted + 313 refreshed = 1,801
+DRAFT `canonical_jds`, 0 cluster/audit failures, LLM `gpt-oss:120b`.** GPU on `aria-gb10-2` is now FREE.
+> **⚠ STILL PENDING (not done this session):** the **post-run prune of the superseded 389-draft
+> `--limit 5000` seed** (full-run `cluster_id`s ≠ the seed's, so they COEXIST — the review queue shows
+> near-duplicate drafts of the same role). All seed drafts are `DRAFT` + `review_actions=0` → safe to
+> delete. See the prune note in the PRIOR block below.
+
+**HR-126 (`max_chars`/dense-WJQ embedding) — STILL OPEN, and its proposed fix is STRANDED.** A
+resolution (keep `max_chars=10000` + a registered `max_chars_fallback` ladder, HR-193) was implemented
+on branch **`feat/hr126-max-chars-fallback`** but is **UN-MERGED** — and that branch is **also based on
+pre-#64 `main`**, so it has the SAME stale-base trap as the Phase-5 stack (merging it would revert #64).
+**To land it: rebase onto current `main` (or cherry-pick the embed-client + register changes), then —
+now that the GPU is free — `make embed`, re-measure (expect `bad_requests`→0, `texts_backed_off`~11),
+and merge.** Full rationale: `docs/embeddings/max-chars-decision.md`.
+
+**NEXT SESSION options** (nothing is blocking; pick by priority): (1) **merge #71 + #72, close #69**,
+delete stale branches; (2) **prune the superseded seed drafts** so the review queue is clean; (3) land
+**HR-126** off current `main` (GPU free); (4) **Phase 6 hardening**, or Phase-5 follow-ups — wire
+search/clone + assist + export buttons into the Builder UI; embed published canonicals so 5.4 search
+covers them (not just the archive); structured per-field editors (allocations, KSA modifiers);
+**verify the SFU footer wording** before any external export (Phase-6 sign-off, `boilerplate.yaml`).
+
+---
+
+**PRIOR (2026-07-21): FULL-ARCHIVE enrichment run (now COMPLETED — see NEWEST) + 4.6 follow-ups MERGED
 ([PR #59](https://github.com/humanaxiom/jd-assistant/pull/59), CI green, rebase-merged).**
 
 **① The full-archive canonical enrichment is RUNNING** — the complete bank, LLM pipeline, on the
