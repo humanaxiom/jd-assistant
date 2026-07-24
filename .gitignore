@@ -28,3 +28,7 @@ Thumbs.db
 /archive/
 
 # Fixtures may contain PII-scrubbed golden docs — tracked deliberately, so NOT ignored.
+
+# Claude Code local session state — never commit (accumulated permission grants)
+.claude/settings.json
+.claude/settings.local.json

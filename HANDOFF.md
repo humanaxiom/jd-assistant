@@ -2,8 +2,67 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-07-21, latest): FULL-ARCHIVE enrichment run IN FLIGHT + 4.6 follow-ups MERGED
+**NEWEST (2026-07-24, later): PHASE 5 (the JD BUILDER) is FULLY ON `main` — all 7 tasks — plus
+a UI nav, an explicit CUPE scope decision, and a merge-topology clean-up.** A hiring manager /
+recruiter can now **find or compose a JD, validate it live against SFU standards, get an LLM assist
+on the weakest section, export the official SFU `.docx`, and submit it into the HR review queue** —
+nothing auto-publishes (NN #1), all inference self-hosted (NN #5), every LLM touch judged by the
+validator (NN #3), JDFN-scoped (HR-143/HR-194). Latest `make gates`: **1830 passing, ~93.98%.**
+
+**What landed on `main` THIS session (all squash-merged, CI green):**
+- **5.7 export** ([#72](https://github.com/humanaxiom/jd-assistant/pull/72)) — `jd_export/`
+  `render_sfu_docx` + `POST /compose/export`.
+- **5.4 search** ([#74](https://github.com/humanaxiom/jd-assistant/pull/74)) — **re-landed after it
+  was found STRANDED.** Its original PR (#71) had merged into the defunct `feat/phase-5-mvp-to-main`
+  base branch ~37 s AFTER #70 put the MVP on `main`, so 5.4 never reached `main` (the
+  stacked-PR-off-a-moving-`main` trap CLAUDE.md warns about — it bit us a SECOND time). Fixed by
+  applying the exact 4-file additive delta on a fresh branch off current `main`.
+- **Global UI nav** ([#75](https://github.com/humanaxiom/jd-assistant/pull/75)) — the server-rendered
+  UI had a header but no navigation; added a nav bar in `_base.html` (every template extends it)
+  linking **Builder · Review queue · Dashboards**. Pinned in `test_dashboard.py`.
+- **CUPE scope made explicit — HR-194** ([#76](https://github.com/humanaxiom/jd-assistant/pull/76)).
+  A design review found CUPE (~29.5% of the archive, ~4,300 WJQ files) was excluded *correctly but
+  SILENTLY*: the Builder's in-scope groups were a hardcoded tuple in `compose_ui.py`. Lifted to
+  `segmentation.yaml :: jdfn_employee_groups` (rulebook-as-data, NN #2), read by the UI dropdown, and
+  registered **HR-194 (open)**: *should CUPE/exempt roles stay out until HR defines a bar for them?*
+  The validator can only score the JDFN template, so authoring a CUPE JD would guarantee the
+  category-error mis-score HR-143 already keeps out of the baseline cohort. **Serving CUPE requires HR
+  to define a CUPE bar FIRST, then add a token here.** Register 192 → **193**; `rules_version` unchanged.
+
+> **🔴 SAME MERGE-TOPOLOGY LESSON, TWICE.** 5.4 was stranded by the exact stacked-PR trap the prior
+> handoff recorded. **Do not deep-stack PRs off a moving `main`.** And verify additive-ness with the
+> tree diff (`git diff main..branch`), **not** `git diff main...branch` (the 3-dot form over-reports a
+> stale base) — and remember `git diff` HIDES untracked files, so `git add -A` can sweep in working
+> artifacts your diff never showed (it swept `.claude/settings.json` + `docs/canonical/summary.json`
+> into #76 this session; the former is now `.gitignore`d and untracked, the latter kept as a real
+> deliverable).
+
+**⚠ STILL OPEN (unchanged by this session; pick by priority):**
+- **HR-194 is `open`** — HR has not ruled on whether the Bank should ever serve CUPE. Until then the
+  Builder is JDFN-only *on purpose*. If SFU wants CUPE authoring, that is a real project: define a CUPE
+  quality bar (a WJQ ruleset with an oracle) BEFORE wiring it. Roadmapped under Phase 7.
+- **Prune the superseded 389-draft `--limit 5000` seed** — full-run `cluster_id`s ≠ the seed's, so they
+  COEXIST; the review queue shows near-duplicate drafts. All seed drafts are `DRAFT`, `review_actions=0`
+  → safe to delete.
+- **HR-126 (`max_chars`/dense-WJQ embedding)** — its fix is on `feat/hr126-max-chars-fallback`, based on
+  pre-#64 `main` (same stale-base trap). Rebase onto current `main`, `make embed` (GPU on `aria-gb10-2`
+  is free), re-measure (`bad_requests`→0), merge. **NOTE:** that branch reserves **HR-193**; the CUPE
+  work took **HR-194** to avoid the collision, so HR-193 is still free for the max_chars fallback ladder.
+- **Phase-5 UI follow-ups** — wire search/clone + assist + export buttons into the Builder UI (the JSON
+  routes exist; the guided form does not call them yet); embed published canonicals so 5.4 search covers
+  them (not just the archive); structured per-field editors; **verify the SFU footer wording** before any
+  external export (Phase-6 sign-off, `boilerplate.yaml`).
+
+Detailed Phase-5 task doc: **`docs/tasks/phase-5-jd-builder.md`**. One-pager:
+**`docs/status/2026-07-24-shipped.md`**.
+
+---
+
+**PRIOR (2026-07-21, latest): FULL-ARCHIVE enrichment run IN FLIGHT + 4.6 follow-ups MERGED
 ([PR #59](https://github.com/humanaxiom/jd-assistant/pull/59), CI green, rebase-merged).**
+> The enrichment run has since COMPLETED — `jd-canonical-fullrun` Exited (0) 2026-07-23;
+> `docs/canonical/summary.json`: 2,458 clusters recomputed, 1,801 JDFN clusters, 1,488 drafts
+> persisted + 313 refreshed = 1,801 DRAFT `canonical_jds`, 0 failures, `gpt-oss:120b`. GPU is FREE.
 
 **① The full-archive canonical enrichment is RUNNING** — the complete bank, LLM pipeline, on the
 new constrained-decode/`reasoning_effort` code. Detached crash-safe container **`jd-canonical-fullrun`**

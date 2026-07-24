@@ -613,6 +613,16 @@ Neo4j **domain** role-duty overlap graph (org-design queries — the only deferr
 Hay-readiness summaries (port `bank/hay_signals.py`, #9, is cheap); transposer-as-a-service for
 old-template uploads; M365/SharePoint surfacing.
 
+**CUPE / WJQ authoring — the biggest deferred scope question (HR-194, `open`).** The Builder and
+approval bar are JDFN-only (APSA/APEX/POLY). CUPE is ~29.5% of the archive (~4,300 WJQ-instrument
+files) and is deliberately **not served** because there is no ratified CUPE quality bar — the
+validator can only score the JDFN template, so authoring a CUPE JD would category-error-mis-score
+it on the JDFN gates (HR-143). **Serving CUPE is a real project and it starts with HR, not code:**
+define a CUPE quality bar (a WJQ ruleset + oracle) FIRST; only then does `segmentation.yaml ::
+jdfn_employee_groups` gain a `cupe` token and the Builder support the WJQ 14-section instrument.
+Until HR rules on HR-194, "the Bank does not serve CUPE" is an explicit decision on the register,
+not one made by omission.
+
 ---
 
 ## 4. Working agreements
