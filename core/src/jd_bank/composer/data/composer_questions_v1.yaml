@@ -1,0 +1,161 @@
+# Guided-authoring question set for the JD Builder (Phase 5.2).
+#
+# jd_bank-LOCAL authoring DATA — the UX content a hiring manager is walked through,
+# NOT the scoring rulebook. Loaded by `jd_bank/composer/questions.py` (mirroring the
+# LLM prompt loader `jd_bank/llm/prompts.py`), never by `jd_core.rules.get_rules`: it
+# changes no JD's score/grade/gate, so it is not a hashed rule file nor an HR-register
+# decision (same class as the review-UI copy and the prompt templates).
+#
+# Source: SFU JD Toolkit (`docs/rulebook/sfu-jd-standards.txt`) — Part 11.1 ("when asked
+# to write a new JD, ask for: role title, department, supervisor title, employee group,
+# primary functions, key duties, decision-making scope, problem-solving scope,
+# relationships, minimum qualifications"), plus the section rules in Parts 2-6. Each
+# question's `hint` is the Toolkit's own authoring guidance for that section.
+#
+# `target` names the `ComposerAnswers` field the answer assembles into
+# (`jd_bank/composer/answers.py`); a test pins every target to a real field, so a
+# question can never collect input that `assemble_jd` silently drops. Scope is the JDFN
+# (APSA/APEX/POLY) template — the only template the validator defines a bar for (HR-143).
+version: composer_questions_v1
+
+questions:
+  # --- 1. Identification -----------------------------------------------------------
+  - id: title
+    section: identification
+    prompt: What is the role's working title?
+    hint: >-
+      Describe the role, not the person. Avoid restricted titles (Director, Manager,
+      Chief, …) unless the role meets the Part 3.5 criteria.
+    target: title
+    required: true
+  - id: department
+    section: identification
+    prompt: Which department or unit is this role in?
+    hint: ""
+    target: department
+    required: false
+  - id: employee_group
+    section: identification
+    prompt: What is the employee group?
+    hint: >-
+      APSA, APEX or POLY (Hay-graded). This Builder targets the JDFN template; CUPE/WJQ
+      roles use a different instrument.
+    target: employee_group
+    required: false
+
+  # --- 3. Position Summary ---------------------------------------------------------
+  - id: position_summary
+    section: position_summary
+    prompt: In one paragraph, what is the overall purpose of this role?
+    hint: >-
+      100-150 words, one paragraph. Describe why the role exists and its scope — no
+      working conditions, and no qualifications or competencies (those go in their own
+      sections).
+    target: position_summary
+    required: true
+
+  # --- 4. Duties & Responsibilities ------------------------------------------------
+  - id: duties
+    section: duties
+    prompt: List the 3-5 primary functions of the role, most important first.
+    hint: >-
+      Each duty starts with an action verb and describes the position (not future work
+      or incumbent-specific tasks). Give each a percentage of time; the percentages
+      total 100%.
+    target: duties
+    required: true
+
+  # --- 5. Impact of Decision Making ------------------------------------------------
+  - id: decision_making
+    section: decision_making
+    prompt: What decisions does this role make on its own authority?
+    hint: >-
+      List the decisions the position owns and their scope (e.g. approves expenditures
+      up to a limit). Keep competency language out — describe the decision, not the
+      person.
+    target: decision_making
+    required: false
+
+  # --- 6. Problem Solving ----------------------------------------------------------
+  - id: problem_solving
+    section: problem_solving
+    prompt: What kinds of problems does this role resolve, and how independently?
+    hint: List the problems the role solves and the level of supervision it works under.
+    target: problem_solving
+    required: false
+
+  # --- 7. Relationships ------------------------------------------------------------
+  - id: supervisory
+    section: relationships
+    prompt: Does this role supervise anyone? If so, whom and how many?
+    hint: e.g. "Supervises 3 program staff." Leave blank if the role has no direct reports.
+    target: supervisory
+    required: false
+  - id: internal_contacts
+    section: relationships
+    prompt: Which internal groups does this role work with regularly?
+    hint: e.g. Finance, Faculty offices, IT.
+    target: internal
+    required: false
+  - id: external_contacts
+    section: relationships
+    prompt: Which external parties does this role work with regularly?
+    hint: e.g. vendors, granting agencies, community partners.
+    target: external
+    required: false
+
+  # --- 8. Qualifications (Education -> Experience -> Knowledge -> Skills -> Abilities)
+  - id: education
+    section: qualifications
+    prompt: What is the minimum education required?
+    hint: >-
+      State the MINIMUM, not the preferred. Include the equivalency path where it
+      applies ("… or an equivalent combination of education, training and experience").
+    target: education
+    required: false
+  - id: experience
+    section: qualifications
+    prompt: What is the minimum experience required?
+    hint: Minimum years/type of related experience — not a wish list.
+    target: experience
+    required: false
+  - id: knowledge
+    section: qualifications
+    prompt: What knowledge must the incumbent have?
+    hint: >-
+      Each with a modifier — "excellent" or "working" knowledge (Part 5). Knowledge is
+      listed before Skills and Abilities.
+    target: knowledge
+    required: false
+  - id: skills
+    section: qualifications
+    prompt: What skills must the incumbent have?
+    hint: >-
+      Each with a proficiency modifier — basic / intermediate / advanced / expert
+      (Part 5). Skills come after Knowledge, before Abilities.
+    target: skills
+    required: false
+  - id: abilities
+    section: qualifications
+    prompt: What must the incumbent be able to do?
+    hint: >-
+      Abilities describe observable behaviour or output ("Ability to …"). Listed last
+      in the KSA order.
+    target: abilities
+    required: false
+
+  # --- 9./10. SFU boilerplate + additional context ---------------------------------
+  - id: include_sfu_boilerplate
+    section: edi_footer
+    prompt: Include SFU's standard About-SFU paragraph and the territorial acknowledgement + employment-equity footer?
+    hint: >-
+      Required for approval. These are SFU's mandated, do-not-edit blocks; the Builder
+      inserts them for you.
+    target: include_sfu_boilerplate
+    required: false
+  - id: additional_context
+    section: additional_context
+    prompt: Any additional contextual information? (optional)
+    hint: Delete this section if unused (Part 10.1).
+    target: additional_context
+    required: false

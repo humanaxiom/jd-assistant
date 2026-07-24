@@ -23,6 +23,7 @@
     .badge { display:inline-block; padding:.15rem .5rem; border-radius:4px; font-size:.8rem; }
     .badge.blocked { background:rgba(248,81,73,.15); color:var(--red); }
     .badge.ok { background:rgba(63,185,80,.15); color:var(--green); }
+    .badge.muted { background:rgba(139,148,158,.15); color:var(--muted); }
     .flash.error { color:var(--red); white-space:pre-wrap; }
     .gate { border:1px solid var(--border); border-radius:6px; padding:.75rem; margin-bottom:.75rem; }
     .gate .meta { color:var(--muted); font-size:.8rem; }
@@ -32,7 +33,7 @@
   </style>
 </head>
 <body>
-  <h1>🧰 JD Bank — Review</h1>
+  <h1>{% block header %}🧰 JD Bank — Review{% endblock %}</h1>
   {% block content %}{% endblock %}
 </body>
 </html>
