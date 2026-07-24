@@ -30,6 +30,12 @@ from src.jd_bank.composer.questions import (
     QuestionSetError,
     load_question_set,
 )
+from src.jd_bank.composer.search import (
+    SearchHit,
+    jd_to_answers,
+    load_clone_answers,
+    search_similar_jds,
+)
 from src.jd_bank.composer.validate import assess_draft
 
 __all__ = [
@@ -42,11 +48,15 @@ __all__ = [
     "Question",
     "QuestionSet",
     "QuestionSetError",
+    "SearchHit",
     "SectionState",
     "SummarySuggestion",
     "assemble_jd",
     "assess_draft",
+    "jd_to_answers",
+    "load_clone_answers",
     "load_question_set",
+    "search_similar_jds",
     "submit_composed_draft",
     "suggest_summary",
 ]
