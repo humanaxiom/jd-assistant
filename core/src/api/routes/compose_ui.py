@@ -238,9 +238,33 @@ def _context(
     suggestion: SummarySuggestion | None = None,
 ) -> dict[str, Any]:
     groups = _grouped_questions(values)
+    # Tag each guidance/finding with the section it belongs to, so the "Still to write"
+    # and "Fix these" lists can each link to the offending section's fields. The issue
+    # objects in `guidance`/`findings` are the SAME objects held in `sections[].issues`
+    # (both come from one checklist entry), so an identity map recovers the section the
+    # flat lists dropped. `general`-bucket findings map to a section with no form fields
+    # and stay unlinked (filtered by `form_sections` in the template).
+    guidance_items: list[dict[str, Any]] = []
+    findings_items: list[dict[str, Any]] = []
+    if assessment is not None:
+        section_of = {
+            id(issue): section.section
+            for section in assessment.sections
+            for issue in section.issues
+        }
+        guidance_items = [
+            {"issue": issue, "section": section_of.get(id(issue))}
+            for issue in assessment.guidance
+        ]
+        findings_items = [
+            {"issue": issue, "section": section_of.get(id(issue))}
+            for issue in assessment.findings
+        ]
     return {
         "request": request,
         "groups": groups,
+        "guidance_items": guidance_items,
+        "findings_items": findings_items,
         # Section values that have a form anchor below, so the Sections panel only
         # links a section the author can actually jump to (the cross-cutting `general`
         # bucket and pure-boilerplate `about_sfu` have no editable fields).

@@ -151,6 +151,28 @@ def test_section_rows_link_down_to_their_form_fields() -> None:
     assert 'href="#section-position_summary"' in html
 
 
+def test_fix_these_and_still_to_write_items_link_to_their_section() -> None:
+    """The top 'Fix these' / 'Still to write' findings each link to the section they
+    belong to — even though the finding objects don't carry a section, the panel
+    recovers it from the section grouping."""
+    summary = " ".join(["word"] * 40)  # authored-but-short -> a 'Fix these' finding
+    html = (
+        _client()
+        .post(
+            "/jd-bank/ui/compose/new",
+            data={"title": "Analyst", "position_summary": summary},
+        )
+        .text
+    )
+    # The 'Fix these' block (between its heading and the Sections table) links the
+    # too-short-summary finding to the Position Summary fields.
+    fix_block = html.split("Fix these", 1)[1].split("<h3>Sections</h3>", 1)[0]
+    assert 'href="#section-position_summary"' in fix_block
+    # The 'Still to write' block (unauthored sections) links its items too.
+    still_block = html.split("Still to write", 1)[1].split("Fix these", 1)[0]
+    assert 'href="#section-' in still_block
+
+
 def test_author_text_is_escaped() -> None:
     resp = _client().post(
         "/jd-bank/ui/compose/new",

@@ -70,22 +70,26 @@
   {% endfor %}
   {% endif %}
 
-  {% if assessment.guidance %}
+  {% if guidance_items %}
   <h3>Still to write</h3>
   <ul>
-    {% for issue in assessment.guidance %}
-    <li>{{ issue.message }}</li>
+    {% for item in guidance_items %}
+    <li>
+      {{ item.issue.message }}
+      {% if item.section in form_sections %}<a class="meta" href="#section-{{ item.section }}" title="Jump to this section in the form">↓ go to section</a>{% endif %}
+    </li>
     {% endfor %}
   </ul>
   {% endif %}
 
-  {% if assessment.findings %}
+  {% if findings_items %}
   <h3>Fix these</h3>
   <ul>
-    {% for issue in assessment.findings %}
+    {% for item in findings_items %}
     <li>
-      [{{ issue.severity }}] {{ issue.message }}
-      {% if issue.suggestion %}<span class="meta">— {{ issue.suggestion }}</span>{% endif %}
+      [{{ item.issue.severity }}] {{ item.issue.message }}
+      {% if item.issue.suggestion %}<span class="meta">— {{ item.issue.suggestion }}</span>{% endif %}
+      {% if item.section in form_sections %}<a class="meta" href="#section-{{ item.section }}" title="Jump to this section in the form">↓ go to section</a>{% endif %}
     </li>
     {% endfor %}
   </ul>
