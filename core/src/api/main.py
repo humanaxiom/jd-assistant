@@ -119,14 +119,29 @@ async def run_gates(branch: str) -> dict[str, str]:
 
 # Imported here (not with the top-of-file imports) because the router imports
 # `get_session` back from this module — importing it at the top would be circular.
+from src.api.routes.auth import RedirectToLogin  # noqa: E402
+from src.api.routes.auth import router as jd_bank_auth_router  # noqa: E402
 from src.api.routes.compose import router as jd_bank_compose_router  # noqa: E402
 from src.api.routes.compose_ui import router as jd_bank_compose_ui_router  # noqa: E402
 from src.api.routes.dashboard import router as jd_bank_dashboard_router  # noqa: E402
 from src.api.routes.jd_bank import router as jd_bank_router  # noqa: E402
 from src.api.routes.ui import router as jd_bank_ui_router  # noqa: E402
 
+app.include_router(jd_bank_auth_router)
 app.include_router(jd_bank_router)
 app.include_router(jd_bank_ui_router)
 app.include_router(jd_bank_dashboard_router)
 app.include_router(jd_bank_compose_router)
 app.include_router(jd_bank_compose_ui_router)
+
+
+@app.exception_handler(RedirectToLogin)
+async def _redirect_to_login(request: Any, exc: RedirectToLogin) -> Any:
+    """Turn an unauthenticated UI request (``require_ui_user``) into a 303 redirect to
+    the login page, carrying where the visitor was heading so login can bounce back."""
+    from urllib.parse import urlencode
+
+    from fastapi.responses import RedirectResponse
+
+    target = f"/jd-bank/ui/login?{urlencode({'next': exc.next_path})}"
+    return RedirectResponse(url=target, status_code=303)

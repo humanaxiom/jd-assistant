@@ -1,0 +1,28 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — Sign in{% endblock %}
+{% block header %}🔐 JD Bank — Sign in{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <h2>Sign in</h2>
+  {% if cas_enabled %}
+  <p class="meta">
+    JD Bank uses SFU's central authentication (CAS). Sign in with your SFU computing ID.
+  </p>
+  <p>
+    <a href="/jd-bank/ui/cas/login?next={{ next | urlencode }}">
+      <button type="button">Sign in with SFU CAS →</button>
+    </a>
+  </p>
+  {% else %}
+  <p class="meta">
+    Authentication is <strong>disabled</strong> in this environment — every request runs
+    as the built-in dev user. Set <code>CAS_ENABLED=true</code> to require SFU sign-in.
+  </p>
+  <p>
+    <a href="{{ next | urlencode }}"><button type="button">Continue →</button></a>
+  </p>
+  {% endif %}
+</div>
+
+{% endblock %}

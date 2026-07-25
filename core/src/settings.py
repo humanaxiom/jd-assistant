@@ -78,6 +78,49 @@ class Settings(BaseSettings):
     max_review_iterations: int = 5
     coverage_threshold: int = 80
 
+    # ── Auth / CAS SSO + sessions (RBAC foundation, ADR-008) ─────────────────
+    # OPS/SECURITY config, not a JD-scoring rule — changes no JD's score, so it lives
+    # here, NOT in jd_core/rules/ or the HR decision register (same call as the egress
+    # guard above). Ported in shape from the HRIS auth service (its ADR-0005).
+    #
+    # Production MUST set CAS_ENABLED=true. When false, every request is the synthetic
+    # `cas_anonymous_user` with the `cas_dev_default_role` — so the app is usable in
+    # dev/CI WITHOUT reaching SFU CAS (the `make gates` path never hits cas.sfu.ca).
+    cas_enabled: bool = False
+    cas_server_url: str = "https://cas.sfu.ca/cas"
+    cas_validate_route: str = "/serviceValidate"
+    # The base URL CAS redirects back to (the "service"); prod sets its real origin.
+    cas_service_base_url: str = "http://localhost:25800"
+    # Derive the service base from the X-Forwarded-Host header when set (multi-host /
+    # reverse-proxy deploys); default off — prod pins `cas_service_base_url`.
+    cas_service_from_request: bool = False
+    # SFU's CAS cert chain has historically failed strict TLS from inside containers
+    # without a fresh ca-certificates bundle. Flip false ONLY with a documented reason.
+    cas_verify_tls: bool = True
+    # CAS enabled but no SFU connection: skip the cas.sfu.ca round-trip and mint a
+    # session for this user — exercises the full cookie/session machinery in dev. Empty
+    # in prod (a startup check refuses cas_enabled + a dev-fake user together).
+    cas_dev_fake_user: str = ""
+
+    # Server-side sessions: an opaque token in a Postgres row (revocable per-session +
+    # auditable), not a signed cookie. Cookie carries only the token id.
+    session_cookie_name: str = "jdbank_session"
+    session_ttl_hours: int = 8
+    session_idle_refresh_hours: int = 1  # slide the TTL when <1h from expiry
+    session_cookie_secure: bool = False  # True in prod (HTTPS only)
+    session_cookie_samesite: str = "lax"  # 'strict' in prod
+
+    # The synthetic actor used when cas_enabled=False, and the role it holds. Lets a
+    # dev/CI run exercise every role-gated surface without a login. Prod ignores both.
+    cas_anonymous_user: str = "dev-anonymous"
+    cas_dev_default_role: str = "admin"
+
+    # Role granted to a brand-new user on their first CAS login. `author` is the
+    # least-privileged useful role (author drafts; nothing publishes without a reviewer,
+    # NN #1); reviewer/admin must be granted by an admin. Tighten to a role that can do
+    # nothing until granted by making this an unknown-until-granted flow (phase 3).
+    default_new_user_role: str = "author"
+
     # Read-only dashboards (Phase 4.6c): where the committed archive-baseline artifact
     # is mounted INSIDE the api container. `docs/` lives at the repo root (NOT under
     # `core/`, which binds to /app), so the compose api service binds `./docs:/docs:ro`

@@ -17,9 +17,10 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
 
-# Register every table on the shared metadata: harness ledger + JD Bank domain.
+# Register every table on the shared metadata: harness ledger + JD Bank domain + auth.
 from src.models.db import Base  # noqa: E402  (import order: metadata first)
 from src.jd_bank.db import models as _jd_bank_models  # noqa: E402,F401
+from src.api.db import models as _auth_models  # noqa: E402,F401
 from src.settings import get_settings  # noqa: E402
 
 config = context.config
