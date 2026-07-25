@@ -96,8 +96,21 @@
     <tbody>
       {% for section in assessment.sections %}
       <tr>
-        <td>{{ section.label }}</td>
-        <td><span class="badge {{ state_badge.get(section.state, 'muted') }}">{{ section.state }}</span></td>
+        <td style="vertical-align:top">
+          {{ section.label }}
+          {% if section.issues %}
+          <ul class="meta" style="margin:.35rem 0 0 1rem">
+            {% for issue in section.issues %}
+            <li>{{ issue.message }}{% if issue.suggestion %} — {{ issue.suggestion }}{% endif %}</li>
+            {% endfor %}
+          </ul>
+          {% elif section.state == "empty" %}
+          <p class="meta" style="margin:.35rem 0 0 0">Not authored yet.</p>
+          {% endif %}
+        </td>
+        <td style="vertical-align:top">
+          <span class="badge {{ state_badge.get(section.state, 'muted') }}">{{ state_label.get(section.state, section.state) }}</span>
+        </td>
       </tr>
       {% endfor %}
     </tbody>

@@ -119,6 +119,28 @@ def test_post_reflects_the_submitted_summary_and_repopulates() -> None:
     assert summary in html
 
 
+def test_section_table_explains_why_a_section_needs_attention() -> None:
+    """A flagged section must say WHAT to fix, not just badge the raw enum
+    'needs_attention'. The per-section issues render in the Sections table, and the
+    enum is shown as a human label."""
+    summary = " ".join(["word"] * 40)  # authored but below the 100-word floor
+    html = (
+        _client()
+        .post(
+            "/jd-bank/ui/compose/new",
+            data={"title": "Analyst", "position_summary": summary},
+        )
+        .text
+    )
+    # Human label in the table, not the snake_case enum.
+    assert "Needs attention" in html
+    assert "needs_attention" not in html
+    # The specific reason renders WITHIN the Sections table (which follows the
+    # "Sections" heading) — not only in the global "Fix these" list above it.
+    sections_block = html.split("<h3>Sections</h3>", 1)[1]
+    assert "the template asks for" in sections_block
+
+
 def test_author_text_is_escaped() -> None:
     resp = _client().post(
         "/jd-bank/ui/compose/new",

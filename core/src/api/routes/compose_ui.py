@@ -107,6 +107,15 @@ _MODIFIED_LIST_TARGETS = {"knowledge", "skills"}
 #: state -> the badge class defined in ``_base.html``.
 _STATE_BADGE = {"ok": "ok", "needs_attention": "blocked", "empty": "muted"}
 
+#: state -> a human label for the section table. The raw enum ``needs_attention`` is
+#: jargon that tells the author nothing; the panel pairs this with the section's own
+#: ``issues`` (rendered underneath) so "what to fix" is right next to the flag.
+_STATE_LABEL = {
+    "ok": "OK",
+    "needs_attention": "Needs attention",
+    "empty": "Not started",
+}
+
 
 def _kind_for(target: str) -> str:
     if target == "employee_group":
@@ -239,6 +248,7 @@ def _context(
         "error": error,
         "boilerplate_checked": boilerplate_checked,
         "state_badge": _STATE_BADGE,
+        "state_label": _STATE_LABEL,
         # The exact answers this assessment was built from, JSON-encoded, so the
         # "Submit for review" form can carry them in one hidden field and /submit
         # rebuilds the identical draft (no fragile per-field round-trip).
