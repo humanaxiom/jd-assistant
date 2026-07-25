@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import parse_qsl
 from uuid import UUID
 
@@ -36,7 +36,9 @@ from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.db.models import User
 from src.api.main import get_session
+from src.api.routes.auth import require_ui_user
 from src.jd_bank.review import (
     CanonicalNotFoundError,
     GateOverrideError,
@@ -197,10 +199,12 @@ async def detail_view(
 async def approve_action(
     request: Request,
     canonical_id: UUID,
+    actor: Annotated[User, Depends(require_ui_user)],
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     pairs = await _read_form(request)
-    reviewer_id = _first(pairs, "reviewer_id").strip()
+    # The reviewer is the AUTHENTICATED user (NN #1 attribution), not a form field.
+    reviewer_id = actor.cas_username
     try:
         overrides = _parse_overrides(pairs, reviewer_id=reviewer_id)
         await service.approve(
@@ -216,10 +220,11 @@ async def approve_action(
 async def reject_action(
     request: Request,
     canonical_id: UUID,
+    actor: Annotated[User, Depends(require_ui_user)],
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     pairs = await _read_form(request)
-    reviewer_id = _first(pairs, "reviewer_id").strip()
+    reviewer_id = actor.cas_username
     reason = _first(pairs, "reason")
     try:
         await service.reject(
@@ -235,10 +240,11 @@ async def reject_action(
 async def edit_action(
     request: Request,
     canonical_id: UUID,
+    actor: Annotated[User, Depends(require_ui_user)],
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     pairs = await _read_form(request)
-    reviewer_id = _first(pairs, "reviewer_id").strip()
+    reviewer_id = actor.cas_username
     reason = _first(pairs, "reason")
     raw_content = _first(pairs, "content")
     try:

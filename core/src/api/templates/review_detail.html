@@ -65,8 +65,6 @@
 <div class="panel">
   <h2>Approve</h2>
   <form method="post" action="/jd-bank/ui/review/{{ packet.canonical_id }}/approve">
-    <label for="approve-reviewer">Reviewer id</label>
-    <input id="approve-reviewer" name="reviewer_id" required>
     {% for gate in packet.decision.blocking %}
     {% if gate.overridable %}
     <label for="override-{{ gate.gate_id }}">Override reason — {{ gate.gate_id }}</label>
@@ -80,8 +78,6 @@
 <div class="panel">
   <h2>Reject</h2>
   <form method="post" action="/jd-bank/ui/review/{{ packet.canonical_id }}/reject">
-    <label for="reject-reviewer">Reviewer id</label>
-    <input id="reject-reviewer" name="reviewer_id" required>
     <label for="reject-reason">Reason</label>
     <textarea id="reject-reason" name="reason" required></textarea>
     <button type="submit" class="danger">Reject</button>
@@ -91,8 +87,6 @@
 <div class="panel">
   <h2>Edit</h2>
   <form method="post" action="/jd-bank/ui/review/{{ packet.canonical_id }}/edit">
-    <label for="edit-reviewer">Reviewer id</label>
-    <input id="edit-reviewer" name="reviewer_id" required>
     <label for="edit-reason">Reason</label>
     <textarea id="edit-reason" name="reason" required></textarea>
     <label for="edit-content">Content (JSON)</label>

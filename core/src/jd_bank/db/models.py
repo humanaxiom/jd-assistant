@@ -29,6 +29,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -364,7 +365,8 @@ class ReviewAction(Base):
 
 class AuditLog(Base):
     """Append-only event stream over everything above (plan §0: provenance
-    everywhere). No update/delete path — rows are only inserted."""
+    everywhere). No update/delete path — rows are only inserted, and a hash-chain
+    trigger (migration 0005, ADR-008) makes any tampering detectable."""
 
     __tablename__ = "audit_log"
 
@@ -383,3 +385,8 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+    # Tamper-evidence (ADR-008): set by the BEFORE INSERT hash-chain trigger, NOT the
+    # writer. Nullable so rows inserted before migration 0005 (chain not yet live) keep
+    # NULL and sit outside the chain. Never read by writers; the verifier walks them.
+    prev_hash: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    row_hash: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)

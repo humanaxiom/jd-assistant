@@ -287,10 +287,12 @@ def test_approve_happy_path_calls_service_commits_and_redirects(
     mock.assert_awaited_once()
     call = mock.await_args
     assert call.args == (session, canonical_id)
-    assert call.kwargs["reviewer_id"] == "hr-1"
+    assert call.kwargs["reviewer_id"] == "dev-anonymous"
     assert call.kwargs["overrides"] == [
         GateOverride(
-            gate_id="SFU-OVERRIDABLE", reviewer="hr-1", reason="waived for pilot"
+            gate_id="SFU-OVERRIDABLE",
+            reviewer="dev-anonymous",
+            reason="waived for pilot",
         )
     ]
     session.commit.assert_awaited_once()
@@ -321,7 +323,7 @@ def test_approve_blank_override_textarea_produces_no_override(
 
     assert resp.status_code == 303
     mock.assert_awaited_once_with(
-        session, canonical_id, reviewer_id="hr-1", overrides=[]
+        session, canonical_id, reviewer_id="dev-anonymous", overrides=[]
     )
     session.commit.assert_awaited_once()
 
@@ -348,7 +350,7 @@ def test_approve_no_override_fields_at_all_passes_empty_list(
 
     assert resp.status_code == 303
     mock.assert_awaited_once_with(
-        session, canonical_id, reviewer_id="hr-1", overrides=[]
+        session, canonical_id, reviewer_id="dev-anonymous", overrides=[]
     )
     session.commit.assert_awaited_once()
 
@@ -437,7 +439,7 @@ def test_reject_happy_path_calls_service_commits_and_redirects(
     mock.assert_awaited_once_with(
         session,
         canonical_id,
-        reviewer_id="hr-1",
+        reviewer_id="dev-anonymous",
         reason="duplicate of another cluster",
     )
     session.commit.assert_awaited_once()
@@ -498,7 +500,7 @@ def test_edit_happy_path_calls_service_commits_and_redirects_to_new_version(
     mock.assert_awaited_once_with(
         session,
         canonical_id,
-        reviewer_id="hr-1",
+        reviewer_id="dev-anonymous",
         new_content=new_content,
         reason="clarified the summary",
     )

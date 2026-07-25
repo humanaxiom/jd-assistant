@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import parse_qsl
 from uuid import UUID
 
@@ -38,7 +38,9 @@ from neo4j import AsyncDriver
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.db.models import User
 from src.api.main import get_session
+from src.api.routes.auth import require_ui_user
 from src.api.routes.compose import get_chat_client, get_embed_client, get_neo4j_driver
 from src.jd_bank.composer import (
     ComposerAnswers,
@@ -464,6 +466,7 @@ async def clone_draft(
 @router.post("/submit")
 async def submit_draft(
     request: Request,
+    actor: Annotated[User, Depends(require_ui_user)],
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     """Submit the composed draft into the review queue and redirect to its review
@@ -473,7 +476,8 @@ async def submit_draft(
     commits. Nothing publishes (NN #1) — it enters the same queue as any draft."""
     pairs = await _read_form(request)
     values = _first_values(pairs)
-    author_id = values.get("author_id", "").strip()
+    # The author is the AUTHENTICATED user, not a form field.
+    author_id = actor.cas_username
     try:
         answers = ComposerAnswers.model_validate_json(values.get("answers_json", ""))
     except ValidationError as exc:

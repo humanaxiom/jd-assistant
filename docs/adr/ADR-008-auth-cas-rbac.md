@@ -61,22 +61,26 @@ ORM + Alembic**, and HRIS's front-gate is Next.js middleware where our UI is
    decision register.
 
 8. **Tamper-evident audit.** The existing append-only `audit_log` gains a hash chain
-   (prev_hash/row_hash + a tail-tracker trigger, ported from HRIS) so auth events and
-   reviewer actions are tamper-**evident**. *(Landing in phase 2, when actions are wired
-   through it; tamper-**prevention** via Postgres role GRANT/REVOKE is a later hardening
-   step — it needs the app to connect as a restricted role.)*
+   (prev_hash/row_hash + a tail-tracker trigger, ported from HRIS, migration `0005`) so
+   auth events and reviewer actions are tamper-**evident**: `verify_audit_chain`
+   recomputes the chain and any altered/deleted row flips it to `ok=False`. Tamper-
+   **prevention** via Postgres role GRANT/REVOKE is a later hardening step — it needs the
+   app to connect as a restricted (non-owner) role.
 
 ## Rollout (slices)
 
 - **Phase 1 (foundation) — DONE:** Settings; `cas_service`; migration `0004`
   (`users`/`user_roles`/`sessions`); `session_service` + `user_service`;
   `current_user` / `require_roles`; auth routes + login page + `require_ui_user`.
-- **Phase 2 (wiring) — next:** apply `require_ui_user` to the UI routers; swap
-  `reviewer_id`/`author_id` for the resolved `CurrentUser` (FK `review_actions.reviewer_id`
-  / `audit_log.actor` → `users`); gate the review queue to `reviewer`/`admin`; the
-  hash-chained audit + a user pill / sign-out in `_base.html`.
-- **Phase 3 (later):** the user-management admin UI (list / activate-disable / assign
-  roles, with self-lockout guards) + a first-admin bootstrap (seed or script).
+- **Phase 2 (wiring) — DONE:** `require_ui_user` on the Builder/dashboards +
+  `require_ui_roles(reviewer, admin)` on the review queue; the review/compose body
+  `reviewer_id`/`author_id` swapped for the authenticated user (`actor.cas_username`);
+  the hash-chained audit (migration `0005` + `verify_audit_chain`); a user pill /
+  sign-out in `_base.html`. *(Identity is recorded as the CAS username; a hard FK
+  `review_actions.reviewer_id → users.id` was left off to avoid persisting the dev-mode
+  synthetic actor — a later refinement, not a security gap.)*
+- **Phase 3 — DONE:** the user-management admin UI (list / activate-disable / assign
+  roles, with self-lockout guards) + first-admin bootstrap via `BOOTSTRAP_ADMINS`.
 
 ## Alternatives considered
 
