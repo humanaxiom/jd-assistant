@@ -25,6 +25,7 @@ whatever the validator makes of the current draft.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl
@@ -48,8 +49,19 @@ from src.jd_bank.composer import (
 )
 from src.jd_core.models.quality import SFUSection
 from src.jd_core.rules import get_rules
+from src.jd_export import render_sfu_docx
 
 router: APIRouter = APIRouter(prefix="/jd-bank/ui/compose")
+
+#: The OOXML ``.docx`` media type (shared with the JSON export route).
+_DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+def _docx_filename(title: str) -> str:
+    """A safe download filename from the JD title (lowercase, hyphenated)."""
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    return f"{slug or 'job-description'}.docx"
+
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
@@ -275,6 +287,39 @@ async def submit_draft(
     )
     await session.commit()
     return RedirectResponse(url=f"/jd-bank/ui/review/{canonical.id}", status_code=303)
+
+
+@router.post("/export")
+async def export_draft(request: Request) -> Response:
+    """Render the composed draft to the official SFU ``.docx`` and stream it as a
+    download. The answers ride in the same hidden ``answers_json`` field the check step
+    writes (the submit form uses it too), so the export rebuilds the identical draft.
+    Pure rendering — nothing is validated, persisted, or published (NN #1). A tampered
+    hidden field re-renders the form with the error rather than 500 (mirrors submit)."""
+    values = _first_values(await _read_form(request))
+    try:
+        answers = ComposerAnswers.model_validate_json(values.get("answers_json", ""))
+    except ValidationError as exc:
+        return templates.TemplateResponse(
+            request,
+            "compose_new.html",
+            _context(
+                request,
+                values={},
+                assessment=None,
+                error=str(exc),
+                boilerplate_checked=True,
+            ),
+        )
+    jd = assemble_jd(answers)
+    content = render_sfu_docx(jd)
+    return Response(
+        content=content,
+        media_type=_DOCX_MIME,
+        headers={
+            "Content-Disposition": f'attachment; filename="{_docx_filename(jd.title)}"'
+        },
+    )
 
 
 async def _read_form(request: Request) -> list[tuple[str, str]]:

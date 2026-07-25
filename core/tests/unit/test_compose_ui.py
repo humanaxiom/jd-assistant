@@ -142,3 +142,42 @@ def test_submit_with_malformed_answers_rerenders_and_does_not_commit() -> None:
     )
     assert resp.status_code == 200
     session.commit.assert_not_awaited()
+
+
+def test_check_offers_an_export_form_carrying_the_answers() -> None:
+    """After a compliance check the page offers a download of the official SFU
+    ``.docx``, carrying the same ``answers_json`` the submit form uses so the export
+    rebuilds the identical draft (no fragile per-field round-trip)."""
+    resp = _client().post("/jd-bank/ui/compose/new", data={"title": "New Role"})
+    html = resp.text
+    assert 'action="/jd-bank/ui/compose/export"' in html
+    # It is its own form (a GET/POST to export, not the submit-for-review form).
+    assert html.count('name="answers_json"') >= 2
+
+
+def test_export_returns_the_official_docx_download() -> None:
+    """The UI export wrapper rebuilds the draft from ``answers_json`` and streams the
+    official SFU ``.docx`` — no python-multipart, no JSON body (the form is urlencoded),
+    nothing persisted (NN #1)."""
+    resp = _client().post(
+        "/jd-bank/ui/compose/export",
+        data={"answers_json": '{"title": "Financial Analyst"}'},
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert "financial-analyst.docx" in resp.headers["content-disposition"]
+    assert resp.content[:2] == b"PK"  # a .docx is a zip archive
+
+
+def test_export_with_malformed_answers_rerenders_and_does_not_500() -> None:
+    """A tampered hidden field must not crash — re-render the form with the error,
+    exactly as the submit path does (the field is produced by our own check step)."""
+    resp = _client().post(
+        "/jd-bank/ui/compose/export",
+        data={"answers_json": "{not json"},
+    )
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers["content-type"]
+    assert resp.content[:2] != b"PK"

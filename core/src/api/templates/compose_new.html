@@ -76,6 +76,16 @@
     </tbody>
   </table>
 
+  <h3>Export</h3>
+  <p class="meta">
+    Download this draft as the official SFU <code>.docx</code>. Rendering only —
+    nothing is validated or published.
+  </p>
+  <form method="post" action="/jd-bank/ui/compose/export">
+    <input type="hidden" name="answers_json" value="{{ answers_json }}">
+    <button type="submit">Export .docx ↓</button>
+  </form>
+
   <h3>Submit for review</h3>
   <p class="meta">
     Sends this draft to the HR review queue. It stays a draft — nothing is published
