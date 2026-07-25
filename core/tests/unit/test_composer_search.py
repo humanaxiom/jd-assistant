@@ -49,7 +49,15 @@ def _clean_jd() -> SFUJobDescription:
         decision_making=["Approves expenditures up to $5k"],
         problem_solving=["Resolves scheduling conflicts independently"],
         relationships=SFURelationships(
-            supervisory="Supervises 2 staff", internal=["Finance"], external=["Vendors"]
+            # A compliant JD opens the Relationships section with SFU's mandated header
+            # (HR-056) — so the clone round-trip is idempotent: re-assembling with
+            # boilerplate on does not double-insert it.
+            supervisory=(
+                "Establishes and maintains relationships and alliances. "
+                "Supervises 2 staff"
+            ),
+            internal=["Finance"],
+            external=["Vendors"],
         ),
         qualifications=[
             SFUQualification(text="Bachelor's degree", kind="education"),
@@ -83,7 +91,10 @@ def test_jd_to_answers_round_trips_through_assemble() -> None:
         (q.kind, q.text) for q in jd.qualifications
     ]
     assert rebuilt.relationships is not None
-    assert rebuilt.relationships.supervisory == "Supervises 2 staff"
+    # Idempotent: the header the source already carried is preserved, not doubled.
+    assert rebuilt.relationships.supervisory == (
+        "Establishes and maintains relationships and alliances. Supervises 2 staff"
+    )
     # All three mandated boilerplate booleans survive the round-trip.
     assert rebuilt.about_sfu_present is True
     assert rebuilt.territorial_acknowledgement_present is True

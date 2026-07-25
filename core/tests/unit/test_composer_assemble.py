@@ -78,6 +78,43 @@ def test_qualifications_are_emitted_in_ksa_order() -> None:
     assert kinds == ["education", "experience", "knowledge", "skill", "ability"]
 
 
+def test_boilerplate_inserts_the_standard_relationships_header() -> None:
+    """The standardized Relationships header is mandated boilerplate the validator
+    checks for IN THE TEXT (SFU-GATE-REL-HEADER, HR-056) — unlike About-SFU/territorial
+    which have presence booleans. With boilerplate on, the assembler inserts SFU's
+    standard opener so a composed JD can actually satisfy it; otherwise the finding is
+    unfixable in the Builder no matter what the author writes."""
+    from src.jd_core.rules import get_rules
+
+    marker = get_rules().markers.relationships_header  # the HR-056 standard sentence
+    on = assemble_jd(
+        ComposerAnswers(
+            title="Role", supervisory="Supervises 2 staff", include_sfu_boilerplate=True
+        )
+    )
+    assert on.relationships is not None
+    # The header opens the relationships prose, and the author's own text survives.
+    assert marker in (on.relationships.supervisory or "").lower()
+    assert "Supervises 2 staff" in (on.relationships.supervisory or "")
+    # ...so the finding is gone.
+    assert "SFU-GATE-REL-HEADER" not in {
+        issue.rule_id for issue in assess_draft(on).findings
+    }
+
+    # Boilerplate OFF = the author opted out of SFU boilerplate; the header is not
+    # inserted and the gate honestly fires (same as About-SFU/territorial).
+    off = assemble_jd(
+        ComposerAnswers(
+            title="Role",
+            supervisory="Supervises 2 staff",
+            include_sfu_boilerplate=False,
+        )
+    )
+    assert "SFU-GATE-REL-HEADER" in {
+        issue.rule_id for issue in assess_draft(off).findings
+    }
+
+
 def test_a_duty_allocation_renders_as_a_percentage() -> None:
     jd = assemble_jd(
         ComposerAnswers(
