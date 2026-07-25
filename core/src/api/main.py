@@ -119,7 +119,13 @@ async def run_gates(branch: str) -> dict[str, str]:
 
 # Imported here (not with the top-of-file imports) because the router imports
 # `get_session` back from this module — importing it at the top would be circular.
-from src.api.routes.auth import RedirectToLogin  # noqa: E402
+from src.api.db.models import Role  # noqa: E402
+from src.api.routes.admin import router as jd_bank_admin_router  # noqa: E402
+from src.api.routes.auth import (  # noqa: E402
+    RedirectToLogin,
+    require_ui_roles,
+    require_ui_user,
+)
 from src.api.routes.auth import router as jd_bank_auth_router  # noqa: E402
 from src.api.routes.compose import router as jd_bank_compose_router  # noqa: E402
 from src.api.routes.compose_ui import router as jd_bank_compose_ui_router  # noqa: E402
@@ -127,12 +133,23 @@ from src.api.routes.dashboard import router as jd_bank_dashboard_router  # noqa:
 from src.api.routes.jd_bank import router as jd_bank_router  # noqa: E402
 from src.api.routes.ui import router as jd_bank_ui_router  # noqa: E402
 
+# Auth routes (login/logout/CAS) are ungated — the login page must be reachable. The
+# JSON API router keeps its body-actor pilot model for now (ADR-008 phase 2).
 app.include_router(jd_bank_auth_router)
 app.include_router(jd_bank_router)
-app.include_router(jd_bank_ui_router)
-app.include_router(jd_bank_dashboard_router)
+# The review queue is the NN #1 human-approval surface — reviewer or admin only.
+app.include_router(
+    jd_bank_ui_router,
+    dependencies=[Depends(require_ui_roles(Role.REVIEWER, Role.ADMIN))],
+)
+# Dashboards + the Builder require any authenticated user (redirect to /login if not).
+app.include_router(jd_bank_dashboard_router, dependencies=[Depends(require_ui_user)])
 app.include_router(jd_bank_compose_router)
-app.include_router(jd_bank_compose_ui_router)
+app.include_router(jd_bank_compose_ui_router, dependencies=[Depends(require_ui_user)])
+# User management — admin only.
+app.include_router(
+    jd_bank_admin_router, dependencies=[Depends(require_ui_roles(Role.ADMIN))]
+)
 
 
 @app.exception_handler(RedirectToLogin)

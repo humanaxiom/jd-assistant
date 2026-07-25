@@ -18,8 +18,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from testcontainers.postgres import PostgresContainer
 
-from src.api.db.models import Role, User
-from src.api.deps import _DEV_ANON_UUID, _ensure_dev_anonymous_user
+from src.api.db.models import Role
 from src.api.services import session_service, user_service
 
 ALEMBIC_INI = Path(__file__).resolve().parents[2] / "alembic.ini"
@@ -130,17 +129,14 @@ async def test_revoke_user_sessions_kills_all_live(
         await db.commit()
 
 
-async def test_dev_anonymous_user_is_materialised_with_its_role(
-    session_maker: async_sessionmaker[AsyncSession],
-) -> None:
-    async with session_maker() as db:
-        user = await _ensure_dev_anonymous_user(db, "dev-anon", "admin")
-        assert user.id == _DEV_ANON_UUID
-        assert user.role_names == frozenset({Role.ADMIN})
+def test_transient_dev_user_carries_the_configured_role() -> None:
+    # The dev/CI synthetic user is NON-persisted (no DB round-trip to render a page);
+    # it just carries the configured role for identity + role-checks.
+    from src.api.deps import _DEV_ANON_UUID, transient_dev_user
+    from src.settings import Settings
 
-    async with session_maker() as db:
-        # Persisted (self-committed) and idempotent on a second call.
-        again = await _ensure_dev_anonymous_user(db, "dev-anon", "admin")
-        assert again.id == _DEV_ANON_UUID
-        persisted = await db.get(User, _DEV_ANON_UUID)
-        assert persisted is not None
+    user = transient_dev_user(
+        Settings(cas_anonymous_user="dev-anon", cas_dev_default_role="admin")
+    )
+    assert user.id == _DEV_ANON_UUID
+    assert user.role_names == frozenset({Role.ADMIN})

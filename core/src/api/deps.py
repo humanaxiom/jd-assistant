@@ -18,16 +18,13 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Request, status
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.db.models import Role, User, UserRole, UserStatus
-from src.api.main import get_session
 from src.api.services import session_service, user_service
 from src.settings import Settings, get_settings
 
-#: Stable identity for the CAS-disabled dev/CI synthetic user, so its FKs (actor rows)
-#: are consistent across process restarts.
+#: Stable identity for the CAS-disabled dev/CI synthetic user, so its actor id is
+#: consistent across restarts (and can be persisted on demand when a write needs an FK).
 _DEV_ANON_UUID = UUID(int=0)
 
 
@@ -40,68 +37,55 @@ class NotAuthenticated(HTTPException):
         super().__init__(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 
 
-async def resolve_user(request: Request, db: AsyncSession, settings: Settings) -> User:
-    """The identity-resolution core, shared by :func:`current_user` (401 on failure)
-    and the UI redirect gate. Raises :class:`NotAuthenticated` if a CAS-enabled request
-    has no live session; in dev mode (``cas_enabled=False``) returns the configured
-    synthetic anonymous user."""
+def transient_dev_user(settings: Settings) -> User:
+    """The synthetic actor for dev/CI (``cas_enabled=False``). A NON-persisted ``User``
+    carrying the configured role — enough to identify + role-check + display without a
+    DB round-trip (so a page renders with no session). A write that needs a real actor
+    FK persists it on demand (phase 2)."""
+    return User(
+        id=_DEV_ANON_UUID,
+        cas_username=settings.cas_anonymous_user,
+        display_name=f"{settings.cas_anonymous_user} ({settings.cas_dev_default_role})",
+        roles=[UserRole(role=Role(settings.cas_dev_default_role))],
+    )
+
+
+async def resolve_user(request: Request, settings: Settings) -> User:
+    """Resolve the request's identity, DB-optional. Dev mode (``cas_enabled=False``)
+    returns the transient synthetic user with no DB access; real mode reads the session
+    cookie -> session row -> user in its OWN short-lived DB session (a pure read),
+    raising :class:`NotAuthenticated` if there is no live session. Stashes the user on
+    ``request.state.user`` so templates (the nav pill) can read it."""
     if not settings.cas_enabled:
-        return await _ensure_dev_anonymous_user(
-            db, settings.cas_anonymous_user, settings.cas_dev_default_role
-        )
+        dev = transient_dev_user(settings)
+        request.state.user = dev
+        return dev
 
     token = request.cookies.get(settings.session_cookie_name)
     if not token:
         raise NotAuthenticated("no session cookie")
-    session = await session_service.get_active_session(db, token)
-    if session is None:
-        raise NotAuthenticated("session not found or expired")
-    request.state.session = session
-
-    user = await user_service.get_user_by_id(db, session.user_id)
-    if user is None or user.status is not UserStatus.ACTIVE:
-        raise NotAuthenticated("user inactive or deleted")
+    async with request.app.state.sessionmaker() as db:
+        session = await session_service.get_active_session(db, token)
+        if session is None:
+            raise NotAuthenticated("session not found or expired")
+        user = await user_service.get_user_by_id(db, session.user_id)
+        if user is None or user.status is not UserStatus.ACTIVE:
+            raise NotAuthenticated("user inactive or deleted")
+        _ = user.role_names  # force the selectin role load before the session closes
+        db.expunge(user)
+    request.state.user = user
     return user
 
 
 async def current_user(
     request: Request,
-    db: Annotated[AsyncSession, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> User:
     """FastAPI dependency form of :func:`resolve_user` — the actor for a request."""
-    return await resolve_user(request, db, settings)
+    return await resolve_user(request, settings)
 
 
 CurrentUser = Annotated[User, Depends(current_user)]
-
-
-async def _ensure_dev_anonymous_user(
-    db: AsyncSession, username: str, role_name: str
-) -> User:
-    """Materialise the dev-mode synthetic user as a real ``users`` row (so actor FKs
-    hold), carrying the configured role. Idempotent + self-committing — it is bootstrap
-    state, independent of whatever the route then does."""
-    role = Role(role_name)
-    user = await db.get(User, _DEV_ANON_UUID)
-    if user is None:
-        user = User(
-            id=_DEV_ANON_UUID,
-            cas_username=username,
-            display_name=f"anonymous ({role_name})",
-            roles=[UserRole(role=role)],
-        )
-        db.add(user)
-        try:
-            async with db.begin_nested():
-                await db.flush()
-        except IntegrityError:  # lost a concurrent bootstrap race
-            user = await db.get(User, _DEV_ANON_UUID)
-            assert user is not None
-    if role not in user.role_names:  # config may have changed the dev role
-        user.roles.append(UserRole(role=role))
-    await db.commit()
-    return user
 
 
 def require_roles(*roles: Role) -> Callable[..., Awaitable[User]]:

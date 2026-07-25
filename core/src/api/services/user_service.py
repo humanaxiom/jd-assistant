@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.api.db.models import Role, User, UserRole
+from src.api.db.models import Role, User, UserRole, UserStatus
 
 
 async def get_user_by_cas_username(db: AsyncSession, cas_username: str) -> User | None:
@@ -27,6 +27,44 @@ async def get_user_by_cas_username(db: AsyncSession, cas_username: str) -> User 
 
 async def get_user_by_id(db: AsyncSession, user_id: UUID) -> User | None:
     return await db.get(User, user_id)
+
+
+async def list_users(db: AsyncSession, *, limit: int = 200) -> list[User]:
+    """All users, newest first (the admin table). Roles are eager-loaded (selectin)."""
+    result = await db.scalars(
+        select(User).order_by(User.created_at.desc()).limit(limit)
+    )
+    return list(result.all())
+
+
+async def set_roles(db: AsyncSession, user_id: UUID, roles: set[Role]) -> User | None:
+    """Replace a user's role grants with exactly ``roles`` (admin action). Returns the
+    updated user, or None if no such user."""
+    user = await db.get(User, user_id)
+    if user is None:
+        return None
+    user.roles = [UserRole(role=role) for role in roles]  # delete-orphan replaces
+    await db.flush()
+    return user
+
+
+async def set_status(
+    db: AsyncSession, user_id: UUID, status: UserStatus
+) -> User | None:
+    """Set a user's status (admin action). Returns the updated user, or None."""
+    user = await db.get(User, user_id)
+    if user is None:
+        return None
+    user.status = status
+    await db.flush()
+    return user
+
+
+async def ensure_role(db: AsyncSession, user: User, role: Role) -> None:
+    """Grant ``role`` to ``user`` if not already held (first-admin bootstrap)."""
+    if role not in user.role_names:
+        user.roles.append(UserRole(role=role))
+        await db.flush()
 
 
 async def provision_or_get(

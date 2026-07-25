@@ -41,6 +41,16 @@
     <a href="/jd-bank/ui/compose/new">🧱 Builder</a>
     <a href="/jd-bank/ui/queue">📋 Review queue</a>
     <a href="/jd-bank/ui/dashboard">📊 Dashboards</a>
+    {% if request.state.user and "admin" in request.state.user.role_names %}
+    <a href="/jd-bank/ui/admin/users">👤 Users</a>
+    {% endif %}
+    {% if request.state.user %}
+    <span style="margin-left:auto"></span>
+    <span class="meta" style="align-self:center">{{ request.state.user.display_name }}</span>
+    <form method="post" action="/jd-bank/ui/logout" style="display:inline">
+      <button type="submit">Sign out</button>
+    </form>
+    {% endif %}
   </nav>
   {% block content %}{% endblock %}
 </body>

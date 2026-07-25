@@ -1,0 +1,62 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — Users{% endblock %}
+{% block header %}👤 JD Bank — User management{% endblock %}
+{% block content %}
+
+{% if error %}
+<div class="panel flash error">{{ error }}</div>
+{% endif %}
+
+<div class="panel">
+  <h2>Users</h2>
+  <p class="meta">
+    Assign roles and enable/disable accounts. <strong>author</strong> uses the Builder;
+    <strong>reviewer</strong> approves in the review queue; <strong>admin</strong> manages
+    users. Disabling an account also signs it out everywhere.
+  </p>
+  {% if not users %}
+  <p class="meta">No users yet — they appear here after their first sign-in.</p>
+  {% endif %}
+  <table>
+    <thead>
+      <tr><th>User</th><th>Roles</th><th>Status</th><th>Last login</th></tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>
+          {{ u.display_name }}
+          <div class="meta">{{ u.cas_username }}</div>
+        </td>
+        <td>
+          <form method="post" action="/jd-bank/ui/admin/users/{{ u.id }}/roles">
+            {% for role in all_roles %}
+            <label style="display:inline-block; margin-right:.6rem">
+              <input type="checkbox" name="roles" value="{{ role.value }}"
+                     style="width:auto"{% if role in u.role_names %} checked{% endif %}>
+              {{ role.value }}
+            </label>
+            {% endfor %}
+            <button type="submit">Save roles</button>
+          </form>
+        </td>
+        <td>
+          <span class="badge {{ 'ok' if u.status.value == 'active' else 'blocked' }}">{{ u.status.value }}</span>
+          <form method="post" action="/jd-bank/ui/admin/users/{{ u.id }}/status" style="display:inline">
+            {% if u.status.value == 'active' %}
+            <input type="hidden" name="status" value="disabled">
+            <button type="submit">Disable</button>
+            {% else %}
+            <input type="hidden" name="status" value="active">
+            <button type="submit">Enable</button>
+            {% endif %}
+          </form>
+        </td>
+        <td class="meta">{{ u.last_login_at.strftime('%Y-%m-%d %H:%M') if u.last_login_at else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

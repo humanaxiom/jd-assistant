@@ -37,12 +37,12 @@ class Settings(BaseSettings):
     ]
     agent_model: str = "qwen2.5-coder:14b"
 
-    @field_validator("allowed_inference_hosts", mode="before")
+    @field_validator("allowed_inference_hosts", "bootstrap_admins", mode="before")
     @classmethod
-    def _split_allowed_hosts(cls, value: object) -> object:
-        """Accept a comma-separated string (the natural env form) as a host list."""
+    def _split_csv(cls, value: object) -> object:
+        """Accept a comma-separated string (the natural env form) as a list."""
         if isinstance(value, str):
-            return [host.strip() for host in value.split(",") if host.strip()]
+            return [item.strip() for item in value.split(",") if item.strip()]
         return value
 
     # The HARNESS agent-memory embedding model (`memory.graph.GraphMemory`'s
@@ -120,6 +120,11 @@ class Settings(BaseSettings):
     # NN #1); reviewer/admin must be granted by an admin. Tighten to a role that can do
     # nothing until granted by making this an unknown-until-granted flow (phase 3).
     default_new_user_role: str = "author"
+
+    # First-admin bootstrap: CAS usernames granted `admin` on every login (comma-sep env
+    # BOOTSTRAP_ADMINS). Solves "who promotes the first user" without a DB seed — set it
+    # to the deploying admin's SFU id, they log in, then manage everyone else in the UI.
+    bootstrap_admins: list[str] = []
 
     # Read-only dashboards (Phase 4.6c): where the committed archive-baseline artifact
     # is mounted INSIDE the api container. `docs/` lives at the repo root (NOT under

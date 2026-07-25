@@ -17,12 +17,13 @@ browser page); it is transparent in dev mode.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,15 +53,32 @@ class RedirectToLogin(Exception):  # noqa: N818 — control-flow signal, not an 
 
 async def require_ui_user(
     request: Request,
-    db: Annotated[AsyncSession, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> User:
     """UI dependency: the current user, or a redirect to ``/login`` if unauthenticated
     (browsers get a login page, not a 401 JSON body). Transparent in dev mode."""
     try:
-        return await resolve_user(request, db, settings)
+        return await resolve_user(request, settings)
     except NotAuthenticated as exc:
         raise RedirectToLogin(request.url.path) from exc
+
+
+def require_ui_roles(*roles: Role) -> Callable[..., Awaitable[User]]:
+    """UI RBAC gate: redirect an unauthenticated visitor to ``/login`` (via
+    :func:`require_ui_user`), then 403 an authenticated user who lacks every one of
+    ``roles``. Use as a router/route dependency, e.g. the review queue is
+    reviewer-or-admin only (NN #1)."""
+    allowed = frozenset(roles)
+
+    async def _dep(user: Annotated[User, Depends(require_ui_user)]) -> User:
+        if allowed and not (allowed & user.role_names):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"requires one of: {sorted(r.value for r in allowed)}",
+            )
+        return user
+
+    return _dep
 
 
 def _service_base(settings: Settings, request: Request) -> str:
@@ -177,6 +195,9 @@ async def cas_validate(
         cas_username=cas_username,
         default_role=Role(settings.default_new_user_role),
     )
+    # First-admin bootstrap: configured usernames are always granted admin on login.
+    if cas_username in settings.bootstrap_admins:
+        await user_service.ensure_role(db, user, Role.ADMIN)
     session = await session_service.create_session(
         db,
         user_id=user.id,
