@@ -410,10 +410,14 @@ def test_clone_prefills_the_guided_form(monkeypatch: pytest.MonkeyPatch) -> None
     lands the author on a scored, ready-to-edit draft."""
     from src.jd_bank.composer import ComposerAnswers, DutyAnswer
 
+    # A source that PREDATES the boilerplate (include_sfu_boilerplate=False) — like most
+    # archive JDs — must still clone with boilerplate ON, since cloning starts a new
+    # compliant JD (otherwise About-SFU/territorial/EE land "missing" on arrival).
     answers = ComposerAnswers(
         title="Cloned Analyst",
         position_summary=" ".join(["word"] * 120),
         duties=[DutyAnswer(statement="Manage the general ledger")],
+        include_sfu_boilerplate=False,
     )
 
     async def fake_load(session: object, sid: object) -> ComposerAnswers:
@@ -428,6 +432,10 @@ def test_clone_prefills_the_guided_form(monkeypatch: pytest.MonkeyPatch) -> None
     assert "Cloned Analyst" in html  # title prefilled into the form
     assert "Manage the general ledger" in html  # duty prefilled
     assert 'action="/jd-bank/ui/compose/new"' in html  # it IS the guided form
+    # Boilerplate defaulted ON despite the source lacking it: the checkbox is checked
+    # and the About-SFU/territorial "missing" guidance is absent.
+    assert "checkbox" in html and "checked" in html
+    assert "'About SFU' boilerplate is missing" not in html
 
 
 def test_clone_404_when_no_parsed_jd(monkeypatch: pytest.MonkeyPatch) -> None:

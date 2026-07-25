@@ -440,6 +440,13 @@ async def clone_draft(
     answers = await load_clone_answers(session, source_document_id)
     if answers is None:
         raise HTTPException(status_code=404, detail="no parsed JD to clone")
+    # Cloning STARTS A NEW compliant JD, so default SFU boilerplate ON regardless of
+    # whether the source carried it — most archive JDs predate the territorial-footer
+    # rollout, so inheriting the source's flag would land the author on a draft with
+    # About-SFU / territorial / EE / the Relationships header all "missing". The author
+    # can still uncheck it. (The source's own boilerplate presence is a fact about the
+    # archive JD, not what a new JD authored from it should default to.)
+    answers = answers.model_copy(update={"include_sfu_boilerplate": True})
     return templates.TemplateResponse(
         request,
         "compose_new.html",
