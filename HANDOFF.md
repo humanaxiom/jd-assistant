@@ -2,7 +2,26 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-07-24, later): PHASE 5 (the JD BUILDER) is FULLY ON `main` — all 7 tasks — plus
+**NEWEST (2026-07-24, latest): HR-126 `max_chars` RESOLVED + re-embedded — the last GPU-blocked
+follow-up is done.** [PR #80](https://github.com/humanaxiom/jd-assistant/pull/80) lands the prepared
+decision **(a) progressive backoff + (c) section-vector reliance**: keep `max_chars=10000`, add a
+registered **`max_chars_fallback: [8000, 6000, 4000]`** ladder (**HR-193**, `open`, unhashed) so the
+~11 dense-WJQ docs that exceed the model's 8,192-token window even after truncation get a best-effort
+*shorter* document vector instead of a gap. Loader enforces strictly-descending+positive rungs (not
+coupled to `max_chars`); the runner re-cuts on whole-line boundaries and keys the backed-off vector on
+the ORIGINAL `max_chars` sha so **skip-first idempotency is intact**. **Verified against the archive,
+not from memory:** `make gates` **1844 passing, 93.98%**; `make embed` over all 14,522 v2 parsed_jds on
+the now-free `aria-gb10-2` (full re-embed — the knob moved `embeddings.stamp`) → **`bad_requests` 11→0,
+`texts_backed_off` 11**, 14,404 docs + 36,174 sections embedded. `docs/embeddings/summary.json`
+refreshed with the measured counts. `rules_version` UNCHANGED (`embeddings.yaml` is unhashed — a
+retrieval-substrate knob, never the approval bar). Decision doc: `docs/embeddings/max-chars-decision.md`.
+> **Branch hygiene:** this is a CLEAN rebuild (`feat/hr126-fallback-v2`) off current `main` of the old
+> `feat/hr126-max-chars-fallback`. The old branch's two stale HANDOFF/plan progress commits (`run at
+> ~800/2458`) were DROPPED, not rebased — only the additive impl + register + decision-doc delta was
+> kept, and the register merge preserved BOTH HR-193 (this) and HR-194 (CUPE). The old branch and its
+> reserved-HR-193 note in the prior handoff are now superseded.
+
+**PRIOR (2026-07-24, later): PHASE 5 (the JD BUILDER) is FULLY ON `main` — all 7 tasks — plus
 a UI nav, an explicit CUPE scope decision, and a merge-topology clean-up.** A hiring manager /
 recruiter can now **find or compose a JD, validate it live against SFU standards, get an LLM assist
 on the weakest section, export the official SFU `.docx`, and submit it into the HR review queue** —
@@ -50,10 +69,10 @@ validator (NN #3), JDFN-scoped (HR-143/HR-194). Latest `make gates`: **1830 pass
   Transactional delete → **queue 1,877 → 1,801** (== the full run's JDFN drafts), confirmed live at
   `:25800`. The 76 now-orphaned `clusters` rows (seed leftovers, no FK/role impact) were then also
   deleted, so `clusters` == `canonical_jds` == **1,801** (one draft per cluster; `audit_log` retained).
-- **HR-126 (`max_chars`/dense-WJQ embedding)** — its fix is on `feat/hr126-max-chars-fallback`, based on
-  pre-#64 `main` (same stale-base trap). Rebase onto current `main`, `make embed` (GPU on `aria-gb10-2`
-  is free), re-measure (`bad_requests`→0), merge. **NOTE:** that branch reserves **HR-193**; the CUPE
-  work took **HR-194** to avoid the collision, so HR-193 is still free for the max_chars fallback ladder.
+- ~~**HR-126 (`max_chars`/dense-WJQ embedding)**~~ **DONE (2026-07-24) — [PR #80](https://github.com/humanaxiom/jd-assistant/pull/80).**
+  Rebuilt clean off current `main` (`feat/hr126-fallback-v2`, NOT the stale-base `feat/hr126-max-chars-fallback`),
+  `make embed` re-measured on the freed GPU: **`bad_requests` 11→0, 11 backed off**. HR-193 is now FILLED
+  (the fallback ladder); HR-194 (CUPE) preserved. See the NEWEST block above.
 - **Phase-5 UI follow-ups** — wire search/clone + assist + export buttons into the Builder UI (the JSON
   routes exist; the guided form does not call them yet); embed published canonicals so 5.4 search covers
   them (not just the archive); structured per-field editors; **verify the SFU footer wording** before any
