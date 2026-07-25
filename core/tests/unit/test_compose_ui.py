@@ -141,6 +141,16 @@ def test_section_table_explains_why_a_section_needs_attention() -> None:
     assert "the template asks for" in sections_block
 
 
+def test_section_rows_link_down_to_their_form_fields() -> None:
+    """Each section in the panel links to its fields in the form (anchor jump), so an
+    author can go straight from a flagged section to where they fix it."""
+    html = _client().post("/jd-bank/ui/compose/new", data={"title": "Analyst"}).text
+    # The form heading carries the anchor target...
+    assert 'id="section-position_summary"' in html
+    # ...and the Sections panel links to it.
+    assert 'href="#section-position_summary"' in html
+
+
 def test_author_text_is_escaped() -> None:
     resp = _client().post(
         "/jd-bank/ui/compose/new",

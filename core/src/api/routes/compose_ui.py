@@ -237,9 +237,14 @@ def _context(
     answers_json: str = "",
     suggestion: SummarySuggestion | None = None,
 ) -> dict[str, Any]:
+    groups = _grouped_questions(values)
     return {
         "request": request,
-        "groups": _grouped_questions(values),
+        "groups": groups,
+        # Section values that have a form anchor below, so the Sections panel only
+        # links a section the author can actually jump to (the cross-cutting `general`
+        # bucket and pure-boilerplate `about_sfu` have no editable fields).
+        "form_sections": {group["section"] for group in groups},
         # The bargaining units the Builder authors — rulebook DATA, not a hardcoded
         # tuple (CLAUDE.md §2). CUPE/WJQ is deliberately absent (HR-194/HR-143): no
         # ratified CUPE bar, so nothing here can score it.

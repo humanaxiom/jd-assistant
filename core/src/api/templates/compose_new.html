@@ -97,7 +97,11 @@
       {% for section in assessment.sections %}
       <tr>
         <td style="vertical-align:top">
+          {% if section.section in form_sections %}
+          <a href="#section-{{ section.section }}" title="Jump to this section in the form">{{ section.label }} ↓</a>
+          {% else %}
           {{ section.label }}
+          {% endif %}
           {% if section.issues %}
           <ul class="meta" style="margin:.35rem 0 0 1rem">
             {% for issue in section.issues %}
@@ -144,7 +148,7 @@
 <div class="panel">
   <form method="post" action="/jd-bank/ui/compose/new">
     {% for group in groups %}
-    <h3>{{ group.label }}</h3>
+    <h3 id="section-{{ group.section }}">{{ group.label }}</h3>
     {% for q in group.questions %}
       {% if q.kind == "checkbox" %}
       <label>
