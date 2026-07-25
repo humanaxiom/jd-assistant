@@ -379,7 +379,11 @@ The register enforces the record: a `ratified` decision **must** carry `decided_
 - **3.2b** ✅ **MERGED** (PR #24) — embedding service (Ollama client + Neo4j upsert). Doc + section
   level; model-stamped. New rule file `embeddings.yaml` (HR-124..HR-130, all `open`, all
   `our_invention`). Every default **measured** against live endpoint + all 14,522 parsed JDs:
-  max_chars 10,000 (truncates nothing), min_section_chars 40, title_excluded. Deterministic +
+  max_chars 10,000 (measured-truncates-nothing **at 3.2b**; the v2/post-WJQ corpus later falsified
+  this — 1,400 docs exceed 10,000 and ~11 exceed the model's token window even truncated. Resolved by
+  HR-126/HR-193: keep 10,000 + add a `max_chars_fallback` ladder that rescues the ~11 to a best-effort
+  shorter vector. Re-embedded 2026-07-24: **`bad_requests` 11→0, 11 backed off**. See
+  `docs/embeddings/max-chars-decision.md`), min_section_chars 40, title_excluded. Deterministic +
   content-keyed + idempotent; runner reconciles/prunes stale vectors. **ADR-003 live-test guard:**
   `make gates` reaches `aria-gb10-2`; CI never will. Live tests opt-in, local-only. **Gates: 1256
   passing, 95.55% coverage.**

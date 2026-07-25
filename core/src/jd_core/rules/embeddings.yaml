@@ -53,10 +53,25 @@ dimensions: 768
 # The server returns a hard HTTP 400 ("the input length exceeds the context length")
 # on an over-long input — it NEVER silently truncates. The limit is 8,192 tokens; real
 # JD text runs ~1.5 chars/token (whitespace/form-heavy), so the practical ceiling is
-# ~12,000 chars. MEASURED over all 14,522 parsed JDs' serialized length: median 2,559 ·
-# p99 5,993 · p99.9 8,870 · max 8,987 — ZERO exceed 10,000. So this truncates nothing
-# real in the archive today, while staying with real margin under the server's 400.
+# ~12,000 chars. RE-MEASURED over all 14,522 v2 (post-WJQ) parsed JDs: median 3,909 ·
+# p99 11,816 · p99.9 12,825 · max 13,486 — 1,400 (~9.6%) exceed 10,000 and truncate
+# (whole-unit). The original "truncates nothing" basis is falsified; 10,000 is KEPT so
+# the 1,389 truncated-but-servable docs keep their fuller vector, and `max_chars_fallback`
+# (below) rescues the ~11 denser-than-the-window ones. See HR-126 + HR-193 and
+# `docs/embeddings/max-chars-decision.md`.
 max_chars: 10000
+
+# When the `max_chars`-truncated text STILL 400s (dense WJQ text over the model's
+# 8,192-token window even after truncation — ~11 docs), the runner re-cuts it to each
+# of these caps in turn and embeds the first that the server accepts, so the document
+# gets a best-effort (shorter) vector instead of NONE. The node's identity stays keyed
+# on the `max_chars` text, so skip-first idempotency is unaffected (a re-run over an
+# unchanged corpus still embeds nothing). Empty list = the pre-HR-193 behavior: an
+# over-long text is written off and counted `bad_requests`. Strictly descending and
+# positive (loader-enforced; NOT coupled to `max_chars`). Values chosen token-safe: 8,000 chars ≈ ~7.3k
+# tokens even at the densest measured ~1.1 chars/token, under the 8,192 window with
+# margin; the 6,000/4,000 rungs are backstops for anything denser still. HR-193 (open).
+max_chars_fallback: [8000, 6000, 4000]
 
 # A section (of `section_vectors`, below) shorter than this gets NO embedding at all —
 # no unit, no JDSection node — rather than a near-empty vector cosine similarity

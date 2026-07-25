@@ -191,6 +191,38 @@ def _join_truncated(units: list[str], *, max_chars: int) -> SerializedText:
     )
 
 
+def retruncate_within(text: str, max_chars: int) -> str:
+    """Re-cut an already-serialized (``\\n``-joined) ``text`` to ``max_chars`` by
+    dropping whole trailing LINES — the last-resort fallback the embedding runner
+    reaches for when :func:`serialize_document`'s own ``max_chars`` output still 400s
+    (dense text over the model's token window; HR-193).
+
+    Cuts on ``\\n`` because that is the delimiter :func:`_join_truncated` joins units
+    with, so for the single-line units that make up almost every JD (one duty, one
+    qualification) a line boundary *is* the unit boundary — the same whole-unit
+    guarantee the primary path gives, reached the same way. The one exception is a
+    unit that itself contains a newline (a multi-paragraph position summary): this
+    may cut such a unit internally. That is an accepted limit of a deliberately
+    best-effort fallback for text the model's window physically cannot hold — the
+    primary ``max_chars`` path never does this, and this path only ever runs for the
+    ~11 densest documents in the archive.
+
+    Returns ``""`` when not one whole line fits under ``max_chars`` (the caller must
+    treat that as "no rung fit", never embed the empty string).
+    """
+    if len(text) <= max_chars:
+        return text
+    kept: list[str] = []
+    length = 0
+    for line in text.split("\n"):
+        addition = len(line) + (1 if kept else 0)  # +1 for the joining "\n"
+        if length + addition > max_chars:
+            break
+        kept.append(line)
+        length += addition
+    return "\n".join(kept)
+
+
 def serialize_document(jd: SFUJobDescription, rules: Embeddings) -> SerializedText:
     """The whole-document text :attr:`~src.jd_core.rules.Embeddings.document_sections`
     describes, in template order.

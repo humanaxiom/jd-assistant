@@ -3759,6 +3759,13 @@ decisions:
       TIME so one over-long JD costs only itself, not the up-to-63 batched with it), and
       records `bad_requests` — but the over-long JD then silently has no document vector,
       so this is not a free lunch. See HANDOFF "post-run" + `docs/embeddings/summary.json`.
+      ✅ RESOLVED 2026-07-22 (design, pre-re-embed): `max_chars` is KEPT at 10,000 and the
+      decision is (a)+(c) — a `max_chars_fallback` ladder (HR-193) rescues the ~11
+      over-window docs into best-effort shorter vectors, and the doc vector is treated as
+      best-effort for the long tail (per-section vectors carry the role signal). (b) and
+      (d) rejected. Full rationale + the re-embed/verify command:
+      `docs/embeddings/max-chars-decision.md`. The re-embed itself waits on `aria-gb10-2`
+      (busy with the full canonical run) and every count must be re-measured after.
     status: open
 
   - id: HR-127
@@ -5584,6 +5591,51 @@ decisions:
       the Builder and let a user author a CUPE JD that the validator then mis-scores on the
       JDFN bar — do not, until a CUPE bar exists. Pinned by mutation (`test_compose_ui.py`:
       the dropdown equals this list and excludes `cupe`).
+    status: open
+
+  # ── Embedding over-length fallback ladder (HR-126 follow-up). ──
+  - id: HR-193
+    question: >-
+      When a JD's serialized text is still too long for the embedding model AFTER
+      `max_chars` truncation, what shorter lengths do we retry before giving up?
+    config:
+      file: embeddings.yaml
+      path: embeddings.max_chars_fallback
+    current_default: [8000, 6000, 4000]
+    provenance: our_invention
+    why_it_matters: >-
+      This is the resolution of HR-126's open design decision (see
+      `docs/embeddings/max-chars-decision.md`). Re-measured over the v2 corpus, ~11 dense
+      WJQ documents exceed the model's 8,192-token window even after `max_chars=10000`
+      truncation, so the server 400s and — before this knob — they got NO document vector
+      at all (`bad_requests=11`). The runner now re-cuts such a text (on whole-line
+      boundaries, mirroring the primary path's whole-unit truncation) to each of these
+      caps in turn and embeds the first the server accepts, so the document gets a
+      best-effort SHORTER vector rather than a gap. The rungs are token-safe: 8,000 chars
+      ≈ ~7.3k tokens even at the densest measured ~1.1 chars/token (under the 8,192 window
+      with margin); 6,000/4,000 are backstops. `max_chars` itself is deliberately KEPT at
+      10,000 (HR-126) so the 1,389 truncated-but-servable docs keep their fuller vector —
+      this ladder only ever runs for the tail the window physically cannot hold. The
+      whole-document vector is a retrieval/dedup substrate, never the approval bar, and
+      for these long docs the per-section vectors (duties/summary/quals, HR-130) carry the
+      role signal in full regardless (option (a)+(c) in the decision doc; chunk-and-pool
+      (b) rejected as disproportionate, lowering `max_chars` (d) as strictly worse).
+    impact_if_changed: >-
+      On the register but NOT in `rules_version` (embeddings.yaml is unhashed) — it does
+      move `embeddings.stamp`, so changing it forces a full re-embed, MERGEd in place.
+      Empty list `[]` restores the exact pre-HR-193 behavior: an over-window text is
+      written off to `bad_requests` with no vector. The loader REJECTS a ladder that does
+      not strictly descend (a rung ≥ its predecessor buys nothing) or that contains a
+      non-positive rung — but it is deliberately NOT coupled to `max_chars` (the two are
+      independent knobs; a rung ≥ `max_chars` is harmlessly skipped at runtime). NOTE the
+      one accepted imprecision: a backed-off document's vector is memoised under its
+      ORIGINAL `max_chars` text_sha256, which KEEPS skip-first idempotent (an unchanged
+      corpus re-embeds nothing — the ~11 are skipped like every other node), at the price
+      that for those ~11 nodes the stored sha is the text we intended to embed, not the
+      shorter bytes we actually embedded (`truncated=True` flags them partial). Bounded
+      and deliberate, not a bug. Pinned by mutation in `test_embeddings_rules.py` (ladder
+      moves the stamp; descend/positive validators) and the runner's backoff integration
+      tests, incl. the idempotent-second-run assertion (`test_embeddings_store.py`).
     status: open
 
 # ═════════════════════════════════════════════════════════════════════════════
