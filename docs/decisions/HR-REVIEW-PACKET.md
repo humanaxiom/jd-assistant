@@ -1,9 +1,10 @@
 # JD Bank — Decisions for SFU HR
 
 **Status:** awaiting HR review. **Nothing in this system has been ratified by SFU.**
-**Date:** 2026-07-13 · **Rulebook under review:** `jd_rules_sfu_v4+8c004c4dadd1`
+**Drafted:** 2026-07-13 · **Revised:** 2026-07-24 · **Rulebook under review:** `jd_rules_sfu_v4+90af5e27dc83`
 **Evidence:** every number below is measured against all **14,565** JDs in the SFU archive
-(`docs/baseline/README.md`).
+(`docs/baseline/README.md`, regenerated at the rulebook version above; the current-practice
+figures are unchanged from the first draft).
 
 > **Before you read on:** the first version of this packet was written against an earlier rulebook.
 > Running it against your archive exposed **three defects in our own rules** — one of which could
@@ -19,14 +20,14 @@ We built a tool that reads a job description and decides **whether an HR reviewe
 it**. It never approves anything itself — a human always decides. But it can *block* the approve
 button, and it scores every JD out of 100.
 
-To do that, we had to pick **192 numbers, word lists and rules** across the whole system. Only **19**
+To do that, we had to pick **194 numbers, word lists and rules** across the whole system. Only **19**
 come straight from SFU's own JD Toolkit; **72** are calibrated from the system this one replaces; and
-**101 we invented**, because the Toolkit is silent. Many of the invented ones govern the pipeline's
+**103 we invented**, because the Toolkit is silent. Many of the invented ones govern the pipeline's
 machinery (deduplication, clustering, embeddings), but a core set silently decide which of your job
 descriptions are acceptable — and those are what this document puts to you.
 
 We have run all of them against your entire archive. **This document asks you to ratify or change
-the nine that actually matter.** The other 183 are recorded in
+the ten that actually matter.** The other 184 are recorded in
 [`HR-DECISION-REGISTER.md`](HR-DECISION-REGISTER.md) and can wait — the archive shows they change
 almost nothing.
 
@@ -50,7 +51,9 @@ That is a healthy result. Nearly eight in ten of your current job descriptions w
 through; the rest need edits, not rewrites. **No job description in your current corpus scores an
 F.**
 
-**But three things in it still need your ruling, and you need to know before you sign anything.**
+**But four things in it still need your ruling, and you need to know before you sign anything** —
+including one you would not guess from the headline: **the tool only *scores* ~70% of your archive
+in the first place** (Decision 8).
 
 ---
 
@@ -260,6 +263,41 @@ penalty went up (8,593 job descriptions); none went down. Your median rose from 
 
 ---
 
+## Decision 8 — ⚠️ Scope: the tool does not **score or author ~30% of your job descriptions**
+
+Everything above is measured on the job descriptions written on SFU's **JDFN** template — the one
+APSA, APEX and Polytechnic roles use. **CUPE roles use a different form entirely — the Weighted Job
+Questionnaire (WJQ)** — and they are **4,300 of your 14,565 files (29.5%)**. The tool reads them, but
+it **does not score them and the Builder will not author them.**
+
+This is deliberate, not an oversight — but it is a scope decision, and it is yours to confirm:
+
+- The whole quality bar in this document (every gate, word list and threshold) was built from **SFU's
+  JDFN standard**. There is **no CUPE quality standard encoded** — the Toolkit we worked from does not
+  define one for the WJQ form.
+- So scoring a CUPE job description against these JDFN rules would be a **category error** — it would
+  hand you a number that looks like a quality grade but is really "how much does this CUPE role
+  resemble a JDFN one." That is worse than no number. It is the same reason CUPE JDs are held out of
+  the 874 current-practice figures above.
+- Rather than bury that, we made the served list a single visible setting (`apsa`, `apex`, `poly`).
+  Turning CUPE on there without a CUPE standard behind it would let someone author a CUPE JD the tool
+  then silently mis-scores — so the setting is **off on purpose.**
+
+> **What we need from you — pick one:**
+> - **(a) [we recommend, for now]** Confirm the Bank is **JDFN-only**. CUPE JDs remain read/searchable
+>   but are neither scored nor authored, and this document's numbers cover ~70% of the archive **by
+>   design**, honestly labelled.
+> - **(b)** Commission a **CUPE quality bar** — a WJQ ruleset with its own thresholds and sign-off.
+>   That is a **separate project**, not a setting: it needs SFU to define what "good" means for a WJQ
+>   role before we can build an oracle for it. Once that exists, CUPE switches on with one line here.
+>
+> Either way, you should decide it **on purpose** rather than inherit "the Bank ignores a third of SFU
+> roles" as an accident of which template we started with.
+
+*(Register: HR-143, HR-194)*
+
+---
+
 ## Summary — where each decision stands
 
 **Three were our own defects. We fixed them and re-measured before bringing you this packet.**
@@ -270,7 +308,7 @@ penalty went up (8,593 job descriptions); none went down. Your median rose from 
 | 7 | "How and why" rule could never *not* fire | ✅ **Fixed** — retired; median 77 → 79 | 0 |
 | 5 | Our era model conflated two changeovers | ✅ **Fixed** — 4th "current" era added | *(was a 7× distortion)* |
 
-**Six need your ruling:**
+**Seven need your ruling:**
 
 | # | Decision | Our recommendation | Blocks today |
 |---|---|---|---|
@@ -280,6 +318,7 @@ penalty went up (8,593 job descriptions); none went down. Your median rose from 
 | 3 | "No placeholders" blocks with **no appeal** | **Make it waivable** | 0 now, 29% of archive |
 | 4 | Territorial/equity footer blocks 94% of archive | **Auto-insert the boilerplate** instead of penalising | 10 |
 | 6 | Score floor 60 / grade C / severity high | **Ratify all three** | **2** |
+| 8 | Scope: the tool ignores ~30% of the archive (CUPE/WJQ) | **Confirm JDFN-only** — or commission a CUPE bar (a separate project) | n/a — 4,300 files unscored |
 
 ---
 
@@ -294,5 +333,5 @@ in [`POST-REVIEW-CHANGE-PLAN.md`](POST-REVIEW-CHANGE-PLAN.md). A plain-language,
 of these decisions — no code, written to be read on its own — is in
 [`HR-DECISION-MATRIX.md`](HR-DECISION-MATRIX.md).
 
-**Until you rule, we change nothing.** Every one of the 192 decisions stays flagged `open`, and
-the system's own build fails if anyone quietly edits one without recording it.
+**Until you rule, we change nothing.** All **194** decisions remain unratified (none carries a
+ratification), and the system's own build fails if anyone quietly edits one without recording it.
