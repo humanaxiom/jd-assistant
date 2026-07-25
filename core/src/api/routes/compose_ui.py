@@ -29,27 +29,33 @@ import re
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
+from neo4j import AsyncDriver
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.main import get_session
-from src.api.routes.compose import get_chat_client
+from src.api.routes.compose import get_chat_client, get_embed_client, get_neo4j_driver
 from src.jd_bank.composer import (
     ComposerAnswers,
     DraftAssessment,
     DutyAnswer,
     ModifiedQual,
+    SearchHit,
     SummarySuggestion,
     assemble_jd,
     assess_draft,
+    load_clone_answers,
     load_question_set,
+    search_similar_jds,
     submit_composed_draft,
     suggest_summary,
 )
+from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.llm.client import ChatClient
 from src.jd_core.models.quality import SFUSection
 from src.jd_core.rules import get_rules
@@ -151,6 +157,40 @@ def _answers_from_form(values: dict[str, str]) -> ComposerAnswers:
             data[target] = quals
     data["include_sfu_boilerplate"] = values.get("include_sfu_boilerplate") == "on"
     return ComposerAnswers(**data)
+
+
+def _values_from_answers(answers: ComposerAnswers) -> dict[str, str]:
+    """The form-field view of ``ComposerAnswers`` (the inverse of
+    :func:`_answers_from_form`), so the guided form repopulates when the Builder is
+    cloned from an existing JD. List sections render one item per line. The known MVP
+    losses are the same the form already has: duty verbs/allocations and KSA modifiers
+    are not surfaced as fields (the faithful copy still rides in the hidden
+    ``answers_json`` — see :func:`clone_draft`)."""
+    values: dict[str, str] = {}
+    for target, scalar in (
+        ("title", answers.title),
+        ("department", answers.department),
+        ("employee_group", answers.employee_group),
+        ("position_summary", answers.position_summary),
+        ("supervisory", answers.supervisory),
+        ("additional_context", answers.additional_context),
+    ):
+        if scalar:
+            values[target] = scalar
+    values["duties"] = "\n".join(duty.statement for duty in answers.duties)
+    for target, items in (
+        ("decision_making", answers.decision_making),
+        ("problem_solving", answers.problem_solving),
+        ("internal", answers.internal),
+        ("external", answers.external),
+        ("education", answers.education),
+        ("experience", answers.experience),
+        ("abilities", answers.abilities),
+    ):
+        values[target] = "\n".join(items)
+    values["knowledge"] = "\n".join(qual.text for qual in answers.knowledge)
+    values["skills"] = "\n".join(qual.text for qual in answers.skills)
+    return values
 
 
 def _grouped_questions(values: dict[str, str]) -> list[dict[str, Any]]:
@@ -312,6 +352,65 @@ async def assist_draft(
             boilerplate_checked=checked,
             answers_json=applied.model_dump_json(),
             suggestion=suggestion,
+        ),
+    )
+
+
+@router.get("/search", response_class=HTMLResponse)
+async def search_page(
+    request: Request,
+    q: str = "",
+    embed_client: EmbedClient = Depends(get_embed_client),
+    neo4j_driver: AsyncDriver = Depends(get_neo4j_driver),
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """Semantic search over the embedded archive for a JD to start from (5.4). Renders
+    the hits, each linking to :func:`clone_draft`. An empty query just shows the search
+    box — no embed/vector round-trip. JDFN-scoped (CUPE/WJQ excluded, HR-143); the
+    injected embed + Neo4j clients are closed after use."""
+    query = q.strip()
+    hits: list[SearchHit] = []
+    if query:
+        try:
+            hits = await search_similar_jds(
+                query,
+                embed_client=embed_client,
+                neo4j_driver=neo4j_driver,
+                session=session,
+            )
+        finally:
+            await embed_client.close()
+            await neo4j_driver.close()
+    return templates.TemplateResponse(
+        request,
+        "compose_search.html",
+        {"request": request, "query": query, "hits": hits, "message": None},
+    )
+
+
+@router.get("/clone/{source_document_id}", response_class=HTMLResponse)
+async def clone_draft(
+    request: Request,
+    source_document_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """Pre-fill the guided Builder from an existing archive JD (5.4). Lands the author
+    on a scored, ready-to-edit draft; the faithful clone rides in ``answers_json`` so
+    submit/export keep verbs/modifiers the lossy form view drops. 404 (HTML) if the
+    document has no parsed JD to clone. Read-only — nothing persists (NN #1)."""
+    answers = await load_clone_answers(session, source_document_id)
+    if answers is None:
+        raise HTTPException(status_code=404, detail="no parsed JD to clone")
+    return templates.TemplateResponse(
+        request,
+        "compose_new.html",
+        _context(
+            request,
+            values=_values_from_answers(answers),
+            assessment=assess_draft(assemble_jd(answers)),
+            error=None,
+            boilerplate_checked=answers.include_sfu_boilerplate,
+            answers_json=answers.model_dump_json(),
         ),
     )
 

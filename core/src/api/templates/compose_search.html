@@ -1,0 +1,50 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — start from an existing JD{% endblock %}
+{% block header %}🔎 JD Bank — start from an existing JD{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <h2>Find a JD to start from</h2>
+  <p class="meta">
+    Semantic search over the SFU archive (JDFN scope — CUPE/WJQ excluded, HR-143).
+    Pick a close match to pre-fill the Builder, then edit and re-check. Nothing is
+    published; cloning just seeds a draft.
+  </p>
+  <form method="get" action="/jd-bank/ui/compose/search">
+    <label for="q">Describe the role</label>
+    <input id="q" name="q" value="{{ query }}" placeholder="e.g. financial analyst, research coordinator">
+    <button type="submit">Search</button>
+  </form>
+</div>
+
+{% if message %}
+<div class="panel flash error">{{ message }}</div>
+{% endif %}
+
+{% if query %}
+<div class="panel">
+  <h2>Matches for “{{ query }}”</h2>
+  {% if hits %}
+  <table>
+    <thead>
+      <tr><th>Role</th><th>Group</th><th>Similarity</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for hit in hits %}
+      <tr>
+        <td>{{ hit.title }}</td>
+        <td>{{ hit.employee_group or "—" }}</td>
+        <td>{{ (hit.score * 100) | round(0, 'floor') | int }}%</td>
+        <td><a href="/jd-bank/ui/compose/clone/{{ hit.source_document_id }}">Start from this →</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="meta">No JDFN matches — try different words, or
+    <a href="/jd-bank/ui/compose/new">start from a blank Builder</a>.</p>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

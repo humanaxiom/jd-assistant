@@ -269,3 +269,121 @@ def test_assist_with_invalid_answers_rerenders_and_closes_client() -> None:
     assert resp.status_code == 200
     assert "Summary assist" not in resp.text
     assert fake.closed is True
+
+
+# ── 5.8c — search + clone (start from an existing JD) ─────────────────────────
+
+
+class _FakeClose:
+    def __init__(self) -> None:
+        self.closed = False
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+def _override_session_object() -> None:
+    async def override() -> AsyncIterator[object]:
+        yield object()
+
+    app.dependency_overrides[get_session] = override
+
+
+def test_the_builder_offers_a_search_box() -> None:
+    """The Builder links to semantic search so an author can start from an existing
+    JD instead of a blank form (5.4 wired in)."""
+    html = _client().get("/jd-bank/ui/compose/new").text
+    assert 'action="/jd-bank/ui/compose/search"' in html
+    assert 'name="q"' in html
+
+
+def test_search_renders_hits_with_clone_links(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The UI search route transports the (faked) hits into a results page, each
+    linking to the clone route, and closes the embed + Neo4j clients it built."""
+    from src.jd_bank.composer import SearchHit
+
+    hit = SearchHit(
+        source_document_id=uuid.uuid4(),
+        title="Financial Analyst",
+        employee_group="apsa",
+        score=0.91,
+    )
+
+    async def fake_search(query: str, **kwargs: object) -> list[SearchHit]:
+        return [hit]
+
+    monkeypatch.setattr(compose_ui, "search_similar_jds", fake_search)
+    embed, neo = _FakeClose(), _FakeClose()
+    app.dependency_overrides[compose.get_embed_client] = lambda: embed
+    app.dependency_overrides[compose.get_neo4j_driver] = lambda: neo
+    _override_session_object()
+
+    resp = _client().get("/jd-bank/ui/compose/search?q=analyst")
+    assert resp.status_code == 200
+    html = resp.text
+    assert "Financial Analyst" in html
+    assert f"/jd-bank/ui/compose/clone/{hit.source_document_id}" in html
+    assert embed.closed is True
+    assert neo.closed is True
+
+
+def test_search_without_a_query_prompts_and_does_not_search(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An empty query shows the search page without calling the embed/vector stack —
+    no wasted round-trip, no crash."""
+    called = False
+
+    async def fake_search(query: str, **kwargs: object) -> list[object]:
+        nonlocal called
+        called = True
+        return []
+
+    monkeypatch.setattr(compose_ui, "search_similar_jds", fake_search)
+    app.dependency_overrides[compose.get_embed_client] = lambda: _FakeClose()
+    app.dependency_overrides[compose.get_neo4j_driver] = lambda: _FakeClose()
+    _override_session_object()
+
+    resp = _client().get("/jd-bank/ui/compose/search?q=")
+    assert resp.status_code == 200
+    assert called is False
+
+
+def test_clone_prefills_the_guided_form(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cloning an existing JD pre-fills the guided form (title + duties visible) and
+    lands the author on a scored, ready-to-edit draft."""
+    from src.jd_bank.composer import ComposerAnswers, DutyAnswer
+
+    answers = ComposerAnswers(
+        title="Cloned Analyst",
+        position_summary=" ".join(["word"] * 120),
+        duties=[DutyAnswer(statement="Manage the general ledger")],
+    )
+
+    async def fake_load(session: object, sid: object) -> ComposerAnswers:
+        return answers
+
+    monkeypatch.setattr(compose_ui, "load_clone_answers", fake_load)
+    _override_session_object()
+
+    resp = _client().get(f"/jd-bank/ui/compose/clone/{uuid.uuid4()}")
+    assert resp.status_code == 200
+    html = resp.text
+    assert "Cloned Analyst" in html  # title prefilled into the form
+    assert "Manage the general ledger" in html  # duty prefilled
+    assert 'action="/jd-bank/ui/compose/new"' in html  # it IS the guided form
+
+
+def test_clone_404_when_no_parsed_jd(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A source document with no parsed JD to clone returns 404, not 500."""
+
+    async def fake_load(session: object, sid: object) -> None:
+        return None
+
+    monkeypatch.setattr(compose_ui, "load_clone_answers", fake_load)
+    _override_session_object()
+
+    resp = _client().get(f"/jd-bank/ui/compose/clone/{uuid.uuid4()}")
+    assert resp.status_code == 404

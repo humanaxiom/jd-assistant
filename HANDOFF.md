@@ -2,7 +2,39 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-07-24, latest): HR-126 `max_chars` RESOLVED + re-embedded — the last GPU-blocked
+**NEWEST (2026-07-24, latest+1): PHASE-5 BUILDER UI FOLLOW-UPS WIRED (5.8a/b/c) — the guided form
+now calls the search/assist/export routes it only had JSON endpoints for.** Three dependency-free UI
+wrappers on `main` (each TDD'd, full `make gates` green, merged locally — GitHub Actions still
+billing-blocked, so these are **local commits pushed to `origin/main`, no PRs**):
+- **5.8a Export .docx** (`a9b85de`) — `POST /jd-bank/ui/compose/export` rebuilds the draft from the
+  same hidden `answers_json` the check step writes and streams the official SFU `.docx`; button added
+  to the live-compliance panel. Pure rendering, nothing published (NN #1); a tampered field re-renders
+  instead of 500.
+- **5.8b LLM summary-assist** (`5ad1cc6`) — `POST /jd-bank/ui/compose/assist`, reached by an
+  "✨ Improve summary" submit in the guided form (a `formaction` override carrying all in-progress
+  fields). Asks the self-hosted, egress-guarded LLM (NN #5) for a better Position Summary, **applies it
+  to the textarea for the author to review**, shows an assist panel (word count · grounding ·
+  model/prompt provenance) + the validator's fresh verdict on the draft-with-suggestion (oracle, NN #3),
+  and carries the applied summary in `answers_json`. Decision-support only, nothing auto-applies/publishes
+  (NN #1); injected client always closed (happy AND error paths).
+- **5.8c Search + clone** (this commit) — `GET /jd-bank/ui/compose/search?q=` renders semantic-search
+  hits (JDFN-scoped, CUPE/WJQ excluded HR-143) each linking to `GET /jd-bank/ui/compose/clone/{sid}`,
+  which pre-fills the guided form from an existing archive JD (faithful copy in `answers_json`; the lossy
+  form view drops duty verbs/KSA modifiers, as the form already does) and lands the author on a scored
+  draft. 404 (HTML) when a document has no parsed JD. Reuses the `compose.get_embed_client` /
+  `get_neo4j_driver` deps (tests override them — no live infra); embed + Neo4j clients closed after use.
+
+Latest `make gates`: **1856 passing, 94.02%.** No rulebook/knob change; `rules_version` untouched
+(pure transport over existing composer functions). **Still open in Phase-5 UI:** embed *published
+canonicals* into the vector index so 5.4 search covers them (not just the archive — needs a small new
+write path; `docs/tasks/phase-5-jd-builder.md`); structured per-field editors (duty %/KSA modifiers) in
+both the Builder and the review-queue edit view; verify the SFU footer wording before any external
+export (Phase-6 sign-off, `boilerplate.yaml`).
+> **Workflow note (billing block):** GitHub Actions cannot start (account payment/spending-limit), so
+> this session merges to `main` **locally per ADR-006** (`make gates` is CI-identical) and pushes `main`
+> directly — `git push` does not need Actions. Re-run CI on `main` once billing is restored.
+
+**PRIOR (2026-07-24, latest): HR-126 `max_chars` RESOLVED + re-embedded — the last GPU-blocked
 follow-up is done.** [PR #80](https://github.com/humanaxiom/jd-assistant/pull/80) lands the prepared
 decision **(a) progressive backoff + (c) section-vector reliance**: keep `max_chars=10000`, add a
 registered **`max_chars_fallback: [8000, 6000, 4000]`** ladder (**HR-193**, `open`, unhashed) so the
