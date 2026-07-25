@@ -37,16 +37,20 @@ from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.main import get_session
+from src.api.routes.compose import get_chat_client
 from src.jd_bank.composer import (
     ComposerAnswers,
     DraftAssessment,
     DutyAnswer,
     ModifiedQual,
+    SummarySuggestion,
     assemble_jd,
     assess_draft,
     load_question_set,
     submit_composed_draft,
+    suggest_summary,
 )
+from src.jd_bank.llm.client import ChatClient
 from src.jd_core.models.quality import SFUSection
 from src.jd_core.rules import get_rules
 from src.jd_export import render_sfu_docx
@@ -182,6 +186,7 @@ def _context(
     error: str | None,
     boilerplate_checked: bool,
     answers_json: str = "",
+    suggestion: SummarySuggestion | None = None,
 ) -> dict[str, Any]:
     return {
         "request": request,
@@ -198,6 +203,9 @@ def _context(
         # "Submit for review" form can carry them in one hidden field and /submit
         # rebuilds the identical draft (no fragile per-field round-trip).
         "answers_json": answers_json,
+        # An LLM Position-Summary suggestion (5.5), when the author asked for one — the
+        # author reviews it in the prefilled textarea before accepting (NN #1).
+        "suggestion": suggestion,
     }
 
 
@@ -249,6 +257,61 @@ async def check_draft(request: Request) -> HTMLResponse:
             error=None,
             boilerplate_checked=checked,
             answers_json=answers.model_dump_json(),
+        ),
+    )
+
+
+@router.post("/assist", response_class=HTMLResponse)
+async def assist_draft(
+    request: Request,
+    client: ChatClient = Depends(get_chat_client),
+) -> HTMLResponse:
+    """Ask the self-hosted LLM to improve the Position Summary (5.5) from the same
+    in-progress guided-form answers, APPLY the suggestion to the summary textarea for
+    the author to review, and re-render with the assist panel + the re-scored live
+    compliance (validator-as-oracle, NN #3). Decision-support only — nothing
+    auto-applies or publishes (NN #1); the author still Checks/Submits. The injected
+    client is egress-guarded at construction (NN #5) and always closed."""
+    body = await request.body()
+    values = _first_values(parse_qsl(body.decode("utf-8"), keep_blank_values=True))
+    checked = values.get("include_sfu_boilerplate") == "on"
+    try:
+        answers = _answers_from_form(values)
+    except ValidationError as exc:
+        await client.close()
+        return templates.TemplateResponse(
+            request,
+            "compose_new.html",
+            _context(
+                request,
+                values=values,
+                assessment=None,
+                error=str(exc),
+                boilerplate_checked=checked,
+            ),
+        )
+    try:
+        suggestion = await suggest_summary(assemble_jd(answers), client=client)
+    finally:
+        await client.close()
+    # Apply the suggestion to the summary the author sees, and carry it in the answers
+    # the submit/export forms rebuild from — so accepting is one Check away and the
+    # improved draft round-trips intact. The author can still edit it before Checking.
+    values["position_summary"] = suggestion.suggested_summary
+    applied = answers.model_copy(
+        update={"position_summary": suggestion.suggested_summary}
+    )
+    return templates.TemplateResponse(
+        request,
+        "compose_new.html",
+        _context(
+            request,
+            values=values,
+            assessment=suggestion.assessment,
+            error=None,
+            boilerplate_checked=checked,
+            answers_json=applied.model_dump_json(),
+            suggestion=suggestion,
         ),
     )
 

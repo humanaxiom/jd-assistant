@@ -17,7 +17,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import app, get_session
-from src.api.routes import compose_ui
+from src.api.routes import compose, compose_ui
 
 
 def _client() -> TestClient:
@@ -27,6 +27,29 @@ def _client() -> TestClient:
 class _FakeSession:
     def __init__(self) -> None:
         self.commit = AsyncMock()
+
+
+class _FakeChat:
+    """Stands in for the whole ``ChatClient`` (as in ``test_composer_assist``): returns
+    a FIXED summary and records that it was closed. No network; the client's own
+    discipline (retry/egress-guard/JSON repair) is proved in the 4.2 client tests."""
+
+    def __init__(self, summary: str) -> None:
+        self._summary = summary
+        self.closed = False
+
+    async def chat_json(
+        self,
+        messages: object,
+        model_cls: type,
+        *,
+        max_tokens: int,
+        max_retries: int,
+    ) -> object:
+        return model_cls(summary=self._summary)
+
+    async def close(self) -> None:
+        self.closed = True
 
 
 @pytest.fixture(autouse=True)
@@ -181,3 +204,68 @@ def test_export_with_malformed_answers_rerenders_and_does_not_500() -> None:
     assert resp.status_code == 200
     assert "text/html" in resp.headers["content-type"]
     assert resp.content[:2] != b"PK"
+
+
+# ── 5.8b — the LLM summary-assist button ─────────────────────────────────────
+
+
+def test_the_guided_form_offers_the_assist_button() -> None:
+    """The guided form has a second submit that routes to the assist endpoint (a
+    ``formaction`` override), so the author can ask the LLM to improve the summary
+    from the same in-progress answers."""
+    html = _client().get("/jd-bank/ui/compose/new").text
+    assert 'formaction="/jd-bank/ui/compose/assist"' in html
+
+
+def test_assist_prefills_the_suggested_summary_and_shows_the_panel() -> None:
+    """The assist route asks the (faked) LLM for a better Position Summary, applies it
+    to the summary textarea for the author to review, shows the assist panel (word
+    count + grounding), and re-scores via the validator (validator-as-oracle, NN #3).
+    The injected client is always closed."""
+    suggested = "Leads the modernization of finance systems across the university."
+    fake = _FakeChat(suggested)
+    app.dependency_overrides[compose.get_chat_client] = lambda: fake
+
+    resp = _client().post(
+        "/jd-bank/ui/compose/assist",
+        data={"title": "Financial Analyst", "position_summary": "Too short."},
+    )
+    assert resp.status_code == 200
+    html = resp.text
+    # The suggestion is applied to the summary textarea for review (not auto-published).
+    assert suggested in html
+    # An assist panel is shown, distinct from the plain live-compliance panel.
+    assert "Summary assist" in html
+    assert "grounded" in html.lower()
+    # The client the route built was closed (no leak).
+    assert fake.closed is True
+
+
+def test_assist_carries_the_applied_summary_into_submit_and_export() -> None:
+    """After accepting the assist, the hidden ``answers_json`` reflects the applied
+    summary so the submit/export forms rebuild the identical (improved) draft."""
+    suggested = "Directs enterprise financial planning and reporting for the campus."
+    app.dependency_overrides[compose.get_chat_client] = lambda: _FakeChat(suggested)
+    resp = _client().post(
+        "/jd-bank/ui/compose/assist",
+        data={"title": "Financial Analyst", "position_summary": "Too short."},
+    )
+    assert resp.status_code == 200
+    # answers_json (hidden field feeding submit + export) carries the suggested summary.
+    assert 'action="/jd-bank/ui/compose/submit"' in resp.text
+    assert suggested in resp.text
+
+
+def test_assist_with_invalid_answers_rerenders_and_closes_client() -> None:
+    """A field that fails validation (title > 200 chars) must re-render with the error
+    and still close the injected client — never 500, never leak, never call the LLM
+    against a draft that could not assemble."""
+    fake = _FakeChat("unused")
+    app.dependency_overrides[compose.get_chat_client] = lambda: fake
+    resp = _client().post(
+        "/jd-bank/ui/compose/assist",
+        data={"title": "x" * 201},
+    )
+    assert resp.status_code == 200
+    assert "Summary assist" not in resp.text
+    assert fake.closed is True

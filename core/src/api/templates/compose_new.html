@@ -16,6 +16,26 @@
 <div class="panel flash error"><strong>Could not read the draft:</strong> {{ error }}</div>
 {% endif %}
 
+{% if suggestion %}
+<div class="panel">
+  <h2>✨ Summary assist</h2>
+  <p class="meta">
+    A self-hosted LLM suggested this Position Summary from your draft. It is
+    <strong>applied to the Position Summary field below for you to review</strong> —
+    edit it as you like, then <strong>Check compliance</strong> to score it. Nothing is
+    published; the validator, not the model, is the judge (the panel below is the
+    validator's verdict on the draft with this summary applied).
+  </p>
+  <p class="meta">
+    {{ suggestion.word_count }} words (target 100–150) ·
+    grounded {{ (suggestion.grounded_fraction * 100) | round(0, 'floor') | int }}%
+    (share of the wording drawn from your draft) ·
+    model {{ suggestion.model }} · {{ suggestion.prompt_version }}
+  </p>
+  <blockquote>{{ suggestion.suggested_summary }}</blockquote>
+</div>
+{% endif %}
+
 {% if assessment %}
 <div class="panel">
   <h2>Live compliance</h2>
@@ -133,6 +153,7 @@
     {% endfor %}
     {% endfor %}
     <button type="submit">Check compliance</button>
+    <button type="submit" formaction="/jd-bank/ui/compose/assist">✨ Improve summary (assist)</button>
   </form>
 </div>
 
