@@ -2,7 +2,66 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-07-24, latest+1): PHASE-5 BUILDER UI FOLLOW-UPS WIRED (5.8a/b/c) — the guided form
+**NEWEST (2026-07-28): AUTH/RBAC + the whole Builder UI are DONE; the roadmap + operator guide are
+written. The system is now credible as an app — the critical path is HR ratification + the first
+human pilot, not more infrastructure.** Latest `make gates`: **1892 passing, 93.36%.** `main` is in
+sync with `origin`, **no open PRs** (the old billing-blocked ones are closed). CI is still
+billing-blocked, so everything below merged **locally per ADR-006** (`make gates` is CI-identical)
+and was pushed straight to `main`.
+
+**➡ START HERE for what to build next: [`docs/ROADMAP.md`](docs/ROADMAP.md)** — current backlog by
+area, quick wins (S), high-value features grounded in peer-university systems (M/L), explicitly-OUT
+items that would breach an invariant, strategic bets, and a 5-milestone sequence. The next milestone
+is **"Make the pilot runnable"** — starting with the **structured per-field editor** (kills the
+raw-JSON blocker in the Builder form + reviewer edit view).
+
+**What landed since 2026-07-24 (all on `main`):**
+- **HR-126 `max_chars` RESOLVED** (`729acb0`, was PR #80) — HR-193 fallback ladder `[8000,6000,4000]`;
+  re-embedded on the freed GPU, `bad_requests` 11→0, `texts_backed_off` 11. `rules_version` untouched.
+- **Phase-5 Builder UI fully wired** — Export `.docx` (`a9b85de`), LLM summary-assist (`5ad1cc6`),
+  search+clone (`7b795ae`); **per-section "why" + human labels** replacing the raw `needs_attention`
+  enum (`bbba094`); **findings clickable → jump to the offending field** (`b8f388b`, `a043222`).
+- **Builder correctness fixes** — composer now inserts the mandated **Relationships header**
+  (`SFU-GATE-REL-HEADER` was previously unsatisfiable in the Builder — `399c89e`); **clone defaults
+  boilerplate ON** so a clone starts a compliant JD (`6a67a47`). Parser instruction-cruft on clone is
+  flagged (the validator already surfaces it as `SFU-STRUCT-PLACEHOLDER`) — a parse-quality task, not
+  band-aided.
+- **HR review packet refreshed** (`4f38f57`) — counts/hash brought current; **CUPE scope (HR-194)
+  surfaced as a decision** HR should see (the Bank scores/authors only ~70% of the archive).
+- **AUTH / RBAC — the big one (ADR-008, `docs/adr/ADR-008-auth-cas-rbac.md`).** SFU **CAS SSO** (v2
+  serviceValidate), server-side revocable **sessions**, roles **author/reviewer/admin** (M2M),
+  `require_ui_user`/`require_ui_roles` gates (Builder+dashboards = any signed-in; review queue =
+  reviewer/admin; user admin = admin), **login/logout in the nav**, **user-management admin** UI
+  (list/roles/enable-disable, self-lockout guards), **first-admin bootstrap** via `BOOTSTRAP_ADMINS`.
+  The review/compose actor is now the **authenticated user** (not a form field), and `audit_log` is
+  **hash-chained tamper-evident** (`verify_audit_chain`; migration 0005). Migrations `0004`
+  (identity) + `0005` (audit chain) applied to the dev DB. Commits `d55d797` / `64e9036` / `9333f77`.
+- **CAS enabled for testing** (`aca0146`) — fixed a latent settings bug (`NoDecode` for comma-sep list
+  env vars; `BOOTSTRAP_ADMINS=asalah` crashed startup otherwise). CAS config is in compose (OFF by
+  default; set via the **gitignored `.env`**), and the `gates` service pins CAS off so tests stay
+  hermetic. Live-verified: unauth → `/login`, `/cas/login` → `cas.sfu.ca` with the right service URL.
+  **Untested in prod:** the real `serviceValidate` round-trip (localhost may not be a whitelisted CAS
+  service; `CAS_VERIFY_TLS=false` if the container's cert chain rejects it; `CAS_DEV_FAKE_USER` is the
+  fallback that exercises the session machinery without SFU).
+- **Operator guide** — `docs/OPERATOR-GUIDE.md` is the source of truth; **`make guide`** renders the
+  SFU-branded, print-friendly `docs/operator-guide.html` (`make guide-check` is the drift gate); the
+  app serves it at the in-app **📖 Guide** nav link (`/jd-bank/ui/guide`). Features, personas, and
+  admin/server-access indicators.
+- **ROADMAP.md** (`d16d8ab`) — see the START HERE pointer above.
+
+**Current live state:** app at `:25800`; **CAS is ON** in the running container (`.env`), so you sign
+in via SFU CAS — set `CAS_ENABLED=false` in `.env` + `docker compose restart api` to return to the
+frictionless dev-admin mode. 4 demo users seeded (mstanger/eleung/sza229/sofia_espana, author+reviewer)
+— dev-DB data only, not committed.
+
+**The critical path (from ROADMAP):** SFU HR has ratified **nothing** (all 192+ decisions `open`) and
+**zero canonical JDs are published**. Ratification + the 4.5 pilot gate most downstream value; three of
+the nine review-packet decisions are OUR defects to fix + re-baseline first. Everything of lasting
+value is cheap to build but expensive to *sign* — sequence the engineering to make the signing possible.
+
+---
+
+**PRIOR (2026-07-24, latest+1): PHASE-5 BUILDER UI FOLLOW-UPS WIRED (5.8a/b/c) — the guided form
 now calls the search/assist/export routes it only had JSON endpoints for.** Three dependency-free UI
 wrappers on `main` (each TDD'd, full `make gates` green, merged locally — GitHub Actions still
 billing-blocked, so these are **local commits pushed to `origin/main`, no PRs**):

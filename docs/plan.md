@@ -575,7 +575,16 @@ authority, NN #1). Everything content-analyzing stays on internal infra we contr
 real canonical drafts moving through approve/reject — and the no-cloud-egress invariant fails the build
 if violated, rather than resting on a code read.
 
-### Phase 5 — JD Builder (forward-looking JD Composer) — PLANNED
+### Phase 5 — JD Builder (forward-looking JD Composer) — ✅ COMPLETE (2026-07-28)
+
+> **Status:** all of Phase 5 shipped (5.1 live compliance · 5.2 answers/assemble · 5.3 guided UI ·
+> 5.4 search/clone · 5.5 LLM assist · 5.6 submit-to-queue · 5.7 `.docx` export), the guided form
+> wires every route (5.8a/b/c), the compliance panel explains each section and links findings to
+> their fields, and correctness fixes landed (Relationships-header insertion; clone defaults
+> boilerplate ON). **Also since shipped:** an **auth/RBAC layer (ADR-008)** — CAS SSO, sessions,
+> author/reviewer/admin roles, the UI gate, user-management admin, authenticated actor on every
+> review/compose action, and a tamper-evident hash-chained audit. **What's next is in
+> [`ROADMAP.md`](ROADMAP.md)**, not here — the critical path is the 4.5 HR pilot + HR ratification.
 
 **The project's first forward-looking, user-facing product**: everything to date analyses the
 *existing* archive; the Builder helps a hiring manager/recruiter **author a new SFU-compliant JD**
