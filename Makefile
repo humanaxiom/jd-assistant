@@ -108,6 +108,20 @@ register:         ## Render the HR decision register -> docs/decisions/HR-DECISI
 register-check:   ## Fail if the committed register Markdown is stale (CI drift gate)
 	@docker compose run --rm -T gates python -m src.jd_core.rules.render --check < $(REGISTER_MD)
 
+# ── Operator guide (docs/OPERATOR-GUIDE.md is the source of truth) ──────────
+# `guide` re-renders the branded HTML from the Markdown (run after every edit).
+# `guide-check` is the drift gate (like register-check): fail if the committed HTML
+# is stale. Container -> stdout, host `<`/`>` redirect (no docs mount needed).
+guide:            ## Render docs/OPERATOR-GUIDE.md -> docs/operator-guide.html
+	@docker compose run --rm -T gates python scripts/build_operator_guide.py \
+		< docs/OPERATOR-GUIDE.md > docs/operator-guide.html
+	@echo "✅ wrote docs/operator-guide.html"
+
+guide-check:      ## Fail if docs/operator-guide.html is stale vs the Markdown (CI drift gate)
+	@docker compose run --rm -T gates python scripts/build_operator_guide.py \
+		< docs/OPERATOR-GUIDE.md | diff -q - docs/operator-guide.html >/dev/null \
+		|| { echo "❌ docs/operator-guide.html is stale — run 'make guide'"; exit 1; }
+
 # ── Archive baseline (Phase 2.5) ───────────────────────────────────────────
 # Full corpus is ~8-9 minutes single-process (measured: ~32 ms/file .doc, ~36 ms .docx).
 # Deliberately NOT parallelised: it would trade determinism — what an audit trail is made

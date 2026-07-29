@@ -3,9 +3,10 @@
 A practical guide to running and using JD Bank: what the system is, who does what, every
 feature, and exactly where **admin rights** (or server/operator access) are required.
 
-> A **standalone visual version** of this guide (SFU-branded, print-friendly, single file)
-> lives next to this one at [`operator-guide.html`](operator-guide.html) — open it in a
-> browser or hand it to non-technical staff. Keep the two in sync when either changes.
+> **This Markdown is the source of truth.** A standalone, SFU-branded, print-friendly HTML
+> version is generated from it at [`operator-guide.html`](operator-guide.html) — the app
+> serves it at the **📖 Guide** nav link. After editing this file, run **`make guide`** to
+> re-render it (`make guide-check` fails if it is stale); do not hand-edit the HTML.
 
 > **Legend used throughout**
 > - **[any]** — any signed-in user

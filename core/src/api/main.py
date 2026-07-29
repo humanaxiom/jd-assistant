@@ -130,6 +130,7 @@ from src.api.routes.auth import router as jd_bank_auth_router  # noqa: E402
 from src.api.routes.compose import router as jd_bank_compose_router  # noqa: E402
 from src.api.routes.compose_ui import router as jd_bank_compose_ui_router  # noqa: E402
 from src.api.routes.dashboard import router as jd_bank_dashboard_router  # noqa: E402
+from src.api.routes.guide import router as jd_bank_guide_router  # noqa: E402
 from src.api.routes.jd_bank import router as jd_bank_router  # noqa: E402
 from src.api.routes.ui import router as jd_bank_ui_router  # noqa: E402
 
@@ -142,8 +143,9 @@ app.include_router(
     jd_bank_ui_router,
     dependencies=[Depends(require_ui_roles(Role.REVIEWER, Role.ADMIN))],
 )
-# Dashboards + the Builder require any authenticated user (redirect to /login if not).
+# Dashboards, the guide + the Builder require any authenticated user (redirect if not).
 app.include_router(jd_bank_dashboard_router, dependencies=[Depends(require_ui_user)])
+app.include_router(jd_bank_guide_router, dependencies=[Depends(require_ui_user)])
 app.include_router(jd_bank_compose_router)
 app.include_router(jd_bank_compose_ui_router, dependencies=[Depends(require_ui_user)])
 # User management — admin only.

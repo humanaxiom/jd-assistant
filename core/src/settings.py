@@ -134,6 +134,11 @@ class Settings(BaseSettings):
     # dependency — so a unit test can aim the loader at a fixture without a real mount.
     baseline_summary_path: str = "/docs/baseline/summary.json"
 
+    # The rendered operator guide (make guide -> docs/operator-guide.html), served by
+    # the in-app "📖 Guide" link. Mounted at /docs by the compose api service's
+    # ./docs:/docs:ro bind. Env OPERATOR_GUIDE_PATH; tests aim it at a fixture.
+    operator_guide_path: str = "/docs/operator-guide.html"
+
     # The dedup (Tier 1/2/3) + cluster read-only dashboards (Phase 4.6c slices 2+3) read
     # the SAME committed artifacts `make dedup` / `make near-dup` / `make dedup-role` /
     # `make cluster` write, mounted at `/docs/...` by the compose api service's

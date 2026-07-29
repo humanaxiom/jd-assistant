@@ -67,6 +67,7 @@ def test_global_nav_links_every_ui_feature() -> None:
     assert 'href="/jd-bank/ui/compose/new"' in body  # Builder
     assert 'href="/jd-bank/ui/queue"' in body  # Review queue
     assert 'href="/jd-bank/ui/dashboard"' in body  # Dashboards
+    assert 'href="/jd-bank/ui/guide"' in body  # Operator guide
 
 
 # --- GET /jd-bank/ui/dashboard/baseline (the read-only baseline dashboard) -----------
