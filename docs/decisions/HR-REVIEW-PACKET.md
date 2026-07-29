@@ -6,6 +6,10 @@
 (`docs/baseline/README.md`, regenerated at the rulebook version above; the current-practice
 figures are unchanged from the first draft).
 
+> **New here? Start with [`HR-REVIEW-REQUEST.md`](HR-REVIEW-REQUEST.md)** — a one-page walkthrough of
+> what we need from you (rule on seven settings + a short hands-on pilot). This packet is the detail
+> behind those settings.
+
 > **Before you read on:** the first version of this packet was written against an earlier rulebook.
 > Running it against your archive exposed **three defects in our own rules** — one of which could
 > never *not* fire. We fixed those first and re-measured, so **you are reading corrected numbers.**
