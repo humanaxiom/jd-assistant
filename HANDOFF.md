@@ -36,8 +36,18 @@ green, on branch **`feat/builder-structured-fields`** (commits `6e15c9a`, `f138f
   the highest-version PUBLISHED canonical of the same cluster with a lower version) + a standalone
   `GET /jd-bank/ui/review/{id}/diff` page (side-by-side before/after per changed section, empty-state
   when there's no prior approved version) linked from review detail. `make gates`: **1919, 93.48%.**
-- **Milestone-1 REMAINING:** embed-published-canonicals write path (S/M) · the three "our-defect"
-  review-packet items + re-baseline (the higher-stakes one — do before HR sees numbers).
+- **Milestone-1 REMAINING:** embed-published-canonicals write path (S/M — and note it indexes an
+  EMPTY set until the pilot publishes a canonical; needs live Neo4j/Ollama to verify, so its value is
+  post-pilot) · refresh/reconcile the billing-blocked PRs.
+- **⚠ STALE-DOC CORRECTION (verified 2026-07-29):** the roadmap/handoff line "fix the three
+  'our-defect' review-packet items + re-baseline" was **already done in Phase 2.6** — confirmed
+  against the rulebook: HR-120 `banned_phrase_scope: qualifications`, HR-121 `SFU-STRUCT-HOW-WHY
+  evaluable: false`, HR-122 `era_new_max_year: 2023` (4th band); the 874-cohort baseline reflects the
+  corrected numbers; `POST-REVIEW-CHANGE-PLAN.md` says "steps 1–3 are DONE". The REMAINING
+  review-packet decisions (1, 1b, 2b, 3, 4, 6, 8) all **need HR** — external, not engineering. Per the
+  standing rule ("until HR rules, we change nothing") there is **no legitimate code change** to make
+  there without ratification, so do NOT pre-emptively flip gates (e.g. Decision 3's NO-PLACEHOLDERS)
+  ahead of HR.
 
 **PRIOR (2026-07-28): AUTH/RBAC + the whole Builder UI are DONE; the roadmap + operator guide are
 written. The system is now credible as an app — the critical path is HR ratification + the first

@@ -174,8 +174,9 @@ From peer research + backlog, each mapped to JD Bank's architecture, ordered rou
 - **HR ratification of the decision register (Phase 2.7) — the actual critical path.** All 192+
   decisions are `open`, including the bar itself; the baseline already proved the operative gate
   is a 100–150-word summary length masquerading as a quality bar. **An HR team cannot run a bar
-  nobody has signed.** Six of the nine review-packet decisions are genuinely HR's; three are our
-  defects to fix and re-baseline *first*. Governance, not code, is the bottleneck.
+  nobody has signed.** The three "our-defect" decisions (2, 5, 7) were already fixed + re-baselined
+  in Phase 2.6, so HR is looking at corrected numbers; the remaining decisions (1, 1b, 2b, 3, 4, 6,
+  8) are genuinely HR's to rule on. Governance, not code, is the bottleneck.
 - **Standardized skills / competency layer against ESCO / O*NET (self-hosted).** The highest-
   leverage *technical* addition: skills today are an idf-less keyword bag, empty for ~41% of JDs
   (HR-149), weakening Tier-3 dedup, clustering, search, and every skills view. Load ESCO/O*NET as
@@ -204,9 +205,12 @@ The path interleaves cheap engineering that *enables* the pilot with the externa
 track only HR can advance.
 
 1. **Make the pilot runnable** (weeks, mostly S) — ~~structured per-field editor (kills the
-   raw-JSON blocker)~~ **DONE 2026-07-28** · concurrent double-approve test · embed-published-canonicals
-   write path · version-diff view · refresh HANDOFF + reconcile PRs. Fix the three "our-defect"
-   review-packet items and re-baseline here too. *A reviewer cannot pilot against a JSON textarea.*
+   raw-JSON blocker)~~ **DONE 2026-07-28** · ~~concurrent double-approve test~~ **DONE 2026-07-29** ·
+   ~~version-diff view~~ **DONE 2026-07-29** · embed-published-canonicals write path · refresh HANDOFF
+   + reconcile PRs. *(The "three our-defect review-packet items + re-baseline" were **already done in
+   Phase 2.6** — verified 2026-07-29 against the rulebook: HR-120 `banned_phrase_scope`, HR-121
+   `evaluable:false`, HR-122 4th era band; POST-REVIEW-CHANGE-PLAN.md "steps 1–3 are DONE". Not
+   pending.)* *A reviewer cannot pilot against a JSON textarea.*
 2. **Run the 4.5 HR pilot + start ratification** (external, L) — drive 5–10 clusters with a real
    reviewer; convert judgment calls into fixtures/rules; put the six genuine HR decisions in front
    of HR. **This is the gate** — a signed bar + pilot fixtures precede any production rollout.
