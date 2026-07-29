@@ -16,17 +16,24 @@ regardless of content type — so ``request.form()`` is deliberately NOT used he
 ``parse_qsl`` on ``await request.body()`` keeps this handler dependency-free (see the
 module deviation note in the 4.4d task report).
 
+**Structured edit, not raw JSON.** The reviewer edit view is a per-field editor (a
+reviewer cannot be asked to hand-edit JSON). :func:`_content_from_form` reconstructs
+the COMPLETE :class:`~src.jd_core.models.parsed_jd.SFUJobDescription` content dict from
+the form — EVERY field, so editing one section never silently drops another (the failure
+that makes a partial editor worse than JSON, incl. per-duty ``how_why``/``frequency``).
+The dict is handed to ``service.edit`` unchanged; the service re-validates it
+(validator-as-oracle, NN #3) and raises for a bad edit — this module validates nothing.
+
 **Escaping.** Jinja2 autoescape is on by default for ``.html`` templates
 (:class:`~fastapi.templating.Jinja2Templates`); every JD text field the templates
-render — draft, issues, removed content — goes through the normal ``{{ }}`` escaping.
-Nothing here uses the ``|safe`` filter on draft content (it is untrusted archive text).
+render — draft, issues, removed content, and the prefilled edit fields — goes through
+the normal ``{{ }}`` escaping. Nothing here uses ``|safe`` on draft text (untrusted).
 """
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, get_args
 from urllib.parse import parse_qsl
 from uuid import UUID
 
@@ -48,9 +55,22 @@ from src.jd_bank.review import (
     ReviewPacket,
     service,
 )
+from src.jd_core.models.parsed_jd import QualificationKind, SFUEmployeeGroup
 from src.jd_core.models.quality import GateOverride
+from src.jd_core.rules import get_rules
 
 router: APIRouter = APIRouter(prefix="/jd-bank/ui")
+
+#: The qualification kinds + employee groups the edit dropdowns offer — read off the
+#: model's own ``Literal`` types so a schema change flows through automatically.
+_QUAL_KINDS: tuple[str, ...] = get_args(QualificationKind)
+_EMPLOYEE_GROUPS: tuple[str, ...] = get_args(SFUEmployeeGroup)
+
+#: How many structured rows to show in the edit form: the filled rows plus a few blanks
+#: to add more, capped at the model list maxima (dependency-free "add a row", no JS).
+_DUTY_MIN_ROWS, _DUTY_MAX_ROWS = 5, 12
+_QUAL_MIN_ROWS, _QUAL_MAX_ROWS = 8, 40
+_ROW_SPARE = 3
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
@@ -96,6 +116,116 @@ def _first(pairs: list[tuple[str, str]], key: str, default: str = "") -> str:
     return default
 
 
+def _column(pairs: list[tuple[str, str]], key: str) -> list[str]:
+    """Every value submitted for ``key``, in document order — the structured edit rows
+    post parallel arrays (``duty_statement`` × N, ``qual_text`` × N, …) that stay
+    index-aligned because ``parse_qsl`` (with ``keep_blank_values``) preserves order and
+    each row emits one of each."""
+    return [v for k, v in pairs if k == key]
+
+
+def _at(items: list[str], index: int) -> str:
+    return items[index] if index < len(items) else ""
+
+
+def _lines(value: str) -> list[str]:
+    return [line.strip() for line in value.splitlines() if line.strip()]
+
+
+def _scalar_or_none(pairs: list[tuple[str, str]], key: str) -> str | None:
+    """A trimmed scalar field, or ``None`` when blank — so clearing an optional field
+    really clears it (not stored as an empty string the model would misrepresent)."""
+    return _first(pairs, key).strip() or None
+
+
+def _duty_dicts(pairs: list[tuple[str, str]]) -> list[dict[str, Any]]:
+    """Structured duty rows -> ``SFUDuty``-shaped dicts, dropping statement-less rows.
+    ``how_why`` (a per-duty textarea, one item per line) and ``frequency`` round-trip —
+    the detail a flat editor would silently drop is preserved."""
+    verbs = _column(pairs, "duty_verb")
+    statements = _column(pairs, "duty_statement")
+    frequencies = _column(pairs, "duty_frequency")
+    how_whys = _column(pairs, "duty_how_why")
+    count = max(len(verbs), len(statements), len(frequencies), len(how_whys))
+    duties: list[dict[str, Any]] = []
+    for i in range(count):
+        statement = _at(statements, i).strip()
+        if not statement:
+            continue
+        duties.append(
+            {
+                "action_verb": _at(verbs, i).strip(),
+                "statement": statement,
+                "how_why": _lines(_at(how_whys, i)),
+                "frequency": _at(frequencies, i).strip() or None,
+            }
+        )
+    return duties
+
+
+def _qual_dicts(pairs: list[tuple[str, str]]) -> list[dict[str, Any]]:
+    """Structured qualification rows -> ``SFUQualification``-shaped dicts, dropping
+    text-less rows. An invalid ``kind``/``modifier`` is left for the model + validator
+    to reject (validator-as-oracle) rather than silently coerced here."""
+    texts = _column(pairs, "qual_text")
+    kinds = _column(pairs, "qual_kind")
+    modifiers = _column(pairs, "qual_modifier")
+    count = max(len(texts), len(kinds), len(modifiers))
+    quals: list[dict[str, Any]] = []
+    for i in range(count):
+        text = _at(texts, i).strip()
+        if not text:
+            continue
+        quals.append(
+            {
+                "text": text,
+                "kind": _at(kinds, i).strip() or "ability",
+                "modifier": _at(modifiers, i).strip() or None,
+            }
+        )
+    return quals
+
+
+def _relationships_dict(pairs: list[tuple[str, str]]) -> dict[str, Any] | None:
+    """The Relationships section, or ``None`` when the whole section is empty (matching
+    the model's ``relationships: None`` default)."""
+    supervisory = _scalar_or_none(pairs, "supervisory")
+    internal = _lines(_first(pairs, "rel_internal"))
+    external = _lines(_first(pairs, "rel_external"))
+    if not (supervisory or internal or external):
+        return None
+    return {"supervisory": supervisory, "internal": internal, "external": external}
+
+
+def _content_from_form(pairs: list[tuple[str, str]]) -> dict[str, Any]:
+    """Reconstruct the COMPLETE ``SFUJobDescription`` content dict from the structured
+    edit form. EVERY field is rebuilt, so editing one section never silently drops
+    another (the failure mode that makes a partial editor worse than raw JSON). The dict
+    is handed to ``service.edit``, which re-validates it via ``SFUJobDescription`` —
+    an empty title, a bad enum, an over-long field, etc. raise there (caught by the
+    handler), keeping the service the sole validator-as-oracle authority (NN #3)."""
+    return {
+        "title": _first(pairs, "title").strip(),
+        "position_number": _scalar_or_none(pairs, "position_number"),
+        "department": _scalar_or_none(pairs, "department"),
+        "grade": _scalar_or_none(pairs, "grade"),
+        "employee_group": _scalar_or_none(pairs, "employee_group"),
+        "about_sfu_present": _first(pairs, "about_sfu_present") == "on",
+        "position_summary": _scalar_or_none(pairs, "position_summary"),
+        "duties": _duty_dicts(pairs),
+        "decision_making": _lines(_first(pairs, "decision_making")),
+        "problem_solving": _lines(_first(pairs, "problem_solving")),
+        "relationships": _relationships_dict(pairs),
+        "qualifications": _qual_dicts(pairs),
+        "territorial_acknowledgement_present": _first(
+            pairs, "territorial_acknowledgement_present"
+        )
+        == "on",
+        "employment_equity_present": _first(pairs, "employment_equity_present") == "on",
+        "additional_context": _scalar_or_none(pairs, "additional_context"),
+    }
+
+
 def _parse_overrides(
     pairs: list[tuple[str, str]], *, reviewer_id: str
 ) -> list[GateOverride]:
@@ -119,6 +249,75 @@ def _parse_overrides(
     return overrides
 
 
+def _pad_rows(
+    rows: list[dict[str, str]],
+    blank: dict[str, str],
+    *,
+    min_rows: int,
+    max_rows: int,
+) -> list[dict[str, str]]:
+    """Filled rows + blank rows to add more, capped at the model's list max."""
+    padded = list(rows)
+    target = min(max_rows, max(min_rows, len(rows) + _ROW_SPARE))
+    while len(padded) < target:
+        padded.append(dict(blank))
+    return padded
+
+
+def _edit_view(content: dict[str, Any]) -> dict[str, Any]:
+    """The structured edit form's prefill view of a draft's ``content``: scalars and
+    joined lists for direct binding, plus padded duty/qualification rows and the
+    dropdown option lists. Renders faithfully from the stored dict (missing keys default
+    to empty) so the form reflects exactly what is stored — and the reconstruction on
+    submit (:func:`_content_from_form`) is its inverse over EVERY field."""
+    rel = content.get("relationships") or {}
+    duty_rows = [
+        {
+            "verb": d.get("action_verb", ""),
+            "statement": d.get("statement", ""),
+            "frequency": d.get("frequency") or "",
+            "how_why": "\n".join(d.get("how_why", []) or []),
+        }
+        for d in content.get("duties", []) or []
+    ]
+    qual_rows = [
+        {
+            "text": q.get("text", ""),
+            "kind": q.get("kind", "ability"),
+            "modifier": q.get("modifier") or "",
+        }
+        for q in content.get("qualifications", []) or []
+    ]
+    quals = get_rules().qualifications
+    return {
+        "content": content,
+        "duty_rows": _pad_rows(
+            duty_rows,
+            {"verb": "", "statement": "", "frequency": "", "how_why": ""},
+            min_rows=_DUTY_MIN_ROWS,
+            max_rows=_DUTY_MAX_ROWS,
+        ),
+        "qual_rows": _pad_rows(
+            qual_rows,
+            {"text": "", "kind": "ability", "modifier": ""},
+            min_rows=_QUAL_MIN_ROWS,
+            max_rows=_QUAL_MAX_ROWS,
+        ),
+        "qual_kinds": _QUAL_KINDS,
+        "employee_groups": _EMPLOYEE_GROUPS,
+        # The proficiency modifiers offered across all kinds — rulebook DATA (NN #2),
+        # ``none`` (an ABSENT modifier) dropped in favour of the blank default.
+        "modifier_options": sorted(
+            (quals.knowledge_modifiers | quals.skill_modifiers) - {"none"}
+        ),
+        "decision_making": "\n".join(content.get("decision_making", []) or []),
+        "problem_solving": "\n".join(content.get("problem_solving", []) or []),
+        "rel_internal": "\n".join(rel.get("internal", []) or []),
+        "rel_external": "\n".join(rel.get("external", []) or []),
+        "supervisory": rel.get("supervisory") or "",
+    }
+
+
 def _detail_context(
     packet: ReviewPacket, *, error: str | None = None
 ) -> dict[str, Any]:
@@ -129,7 +328,7 @@ def _detail_context(
         "error": error,
         "rendered_draft": diff.get("rendered_draft", ""),
         "removed": diff.get("removed", []),
-        "content_json": json.dumps(packet.content, indent=2, sort_keys=True),
+        "edit": _edit_view(packet.content or {}),
     }
 
 
@@ -246,11 +445,11 @@ async def edit_action(
     pairs = await _read_form(request)
     reviewer_id = actor.cas_username
     reason = _first(pairs, "reason")
-    raw_content = _first(pairs, "content")
-    try:
-        new_content = json.loads(raw_content)
-    except json.JSONDecodeError as exc:
-        return await _rerender_detail_with_error(request, session, canonical_id, exc)
+    # Reconstruct the FULL JD dict from the structured fields; the service re-validates
+    # it via SFUJobDescription (validator-as-oracle, NN #3) and raises a ValidationError
+    # for a bad edit (empty title, bad enum, over-long field) — caught below, nothing
+    # committed. No raw-JSON parsing: a reviewer never hand-edits JSON.
+    new_content = _content_from_form(pairs)
     try:
         edited = await service.edit(
             session,

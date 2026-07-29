@@ -11,7 +11,6 @@ own behaviour (that is the 4.4b integration suite's job).
 
 from __future__ import annotations
 
-import json
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime
@@ -467,11 +466,114 @@ def test_reject_blank_reason_does_not_commit_and_rerenders_error(
 
 
 # --- POST .../edit --------------------------------------------------------------------
+#
+# The reviewer edit view is a STRUCTURED per-field editor, not a raw-JSON textarea: a
+# reviewer cannot be asked to hand-edit JSON. The route reconstructs the FULL
+# ``SFUJobDescription`` dict from the form (every field, so editing one never silently
+# wipes another) and hands it to ``service.edit`` (still the sole authority; validator
+# stays the oracle).
 
 
-def test_edit_happy_path_calls_service_commits_and_redirects_to_new_version(
+def _rich_content() -> dict[str, object]:
+    """A fully-populated JD content dict — every section carries data, so the edit
+    reconstruction can be checked for FAITHFULNESS (nothing dropped on save)."""
+    return {
+        "title": "Software Developer",
+        "position_number": "AP-1234",
+        "department": "Information Services",
+        "grade": "J",
+        "employee_group": "apsa",
+        "about_sfu_present": True,
+        "position_summary": "Builds and maintains university systems.",
+        "duties": [
+            {
+                "action_verb": "Develops",
+                "statement": "Develops applications (60%)",
+                "how_why": ["to modernize services", "under the CTO"],
+                "frequency": None,
+            }
+        ],
+        "decision_making": ["Chooses the tech stack"],
+        "problem_solving": ["Diagnoses production incidents"],
+        "relationships": {
+            "supervisory": "Reports to the Director.",
+            "internal": ["Faculty IT"],
+            "external": ["Vendors"],
+        },
+        "qualifications": [
+            {"text": "Bachelor's degree", "kind": "education", "modifier": None},
+            {"text": "Python", "kind": "skill", "modifier": "advanced"},
+        ],
+        "territorial_acknowledgement_present": True,
+        "employment_equity_present": True,
+        "additional_context": "Occasional evening work.",
+    }
+
+
+def _edit_form_body(**overrides: str) -> dict[str, str]:
+    """The structured edit form as a scalar field dict (single-value rows), matching
+    what a browser posts for a one-duty / one-qual draft. Callers override fields."""
+    body = {
+        "reason": "clarified the summary",
+        "title": "Updated Title",
+        "position_number": "AP-1234",
+        "department": "Information Services",
+        "grade": "J",
+        "employee_group": "apsa",
+        "about_sfu_present": "on",
+        "position_summary": "Builds and maintains university systems.",
+        "duty_verb": "Develops",
+        "duty_statement": "Develops applications (60%)",
+        "duty_frequency": "",
+        "duty_how_why": "to modernize services\nunder the CTO",
+        "decision_making": "Chooses the tech stack",
+        "problem_solving": "Diagnoses production incidents",
+        "supervisory": "Reports to the Director.",
+        "rel_internal": "Faculty IT",
+        "rel_external": "Vendors",
+        "qual_text": "Python",
+        "qual_kind": "skill",
+        "qual_modifier": "advanced",
+        "territorial_acknowledgement_present": "on",
+        "employment_equity_present": "on",
+        "additional_context": "Occasional evening work.",
+    }
+    body.update(overrides)
+    return body
+
+
+def test_detail_renders_structured_edit_fields_not_a_raw_json_textarea(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """The edit view is structured controls prefilled from the draft — no raw-JSON
+    ``<textarea name="content">`` a reviewer would have to hand-edit."""
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    packet = _packet(canonical_id=canonical_id)
+    packet = packet.model_copy(update={"content": _rich_content()})
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}").text
+
+    # No raw-JSON editor.
+    assert 'name="content"' not in body
+    # Structured controls, prefilled from the draft.
+    assert 'name="title"' in body
+    assert "Software Developer" in body  # title value prefilled
+    assert 'name="duty_statement"' in body
+    assert "Develops applications (60%)" in body  # duty prefilled
+    assert 'name="qual_text"' in body
+    assert 'name="qual_kind"' in body
+    # The how_why detail the flat editor would drop is present for editing.
+    assert "to modernize services" in body
+
+
+def test_edit_reconstructs_full_faithful_content_and_redirects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A structured edit rebuilds the COMPLETE JD dict (every field), so editing the
+    title does not wipe grade / booleans / duties, then redirects to the new version."""
     session = FakeSession()
     client = make_client(session)
     canonical_id = uuid.uuid4()
@@ -484,57 +586,223 @@ def test_edit_happy_path_calls_service_commits_and_redirects_to_new_version(
     )
     mock = AsyncMock(return_value=fake)
     monkeypatch.setattr(ui.service, "edit", mock)
-    new_content = {"title": "Updated Title"}
 
     resp = client.post(
-        f"/jd-bank/ui/review/{canonical_id}/edit",
-        data={
-            "reviewer_id": "hr-1",
-            "reason": "clarified the summary",
-            "content": json.dumps(new_content),
-        },
+        f"/jd-bank/ui/review/{canonical_id}/edit", data=_edit_form_body()
     )
 
     assert resp.status_code == 303
     assert resp.headers["location"] == f"/jd-bank/ui/review/{new_id}"
-    mock.assert_awaited_once_with(
-        session,
-        canonical_id,
-        reviewer_id="dev-anonymous",
-        new_content=new_content,
-        reason="clarified the summary",
-    )
+    mock.assert_awaited_once()
+    call = mock.await_args
+    assert call.args == (session, canonical_id)
+    assert call.kwargs["reviewer_id"] == "dev-anonymous"
+    assert call.kwargs["reason"] == "clarified the summary"
+    content = call.kwargs["new_content"]
+    # Every scalar/boolean survives — not just the edited title.
+    assert content["title"] == "Updated Title"
+    assert content["position_number"] == "AP-1234"
+    assert content["grade"] == "J"
+    assert content["employee_group"] == "apsa"
+    assert content["about_sfu_present"] is True
+    assert content["territorial_acknowledgement_present"] is True
+    assert content["employment_equity_present"] is True
+    assert content["decision_making"] == ["Chooses the tech stack"]
+    assert content["problem_solving"] == ["Diagnoses production incidents"]
+    assert content["relationships"] == {
+        "supervisory": "Reports to the Director.",
+        "internal": ["Faculty IT"],
+        "external": ["Vendors"],
+    }
     session.commit.assert_awaited_once()
 
 
-def test_edit_malformed_json_never_calls_service_and_does_not_commit(
+def test_edit_preserves_duty_how_why_and_frequency(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The per-duty ``how_why`` list and ``frequency`` a flat editor would silently
+    drop must round-trip into the reconstructed content (no corruption on save)."""
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    fake = FakeCanonical(
+        canonical_id=uuid.uuid4(),
+        cluster_id=uuid.uuid4(),
+        version=2,
+        status=CanonicalStatus.DRAFT,
+    )
+    mock = AsyncMock(return_value=fake)
+    monkeypatch.setattr(ui.service, "edit", mock)
+
+    resp = client.post(
+        f"/jd-bank/ui/review/{canonical_id}/edit",
+        data=_edit_form_body(duty_frequency="weekly"),
+    )
+
+    assert resp.status_code == 303
+    duties = mock.await_args.kwargs["new_content"]["duties"]
+    assert duties == [
+        {
+            "action_verb": "Develops",
+            "statement": "Develops applications (60%)",
+            "how_why": ["to modernize services", "under the CTO"],
+            "frequency": "weekly",
+        }
+    ]
+
+
+def test_reconstructed_edit_content_is_a_valid_jd(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The dict the edit form reconstructs must be a REAL SFUJobDescription (the shape
+    service.edit re-validates) — this feeds the captured new_content through the actual
+    model, so a misnamed field or wrong shape fails here, not silently in production."""
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    fake = FakeCanonical(
+        canonical_id=uuid.uuid4(),
+        cluster_id=uuid.uuid4(),
+        version=2,
+        status=CanonicalStatus.DRAFT,
+    )
+    mock = AsyncMock(return_value=fake)
+    monkeypatch.setattr(ui.service, "edit", mock)
+
+    resp = client.post(
+        f"/jd-bank/ui/review/{canonical_id}/edit", data=_edit_form_body()
+    )
+
+    assert resp.status_code == 303
+    content = mock.await_args.kwargs["new_content"]
+    # Faithful round-trip: reconstructed -> model -> dump equals the reconstructed dict.
+    jd = SFUJobDescription.model_validate(content)
+    assert jd.model_dump(mode="json") == content
+
+
+def test_edit_qual_kind_and_modifier_captured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     session = FakeSession()
     client = make_client(session)
     canonical_id = uuid.uuid4()
-    edit_mock = AsyncMock()
-    monkeypatch.setattr(ui.service, "edit", edit_mock)
-    packet = _packet(canonical_id=canonical_id)
-    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+    fake = FakeCanonical(
+        canonical_id=uuid.uuid4(),
+        cluster_id=uuid.uuid4(),
+        version=2,
+        status=CanonicalStatus.DRAFT,
+    )
+    mock = AsyncMock(return_value=fake)
+    monkeypatch.setattr(ui.service, "edit", mock)
 
     resp = client.post(
         f"/jd-bank/ui/review/{canonical_id}/edit",
-        data={
-            "reviewer_id": "hr-1",
-            "reason": "typo fix",
-            "content": "{not valid json",
-        },
+        data=_edit_form_body(
+            qual_text="GAAP", qual_kind="knowledge", qual_modifier="excellent"
+        ),
     )
 
-    assert resp.status_code == 200
-    edit_mock.assert_not_awaited()
-    session.commit.assert_not_awaited()
+    assert resp.status_code == 303
+    quals = mock.await_args.kwargs["new_content"]["qualifications"]
+    assert quals == [{"text": "GAAP", "kind": "knowledge", "modifier": "excellent"}]
+
+
+def test_edit_empty_optional_scalars_become_none(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Clearing an optional scalar sends ``None`` (not ``""``), so the field is really
+    cleared and not stored as an empty string the model would reject or misrepresent."""
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    fake = FakeCanonical(
+        canonical_id=uuid.uuid4(),
+        cluster_id=uuid.uuid4(),
+        version=2,
+        status=CanonicalStatus.DRAFT,
+    )
+    mock = AsyncMock(return_value=fake)
+    monkeypatch.setattr(ui.service, "edit", mock)
+
+    resp = client.post(
+        f"/jd-bank/ui/review/{canonical_id}/edit",
+        data=_edit_form_body(department="", grade="", position_number=""),
+    )
+
+    assert resp.status_code == 303
+    content = mock.await_args.kwargs["new_content"]
+    assert content["department"] is None
+    assert content["grade"] is None
+    assert content["position_number"] is None
+
+
+def test_edit_unchecked_boolean_flags_become_false(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An unchecked presence checkbox posts nothing -> the flag reconstructs as False
+    (the mandated-boilerplate gates then correctly see it as absent)."""
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    fake = FakeCanonical(
+        canonical_id=uuid.uuid4(),
+        cluster_id=uuid.uuid4(),
+        version=2,
+        status=CanonicalStatus.DRAFT,
+    )
+    mock = AsyncMock(return_value=fake)
+    monkeypatch.setattr(ui.service, "edit", mock)
+
+    body = _edit_form_body()
+    for flag in (
+        "about_sfu_present",
+        "territorial_acknowledgement_present",
+        "employment_equity_present",
+    ):
+        del body[flag]  # a browser omits an unchecked checkbox entirely
+
+    resp = client.post(f"/jd-bank/ui/review/{canonical_id}/edit", data=body)
+
+    assert resp.status_code == 303
+    content = mock.await_args.kwargs["new_content"]
+    assert content["about_sfu_present"] is False
+    assert content["territorial_acknowledgement_present"] is False
+    assert content["employment_equity_present"] is False
+
+
+def test_edit_drops_blank_duty_and_qual_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The padded blank rows a reviewer leaves empty are dropped, not sent as empty
+    duties/quals the model would reject."""
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    fake = FakeCanonical(
+        canonical_id=uuid.uuid4(),
+        cluster_id=uuid.uuid4(),
+        version=2,
+        status=CanonicalStatus.DRAFT,
+    )
+    mock = AsyncMock(return_value=fake)
+    monkeypatch.setattr(ui.service, "edit", mock)
+
+    resp = client.post(
+        f"/jd-bank/ui/review/{canonical_id}/edit",
+        data=_edit_form_body(duty_statement="", qual_text=""),
+    )
+
+    assert resp.status_code == 303
+    content = mock.await_args.kwargs["new_content"]
+    assert content["duties"] == []
+    assert content["qualifications"] == []
 
 
 def test_edit_invalid_content_validation_error_does_not_commit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """A reconstructed content the model rejects (e.g. a cleared, empty title) surfaces
+    the service's ValidationError on the re-rendered page and commits nothing."""
     session = FakeSession()
     client = make_client(session)
     canonical_id = uuid.uuid4()
@@ -545,11 +813,7 @@ def test_edit_invalid_content_validation_error_does_not_commit(
 
     resp = client.post(
         f"/jd-bank/ui/review/{canonical_id}/edit",
-        data={
-            "reviewer_id": "hr-1",
-            "reason": "typo fix",
-            "content": json.dumps({"title": 123}),
-        },
+        data=_edit_form_body(title=""),
     )
 
     assert resp.status_code == 200

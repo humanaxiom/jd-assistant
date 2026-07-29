@@ -86,11 +86,89 @@
 
 <div class="panel">
   <h2>Edit</h2>
+  <p class="meta">
+    Edit the draft field by field. Saving creates a new draft version for review —
+    nothing is published (a reviewer still approves). Leave a blank duty or
+    qualification row empty to drop it.
+  </p>
   <form method="post" action="/jd-bank/ui/review/{{ packet.canonical_id }}/edit">
-    <label for="edit-reason">Reason</label>
+    <label for="edit-reason">Reason for this edit</label>
     <textarea id="edit-reason" name="reason" required></textarea>
-    <label for="edit-content">Content (JSON)</label>
-    <textarea id="edit-content" name="content" rows="20">{{ content_json }}</textarea>
+
+    <h3>1 · Identification</h3>
+    <label for="e-title">Title</label>
+    <input id="e-title" name="title" value="{{ edit.content.get('title', '') }}">
+    <label for="e-position_number">Position number</label>
+    <input id="e-position_number" name="position_number" value="{{ edit.content.get('position_number') or '' }}">
+    <label for="e-department">Department</label>
+    <input id="e-department" name="department" value="{{ edit.content.get('department') or '' }}">
+    <label for="e-grade">Grade</label>
+    <input id="e-grade" name="grade" value="{{ edit.content.get('grade') or '' }}">
+    <label for="e-employee_group">Employee group</label>
+    <select id="e-employee_group" name="employee_group">
+      <option value="">—</option>
+      {% for g in edit.employee_groups %}
+      <option value="{{ g }}"{% if edit.content.get('employee_group') == g %} selected{% endif %}>{{ g }}</option>
+      {% endfor %}
+    </select>
+
+    <h3>2 · SFU boilerplate</h3>
+    <label><input type="checkbox" name="about_sfu_present" value="on" style="width:auto"{% if edit.content.get('about_sfu_present') %} checked{% endif %}> About SFU present</label>
+    <label><input type="checkbox" name="territorial_acknowledgement_present" value="on" style="width:auto"{% if edit.content.get('territorial_acknowledgement_present') %} checked{% endif %}> Territorial acknowledgement present</label>
+    <label><input type="checkbox" name="employment_equity_present" value="on" style="width:auto"{% if edit.content.get('employment_equity_present') %} checked{% endif %}> Employment-equity footer present</label>
+
+    <h3>3 · Position Summary</h3>
+    <textarea name="position_summary" rows="4">{{ edit.content.get('position_summary') or '' }}</textarea>
+
+    <h3>4 · Duties &amp; Responsibilities</h3>
+    <p class="meta">Action verb · statement · frequency · how/why (one per line).</p>
+    {% for row in edit.duty_rows %}
+    <div style="border:1px solid var(--border);border-radius:6px;padding:.5rem;margin-bottom:.5rem">
+      <div style="display:flex;gap:.5rem;margin-bottom:.4rem">
+        <input name="duty_verb" value="{{ row.verb }}" placeholder="Action verb" aria-label="Action verb" style="flex:0 0 9rem">
+        <input name="duty_statement" value="{{ row.statement }}" placeholder="Duty statement" aria-label="Duty statement" style="flex:1 1 auto">
+        <input name="duty_frequency" value="{{ row.frequency }}" placeholder="frequency" aria-label="Frequency" style="flex:0 0 7rem">
+      </div>
+      <textarea name="duty_how_why" placeholder="how / why — one per line" aria-label="How and why" rows="2">{{ row.how_why }}</textarea>
+    </div>
+    {% endfor %}
+
+    <h3>5 · Impact of Decision Making</h3>
+    <textarea name="decision_making" placeholder="one per line" rows="3">{{ edit.decision_making }}</textarea>
+
+    <h3>6 · Problem Solving</h3>
+    <textarea name="problem_solving" placeholder="one per line" rows="3">{{ edit.problem_solving }}</textarea>
+
+    <h3>7 · Relationships</h3>
+    <label for="e-supervisory">Supervisory</label>
+    <textarea id="e-supervisory" name="supervisory" rows="2">{{ edit.supervisory }}</textarea>
+    <label for="e-rel_internal">Internal contacts (one per line)</label>
+    <textarea id="e-rel_internal" name="rel_internal" rows="2">{{ edit.rel_internal }}</textarea>
+    <label for="e-rel_external">External contacts (one per line)</label>
+    <textarea id="e-rel_external" name="rel_external" rows="2">{{ edit.rel_external }}</textarea>
+
+    <h3>8 · Qualifications</h3>
+    <p class="meta">Text · kind · proficiency modifier.</p>
+    {% for row in edit.qual_rows %}
+    <div style="display:flex;gap:.5rem;margin-bottom:.4rem">
+      <input name="qual_text" value="{{ row.text }}" placeholder="Qualification" aria-label="Qualification" style="flex:1 1 auto">
+      <select name="qual_kind" aria-label="Kind" style="flex:0 0 9rem">
+        {% for k in edit.qual_kinds %}
+        <option value="{{ k }}"{% if row.kind == k %} selected{% endif %}>{{ k }}</option>
+        {% endfor %}
+      </select>
+      <select name="qual_modifier" aria-label="Proficiency modifier" style="flex:0 0 10rem">
+        <option value="">— no modifier —</option>
+        {% for m in edit.modifier_options %}
+        <option value="{{ m }}"{% if row.modifier == m %} selected{% endif %}>{{ m | capitalize }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endfor %}
+
+    <h3>10 · Additional context</h3>
+    <textarea name="additional_context" rows="3">{{ edit.content.get('additional_context') or '' }}</textarea>
+
     <button type="submit">Save edit</button>
   </form>
 </div>
