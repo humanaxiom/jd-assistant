@@ -1,5 +1,9 @@
 # JD Bank — Build Plan
 
+> **Forward-looking roadmap + current backlog:** see [`docs/ROADMAP.md`](ROADMAP.md)
+> (quick wins, high-value features grounded in peer-university systems, and sequencing).
+> This file remains the phase-by-phase build record.
+
 **Project:** `jd-bank` — spin-off of the JD quality/harmonization capability from the SFU
 Recruiter Assistant (`C:\repos\hris`) into a standalone JD Bank system: dedup + harmonization
 + composer over the SFU Job Description archive.
