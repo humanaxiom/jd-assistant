@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JD Bank — Operator &amp; User Guide</title>
+<style>
+  :root {
+    --bg: #f7f6f6;
+    --panel: #ffffff;
+    --panel-2: #fbfafb;
+    --ink: #16141a;
+    --muted: #5f5960;
+    --line: #e7e4e6;
+    --line-soft: #f0edef;
+    --accent: #cc0633;
+    --accent-ink: #a80428;
+    --author: #2563eb;
+    --reviewer: #7c3aed;
+    --admin: #b45309;
+    --operator: #475569;
+    --good: #15803d;
+    --shadow: 0 1px 2px rgba(22, 20, 26, .04), 0 8px 24px -12px rgba(22, 20, 26, .12);
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, system-ui, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12121a;
+      --panel: #191922;
+      --panel-2: #1e1e29;
+      --ink: #ecebf1;
+      --muted: #9f99a6;
+      --line: #2a2a37;
+      --line-soft: #21212c;
+      --accent: #ff5c7a;
+      --accent-ink: #ff8098;
+      --author: #60a5fa;
+      --reviewer: #a78bfa;
+      --admin: #f5b942;
+      --operator: #9aa5b5;
+      --good: #4ade80;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px -14px rgba(0, 0, 0, .55);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12121a;
+    --panel: #191922;
+    --panel-2: #1e1e29;
+    --ink: #ecebf1;
+    --muted: #9f99a6;
+    --line: #2a2a37;
+    --line-soft: #21212c;
+    --accent: #ff5c7a;
+    --accent-ink: #ff8098;
+    --author: #60a5fa;
+    --reviewer: #a78bfa;
+    --admin: #f5b942;
+    --operator: #9aa5b5;
+    --good: #4ade80;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px -14px rgba(0, 0, 0, .55);
+  }
+  :root[data-theme="light"] {
+    --bg: #f7f6f6;
+    --panel: #ffffff;
+    --panel-2: #fbfafb;
+    --ink: #16141a;
+    --muted: #5f5960;
+    --line: #e7e4e6;
+    --line-soft: #f0edef;
+    --accent: #cc0633;
+    --accent-ink: #a80428;
+    --author: #2563eb;
+    --reviewer: #7c3aed;
+    --admin: #b45309;
+    --operator: #475569;
+    --good: #15803d;
+    --shadow: 0 1px 2px rgba(22, 20, 26, .04), 0 8px 24px -12px rgba(22, 20, 26, .12);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: clamp(1.1rem, 3vw, 2.4rem); }
+
+  a { color: var(--accent-ink); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+  .eyebrow {
+    font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+    color: var(--accent-ink); margin: 0 0 .7rem;
+  }
+  h1 {
+    font-size: clamp(1.9rem, 4.4vw, 2.7rem); line-height: 1.08; letter-spacing: -.02em;
+    font-weight: 800; margin: 0 0 .55rem; text-wrap: balance;
+  }
+  .lede { font-size: 1.06rem; color: var(--muted); max-width: 60ch; margin: 0; }
+  h2 {
+    font-size: 1.32rem; letter-spacing: -.01em; font-weight: 750; margin: 0;
+    text-wrap: balance;
+  }
+  h3 { font-size: 1.04rem; font-weight: 700; margin: 0; letter-spacing: -.005em; }
+  p { margin: .5rem 0; }
+  .prose { max-width: 66ch; }
+
+  /* ---- header ---- */
+  header.masthead { padding-bottom: 1.4rem; border-bottom: 2.5px solid var(--accent); }
+  .brand { display: inline-flex; align-items: center; gap: .75rem; margin-bottom: 1.5rem; }
+  .brand-mark {
+    font-weight: 800; font-size: 2.1rem; letter-spacing: -.045em; line-height: .85;
+    color: var(--accent); font-family: var(--sans);
+  }
+  .brand-rule { width: 1.5px; align-self: stretch; background: color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: 2px; }
+  .brand-name {
+    font-size: .66rem; font-weight: 700; letter-spacing: .17em; text-transform: uppercase;
+    color: var(--muted); line-height: 1.4;
+  }
+  .meta-row {
+    display: flex; flex-wrap: wrap; gap: .5rem 1.1rem; align-items: center;
+    margin-top: 1.1rem; font-size: .82rem; color: var(--muted);
+  }
+  .meta-row .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); display: inline-block; }
+
+  /* ---- role chips ---- */
+  .chip {
+    display: inline-flex; align-items: center; gap: .4em; white-space: nowrap;
+    font-size: .78rem; font-weight: 650; line-height: 1;
+    padding: .34em .62em; border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--c, var(--muted)) 40%, transparent);
+    background: color-mix(in srgb, var(--c, var(--muted)) 12%, var(--panel));
+    color: color-mix(in srgb, var(--c, var(--ink)) 82%, var(--ink));
+  }
+  .chip .glyph { font-size: .9em; }
+  .chip.author   { --c: var(--author); }
+  .chip.reviewer { --c: var(--reviewer); }
+  .chip.admin    { --c: var(--admin); }
+  .chip.operator { --c: var(--operator); }
+  .chip.any      { --c: var(--good); }
+  .chip.mono { font-family: var(--mono); font-weight: 600; letter-spacing: -.01em; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.15rem; }
+
+  /* ---- nav ---- */
+  nav.toc {
+    position: sticky; top: 0; z-index: 5; margin: 1.4rem 0 0;
+    display: flex; flex-wrap: wrap; gap: .4rem;
+    padding: .7rem 0; background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(6px); border-bottom: 1px solid var(--line-soft);
+  }
+  nav.toc a {
+    font-size: .82rem; font-weight: 600; color: var(--muted);
+    padding: .3rem .68rem; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--panel);
+  }
+  nav.toc a:hover { color: var(--accent-ink); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); text-decoration: none; }
+
+  /* ---- sections / cards ---- */
+  section { margin-top: 2.6rem; scroll-margin-top: 4.2rem; }
+  .sec-head { display: flex; align-items: baseline; gap: .7rem; margin-bottom: 1.1rem; }
+  .sec-num {
+    font-family: var(--mono); font-size: .82rem; font-weight: 600; color: var(--accent-ink);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+    border-radius: 6px; padding: .12rem .4rem; background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+  }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: var(--shadow); padding: 1.25rem 1.35rem;
+  }
+  .card + .card { margin-top: 1rem; }
+
+  .feature { position: relative; }
+  .feature > .f-top {
+    display: flex; flex-wrap: wrap; gap: .6rem .9rem; align-items: center;
+    justify-content: space-between; margin-bottom: .3rem;
+  }
+  .f-title { display: flex; align-items: center; gap: .6rem; }
+  .f-title .kicker { font-size: 1.35rem; line-height: 1; }
+  .access {
+    display: inline-flex; align-items: center; gap: .45rem;
+    font-size: .78rem; font-weight: 650; padding: .34rem .6rem; border-radius: 9px;
+    border: 1px solid var(--line); background: var(--panel-2); color: var(--muted);
+  }
+  .access.gate-admin {
+    color: color-mix(in srgb, var(--admin) 90%, var(--ink));
+    border-color: color-mix(in srgb, var(--admin) 45%, var(--line));
+    background: color-mix(in srgb, var(--admin) 12%, var(--panel));
+  }
+  .access.gate-reviewer {
+    color: color-mix(in srgb, var(--reviewer) 88%, var(--ink));
+    border-color: color-mix(in srgb, var(--reviewer) 40%, var(--line));
+    background: color-mix(in srgb, var(--reviewer) 10%, var(--panel));
+  }
+  .access.gate-open {
+    color: color-mix(in srgb, var(--good) 84%, var(--ink));
+    border-color: color-mix(in srgb, var(--good) 38%, var(--line));
+    background: color-mix(in srgb, var(--good) 10%, var(--panel));
+  }
+  .access.gate-op {
+    color: color-mix(in srgb, var(--operator) 92%, var(--ink));
+    border-color: color-mix(in srgb, var(--operator) 45%, var(--line));
+    background: color-mix(in srgb, var(--operator) 12%, var(--panel));
+  }
+  .f-where { font-size: .84rem; color: var(--muted); margin: .1rem 0 .9rem; }
+  .f-where code { font-family: var(--mono); font-size: .86em; }
+
+  /* admin-only feature gets a keyed rail */
+  .feature.is-admin { border-left: 3px solid var(--admin); }
+
+  /* ---- tables ---- */
+  .table-scroll { overflow-x: auto; margin: 0 -.2rem; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  th, td { text-align: left; padding: .62rem .7rem; vertical-align: top; }
+  thead th {
+    font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; font-weight: 700;
+    color: var(--muted); border-bottom: 1px solid var(--line);
+  }
+  tbody tr { border-bottom: 1px solid var(--line-soft); }
+  tbody tr:last-child { border-bottom: 0; }
+  tbody tr:hover { background: var(--panel-2); }
+  td.task { font-weight: 600; }
+  td .how { color: var(--muted); }
+  code, kbd {
+    font-family: var(--mono); font-size: .84em;
+    background: color-mix(in srgb, var(--accent) 7%, var(--panel-2));
+    border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--line));
+    border-radius: 6px; padding: .06em .38em; white-space: nowrap;
+    color: color-mix(in srgb, var(--ink) 84%, var(--accent));
+  }
+
+  /* ---- guardrails grid ---- */
+  .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: .8rem; }
+  .rail {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: .95rem 1.05rem; border-left: 3px solid var(--accent);
+  }
+  .rail .n { font-family: var(--mono); font-size: .78rem; color: var(--accent-ink); font-weight: 600; }
+  .rail h4 { margin: .25rem 0 .3rem; font-size: .98rem; }
+  .rail p { margin: 0; font-size: .87rem; color: var(--muted); }
+
+  /* ---- persona list ---- */
+  .personas { display: grid; gap: .7rem; }
+  .persona {
+    display: grid; grid-template-columns: minmax(150px, 200px) 1fr; gap: .3rem 1.1rem;
+    align-items: center; padding: .85rem 0; border-bottom: 1px solid var(--line-soft);
+  }
+  .persona:last-child { border-bottom: 0; }
+  .persona .who { display: flex; flex-direction: column; gap: .45rem; }
+  .persona .who .name { font-weight: 700; font-size: .98rem; }
+  .persona .can { color: var(--muted); font-size: .92rem; }
+
+  /* ---- matrix ---- */
+  .matrix-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+  table.matrix { font-size: .88rem; min-width: 640px; }
+  table.matrix thead th { padding: .8rem .7rem; background: var(--panel); position: sticky; top: 0; }
+  table.matrix th.role-col { text-align: center; }
+  table.matrix td { border-bottom: 1px solid var(--line-soft); }
+  table.matrix td.task { background: var(--panel); font-weight: 600; position: sticky; left: 0;
+    box-shadow: 1px 0 0 var(--line-soft); min-width: 250px; }
+  table.matrix td.cell { text-align: center; font-weight: 700; }
+  table.matrix tbody tr:hover td { background: var(--panel-2); }
+  table.matrix tbody tr:hover td.task { background: var(--panel-2); }
+  .yes { color: var(--good); }
+  .no { color: color-mix(in srgb, var(--muted) 60%, transparent); }
+  .matrix-note { font-size: .82rem; color: var(--muted); margin-top: .75rem; }
+
+  ul.tight { margin: .4rem 0; padding-left: 1.15rem; }
+  ul.tight li { margin: .3rem 0; }
+  .callout {
+    margin-top: .9rem; font-size: .88rem; color: var(--muted);
+    border-left: 3px solid color-mix(in srgb, var(--accent) 50%, var(--line));
+    padding: .1rem 0 .1rem .85rem;
+  }
+  .callout strong { color: var(--ink); }
+
+  footer {
+    margin-top: 3rem; padding-top: 1.3rem; border-top: 1px solid var(--line);
+    font-size: .84rem; color: var(--muted);
+  }
+  footer code { white-space: normal; }
+
+  @media (max-width: 620px) {
+    .grid2 { grid-template-columns: 1fr; }
+    .persona { grid-template-columns: 1fr; gap: .5rem; }
+    nav.toc { position: static; }
+  }
+
+  .fade { opacity: 0; transform: translateY(10px); animation: rise .55s cubic-bezier(.2,.7,.3,1) forwards; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .fade { animation: none; opacity: 1; transform: none; } }
+
+  /* ---- print: strip chrome, whiten, tighten to a clean compact reference ---- */
+  @media print {
+    :root, :root[data-theme="dark"], :root[data-theme="light"] {
+      --bg: #fff; --panel: #fff; --panel-2: #fff; --ink: #111; --muted: #444;
+      --line: #ccc; --line-soft: #e4e4e4; --accent: #cc0633; --accent-ink: #a80428;
+      --shadow: none;
+    }
+    body { font-size: 10.5px; line-height: 1.42; }
+    .wrap { max-width: none; padding: 0 .2in; }
+    nav.toc, .meta-row { display: none; }
+    .fade { animation: none; opacity: 1; transform: none; }
+    .card, .rail, .matrix-scroll, .feature { box-shadow: none !important; break-inside: avoid; }
+    section { margin-top: .8rem; break-inside: avoid; }
+    .sec-head { margin-bottom: .5rem; }
+    .card { padding: .7rem .8rem; }
+    .grid2 { gap: .45rem; }
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1.02rem; }
+    header.masthead { padding-bottom: .7rem; }
+    a { color: #111; text-decoration: none; }
+    table { font-size: .78rem; }
+    th, td { padding: .34rem .45rem; }
+    table.matrix thead th, table.matrix td.task { position: static; }
+  }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead fade">
+    <div class="brand" aria-label="Simon Fraser University">
+      <span class="brand-mark">SFU</span>
+      <span class="brand-rule" aria-hidden="true"></span>
+      <span class="brand-name">Simon Fraser<br>University</span>
+    </div>
+    <p class="eyebrow">Internal tool</p>
+    <h1>JD Bank — Operator &amp; User Guide</h1>
+    <p class="lede">How to run and use JD Bank: what the system is, who does what, and
+      exactly where <strong>admin rights</strong> (or server access) are required.</p>
+    <div class="legend" aria-label="Roles used in this guide">
+      <span class="chip any"><span class="glyph">●</span> any signed-in</span>
+      <span class="chip author"><span class="glyph">✍</span> author</span>
+      <span class="chip reviewer"><span class="glyph">✔</span> reviewer</span>
+      <span class="chip admin"><span class="glyph">🔑</span> admin</span>
+      <span class="chip operator"><span class="glyph">🖥️</span> operator</span>
+    </div>
+    <div class="meta-row">
+      <span>App URL <code>localhost:25800</code></span><span class="dot"></span>
+      <span>Roles held in any combination</span><span class="dot"></span>
+      <span><strong style="color:var(--admin)">🔑</strong> = needs the app admin role</span><span class="dot"></span>
+      <span><strong style="color:var(--operator)">🖥️</strong> = needs server / operator access</span>
+    </div>
+  </header>
+
+  <nav class="toc fade" aria-label="Contents">
+    <a href="#what">What it is</a>
+    <a href="#roles">Roles</a>
+    <a href="#access">Sign-in</a>
+    <a href="#builder">Builder</a>
+    <a href="#review">Review queue</a>
+    <a href="#users">User management</a>
+    <a href="#ops">Operator tasks</a>
+    <a href="#matrix">Rights matrix</a>
+  </nav>
+
+  <!-- WHAT IT IS -->
+  <section id="what" class="fade">
+    <div class="sec-head"><span class="sec-num">01</span><h2>What JD Bank is</h2></div>
+    <div class="prose">
+      <p>JD Bank turns SFU's sprawling job-description archive into a clean, governed
+        source of truth — and helps staff author new, standards-compliant JDs.</p>
+      <p><strong>The pipeline (back office).</strong> Every JD is parsed, de-duplicated,
+        clustered by role, and harmonized into one <em>draft</em> canonical JD per role,
+        scored by a deterministic validator. Run on the server via <code>make</code> tasks.</p>
+      <p><strong>The app (front office).</strong> A web UI where people compose a JD with
+        live compliance feedback, review &amp; approve drafts, browse dashboards, and
+        (admins) manage users.</p>
+    </div>
+
+    <h3 style="margin:1.5rem 0 .8rem">The four guardrails — never work around these</h3>
+    <div class="grid2">
+      <div class="rail"><span class="n">Guardrail 1</span><h4>Nothing auto-publishes</h4>
+        <p>A canonical JD stays a <em>draft</em> until a human <b>reviewer</b> approves it.
+          Overriding a blocking gate needs a written, recorded reason.</p></div>
+      <div class="rail"><span class="n">Guardrail 2</span><h4>Self-hosted inference only</h4>
+        <p>All AI runs on SFU-controlled Ollama (<code>aria-gb10-2</code>). No JD text ever
+          reaches a cloud/vendor API — build-enforced.</p></div>
+      <div class="rail"><span class="n">Guardrail 3</span><h4>The validator is the oracle</h4>
+        <p>Scores and approvability come from the rulebook validator, never from the LLM's
+          own claim about its output.</p></div>
+      <div class="rail"><span class="n">Guardrail 4</span><h4>Tamper-evident audit</h4>
+        <p>Every review action and every login is written to a hash-chained log — any
+          alteration or deletion is detectable.</p></div>
+    </div>
+  </section>
+
+  <!-- ROLES -->
+  <section id="roles" class="fade">
+    <div class="sec-head"><span class="sec-num">02</span><h2>Personas &amp; roles</h2></div>
+    <div class="card">
+      <div class="personas">
+        <div class="persona">
+          <div class="who"><span class="name">Hiring manager / recruiter</span>
+            <span><span class="chip author"><span class="glyph">✍</span> author</span></span></div>
+          <div class="can">Use the Builder — search/clone, author, get AI assist, export
+            <code>.docx</code>, submit a draft for review. Browse dashboards.</div>
+        </div>
+        <div class="persona">
+          <div class="who"><span class="name">HR reviewer</span>
+            <span><span class="chip reviewer"><span class="glyph">✔</span> reviewer</span></span></div>
+          <div class="can">Everything an author can, <b>plus</b> open the review queue and
+            <b>approve / reject / edit / override</b> drafts — the human-approval gate.</div>
+        </div>
+        <div class="persona">
+          <div class="who"><span class="name">System administrator</span>
+            <span><span class="chip admin"><span class="glyph">🔑</span> admin</span></span></div>
+          <div class="can">Everything above, <b>plus</b> manage users — assign roles,
+            enable / disable accounts.</div>
+        </div>
+        <div class="persona">
+          <div class="who"><span class="name">System operator / DevOps</span>
+            <span><span class="chip operator"><span class="glyph">🖥️</span> operator</span></span></div>
+          <div class="can">Run the pipelines, migrations, deploys and CAS config from the
+            server shell. This is <b>infrastructure access</b>, not an app role.</div>
+        </div>
+      </div>
+      <p class="callout">New users are provisioned as <strong>author</strong> on first
+        sign-in; reviewer and admin are granted by an admin. A person can be an app
+        <strong>admin</strong> without server <strong>operator</strong> access — and the
+        reverse.</p>
+    </div>
+  </section>
+
+  <!-- ACCESS -->
+  <section id="access" class="fade">
+    <div class="sec-head"><span class="sec-num">03</span><h2>Access &amp; sign-in</h2></div>
+    <div class="card">
+      <ul class="tight">
+        <li><b>Sign in with SFU CAS.</b> The login page redirects to <code>cas.sfu.ca</code>
+          and back; your identity is your SFU computing ID.</li>
+        <li><b>The nav bar</b> shows your controls — 🧱 Builder · 📋 Review queue ·
+          📊 Dashboards · <b>👤 Users</b> <span class="chip admin" style="font-size:.7rem"><span class="glyph">🔑</span> admins only</span> ·
+          your name · Sign out.</li>
+        <li><span class="chip operator" style="font-size:.72rem"><span class="glyph">🖥️</span> operator</span>
+          <b>Dev / CI mode</b> (<code>CAS_ENABLED=false</code>): every request runs as a
+          synthetic admin with no login, so the app is usable offline. Turn <b>off in
+          production</b>.</li>
+        <li><span class="chip operator" style="font-size:.72rem"><span class="glyph">🖥️</span> operator</span>
+          <b>First-admin bootstrap:</b> set <code>BOOTSTRAP_ADMINS=your-cas-id</code>; those
+          users are granted admin on login. That's how the first administrator is created —
+          after that, admins manage everyone in the UI.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- BUILDER -->
+  <section id="builder" class="fade">
+    <div class="sec-head"><span class="sec-num">04</span><h2>Authoring a JD — the Builder</h2></div>
+    <div class="card feature">
+      <div class="f-top">
+        <div class="f-title"><span class="kicker">🧱</span><h3>Builder</h3></div>
+        <span class="access gate-open">👥 Any signed-in user · no admin</span>
+      </div>
+      <p class="f-where">Where: <code>/jd-bank/ui/compose/new</code></p>
+      <div class="table-scroll"><table>
+        <thead><tr><th style="width:32%">Task</th><th>How</th></tr></thead>
+        <tbody>
+          <tr><td class="task">Start from an existing JD</td>
+            <td class="how"><b>🔎 Search to clone</b> → pick a match → <em>Start from this</em>.
+              Semantic search over the archive (JDFN scope). The form pre-fills.</td></tr>
+          <tr><td class="task">Author from scratch</td>
+            <td class="how">Fill the guided questions, then <b>Check compliance</b>. The live
+              panel shows score, grade, blocking gates, and fixes — each finding links to the
+              section that needs it.</td></tr>
+          <tr><td class="task">Improve the summary with AI</td>
+            <td class="how"><b>✨ Improve summary (assist)</b> — a self-hosted LLM suggests a
+              better Position Summary; you review and edit it (nothing auto-applies).</td></tr>
+          <tr><td class="task">Download the document</td>
+            <td class="how"><b>Export .docx ↓</b> — renders the official SFU <code>.docx</code>.
+              Rendering only; nothing is validated or published.</td></tr>
+          <tr><td class="task">Send for approval</td>
+            <td class="how"><b>Submit for review →</b> persists a <em>draft</em> into the
+              queue, attributed to <b>you</b>. Publishes nothing (guardrail 1).</td></tr>
+        </tbody>
+      </table></div>
+      <p class="callout"><b>Scope:</b> the Builder authors <strong>JDFN</strong> roles
+        (APSA / APEX / Polytechnic). CUPE roles use a different instrument (WJQ) with no
+        ratified quality bar yet, so they are deliberately not authorable.</p>
+    </div>
+  </section>
+
+  <!-- REVIEW -->
+  <section id="review" class="fade">
+    <div class="sec-head"><span class="sec-num">05</span><h2>Reviewing &amp; approving — the Review queue</h2></div>
+    <div class="card feature">
+      <div class="f-top">
+        <div class="f-title"><span class="kicker">📋</span><h3>Review queue</h3></div>
+        <span class="access gate-reviewer">✔ Reviewer or admin</span>
+      </div>
+      <p class="f-where">Where: <code>/jd-bank/ui/queue</code> — an author who isn't a
+        reviewer is turned away here.</p>
+      <div class="table-scroll"><table>
+        <thead><tr><th style="width:26%">Task</th><th>How</th></tr></thead>
+        <tbody>
+          <tr><td class="task">See what's awaiting review</td>
+            <td class="how">Open the queue — a list of draft canonical JDs.</td></tr>
+          <tr><td class="task">Inspect a draft</td>
+            <td class="how">Click a row: the rendered draft, the harmonization change-log
+              (what each source fed, what was dropped and why), and the live gate decision.</td></tr>
+          <tr><td class="task"><span class="yes">Approve</span></td>
+            <td class="how"><b>Approve</b> (fill an override reason for any overridable
+              blocking gate). Publishes <b>only if</b> the validator's gates permit, re-checked
+              at approve time — a blocked draft can't be approved without a valid override.</td></tr>
+          <tr><td class="task">Reject</td><td class="how"><b>Reject</b> + a reason.</td></tr>
+          <tr><td class="task">Edit</td>
+            <td class="how"><b>Edit</b> the content + a reason — creates a new draft version;
+              the prior is archived.</td></tr>
+        </tbody>
+      </table></div>
+      <p class="callout">The reviewer on every action is the <strong>authenticated
+        user</strong> — there is no "type your id" field. Every action is written to the
+        tamper-evident audit log.</p>
+    </div>
+  </section>
+
+  <!-- USERS -->
+  <section id="users" class="fade">
+    <div class="sec-head"><span class="sec-num">06</span><h2>User management</h2></div>
+    <div class="card feature is-admin">
+      <div class="f-top">
+        <div class="f-title"><span class="kicker">👤</span><h3>User management</h3></div>
+        <span class="access gate-admin">🔑 Admin only</span>
+      </div>
+      <p class="f-where">Where: <code>/jd-bank/ui/admin/users</code> — the <b>👤 Users</b>
+        link appears only if you're an admin.</p>
+      <div class="table-scroll"><table>
+        <thead><tr><th style="width:26%">Task</th><th>How</th></tr></thead>
+        <tbody>
+          <tr><td class="task">See everyone</td>
+            <td class="how">Table of every user who has signed in (provisioned on first
+              login) — roles, status, last login.</td></tr>
+          <tr><td class="task">Grant / change roles</td>
+            <td class="how">Tick <b>author / reviewer / admin</b> → <b>Save roles</b>
+              (e.g. make a hiring manager a reviewer so they can approve).</td></tr>
+          <tr><td class="task">Disable an account</td>
+            <td class="how"><b>Disable</b> — blocks login <b>and revokes live sessions</b>
+              (signs them out everywhere).</td></tr>
+          <tr><td class="task">Re-enable</td><td class="how"><b>Enable</b>.</td></tr>
+        </tbody>
+      </table></div>
+      <p class="callout"><b>Self-lockout guards:</b> you can't remove your <strong>own</strong>
+        admin role, nor disable your <strong>own</strong> account — so a single-admin
+        deployment can't brick itself.</p>
+    </div>
+  </section>
+
+  <!-- OPS -->
+  <section id="ops" class="fade">
+    <div class="sec-head"><span class="sec-num">07</span><h2>Operator tasks — pipelines, deploy, config</h2></div>
+    <div class="card feature">
+      <div class="f-top">
+        <div class="f-title"><span class="kicker">🖥️</span><h3>Server / operator</h3></div>
+        <span class="access gate-op">🖥️ Server access — not the app admin role</span>
+      </div>
+      <p class="f-where">Run on the server shell (Docker-only). The app admin role does
+        <b>not</b> grant this.</p>
+
+      <h4 style="margin:.4rem 0 .5rem; font-size:.9rem; color:var(--muted); text-transform:uppercase; letter-spacing:.06em">Bring-up &amp; schema</h4>
+      <div class="table-scroll"><table>
+        <thead><tr><th style="width:34%">Command</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>make up</code></td><td class="how">Start the stack (Postgres, Neo4j, Redis, api, worker).</td></tr>
+          <tr><td><code>make migrate</code></td><td class="how">Apply DB migrations — <b>run before ingest</b>. Includes auth tables + the audit hash-chain.</td></tr>
+          <tr><td><code>make shell</code></td><td class="how">Open a shell inside the app container.</td></tr>
+        </tbody>
+      </table></div>
+
+      <h4 style="margin:1.1rem 0 .5rem; font-size:.9rem; color:var(--muted); text-transform:uppercase; letter-spacing:.06em">The archive pipeline — in order</h4>
+      <div class="table-scroll"><table>
+        <thead><tr><th style="width:34%">Command</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>make ingest</code></td><td class="how">Load + parse the archive into Postgres. Incumbent names scrubbed at ingest.</td></tr>
+          <tr><td><code>make embed</code></td><td class="how">Section + document vectors into Neo4j (self-hosted Ollama, local-only).</td></tr>
+          <tr><td><code>make near-dup</code></td><td class="how">Tier-2 near-duplicate dedup.</td></tr>
+          <tr><td><code>make dedup-role</code></td><td class="how">Tier-3 role-equivalence dedup.</td></tr>
+          <tr><td><code>make cluster</code></td><td class="how">Cluster roles (Phase-3.5 report).</td></tr>
+          <tr><td><code>make canonical-drafts</code></td><td class="how">One <b>draft</b> canonical per JDFN cluster into the review queue.</td></tr>
+          <tr><td><code>make baseline</code></td><td class="how">Score the whole archive; writes <code>docs/baseline/</code>.</td></tr>
+        </tbody>
+      </table></div>
+
+      <h4 style="margin:1.1rem 0 .5rem; font-size:.9rem; color:var(--muted); text-transform:uppercase; letter-spacing:.06em">Governance, health &amp; auth config</h4>
+      <div class="table-scroll"><table>
+        <thead><tr><th style="width:34%">Task</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>make gates</code></td><td class="how">Full test/gate suite (what CI runs): static + unit + integration + coverage.</td></tr>
+          <tr><td><code>verify_audit_chain()</code></td><td class="how">Recompute the audit hash-chain; detects any altered / deleted log row.</td></tr>
+          <tr><td><code>CAS_ENABLED=true</code></td><td class="how">Require SFU sign-in in production (<code>false</code> for dev/CI).</td></tr>
+          <tr><td><code>BOOTSTRAP_ADMINS</code></td><td class="how">Comma-separated CAS ids granted admin on login (first-admin bootstrap).</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- MATRIX -->
+  <section id="matrix" class="fade">
+    <div class="sec-head"><span class="sec-num">08</span><h2>"Who can do this?" — rights matrix</h2></div>
+    <div class="matrix-scroll"><table class="matrix">
+      <thead><tr>
+        <th>Task</th>
+        <th class="role-col"><span class="chip any" style="font-size:.7rem">any</span></th>
+        <th class="role-col"><span class="chip author" style="font-size:.7rem">author</span></th>
+        <th class="role-col"><span class="chip reviewer" style="font-size:.7rem">reviewer</span></th>
+        <th class="role-col"><span class="chip admin" style="font-size:.7rem">🔑 admin</span></th>
+        <th class="role-col"><span class="chip operator" style="font-size:.7rem">🖥️ operator</span></th>
+      </tr></thead>
+      <tbody>
+        <tr><td class="task">Sign in / out</td>
+          <td class="cell yes">✓</td><td class="cell yes">✓</td><td class="cell yes">✓</td><td class="cell yes">✓</td><td class="cell no">—</td></tr>
+        <tr><td class="task">Browse dashboards</td>
+          <td class="cell yes">✓</td><td class="cell yes">✓</td><td class="cell yes">✓</td><td class="cell yes">✓</td><td class="cell no">—</td></tr>
+        <tr><td class="task">Author / clone / assist / export (Builder)</td>
+          <td class="cell yes">✓<sup>1</sup></td><td class="cell yes">✓</td><td class="cell yes">✓</td><td class="cell yes">✓</td><td class="cell no">—</td></tr>
+        <tr><td class="task">Submit a draft for review</td>
+          <td class="cell yes">✓<sup>1</sup></td><td class="cell yes">✓</td><td class="cell yes">✓</td><td class="cell yes">✓</td><td class="cell no">—</td></tr>
+        <tr><td class="task">Approve / reject / edit / override</td>
+          <td class="cell no">—</td><td class="cell no">—</td><td class="cell yes">✓</td><td class="cell yes">✓</td><td class="cell no">—</td></tr>
+        <tr><td class="task">Manage users (roles, enable/disable)</td>
+          <td class="cell no">—</td><td class="cell no">—</td><td class="cell no">—</td><td class="cell yes">✓</td><td class="cell no">—</td></tr>
+        <tr><td class="task">Run pipelines / migrations / deploy / CAS</td>
+          <td class="cell no">—</td><td class="cell no">—</td><td class="cell no">—</td><td class="cell no">—<sup>2</sup></td><td class="cell yes">✓</td></tr>
+      </tbody>
+    </table></div>
+    <p class="matrix-note"><sup>1</sup> The Builder &amp; dashboards need only that you are
+      <b>signed in</b>; new users hold <code>author</code> by default.
+      <sup>2</sup> App admins do <b>not</b> get server/pipeline access from the admin role —
+      that is separate <b>operator</b> access.</p>
+  </section>
+
+  <footer class="fade">
+    Related documentation:
+    <code>HANDOFF.md</code> (current state) ·
+    <code>docs/adr/ADR-008-auth-cas-rbac.md</code> (auth &amp; RBAC design) ·
+    <code>docs/baseline/README.md</code> (the archive baseline) ·
+    <code>docs/decisions/HR-REVIEW-PACKET.md</code> (what SFU HR must decide) ·
+    <code>CLAUDE.md</code> (invariants).
+  </footer>
+
+</div>
+</body>
+</html>
