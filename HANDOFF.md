@@ -23,9 +23,16 @@ green, on branch **`feat/builder-structured-fields`** (commits `6e15c9a`, `f138f
   Latest `make gates`: **1905 passing, 93.45%.** One reviewer nit (a dangling `<label for>`) fixed in
   Slice A. **Follow-up recorded:** `_column`/`_at`/`_lines`/`_pad_rows` are now duplicated across
   `ui.py` + `compose_ui.py` — consolidate into a shared `_forms.py`.
-- **⚠ NOT yet on `main`:** the branch is committed but unmerged. Fast-forward `main` + push per the
-  billing-blocked workflow below when ready, then continue milestone-1 (concurrent double-approve
-  test · embed-published-canonicals write path · version-diff view · the three review-packet defects).
+- **On `main`** (`74a31a7..51f8e5a`, pushed) — merged locally per the billing-blocked workflow below.
+- **Concurrent double-approve test DONE (`7ce53db`, on `main`).** Milestone-1's next item: a
+  mutation-verified integration test (`test_review_service.py::test_concurrent_approves_...`) proves
+  the `SELECT ... FOR UPDATE` lock in `_get_for_update` serializes two concurrent approves of one
+  DRAFT — exactly one publishes, the other gets `IllegalTransitionError`. The race is orchestrated
+  (A holds the lock uncommitted, B blocks, then A commits) because a plain `asyncio.gather` is a
+  false-green; verified RED with the lock flag flipped off. `make gates`: **1906 passing, 93.45%.**
+- **Milestone-1 REMAINING:** embed-published-canonicals write path (S/M) · draft-vs-last-approved
+  version-diff view (S) · the three "our-defect" review-packet items + re-baseline (the higher-stakes
+  one — do before HR sees numbers).
 
 **PRIOR (2026-07-28): AUTH/RBAC + the whole Builder UI are DONE; the roadmap + operator guide are
 written. The system is now credible as an app — the critical path is HR ratification + the first

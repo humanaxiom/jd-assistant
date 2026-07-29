@@ -40,7 +40,7 @@ list omits the auth deferrals — captured here.)
 | Builder | ~~**Structured per-field editors** (duty % / KSA modifiers) — form is lossy, reviewer edit is raw JSON~~ **DONE (2026-07-28, `feat/builder-structured-fields`)** — Builder rows capture verb/%/modifier; reviewer edit is a full per-field `SFUJobDescription` editor (no raw JSON). | done | M |
 | Builder | Live-as-you-type validation (inline fetch to 5.1) instead of POST-re-render | open (opt-in) | S |
 | Review | **4.5 HR pilot** — 5–10 clusters end-to-end with a real reviewer (external dependency) | open (next milestone) | L |
-| Review | Concurrent double-approve test (the `FOR UPDATE` lock is untested) | open | S |
+| Review | ~~Concurrent double-approve test (the `FOR UPDATE` lock is untested)~~ **DONE (2026-07-29, `7ce53db`)** — mutation-verified integration pin | done | S |
 | Auth | `review_actions.reviewer_id → users.id` hard FK (currently CAS-username string) | open | S |
 | Auth | Tamper-**prevention** via Postgres GRANT/REVOKE (audit is tamper-evident, not prevented) | open (hardening) | M |
 | Auth | CAS production verification against the real `cas.sfu.ca` IdP (enabled, not yet driven end-to-end) | open (ops) | S/M |
@@ -78,8 +78,9 @@ unblock the pilot** — do them first.
   that SFU's redundancy is heavy cross-position cloning (77% of Tier-1 groups). Turning 5.4
   search from opt-in into a proactive "3 roles are ~87% similar — clone one?" prompt prevents
   new duplicates at the source. *Invariant:* read-only, suggests-never-blocks, threshold registered.
-- **Concurrent double-approve test.** The `FOR UPDATE` lock is real but untested on the
-  concurrent/stale-status approve path — exactly what a multi-reviewer pilot exercises.
+- ~~**Concurrent double-approve test.**~~ **DONE (2026-07-29, `7ce53db`).** A mutation-verified
+  integration test orchestrates two concurrent approves and proves the `FOR UPDATE` lock lets
+  exactly one publish (the other → `IllegalTransitionError`).
 - **Side-by-side JD version diff (draft vs last-approved).** Reuses the 4.3 harmonization-diff
   machinery to answer the single most-asked reclassification question: "what changed since
   this was last approved?" Read-only over data already stored.
