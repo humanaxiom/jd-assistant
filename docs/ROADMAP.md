@@ -37,7 +37,7 @@ list omits the auth deferrals — captured here.)
 | Pipeline | Tier-3 candidate-gen perf → Neo4j vector top-k (O(bucket²) on the 8.2k `unmapped` bucket) | open | M |
 | Pipeline | %-rebalance of duty allocations (deferred from 4.1) | deferred | M |
 | Pipeline | `jd_bank/` change-log runner over real clusters (4.3) | open | S |
-| Builder | **Structured per-field editors** (duty % / KSA modifiers) — form is lossy, reviewer edit is raw JSON | open (top UX gap) | M |
+| Builder | ~~**Structured per-field editors** (duty % / KSA modifiers) — form is lossy, reviewer edit is raw JSON~~ **DONE (2026-07-28, `feat/builder-structured-fields`)** — Builder rows capture verb/%/modifier; reviewer edit is a full per-field `SFUJobDescription` editor (no raw JSON). | done | M |
 | Builder | Live-as-you-type validation (inline fetch to 5.1) instead of POST-re-render | open (opt-in) | S |
 | Review | **4.5 HR pilot** — 5–10 clusters end-to-end with a real reviewer (external dependency) | open (next milestone) | L |
 | Review | Concurrent double-approve test (the `FOR UPDATE` lock is untested) | open | S |
@@ -201,10 +201,10 @@ From peer research + backlog, each mapped to JD Bank's architecture, ordered rou
 The path interleaves cheap engineering that *enables* the pilot with the external governance
 track only HR can advance.
 
-1. **Make the pilot runnable** (weeks, mostly S) — structured per-field editor (kills the
-   raw-JSON blocker) · concurrent double-approve test · embed-published-canonicals write path ·
-   version-diff view · refresh HANDOFF + reconcile PRs. Fix the three "our-defect" review-packet
-   items and re-baseline here too. *A reviewer cannot pilot against a JSON textarea.*
+1. **Make the pilot runnable** (weeks, mostly S) — ~~structured per-field editor (kills the
+   raw-JSON blocker)~~ **DONE 2026-07-28** · concurrent double-approve test · embed-published-canonicals
+   write path · version-diff view · refresh HANDOFF + reconcile PRs. Fix the three "our-defect"
+   review-packet items and re-baseline here too. *A reviewer cannot pilot against a JSON textarea.*
 2. **Run the 4.5 HR pilot + start ratification** (external, L) — drive 5–10 clusters with a real
    reviewer; convert judgment calls into fixtures/rules; put the six genuine HR decisions in front
    of HR. **This is the gate** — a signed bar + pilot fixtures precede any production rollout.

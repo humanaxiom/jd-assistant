@@ -2,7 +2,32 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-07-28): AUTH/RBAC + the whole Builder UI are DONE; the roadmap + operator guide are
+**NEWEST (2026-07-28, later): STRUCTURED PER-FIELD EDITORS — the raw-JSON/lossy-form blocker is
+GONE, both surfaces.** This was ROADMAP milestone-1's first task ("Make the pilot runnable" — *a
+reviewer cannot pilot against a JSON textarea*). Two focused slices, each TDD'd, full `make gates`
+green, on branch **`feat/builder-structured-fields`** (commits `6e15c9a`, `f138f18`):
+- **Slice A — Builder form (`6e15c9a`).** Duties and knowledge/skills are now STRUCTURED repeatable
+  rows, not one-item-per-line textareas: a duty row captures its `action_verb` (what the action-verb
+  gate checks) + `allocation` (the `(NN%)` the allocation gate reads); a knowledge/skill row captures
+  its Toolkit proficiency `modifier` — the fields `ComposerAnswers` always carried but the flat
+  textarea silently dropped. Rows post as index-aligned parallel arrays (`keep_blank_values`);
+  "add a row" is blank-row padding (no client JS). Modifier options are rulebook DATA
+  (`qualifications.yaml` 5.1/5.2, NN #2). Clone + validation-error re-renders repopulate the rows.
+- **Slice B — reviewer edit view (`f138f18`).** Replaced the raw-JSON `<textarea name="content">` with
+  a per-field editor over the FULL `SFUJobDescription`. `_content_from_form` reconstructs EVERY field
+  (incl. per-duty `how_why`/`frequency`, `grade`, `position_number`, the presence booleans) — a
+  partial editor that dropped any of those on save would be *worse* than JSON (silent corruption). A
+  round-trip test feeds the reconstructed dict through the real model and asserts `model_dump` equals
+  it. `service.edit` stays the sole authority + re-validates (validator-as-oracle NN #3).
+- **Transport/presentation only:** no knob, **`rules_version` untouched**, nothing publishes (NN #1).
+  Latest `make gates`: **1905 passing, 93.45%.** One reviewer nit (a dangling `<label for>`) fixed in
+  Slice A. **Follow-up recorded:** `_column`/`_at`/`_lines`/`_pad_rows` are now duplicated across
+  `ui.py` + `compose_ui.py` — consolidate into a shared `_forms.py`.
+- **⚠ NOT yet on `main`:** the branch is committed but unmerged. Fast-forward `main` + push per the
+  billing-blocked workflow below when ready, then continue milestone-1 (concurrent double-approve
+  test · embed-published-canonicals write path · version-diff view · the three review-packet defects).
+
+**PRIOR (2026-07-28): AUTH/RBAC + the whole Builder UI are DONE; the roadmap + operator guide are
 written. The system is now credible as an app — the critical path is HR ratification + the first
 human pilot, not more infrastructure.** Latest `make gates`: **1892 passing, 93.36%.** `main` is in
 sync with `origin`, **no open PRs** (the old billing-blocked ones are closed). CI is still
