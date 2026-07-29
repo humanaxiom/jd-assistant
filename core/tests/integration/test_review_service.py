@@ -32,6 +32,7 @@ that clears every gate — so "permitted" is a real, reproducible state, not a m
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import AsyncIterator, Iterator
 
@@ -881,3 +882,80 @@ async def test_the_producer_no_clobber_resolves_to_the_latest_version(
         assert rows[1].content == sentinel_v1  # the older version left untouched
         assert rows[2].content != sentinel_v2  # the LATEST version was refreshed
         assert rows[2].content["title"] == "Analyst"  # to the real merge draft
+
+
+# --- acceptance #7: the FOR UPDATE lock serializes concurrent approves ----------------
+
+
+@pytest.mark.asyncio
+async def test_concurrent_approves_of_one_draft_publish_exactly_once(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """CONCURRENCY pin of NN #1 — two reviewers hitting Approve on the SAME live DRAFT
+    at once must NOT double-publish. ``_get_for_update`` takes a ``SELECT ... FOR
+    UPDATE`` row lock; the loser blocks on it until the winner commits, then re-reads
+    ``status=PUBLISHED`` and raises ``IllegalTransitionError`` — publishing nothing.
+
+    The race is orchestrated deterministically rather than left to chance (a plain
+    ``asyncio.gather`` lets one transaction finish before the other even starts its
+    SELECT, so it would pass WITHOUT the lock — a false-green). Reviewer A calls
+    ``approve`` but does NOT commit, so its transaction and row lock stay open; B then
+    races while A holds the lock. ``assert not b_task.done()`` proves B is genuinely
+    blocked behind A before A commits.
+
+    Mutation check: with ``with_for_update=True`` removed, B's SELECT no longer blocks
+    — it reads the still-DRAFT row, and after A commits B's own UPDATE lands a SECOND
+    publish, so ``b_result`` is ``"published"`` (not ``"blocked"``) and the single-
+    APPROVE assertion goes RED. Verified by flipping the flag.
+    """
+    async with session_maker() as session:
+        canonical = await _seed_canonical(
+            session, content=_clean_jd().model_dump(mode="json")
+        )
+        cid = canonical.id
+        await session.commit()
+
+    async with session_maker() as session_a, session_maker() as session_b:
+        # A stages the publish and holds the FOR UPDATE lock — no commit yet, so the
+        # transaction (and the row lock) stays open.
+        await approve(session_a, cid, reviewer_id=REVIEWER)
+
+        async def b_approve() -> str:
+            try:
+                await approve(session_b, cid, reviewer_id=REVIEWER)
+                await session_b.commit()
+                return "published"
+            except IllegalTransitionError:
+                await session_b.rollback()
+                return "blocked"
+
+        b_task = asyncio.create_task(b_approve())
+        # Let B reach its wait: its SELECT ... FOR UPDATE blocks behind A's lock. It
+        # must NOT be able to finish while A's transaction is open.
+        await asyncio.sleep(0.5)
+        assert not b_task.done()  # B is genuinely blocked behind A, not racing past it
+
+        await session_a.commit()  # A wins; releasing the lock lets B proceed
+        b_result = await b_task
+
+    # B saw the now-PUBLISHED row and refused — no second publish (RED without lock).
+    assert b_result == "blocked"
+
+    async with session_maker() as session:
+        row = await session.get(CanonicalJD, cid)
+        assert row is not None and row.status is CanonicalStatus.PUBLISHED
+        approves = (
+            await session.scalars(
+                select(ReviewAction).where(
+                    ReviewAction.canonical_jd_id == cid,
+                    ReviewAction.action == ReviewActionKind.APPROVE,
+                )
+            )
+        ).all()
+        assert len(approves) == 1  # NOT two — the lock prevented a double-publish
+        audits = (
+            await session.scalars(
+                select(AuditLog).where(AuditLog.event_type == "review.approved")
+            )
+        ).all()
+        assert len(audits) == 1
