@@ -16,11 +16,16 @@ the answers into a draft (:func:`~src.jd_bank.composer.assemble_jd`), assesses i
 to the review queue is Phase 5.6. Jinja autoescape is on; no ``|safe`` on the author's
 own text.
 
-**Known MVP simplification** (recorded, not hidden): the form collects list sections as
-one-item-per-line textareas and does not yet capture per-duty percentage allocations or
-per-qualification KSA modifiers — a structured per-field editor is a later task, exactly
-as the review-queue edit view (a raw-JSON textarea) is. The live panel honestly surfaces
-whatever the validator makes of the current draft.
+**Structured per-field editors.** Duties and knowledge/skills are STRUCTURED repeatable
+rows, not one-item-per-line textareas: a duty row captures its ``action_verb`` (what the
+action-verb gate checks) + ``allocation`` (the ``(NN%)`` the allocation gate reads), and
+a knowledge/skill row captures its Toolkit proficiency ``modifier`` — the fields the
+``ComposerAnswers`` model always carried but a flat textarea dropped. The rows post as
+index-aligned parallel arrays (``duty_verb`` × N, …); "add a row" is dependency-free
+(a few blank rows padded in), matching the no-client-JS posture of the rest of this UI.
+The remaining list sections (decision-making, relationships, education, …) stay
+one-item-per-line textareas. The live panel honestly surfaces whatever the validator
+makes of the current draft.
 """
 
 from __future__ import annotations
@@ -104,7 +109,24 @@ _STRING_LIST_TARGETS = {
     "experience",
     "abilities",
 }
+#: Targets rendered as STRUCTURED repeatable rows (not one-item-per-line textareas),
+#: so the fields the models carry but a flat textarea drops are captured: a duty's
+#: ``action_verb`` (what the action-verb gate checks) + ``allocation`` (the ``(NN%)``
+#: the allocation gate reads), and a knowledge/skill proficiency ``modifier``.
 _MODIFIED_LIST_TARGETS = {"knowledge", "skills"}
+
+#: How many structured rows to show: the filled rows plus a few blanks to add more,
+#: capped at the model's list max (dependency-free "add a row" without client JS).
+_DUTY_MIN_ROWS, _DUTY_MAX_ROWS = 5, 12
+_KSA_MIN_ROWS, _KSA_MAX_ROWS = 5, 20
+_ROW_SPARE = 3
+
+#: Display order for the Toolkit proficiency scales (a natural progression). The SET
+#: of options is still rulebook DATA (``qualifications.yaml`` Parts 5.1/5.2, NN #2) —
+#: this only sequences them; any modifier the rulebook adds that is not listed here is
+#: appended (sorted) rather than silently dropped (see :func:`_ordered_modifiers`).
+_KNOWLEDGE_MODIFIER_ORDER = ("excellent", "working")
+_SKILL_MODIFIER_ORDER = ("basic", "intermediate", "advanced", "expert")
 
 #: state -> the badge class defined in ``_base.html``.
 _STATE_BADGE = {"ok": "ok", "needs_attention": "blocked", "empty": "muted"}
@@ -128,7 +150,11 @@ def _kind_for(target: str) -> str:
         return "text"
     if target in _TEXTAREA_TARGETS:
         return "textarea"
-    return "list"  # duties + the string/modified list targets: one item per line
+    if target == "duties":
+        return "duties"  # structured verb / statement / % rows
+    if target in _MODIFIED_LIST_TARGETS:
+        return "modified"  # structured text + proficiency-modifier rows
+    return "list"  # the remaining string-list targets: one item per line
 
 
 def _lines(value: str) -> list[str]:
@@ -142,11 +168,145 @@ def _first_values(pairs: list[tuple[str, str]]) -> dict[str, str]:
     return values
 
 
-def _answers_from_form(values: dict[str, str]) -> ComposerAnswers:
-    """Build ``ComposerAnswers`` from the submitted form (keyed by answer target).
+def _column(pairs: list[tuple[str, str]], key: str) -> list[str]:
+    """Every value submitted for ``key``, in document order — the structured rows post
+    parallel arrays (``duty_verb`` × N, ``duty_statement`` × N, …) that stay index-
+    aligned because ``parse_qsl`` preserves order and each row emits one of each."""
+    return [value for k, value in pairs if k == key]
 
-    May raise :class:`pydantic.ValidationError` (e.g. an over-long field) — the caller
-    re-renders the page with the error and assembles nothing."""
+
+def _at(items: list[str], index: int) -> str:
+    return items[index] if index < len(items) else ""
+
+
+def _ordered_modifiers(available: frozenset[str], order: tuple[str, ...]) -> list[str]:
+    """The rulebook's proficiency modifiers in display order — the ``none`` sentinel
+    (an ABSENT modifier) dropped, and any modifier the rulebook defines but the display
+    order omits appended (sorted) so nothing is ever silently unofferable."""
+    known = [m for m in order if m in available and m != "none"]
+    extra = sorted(m for m in available if m not in order and m != "none")
+    return known + extra
+
+
+def _duty_row_dicts(pairs: list[tuple[str, str]]) -> list[dict[str, str]]:
+    """The submitted duty rows as raw ``{verb, statement, allocation}`` dicts (kept as
+    strings so they repopulate the form even when a value fails validation)."""
+    verbs = _column(pairs, "duty_verb")
+    statements = _column(pairs, "duty_statement")
+    allocations = _column(pairs, "duty_allocation")
+    count = max(len(verbs), len(statements), len(allocations))
+    return [
+        {
+            "verb": _at(verbs, i),
+            "statement": _at(statements, i),
+            "allocation": _at(allocations, i),
+        }
+        for i in range(count)
+    ]
+
+
+def _modified_row_dicts(
+    pairs: list[tuple[str, str]], target: str
+) -> list[dict[str, str]]:
+    """The submitted knowledge/skills rows as raw ``{text, modifier}`` dicts."""
+    texts = _column(pairs, f"{target}_text")
+    modifiers = _column(pairs, f"{target}_modifier")
+    count = max(len(texts), len(modifiers))
+    return [
+        {"text": _at(texts, i), "modifier": _at(modifiers, i)} for i in range(count)
+    ]
+
+
+def _structured_rows_from_pairs(
+    pairs: list[tuple[str, str]],
+) -> dict[str, list[dict[str, str]]]:
+    return {
+        "duties": _duty_row_dicts(pairs),
+        "knowledge": _modified_row_dicts(pairs, "knowledge"),
+        "skills": _modified_row_dicts(pairs, "skills"),
+    }
+
+
+def _structured_rows_from_answers(
+    answers: ComposerAnswers,
+) -> dict[str, list[dict[str, str]]]:
+    return {
+        "duties": [
+            {
+                "verb": d.action_verb,
+                "statement": d.statement,
+                "allocation": "" if d.allocation is None else str(d.allocation),
+            }
+            for d in answers.duties
+        ],
+        "knowledge": [
+            {"text": q.text, "modifier": q.modifier or ""} for q in answers.knowledge
+        ],
+        "skills": [
+            {"text": q.text, "modifier": q.modifier or ""} for q in answers.skills
+        ],
+    }
+
+
+def _pad_rows(
+    rows: list[dict[str, str]],
+    blank: dict[str, str],
+    *,
+    min_rows: int,
+    max_rows: int,
+) -> list[dict[str, str]]:
+    """The filled rows plus blank rows to add more, capped at the model's list max."""
+    padded = list(rows)
+    target = min(max_rows, max(min_rows, len(rows) + _ROW_SPARE))
+    while len(padded) < target:
+        padded.append(dict(blank))
+    return padded
+
+
+def _duty_answers(pairs: list[tuple[str, str]]) -> list[DutyAnswer]:
+    """Structured duty rows -> ``DutyAnswer`` list, dropping rows with no statement.
+
+    Raises :class:`ValueError` for a non-numeric allocation (a crafted body — the
+    form uses ``<input type=number>``); the caller re-renders with the error."""
+    duties: list[DutyAnswer] = []
+    for row in _duty_row_dicts(pairs):
+        statement = row["statement"].strip()
+        if not statement:
+            continue
+        allocation_text = row["allocation"].strip()
+        allocation = int(allocation_text) if allocation_text else None
+        duties.append(
+            DutyAnswer(
+                action_verb=row["verb"].strip(),
+                statement=statement,
+                allocation=allocation,
+            )
+        )
+    return duties
+
+
+def _modified_quals(pairs: list[tuple[str, str]], target: str) -> list[ModifiedQual]:
+    """Structured knowledge/skills rows -> ``ModifiedQual`` list, dropping empty rows.
+    A blank modifier dropdown maps to ``modifier=None`` (an absent proficiency)."""
+    quals: list[ModifiedQual] = []
+    for row in _modified_row_dicts(pairs, target):
+        text = row["text"].strip()
+        if not text:
+            continue
+        quals.append(ModifiedQual(text=text, modifier=row["modifier"].strip() or None))
+    return quals
+
+
+def _answers_from_form(
+    values: dict[str, str], pairs: list[tuple[str, str]]
+) -> ComposerAnswers:
+    """Build ``ComposerAnswers`` from the submitted form: scalar/textarea/string-list
+    targets from the collapsed ``values``; duties and knowledge/skills from the
+    STRUCTURED parallel-array rows in ``pairs``.
+
+    May raise :class:`pydantic.ValidationError` (e.g. an over-long field) or
+    :class:`ValueError` (a non-numeric %-allocation) — the caller re-renders the page
+    with the error and assembles nothing."""
     data: dict[str, Any] = {}
     for target in _SCALAR_TARGETS | _TEXTAREA_TARGETS:
         text = values.get(target, "").strip()
@@ -155,7 +315,7 @@ def _answers_from_form(values: dict[str, str]) -> ComposerAnswers:
     group = values.get("employee_group", "").strip()
     if group:
         data["employee_group"] = group
-    duties = [DutyAnswer(statement=line) for line in _lines(values.get("duties", ""))]
+    duties = _duty_answers(pairs)
     if duties:
         data["duties"] = duties
     for target in _STRING_LIST_TARGETS:
@@ -163,7 +323,7 @@ def _answers_from_form(values: dict[str, str]) -> ComposerAnswers:
         if items:
             data[target] = items
     for target in _MODIFIED_LIST_TARGETS:
-        quals = [ModifiedQual(text=line) for line in _lines(values.get(target, ""))]
+        quals = _modified_quals(pairs, target)
         if quals:
             data[target] = quals
     data["include_sfu_boilerplate"] = values.get("include_sfu_boilerplate") == "on"
@@ -171,12 +331,12 @@ def _answers_from_form(values: dict[str, str]) -> ComposerAnswers:
 
 
 def _values_from_answers(answers: ComposerAnswers) -> dict[str, str]:
-    """The form-field view of ``ComposerAnswers`` (the inverse of
-    :func:`_answers_from_form`), so the guided form repopulates when the Builder is
-    cloned from an existing JD. List sections render one item per line. The known MVP
-    losses are the same the form already has: duty verbs/allocations and KSA modifiers
-    are not surfaced as fields (the faithful copy still rides in the hidden
-    ``answers_json`` — see :func:`clone_draft`)."""
+    """The SCALAR / textarea / string-list form-field view of ``ComposerAnswers`` (the
+    inverse of :func:`_answers_from_form` for those targets), so the guided form
+    repopulates when the Builder is cloned from an existing JD. The structured sections
+    (duties, knowledge, skills) repopulate separately from
+    :func:`_structured_rows_from_answers` — verbs, %-allocations and modifiers included,
+    nothing dropped."""
     values: dict[str, str] = {}
     for target, scalar in (
         ("title", answers.title),
@@ -188,7 +348,6 @@ def _values_from_answers(answers: ComposerAnswers) -> dict[str, str]:
     ):
         if scalar:
             values[target] = scalar
-    values["duties"] = "\n".join(duty.statement for duty in answers.duties)
     for target, items in (
         ("decision_making", answers.decision_making),
         ("problem_solving", answers.problem_solving),
@@ -199,8 +358,6 @@ def _values_from_answers(answers: ComposerAnswers) -> dict[str, str]:
         ("abilities", answers.abilities),
     ):
         values[target] = "\n".join(items)
-    values["knowledge"] = "\n".join(qual.text for qual in answers.knowledge)
-    values["skills"] = "\n".join(qual.text for qual in answers.skills)
     return values
 
 
@@ -238,8 +395,45 @@ def _context(
     boilerplate_checked: bool,
     answers_json: str = "",
     suggestion: SummarySuggestion | None = None,
+    structured_rows: dict[str, list[dict[str, str]]] | None = None,
 ) -> dict[str, Any]:
     groups = _grouped_questions(values)
+    rules = get_rules()
+    rows = structured_rows or {}
+    # Filled rows + a few blank rows to add more (capped at each model list max), so the
+    # structured editors work without client JS — the same no-dependency posture as the
+    # rest of this UI. Repopulation rows come from the caller (raw form pairs on a POST,
+    # so they survive a validation error; the source answers on a clone).
+    padded_rows = {
+        "duties": _pad_rows(
+            rows.get("duties", []),
+            {"verb": "", "statement": "", "allocation": ""},
+            min_rows=_DUTY_MIN_ROWS,
+            max_rows=_DUTY_MAX_ROWS,
+        ),
+        "knowledge": _pad_rows(
+            rows.get("knowledge", []),
+            {"text": "", "modifier": ""},
+            min_rows=_KSA_MIN_ROWS,
+            max_rows=_KSA_MAX_ROWS,
+        ),
+        "skills": _pad_rows(
+            rows.get("skills", []),
+            {"text": "", "modifier": ""},
+            min_rows=_KSA_MIN_ROWS,
+            max_rows=_KSA_MAX_ROWS,
+        ),
+    }
+    # The proficiency-scale options — rulebook DATA (qualifications.yaml Parts 5.1/5.2,
+    # NN #2), ordered for display; a rulebook change flows straight through here.
+    modifier_options = {
+        "knowledge": _ordered_modifiers(
+            rules.qualifications.knowledge_modifiers, _KNOWLEDGE_MODIFIER_ORDER
+        ),
+        "skills": _ordered_modifiers(
+            rules.qualifications.skill_modifiers, _SKILL_MODIFIER_ORDER
+        ),
+    }
     # Tag each guidance/finding with the section it belongs to, so the "Still to write"
     # and "Fix these" lists can each link to the offending section's fields. The issue
     # objects in `guidance`/`findings` are the SAME objects held in `sections[].issues`
@@ -274,7 +468,10 @@ def _context(
         # The bargaining units the Builder authors — rulebook DATA, not a hardcoded
         # tuple (CLAUDE.md §2). CUPE/WJQ is deliberately absent (HR-194/HR-143): no
         # ratified CUPE bar, so nothing here can score it.
-        "employee_groups": get_rules().segmentation.jdfn_employee_groups,
+        "employee_groups": rules.segmentation.jdfn_employee_groups,
+        # The structured duty/KSA rows (padded with blanks) + their modifier options.
+        "structured_rows": padded_rows,
+        "modifier_options": modifier_options,
         "assessment": assessment,
         "error": error,
         "boilerplate_checked": boilerplate_checked,
@@ -311,11 +508,15 @@ async def check_draft(request: Request) -> HTMLResponse:
     """Assemble the submitted answers and re-render the form with the live compliance
     panel. Read-only — nothing is persisted (NN #1)."""
     body = await request.body()
-    values = _first_values(parse_qsl(body.decode("utf-8"), keep_blank_values=True))
+    pairs = parse_qsl(body.decode("utf-8"), keep_blank_values=True)
+    values = _first_values(pairs)
     checked = values.get("include_sfu_boilerplate") == "on"
+    # Repopulation rows come from the RAW submitted pairs, so a validation error still
+    # shows the author what they typed (never a silently emptied structured section).
+    rows = _structured_rows_from_pairs(pairs)
     try:
-        answers = _answers_from_form(values)
-    except ValidationError as exc:
+        answers = _answers_from_form(values, pairs)
+    except (ValidationError, ValueError) as exc:
         return templates.TemplateResponse(
             request,
             "compose_new.html",
@@ -325,6 +526,7 @@ async def check_draft(request: Request) -> HTMLResponse:
                 assessment=None,
                 error=str(exc),
                 boilerplate_checked=checked,
+                structured_rows=rows,
             ),
         )
     assessment = assess_draft(assemble_jd(answers))
@@ -338,6 +540,7 @@ async def check_draft(request: Request) -> HTMLResponse:
             error=None,
             boilerplate_checked=checked,
             answers_json=answers.model_dump_json(),
+            structured_rows=rows,
         ),
     )
 
@@ -354,11 +557,13 @@ async def assist_draft(
     auto-applies or publishes (NN #1); the author still Checks/Submits. The injected
     client is egress-guarded at construction (NN #5) and always closed."""
     body = await request.body()
-    values = _first_values(parse_qsl(body.decode("utf-8"), keep_blank_values=True))
+    pairs = parse_qsl(body.decode("utf-8"), keep_blank_values=True)
+    values = _first_values(pairs)
     checked = values.get("include_sfu_boilerplate") == "on"
+    rows = _structured_rows_from_pairs(pairs)
     try:
-        answers = _answers_from_form(values)
-    except ValidationError as exc:
+        answers = _answers_from_form(values, pairs)
+    except (ValidationError, ValueError) as exc:
         await client.close()
         return templates.TemplateResponse(
             request,
@@ -369,6 +574,7 @@ async def assist_draft(
                 assessment=None,
                 error=str(exc),
                 boilerplate_checked=checked,
+                structured_rows=rows,
             ),
         )
     try:
@@ -393,6 +599,7 @@ async def assist_draft(
             boilerplate_checked=checked,
             answers_json=applied.model_dump_json(),
             suggestion=suggestion,
+            structured_rows=rows,
         ),
     )
 
@@ -459,6 +666,7 @@ async def clone_draft(
             error=None,
             boilerplate_checked=answers.include_sfu_boilerplate,
             answers_json=answers.model_dump_json(),
+            structured_rows=_structured_rows_from_answers(answers),
         ),
     )
 

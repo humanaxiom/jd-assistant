@@ -9,6 +9,8 @@ text is HTML-escaped (autoescape on, no ``|safe``).
 
 from __future__ import annotations
 
+import html as html_lib
+import re
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from unittest.mock import AsyncMock
@@ -18,6 +20,28 @@ from fastapi.testclient import TestClient
 
 from src.api.main import app, get_session
 from src.api.routes import compose, compose_ui
+
+
+def _post_form(client: TestClient, url: str, pairs: list[tuple[str, str]]):
+    """POST an ``application/x-www-form-urlencoded`` body built from ORDERED pairs
+    (so repeated keys like the structured ``duty_statement`` columns survive) — this
+    httpx version does not accept a list-of-tuples via ``data=``."""
+    from urllib.parse import urlencode
+
+    return client.post(
+        url,
+        content=urlencode(pairs),
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+
+
+def _answers_json_from(html_text: str) -> str:
+    """Pull the hidden ``answers_json`` field out of a rendered Builder page and
+    HTML-unescape it, so a test can rebuild the exact ``ComposerAnswers`` the
+    submit/export forms would (the authoritative round-trip carrier)."""
+    match = re.search(r'name="answers_json" value="([^"]*)"', html_text)
+    assert match is not None, "no answers_json hidden field on the page"
+    return html_lib.unescape(match.group(1))
 
 
 def _client() -> TestClient:
@@ -73,7 +97,8 @@ def test_get_renders_the_guided_form() -> None:
     # A couple of the guided prompts and their form fields are present.
     assert "overall purpose of this role" in html
     assert 'name="title"' in html
-    assert 'name="duties"' in html
+    # Duties are now a structured row (verb / statement / %), not a bare textarea.
+    assert 'name="duty_statement"' in html
     # No compliance panel until the author checks.
     assert "Live compliance" not in html
 
@@ -258,6 +283,171 @@ def test_export_with_malformed_answers_rerenders_and_does_not_500() -> None:
     assert resp.status_code == 200
     assert "text/html" in resp.headers["content-type"]
     assert resp.content[:2] != b"PK"
+
+
+# ── Structured per-field editors — duty verb/% and KSA modifiers ─────────────
+#
+# The guided form used to collect duties and knowledge/skills as one-item-per-line
+# textareas, silently dropping the fields the models already carry: a duty's
+# ``action_verb`` (what the action-verb gate checks) and ``allocation`` (the ``(NN%)``
+# the allocation gate reads), and a knowledge/skill ``modifier`` (the Toolkit
+# proficiency scale). These pin that the structured rows now CAPTURE those fields,
+# round-trip them through the answers the submit/export forms rebuild from, and
+# repopulate them on re-render / clone. Modifier vocab is rulebook DATA (NN #2).
+
+
+def test_get_renders_structured_duty_and_ksa_rows() -> None:
+    html = _client().get("/jd-bank/ui/compose/new").text
+    # A duty row exposes its verb, statement, and %-allocation as separate controls.
+    assert 'name="duty_verb"' in html
+    assert 'name="duty_statement"' in html
+    assert 'name="duty_allocation"' in html
+    # Knowledge/skills rows expose the qualification text and its proficiency modifier.
+    assert 'name="knowledge_text"' in html
+    assert 'name="knowledge_modifier"' in html
+    assert 'name="skills_text"' in html
+    assert 'name="skills_modifier"' in html
+
+
+def test_post_captures_structured_duty_verb_and_allocation() -> None:
+    resp = _post_form(
+        _client(),
+        "/jd-bank/ui/compose/new",
+        [
+            ("title", "Analyst"),
+            ("duty_verb", "Manages"),
+            ("duty_statement", "Manages the general ledger"),
+            ("duty_allocation", "60"),
+        ],
+    )
+    assert resp.status_code == 200
+    html = resp.text
+    answers = compose_ui.ComposerAnswers.model_validate_json(_answers_json_from(html))
+    assert len(answers.duties) == 1
+    assert answers.duties[0].action_verb == "Manages"
+    assert answers.duties[0].statement == "Manages the general ledger"
+    assert answers.duties[0].allocation == 60
+    # Repopulated into the row for continued editing.
+    assert 'value="Manages"' in html
+    assert 'value="60"' in html
+
+
+def test_post_aligns_multiple_duty_rows_and_drops_blank_rows() -> None:
+    """Parallel duty columns stay index-aligned (verb[i]/statement[i]/allocation[i]),
+    a row with no statement is dropped, and a blank verb is a real empty verb — not a
+    misalignment that shifts allocations onto the wrong duty."""
+    resp = _post_form(
+        _client(),
+        "/jd-bank/ui/compose/new",
+        [
+            ("title", "Analyst"),
+            ("duty_verb", "Manages"),
+            ("duty_statement", "Manages the general ledger"),
+            ("duty_allocation", "60"),
+            ("duty_verb", ""),
+            ("duty_statement", "Prepares monthly reports"),
+            ("duty_allocation", "40"),
+            ("duty_verb", ""),
+            ("duty_statement", ""),
+            ("duty_allocation", ""),
+        ],
+    )
+    answers = compose_ui.ComposerAnswers.model_validate_json(
+        _answers_json_from(resp.text)
+    )
+    assert [d.statement for d in answers.duties] == [
+        "Manages the general ledger",
+        "Prepares monthly reports",
+    ]
+    assert [d.allocation for d in answers.duties] == [60, 40]
+    assert answers.duties[1].action_verb == ""
+
+
+def test_post_captures_knowledge_and_skill_modifiers() -> None:
+    resp = _post_form(
+        _client(),
+        "/jd-bank/ui/compose/new",
+        [
+            ("title", "Analyst"),
+            ("knowledge_text", "Knowledge of GAAP"),
+            ("knowledge_modifier", "excellent"),
+            ("skills_text", "Financial modelling in Excel"),
+            ("skills_modifier", "advanced"),
+        ],
+    )
+    assert resp.status_code == 200
+    html = resp.text
+    answers = compose_ui.ComposerAnswers.model_validate_json(_answers_json_from(html))
+    assert answers.knowledge[0].text == "Knowledge of GAAP"
+    assert answers.knowledge[0].modifier == "excellent"
+    assert answers.skills[0].text == "Financial modelling in Excel"
+    assert answers.skills[0].modifier == "advanced"
+    # The chosen modifier is selected in the dropdown on re-render.
+    assert '<option value="excellent" selected' in html
+    assert '<option value="advanced" selected' in html
+
+
+def test_a_blank_modifier_means_no_modifier() -> None:
+    """An unset modifier dropdown maps to ``modifier=None`` (the qualification carries
+    no proficiency), never the empty-string that would fail the vocabulary check."""
+    resp = _post_form(
+        _client(),
+        "/jd-bank/ui/compose/new",
+        [
+            ("title", "Analyst"),
+            ("knowledge_text", "Knowledge of university finance policy"),
+            ("knowledge_modifier", ""),
+        ],
+    )
+    answers = compose_ui.ComposerAnswers.model_validate_json(
+        _answers_json_from(resp.text)
+    )
+    assert answers.knowledge[0].modifier is None
+
+
+def test_ksa_modifier_options_come_from_the_rulebook() -> None:
+    """The proficiency dropdowns are rulebook DATA (qualifications.yaml Parts 5.1/5.2),
+    not a hardcoded list: every rulebook modifier (bar the ``none`` sentinel, which is
+    the blank default) is offered, and no extra option is invented."""
+    from src.jd_core.rules import get_rules
+
+    quals = get_rules().qualifications
+    html = _client().get("/jd-bank/ui/compose/new").text
+    for modifier in quals.knowledge_modifiers | quals.skill_modifiers:
+        if modifier == "none":
+            continue
+        assert f'value="{modifier}"' in html
+
+
+def test_clone_repopulates_structured_duty_and_ksa_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cloning repopulates the structured rows — verb, %-allocation and modifier — not
+    just the free-text statement, so nothing the source carried is lost in the form."""
+    from src.jd_bank.composer import ComposerAnswers, DutyAnswer, ModifiedQual
+
+    answers = ComposerAnswers(
+        title="Cloned Analyst",
+        position_summary=" ".join(["word"] * 120),
+        duties=[
+            DutyAnswer(action_verb="Leads", statement="Leads the team", allocation=70)
+        ],
+        knowledge=[ModifiedQual(text="Knowledge of GAAP", modifier="excellent")],
+        skills=[ModifiedQual(text="Excel modelling", modifier="advanced")],
+    )
+
+    async def fake_load(session: object, sid: object) -> ComposerAnswers:
+        return answers
+
+    monkeypatch.setattr(compose_ui, "load_clone_answers", fake_load)
+    _override_session_object()
+
+    html = _client().get(f"/jd-bank/ui/compose/clone/{uuid.uuid4()}").text
+    assert 'value="Leads"' in html
+    assert 'value="Leads the team"' in html
+    assert 'value="70"' in html
+    assert '<option value="excellent" selected' in html
+    assert '<option value="advanced" selected' in html
 
 
 # ── 5.8b — the LLM summary-assist button ─────────────────────────────────────

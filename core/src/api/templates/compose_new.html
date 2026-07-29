@@ -158,6 +158,42 @@
                style="width:auto"{% if boilerplate_checked %} checked{% endif %}>
         {{ q.prompt }}
       </label>
+      {% elif q.kind in ("duties", "modified") %}
+      {# Structured multi-input rows: the group's controls carry their own aria-labels,
+         so the section prompt is a plain heading, not a `for=` label that would dangle. #}
+      <p class="label" style="margin:.5rem 0 .25rem">{{ q.prompt }}</p>
+      {% if q.kind == "duties" %}
+      {# Structured duty rows: verb / statement / %-allocation, index-aligned columns. #}
+      <div class="rows">
+        {% for row in structured_rows["duties"] %}
+        <div style="display:flex;gap:.5rem;margin-bottom:.4rem">
+          <input name="duty_verb" value="{{ row.verb }}" placeholder="Action verb"
+                 aria-label="Action verb" style="flex:0 0 9rem">
+          <input name="duty_statement" value="{{ row.statement }}" placeholder="Duty statement"
+                 aria-label="Duty statement" style="flex:1 1 auto">
+          <input name="duty_allocation" value="{{ row.allocation }}" type="number" min="0" max="100"
+                 placeholder="%" aria-label="Percentage of time" style="flex:0 0 5rem">
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      {# Structured knowledge/skills rows: qualification text + proficiency modifier. #}
+      <div class="rows">
+        {% for row in structured_rows[q.target] %}
+        <div style="display:flex;gap:.5rem;margin-bottom:.4rem">
+          <input name="{{ q.target }}_text" value="{{ row.text }}" placeholder="Qualification"
+                 aria-label="Qualification" style="flex:1 1 auto">
+          <select name="{{ q.target }}_modifier" aria-label="Proficiency modifier"
+                  style="flex:0 0 11rem;background:#0d1117;color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:.5rem">
+            <option value="">— no modifier —</option>
+            {% for m in modifier_options[q.target] %}
+            <option value="{{ m }}"{% if row.modifier == m %} selected{% endif %}>{{ m | capitalize }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
       {% else %}
       <label for="f-{{ q.target }}">{{ q.prompt }}</label>
       {% if q.kind == "text" %}
