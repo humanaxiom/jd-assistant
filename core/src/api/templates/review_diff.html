@@ -1,0 +1,55 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — Changes {{ packet.canonical_id }}{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <h2>{{ packet.content.get("title", "(untitled)") }}</h2>
+  <p class="meta">Cluster {{ packet.cluster_id }} · version {{ packet.version }} · status {{ packet.status.value }}</p>
+  <p class="meta">Changes since the last approved version of this role.</p>
+</div>
+
+{% if diff is none %}
+<div class="panel">
+  <p>No previously approved version of this role — nothing to compare against yet.
+  This is the first version through review.</p>
+</div>
+{% elif not diff.any_changes %}
+<div class="panel">
+  <p>Identical to the last approved version — no section changed.</p>
+</div>
+{% else %}
+{% for section in diff.sections %}
+{% if section.changed %}
+<div class="panel">
+  <h3>{{ section.section }} <span class="badge blocked">changed</span></h3>
+  <div style="display:flex;gap:1rem;flex-wrap:wrap">
+    <div style="flex:1 1 20rem;min-width:0">
+      <div class="meta">Last approved</div>
+      <pre style="white-space:pre-wrap">{{ section.before or "(empty)" }}</pre>
+    </div>
+    <div style="flex:1 1 20rem;min-width:0">
+      <div class="meta">This draft</div>
+      <pre style="white-space:pre-wrap">{{ section.after or "(empty)" }}</pre>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<div class="panel">
+  <h3>Unchanged sections</h3>
+  <ul class="meta">
+    {% for section in diff.sections %}
+    {% if not section.changed %}
+    <li>{{ section.section }}</li>
+    {% endif %}
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<p>
+  <a href="/jd-bank/ui/review/{{ packet.canonical_id }}">← Back to review</a> ·
+  <a href="/jd-bank/ui/queue">Back to queue</a>
+</p>
+{% endblock %}

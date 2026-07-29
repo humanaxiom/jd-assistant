@@ -26,6 +26,7 @@ from src.jd_bank.review.service import (
     approve,
     edit,
     get_review_packet,
+    get_version_diff,
     list_review_queue,
     reject,
 )
@@ -42,6 +43,7 @@ __all__ = [
     "approve",
     "edit",
     "get_review_packet",
+    "get_version_diff",
     "list_review_queue",
     "reject",
 ]

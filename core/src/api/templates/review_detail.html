@@ -18,6 +18,9 @@
     <span class="badge blocked">{{ packet.decision.blocking | length }} blocking gate(s)</span>
     {% endif %}
   </p>
+  <p class="meta">
+    <a href="/jd-bank/ui/review/{{ packet.canonical_id }}/diff">Changes since last approved version →</a>
+  </p>
 </div>
 
 {% if packet.decision.blocking %}

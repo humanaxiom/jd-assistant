@@ -255,6 +255,92 @@ def test_detail_unknown_id_returns_404(monkeypatch: pytest.MonkeyPatch) -> None:
     session.commit.assert_not_awaited()
 
 
+def test_detail_links_to_the_version_diff(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    monkeypatch.setattr(
+        ui.service,
+        "get_review_packet",
+        AsyncMock(return_value=_packet(canonical_id=canonical_id)),
+    )
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}").text
+    assert f"/jd-bank/ui/review/{canonical_id}/diff" in body
+
+
+# --- GET /jd-bank/ui/review/{canonical_id}/diff ---------------------------------------
+
+
+def test_diff_view_renders_changed_sections(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The diff page shows each changed section's before/after, and lists the unchanged
+    ones — driven by the (faked) service ``VersionDiff``."""
+    from src.jd_core.bank.version_diff import SectionChange, VersionDiff
+
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    monkeypatch.setattr(
+        ui.service,
+        "get_review_packet",
+        AsyncMock(return_value=_packet(canonical_id=canonical_id)),
+    )
+    diff = VersionDiff(
+        sections=(
+            SectionChange(
+                section="Title",
+                before="Old Title",
+                after="New Title",
+                changed=True,
+            ),
+            SectionChange(
+                section="Qualifications", before="same", after="same", changed=False
+            ),
+        ),
+        any_changes=True,
+    )
+    monkeypatch.setattr(ui.service, "get_version_diff", AsyncMock(return_value=diff))
+
+    resp = client.get(f"/jd-bank/ui/review/{canonical_id}/diff")
+
+    assert resp.status_code == 200
+    body = resp.text
+    assert "Old Title" in body and "New Title" in body  # before/after both shown
+    assert "Qualifications" in body  # listed as unchanged
+    session.commit.assert_not_awaited()
+
+
+def test_diff_view_shows_empty_state_when_no_prior_approved_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No earlier PUBLISHED version -> the service returns None -> a friendly empty
+    state (200), not a 404 or a crash."""
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    monkeypatch.setattr(
+        ui.service,
+        "get_review_packet",
+        AsyncMock(return_value=_packet(canonical_id=canonical_id)),
+    )
+    monkeypatch.setattr(ui.service, "get_version_diff", AsyncMock(return_value=None))
+
+    resp = client.get(f"/jd-bank/ui/review/{canonical_id}/diff")
+
+    assert resp.status_code == 200
+    assert "No previously approved version" in resp.text
+
+
+def test_diff_view_unknown_id_returns_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=None))
+
+    resp = client.get(f"/jd-bank/ui/review/{canonical_id}/diff")
+
+    assert resp.status_code == 404
+
+
 # --- POST .../approve -----------------------------------------------------------------
 
 

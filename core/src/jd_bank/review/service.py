@@ -62,6 +62,7 @@ from src.jd_bank.review.models import (
     ReviewPacket,
     ReviewQueueItem,
 )
+from src.jd_core.bank.version_diff import VersionDiff, build_version_diff
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.models.quality import (
     GateDecision,
@@ -78,6 +79,7 @@ __all__ = [
     "approve",
     "edit",
     "get_review_packet",
+    "get_version_diff",
     "list_review_queue",
     "reject",
 ]
@@ -229,6 +231,41 @@ async def get_review_packet(
         score=score,
         grade=grade,
         issues=tuple(issues),
+    )
+
+
+# --- version diff (draft vs last-approved) --------------------------------------------
+
+
+async def get_version_diff(
+    session: AsyncSession, canonical_id: UUID
+) -> VersionDiff | None:
+    """A section-by-section diff of one canonical against the LAST APPROVED version of
+    the same cluster — "what changed since this role was last approved?".
+
+    Returns ``None`` when the id is unknown OR the cluster has no earlier PUBLISHED
+    version to compare against (the common first-review case — the caller shows "no
+    prior approved version"). "Last approved" is the highest-version ``PUBLISHED``
+    canonical with a lower version than this one, so an in-flight edit (a v2 DRAFT)
+    diffs against the v1 that was approved. Read-only; judges nothing (NN #1)."""
+    current = await session.get(CanonicalJD, canonical_id)
+    if current is None:
+        return None
+    prior = await session.scalar(
+        select(CanonicalJD)
+        .where(
+            CanonicalJD.cluster_id == current.cluster_id,
+            CanonicalJD.status == CanonicalStatus.PUBLISHED,
+            CanonicalJD.version < current.version,
+        )
+        .order_by(CanonicalJD.version.desc())
+        .limit(1)
+    )
+    if prior is None:
+        return None
+    return build_version_diff(
+        SFUJobDescription.model_validate(prior.content),
+        SFUJobDescription.model_validate(current.content),
     )
 
 

@@ -81,9 +81,10 @@ unblock the pilot** — do them first.
 - ~~**Concurrent double-approve test.**~~ **DONE (2026-07-29, `7ce53db`).** A mutation-verified
   integration test orchestrates two concurrent approves and proves the `FOR UPDATE` lock lets
   exactly one publish (the other → `IllegalTransitionError`).
-- **Side-by-side JD version diff (draft vs last-approved).** Reuses the 4.3 harmonization-diff
-  machinery to answer the single most-asked reclassification question: "what changed since
-  this was last approved?" Read-only over data already stored.
+- ~~**Side-by-side JD version diff (draft vs last-approved).**~~ **DONE (2026-07-29, `main`).**
+  Pure `jd_core/bank/version_diff.py` (complete section serialization — catches the presence
+  booleans `render_sfu_jd_text` drops) + `review.get_version_diff` (last PUBLISHED version of the
+  cluster) + a standalone `/jd-bank/ui/review/{id}/diff` page linked from review detail.
 - **Reinstate `SFU-STRUCT-HOW-WHY`** if the `how_why` field can be populated (retired only
   because the parser couldn't fill it; designed to return "with one YAML word").
 - **Refresh HANDOFF.md + reconcile the open GitHub PRs.** The single-source-of-truth handoff

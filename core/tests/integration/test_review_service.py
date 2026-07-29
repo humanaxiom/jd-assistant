@@ -959,3 +959,94 @@ async def test_concurrent_approves_of_one_draft_publish_exactly_once(
             )
         ).all()
         assert len(audits) == 1
+
+
+# --- acceptance #8: version diff resolves the last-approved version -------------------
+
+
+@pytest.mark.asyncio
+async def test_version_diff_compares_draft_to_the_last_approved_version(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """``get_version_diff`` diffs a canonical against the highest-version PUBLISHED
+    canonical of the SAME cluster with a lower version — the last approved one. Here v1
+    (PUBLISHED, title "Analyst") vs a v2 DRAFT (title "Senior Analyst") -> the Title
+    section is flagged changed."""
+    from src.jd_bank.review import get_version_diff
+
+    cluster_id = uuid.uuid4()
+    async with session_maker() as session:
+        await _seed_canonical(
+            session,
+            content=_clean_jd(title="Analyst").model_dump(mode="json"),
+            status=CanonicalStatus.PUBLISHED,
+            version=1,
+            cluster_id=cluster_id,
+        )
+        v2 = await _seed_canonical(
+            session,
+            content=_clean_jd(title="Senior Analyst").model_dump(mode="json"),
+            status=CanonicalStatus.DRAFT,
+            version=2,
+            cluster_id=cluster_id,
+        )
+        v2_id = v2.id
+        await session.commit()
+
+    async with session_maker() as session:
+        diff = await get_version_diff(session, v2_id)
+        assert diff is not None
+        assert diff.any_changes is True
+        changed = {s.section for s in diff.sections if s.changed}
+        assert changed == {"Title"}
+
+
+@pytest.mark.asyncio
+async def test_version_diff_is_none_without_a_prior_approved_version(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """A first-review DRAFT (no earlier PUBLISHED version in its cluster) has nothing to
+    diff against -> None (the UI shows an empty state, not an error). A missing id is
+    None too."""
+    from src.jd_bank.review import get_version_diff
+
+    async with session_maker() as session:
+        draft = await _seed_canonical(
+            session, content=_clean_jd().model_dump(mode="json")
+        )
+        draft_id = draft.id
+        await session.commit()
+
+    async with session_maker() as session:
+        assert await get_version_diff(session, draft_id) is None
+        assert await get_version_diff(session, uuid.uuid4()) is None
+
+
+@pytest.mark.asyncio
+async def test_version_diff_ignores_a_published_version_in_another_cluster(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """ "Last approved" is scoped to the SAME cluster — a PUBLISHED canonical in a
+    different cluster is not a comparison target."""
+    from src.jd_bank.review import get_version_diff
+
+    async with session_maker() as session:
+        await _seed_canonical(
+            session,
+            content=_clean_jd(title="Unrelated").model_dump(mode="json"),
+            status=CanonicalStatus.PUBLISHED,
+            version=1,
+            cluster_id=uuid.uuid4(),
+        )
+        draft = await _seed_canonical(
+            session,
+            content=_clean_jd().model_dump(mode="json"),
+            status=CanonicalStatus.DRAFT,
+            version=1,
+            cluster_id=uuid.uuid4(),
+        )
+        draft_id = draft.id
+        await session.commit()
+
+    async with session_maker() as session:
+        assert await get_version_diff(session, draft_id) is None

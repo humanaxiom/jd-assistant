@@ -30,9 +30,14 @@ green, on branch **`feat/builder-structured-fields`** (commits `6e15c9a`, `f138f
   DRAFT — exactly one publishes, the other gets `IllegalTransitionError`. The race is orchestrated
   (A holds the lock uncommitted, B blocks, then A commits) because a plain `asyncio.gather` is a
   false-green; verified RED with the lock flag flipped off. `make gates`: **1906 passing, 93.45%.**
-- **Milestone-1 REMAINING:** embed-published-canonicals write path (S/M) · draft-vs-last-approved
-  version-diff view (S) · the three "our-defect" review-packet items + re-baseline (the higher-stakes
-  one — do before HR sees numbers).
+- **Version-diff view DONE (`main`).** Pure `jd_core/bank/version_diff.py` (`build_version_diff` —
+  a COMPLETE per-section serialization, so a toggled footer boolean or cleared grade that
+  `render_sfu_jd_text` drops is still caught) + `review.get_version_diff` (diffs a canonical against
+  the highest-version PUBLISHED canonical of the same cluster with a lower version) + a standalone
+  `GET /jd-bank/ui/review/{id}/diff` page (side-by-side before/after per changed section, empty-state
+  when there's no prior approved version) linked from review detail. `make gates`: **1919, 93.48%.**
+- **Milestone-1 REMAINING:** embed-published-canonicals write path (S/M) · the three "our-defect"
+  review-packet items + re-baseline (the higher-stakes one — do before HR sees numbers).
 
 **PRIOR (2026-07-28): AUTH/RBAC + the whole Builder UI are DONE; the roadmap + operator guide are
 written. The system is now credible as an app — the critical path is HR ratification + the first

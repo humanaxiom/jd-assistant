@@ -394,6 +394,31 @@ async def detail_view(
     )
 
 
+@router.get("/review/{canonical_id}/diff", response_class=HTMLResponse)
+async def diff_view(
+    request: Request,
+    canonical_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """Side-by-side "what changed since last approved" for one draft. 404 if the id is
+    unknown; a friendly empty-state (not an error) when the cluster has no earlier
+    PUBLISHED version to diff against (``get_version_diff`` returns ``None``)."""
+    packet = await service.get_review_packet(session, canonical_id)
+    if packet is None:
+        return templates.TemplateResponse(
+            request,
+            "review_not_found.html",
+            {"canonical_id": canonical_id},
+            status_code=404,
+        )
+    diff = await service.get_version_diff(session, canonical_id)
+    return templates.TemplateResponse(
+        request,
+        "review_diff.html",
+        {"request": request, "packet": packet, "diff": diff},
+    )
+
+
 @router.post("/review/{canonical_id}/approve")
 async def approve_action(
     request: Request,
