@@ -70,6 +70,16 @@ services:
       EMBED_MODEL: nomic-embed-text
       MAX_REVIEW_ITERATIONS: "5"
       COVERAGE_THRESHOLD: "80"
+      # ── Auth / CAS SSO (ADR-008) ── OFF by default (dev/CI never touch cas.sfu.ca).
+      # Enable for a real login test via .env (gitignored): CAS_ENABLED=true,
+      # BOOTSTRAP_ADMINS=<your-sfu-id>, and CAS_VERIFY_TLS=false if the container's cert
+      # chain rejects cas.sfu.ca. CAS_DEV_FAKE_USER exercises the session machinery
+      # WITHOUT the SFU round-trip (useful when localhost isn't a whitelisted service).
+      CAS_ENABLED: ${CAS_ENABLED:-false}
+      CAS_SERVICE_BASE_URL: ${CAS_SERVICE_BASE_URL:-http://localhost:25800}
+      CAS_VERIFY_TLS: ${CAS_VERIFY_TLS:-true}
+      CAS_DEV_FAKE_USER: ${CAS_DEV_FAKE_USER:-}
+      BOOTSTRAP_ADMINS: ${BOOTSTRAP_ADMINS:-}
     extra_hosts:
       # Kept: testcontainers still resolves sibling containers via the host gateway. It is
       # no longer how Ollama is reached.
@@ -113,6 +123,11 @@ services:
       dockerfile: Dockerfile
     environment:
       <<: *app_env
+      # Hermetic tests: pin auth OFF regardless of a local .env CAS toggle, so `make
+      # gates` never runs in CAS mode or inherits a real BOOTSTRAP_ADMINS.
+      CAS_ENABLED: "false"
+      CAS_DEV_FAKE_USER: ""
+      BOOTSTRAP_ADMINS: ""
       TESTCONTAINERS_HOST_OVERRIDE: host.docker.internal
       TESTCONTAINERS_RYUK_DISABLED: "true"
       DOCKER_HOST: unix:///var/run/docker.sock

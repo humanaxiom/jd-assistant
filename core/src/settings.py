@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Annotated
 
 from pydantic import field_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, NoDecode
 
 
 class Settings(BaseSettings):
@@ -29,7 +30,7 @@ class Settings(BaseSettings):
     # literals are allowed by the guard directly. Override with the comma-separated env
     # var ALLOWED_INFERENCE_HOSTS. If the inference host ever moves OFF a trusted
     # segment this is a FIPPA question (NN #5) — re-decide it, don't just append here.
-    allowed_inference_hosts: list[str] = [
+    allowed_inference_hosts: Annotated[list[str], NoDecode] = [
         "aria-gb10-2",
         "localhost",
         "127.0.0.1",
@@ -124,7 +125,7 @@ class Settings(BaseSettings):
     # First-admin bootstrap: CAS usernames granted `admin` on every login (comma-sep env
     # BOOTSTRAP_ADMINS). Solves "who promotes the first user" without a DB seed — set it
     # to the deploying admin's SFU id, they log in, then manage everyone else in the UI.
-    bootstrap_admins: list[str] = []
+    bootstrap_admins: Annotated[list[str], NoDecode] = []
 
     # Read-only dashboards (Phase 4.6c): where the committed archive-baseline artifact
     # is mounted INSIDE the api container. `docs/` lives at the repo root (NOT under
