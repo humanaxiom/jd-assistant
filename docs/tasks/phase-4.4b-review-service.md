@@ -1,5 +1,11 @@
 # Phase 4.4b — the review SERVICE + audit (domain layer, no HTTP)
 
+> **UPDATE (2026-07-29).** The "Pin the double-approve/stale-status case" note below is now
+> **DONE** — a mutation-verified concurrency integration test
+> (`test_review_service.py::test_concurrent_approves_of_one_draft_publish_exactly_once`) proves the
+> `SELECT … FOR UPDATE` lock lets exactly one of two concurrent approves publish. The service also
+> gained `get_version_diff` (draft vs the cluster's last PUBLISHED version). Rest of the spec stands.
+
 ## Goal
 The consumer half of the review queue: a domain service over the DRAFT `canonical_jds` rows
 the 4.4a producer persists. It lists the queue, assembles a reviewer packet, and applies the

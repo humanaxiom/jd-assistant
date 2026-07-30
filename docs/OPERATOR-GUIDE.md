@@ -110,9 +110,10 @@ suffices).
 |---|---|---|
 | See what's awaiting review | Open the **Review queue** | Lists draft canonical JDs. |
 | Inspect a draft | Click a row → the review detail page | Shows the rendered draft, the harmonization change-log (what each source fed, what was dropped and why), and the live gate decision. |
+| See what changed | **Changes since last approved version →** | A side-by-side, section-by-section diff of the draft against the last approved version of the same role. Says "no prior approved version" the first time a role is reviewed. |
 | **Approve** | **Approve** (fill an override reason for any overridable blocking gate) | Publishes **only if** the validator's gates permit it, re-checked at approve time. A blocked draft cannot be approved without a valid override + written reason. |
 | **Reject** | **Reject** + a reason | |
-| **Edit** | **Edit** the JSON + a reason | Creates a new draft version; the prior is archived. |
+| **Edit** | **Edit** the fields + a reason | A structured, field-by-field editor (title, summary, duties, qualifications, footer flags, …) — no raw JSON. Saving creates a new draft version; the prior is archived. |
 
 > The reviewer on every action is the **authenticated user** — there is no "type your id"
 > field. Every action is written to the tamper-evident audit log (guardrail #4).

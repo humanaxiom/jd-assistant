@@ -1,5 +1,13 @@
 # Phase 4.4d — the review UI (minimal, server-rendered inside FastAPI)
 
+> **PARTIALLY SUPERSEDED (2026-07-29).** This spec's "Edit content input: a raw-JSON `<textarea>`…
+> a structured per-field editor is out of scope" (and the matching Out-of-scope note) was the MVP
+> and shipped as such — it is now **replaced by a full per-field `SFUJobDescription` editor**
+> (`src/api/routes/ui.py::_content_from_form` + `review_detail.html`). The detail page also now
+> links a **draft-vs-last-approved version diff** (`/jd-bank/ui/review/{id}/diff`). Everything else
+> in this spec (queue → detail → approve/reject/override, commit discipline, no-new-dependency) is
+> still accurate. Kept as the historical task record.
+
 ## Goal
 The LAST slice of the Phase-4.4 review queue: a **minimal, server-rendered** HTML UI a human HR
 reviewer drives to work the queue — **queue list → cluster detail (draft + 4.3 diff + validation

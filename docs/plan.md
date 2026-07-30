@@ -521,10 +521,14 @@ reviewer is asked to trust it. **4.5 (the human pilot) is now the next milestone
 **LLM robustness** it required: constrained decoding (`json_schema`) **scoped to the audit** (fixes a ~24%
 enum-mismatch failure) while the **rewrite stays loose** (its large `SFUJobDescription` grammar 500s Ollama —
 the live gate caught this pre-merge), and a per-pass `reasoning_effort` knob (**HR-191** rewrite=`null`,
-**HR-192** quality=`low`; register 190→192). Remaining: a **full-archive** enrichment on this improved code;
-a `jd_bank/` change-log runner over real clusters (4.3); `get_session`→`api/deps.py` (drops the two routers'
-circular-import shim); concurrent double-approve test (4.4b). Deferred product gap: the review-queue edit
-view is a raw-JSON `<textarea>` — a structured per-field editor is a later task.
+**HR-192** quality=`low`; register 190→192). ~~concurrent double-approve test (4.4b)~~ ✅ DONE
+(2026-07-29, mutation-verified integration pin). ~~Deferred product gap: the review-queue edit view is a
+raw-JSON `<textarea>` — a structured per-field editor is a later task.~~ ✅ DONE (2026-07-29): the reviewer
+edit view is now a full per-field `SFUJobDescription` editor, and the Builder captures duty verb/%-allocation
++ KSA modifiers (both surfaces off raw JSON / lossy textareas). Plus a **draft-vs-last-approved version diff**
+(`GET /jd-bank/ui/review/{id}/diff`). Remaining: a **full-archive** enrichment on this improved code; a
+`jd_bank/` change-log runner over real clusters (4.3); `get_session`→`api/deps.py` (drops the two routers'
+circular-import shim).
 
 **Exit:** first human-approved canonical JDs published; audit trail complete.
 

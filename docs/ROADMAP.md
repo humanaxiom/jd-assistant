@@ -100,11 +100,12 @@ unblock the pilot** — do them first.
 
 From peer research + backlog, each mapped to JD Bank's architecture, ordered roughly by leverage.
 
-- **Structured per-field editors (duty % / KSA modifiers) — the #1 usability blocker.** Both
-  the Builder form (lossy — drops action-verbs/modifiers) and the reviewer edit view fall back
-  to a raw-JSON `<textarea>`. No reviewer can be asked to hand-edit JSON. *Peers:* JDXpert Job
-  Builder field-level editing (UC Berkeley, Auburn, UIC). *Fit:* clean — deterministic assembly,
-  validator still the oracle. **Effort M.**
+- ~~**Structured per-field editors (duty % / KSA modifiers) — the #1 usability blocker.**~~
+  **DONE (2026-07-29).** The Builder form now captures per-duty action-verb + %-allocation and
+  per-qualification KSA modifiers (structured rows, not lossy textareas), and the reviewer edit
+  view is a full per-field `SFUJobDescription` editor — no raw-JSON `<textarea>` on either. Peers:
+  JDXpert field-level editing (UC Berkeley, Auburn, UIC). Deterministic assembly, validator still
+  the oracle.
 - **JD-to-posting transform (internal JD → candidate-facing ad).** A deterministic "render as
   posting" over an approved canonical: strip internal-only content (reporting lines, Hay/level
   signals, %-allocations), reorder candidate-first, with an *optional* self-hosted LLM polish.
