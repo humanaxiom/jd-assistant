@@ -304,8 +304,9 @@ number in this report.
 
 Recorded in [`../decisions/HR-DECISION-REGISTER.md`](../decisions/HR-DECISION-REGISTER.md) with the
 evidence attached. What SFU HR must now decide is in
-[`../decisions/HR-REVIEW-PACKET.md`](../decisions/HR-REVIEW-PACKET.md); what we change once they rule
-is in [`../decisions/POST-REVIEW-CHANGE-PLAN.md`](../decisions/POST-REVIEW-CHANGE-PLAN.md).
+[`../decisions/HR-DECISION-MATRIX.md`](../decisions/HR-DECISION-MATRIX.md) (the consolidated HR review
++ decision doc); what we change once they rule is in
+[`../decisions/POST-REVIEW-CHANGE-PLAN.md`](../decisions/POST-REVIEW-CHANGE-PLAN.md).
 
 **Standing rule: if a default looks wrong, it is registered as `open` — never quietly patched.**
 The three fixes in 2.6 were *defects* (a rule that could not fire, a mis-scoped scan, a modelling

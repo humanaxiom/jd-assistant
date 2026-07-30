@@ -200,5 +200,5 @@ exception is Ollama, which runs on `aria-gb10-2`.
 ---
 
 *Related docs:* `HANDOFF.md` (current state), `docs/adr/ADR-008-auth-cas-rbac.md` (auth/RBAC
-design), `docs/baseline/README.md` (the archive baseline), `docs/decisions/HR-REVIEW-PACKET.md`
+design), `docs/baseline/README.md` (the archive baseline), `docs/decisions/HR-DECISION-MATRIX.md`
 (what SFU HR must decide), `CLAUDE.md` (invariants).

@@ -338,8 +338,9 @@ Rulebook: `jd_rules_sfu_v4+8c004c4dadd1`.
 
 The register is now a list of **measured** decisions rather than guesses, so HR review is possible
 for the first time. Two documents drive it:
-- **`docs/decisions/HR-REVIEW-PACKET.md`** — the decisions that actually matter, written for a
-  non-engineer, each with measured impact and our recommendation.
+- **`docs/decisions/HR-DECISION-MATRIX.md`** — the single consolidated HR review + decision matrix
+  (system explainer + evidence + the eight settings that matter), written for a non-engineer, each
+  with measured impact and our recommendation. (Folds in the former HR-REVIEW-PACKET / -REQUEST.)
 - **`docs/decisions/POST-REVIEW-CHANGE-PLAN.md`** — for each possible ruling: which config key
   changes, what it moves, what test must go red.
 

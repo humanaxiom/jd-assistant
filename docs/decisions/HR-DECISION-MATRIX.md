@@ -1,33 +1,66 @@
-# JD Bank — Decision Matrix for SFU HR
+# JD Bank — HR Review & Decision Matrix
 
-**Purpose:** everything SFU HR needs in order to sign off on how the JD Bank evaluates a job
-description — the system, the process, the evidence, and the specific choices that are yours to make.
+**For:** SFU Human Resources.
+**Purpose:** everything HR needs to sign off on how the JD Bank evaluates a job description — what
+the system is, how it works, what we measured against your real job descriptions, and the specific
+settings that are yours to rule on. This document is self-contained; **you do not need to read any
+code**, and every decision below is a setting we change in minutes and re-measure.
 
-**Status:** awaiting HR review. Nothing in this system has been ratified by SFU. Until you rule,
+**Status:** *awaiting HR review — nothing in this system has been ratified by SFU.* Until you rule,
 the system's behaviour is provisional and unchanged.
 
-**Evidence base:** every number in this document is measured against the **entire SFU JD archive —
-14,565 files** (`docs/baseline/`). It is not a sample.
+**Evidence base:** every number here is measured against the **entire SFU job-description archive —
+14,565 files.** It is not a sample.
 
-**You do not need to read any code.** Every decision below is a setting we change in minutes and
-re-measure. This document is meant to be read on its own.
+**We are asking you for two things:**
+
+1. **Rule on eight settings** (Part 4) that decide whether a job description can be approved.
+2. **Do a short hands-on pilot** (Part 5) — walk a handful of real job descriptions through the
+   tool the way a reviewer would, and tell us where it got the call wrong.
+
+Together this is how the JD Bank moves from *built* to *trusted*. Budget about 60–90 minutes.
 
 ---
 
 ## 1 · What the system is
 
-The JD Bank reads a job description and does three things:
+The JD Bank is a tool that helps SFU **standardise, quality-check, and author** APSA / APEX /
+Polytechnic job descriptions against SFU's own JD standards. It does three jobs:
 
-1. **Reads it into sections** — Summary, Duties, Qualifications, and so on.
-2. **Checks it against SFU's JD standards** — a rulebook of gates, word lists and thresholds drawn
-   from SFU's JD Toolkit, plus a set of thresholds the Toolkit is silent on (those are the ones this
-   document asks you to ratify).
-3. **Produces a result** — a **score out of 100**, a **grade A–F**, and a **list of specific
-   issues**, then decides **whether an HR reviewer is permitted to approve the JD**.
+1. **Reads a job description into its sections** — Position Summary, Duties, Qualifications, and so on.
+2. **Checks it against SFU's JD standards** — a rulebook of gates, word lists and thresholds. The
+   parts SFU has published come from the **SFU JD Toolkit** and the official **APSA/APEX/POLY job
+   description template**; the parts the Toolkit is silent on are settings we chose (and this
+   document asks you to ratify the ones that matter).
+3. **Produces a result** — a **score out of 100**, a **grade A–F**, a **list of specific, located
+   issues**, and a decision on **whether an HR reviewer is permitted to approve the job description.**
 
-**The one rule that never bends: the system never approves anything. A human always does.** The
-system can *recommend*, and it can *block the approve button*, but publishing a canonical JD is
-always a deliberate human act, recorded in an audit log.
+It supports two ways of producing a job description, both ending at the same human-approval gate:
+
+- **Harmonising the archive** — where several near-duplicate job descriptions describe the same role,
+  the tool merges them into one clean **draft** canonical job description and shows exactly what each
+  source contributed and what was dropped.
+- **Authoring a new one** — a hiring manager or recruiter answers a guided set of questions (or starts
+  from an existing role) and sees the JD scored live against SFU standards as they write.
+
+> **The one rule that never bends: the system never approves anything — a human always does.** The
+> tool can *recommend*, and it can *block the approve button*, but publishing a job description is
+> always a deliberate human act, recorded in an audit log.
+
+### Where the numbers in the rulebook come from
+
+To evaluate a job description the system uses **194 settings** — numbers, word lists and rules.
+
+| Source | Count | What it means |
+|---|---:|---|
+| **SFU's own JD Toolkit** | **19** | Published SFU standards (e.g. the 100–150-word Position Summary range). |
+| **Our choices** | **175** | Settings we had to pick because the Toolkit does not specify them. |
+
+Most of the 175 govern the machinery (how duplicates are detected, how roles are clustered) and
+change nothing about whether a JD is acceptable. **A small core of them silently decide which of your
+job descriptions pass — and those are what this document puts in front of you.** The remaining ~185
+are recorded internally and, the archive shows, change almost nothing; they can be ratified in bulk
+or reviewed at your leisure.
 
 ### How to read a result
 
@@ -35,66 +68,70 @@ always a deliberate human act, recorded in an audit log.
 |---|---|
 | **Score / 100** | Overall quality. Higher is better. |
 | **Grade A–F** | A banded view of the score. |
-| **Issues** | Specific, located findings ("Summary is 172 words; the range is 100–150"). |
-| **Gates** | A subset of issues that can **block approval**. Most gates can be **overridden** by a reviewer who writes down a reason. A few cannot — see Decision 5. |
+| **Issues** | Specific, located findings — e.g. "Summary is 172 words; the range is 100–150." |
+| **Gates** | The subset of issues that can **block approval**. Most gates can be **overridden** by a reviewer who writes down a reason; a few cannot (see Decision 5). |
 
 ---
 
 ## 2 · How the process works
 
-A JD moves through the bank in one direction, and a human stands at the only exit:
+A job description moves through the bank in one direction, and a human stands at the only exit:
 
 ```
-   Archive JD ──▶ Parse into sections ──▶ Check against rulebook ──▶ Score + grade + issues
-                                                                              │
-                                                                              ▼
-                                                              DRAFT canonical JD (never published)
-                                                                              │
-                                                                    ┌─────────┴─────────┐
-                                                                    ▼                   ▼
-                                                          HR reviewer approves    edits / rejects
-                                                          (gates permit, or       (new draft, or
-                                                           override w/ reason)      sent back)
-                                                                    │
-                                                                    ▼
-                                                            PUBLISHED canonical JD
+   Archive JDs ─┐
+                ├─▶ Parse into sections ─▶ Check against rulebook ─▶ Score + grade + issues
+   New JD  ─────┘                                                             │
+   (Builder)                                                                  ▼
+                                                          DRAFT canonical JD (never published)
+                                                                             │
+                                                                   ┌─────────┴─────────┐
+                                                                   ▼                   ▼
+                                                         HR reviewer approves     edits / rejects
+                                                         (gates permit, or        (new draft, or
+                                                          override with reason)    sent back)
+                                                                   │
+                                                                   ▼
+                                                           PUBLISHED canonical JD
 ```
 
-Guarantees built into this flow (these are not up for debate — they are the safeguards the decisions
-below sit inside):
+Five guarantees are built into this flow. They are **not** up for debate — they are the safeguards
+the decisions in Part 4 sit inside:
 
-- **Nothing auto-publishes.** Every canonical JD is a *draft* until a reviewer approves it.
+- **Nothing auto-publishes.** Every canonical job description is a *draft* until a reviewer approves it.
 - **Overrides require a written reason.** A reviewer can waive most gates, but the reason is recorded.
-- **The audit log is append-only.** Every approve / reject / edit / override is traceable to a person.
-- **Every canonical JD traces back to its sources** — which archive JDs fed it, and why content was kept or dropped.
-- **All inference runs on SFU-controlled infrastructure.** No JD text is sent to any outside vendor.
+- **The audit log is append-only.** Every approve / reject / edit / override, and every sign-in, is
+  traceable to a person and cannot be altered after the fact.
+- **Every canonical job description traces back to its sources** — which archive JDs fed it, and why
+  content was kept or dropped.
+- **All processing runs on SFU-controlled infrastructure.** No job-description text is sent to any
+  outside vendor.
 
 ---
 
 ## 3 · What we measured
 
-The purpose of the baseline run was to put the proposed approval bar on trial against SFU's real
-job descriptions — and to find out whether it is reasonable or too harsh.
+The point of the baseline run was to put the proposed approval bar on trial against SFU's **real**
+job descriptions — and find out whether it is reasonable or too harsh.
 
 ### Read the right population
 
-The archive spans decades and **two different JD templates**. Three figures matter, and only one of
-them is a fair test of the bar:
+The archive spans decades and **two different job-description forms**. Three figures matter, and only
+one is a fair test of the bar:
 
-| Population | Size | Approval | What it actually measures |
+| Population | Size | Approvable | What it actually measures |
 |---|---:|---:|---|
-| Whole archive | 14,522 scored | ~5% | **Not meaningful.** Mixes 1990s JDs and a second template (WJQ/CUPE) that has no SFU rulebook bar at all. Do not quote. |
+| Whole archive | 14,522 scored | ~5% | **Not meaningful — do not quote.** Mixes 1990s JDs and a second form (the CUPE Weighted Job Questionnaire) that has no SFU quality bar at all. |
 | JDs dated 2024+ | 1,034 | 61% | A *date* band — still partly measuring a rollout, not quality. |
-| **Current practice** | **874** | **78.6%** | **The fair trial** — the JDs SFU writes today, under today's template and conventions. |
+| **Current practice** | **874** | **78.6%** | **The fair trial** — the job descriptions SFU writes today, under today's template and conventions. |
 
-> **The WJQ/CUPE template (4,300 files, 29% of the archive)** is a *different form* with no rulebook
-> bar defined. The system reads it, but does **not** score it against the JDFN gates — doing so would
-> be a category error. It is excluded from every approval number above. (See Decision 7 area if SFU
-> wants a bar built for it.)
+> **The CUPE form (4,300 files, ~30% of the archive)** is the Weighted Job Questionnaire — a
+> *different instrument* with no SFU quality bar defined. The tool reads it, but does **not** score it
+> against the APSA/APEX/Polytechnic rules; doing so would be a category error. It is excluded from
+> every approval figure above. Decision 8 asks you to confirm this scope.
 
 ### The headline: the bar is sound, and barely binding
 
-On the 874 JDs SFU writes today:
+On the 874 job descriptions SFU writes today:
 
 | | |
 |---|---|
@@ -104,78 +141,95 @@ On the 874 JDs SFU writes today:
 | Clear the score floor of 60 | **99.8%** |
 | Rejected because their score was too low | **2** |
 
-Nearly eight in ten current JDs would pass straight through. The rest need **edits, not rewrites**.
-**No current JD scores an F.**
+Nearly eight in ten current job descriptions would pass straight through. The rest need **edits, not
+rewrites.** **No current job description scores an F.**
 
-### What actually blocks a JD
+### What actually blocks a job description
 
-This is the single most important finding for HR, because it is **not** what most people assume.
-Of the 187 current JDs that cannot yet be approved, here is what stops them:
+This is the single most important finding for HR, because it is **not** what most people assume. Of
+the 187 current job descriptions that cannot yet be approved, here is what stops them:
 
 | What blocks it | JDs | |
 |---|---:|---|
-| **Summary is outside 100–150 words** | **134** | ← the real gatekeeper |
+| **Position Summary is outside 100–150 words** | **134** | ← the real gatekeeper |
 | Missing "or an equivalent combination of education and experience" | 42 | |
 | Missing part of the territorial / equity footer | 10 | |
 | Summary describes working conditions, not the role | 9 | |
 | Missing a mandatory section | 7 | |
-| Severity of an issue too high | 7 | |
+| An issue's severity is too high | 7 | |
 | **The quality score itself being too low** | **2** | |
 | Grade too low | 2 | |
 | Qualifications listed out of order | 1 | |
 
 **The thing doing the real gatekeeping is a word count, not the quality score.** The quality score
-rejects two JDs out of 874 — it is almost inert. That is not a flaw, but HR should ratify the bar
-*knowing* this, not assuming the score is what protects quality. (Decisions 1 and 3 both turn on it.)
+rejects two job descriptions out of 874 — it is almost inert. That is not a flaw, but HR should
+ratify the bar *knowing* it, not assuming the score is what protects quality. (Decisions 1 and 3 both
+turn on this.)
 
 ---
 
-## 4 · The decision matrix
+## 4 · The decisions
 
-Seven decisions need SFU HR. Each is a **setting**, not a code change. Three kinds of ask appear:
+### First — three things we already corrected, so you are reading honest numbers
+
+The first version of this review exposed **three defects in our own rules.** We fixed them and
+re-measured **before** bringing you this document — handing you figures we already knew were
+distorted, collecting your sign-off, and *then* fixing them would have made your ratification
+meaningless. **No action is needed on these three; they are here so you know why the numbers look the
+way they do.**
+
+| Was | What it was | Now |
+|---|---|---|
+| A qualifications rule scanned the **whole document** | It blocked 104 JDs for "wish-list" phrasing found anywhere — even a duty that said "responsibilities *may include*…" | Scoped correctly to the Qualifications section: **104 → 0** wrong blocks; **59 JDs** became approvable. This is the entire improvement from 71.9% to 78.6%. |
+| A "how and why" rule that **could never *not* fire** | It penalised every duty of every JD for missing detail the reader never extracts — an invisible constant subtracted from every score | Retired until the reader can extract that field. Median score rose **77 → 79**; **no** approval changed (it only affected scores, not the pass/fail line). |
+| Our "era" model **conflated two rollouts** | It judged correctly-written 2019 JDs by a footer rule only 2023+ JDs could satisfy — a sevenfold distortion, all date and no quality | Added a fourth "current" band from 2024. The 78.6% figure is measured on the corrected model. |
+
+### Now — the eight settings that need your ruling
+
+Each is a **setting**, not a code change. Three kinds of ask appear:
 
 - 🟢 **Ratify** — we recommend keeping it; we need you to *own* it knowingly.
 - 🔵 **Choose** — a genuine policy fork; pick an option.
 - 🟣 **Review** — needs an experienced JD reviewer's eye, not an engineer's.
 
-| # | Decision | Type | Current | Our recommendation | If unchanged, affects | Your ruling |
-|---|---|---|---|---|---|---|
-| **1** | Summary must be **100–150 words** | 🟢 Ratify | 100–150 (SFU's own number) | **Ratify** — but knowing it is the #1 determinant of approval | Blocks **134** of 874 | ☐ |
-| **2** | Too-**short** summaries are **not** blocked (only too-long) | 🔵 Choose | Asymmetric: long blocks, short only costs score | **Keep asymmetric** | Enforcing symmetry would block **340** (≈40% approval) | ☐ |
-| **3** | Minimum quality bar: **score ≥ 60 · grade ≥ C · severity ≤ high** | 🟢 Ratify | 60 / C / high | **Ratify** (rejects 2 of 874); note 70 is available if SFU wants a real bar | Rejects **2** on score | ☐ |
-| **4** | Territorial + Employment-Equity **footer** is mandatory | 🔵 Choose | Blocks any JD lacking it (94% of archive; a rollout artifact) | **Auto-insert** the footer at compose time instead of penalising omission | Blocks **10** current; ~13,000 legacy | ☐ |
-| **5** | The **"placeholder" gate** blocks with **no appeal** | 🔵 Choose | Non-overridable — no waiver, ever | **Make it waivable** with a written reason | 0 current; 29% of legacy archive | ☐ |
-| **6** | The **wish-list-language** ("may include", "an asset") word list | 🟣 Review | Matches only **10** files archive-wide | **A JD reviewer confirms the list is complete** | Guard-rail that almost never fires | ☐ |
-| **7** | Should the wish-list gate be **overridable**? | 🔵 Choose | Overridable | **Confirm on purpose** (we default to keeping it waivable) | — | ☐ |
+| # | Decision | Type | Our recommendation | Blocks today | Your ruling |
+|---|---|---|---|---:|---|
+| **1** | Position Summary must be **100–150 words** | 🟢 Ratify | Ratify — it's SFU's own number, but know it is the #1 determinant of approval | **134** | ☐ |
+| **2** | Too-**short** summaries are **not** blocked (only too-long) | 🔵 Choose | Keep the asymmetry, deliberately | 0 | ☐ |
+| **3** | Minimum bar: **score ≥ 60 · grade ≥ C · severity ≤ high** | 🟢 Ratify | Ratify all three (they reject 2 of 874); 70 is available if you want a real bar | **2** | ☐ |
+| **4** | Territorial + Employment-Equity **footer** is mandatory | 🔵 Choose | Auto-insert the footer at compose time instead of penalising omission | 10 | ☐ |
+| **5** | The **"placeholder" gate** blocks with **no appeal** | 🔵 Choose | Make it waivable with a written reason | 0 | ☐ |
+| **6** | The **wish-list-language** word list ("may include", "an asset") | 🟣 Review | A JD reviewer confirms the list is complete | 0 | ☐ |
+| **7** | Should the wish-list gate be **overridable**? | 🔵 Choose | Confirm it stays waivable (decide on purpose) | 0 | ☐ |
+| **8** | **Scope:** the tool scores/authors only APSA/APEX/Poly, **not CUPE** (~30% of the archive) | 🔵 Choose | Confirm APSA/APEX/Poly-only for now, or commission a CUPE bar (a separate project) | n/a | ☐ |
 
 Details for each follow.
 
 ---
 
-### Decision 1 — Ratify the 100–150 word summary range 🟢
+### Decision 1 — Ratify the 100–150-word summary range 🟢
 
 **The question:** SFU's Toolkit says a Position Summary should be 100–150 words. We enforce that as a
 gate. Do you ratify it?
 
-**What you need to know before you do:** this single rule is **the largest determinant of whether a
-JD is approvable** — it blocks 134 of the 187 current JDs that fail. It is not a formatting nicety;
-it is the operative bar. The saving grace is that **100–150 is SFU's own published number**, not one
-we invented.
+**What you need to know first:** this single rule is **the largest determinant of whether a job
+description is approvable** — it blocks 134 of the 187 current JDs that fail. It is not a formatting
+nicety; it is the operative bar. The saving grace is that **100–150 is SFU's own published number.**
 
-**Recommendation: ratify as-is**, with eyes open. If you'd rather widen it (e.g. 100–200), we change
+**Recommendation: ratify as-is, with eyes open.** If you'd rather widen it (e.g. 100–200), we change
 one value and re-measure — expect the 134 blocks to fall sharply.
 
 ---
 
 ### Decision 2 — Keep the short-summary asymmetry 🔵
 
-**The question:** today, a summary that is **too long** is blocked, but one that is **too short** only
+**The question:** today a summary that is **too long** is blocked, but one that is **too short** only
 loses points — it is not blocked. The Toolkit's range is two-sided; our enforcement is one-sided.
 Make it symmetric?
 
-**What you need to know:** **340 of 874** current JDs have summaries that are *too short*. If we
-blocked those too "for consistency," the under-run would instantly become **the single biggest
-blocker in the system**, and approval would fall from ~79% to roughly **40%**.
+**What you need to know:** **340 of 874** current job descriptions have summaries that are *too
+short*. If we blocked those too "for consistency," the under-run would instantly become **the single
+biggest blocker in the system**, and approval would fall from ~79% to roughly **40%.**
 
 **Recommendation: keep it as-is, deliberately.** We flag it only so the asymmetry is a decision you
 made, not an accident. If you do want symmetry, we will show you the ~40% figure first and have you
@@ -185,9 +239,9 @@ ratify *that number*, not the principle.
 
 ### Decision 3 — Ratify the minimum quality bar 🟢
 
-**The question:** a JD cannot be approved if its score is below **60**, its grade below **C**, or it
-carries an issue of severity above **high**. These three thresholds are ours — SFU publishes no such
-numbers. Ratify them?
+**The question:** a job description cannot be approved if its score is below **60**, its grade below
+**C**, or it carries an issue of severity above **high**. These three thresholds are ours — SFU
+publishes no such numbers. Ratify them?
 
 **What the archive says:** they are nearly inert on current practice. 99.8% of today's JDs clear the
 score floor; **it rejects two.** The bar survived its trial against real data.
@@ -197,8 +251,8 @@ score floor; **it rejects two.** The bar survived its trial against real data.
 - The floor of 60 is defensible because it is **nearly inert**, not because 60 is a magic number.
 - If SFU wants a **more demanding** bar later, the data supports it: the median current JD scores
   **79**, and 81 score an A. **A floor of 70 would be a real bar** rather than a formality. That is a
-  policy choice, and it is cheap to make — one value and a re-measure. We are not recommending it,
-  only telling you the option is there.
+  policy choice, cheap to make — one value and a re-measure. We are not recommending it, only telling
+  you the option is there.
 
 ---
 
@@ -206,7 +260,7 @@ score floor; **it rejects two.** The bar survived its trial against real data.
 
 **The finding:** the mandated territorial acknowledgement and Employment-Equity statement are
 required by the rulebook. **94% of the archive lacks them** — but this is **not** a quality problem.
-SFU only began putting the acknowledgement into JDs around 2023:
+SFU only began putting the acknowledgement into job descriptions around 2023:
 
 | Year | JDs carrying the acknowledgement |
 |---|---|
@@ -218,7 +272,7 @@ SFU only began putting the acknowledgement into JDs around 2023:
 
 So the rule is really detecting **a document's age**, not its quality. Staff did nothing wrong; the
 paragraph simply did not exist yet. The gate *can* be waived — but on the legacy archive that means a
-reviewer writing an individual justification roughly **13,000 times**.
+reviewer writing an individual justification roughly **13,000 times.**
 
 **Choose one:**
 
@@ -226,31 +280,36 @@ reviewer writing an individual justification roughly **13,000 times**.
   historical archive practically unusable without ~13,000 waivers.)*
 - **(b) [recommended]** Treat the footer as **boilerplate the system inserts automatically** when a JD
   is composed, rather than something the author is penalised for omitting. It is identical on every
-  JD. *(Note: if we generate the wording, HR must give us the current official text to insert.)*
+  JD. *(If we generate the wording, HR must give us the current official text to insert.)*
 - **(c)** Apply the rule only to JDs written after a date you choose.
 
 **Recommendation: (b).**
+
+> **A related refinement, if you want it:** we currently call a JD "current practice" by its *date*
+> (2024+). The truer signal is whether it actually *carries the footer*. The two nearly agree, and
+> either is defensible — this is a definitional call about what "current practice" means at SFU, and
+> it is yours. Not required to proceed.
 
 ---
 
 ### Decision 5 — Make the "placeholder" gate appealable 🔵
 
-**The finding:** most gates can be waived by a reviewer with a written reason. **Two cannot** — a JD
-that trips them is permanently un-approvable, with no human override. One of those two is
+**The finding:** most gates can be waived by a reviewer with a written reason. **Two cannot** — a job
+description that trips them is permanently un-approvable, with no human override. One of those two is
 demonstrably wrong.
 
 The placeholder gate treats the phrases **"action verb," "how and why,"** and **"what by"** as
-evidence that template boilerplate was left in the document. But a JD that legitimately *discusses*
-action verbs — as a **Communications or HR training role might** — is then permanently un-approvable,
-and no reviewer who can see the JD is fine has any way to say so.
+evidence that template boilerplate was left in the document. But a job description that legitimately
+*discusses* action verbs — as a **Communications or HR training role might** — is then permanently
+un-approvable, and no reviewer who can see the JD is fine has any way to say so.
 
-Good news: it blocks **zero** current JDs. It is a legacy-archive problem (29% of old files), not a
-threat to what SFU writes today.
+Good news: it blocks **zero** current job descriptions. It is a legacy-archive issue (29% of old
+files), not a threat to what SFU writes today.
 
-**Recommendation: remove the placeholder gate from the no-appeal list.** Keep the rule — it does
-catch real leftover template text — but let a reviewer waive it with a written reason. Removing human
+**Recommendation: remove the placeholder gate from the no-appeal list.** Keep the rule — it does catch
+real leftover template text — but let a reviewer waive it with a written reason. Removing human
 discretion is only defensible when a rule is *never* wrong, and this one provably is. *(The other
-no-appeal gate — "a mandatory section is missing" — is defensible and we recommend leaving it.)*
+no-appeal gate — "a mandatory section is missing" — is defensible; we recommend leaving it.)*
 
 ---
 
@@ -260,12 +319,11 @@ no-appeal gate — "a mandatory section is missing" — is defensible and we rec
 include"* or *"an asset"* that quietly turn a minimum requirement into a nice-to-have. Correctly
 scoped to the Qualifications section, that list now matches **only 10 files in the entire archive.**
 
-That leaves one open question that **an engineer cannot answer**: is the list a guard-rail that
-authors rarely trip — or is it **missing the phrases SFU's authors actually write?**
+That leaves one question **an engineer cannot answer**: is the list a guard-rail authors rarely trip —
+or is it **missing the phrases SFU's authors actually write?**
 
-**Recommendation: a few minutes of an experienced JD reviewer's time** to look at the list and tell
-us whether it captures the wish-list language you see in practice. If it's missing phrases, we add
-them.
+**Recommendation: a few minutes of an experienced JD reviewer's time** to look at the list and tell us
+whether it captures the wish-list language you see in practice. If it's missing phrases, we add them.
 
 ---
 
@@ -275,29 +333,92 @@ them.
 like you to confirm that on purpose rather than inherit it.
 
 **Recommendation: keep it overridable** unless SFU considers wish-list phrasing a hard stop, in which
-case we make it non-appealable. This is a small policy call bundled here so it isn't decided by
-default.
+case we make it non-appealable. A small policy call, bundled here so it isn't decided by default.
 
 ---
 
-## 5 · Recording your decisions, and what happens next
+### Decision 8 — Confirm the scope: APSA/APEX/Poly only, not CUPE 🔵
 
-Every decision above is a **configuration value**. Once you rule:
+**The finding:** everything above is measured on job descriptions written on SFU's **APSA/APEX/Poly
+template.** **CUPE roles use a different form — the Weighted Job Questionnaire (WJQ)** — and they are
+**4,300 of your 14,565 files (~30%).** The tool *reads* them, but does **not** score them and will
+**not** author them.
+
+This is deliberate, not an oversight:
+
+- The whole quality bar in this document was built from SFU's APSA/APEX/Poly standard. **There is no
+  CUPE quality standard encoded** — the Toolkit does not define one for the WJQ form.
+- Scoring a CUPE job description against these rules would be a **category error** — a number that
+  looks like a quality grade but really measures "how much does this CUPE role resemble an
+  APSA/APEX/Poly one." That is worse than no number.
+
+**Choose one:**
+
+- **(a) [recommended, for now]** Confirm the Bank is **APSA/APEX/Poly-only.** CUPE JDs remain
+  readable/searchable but are neither scored nor authored, and this document's numbers cover ~70% of
+  the archive **by design**, honestly labelled.
+- **(b)** Commission a **CUPE quality bar** — a WJQ ruleset with its own thresholds and sign-off. That
+  is a **separate project**: it needs SFU to define what "good" means for a WJQ role before we can
+  build a checker for it. Once that exists, CUPE switches on with one setting.
+
+Either way, decide it **on purpose** rather than inherit "the Bank ignores a third of SFU roles" as an
+accident of which template we started with.
+
+---
+
+## 5 · Walk the system (the hands-on pilot)
+
+Your JD Bank operator will send you the link and confirm your sign-in (your SFU account) and that you
+have the **reviewer** role. Once in, use the navigation bar at the top. The goal is to exercise a real
+reviewer's judgement on a handful of drafts and flag anything the tool gets wrong.
+
+1. **Open 📋 Review queue.** You'll see the drafts awaiting review, most-blocked first, each with its
+   score and how many gates block it. Pick one to open.
+2. **Read the draft page.** At the top: the **score, grade,** and whether it's *approvable* or how many
+   gates block it. Below: the **blocking gates** (each says what tripped and whether it can be waived),
+   the **draft text**, and a **"removed content" list** (what the tool folded out when it merged
+   duplicate JDs, and why).
+3. **Click "Changes since last approved version →."** If this role was approved before, you'll see a
+   side-by-side of what changed. (First-time drafts say "no prior approved version" — expected.)
+4. **Make a decision** on a few drafts, trying each action at least once:
+   - **Approve** — if a gate is *waivable*, you'll be asked to type a reason before it lets you. A
+     draft with a non-waivable blocking gate cannot be approved (by design).
+   - **Reject** — requires a written reason.
+   - **Edit** — change any field (title, summary, duties, qualifications, the footer flags…) and Save.
+     This is a structured, field-by-field editor — no raw data. Saving creates a **new draft version**
+     for review; it does **not** publish.
+5. **(Optional) Try 🧱 Builder.** Author a brand-new JD from the guided questions (or search an
+   existing one and clone it), press **Check compliance**, and watch the live panel score it as you
+   go. Submit it and it lands in the same review queue.
+6. **Keep a short list as you go:** any JD where you *disagreed* with the tool — it blocked something
+   fine, or passed something you'd reject. **That list is the most valuable thing you produce.**
+
+*(📊 Dashboards and 📖 Guide are there for context — the dashboards summarise the archive; the guide
+is the full operator manual. Neither is required for this review.)*
+
+---
+
+## 6 · Recording your decisions, and what happens next
+
+**What we need back:**
+
+- **Your eight rulings** (Part 4) — keep or change, in a sentence each.
+- **Your pilot notes** (Part 5) — which drafts you approved / rejected, and every case where you
+  disagreed with the tool's call.
+
+**What we do with them:**
 
 1. We change the setting.
 2. We **re-run the full 14,565-JD baseline** and show you the before/after — no decision lands on an
    estimate.
-3. We record your ruling in the decision register with **who** decided, **when**, and **the reason** —
-   the system will not accept a ratification without all three. That is how an HR ruling becomes part
-   of the rulebook's provenance.
+3. We record your ruling with **who** decided, **when**, and **the reason.** The system will not accept
+   a ratification without all three — that is how an HR ruling becomes part of the rulebook's
+   permanent provenance, and it cannot be recorded anonymously.
+4. Every disagreement from your pilot becomes a **permanent test case**, so the tool never makes that
+   mistake again.
 
 **A decision is recorded even when you keep a setting unchanged.** "HR reviewed this and kept it" is a
-different, stronger fact than "nobody has looked yet" — and every one of the ~192 settings in the
-rulebook currently sits at the second.
+different, stronger fact than "nobody has looked yet" — and every one of the 194 settings currently
+sits at the second.
 
-The seven above are the ones that **matter to the numbers**. The remaining ~185 settings are recorded
-in [`HR-DECISION-REGISTER.md`](HR-DECISION-REGISTER.md); the archive shows they change almost nothing,
-so they can be ratified in bulk or reviewed at your leisure.
-
-**Until you rule, we change nothing.** The engineering counterpart to this document — exactly which
-file and value each ruling moves — is in [`POST-REVIEW-CHANGE-PLAN.md`](POST-REVIEW-CHANGE-PLAN.md).
+**Until you rule, we change nothing.**

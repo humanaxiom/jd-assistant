@@ -25,9 +25,12 @@ Two docs to know:
   **EVERY CLAIM ABOUT THE ARCHIVE MUST BE CHECKED AGAINST THE ARCHIVE** — this rule has already
   caught the Phase 0 census, two coders, a reviewer *and* the orchestrator. A sample of the newest
   files is not a sample of the corpus.
-- `docs/decisions/HR-REVIEW-PACKET.md` (what HR must decide) + `POST-REVIEW-CHANGE-PLAN.md` (what we
-  change when they rule). **Three of the nine decisions are OUR defects, not HR questions, and they
-  distort the numbers HR would ratify — fix those and re-baseline BEFORE asking HR anything.**
+- `docs/decisions/HR-DECISION-MATRIX.md` (the single consolidated HR review + decision matrix — what
+  HR must decide) + `POST-REVIEW-CHANGE-PLAN.md` (the engineering counterpart — what we change when
+  they rule). **The three "our-defect" decisions were already fixed + re-baselined in Phase 2.6
+  (HR-120/121/122), so HR is reading corrected numbers; the rest need HR.** The matrix is HR-facing —
+  keep it free of internal codenames (no `hris`) and cite only official SFU resources (JD Toolkit,
+  the APSA/APEX/Poly template).
 
 Paths: `C:\repos\agent-harnesses-v2` is the **live upstream harness** — this repo vendors a copy
 of it (kept in sync; subagents subsystem reconciled 2026-07-10, see ADR-004). `C:\repos\jdbank`

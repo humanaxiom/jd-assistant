@@ -1156,7 +1156,7 @@ acceptance / out-of-scope).
    but whether a harmonized role should take the **highest** or the **most-common** stated bar is a
    ruling for the 4.5 pilot, not a default to flip unilaterally.
 
-### ⏭ HR ratification. **Read `docs/decisions/HR-REVIEW-PACKET.md` + `POST-REVIEW-CHANGE-PLAN.md`.**
+### ⏭ HR ratification. **Read `docs/decisions/HR-DECISION-MATRIX.md` + `POST-REVIEW-CHANGE-PLAN.md`.**
 
 **Phase 2.6 is done: the three defects that were distorting HR's numbers are fixed and the archive
 is re-baselined.** So the packet HR reads now carries *corrected* figures — we fixed first, then
@@ -1396,8 +1396,10 @@ official text from HR in the same review.
 - `docs/plan.md` — full build plan, architecture, phase breakdown (current).
 - **`docs/baseline/README.md` — THE ARCHIVE BASELINE (2.5).** The measured read of all 14,565 JDs.
   Read before making any claim about the archive. Regenerate with `make baseline`.
-- **`docs/decisions/HR-REVIEW-PACKET.md` — what SFU HR must decide** (9 decisions, written for a
-  non-engineer, each with measured impact + our recommendation).
+- **`docs/decisions/HR-DECISION-MATRIX.md` — what SFU HR must decide** (the single consolidated HR
+  review + decision matrix — system explainer, evidence, and the eight settings that matter — written
+  for a non-engineer, each with measured impact + our recommendation; folds in the former
+  HR-REVIEW-PACKET / HR-REVIEW-REQUEST, and is deliberately free of internal codenames).
 - **`docs/decisions/POST-REVIEW-CHANGE-PLAN.md` — what we change once they rule** (per decision:
   config key, blast radius, what test must go red, sequencing).
 - `docs/subagent-model-strategy.md` — model tiering rules for subagent dispatch.

@@ -234,4 +234,4 @@ track only HR can advance.
 across candidate/posting, HR-workflow/classification, governance/EDI/accessibility, and
 AI/skills/automation lenses) synthesized against the six invariants. Peer features are factual
 summaries of what named systems/universities publicly offer, not endorsements. Related:
-`HANDOFF.md`, `docs/plan.md`, `docs/decisions/HR-REVIEW-PACKET.md`, `docs/OPERATOR-GUIDE.md`.
+`HANDOFF.md`, `docs/plan.md`, `docs/decisions/HR-DECISION-MATRIX.md`, `docs/OPERATOR-GUIDE.md`.

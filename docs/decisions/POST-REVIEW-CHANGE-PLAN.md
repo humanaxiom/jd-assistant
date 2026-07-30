@@ -1,8 +1,10 @@
 # Post-Review Change Plan
 
-**The engineering counterpart to [`HR-REVIEW-PACKET.md`](HR-REVIEW-PACKET.md).**
-For each decision HR can hand back, this says *exactly* what changes: which file, which key, what
-it moves, what test goes red, and what else must land in the same PR.
+**The engineering counterpart to [`HR-DECISION-MATRIX.md`](HR-DECISION-MATRIX.md)** (the single
+consolidated HR review + decision doc). For each decision HR can hand back, this says *exactly* what
+changes: which file, which key, what it moves, what test goes red, and what else must land in the
+same PR. Decisions are anchored by their stable **HR-xxx register IDs** — the matrix's display
+numbering (1–8) and this document's headings both reduce to those IDs, so use the HR-id to reconcile.
 
 **Baseline this plan is measured against:** `jd_rules_sfu_v4+8c004c4dadd1` (post-2.6), all 14,565
 archive files (`docs/baseline/`). Current-practice cohort n=874, approval **687 (78.6%)**.
