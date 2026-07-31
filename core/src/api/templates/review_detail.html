@@ -3,7 +3,7 @@
 {% block content %}
 
 {% if error %}
-<div class="panel flash error"><strong>Error:</strong> {{ error }}</div>
+<div class="panel flash error"><strong>⚠ {{ error }}</strong></div>
 {% endif %}
 
 <div class="panel">
@@ -26,11 +26,17 @@
 {% if packet.decision.blocking %}
 <div class="panel">
   <h2>Blocking gates</h2>
+  <p class="meta">
+    These must be resolved before the draft can be published. An
+    <strong>overridable</strong> gate can be waived with a written reason in the Approve
+    section below; a <strong>not overridable</strong> gate must be fixed by editing the
+    draft (Edit section).
+  </p>
   {% for gate in packet.decision.blocking %}
   <div class="gate">
     <div class="meta">
       {{ gate.gate_id }} · {{ gate.source_part }} ·
-      {% if gate.overridable %}overridable{% else %}not overridable{% endif %}
+      {% if gate.overridable %}<span class="badge ok">overridable</span>{% else %}<span class="badge blocked">not overridable</span>{% endif %}
     </div>
     <p>{{ gate.reason }}</p>
   </div>
@@ -67,15 +73,45 @@
 
 <div class="panel">
   <h2>Approve</h2>
+  {% if packet.decision.approved %}
+  <p class="meta">All gates pass — you can publish this draft.</p>
   <form method="post" action="/jd-bank/ui/review/{{ packet.canonical_id }}/approve">
-    {% for gate in packet.decision.blocking %}
-    {% if gate.overridable %}
-    <label for="override-{{ gate.gate_id }}">Override reason — {{ gate.gate_id }}</label>
-    <textarea id="override-{{ gate.gate_id }}" name="override_reason__{{ gate.gate_id }}"></textarea>
-    {% endif %}
-    {% endfor %}
-    <button type="submit">Approve</button>
+    <button type="submit">Approve &amp; publish</button>
   </form>
+  {% else %}
+  {% set nonoverridable = packet.decision.blocking | rejectattr("overridable") | list %}
+  {% set overridable = packet.decision.blocking | selectattr("overridable") | list %}
+  {% if nonoverridable %}
+  <p class="flash error">
+    This draft <strong>cannot be approved as it is</strong>. {{ nonoverridable | length }}
+    gate(s) below cannot be waived — fix them in the <strong>Edit</strong> section, save,
+    and review the new version. There is nothing to approve here yet.
+  </p>
+  <ul>
+    {% for gate in nonoverridable %}
+    <li><strong>{{ gate.gate_id }}</strong> — {{ gate.reason }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="meta">
+    This draft is blocked by {{ overridable | length }} gate(s), all
+    <strong>overridable</strong>. To publish it, either fix the draft in the
+    <strong>Edit</strong> section below, or waive each gate here with a written reason
+    (recorded in the audit log), then click <strong>Approve &amp; publish</strong>.
+  </p>
+  <form method="post" action="/jd-bank/ui/review/{{ packet.canonical_id }}/approve">
+    {% for gate in overridable %}
+    <div class="gate">
+      <div class="meta">{{ gate.gate_id }} · {{ gate.source_part }}</div>
+      <p>{{ gate.reason }}</p>
+      <label for="override-{{ gate.gate_id }}">Why are you waiving this gate? (required to approve)</label>
+      <textarea id="override-{{ gate.gate_id }}" name="override_reason__{{ gate.gate_id }}" required></textarea>
+    </div>
+    {% endfor %}
+    <button type="submit">Approve &amp; publish</button>
+  </form>
+  {% endif %}
+  {% endif %}
 </div>
 
 <div class="panel">

@@ -332,17 +332,45 @@ def _detail_context(
     }
 
 
+def _friendly_error(exc: Exception) -> str:
+    """A plain-language message a reviewer can act on, in place of the raw exception
+    dump. The page still shows the blocking gates + the Approve/Edit affordances that
+    say HOW to resolve it; this is the one-line "what happened + what to do" banner."""
+    if isinstance(exc, NotApprovableError):
+        return (
+            "This draft cannot be published yet — a required gate still blocks it. "
+            "Fix the draft in the Edit section below, or (for a gate marked "
+            "overridable) waive it with a written reason in the Approve section, then "
+            "click Approve again."
+        )
+    if isinstance(exc, MissingReasonError):
+        return (
+            "This action requires a written reason — it is recorded in the audit log. "
+            "Please add one and try again."
+        )
+    if isinstance(exc, IllegalTransitionError):
+        return (
+            "This draft has already been published or rejected, so it can no longer be "
+            "approved, rejected, or edited."
+        )
+    if isinstance(exc, GateOverrideError):
+        return f"That override can't be applied: {exc}"
+    if isinstance(exc, ValidationError):
+        return f"The draft couldn't be saved — a field is invalid: {exc}"
+    return str(exc)
+
+
 async def _rerender_detail_with_error(
     request: Request,
     session: AsyncSession,
     canonical_id: UUID,
     exc: Exception,
 ) -> HTMLResponse:
-    """Re-render the detail page (200) with ``exc`` shown, after a mutation raised and
-    NOTHING was committed. Re-fetches the packet fresh (validator-as-oracle) so the
-    blocking-gate list a NotApprovableError describes is visible on the page, not just
-    in the error text. If the canonical has vanished (CanonicalNotFoundError), the 404
-    page is shown instead — there is nothing left to re-render."""
+    """Re-render the detail page (200) with a plain-language message for ``exc``, after
+    a mutation raised and NOTHING was committed. Re-fetches the packet fresh (validator-
+    as-oracle) so the blocking-gate list a NotApprovableError describes is visible on
+    the page, not just in the banner. If the canonical has vanished, the 404 page shows
+    instead — there is nothing left to re-render."""
     packet = await service.get_review_packet(session, canonical_id)
     if packet is None:
         return templates.TemplateResponse(
@@ -354,7 +382,7 @@ async def _rerender_detail_with_error(
     return templates.TemplateResponse(
         request,
         "review_detail.html",
-        _detail_context(packet, error=str(exc)),
+        _detail_context(packet, error=_friendly_error(exc)),
         status_code=200,
     )
 

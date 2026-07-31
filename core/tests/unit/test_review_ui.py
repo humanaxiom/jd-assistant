@@ -206,18 +206,17 @@ def test_queue_empty_state_is_not_a_crash(monkeypatch: pytest.MonkeyPatch) -> No
 # --- GET /jd-bank/ui/review/{canonical_id} --------------------------------------------
 
 
-def test_detail_renders_fresh_decision_draft_diff_and_override_fields(
+def test_detail_all_overridable_offers_waiver_fields_with_guidance(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """When every blocking gate is overridable, the Approve section offers a waiver
+    field per gate AND explains how to proceed (waive with a reason, or edit)."""
     session = FakeSession()
     client = make_client(session)
     canonical_id = uuid.uuid4()
     packet = _packet(
         canonical_id=canonical_id,
-        blocking=(
-            _overridable_gate("SFU-OVERRIDABLE"),
-            _non_overridable_gate("SFU-FIXED"),
-        ),
+        blocking=(_overridable_gate("SFU-OVERRIDABLE"),),
         approved=False,
     )
     mock = AsyncMock(return_value=packet)
@@ -235,11 +234,39 @@ def test_detail_renders_fresh_decision_draft_diff_and_override_fields(
     assert "Summary text." in body  # the rendered draft
     assert "Answer phones" in body  # the 4.3 removed content
     assert "duty_dropped_over_max" in body
-    # Overridable blocker gets a textarea; non-overridable does not.
+    # The overridable blocker gets a waiver field, and the panel says how to use it.
     assert 'name="override_reason__SFU-OVERRIDABLE"' in body
-    assert 'name="override_reason__SFU-FIXED"' not in body
+    assert "waive each gate" in body
     mock.assert_awaited_once_with(session, canonical_id)
     session.commit.assert_not_awaited()
+
+
+def test_detail_with_a_non_overridable_gate_guides_to_edit_not_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A draft with ANY non-overridable blocking gate can NEVER be approved as-is
+    (waiving the others still leaves it blocked), so the Approve section must guide the
+    reviewer to Edit — NOT dangle a dead-end waiver field. The blocking gate + its
+    reason are still shown so they know what to fix."""
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    packet = _packet(
+        canonical_id=canonical_id,
+        blocking=(
+            _overridable_gate("SFU-OVERRIDABLE"),
+            _non_overridable_gate("SFU-FIXED"),
+        ),
+        approved=False,
+    )
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}").text
+
+    assert "cannot be approved as it is" in body
+    assert "SFU-FIXED" in body  # the un-waivable gate is named
+    # No waiver form is offered — approving could never succeed here.
+    assert "override_reason__" not in body
 
 
 def test_detail_unknown_id_returns_404(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -468,10 +495,46 @@ def test_approve_of_a_blocked_draft_does_not_commit_and_rerenders_reason(
     )
 
     assert resp.status_code == 200
-    assert "a banned word was used" in resp.text  # the blocking gate's reason
-    assert "cannot be approved" in resp.text  # the raised error text
+    assert "a banned word was used" in resp.text  # the blocking gate's reason, shown
+    # Plain-language guidance instead of a raw exception dump, and the un-waivable gate
+    # is called out so the reviewer knows it must be Edited, not approved.
+    assert "cannot be published yet" in resp.text
+    assert "cannot be approved as it is" in resp.text
     session.commit.assert_not_awaited()
     packet_mock.assert_awaited_once_with(session, canonical_id)
+
+
+def test_approve_without_a_waiver_reason_explains_how_to_proceed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The screenshot bug: clicking Approve on an overridable-blocked draft with no
+    reason must explain the two ways forward (waive with a written reason, or edit) and
+    re-offer the waiver field — NOT dump the raw ``cannot be approved`` exception."""
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    gate = _overridable_gate("SFU-APPROVE-QUAL-EQUIVALENT")
+    decision = GateDecision(approved=False, blocking=(gate,))
+    monkeypatch.setattr(
+        ui.service,
+        "approve",
+        AsyncMock(side_effect=NotApprovableError(canonical_id, decision)),
+    )
+    packet = _packet(canonical_id=canonical_id, blocking=(gate,), approved=False)
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+
+    resp = client.post(
+        f"/jd-bank/ui/review/{canonical_id}/approve", data={"reviewer_id": "hr-1"}
+    )
+
+    assert resp.status_code == 200
+    body = resp.text
+    # Friendly guidance, not the raw exception dump.
+    assert "cannot be published yet" in body
+    assert "publish nothing" not in body  # the raw exception tail must not surface
+    # The waiver field for the offending gate is (re-)offered so approval is reachable.
+    assert 'name="override_reason__SFU-APPROVE-QUAL-EQUIVALENT"' in body
+    session.commit.assert_not_awaited()
 
 
 def test_approve_of_unknown_canonical_shows_404_not_a_crash(
