@@ -8,14 +8,14 @@
 # per factor, to help Compensation *level* a role. Advisory. Never a grade.
 #
 # ⚠ PROVENANCE — NOT SFU-PUBLISHED. EVERY table and EVERY number below is
-# hris_calibration: it was invented in hris (packages/pipeline/src/pipeline/bank/
+# prior_calibration: it was invented in the earlier build (packages/pipeline/src/pipeline/bank/
 # hay_signals.py, "deliberately small + auditable" lexicons) and no part of it
 # appears in docs/rulebook/sfu-jd-standards.txt. SFU has never seen these words or
 # these weights. They are registered `open` (HR-066 … HR-081) exactly like the
 # nine invented coded terms of HR-029 and the seniority ladder of HR-059 — do NOT
 # dress them up as an SFU standard.
 #
-# hris: packages/pipeline/src/pipeline/bank/hay_signals.py (_EDU_HIGH, _EDU_MID,
+# the earlier build: packages/pipeline/src/pipeline/bank/hay_signals.py (_EDU_HIGH, _EDU_MID,
 #   _PS_CHALLENGE, _PS_ROUTINE, _ACC_AUTONOMY, and the scoring in _know_how /
 #   _problem_solving / _accountability).
 version: jd_rules_sfu_v4

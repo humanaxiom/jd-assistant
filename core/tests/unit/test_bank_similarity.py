@@ -168,7 +168,7 @@ def test_verdict_uncertain_below_threshold() -> None:
 
 
 def test_the_similarity_weights_are_data_pinned_by_value(rules: Rules) -> None:
-    """0.45 / 0.45 / 0.10. `hris_calibration` (HR-084..HR-086) — SFU has never
+    """0.45 / 0.45 / 0.10. `prior_calibration` (HR-084..HR-086) — SFU has never
     published a similarity formula, let alone its weights. The rebalance that gave
     skills equal weight to the embedding was an hris judgement call about *its* corpus,
     on a skill graph JD Bank does not have."""

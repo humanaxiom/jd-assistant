@@ -320,7 +320,7 @@ severity floor.
 |---|---|
 | Config | `rule_catalog.yaml :: rule_catalog.SFU-STRUCT-HOW-WHY.default_severity` = **low** |
 | Fires on | **77.7%** of new-era, **99.4%** of current practice, **628/628 (100%)** of JDs we would approve |
-| Provenance | `hris_calibration` — **not** an SFU rule |
+| Provenance | `prior_calibration` — **not** an SFU rule |
 
 A finding on 100% of approvable JDs has **zero discriminating power**. It is a constant subtracted
 from every score.

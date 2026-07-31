@@ -4,7 +4,7 @@
 #   `restricted` — title phrases SFU reserves (Part 3.5). RULEBOOK-SOURCED.
 #   `families`*  — the SENIORITY ladder a title is classified onto, and the
 #                  keywords/match order that classify it. NOT in the rulebook
-#                  (see the provenance warning below). hris_calibration. HR-059.
+#                  (see the provenance warning below). prior_calibration. HR-059.
 #   `functions`* — the FUNCTIONAL Application Table (what the title *word* means:
 #                  analyst / officer / coordinator …). RULEBOOK-SOURCED, Part 3.3.
 #
@@ -23,7 +23,7 @@
 # provenance:
 #   rulebook: docs/rulebook/sfu-jd-standards.txt — Part 3.5 (restricted titles)
 #   provenance doc: docs/rulebook/sfu-reference.md §2 (Job Titling Guide, Toolkit p18-19)
-#   hris: packages/pipeline/src/pipeline/quality/jd_rules.py :: _authoring_gates
+#   the earlier build: packages/pipeline/src/pipeline/quality/jd_rules.py :: _authoring_gates
 #     ("executive director" -> employee_group must be apex, severity low;
 #     "registrar" and "human resources" -> severity info, context not checkable)
 version: jd_rules_sfu_v4
@@ -33,11 +33,11 @@ version: jd_rules_sfu_v4
 # plus the explicit "unmapped" state) and, later, by title normalization in
 # dedup Tier-3 and by the composer's facets.
 #
-# ⚠ PROVENANCE — NOT SFU-PUBLISHED. hris's schema called this "SFU's official
+# ⚠ PROVENANCE — NOT SFU-PUBLISHED. The earlier build's schema called this "SFU's official
 # title ladder (Toolkit p18-19)". docs/rulebook/sfu-jd-standards.txt contains no
 # such ladder: `chief` never appears in it, and the single occurrence of "VP"
 # (Part 3.5) lists VP as a RESTRICTED title, not a family. The ladder is
-# hris_calibration — an inherited default nobody at SFU has ratified — and it is
+# prior_calibration — an inherited default nobody at SFU has ratified — and it is
 # registered as `open` (HR-059). Same class of unfalsifiable-SFU-claim as HR-029.
 # It is the *seniority* dimension only; the *functional* dimension (analyst /
 # officer / coordinator …) IS rulebook-sourced (Part 3.3 Application Table) and

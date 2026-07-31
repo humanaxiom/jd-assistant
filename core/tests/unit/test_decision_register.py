@@ -924,13 +924,13 @@ def test_the_hay_signal_defaults_are_registered_as_nobodys_standard(
     rules: Rules,
 ) -> None:
     """Provenance honesty (the HR-029 lesson). EVERY hay_signals parameter is
-    `hris_calibration` — SFU publishes no Hay point charts and no scoring model, so
+    `prior_calibration` — SFU publishes no Hay point charts and no scoring model, so
     not one of these words or weights may be presented as an SFU standard."""
     register = rules.decision_register
     hay = [d for d in register.decisions if d.config.file == "hay_signals.yaml"]
     assert hay, "hay_signals.yaml has no register entries at all"
     for decision in hay:
-        assert decision.provenance == "hris_calibration", decision.id
+        assert decision.provenance == "prior_calibration", decision.id
         assert decision.source_part is None, decision.id
         assert decision.status == "open", decision.id
 
@@ -952,7 +952,7 @@ def test_the_title_dimensions_are_registered_with_honest_provenance(
         # the ORDER of the SFU table is still our tie-break, not SFU's
         "titles.function_match_order",
     ):
-        assert by_path[path].provenance == "hris_calibration", path
+        assert by_path[path].provenance == "prior_calibration", path
         assert by_path[path].source_part is None, path
 
     for path in ("titles.functions", "titles.function_keywords"):
@@ -1099,11 +1099,12 @@ def test_the_comparison_defaults_are_registered_as_nobodys_standard(
     So the bar is: nothing here is ``sfu_rulebook``, and nothing here cites a
     ``source_part``.
 
-    ⚠ It is **not** "everything here is ``hris_calibration``". That was true while
+    ⚠ It is **not** "everything here is ``prior_calibration``". That was true while
     ``comparison.yaml`` held only the 2.4c port, and Phase 3.1 made it false: HR-123
     (``exact_edge_topology``) is ``our_invention`` — hris had no Tier-1 dedup edges at
-    all, so there is no hris number to have inherited, and claiming ``hris_calibration``
-    for it would be the *same* provenance lie in the opposite direction. Phase 3.4a
+    all, so there is no hris number to have inherited, and claiming
+    ``prior_calibration`` for it would be the *same* provenance lie in the opposite
+    direction. Phase 3.4a
     added six more inventions (the ParsedJD -> JobSignals adapter knobs,
     HR-149..HR-154): hris had a skill ontology + idf corpus JD Bank does not, so its
     skill-bag / word-year / education- and experience-source defaults are ours, not
@@ -1122,7 +1123,7 @@ def test_the_comparison_defaults_are_registered_as_nobodys_standard(
         assert decision.source_part is None, decision.id
         assert decision.status == "open", decision.id
 
-    inherited = [d for d in comparison if d.provenance == "hris_calibration"]
+    inherited = [d for d in comparison if d.provenance == "prior_calibration"]
     ours = [d for d in comparison if d.provenance == "our_invention"]
     assert len(inherited) >= 20, "the ported hris calibration was relabelled"
     # Everything in this file that is OURS, not hris's: the Tier-1 edge topology (3.1),
@@ -1674,7 +1675,7 @@ def test_the_rendered_register_leads_with_what_nobody_ratified(rules: Rules) -> 
     """Our-invention entries are what HR most needs to see, so they come first."""
     markdown = render_register(rules)
     ours = markdown.index("Our invention")
-    inherited = markdown.index("Inherited hris calibration")
+    inherited = markdown.index("Prior calibration")
     rulebook = markdown.index("From SFU's published rulebook")
     assert ours < inherited < rulebook
 

@@ -9,21 +9,21 @@
 # formula, no clone score, no cluster threshold and no drift metric;
 # `docs/rulebook/sfu-jd-standards.txt` contains none of these words.
 #
-# The 22 calibration numbers (HR-082 … HR-103) are `hris_calibration` — inherited from
-# the hris pipeline. The EXCEPTIONS are `our_invention`, because hris had no equivalent
-# to inherit and calling them `hris_calibration` would be the same provenance lie
+# The 22 calibration numbers (HR-082 … HR-103) are `prior_calibration` — inherited from
+# the earlier pipeline. The EXCEPTIONS are `our_invention`, because the earlier build had no equivalent
+# to inherit and calling them `prior_calibration` would be the same provenance lie
 # pointing the other way:
-#   * `exact_edge_topology` (HR-123, Phase 3.1) — hris had no Tier-1 dedup edges at all.
+#   * `exact_edge_topology` (HR-123, Phase 3.1) — the earlier build had no Tier-1 dedup edges at all.
 #   * the ParsedJD -> JobSignals adapter knobs (HR-149 … HR-154, Phase 3.4a): the skill
 #     keyword-bag source kinds / stopwords / min-token-len, the spelled-out year map, and
-#     the education + experience source kinds. hris fed its similarity/drift maths from a
+#     the education + experience source kinds. The earlier build fed its similarity/drift maths from a
 #     skill ontology + idf corpus JD Bank does not have; these MEASURED defaults are how a
 #     parsed SFU JD becomes comparison features instead (ADR-007). Each is honest about
 #     its degradation (a keyword bag is not an ontology; 41% of JDs yield no skills).
 #   * the Tier-3 role-equivalence knobs (HR-155 … HR-160, Phase 3.4b): the blended
 #     `role_equiv_threshold`, the family->seniority-band ladder + `max_band_gap` "conflict
 #     veto", the `group_conflict_veto`, the candidate-generation `candidate_k`, and
-#     `seed_from_near_dup`. hris had no Tier-3 role-equivalence pass to inherit; these are
+#     `seed_from_near_dup`. The earlier build had no Tier-3 role-equivalence pass to inherit; these are
 #     JD Bank's own, MEASURED on the real archive (see each key's comment + register entry).
 # Pinned by `test_the_comparison_defaults_are_registered_as_nobodys_standard`.
 #
@@ -31,17 +31,17 @@
 # bar:
 #
 #   * the drift escalations (an education-level change; a > 5 direct-reports change).
-#     hris cited them to "SFU Toolkit p26 / sfu-reference.md §5" and the shipped
+#     the earlier build cited them to "SFU Toolkit p26 / sfu-reference.md §5" and the shipped
 #     rulebook contains NO re-evaluation criteria at all — only l.22, "Major revisions
 #     can trigger re-evaluation", which quantifies nothing. The intent is plausibly
-#     SFU's; the NUMBERS are ours. Registered `hris_calibration`, exactly like the nine
+#     SFU's; the NUMBERS are ours. Registered `prior_calibration`, exactly like the nine
 #     invented coded terms (HR-029) and the seniority ladder (HR-059). Do not dress
 #     them up as an SFU standard.
 #   * the cloning rule. sfu-reference.md §4 cites Toolkit p10 for "identical duties +
-#     supervisor + title + qualifications"; hris APPROXIMATED that as a 0.92 cosine.
+#     supervisor + title + qualifications"; the earlier build APPROXIMATED that as a 0.92 cosine.
 #     A score is not an identity check. Ours.
 #
-# hris: packages/pipeline/src/pipeline/bank/{similarity,clustering,drift}.py.
+# the earlier build: packages/pipeline/src/pipeline/bank/{similarity,clustering,drift}.py.
 #
 # NOT WIRED TO ANYTHING (yet). The similarity/drift maths takes a skill ontology and
 # an idf corpus that JD Bank does not have — see the module docstrings. The values are
@@ -95,7 +95,7 @@ cluster_algo: connected_components
 exact_edge_topology: star
 
 # ── Education: ONE ladder for the whole rulebook ─────────────────────────────
-# hris kept this fact TWICE — `drift._EDU_ORDINAL` (a name -> ordinal dict) and
+# the earlier build kept this fact TWICE — `drift._EDU_ORDINAL` (a name -> ordinal dict) and
 # `similarity._EDU_ORDER` (a tuple whose index IS that ordinal) — with nothing keeping
 # them in step. They are one fact and they get one home. The ordinal a rung carries is
 # its INDEX here (high_school 0 … phd 4), so drift's ordinals and similarity's ordinal
@@ -108,7 +108,7 @@ education_ladder: [high_school, associate, bachelors, masters, phd]
 #
 # The TRY ORDER is derived, not written down: most-senior rung first (the reverse of
 # the ladder), which is what makes "Master's degree" a masters and not the generic
-# "degree" -> bachelors rung. hris wrote that sequence out by hand next to the ladder —
+# "degree" -> bachelors rung. The earlier build wrote that sequence out by hand next to the ladder —
 # a second knob holding the same fact.
 education_text_cues:
   high_school: ["high school", high-school, "secondary school"]
@@ -144,8 +144,8 @@ education_source_kinds: [education, knowledge]
 #
 # Skills weigh as much as the embedding because on real JDs the summary embedding
 # captures generic tone (every "university admin" JD looks alike), so distinctive
-# skill agreement has to carry equal weight to avoid over-merging. That was an hris
-# judgement about the HRIS corpus — it has never been checked against SFU's archive.
+# skill agreement has to carry equal weight to avoid over-merging. That was an earlier
+# judgement about the earlier corpus — it has never been checked against SFU's archive.
 weight_vector: 0.45
 weight_skill: 0.45
 weight_seniority: 0.10
@@ -249,7 +249,7 @@ skill_stopwords:
 # not to punish a JD for what it does not say, low enough not to reward it.
 unknown_signal_closeness: 0.7
 # How many years apart two roles must be before experience closeness bottoms out at 0
-# (hris divided the year gap by a hardcoded 10.0).
+# (the earlier build divided the year gap by a hardcoded 10.0).
 experience_span_years: 10.0
 
 # ── Clustering ───────────────────────────────────────────────────────────────
@@ -335,7 +335,7 @@ supervisory_reports_pattern:
 # for pairs that are the SAME ROLE (possibly DIFFERENT text — that is Tier-3's added
 # value over Tier-2's near-dup). It reuses this file's now-wired maths: `build_job_signals`
 # -> `skill_overlap` (idf-weighted, computed in the runner) + `seniority_closeness` +
-# `score_job_similarity`. NOTHING here is SFU-published and NOTHING is inherited from hris;
+# `score_job_similarity`. NOTHING here is SFU-published and NOTHING is inherited from the earlier build;
 # every value is `our_invention`, MEASURED on the real archive. HR-155 … HR-160.
 #
 # The blended score two JDs must clear to be ROLE-EQUIVALENT (on `score_job_similarity`).

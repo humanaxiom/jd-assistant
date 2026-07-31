@@ -44,25 +44,25 @@ REGISTER_MARKDOWN: Final[str] = "docs/decisions/HR-DECISION-REGISTER.md"
 #: Provenance, in the order HR should read it: what nobody ratified comes first.
 _PROVENANCE_ORDER: Final[tuple[DecisionProvenance, ...]] = (
     "our_invention",
-    "hris_calibration",
+    "prior_calibration",
     "sfu_rulebook",
 )
 
 _PROVENANCE_HEADING: Final[dict[DecisionProvenance, str]] = {
     "our_invention": "Our invention — nobody has ratified these",
-    "hris_calibration": "Inherited hris calibration — not an SFU-published number",
+    "prior_calibration": "Prior calibration — not an SFU-published number",
     "sfu_rulebook": "From SFU's published rulebook — but read the caveats",
 }
 
 _PROVENANCE_BLURB: Final[dict[DecisionProvenance, str]] = {
     "our_invention": (
         "JD Bank made these up because the system needed *a* value. There is no SFU "
-        "or hris precedent behind any of them. **Start here.**"
+        "precedent behind any of them. **Start here.**"
     ),
-    "hris_calibration": (
-        "Carried over from the hris pipeline's calibration (`jd_rules_sfu_v3`). SFU "
-        "publishes no scoring model at all, so these numbers were somebody else's "
-        "judgement, not policy."
+    "prior_calibration": (
+        "Carried over from an earlier internal implementation's calibration. SFU "
+        "publishes no scoring model at all, so these numbers were our own earlier "
+        "judgement, not SFU policy."
     ),
     "sfu_rulebook": (
         "The value is transcribed from SFU's own rulebook — but *how we act on it* "
@@ -73,7 +73,7 @@ _PROVENANCE_BLURB: Final[dict[DecisionProvenance, str]] = {
 
 _PROVENANCE_LABEL: Final[dict[DecisionProvenance, str]] = {
     "our_invention": "our invention",
-    "hris_calibration": "hris calibration",
+    "prior_calibration": "prior calibration",
     "sfu_rulebook": "SFU rulebook",
 }
 
@@ -193,8 +193,8 @@ def render_register(rules: Rules) -> str:
         "Every policy call JD Bank currently makes **by default**, because SFU HR has"
         " not made it. For each one: the question, the value we ship, exactly where"
         " that value is configured, and — the column that matters most — whether the"
-        " default came from SFU's published rulebook, from the hris pipeline we"
-        " inherited, or from nobody but us.",
+        " default came from SFU's published rulebook, from an earlier internal"
+        " implementation we carried forward, or from nobody but us.",
         "",
         "**Nothing here is a code change.** Every value below is a line in a versioned"
         " YAML file. Changing one is a data edit; `src/jd_core/quality/` is not"

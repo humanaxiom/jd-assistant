@@ -201,9 +201,9 @@ The duplicates are also *not* a legacy problem — they are spread across every 
 ## Register consequences
 
 * **HR-123 — the edge topology** (`star`), `our_invention`, `open`. The *one* parameter in
-  `comparison.yaml` that is not `hris_calibration`: hris had no Tier-1 dedup edges, so
-  there is no inherited number, and labelling it `hris_calibration` would be a provenance
-  lie pointing the other way.
+  `comparison.yaml` that is not `prior_calibration`: the earlier build had no Tier-1 dedup
+  edges, so there is no inherited number, and labelling it `prior_calibration` would be a
+  provenance lie pointing the other way.
 * **`comparison.cluster_algo` can no longer lie.** It was `str = Field(min_length=1)`, so
   setting it to `louvain` would have *stamped* every persisted cluster `louvain` while
   `build_clusters` went right on running connected components — a provenance falsehood in

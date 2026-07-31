@@ -254,7 +254,7 @@ def test_every_escalation_reason_can_fire_at_once() -> None:
 
 
 def test_the_drift_levels_are_data_pinned_by_value(rules: Rules) -> None:
-    """Jaccard-distance cutoffs. `hris_calibration` (HR-098/HR-099): SFU publishes
+    """Jaccard-distance cutoffs. `prior_calibration` (HR-098/HR-099): SFU publishes
     no skill-churn metric at all, so these are ours-by-inheritance, not a standard."""
     assert rules.comparison.drift_minor_at == 0.25
     assert rules.comparison.drift_major_at == 0.50
@@ -263,7 +263,8 @@ def test_the_drift_levels_are_data_pinned_by_value(rules: Rules) -> None:
 def test_the_material_deltas_are_data_pinned_by_value(rules: Rules) -> None:
     """>= 2 years, > 5 direct reports. hris cited the second to "SFU Toolkit p26"; the
     shipped rulebook (docs/rulebook/sfu-jd-standards.txt) contains **no**
-    re-evaluation criteria at all — see HR-100/HR-101. Registered `hris_calibration`."""
+    re-evaluation criteria at all — see HR-100/HR-101. Registered
+    `prior_calibration`."""
     assert rules.comparison.material_years_delta == 2
     assert rules.comparison.material_reports_delta == 5
 

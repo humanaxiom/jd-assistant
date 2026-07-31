@@ -112,7 +112,7 @@ def test_the_default_threshold_is_the_rulebooks_cluster_threshold(
 
 
 def test_the_cluster_floor_is_data_pinned_by_value(rules: Rules) -> None:
-    """`hris_calibration` (HR-095): "cluster only on strong edges" — a precision call
+    """`prior_calibration` (HR-095): "cluster only on strong edges" — a precision call
     nobody at SFU made. It is the number that decides how much of the archive gets
     merged, and Phase 3 will have to justify it against the real corpus."""
     assert rules.comparison.cluster_threshold_floor == 0.80

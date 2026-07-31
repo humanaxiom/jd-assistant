@@ -36,7 +36,7 @@ point. **Do not invent a skill source, do not scrape prose for an education leve
 a years bar, and do not compute an idf corpus to make these callable.**
 
 ⚠ **PROVENANCE.** SFU publishes no similarity formula. The weights, the 0.60 noise
-floor and the 0.92 clone score are ``hris_calibration``, ``open``. The Toolkit's
+floor and the 0.92 clone score are ``prior_calibration``, ``open``. The Toolkit's
 actual cloning rule (sfu-reference.md §4, citing Toolkit p10) is an *identity* check
 — identical duties + supervisor + title + qualifications — and hris approximated it
 with a cosine. A score is not an identity check; :func:`clone_verdict` is advisory

@@ -1573,7 +1573,7 @@ def _exactly(name: str, keys: Set[str], required: Set[str]) -> None:
 class HaySignalRules(_RuleFile):
     """Calibration for the advisory Hay-factor signals (``hay_signals.yaml``).
 
-    Every table and every number here is ``hris_calibration`` — invented in hris,
+    Every table and every number here is ``prior_calibration`` — invented in hris,
     never published by SFU (HR-066 … HR-081). They decide whether a JD reads as a
     low / moderate / high signal on each Hay factor, so they are on the decision
     surface, all of them.
@@ -1755,7 +1755,7 @@ ClusterRepresentativePolicy = Literal["max_parse_confidence"]
 class Comparison(_RuleFile):
     """Calibration for similarity, clustering and drift (``comparison.yaml``).
 
-    Every number here is ``hris_calibration`` (HR-082 … HR-103): SFU publishes no
+    Every number here is ``prior_calibration`` (HR-082 … HR-103): SFU publishes no
     similarity formula, no clone score, no cluster threshold and no drift metric.
     See the YAML header for the two that come closest — the drift escalations and
     the cloning rule — and why they still do not clear the ``sfu_rulebook`` bar.
@@ -2561,7 +2561,7 @@ DecisionProvenance = Literal[
     "sfu_rulebook",
     # Inherited from the hris pipeline's calibration (RULES_VERSION
     # jd_rules_sfu_v3). Not an SFU-published number.
-    "hris_calibration",
+    "prior_calibration",
     # JD Bank's own default. Nobody has ratified it. These are what HR must look
     # at first.
     "our_invention",

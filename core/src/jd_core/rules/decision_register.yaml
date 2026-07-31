@@ -5,7 +5,7 @@
 # Every policy call JD Bank currently makes *by default* because SFU HR has not yet
 # made it. Each entry names the question in HR's language, the value we ship today,
 # EXACTLY where that value is configured, and — the column that matters most —
-# whether the default came from SFU's published rulebook, from the hris pipeline we
+# whether the default came from SFU's published rulebook, from the earlier pipeline we
 # inherited, or from nobody but us.
 #
 # WHY IT IS DATA AND NOT A DOCUMENT
@@ -40,7 +40,7 @@
 #   config           file + dotted path into the loaded rules (loader resolves it)
 #   current_default  what we ship — cross-checked against the live value
 #   provenance       sfu_rulebook  (transcribed; MUST cite source_part)
-#                    hris_calibration (inherited from hris; NOT SFU-published)
+#                    prior_calibration (inherited from the earlier build; NOT SFU-published)
 #                    our_invention (JD Bank's own default; nobody ratified it)
 #   status           open | ratified | deferred
 #                    ratified REQUIRES decided_by + decided_on + decision_note;
@@ -316,7 +316,7 @@ decisions:
     status: open
 
   # ═══ SCORING CALIBRATION ════════════════════════════════════════════════════
-  # Inherited wholesale from the hris pipeline (RULES_VERSION jd_rules_sfu_v3).
+  # Inherited wholesale from the earlier pipeline (RULES_VERSION jd_rules_sfu_v3).
   # SFU publishes no scoring model at all — this entire section is a roll-up we
   # invented in order to have a number to sort a 4,600-JD archive by.
 
@@ -326,7 +326,7 @@ decisions:
       file: scoring.yaml
       path: scoring.severity_penalty.high
     current_default: 20.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       Sets what "high" means numerically. Three high-severity findings (missing
       summary + duties + qualifications) take a JD from 100 to ~59 — just under the
@@ -342,7 +342,7 @@ decisions:
       file: scoring.yaml
       path: scoring.severity_penalty.medium
     current_default: 10.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The tier most SFU never-approve conditions sit in (duty percentages, banned
       qualification phrases, leftover placeholders, most coded terms).
@@ -358,7 +358,7 @@ decisions:
       file: scoring.yaml
       path: scoring.severity_penalty.low
     current_default: 5.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The drafting-nudge tier: action verbs, "how and why" detail, proficiency
       modifiers, a thin summary. These are the findings the archive fires most.
@@ -373,7 +373,7 @@ decisions:
       file: scoring.yaml
       path: scoring.severity_penalty.info
     current_default: 0.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       Zero, today: `info` findings appear on the reviewer's checklist but are
       free. That is what makes the two unverifiable restricted-title checks
@@ -391,7 +391,7 @@ decisions:
       file: scoring.yaml
       path: scoring.severity_decay
     current_default: 0.7
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       Diminishing returns: the k-th finding in a tier costs penalty × 0.7^k, so a
       tier can never cost more than penalty ÷ (1 − 0.7). A wall of minor nudges
@@ -409,7 +409,7 @@ decisions:
       file: scoring.yaml
       path: scoring.grade_bands.A.min_score
     current_default: 90.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: The grade letters are what HR sees on the dashboard and in reports.
     impact_if_changed: Re-labels the archive; does not by itself change what is approvable.
     status: open
@@ -420,7 +420,7 @@ decisions:
       file: scoring.yaml
       path: scoring.grade_bands.B.min_score
     current_default: 75.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: The grade letters are what HR sees on the dashboard and in reports.
     impact_if_changed: Re-labels the archive; does not by itself change what is approvable.
     status: open
@@ -431,7 +431,7 @@ decisions:
       file: scoring.yaml
       path: scoring.grade_bands.C.min_score
     current_default: 60.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       This band is load-bearing: the grade floor (HR-002) is C and the score floor
       (HR-001) is 60.0, so this number is where the two floors meet. It is the de
@@ -447,7 +447,7 @@ decisions:
       file: scoring.yaml
       path: scoring.grade_bands.D.min_score
     current_default: 40.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       Both D and F are below the approval floor, so this line only affects how a
       failing JD is *reported* — "needs work" vs "start over".
@@ -460,10 +460,10 @@ decisions:
       file: scoring.yaml
       path: scoring.max_score
     current_default: 100.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The perfect-JD baseline every penalty is subtracted from, and therefore the
-      scale the approval floor (HR-001) and the grade bands are measured on. hris
+      scale the approval floor (HR-001) and the grade bands are measured on. The earlier build
       hardcoded it as a literal in Python; it is data here precisely so it is
       visible.
     impact_if_changed: >-
@@ -477,7 +477,7 @@ decisions:
       file: scoring.yaml
       path: scoring.min_score
     current_default: 0.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The floor a saturating pile of findings stops at. Keeps a badly-extracted
       legacy `.doc` from producing a meaningless −40.
@@ -645,7 +645,7 @@ decisions:
       file: thresholds.yaml
       path: thresholds.max_listed
     current_default: 5
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       Presentation, but not nothing: a JD with twelve non-approved action verbs
       shows the reviewer five of them. The reviewer sees a partial list and may not
@@ -664,7 +664,7 @@ decisions:
       file: gates.yaml
       path: gates.max_listed
     current_default: 5
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       FOUND WHILE BUILDING THIS REGISTER: `max_listed` exists TWICE — once in
       thresholds.yaml (used by the validators, HR-026) and once in gates.yaml (used
@@ -746,7 +746,7 @@ decisions:
       stewardess: '"flight attendant"'
       waitress: '"server"'
       workman: '"worker"'
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       DO NOT READ THIS LIST AS SFU POLICY. It is NOT a transcription of SFU's Part
       6 lexicon, and labelling it as one (which an earlier draft of this register
@@ -755,7 +755,7 @@ decisions:
       waitress, manpower, …) ARE SFU's. But NINE terms — aggressive, ambitious,
       championing, competitive, compassionate, confidential, dominant, agreement,
       in-kind — plus the three slang entries (rockstar, ninja, guru) do NOT appear
-      in SFU's Part 6 list. hris added them ("plus a few widely-recognised coded
+      in SFU's Part 6 list. The earlier build added them ("plus a few widely-recognised coded
       terms") and we inherited them unexamined. Several over-fire badly on ordinary
       JD prose: "handles confidential information" and "negotiates the agreement"
       are flagged today. "compassionate" is the worst of them: it appears in SFU's OWN
@@ -781,7 +781,7 @@ decisions:
       file: titles.yaml
       path: titles.executive_director.severity
     current_default: low
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       Two problems, one entry. (a) The finding is only `low` and does not block
       approval (HR-004), so a mis-titled Executive Director can be approved. (b)
@@ -821,7 +821,7 @@ decisions:
       file: titles.yaml
       path: titles.registrar.severity
     current_default: info
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       `info` means: shown on the reviewer's checklist, costs zero score (HR-011),
       blocks nothing. We chose to surface it as a prompt to a human rather than
@@ -839,7 +839,7 @@ decisions:
       file: titles.yaml
       path: titles.human_resources.severity
     current_default: info
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       As HR-032. Note this rule fires on the SUBSTRING "human resources" in a
       title, so "Human Resources Advisor" inside SFU HR — a correct title — is
@@ -858,7 +858,7 @@ decisions:
       file: rule_catalog.yaml
       path: rule_catalog.SFU-COMP-DECISION.default_severity
     current_default: medium
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       It is NOT blocked today (absent from HR-004): `medium` costs 10 points and
       appears on the checklist, but the JD is still approvable. The section is a
@@ -879,7 +879,7 @@ decisions:
       file: rule_catalog.yaml
       path: rule_catalog.SFU-COMP-PROBLEM.default_severity
     current_default: medium
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       As HR-034: the other Hay input, also `medium`, also non-blocking today.
       Decide the pair together.
@@ -893,7 +893,7 @@ decisions:
       file: rule_catalog.yaml
       path: rule_catalog.SFU-STRUCT-DUTIES-TOO-MANY.default_severity
     current_default: medium
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       This is the side of the duty-count rule that SFU actually names as the defect
       ("more than 3-5 main responsibilities"), and we do NOT gate it (HR-004). We
@@ -911,7 +911,7 @@ decisions:
       file: rule_catalog.yaml
       path: rule_catalog.SFU-STRUCT-DUTIES-TOO-FEW.default_severity
     current_default: medium
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       SFU names the over-run, not the under-run (HR-021). Firing at `medium` — the
       same cost as a genuine SFU never-approve condition — on a JD that consolidated
@@ -929,7 +929,7 @@ decisions:
       file: rule_catalog.yaml
       path: rule_catalog.SFU-STRUCT-SUMMARY-TOO-SHORT.default_severity
     current_default: low
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The summary-length rule is split in two precisely so this question can be
       answered separately (HR-019/HR-020): the over-run blocks approval, the
@@ -948,7 +948,7 @@ decisions:
       file: rule_catalog.yaml
       path: rule_catalog.SFU-COMP-TERRITORIAL.default_severity
     current_default: low
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       CLAUDE.md's standing open flag, and the one entry here that blocks PUBLICATION
       rather than development. TWO distinct gaps. (a) SEVERITY: a missing
@@ -987,13 +987,13 @@ decisions:
       - excellent
       - none
       - working
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       "[NO MODIFIER]" in the rulebook means *the absence of a modifier*. We model it
       as a sentinel value `none`, which means a JD that literally writes "None
       knowledge of Python" passes the modifier-vocabulary check, while a knowledge
       item with genuinely no modifier depends on the parser emitting the sentinel.
-      A representation choice, made in hris, that SFU never made.
+      A representation choice, made in the earlier build, that SFU never made.
     impact_if_changed: >-
       Modelling absence as `null` instead would be a parser + validator change, not
       a config edit — the one entry here where ratifying a change is NOT free.
@@ -1116,7 +1116,7 @@ decisions:
       also passes. The glossary is SFU's to fix, not ours. CAVEAT ON THE
       PROVENANCE: the glossary lives in the JD Toolkit, which is NOT among the
       sources shipped in this repo (docs/rulebook/sfu-jd-standards.txt does not
-      contain it), so the citation is inherited from hris and CANNOT BE VERIFIED
+      contain it), so the citation is inherited from the earlier build and CANNOT BE VERIFIED
       FROM OUR OWN SOURCES. Confirming it is part of the decision.
     impact_if_changed: >-
       Removing it tightens the check but diverges from SFU's own glossary. Purely a
@@ -1289,7 +1289,7 @@ decisions:
       file: patterns.yaml
       path: patterns.degree_mention
     current_default: \b(bachelor|master|phd|doctorate|degree)\b
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       Triggers the check that a stated degree names a discipline and allows related
       fields (SFU-QUAL-DEGREE-DISCIPLINE, `low`, non-blocking). Matching the bare
@@ -1305,7 +1305,7 @@ decisions:
       file: patterns.yaml
       path: patterns.related_discipline
     current_default: (related|relevant)\s+(discipline|field)|or\s+other\s+relevant
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The other half of HR-050. A JD that says "…or a closely allied field" or
       "…in a comparable area" satisfies the rulebook in substance but not this
@@ -1369,7 +1369,7 @@ decisions:
     current_default:
       - ability to
       - able to
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       SFU Part 5.3 gives the FORMAT 'Ability to [observable behavior]'. Our check is
       a literal prefix test, so "Demonstrated ability to lead teams" — which is the
@@ -1578,7 +1578,7 @@ decisions:
       file: coded_terms.yaml
       path: coded_terms.medium.compassionate
     current_default: '"caring"'
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       ⚠ THE FALSE POSITIVE IS FIXED (Phase 2.5-prep) — the QUESTION IS STILL OPEN.
       Read the history, then what is left to decide.
@@ -1637,9 +1637,9 @@ decisions:
       - lead
       - associate
       - assistant
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
-      hris shipped this ladder claiming it as "SFU's official title ladder (Toolkit
+      the earlier build shipped this ladder claiming it as "SFU's official title ladder (Toolkit
       p18-19)". IT IS NOT IN THE RULEBOOK. docs/rulebook/sfu-jd-standards.txt has no
       title-family ladder at all: `chief` does not appear anywhere in it, and the
       only occurrence of "VP" (Part 3.5) lists VP as a RESTRICTED title — a title
@@ -1676,7 +1676,7 @@ decisions:
       - lead
       - assistant
       - associate
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The classifier tries the families in THIS order and the first keyword that
       matches wins. That makes the order a policy statement, not an implementation
@@ -1684,7 +1684,7 @@ decisions:
       tried before `director`, which is the *entire* reason "Associate Director,
       Advancement" classifies as a manager rather than a director. Likewise
       `assistant` before `associate`. Shuffle two rungs and real titles change family
-      with no other edit anywhere. hris buried this ordering in a Python tuple with a
+      with no other edit anywhere. The earlier build buried this ordering in a Python tuple with a
       one-line comment; SFU has never been asked whether an Associate Director is a
       manager.
     impact_if_changed: >-
@@ -1708,7 +1708,7 @@ decisions:
       lead: ["team lead", " lead "]
       assistant: ["assistant"]
       associate: ["associate", "representative"]
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       This is the ladder of HR-059 made operational: a rung with no keyword can never
       be matched, and a word missing from a rung sends every title carrying it to
@@ -1733,10 +1733,10 @@ decisions:
       file: titles.yaml
       path: titles.comma_supervisory_families
     current_default: [chief, director, lead, manager, vp]
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The comma FORMAT rule is SFU's (Part 3.4). The set of families it applies to is
-      not: hris chose these five. It is the guard that stops "Software Developer,
+      not: The earlier build chose these five. It is the guard that stops "Software Developer,
       Platform" reading as a supervisory title, so it must exclude non-role prefixes
       — but it also decides that a `lead` supervises and an `associate` does not,
       which is a real HR judgement nobody made. Note `lead` is in the set even though
@@ -1799,10 +1799,10 @@ decisions:
       - analyst
       - coordinator
       - assistant
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The Application Table (HR-063) is SFU's; the ORDER its rows are tried in is not
-      — hris chose it, and it is what resolves the overlaps. `executive` is tried
+      — the earlier build chose it, and it is what resolves the overlaps. `executive` is tried
       first, so "Executive Director" is an executive (consistent with SFU reserving
       that title for APEX roles, Part 3.5 / SFU-AUTH-TITLE-EXEC-DIR); then
       `associate_director`, so "Associate Director" is not a director. Both readings
@@ -1852,8 +1852,8 @@ decisions:
   # SIGNAL per Hay factor, with the phrases that drove it, to help Compensation
   # LEVEL a role.
   #
-  # EVERY word and EVERY number in hay_signals.yaml is hris_calibration — invented
-  # in the hris pipeline, never published by SFU, never ratified by anyone. This is
+  # EVERY word and EVERY number in hay_signals.yaml is prior_calibration — invented
+  # in the earlier pipeline, never published by SFU, never ratified by anyone. This is
   # HR-029 (nine coded terms SFU never published) and HR-059 (a title ladder SFU
   # never published) in a third dimension. It is registered honestly rather than
   # presented as an SFU standard.
@@ -1865,7 +1865,7 @@ decisions:
       file: hay_signals.yaml
       path: hay_signals.edu_high
     current_default: [phd, doctora, master]
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The single biggest contributor to the Know-How signal (HR-073 gives it 3.0
       points, more than any other). Matched as substrings of the `education`
@@ -1883,7 +1883,7 @@ decisions:
       file: hay_signals.yaml
       path: hay_signals.edu_mid
     current_default: [bachelor, undergraduate, degree]
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The fallback when no graduate cue is found (2.0 points, HR-073). Note `degree`
       is deliberately broad and will also match "Master's degree" — harmless only
@@ -1915,7 +1915,7 @@ decisions:
       - strategic
       - non-routine
       - creative
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       Each distinct phrase found adds a full point (HR-076) — more than the entire
       section is worth for existing — so a JD's Problem-Solving signal is close to a
@@ -1944,7 +1944,7 @@ decisions:
       - step-by-step
       - prescribed
       - clearly defined
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       These are the only NEGATIVE cues in the whole estimator (HR-076 weights each hit
       -1.0). A JD that accurately describes a junior role — "handles routine issues
@@ -1982,7 +1982,7 @@ decisions:
       - accountable
       - final decision
       - discretion
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The whole Accountability signal, one point per distinct phrase (HR-079). Known
       quirks HR should see rather than have hidden: `sign` is a substring, so it also
@@ -2003,10 +2003,10 @@ decisions:
       file: hay_signals.yaml
       path: hay_signals.advanced_skill_modifiers
     current_default: [advanced, expert]
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       SFU's Toolkit defines the skill modifier scale (basic / intermediate / advanced
-      / expert). Which END of it counts as depth is hris's call: `intermediate` scores
+      / expert). Which END of it counts as depth is the earlier build's call: `intermediate` scores
       nothing today, so a JD requiring six intermediate skills reads as no more
       skilled than one requiring none.
     impact_if_changed: >-
@@ -2020,7 +2020,7 @@ decisions:
       file: hay_signals.yaml
       path: hay_signals.excellent_knowledge_modifiers
     current_default: [excellent]
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The knowledge scale is excellent / working / none. Only `excellent` scores
       (1.0, HR-073) — `working` knowledge contributes nothing at all.
@@ -2042,7 +2042,7 @@ decisions:
       excellent_knowledge: 1.0
       supervisory_scope: 1.0
       broad_qualifications: 1.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The weights that turn a JD into a Know-How score, which HR-075 then turns into
       low/moderate/high. Education dominates: a graduate degree alone (3.0) is worth
@@ -2064,7 +2064,7 @@ decisions:
     current_default:
       advanced_skills_for_many: 3
       qualification_kinds_for_broad: 4
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The two counting cliffs inside Know-How. 3 advanced/expert skills scores 2.0;
       2 scores 1.0 — a one-skill difference halves the contribution. 4 distinct
@@ -2084,12 +2084,12 @@ decisions:
     current_default:
       moderate: 3.0
       high: 5.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The cutoffs that turn the score into the only thing a human sees. With HR-073's
       weights, `moderate` (3.0) is reached by a graduate degree ALONE, and `high`
       (5.0) needs roughly a graduate degree plus three advanced skills. Below 3.0 the
-      role reads `low`. hris hardcoded these as `_level(score, mod=3, hi=5)` in a
+      role reads `low`. The earlier build hardcoded these as `_level(score, mod=3, hi=5)` in a
       Python default argument.
     impact_if_changed: >-
       Config only; advisory — a Hay SIGNAL, never a Hay grade. Two levels may not
@@ -2108,7 +2108,7 @@ decisions:
       section_item: 0.5
       challenge_hit: 1.0
       routine_hit: -1.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       A single challenge word (HR-068) is worth twice as much as an entire written
       Problem Solving entry, and a single routine word (HR-069) cancels a challenge
@@ -2129,7 +2129,7 @@ decisions:
       path: hay_signals.problem_solving_counts
     current_default:
       section_items_scored: 3
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       Credit for merely HAVING a section, capped at 3 entries (1.5 points) so a JD
       cannot inflate its signal by padding the list. Length is not depth — but the
@@ -2149,12 +2149,12 @@ decisions:
     current_default:
       moderate: 1.5
       high: 3.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       With HR-076's weights, a JD with three Problem Solving entries and no challenge
       vocabulary at all scores exactly 1.5 and reads `moderate` — the signal can be
       earned by writing three sentences. `high` needs three challenge words net of
-      any routine language. hris hardcoded these as `mod=1.5, hi=3`.
+      any routine language. The earlier build hardcoded these as `mod=1.5, hi=3`.
     impact_if_changed: >-
       Config only; advisory.
     status: open
@@ -2170,7 +2170,7 @@ decisions:
       autonomy_hit: 1.0
       supervisory_scope: 2.0
       external_breadth: 1.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       Supervising staff is worth 2.0 — twice any single autonomy phrase, and twice
       what supervision is worth to Know-How (HR-073 gives it 1.0). Whether "freedom to
@@ -2192,7 +2192,7 @@ decisions:
     current_default:
       section_items_scored: 3
       external_for_breadth: 3
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       `external_for_breadth: 3` says a role dealing with three external parties has
       institution-scale impact and one dealing with two does not. It counts LIST
@@ -2213,11 +2213,11 @@ decisions:
     current_default:
       moderate: 2.0
       high: 4.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       With HR-079's weights, supervising staff alone (2.0) reaches `moderate` with no
       decision-making language whatsoever, and `high` (4.0) is two autonomy phrases
-      away. hris hardcoded these as `mod=2, hi=4`.
+      away. The earlier build hardcoded these as `mod=2, hi=4`.
     impact_if_changed: >-
       Config only; advisory.
     status: open
@@ -2225,19 +2225,19 @@ decisions:
 # ═════════════════════════════════════════════════════════════════════════════
 # JD-TO-JD COMPARISON (comparison.yaml) — similarity, clustering, drift.
 #
-# ⚠ PROVENANCE, UP FRONT: every entry below is `hris_calibration`. SFU publishes no
+# ⚠ PROVENANCE, UP FRONT: every entry below is `prior_calibration`. SFU publishes no
 # similarity formula, no clone score, no cluster threshold and no drift metric —
 # `docs/rulebook/sfu-jd-standards.txt` contains none of it. Two come close and still
 # do not clear the `sfu_rulebook` bar, and the distinction is the whole point of the
 # provenance column (HR-029 / HR-059 are the same lesson):
 #
-#   * the DRIFT ESCALATIONS (HR-100, HR-101). hris cited them to "SFU's re-evaluation
-#     criteria, Toolkit p26" — via docs/rulebook/sfu-reference.md §5, which is hris's
+#   * the DRIFT ESCALATIONS (HR-100, HR-101). The earlier build cited them to "SFU's re-evaluation
+#     criteria, Toolkit p26" — via docs/rulebook/sfu-reference.md §5, which is the earlier build's
 #     own extract, not the rulebook. The shipped rulebook has NO re-evaluation
 #     criteria at all: only l.22, "Major revisions can trigger re-evaluation", which
 #     quantifies nothing. The intent is plausibly SFU's; the numbers are ours.
 #   * the CLONE SCORE (HR-093). The Toolkit's cloning rule is an IDENTITY check
-#     (identical duties + supervisor + title + qualifications). hris approximated it
+#     (identical duties + supervisor + title + qualifications). The earlier build approximated it
 #     with a cosine. A score is not an identity check.
 #
 # NOTHING READS THESE YET (Phase 3 will). They are registered now, before the feature
@@ -2252,12 +2252,12 @@ decisions:
       file: comparison.yaml
       path: comparison.education_ladder
     current_default: [high_school, associate, bachelors, masters, phd]
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       This is the ONE education ladder in the rulebook, and it is an ordinal scale, not
       a list: a rung's position IS its value. Drift reads an education change off it
       (HR-100's sibling escalation) and similarity measures how far apart two roles sit
-      on it. hris held the same fact twice — a name->ordinal dict in drift.py and a
+      on it. The earlier build held the same fact twice — a name->ordinal dict in drift.py and a
       tuple in similarity.py — with nothing keeping them in step. Re-ordering it, or
       inserting a rung, silently re-scales both. SFU's rulebook names no education
       ladder; it requires the minimum education be STATED (Part 5), not that it be
@@ -2283,7 +2283,7 @@ decisions:
       bachelors: [bachelor, bsc, b.sc, undergraduate, baccalaureate, degree]
       masters: [master, msc, m.sc, mba]
       phd: [phd, ph.d, doctora, dphil]
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       These substrings are how a written requirement ("Master's degree in a related
       discipline") becomes a rung. The cues are tried MOST-SENIOR FIRST — derived from
@@ -2305,12 +2305,12 @@ decisions:
       file: comparison.yaml
       path: comparison.weight_vector
     current_default: 0.45
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
-      `sim = 0.45*vector + 0.45*skills + 0.10*seniority`. hris rebalanced the embedding
+      `sim = 0.45*vector + 0.45*skills + 0.10*seniority`. The earlier build rebalanced the embedding
       DOWN to parity with skills because on real JDs the summary embedding mostly
       captures generic institutional tone — every "university admin" JD reads alike —
-      so an embedding-led score over-merges. That was a judgement about the HRIS corpus,
+      so an embedding-led score over-merges. That was a judgement about the earlier corpus,
       made against a skill graph JD Bank does not have; it has never been checked
       against SFU's archive.
     impact_if_changed: >-
@@ -2325,7 +2325,7 @@ decisions:
       file: comparison.yaml
       path: comparison.weight_skill
     current_default: 0.45
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       Skills carry EQUAL weight to the embedding — the deliberate anti-over-merge
       choice (see HR-084). In JD Bank this weight currently multiplies a number nothing
@@ -2345,7 +2345,7 @@ decisions:
       file: comparison.yaml
       path: comparison.weight_seniority
     current_default: 0.1
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The tie-break term: 10% of the score. It is what stops a Coordinator and a
       Director with identical skill vocabulary scoring as the same role — and at 0.10
@@ -2366,7 +2366,7 @@ decisions:
       file: comparison.yaml
       path: comparison.family_weight
     current_default: 0.5
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       Half credit. It decides how generously the scorer treats "similar but not the
       same" expertise, which for JDs is precisely the interesting case (a JD asking for
@@ -2385,7 +2385,7 @@ decisions:
       file: comparison.yaml
       path: comparison.non_matchable_families
     current_default: [domain, other]
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The catch-all families. Without this exclusion every skill pair that fell into
       the ontology's junk drawer would earn HR-087's partial credit, and the skill
@@ -2425,7 +2425,7 @@ decisions:
       - staff
       - trainee
       - v
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       Yes, today: every one of these tokens is DISCARDED before titles are compared, so
       "Senior Developer II" and "Developer" are one title, and a cluster of them reports
@@ -2449,7 +2449,7 @@ decisions:
       file: comparison.yaml
       path: comparison.unknown_signal_closeness
     current_default: 0.7
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       A pure guess, and it fires constantly: a JD Bank JD has NO structured education
       level or years bar at all, so on today's data every seniority comparison would
@@ -2470,9 +2470,9 @@ decisions:
       file: comparison.yaml
       path: comparison.experience_span_years
     current_default: 10.0
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
-      hris divided the year gap by a hardcoded 10.0, so a 2-year role and a 12-year role
+      the earlier build divided the year gap by a hardcoded 10.0, so a 2-year role and a 12-year role
       score ZERO on experience closeness, while 2 and 7 score 0.5. Ten years is a whole
       career stage; for SFU's grade structure the meaningful distance may be far
       shorter.
@@ -2489,7 +2489,7 @@ decisions:
       file: comparison.yaml
       path: comparison.sim_threshold
     current_default: 0.6
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       Two jobs: it is the floor below which a neighbour is not surfaced to a human, AND
       it is one of the two inputs to the derived cluster threshold (HR-096) — raise it
@@ -2510,12 +2510,12 @@ decisions:
       file: comparison.yaml
       path: comparison.clone_threshold
     current_default: 0.92
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The most consequential number in this file, because its verdict goes to
       Compensation: "clone" means no Hay re-evaluation. SFU's actual cloning rule
       (Toolkit p10, via sfu-reference.md §4) is an IDENTITY check — identical duties AND
-      supervisor AND title AND qualifications — and hris replaced it with a 0.92 cosine
+      supervisor AND title AND qualifications — and the earlier build replaced it with a 0.92 cosine
       plus same-title plus same-department. A score can be 0.92 while the duties differ.
       This is an approximation of a rule SFU wrote precisely, and it is ours.
       ⚠ MEASURED ON THIS CORPUS AND FOUND WRONG (Phase 3.3, HANDOFF 2026-07-13). Over
@@ -2530,7 +2530,7 @@ decisions:
       confirm (HR-139, shipped OFF for the identical reason) is a separate, freshly
       measured number, not this one. This threshold must be RE-DERIVED against the real
       vector distribution before Tier-3 (embedding + skill similarity) uses it for
-      anything — carrying the hris 0.92 forward unexamined would have been exactly the
+      anything — carrying the earlier 0.92 forward unexamined would have been exactly the
       "faithful port, wrong here" trap (CLAUDE.md, the `render.py` lesson).
     impact_if_changed: >-
       Advisory today (nothing calls it — Tier-2 does not read it, and Tier-3 does not
@@ -2538,7 +2538,7 @@ decisions:
       honest fix may be to stop approximating: check the identity conditions SFU
       actually names, and use the score only to shortlist candidates. At minimum, any
       future caller must re-derive this against the measured nearest-neighbour
-      distribution above (median 0.988) rather than trust the inherited hris number —
+      distribution above (median 0.988) rather than trust the inherited the earlier build number —
       0.92 is below the P10 of ordinary non-duplicate neighbours on this corpus, so it
       would not merely mis-calibrate, it would invert: it declares typical dissimilar
       JDs "close" more often than not.
@@ -2552,7 +2552,7 @@ decisions:
       file: comparison.yaml
       path: comparison.min_cluster_skill_overlap
     current_default: 0.3
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The gate that stops JDs merging on generic tone alone: sharing only ubiquitous
       skills (communication, MS Office — low idf) falls below it; sharing distinctive
@@ -2572,7 +2572,7 @@ decisions:
       file: comparison.yaml
       path: comparison.cluster_threshold_floor
     current_default: 0.8
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       A precision call: cluster only on STRONG edges, well above the per-JD "show me
       similar" floor of 0.60, because clustering merges roles and a false merge produces
@@ -2597,9 +2597,9 @@ decisions:
       file: comparison.yaml
       path: comparison.cluster_threshold
     current_default: 0.8
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
-      hris wrote `CLUSTER_THRESHOLD = max(SIM_THRESHOLD, 0.80)`: the cluster threshold is
+      the earlier build wrote `CLUSTER_THRESHOLD = max(SIM_THRESHOLD, 0.80)`: the cluster threshold is
       never allowed below the noise floor. Shipping the ANSWER (0.80) as a third YAML key
       would be two knobs holding one value with nothing keeping them in step — the exact
       `max_listed` landmine on the backlog. So it is computed, and this entry pins the
@@ -2621,11 +2621,11 @@ decisions:
       file: comparison.yaml
       path: comparison.min_cluster_size
     current_default: 2
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       A singleton has nothing to be redundant WITH, so it is not a cluster — that much is
       definitional. Whether a mere PAIR is worth harmonizing into a canonical JD is not:
-      it is an HR judgement about where the Bank's effort goes, and hris settled it with
+      it is an HR judgement about where the Bank's effort goes, and the earlier build settled it with
       an inline `>= 2`.
     impact_if_changed: >-
       Config only. Raising it to 3 hides every two-JD redundancy from the Bank — which may
@@ -2641,9 +2641,9 @@ decisions:
       file: comparison.yaml
       path: comparison.drift_minor_at
     current_default: 0.25
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
-      A Jaccard distance of 0.25 — one skill added to a set of three. hris tuned this
+      A Jaccard distance of 0.25 — one skill added to a set of three. The earlier build tuned this
       conservatively (prefer calling a borderline case "minor" over crying "major"). SFU's
       rulebook has no skill-churn metric at all: it says a JD should be reviewed annually
       and that "major revisions can trigger re-evaluation" (l.22), and quantifies nothing.
@@ -2660,7 +2660,7 @@ decisions:
       file: comparison.yaml
       path: comparison.drift_major_at
     current_default: 0.5
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       Half the skill set changed. It is the number that decides which postings appear on
       a reviewer's "these have drifted" list, so it sets the review workload. The loader
@@ -2677,11 +2677,11 @@ decisions:
       file: comparison.yaml
       path: comparison.material_years_delta
     current_default: 2
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
-      SFU's re-evaluation criteria (as hris recorded them from Toolkit p26 — NOT in the
+      SFU's re-evaluation criteria (as the earlier build recorded them from Toolkit p26 — NOT in the
       rulebook this repo ships) make "qualifications that change the technical knowledge
-      required" a major trigger in its own right, whatever the skills did. hris keyed that
+      required" a major trigger in its own right, whatever the skills did. The earlier build keyed that
       on two signals and QUANTIFIED one of them itself: a >= 2-year move. SFU does not
       quantify it anywhere. The 2 is ours.
     impact_if_changed: >-
@@ -2696,9 +2696,9 @@ decisions:
       file: comparison.yaml
       path: comparison.material_reports_delta
     current_default: 5
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
-      This is the entry most likely to be mistaken for an SFU standard, so: hris cited it
+      This is the entry most likely to be mistaken for an SFU standard, so: The earlier build cited it
       to "SFU's explicit supervisory-scope threshold (Toolkit p23-24)", and the rulebook
       in this repo contains NO such rule — no re-evaluation criteria at all. The only
       direct-reports number in it is Part 2G's drafting advice to state an "approximate
@@ -2718,7 +2718,7 @@ decisions:
       file: comparison.yaml
       path: comparison.experience_years_pattern
     current_default: '(\d{1,2})\s*\+?\s*year'
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The regex takes the FIRST year-count it finds, so "3 to 5 years" reads as 3 (the
       minimum — defensible) and "5 years in a role requiring 2 years of supervision" reads
@@ -2740,12 +2740,12 @@ decisions:
       file: comparison.yaml
       path: comparison.supervisory_reports_pattern
     current_default: \b(\d{1,3})\b
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       The first small integer ANYWHERE in the supervisory statement. "Supervises 4
       coordinators" -> 4; "manages a team of 8" -> 8; "supervises 2 FTE across 3
       campuses" -> 2 (right, by luck); "supervises staff in 3 buildings" -> 3 (wrong).
-      hris documented it as a heuristic and so do we. It feeds HR-101's escalation, which
+      the earlier build documented it as a heuristic and so do we. It feeds HR-101's escalation, which
       is the drift signal that maps most directly to an SFU re-evaluation trigger — so its
       false positives matter.
     impact_if_changed: >-
@@ -3335,7 +3335,7 @@ decisions:
       file: rule_catalog.yaml
       path: rule_catalog.SFU-STRUCT-HOW-WHY.default_severity
     current_default: low
-    provenance: hris_calibration
+    provenance: prior_calibration
     why_it_matters: >-
       SFU's Part 2C asks that a duty say what is done, HOW it is done and WHY. The rule
       fires once per duty that carries no "how/why" clause. It does NOT block approval —
@@ -3370,7 +3370,7 @@ decisions:
       sub-points out of a regex-parsed line). So `not d.how_why` was true for every duty
       of every JD and the rule COULD NOT NOT FIRE. The 100% figure was never a fact about
       SFU's job descriptions; it was a fact about our parser. (This is the Phase-2.4
-      `render.py` lesson again: faithful to hris, wrong here — in hris an LLM populated
+      `render.py` lesson again: faithful to the earlier build, wrong here — in the earlier build an LLM populated
       `how_why`, so the same rule worked there.)
       THE FIX IS NOT THIS KNOB. The severity still ships at `low` and this entry stays
       `open` — because `low` is the right severity for the rule IF it is ever evaluable,
@@ -3514,7 +3514,7 @@ decisions:
       fails until HR is told.
       REINSTATE SFU-STRUCT-HOW-WHY when a producer actually populates `how_why`: the
       Phase-4.2 `sfu_jd_extract` LLM pass is the one on the plan (it is what populated the
-      field in hris, which is why the rule worked there and not here). Then re-baseline
+      field in the earlier build, which is why the rule worked there and not here). Then re-baseline
       and tell HR what the finding rate on real JDs turns out to be — that number has
       never been measured, because until now the rule could not produce one.
       A rule in this list may NOT also sit in a blocking gate: the rulebook refuses to
@@ -3661,7 +3661,7 @@ decisions:
   # --- Phase 3.2b: embeddings (embeddings.yaml) --------------------------------
   # Nothing below moves a JD's score, grade or approval — `embeddings.yaml` is
   # excluded from `rules_version` (`loader._UNHASHED_FILES`) for exactly that reason.
-  # Every entry is `our_invention`: SFU publishes no embedding policy, and hris had
+  # Every entry is `our_invention`: SFU publishes no embedding policy, and the earlier build had
   # none either (JD Bank's Tier-3 dedup and search are new work, not a port).
 
   - id: HR-124
@@ -3887,7 +3887,7 @@ decisions:
   # from `rules_version` (`loader._UNHASHED_FILES`) for exactly that reason. It
   # decides which DOCUMENTS are similar to each other, never what any one of them is
   # worth. Every entry is `our_invention`: SFU publishes no near-duplicate policy, and
-  # hris had none either. Every default is MEASURED on the real archive (14,565 files,
+  # the earlier build had none either. Every default is MEASURED on the real archive (14,565 files,
   # 12,494 distinct contents) — see HANDOFF 2026-07-13 and `dedup.yaml`'s header.
 
   - id: HR-131
@@ -4187,7 +4187,7 @@ decisions:
 
   # ═══ WJQ / CUPE TEMPLATE (Phase 3.4) ════════════════════════════════════════
   # A SECOND document template. Everything below is `our_invention` and `open`: SFU
-  # publishes no machine-readable WJQ schema, and hris never taught a parser this form.
+  # publishes no machine-readable WJQ schema, and the earlier build never taught a parser this form.
   # `wjq.yaml` is HASHED (part of `rules_version`), unlike segmentation/embeddings/dedup —
   # it decides which text becomes a WJQ JD's summary/duties/qualifications, which changes
   # what the validator computes about that JD.
@@ -4411,7 +4411,7 @@ decisions:
   # ADR-007. The 2.4c similarity/clustering/drift maths finally gets an input, derived
   # from a parsed SFU JD by `bank/signals.py`. Everything here is `our_invention` and
   # `open`: SFU publishes no skill ontology, no skill stopword list and no rule for
-  # reading a years bar out of prose; hris had an ontology + idf corpus JD Bank does not.
+  # reading a years bar out of prose; the earlier build had an ontology + idf corpus JD Bank does not.
   # Each default below is MEASURED against the live archive, and each carries an HONEST
   # consequence (a keyword bag is not an ontology; 41% of JDs yield no skills). These are
   # comparison.yaml fields, which IS hashed — correct: they change what the clusterer
@@ -4608,7 +4608,7 @@ decisions:
 
   # ─── Tier-3 role-equivalence (Phase 3.4b) ───────────────────────────────────
   # The runner writes `DedupEdge(tier=ROLE_EQUIVALENT)` for SAME-ROLE pairs. Every
-  # value below is JD Bank's own (hris had no Tier-3 pass) and MEASURED on the archive.
+  # value below is JD Bank's own (the earlier build had no Tier-3 pass) and MEASURED on the archive.
 
   - id: HR-155
     question: >-
@@ -4634,7 +4634,7 @@ decisions:
       NO band (the loader FORBIDS giving it one), and MEASURED 70% of archive titles are
       `unmapped` — the HR-059 ladder classifies only ~30% — so the veto fires ONLY when
       BOTH sides map. On that 30% it cleanly stops director<->assistant merges; the
-      threshold (HR-158) does the rest. Note the ladder itself is inherited hris
+      threshold (HR-158) does the rest. Note the ladder itself is inherited the earlier build
       calibration nobody at SFU has ratified (HR-059), so this band map inherits that
       caveat: it is a defensible ordering, not an SFU standard.
     impact_if_changed: >-
@@ -4909,7 +4909,7 @@ decisions:
 
   # ── Harmonization: the Phase-4.1 deterministic merge engine. HR-167…HR-175.
   # Every default is our_invention and PROVISIONAL — SFU publishes no harmonization
-  # policy and hris harmonized via an LLM prompt (no deterministic merge policy to
+  # policy and the earlier build harmonized via an LLM prompt (no deterministic merge policy to
   # inherit). All are starting values, to be calibrated by a post-run measurement pass
   # over the real JDFN role clusters (mirroring 3.5's measure-after pattern). They live
   # in the UNHASHED `harmonization.yaml` (a merge-policy change must not churn the digest
@@ -5161,7 +5161,7 @@ decisions:
 
   # ── LLM harmonize REWRITE pass (Phase 4.2a). HR-176…HR-184.
   # Every default is our_invention and PROVISIONAL — SFU publishes no rewrite policy and
-  # hris used an LLM prompt only (no anti-fabrication/grounding policy to inherit). These
+  # the earlier build used an LLM prompt only (no anti-fabrication/grounding policy to inherit). These
   # are STARTING values, to be calibrated at the 4.5 pilot; NOT backed by measured
   # evidence we do not yet have. They live in the UNHASHED `rewrite.yaml` (a rewrite-policy
   # change decides how a draft is WORDED, not how a JD is SCORED).
@@ -5219,7 +5219,7 @@ decisions:
     provenance: our_invention
     why_it_matters: >-
       The whole SFUJobDescription JSON must fit in one completion; too small truncates the
-      JSON (which then fails to parse and burns a retry). 2048 mirrors hris's harmonize call.
+      JSON (which then fails to parse and burns a retry). 2048 mirrors the earlier build's harmonize call.
       PROVISIONAL — size it against real cluster outputs at the 4.5 pilot.
     impact_if_changed: >-
       Does NOT move `rules_version`. Operational headroom, not a policy lever on the output
@@ -5240,7 +5240,7 @@ decisions:
       When the model returns JSON that does not parse or does not match the schema, the
       client re-asks once with a terse repair nudge before raising LLMOutputInvalidError.
       Transient network/5xx retries are SEPARATE (fixed in the client, and a 400 is NEVER
-      retried). 1 mirrors hris. Higher spends more inference on a model that keeps missing the
+      retried). 1 mirrors the earlier build. Higher spends more inference on a model that keeps missing the
       schema; 0 makes the first miss fatal. PROVISIONAL.
     impact_if_changed: >-
       Does NOT move `rules_version`. Pinned by mutation in the client discipline test
@@ -5258,7 +5258,7 @@ decisions:
     provenance: our_invention
     why_it_matters: >-
       Names the versioned template pair under `jd_bank/llm/templates/`
-      (`jd_harmonize_v1.system.j2` + `.user.j2`, ported from hris and kept faithful save
+      (`jd_harmonize_v1.system.j2` + `.user.j2`, ported from the earlier build and kept faithful save
       the grounding instruction). The loaded template's own version is what stamps
       `RewrittenDraft.prompt_version`, so provenance traces to the exact wording. Swapping
       this selects a different template version. PROVISIONAL — the prompt is refined at the
@@ -5361,7 +5361,7 @@ decisions:
     status: open
 
   # ── LLM nuanced QUALITY-AUDIT pass (Phase 4.2b). HR-185…HR-190.
-  # Every default is our_invention and PROVISIONAL — SFU publishes no audit policy and hris
+  # Every default is our_invention and PROVISIONAL — SFU publishes no audit policy and the earlier build
   # merged+scored rule and LLM findings (no advisory-only audit policy to inherit). These are
   # STARTING values, to be calibrated at the 4.5 pilot; NOT backed by measured evidence we do
   # not yet have. They live in the UNHASHED `quality.yaml` (a quality-AUDIT-policy change
@@ -5422,7 +5422,7 @@ decisions:
     provenance: our_invention
     why_it_matters: >-
       The nuanced findings list must fit in one completion; too small truncates the JSON
-      (which then fails to parse and burns a retry). 1024 mirrors hris's value for THIS pass
+      (which then fails to parse and burns a retry). 1024 mirrors the earlier build's value for THIS pass
       (the findings list is far smaller than a full SFUJobDescription rewrite, which gets
       2048). PROVISIONAL — size it against real audit outputs at the 4.5 pilot.
     impact_if_changed: >-
@@ -5444,7 +5444,7 @@ decisions:
       When the model returns JSON that does not parse or does not match the JDQualityFindings
       schema, the client re-asks once with a terse repair nudge before raising
       LLMOutputInvalidError. Transient network/5xx retries are SEPARATE (fixed in the client,
-      and a 400 is NEVER retried). 1 mirrors hris. Higher spends more inference on a model
+      and a 400 is NEVER retried). 1 mirrors the earlier build. Higher spends more inference on a model
       that keeps missing the schema; 0 makes the first miss fatal. PROVISIONAL.
     impact_if_changed: >-
       Does NOT move `rules_version`. Pinned by mutation in the audit consumer test (the value
@@ -5487,7 +5487,7 @@ decisions:
     provenance: our_invention
     why_it_matters: >-
       Names the versioned template pair under `jd_bank/llm/templates/`
-      (`jd_quality_v1.system.j2` + `.user.j2`, ported faithfully from hris). Its only variable
+      (`jd_quality_v1.system.j2` + `.user.j2`, ported faithfully from the earlier build). Its only variable
       is `{{ jd_text }}` (the flattened JD). The loaded template's own version is what stamps
       `QualityAudit.prompt_version`, so provenance traces to the exact wording. Swapping this
       selects a different template version. PROVISIONAL — the prompt is refined at the 4.5
@@ -5504,7 +5504,7 @@ decisions:
   # ~1000 reasoning tokens vs ~164 output tokens per audit (~6x), and `reasoning_effort: low`
   # cuts the reasoning ~5x (1000 -> ~194). So it is a per-pass SPEED/quality tradeoff, and —
   # like `model` / `temperature` — a rulebook decision each pass owns separately: the audit
-  # can run cheap while the rewrite keeps full reasoning. `our_invention` (no SFU or hris
+  # can run cheap while the rewrite keeps full reasoning. `our_invention` (no SFU or the earlier build
   # precedent); both `open`. Lives in the UNHASHED rewrite.yaml / quality.yaml — a
   # reasoning-effort change decides how a JD is WORDED / AUDITED, never how it is SCORED, so
   # it must not churn `rules_version`. `null`/unset sends the parameter NOWHERE (the model's

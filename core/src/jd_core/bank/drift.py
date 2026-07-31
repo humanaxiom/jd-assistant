@@ -35,7 +35,7 @@ skill source, and do not scrape prose to make these callable.**
 ships (``docs/rulebook/sfu-jd-standards.txt``) contains **no re-evaluation criteria
 at all** — only l.22, "Major revisions can trigger re-evaluation", which quantifies
 nothing. The *intent* is plausibly SFU's; the numbers are not published. Every
-threshold here is registered ``hris_calibration``, ``open``. See ``comparison.yaml``.
+threshold here is registered ``prior_calibration``, ``open``. See ``comparison.yaml``.
 """
 
 from __future__ import annotations
