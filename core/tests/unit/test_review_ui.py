@@ -267,6 +267,9 @@ def test_detail_with_a_non_overridable_gate_guides_to_edit_not_override(
     assert "SFU-FIXED" in body  # the un-waivable gate is named
     # No waiver form is offered — approving could never succeed here.
     assert "override_reason__" not in body
+    # The guidance jumps straight to the Edit form (which carries the anchor).
+    assert 'href="#edit"' in body
+    assert 'id="edit"' in body
 
 
 def test_detail_unknown_id_returns_404(monkeypatch: pytest.MonkeyPatch) -> None:

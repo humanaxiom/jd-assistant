@@ -30,7 +30,7 @@
     These must be resolved before the draft can be published. An
     <strong>overridable</strong> gate can be waived with a written reason in the Approve
     section below; a <strong>not overridable</strong> gate must be fixed by editing the
-    draft (Edit section).
+    draft (<a href="#edit">jump to Edit ↓</a>).
   </p>
   {% for gate in packet.decision.blocking %}
   <div class="gate">
@@ -84,8 +84,8 @@
   {% if nonoverridable %}
   <p class="flash error">
     This draft <strong>cannot be approved as it is</strong>. {{ nonoverridable | length }}
-    gate(s) below cannot be waived — fix them in the <strong>Edit</strong> section, save,
-    and review the new version. There is nothing to approve here yet.
+    gate(s) below cannot be waived — fix them in the <a href="#edit">Edit section ↓</a>,
+    save, and review the new version. There is nothing to approve here yet.
   </p>
   <ul>
     {% for gate in nonoverridable %}
@@ -96,7 +96,7 @@
   <p class="meta">
     This draft is blocked by {{ overridable | length }} gate(s), all
     <strong>overridable</strong>. To publish it, either fix the draft in the
-    <strong>Edit</strong> section below, or waive each gate here with a written reason
+    <a href="#edit">Edit section ↓</a>, or waive each gate here with a written reason
     (recorded in the audit log), then click <strong>Approve &amp; publish</strong>.
   </p>
   <form method="post" action="/jd-bank/ui/review/{{ packet.canonical_id }}/approve">
@@ -123,7 +123,7 @@
   </form>
 </div>
 
-<div class="panel">
+<div class="panel" id="edit">
   <h2>Edit</h2>
   <p class="meta">
     Edit the draft field by field. Saving creates a new draft version for review —

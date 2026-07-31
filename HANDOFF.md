@@ -2,7 +2,30 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-07-28, later): STRUCTURED PER-FIELD EDITORS — the raw-JSON/lossy-form blocker is
+**NEWEST (2026-07-31): review-UX fixes shipped + NEXT PHASE planned (Phase 8 — the Published JD
+Bank).** All on `main`, `make gates` **1921 passing, 93.45%**.
+- **Review approve/fix UX fixed (`3efe837`).** A reviewer clicking Approve on a draft blocked by an
+  *overridable* gate got a raw exception dump and no guidance. Now: a plain-language banner
+  (`_friendly_error` maps every service error to an actionable sentence — no raw dump); the
+  blocking-gates panel explains *overridable* (waive with a reason) vs *not overridable* (must Edit);
+  the Approve panel is state-aware — approvable → a button; ANY non-overridable gate → "cannot be
+  approved as it is" + names the gate + guides to Edit (no dead-end waiver form); all-overridable → a
+  per-gate waiver field (`required`) beside each gate's reason. Transport/presentation only (service
+  stays sole authority, NN #1/#3).
+- **Jump-to-Edit link (later commit).** The blocking-gate guidance now links to an `#edit` anchor on
+  the Edit form (coarse jump; per-gate→specific-field is Phase 8.3c). Both TDD'd.
+- **➡ NEXT PHASE — Phase 8, planned in [`docs/plan.md`](docs/plan.md) §Phase 8.** The **final JD
+  Bank**: a browsable/searchable home for every APPROVED canonical JD (`/jd-bank/ui/library` · 🏦 JD
+  Bank nav), the published-JD view (provenance + version history + export + clone + propose-update),
+  the **embed-published-canonicals** write path (so the Bank can search its own output — the
+  prerequisite deferred on 2026-07-29), and **review-experience upgrades** (word-level diff · a
+  cluster→versions + related-roles structural sidebar · per-gate→field jump-links). **Start with 8.1
+  (the library — no GPU, self-contained).** Write `docs/tasks/phase-8-published-bank.md` when picking
+  it up. Everything is read-only over already-approved rows (NN #1); embeddings stay self-hosted (NN
+  #5). *(The 4.5 HR pilot + HR ratification remain the external critical path — Phase 8 is the
+  engineering that makes an approved JD actually usable once the pilot starts publishing.)*
+
+**PRIOR (2026-07-28, later): STRUCTURED PER-FIELD EDITORS — the raw-JSON/lossy-form blocker is
 GONE, both surfaces.** This was ROADMAP milestone-1's first task ("Make the pilot runnable" — *a
 reviewer cannot pilot against a JSON textarea*). Two focused slices, each TDD'd, full `make gates`
 green, on branch **`feat/builder-structured-fields`** (commits `6e15c9a`, `f138f18`):

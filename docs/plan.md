@@ -645,6 +645,79 @@ jdfn_employee_groups` gain a `cupe` token and the Builder support the WJQ 14-sec
 Until HR rules on HR-194, "the Bank does not serve CUPE" is an explicit decision on the register,
 not one made by omission.
 
+### Phase 8 — The Published JD Bank (the final canonical library) + review-experience upgrades — PLANNED (2026-07-31)
+
+**What it is.** Everything to date *produces* draft canonicals and moves them through a review queue;
+approval sets `status=PUBLISHED` but there is **no destination surface** — the approved JDs have
+nowhere to live. Phase 8 builds the **final JD Bank**: the browsable, searchable home for every
+**approved** canonical JD, plus the forward actions off it (export, clone-to-new-draft, propose-an-
+update). It also upgrades the **review experience** so a reviewer navigates the corpus structure
+(cluster → versions → related roles) and reads a word-level diff, not just a flat form.
+
+**Invariants inherited — do NOT re-decide.** NN #1 (nothing auto-publishes — the library is
+**read-only** over rows a human already approved; the only writes are new DRAFTS into the existing
+review queue). NN #3 (validator-as-oracle — the library never re-scores; it shows the approval-time
+verdict). NN #5 (published-canonical embeddings run on the self-hosted model behind the egress
+guard). NN #6 (provenance + append-only audit intact). Scope = JDFN (HR-143/194). Docker-only, TDD,
+gates green; server-rendered `/jd-bank/ui`, no new service plan.
+
+**8.1 — The published-canonical library (the "final bank").** *No GPU; the highest-value, most
+self-contained first slice.*
+- **Data:** no new store — the PUBLISHED `canonical_jds` rows ARE the bank. Add a read service
+  (`list_published(filters, page)` + `get_published(id)`); latest PUBLISHED version per cluster is
+  the canonical entry.
+- **Browse UI** at `/jd-bank/ui/library` (nav: **🏦 JD Bank**): a faceted, paginated list of approved
+  JDs — filters by `employee_group` / department·faculty / grade / title family, sort by title·date.
+  Every headline count read from real rows and mutation-pinned (the dashboards discipline).
+- **Published-JD view** (read-only): the rendered JD + a **provenance panel** (source documents,
+  cluster, the approval record — who/when, overrides + their written reasons), **version history**
+  (every version of the cluster; current = latest PUBLISHED), **export `.docx`** (reuse
+  `render_sfu_docx`), and two forward actions — **"Start a new draft from this"** (clone into the
+  Builder) and **"Propose an update"** (edit → a new DRAFT into the review queue). Nothing here
+  publishes.
+- **Tests:** TestClient over a faked read service; empty-state (200, not a crash); JDFN-scoped;
+  every figure mutation-pinned.
+
+**8.2 — Embed published canonicals into the vector index (the write path).** *Live sign-off needs the
+GPU/Neo4j host; built + unit-tested with mocks (the embeddings live-test posture).* The prerequisite
+the 2026-07-29 session scoped and deferred.
+- On **approve/publish**, embed the canonical content and upsert a node into the
+  `jd_document_embeddings` index, marked `kind=canonical` with title/`employee_group` **on the node**
+  (published canonicals have no `parsed_jds` row to join). **Best-effort + injected + mockable +
+  non-fatal** — a Neo4j failure must NEVER block a publish (publish is the invariant; indexing is
+  best-effort).
+- Extend `search_similar_jds` to include canonical hits, labelled **"approved"** (vs archive
+  **"reference"** hits), reading title/facets off the node; extend the library + Builder search to
+  cover published output; add a **clone-from-canonical** path (answers from canonical content).
+- **Register:** the search corpus choice + any top-k / min-similarity knobs `open` (mirror 5.4).
+
+**8.3 — Review-experience upgrades.** *No GPU; parallelizable.*
+- **8.3a Better diff — word/inline level.** The 2026-07-29 version diff is section before/after;
+  upgrade to inline **word-level** highlighting of adds/removals within a changed section
+  (`difflib.SequenceMatcher`, pure/deterministic), with a whole-JD unified view toggle. Pure module +
+  unit tests; no rule/knob change.
+- **8.3b Structural sidebar (tree + related roles).** A navigation sidebar on the review detail (and
+  library) showing this role's place in the corpus: a **cluster → versions tree** (v1→v2→…, current
+  highlighted) and a short ranked **"related roles"** list from the Tier-2/Tier-3 dedup edges
+  (near-duplicates / role-equivalents), each linkable. Reuses the dedup-edge + cluster data already in
+  Postgres/Neo4j; **read-only, server-rendered** — a heavyweight interactive graph viz is explicitly
+  out of scope (that is Phase 7's domain overlap graph; this is a lightweight review-time slice of it).
+- **8.3c Gate → field jump-links.** Per-blocking-gate "fix this ↓" links that jump to the *specific*
+  Edit field, via a **rulebook-driven** gate→section map (the rule catalog's `section`, surfaced as
+  data). Extends the coarse whole-Edit `#edit` jump shipped 2026-07-31.
+
+**Sequencing:** **8.1** (library, no GPU) → **8.2** (embed + search; GPU for live sign-off) → **8.3**
+(review UX, no GPU). 8.1 first — it is self-contained and turns the 1,801 latent drafts, once
+approved, into a usable resource.
+
+**Exit:** an approved JD has a permanent, browsable, searchable home; a reviewer navigates
+cluster/version/related-role structure and reads a word-level diff; the Bank can search its own
+published output. **Detailed TDD task breakdown: `docs/tasks/phase-8-published-bank.md` (to write).**
+
+**Relationship to earlier work:** 8.2 subsumes the roadmap's *embed-published-canonicals* quick win
+and unblocks the *approved-position template library*; 8.3b is a lightweight review-time slice of
+Phase 7's org-design overlap graph; 8.1's "propose an update" reuses the review queue's edit path.
+
 ---
 
 ## 4. Working agreements
