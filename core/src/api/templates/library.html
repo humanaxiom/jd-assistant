@@ -22,18 +22,32 @@
 <div class="panel">
   <h2>Roles{% if page.q %} matching “{{ page.q }}”{% endif %}</h2>
   {% if page.items %}
-  <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }}</p>
+  <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }} · click a column heading to sort</p>
+  {# A sortable column heading: links to the same query sorted by `key`, toggling
+     direction if it is already the active sort; shows ▲/▼ when active. Sorting resets to
+     the first page (no offset). #}
+  {% macro sorth(key, label) -%}
+    {%- set active = (page.sort == key) -%}
+    {%- set next_dir = 'desc' if (active and page.direction == 'asc') else 'asc' -%}
+    <th><a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ key }}&amp;dir={{ next_dir }}&amp;limit={{ page.limit }}">{{ label }}{% if active %} {{ '▲' if page.direction == 'asc' else '▼' }}{% endif %}</a></th>
+  {%- endmacro %}
   <table>
     <thead>
-      <tr><th>Role</th><th>Seniority</th><th>Sources</th><th>Score</th><th>Grade</th><th>Status</th><th></th></tr>
+      <tr>
+        {{ sorth('title', 'Role') }}
+        {{ sorth('sources', 'Sources') }}
+        {{ sorth('score', 'Score') }}
+        {{ sorth('grade', 'Quality') }}
+        {{ sorth('status', 'Status') }}
+        <th></th>
+      </tr>
     </thead>
     <tbody>
       {% for item in page.items %}
       <tr>
         <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">{{ item.title }}</a></td>
-        <td>{{ item.level_band or "—" }}</td>
         <td>{{ item.source_count }}</td>
-        <td>{{ item.score if item.score is not none else "—" }}</td>
+        <td>{{ "%.1f"|format(item.score) if item.score is not none else "—" }}</td>
         <td>{{ item.grade or "—" }}</td>
         <td>{{ item.status }}</td>
         <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">Open →</a></td>
@@ -43,10 +57,10 @@
   </table>
   <p class="meta">
     {% if pagination.prev_offset is not none %}
-    <a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;offset={{ pagination.prev_offset }}&amp;limit={{ pagination.limit }}">← Prev</a>
+    <a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.prev_offset }}&amp;limit={{ pagination.limit }}">← Prev</a>
     {% endif %}
     {% if pagination.next_offset is not none %}
-    <a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;offset={{ pagination.next_offset }}&amp;limit={{ pagination.limit }}">Next →</a>
+    <a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.next_offset }}&amp;limit={{ pagination.limit }}">Next →</a>
     {% endif %}
   </p>
   {% else %}

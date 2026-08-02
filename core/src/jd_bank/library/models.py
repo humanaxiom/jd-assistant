@@ -74,9 +74,6 @@ class RoleView(_Frozen):
     version: int
     score: float | None
     grade: str | None
-    #: JDFN level band from the cluster's constraint metadata (e.g. "3" or "3–4"), or
-    #: None. Employee group is not populated for JDFN roles, so band is the facet shown.
-    level_band: str | None
     rendered_text: str
     members: tuple[MemberJD, ...]
     source_count: int
@@ -84,15 +81,14 @@ class RoleView(_Frozen):
 
 class RoleListItem(_Frozen):
     """A row in the roles library — enough to triage and click through, no body. Score /
-    grade are the STORED roll-up (what the producer computed), not a fresh recompute —
-    the same display-only roll-up the review queue shows. ``level_band`` is the JDFN
-    band from the cluster (employee group is not populated for JDFN roles)."""
+    grade (the validator QUALITY grade A–D, not a pay grade) are the STORED roll-up the
+    producer computed, not a fresh recompute — the same display-only roll-up the
+    review queue shows."""
 
     canonical_id: UUID
     cluster_id: UUID
     title: str
     status: str
-    level_band: str | None
     source_count: int
     score: float | None
     grade: str | None
@@ -100,13 +96,16 @@ class RoleListItem(_Frozen):
 
 class RolePage(_Frozen):
     """A page of the roles library, with the total (pre-pagination) so the template can
-    render "showing 1–50 of 1,801" and prev/next."""
+    render "showing 1–50 of 1,801" and prev/next, and the active ``sort`` column +
+    ``direction`` so the header links can render the current sort and toggle it."""
 
     items: tuple[RoleListItem, ...]
     total: int
     limit: int
     offset: int
     q: str
+    sort: str
+    direction: str
 
 
 class SourceListItem(_Frozen):

@@ -128,7 +128,6 @@ def test_role_renders_content_and_member_links(monkeypatch: pytest.MonkeyPatch) 
         version=1,
         score=82.0,
         grade="A",
-        level_band="Director",
         rendered_text="Coordinates the program across departments.",
         members=(
             MemberJD(
@@ -158,7 +157,6 @@ def test_role_renders_content_and_member_links(monkeypatch: pytest.MonkeyPatch) 
     assert "Program Coordinator" in body
     assert "Coordinates the program across departments." in body
     assert "distilled from" in body.lower()
-    assert "Director" in body  # seniority tier shown, not the employee group
     # a parsed member links to the reader; an unparsed one does not
     assert f"/jd-bank/ui/jd/{member_a}" in body
     assert f"/jd-bank/ui/jd/{member_b}" not in body
@@ -184,18 +182,23 @@ def _role_item(title: str) -> RoleListItem:
         cluster_id=uuid.uuid4(),
         title=title,
         status="draft",
-        level_band="Manager",
         source_count=3,
         score=79.0,
         grade="B",
     )
 
 
+def _role_page(**update: object) -> RolePage:
+    base = dict(
+        items=(), total=0, limit=50, offset=0, q="", sort="title", direction="asc"
+    )
+    base.update(update)
+    return RolePage(**base)
+
+
 def test_library_lists_roles_and_passes_query(monkeypatch: pytest.MonkeyPatch) -> None:
     items = (_role_item("Finance Analyst"), _role_item("Finance Manager"))
-    mock = AsyncMock(
-        return_value=RolePage(items=items, total=2, limit=50, offset=0, q="finance")
-    )
+    mock = AsyncMock(return_value=_role_page(items=items, total=2, q="finance"))
     monkeypatch.setattr(library_route, "list_roles", mock)
     client = make_client()
 
@@ -205,17 +208,47 @@ def test_library_lists_roles_and_passes_query(monkeypatch: pytest.MonkeyPatch) -
     body = resp.text
     assert "Finance Analyst" in body and "Finance Manager" in body
     assert f"/jd-bank/ui/role/{items[0].cluster_id}" in body
-    # The list shows the seniority tier (employee group is unpopulated for JDFN roles).
-    assert "<th>Seniority</th>" in body
+    # Quality-grade column labelled "Quality" (not a pay grade); no Seniority column.
+    assert "Quality" in body and "Seniority" not in body
     mock.assert_awaited_once()
     assert mock.await_args.kwargs["q"] == "finance"
 
 
+def test_library_columns_are_sortable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Column headings link to the same list sorted by that column; the active column
+    toggles direction and shows an arrow."""
+    mock = AsyncMock(
+        return_value=_role_page(
+            items=(_role_item("Analyst"),), total=1, sort="score", direction="asc"
+        )
+    )
+    monkeypatch.setattr(library_route, "list_roles", mock)
+    client = make_client()
+
+    body = client.get("/jd-bank/ui/library").text
+
+    # A clickable heading for each sortable column.
+    assert "sort=title" in body
+    assert "sort=sources" in body
+    # The ACTIVE column (score, asc) offers to flip to desc and shows the ▲ arrow.
+    assert "sort=score&amp;dir=desc" in body
+    assert "▲" in body
+
+
+def test_library_sort_params_pass_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock = AsyncMock(return_value=_role_page())
+    monkeypatch.setattr(library_route, "list_roles", mock)
+    client = make_client()
+
+    client.get("/jd-bank/ui/library", params={"sort": "grade", "dir": "desc"})
+
+    assert mock.await_args.kwargs["sort"] == "grade"
+    assert mock.await_args.kwargs["direction"] == "desc"
+
+
 def test_library_next_link_only_when_more(monkeypatch: pytest.MonkeyPatch) -> None:
     items = tuple(_role_item(f"Role {i}") for i in range(2))
-    mock = AsyncMock(
-        return_value=RolePage(items=items, total=5, limit=2, offset=0, q="")
-    )
+    mock = AsyncMock(return_value=_role_page(items=items, total=5, limit=2))
     monkeypatch.setattr(library_route, "list_roles", mock)
     client = make_client()
 
@@ -228,9 +261,7 @@ def test_library_next_link_only_when_more(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def test_library_empty_state(monkeypatch: pytest.MonkeyPatch) -> None:
-    mock = AsyncMock(
-        return_value=RolePage(items=(), total=0, limit=50, offset=0, q="zzz")
-    )
+    mock = AsyncMock(return_value=_role_page(q="zzz"))
     monkeypatch.setattr(library_route, "list_roles", mock)
     client = make_client()
 
@@ -272,7 +303,7 @@ def test_archive_lists_source_files(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_nav_exposes_jd_bank(monkeypatch: pytest.MonkeyPatch) -> None:
     """The primary nav links to the library on every page (regression: the app used to
     surface only dashboards/queue, never the content)."""
-    mock = AsyncMock(return_value=RolePage(items=(), total=0, limit=50, offset=0, q=""))
+    mock = AsyncMock(return_value=_role_page())
     monkeypatch.setattr(library_route, "list_roles", mock)
     client = make_client()
 

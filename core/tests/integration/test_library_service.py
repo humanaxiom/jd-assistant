@@ -127,18 +127,10 @@ async def _seed_role(
     status: CanonicalStatus = CanonicalStatus.DRAFT,
     cluster_id: uuid.UUID | None = None,
     change_log: dict[str, object] | None = None,
-    bands: list[int] | None = None,
 ) -> tuple[uuid.UUID, uuid.UUID]:
     cluster_id = cluster_id or uuid.uuid4()
     if await session.get(Cluster, cluster_id) is None:
-        session.add(
-            Cluster(
-                id=cluster_id,
-                label=content.title,
-                members=members,
-                constraint_metadata={"bands": bands or []},
-            )
-        )
+        session.add(Cluster(id=cluster_id, label=content.title, members=members))
     canonical = CanonicalJD(
         cluster_id=cluster_id,
         version=version,
@@ -244,8 +236,6 @@ async def test_get_role_renders_canonical_and_lists_members(
     assert role is not None
     assert role.title == "Operations Manager"
     assert role.score == pytest.approx(82.0) and role.grade == "A"
-    # seniority is classified from the CLEAN canonical title (not the stored band)
-    assert role.level_band == "Manager"
     assert role.source_count == 2
     filenames = {m.filename for m in role.members}
     assert filenames == {"a.docx", "b.docx"}
@@ -322,24 +312,37 @@ async def test_list_roles_title_filter_and_pagination(
 
 
 @pytest.mark.asyncio
-async def test_list_roles_carries_the_level_band(
+async def test_list_roles_sorts_by_column(
     session_maker: async_sessionmaker[AsyncSession],
 ) -> None:
-    """The roles list shows the seniority tier classified from the CLEAN canonical title
-    (rulebook title-family classifier) in place of the unpopulated employee group; a
-    title that maps to no family shows nothing (the common case, ~70%)."""
+    """The roles list sorts by a clickable column + direction; an unknown sort key falls
+    back to title-ascending."""
     async with session_maker() as session:
-        await _seed_role(session, content=_jd("Facilities Manager"), members=[])
-        await _seed_role(session, content=_jd("Director, Finance"), members=[])
-        await _seed_role(session, content=_jd("Records Coordinator"), members=[])
+        await _seed_role(
+            session,
+            content=_jd("Beta Role"),
+            members=[],
+            change_log={"validator": {"score": 90.0, "grade": "A"}},
+        )
+        await _seed_role(
+            session,
+            content=_jd("Alpha Role"),
+            members=[],
+            change_log={"validator": {"score": 70.0, "grade": "C"}},
+        )
         await session.commit()
 
-        page = await list_roles(session)
+        title_asc = await list_roles(session, sort="title", direction="asc")
+        assert [i.title for i in title_asc.items] == ["Alpha Role", "Beta Role"]
 
-    by_title = {item.title: item.level_band for item in page.items}
-    assert by_title["Facilities Manager"] == "Manager"
-    assert by_title["Director, Finance"] == "Director"
-    assert by_title["Records Coordinator"] is None  # unmapped title -> no tier
+        score_desc = await list_roles(session, sort="score", direction="desc")
+        assert [i.title for i in score_desc.items] == ["Beta Role", "Alpha Role"]
+        assert score_desc.sort == "score" and score_desc.direction == "desc"
+
+        # an unknown/garbage sort key is not an error — it falls back to title asc
+        fallback = await list_roles(session, sort="bogus", direction="sideways")
+        assert fallback.sort == "title" and fallback.direction == "asc"
+        assert [i.title for i in fallback.items] == ["Alpha Role", "Beta Role"]
 
 
 # --- acceptance #4: the flat source archive -------------------------------------------

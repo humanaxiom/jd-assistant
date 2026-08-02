@@ -62,10 +62,14 @@ async def library_view(
     q: str = "",
     limit: int | None = None,
     offset: int = 0,
+    sort: str = "title",
+    dir: str = "asc",
     session: AsyncSession = Depends(get_session),
 ) -> HTMLResponse:
-    """Browse/search the harmonized roles — HR's home for the JD content."""
-    page = await list_roles(session, q=q, limit=limit, offset=offset)
+    """Browse/search/sort the harmonized roles — HR's home for the JD content."""
+    page = await list_roles(
+        session, q=q, limit=limit, offset=offset, sort=sort, direction=dir
+    )
     return templates.TemplateResponse(
         request,
         "library.html",

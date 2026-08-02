@@ -21,14 +21,19 @@ docx filenames I can't open"). All read-only (NN #1), no rulebook/GPU change, `m
   singletons). Fixes the "cloning a green JD fails" report — it was cloning the raw parse (177-word
   summary, 1 duty) vs. the harmonized canonical (compliant); **same validator both sides** (NN #3),
   different *content*.
-- **Employee group is empty in the JDFN data** (parses `None`, 0/2000 filenames match the group
-  pattern). Replaced the empty "Group" column with a **Seniority** tier (Manager/Director/VP/…),
-  classified from the CLEAN canonical title via the rulebook title-family classifier (HR-059). NOTE:
-  do NOT use the stored `cluster.constraint_metadata.bands` — it's computed from the RAW source title,
-  which is often a mis-parsed paragraph, so it confidently mislabels (a coordinator whose summary
-  mentions "Vice-Provost" landed on "VP"). Classifying the clean title fixes that (~70% unmapped →
-  "—", the rest reliable). Dropped the always-empty group column from the raw-file + member-list
-  screens (archive, search, role members table).
+- **No reliable job-level facet exists — column removed.** Chased a "level" column through group →
+  band → seniority and each failed: employee group is empty (0/2000 filenames match), the stored
+  `cluster.constraint_metadata.bands` is computed from the RAW (often paragraph-)title so it
+  mislabels (coordinator → "VP"), classifying the CLEAN title only maps ~30% AND still mis-fires on
+  office names ("Office of the Vice-President" → VP), and the **APSA grade 1–15 is not extracted
+  anywhere** (0/600 in text, `content.grade`/`parsed.grade` all `None`). So the level column was
+  **removed**; the group column was dropped from every screen. The A–D column was **relabeled
+  "Quality"** (it's the validator quality grade, NOT a pay grade) and scores are rounded (1 dp).
+  ⚠ The real upstream bug is the **parser: many titles parse as whole paragraphs** — fixing that
+  would make titles/levels/the reader header all correct.
+- **Roles library columns are now click-to-sort** (server-side, no JS): Role/Sources/Score/Quality/
+  Status headers toggle asc/desc via `?sort=&dir=`; `list_roles` gained `sort`/`direction`
+  (`_ROLE_SORTS` whitelist, unknown → title asc; nulls last; stable title+id tiebreak).
 - **On a branch, fast-forwarded to `main`** (CI still billing-blocked → local merge per ADR-006).
   Committed as ONE gates-green unit (the three parts interleave across shared templates/tests, so a
   per-part split would produce non-green intermediate commits — NN #4). Memories written:

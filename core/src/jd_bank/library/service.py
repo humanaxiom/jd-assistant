@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import Float, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.jd_bank.db.models import (
@@ -39,39 +39,29 @@ from src.jd_bank.library.models import (
     SourcePage,
 )
 from src.jd_core.bank.render import render_sfu_jd_text
-from src.jd_core.bank.title_family import classify_title_family
 from src.jd_core.models.parsed_jd import SFUJobDescription
-from src.jd_core.rules import UNMAPPED, Rules, get_rules
 
 #: Default page size for the browsable lists (roles + source archive).
 DEFAULT_PAGE_SIZE = 50
 _MAX_PAGE_SIZE = 200
+
+#: The sortable columns of the roles library, mapped to their ORDER BY expression. A
+#: request for any other key falls back to ``title``. (No "level" facet: the archive has
+#: no reliable job level — the APSA grade 1–15 is not extracted anywhere, and the title-
+#: family ladder mis-fires on office names like "Office of the Vice-President".)
+_ROLE_SORTS = {
+    "title": CanonicalJD.content["title"].astext,
+    "status": CanonicalJD.status,
+    "sources": func.jsonb_array_length(CanonicalJD.source_document_ids),
+    "score": CanonicalJD.change_log["validator"]["score"].astext.cast(Float),
+    "grade": CanonicalJD.change_log["validator"]["grade"].astext,
+}
 
 
 def _clamp_limit(limit: int | None) -> int:
     if limit is None:
         return DEFAULT_PAGE_SIZE
     return max(1, min(limit, _MAX_PAGE_SIZE))
-
-
-def _tier_name(family: str) -> str:
-    """Human seniority-tier name for a title family (``"vp"`` -> ``"VP"``)."""
-    return "VP" if family == "vp" else family.title()
-
-
-def _seniority_label(title: str, *, rules: Rules) -> str | None:
-    """The role's seniority tier from its title (assistant … manager … VP), or ``None``.
-
-    Computed from the CLEAN canonical/parsed title via the rulebook title-family
-    classifier (HR-059), NOT the cluster's stored band. The stored band is derived at
-    clustering time from the RAW source title — which is frequently a mis-parsed
-    paragraph (e.g. a coordinator's summary mentioning "Vice-Provost"), so it produces
-    confidently-wrong bands (that coordinator lands on "VP"). Classifying the clean
-    harmonized title avoids that: ~70% of titles are unmapped (-> ``None``/"—"), and the
-    ~30% that map are reliable. Employee group is not populated for JDFN roles, so this
-    is the facet the JD screens show in its place."""
-    family = classify_title_family(title, rules=rules).family
-    return None if family == UNMAPPED else _tier_name(family)
 
 
 # --- shared loaders -------------------------------------------------------------------
@@ -237,7 +227,6 @@ async def get_role(session: AsyncSession, cluster_id: UUID) -> RoleView | None:
         version=canonical.version,
         score=validator.get("score"),
         grade=validator.get("grade"),
-        level_band=_seniority_label(jd.title, rules=get_rules()),
         rendered_text=render_sfu_jd_text(jd),
         members=tuple(members),
         source_count=len(members),
@@ -247,16 +236,14 @@ async def get_role(session: AsyncSession, cluster_id: UUID) -> RoleView | None:
 # --- the roles library (browse) -------------------------------------------------------
 
 
-def _role_list_item(canonical: CanonicalJD, *, rules: Rules) -> RoleListItem:
+def _role_list_item(canonical: CanonicalJD) -> RoleListItem:
     content = canonical.content or {}
     validator = (canonical.change_log or {}).get("validator") or {}
-    title = content.get("title") or "(untitled)"
     return RoleListItem(
         canonical_id=canonical.id,
         cluster_id=canonical.cluster_id,
-        title=title,
+        title=content.get("title") or "(untitled)",
         status=canonical.status.value,
-        level_band=_seniority_label(title, rules=rules),
         source_count=len(canonical.source_document_ids or []),
         score=validator.get("score"),
         grade=validator.get("grade"),
@@ -269,13 +256,18 @@ async def list_roles(
     q: str = "",
     limit: int | None = None,
     offset: int = 0,
+    sort: str = "title",
+    direction: str = "asc",
 ) -> RolePage:
-    """A page of harmonized roles (one per cluster, the current version), title-ordered,
-    optionally filtered by a title substring. ``total`` is the pre-pagination count so
-    the template can render "showing N–M of TOTAL"."""
+    """A page of harmonized roles (one per cluster, the current version), optionally
+    filtered by a title substring and sorted by a clickable column (``sort`` in
+    :data:`_ROLE_SORTS`, ``direction`` asc/desc — anything else falls back to title
+    asc). ``total`` is the pre-pagination count for the "showing N–M of TOTAL" line."""
     limit = _clamp_limit(limit)
     offset = max(0, offset)
     query = q.strip()
+    sort_key = sort if sort in _ROLE_SORTS else "title"
+    descending = direction == "desc"
     # The current canonical per cluster: DISTINCT ON (cluster_id) newest version first.
     latest_ids = (
         select(CanonicalJD.id)
@@ -287,20 +279,28 @@ async def list_roles(
     if query:
         base = base.where(CanonicalJD.content["title"].astext.ilike(f"%{query}%"))
     total = await session.scalar(select(func.count()).select_from(base.subquery())) or 0
+    column = _ROLE_SORTS[sort_key]
+    ordering = (column.desc() if descending else column.asc()).nulls_last()
+    # Stable, deterministic within the sort key: fall back to title then id.
     rows = (
         await session.scalars(
-            base.order_by(CanonicalJD.content["title"].astext.asc())
+            base.order_by(
+                ordering,
+                CanonicalJD.content["title"].astext.asc(),
+                CanonicalJD.id.asc(),
+            )
             .limit(limit)
             .offset(offset)
         )
     ).all()
-    rules = get_rules()
     return RolePage(
-        items=tuple(_role_list_item(row, rules=rules) for row in rows),
+        items=tuple(_role_list_item(row) for row in rows),
         total=int(total),
         limit=limit,
         offset=offset,
         q=query,
+        sort=sort_key,
+        direction="desc" if descending else "asc",
     )
 
 
