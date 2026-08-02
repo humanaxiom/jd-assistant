@@ -52,10 +52,15 @@ docx filenames I can't open"). All read-only (NN #1), no rulebook/GPU change, `m
   Extraction patterns live in the parser layer (code, like `headings.py`) — NOT a registered
   decision; `rules_version` untouched. Goldens updated (`classification: null`); the review
   `_content_from_form` reconstructs it as `None` (Phase B adds the editor). `make gates` **1961
-  passing, 93.58%**. **STILL TO DO (Phase A/B/C):** re-parse the corpus to backfill classification
-  into `parsed_jds` (`make ingest`/re-parse — ops step, DB not yet backfilled); register the
-  per-group grade SCALES once HR confirms them; Builder + review Grade entry (Phase B); HRIS import
-  (Phase C); surface Grade in the library/reader.
+  passing, 93.58%**.
+- **Grade capture Steps 1–2 DONE.** (1) **Backfill complete** — `scripts/backfill_classification.py`
+  re-extracted the archive and wrote `classification` in place onto v2 `parsed_jds`: **2,323 grades
+  (2,322 CUPE + 1), values 3–12, 0 errors** (idempotent; parser_version + downstream untouched).
+  (2) **Grade-scale decision recorded** for HR in `docs/decisions/grade-scales.md` (the config-level
+  `grades.yaml` + register is deferred until HR fills the real per-group scales — encoding guessed
+  scales into the drift-checked register would block the build). **STILL TO DO:** Builder + review
+  Grade entry (Phase B, step 3); HRIS `position_number→grade` import (Phase C, step 4, needs the
+  export + FIPPA); surface Grade with provenance in the library/reader (step 5).
 - **On a branch, fast-forwarded to `main`** (CI still billing-blocked → local merge per ADR-006).
   Committed as ONE gates-green unit (the three parts interleave across shared templates/tests, so a
   per-part split would produce non-green intermediate commits — NN #4). Memories written:
