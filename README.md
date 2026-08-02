@@ -157,23 +157,49 @@ JD-Assistant/
 
 ## Quick start
 
-```bash
-# 0. Host prereq: Ollama on metal
-OLLAMA_HOST=0.0.0.0 ollama serve &
-ollama pull qwen2.5-coder:14b nomic-embed-text
+**One command, from a cold machine:**
 
-# 1. Bring up the stack (everything but Ollama)
-docker compose up -d          # postgres, neo4j, redis, api, worker
-
-# 2. Migrations + git pre-commit hook
-make migrate
-make hook-install
-
-# 3. Gates (runs in Docker; no host Python)
-make gates
-
-# 4. Dashboard → http://localhost:5000   ·   Neo4j → http://localhost:7474
+```powershell
+.\quickstart.ps1            # build → start → wait for healthy → migrate → status
+.\quickstart.ps1 -NoCas     # ...and skip the SFU CAS login (dev-admin mode)
+.\quickstart.ps1 -Down      # stop; named volumes (your parsed rows) are kept
 ```
+
+It starts postgres, neo4j, redis, api and worker, applies the Postgres (alembic) and
+Neo4j (cypher) migrations, and then tells you what you actually woke up to: row counts
+per parser version, whether CAS is on (read from the running container, not guessed),
+and whether the inference host is reachable. `-Rebuild` forces a no-cache build — do
+that after changing `core/requirements*.txt`, because `make gates` reuses a stale image
+and will not catch a missing dependency that CI then fails on.
+
+It deliberately does **not** start the `profiles: ["tools"]` services (`gates`,
+`ingest`, `baseline`, `embed`, `cluster`, …) — those are one-shot job runners invoked
+through `make`, not things that stay up.
+
+<details><summary>The same thing by hand</summary>
+
+```bash
+docker compose up -d --wait   # postgres, neo4j, redis, api, worker
+make migrate                  # alembic + the two cypher migrations
+make hook-install             # git pre-commit → branch-name gate + gates-fast
+make gates                    # full CI-identical suite, in Docker, no host Python
+```
+</details>
+
+**Ollama is not part of this stack and must not be started here.** Inference runs on
+metal on `aria-gb10-2`, a trusted internal host (ADR-003, non-negotiable #5). The app,
+the dashboards and `make gates` all run without it; only the embedding and LLM jobs
+(`make embed`, `make canonical-drafts`) need it up.
+
+| | |
+|---|---|
+| App | <http://localhost:25800/jd-bank/ui/library> |
+| Neo4j browser | <http://localhost:25474> (`neo4j` / `harnesspass`) |
+| Postgres · Redis | `localhost:25432` · `localhost:25379` |
+
+> Host ports are the **25xxx** range on purpose, not the service defaults — this dev box
+> runs several Docker projects and 5432/7474/7687 are already taken. In-container
+> addressing (`postgres:5432`, `bolt://neo4j:7687`) is unchanged.
 
 Full workflow, first-feature walkthrough, and troubleshooting: [`DEVELOPER_GUIDE_1.md`](DEVELOPER_GUIDE_1.md).
 
