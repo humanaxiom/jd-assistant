@@ -1,6 +1,7 @@
 # HR Decision — the per-group grade / classification scales
 
-**For:** SFU Human Resources · **Status:** OPEN (awaiting HR) · **Related:**
+**For:** SFU Human Resources · **Status:** OPEN (awaiting HR) · **The 15-minute ask:**
+`grade-scales-hr-ask.md` · **Background:**
 `docs/audit/data-state-and-grade-2026-08-01.md` (the data-state review).
 
 ## Why this is a decision, not a setting we can pick
