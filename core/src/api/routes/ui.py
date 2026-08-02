@@ -365,8 +365,11 @@ def _friendly_error(exc: Exception) -> str:
         )
     if isinstance(exc, IllegalTransitionError):
         return (
-            "This draft has already been published or rejected, so it can no longer be "
-            "approved, rejected, or edited."
+            "This version is settled, so that action no longer applies to it. A "
+            "published JD cannot be approved or rejected again — but it CAN be "
+            "updated: use the Edit section to propose a new draft version. An "
+            "archived version (rejected, or superseded by a newer one) is kept for "
+            "provenance only; open the current version of this role to change it."
         )
     if isinstance(exc, GateOverrideError):
         return f"That override can't be applied: {exc}"

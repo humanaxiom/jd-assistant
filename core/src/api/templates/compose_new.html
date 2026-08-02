@@ -100,7 +100,18 @@
   {% endif %}
 
   {% if findings_items %}
+  {# When the gates already permit this draft, every remaining finding is advisory by
+     definition. Heading it "Fix these" beside a "ready for review" verdict is a
+     contradiction the author reads as "my draft is broken". #}
+  {% if assessment.approvable %}
+  <h3>Suggested improvements</h3>
+  <p class="meta">
+    Optional — these <strong>do not block review</strong>. This draft is ready to
+    submit as it is; the notes below would simply make it stronger.
+  </p>
+  {% else %}
   <h3>Fix these</h3>
+  {% endif %}
   <ul>
     {% for item in findings_items %}
     <li>

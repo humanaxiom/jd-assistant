@@ -99,13 +99,14 @@ def _packet(
     canonical_id: uuid.UUID | None = None,
     blocking: tuple[GateReason, ...] = (),
     approved: bool | None = None,
+    status: CanonicalStatus = CanonicalStatus.DRAFT,
 ) -> ReviewPacket:
     resolved_approved = approved if approved is not None else not blocking
     return ReviewPacket(
         canonical_id=canonical_id or uuid.uuid4(),
         cluster_id=uuid.uuid4(),
         version=1,
-        status=CanonicalStatus.DRAFT,
+        status=status,
         content={"title": "Software Developer"},
         change_log={
             "harmonization_diff": {
@@ -270,6 +271,62 @@ def test_detail_with_a_non_overridable_gate_guides_to_edit_not_override(
     # The guidance jumps straight to the Edit form (which carries the anchor).
     assert 'href="#edit"' in body
     assert 'id="edit"' in body
+
+
+def test_detail_of_a_published_jd_offers_an_update_not_approve_or_reject(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A published JD is editable but not re-approvable, and the page must say so.
+
+    Offering Approve/Reject on a published row is a dead end — the service refuses both
+    — so the page showed buttons that could only produce an error. The Edit affordance
+    stays, reframed: it proposes an update as a new draft."""
+    session = FakeSession()
+    client = make_client(session)
+    packet = _packet(status=CanonicalStatus.PUBLISHED)
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+
+    body = client.get(f"/jd-bank/ui/review/{packet.canonical_id}").text
+
+    assert f"/review/{packet.canonical_id}/approve" not in body
+    assert f"/review/{packet.canonical_id}/reject" not in body
+    # ...but the edit form is still there, and framed as an update.
+    assert f"/review/{packet.canonical_id}/edit" in body
+    assert "Propose an update" in body
+    assert "stays published" in body
+
+
+def test_detail_of_an_archived_jd_offers_no_action_at_all(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ARCHIVED is settled — rejected or superseded. Every action would raise, so the
+    page offers none of them rather than three buttons that cannot work."""
+    session = FakeSession()
+    client = make_client(session)
+    packet = _packet(status=CanonicalStatus.ARCHIVED)
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+
+    body = client.get(f"/jd-bank/ui/review/{packet.canonical_id}").text
+
+    assert f"/review/{packet.canonical_id}/approve" not in body
+    assert f"/review/{packet.canonical_id}/reject" not in body
+    assert f"/review/{packet.canonical_id}/edit" not in body
+
+
+def test_detail_of_a_draft_still_offers_all_three_actions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Blast-radius guard: the normal review path is unchanged."""
+    session = FakeSession()
+    client = make_client(session)
+    packet = _packet()
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+
+    body = client.get(f"/jd-bank/ui/review/{packet.canonical_id}").text
+
+    assert f"/review/{packet.canonical_id}/approve" in body
+    assert f"/review/{packet.canonical_id}/reject" in body
+    assert f"/review/{packet.canonical_id}/edit" in body
 
 
 def test_detail_unknown_id_returns_404(monkeypatch: pytest.MonkeyPatch) -> None:

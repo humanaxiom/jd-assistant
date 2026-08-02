@@ -196,6 +196,107 @@ def test_section_table_explains_why_a_section_needs_attention() -> None:
     assert "the template asks for" in sections_block
 
 
+def _approvable_assessment_with_a_low_finding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Patch the Builder's assessment to the reported state: a draft the gates PERMIT
+    ("ready for review") that still carries an advisory ``low`` finding.
+
+    Reproduces cloning an approved harmonized role — the clone of the published "AV
+    Systems Analyst" scores 89.05/B/ready-for-review with three ``[low]`` nits, and the
+    panel headed them "Fix these" and painted the section red, which reads as a broken
+    clone. Patched rather than form-built so the test pins the PRESENTATION rule (the
+    thing being changed) and not the rulebook's severity assignments.
+    """
+    from src.jd_bank.composer.validate import assess_draft as real_assess
+
+    def _approvable(*args: object, **kwargs: object) -> object:
+        assessment = real_assess(*args, **kwargs)  # type: ignore[arg-type]
+        low_only = [
+            issue for issue in assessment.report.issues if issue.severity == "low"
+        ]
+        report = assessment.report.model_copy(
+            update={
+                "issues": low_only,
+                "gate_decision": assessment.report.gate_decision.model_copy(
+                    update={"approved": True, "blocking": []}
+                ),
+            }
+        )
+        sections = tuple(
+            (
+                section.model_copy(
+                    update={
+                        "state": "needs_attention" if section.issues else section.state,
+                        "issues": tuple(
+                            i for i in section.issues if i.severity == "low"
+                        ),
+                    }
+                )
+                if any(i.severity == "low" for i in section.issues)
+                else section.model_copy(update={"state": "ok", "issues": ()})
+            )
+            for section in assessment.sections
+        )
+        return assessment.model_copy(
+            update={
+                "report": report,
+                "sections": sections,
+                "guidance": (),
+                "findings": tuple(low_only),
+                "approvable": True,
+            }
+        )
+
+    monkeypatch.setattr(compose_ui, "assess_draft", _approvable)
+
+
+def test_an_approvable_draft_frames_findings_as_suggestions_not_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A draft the gates already PERMIT must not be shouted at.
+
+    "Fix these" plus a red badge on a draft the same panel calls "ready for review" is
+    a contradiction, and it is how a perfectly good clone of an approved role reads as
+    broken. When nothing blocks, the remaining findings are advisory by definition."""
+    _approvable_assessment_with_a_low_finding(monkeypatch)
+    summary = " ".join(["word"] * 40)
+    html = (
+        _client()
+        .post(
+            "/jd-bank/ui/compose/new",
+            data={"title": "AV Systems Analyst", "position_summary": summary},
+        )
+        .text
+    )
+
+    assert "ready for review" in html
+    assert "Fix these" not in html
+    assert "Suggested improvements" in html
+    assert "do not block review" in html
+    # The section flag is advisory, not the red "blocked" badge.
+    assert "Suggestion" in html
+    assert "badge blocked" not in html
+
+
+def test_a_blocked_draft_still_says_fix_these(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Blast-radius guard: when a gate really does block, the panel keeps the
+    imperative and the red badge. Softening THAT would be the actual bug."""
+    summary = " ".join(["word"] * 40)  # a bare draft: no duties, no qualifications
+    html = (
+        _client()
+        .post(
+            "/jd-bank/ui/compose/new",
+            data={"title": "Analyst", "position_summary": summary},
+        )
+        .text
+    )
+
+    assert "not approvable yet" in html
+    assert "Fix these" in html
+    assert "Suggested improvements" not in html
+
+
 def test_section_rows_link_down_to_their_form_fields() -> None:
     """Each section in the panel links to its fields in the form (anchor jump), so an
     author can go straight from a flagged section to where they fix it."""

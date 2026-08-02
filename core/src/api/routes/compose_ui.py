@@ -133,6 +133,19 @@ _SKILL_MODIFIER_ORDER = ("basic", "intermediate", "advanced", "expert")
 #: state -> the badge class defined in ``_base.html``.
 _STATE_BADGE = {"ok": "ok", "needs_attention": "blocked", "empty": "muted"}
 
+#: The same map for a draft the gates already PERMIT. When nothing blocks, every
+#: remaining finding is advisory BY DEFINITION — so a red "blocked" badge and a "Fix
+#: these" imperative on a draft the same panel calls "ready for review" contradict each
+#: other, and that contradiction is how a good clone of an approved role reads as
+#: broken. (Reported case: cloning the published "AV Systems Analyst" — 89.05/B/ready
+#: for review, three `low` nits, all of them present on the JD when HR approved it.)
+_APPROVABLE_STATE_BADGE = {"ok": "ok", "needs_attention": "warn", "empty": "muted"}
+_APPROVABLE_STATE_LABEL = {
+    "ok": "OK",
+    "needs_attention": "Suggestion",
+    "empty": "Not started",
+}
+
 #: state -> a human label for the section table. The raw enum ``needs_attention`` is
 #: jargon that tells the author nothing; the panel pairs this with the section's own
 #: ``issues`` (rendered underneath) so "what to fix" is right next to the flag.
@@ -498,8 +511,18 @@ def _context(
         "inclusive_meter": _inclusive_meter(assessment),
         "error": error,
         "boilerplate_checked": boilerplate_checked,
-        "state_badge": _STATE_BADGE,
-        "state_label": _STATE_LABEL,
+        # `assessment` is None before the author's first check — no panel renders, so
+        # either map is unused; fall back to the strict one rather than assert.
+        "state_badge": (
+            _APPROVABLE_STATE_BADGE
+            if assessment is not None and assessment.approvable
+            else _STATE_BADGE
+        ),
+        "state_label": (
+            _APPROVABLE_STATE_LABEL
+            if assessment is not None and assessment.approvable
+            else _STATE_LABEL
+        ),
         # The exact answers this assessment was built from, JSON-encoded, so the
         # "Submit for review" form can carry them in one hidden field and /submit
         # rebuilds the identical draft (no fragile per-field round-trip).

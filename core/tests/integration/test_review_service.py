@@ -72,6 +72,7 @@ from src.jd_bank.review import (
     reject,
 )
 from src.jd_core.models.parsed_jd import (
+    JobClassification,
     SFUDuty,
     SFUJobDescription,
     SFUQualification,
@@ -682,7 +683,11 @@ async def test_a_published_canonical_cannot_be_approved_again(
     session_maker: async_sessionmaker[AsyncSession],
 ) -> None:
     """Stale-status pin — no double-publish. A PUBLISHED (or ARCHIVED) canonical is a
-    settled decision; approving/rejecting it raises IllegalTransitionError."""
+    settled *approval* decision; approving/rejecting it raises IllegalTransitionError.
+
+    EDIT is deliberately not in this list — see
+    ``test_a_published_canonical_can_be_edited_into_a_new_draft``. Re-publishing is
+    settled; the CONTENT is not frozen forever."""
     async with session_maker() as session:
         published = await _seed_canonical(
             session,
@@ -701,10 +706,92 @@ async def test_a_published_canonical_cannot_be_approved_again(
             await approve(session, pid, reviewer_id=REVIEWER)
         with pytest.raises(IllegalTransitionError):
             await reject(session, aid, reviewer_id=REVIEWER, reason="x")
+        await session.commit()
+
+    async with session_maker() as session:
+        assert (await session.get(CanonicalJD, pid)).status is CanonicalStatus.PUBLISHED
+        assert (await session.get(CanonicalJD, aid)).status is CanonicalStatus.ARCHIVED
+
+
+@pytest.mark.asyncio
+async def test_a_published_canonical_can_be_edited_into_a_new_draft(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """A published JD is not frozen — an approved role still needs corrections (the
+    reported case: adding an APSA grade to an already-approved harmonized role).
+
+    The edit does NOT mutate the published row. It mints a new DRAFT version that a
+    reviewer must approve (NN #1 — nothing auto-publishes), and **the prior version
+    stays PUBLISHED** so the Bank keeps serving the approved JD while its proposed
+    replacement is in review. Archiving it here would leave the cluster with no live
+    approved JD for the whole review window."""
+    async with session_maker() as session:
+        published = await _seed_canonical(
+            session,
+            content=_clean_jd().model_dump(mode="json"),
+            status=CanonicalStatus.PUBLISHED,
+        )
+        pid, cluster_id = published.id, published.cluster_id
+        await session.commit()
+
+        graded = _clean_jd()
+        graded.classification = JobClassification(
+            scheme="apsa", value="12", source="entered"
+        )
+        edited = await edit(
+            session,
+            pid,
+            reviewer_id=REVIEWER,
+            new_content=graded.model_dump(mode="json"),
+            reason="HR assigned APSA grade 12",
+        )
+        new_id = edited.id
+        await session.commit()
+
+    async with session_maker() as session:
+        prior = await session.get(CanonicalJD, pid)
+        assert prior is not None
+        # The live approved JD is untouched and still serving.
+        assert prior.status is CanonicalStatus.PUBLISHED
+
+        new_version = await session.get(CanonicalJD, new_id)
+        assert new_version is not None
+        assert new_version.status is CanonicalStatus.DRAFT
+        assert new_version.version == prior.version + 1
+        assert new_version.cluster_id == cluster_id
+        assert (new_version.content or {}).get("classification", {}).get(
+            "value"
+        ) == "12"
+
+        # The edit is a recorded human decision on the NEW version.
+        action = await session.scalar(
+            select(ReviewAction).where(ReviewAction.canonical_jd_id == new_id)
+        )
+        assert action is not None
+        assert action.action is ReviewActionKind.EDIT
+        assert action.reason == "HR assigned APSA grade 12"
+
+
+@pytest.mark.asyncio
+async def test_an_archived_canonical_still_cannot_be_edited(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """The guard did not simply go away. ARCHIVED means rejected or superseded — a
+    settled row kept for provenance, not an editing surface. Editing one would fork
+    history off a dead version."""
+    async with session_maker() as session:
+        archived = await _seed_canonical(
+            session,
+            content=_clean_jd().model_dump(mode="json"),
+            status=CanonicalStatus.ARCHIVED,
+        )
+        aid = archived.id
+        await session.commit()
+
         with pytest.raises(IllegalTransitionError):
             await edit(
                 session,
-                pid,
+                aid,
                 reviewer_id=REVIEWER,
                 new_content=_clean_jd().model_dump(mode="json"),
                 reason="x",
@@ -712,8 +799,57 @@ async def test_a_published_canonical_cannot_be_approved_again(
         await session.commit()
 
     async with session_maker() as session:
-        assert (await session.get(CanonicalJD, pid)).status is CanonicalStatus.PUBLISHED
         assert (await session.get(CanonicalJD, aid)).status is CanonicalStatus.ARCHIVED
+
+
+@pytest.mark.asyncio
+async def test_approving_an_updated_version_supersedes_the_prior_published_one(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """Exactly ONE live published version per cluster.
+
+    Editing a published JD leaves it published on purpose, so publishing its
+    replacement is the moment the old one retires. Without this the cluster would end
+    up with two PUBLISHED rows and "the approved JD" would stop having one answer."""
+    async with session_maker() as session:
+        v1 = await _seed_canonical(
+            session,
+            content=_clean_jd().model_dump(mode="json"),
+            status=CanonicalStatus.PUBLISHED,
+        )
+        v1_id, cluster_id = v1.id, v1.cluster_id
+        await session.commit()
+
+        v2 = await edit(
+            session,
+            v1_id,
+            reviewer_id=REVIEWER,
+            new_content=_clean_jd().model_dump(mode="json"),
+            reason="grade correction",
+        )
+        v2_id = v2.id
+        await session.commit()
+
+        await approve(session, v2_id, reviewer_id=REVIEWER)
+        await session.commit()
+
+    async with session_maker() as session:
+        assert (
+            await session.get(CanonicalJD, v2_id)
+        ).status is CanonicalStatus.PUBLISHED
+        assert (
+            await session.get(CanonicalJD, v1_id)
+        ).status is CanonicalStatus.ARCHIVED
+
+        live = (
+            await session.scalars(
+                select(CanonicalJD).where(
+                    CanonicalJD.cluster_id == cluster_id,
+                    CanonicalJD.status == CanonicalStatus.PUBLISHED,
+                )
+            )
+        ).all()
+        assert [row.id for row in live] == [v2_id]
 
 
 # --- acceptance #6: edit mints v2, supersedes v1, and the queue/producer see v2 -------

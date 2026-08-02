@@ -73,6 +73,36 @@
 </div>
 {% endif %}
 
+{# Which actions the service will actually accept for this status. Offering a button the
+   service refuses is a dead end that can only produce an error banner: a PUBLISHED row
+   rejects approve/reject but accepts an edit (which mints a new draft), and an ARCHIVED
+   row — rejected or superseded — accepts nothing. #}
+{% set is_published = packet.status.value == 'published' %}
+{% set is_archived = packet.status.value == 'archived' %}
+
+{% if is_published %}
+<div class="panel">
+  <h2>This is the published JD for this role</h2>
+  <p class="meta">
+    It is the approved version the JD Bank is serving. You can still
+    <a href="#edit">propose an update ↓</a> — for example to record a grade HR has since
+    assigned. That creates a <strong>new draft version</strong> for a reviewer to
+    approve; this version <strong>stays published</strong> until the update is approved,
+    so the Bank never goes without an approved JD for this role.
+  </p>
+</div>
+{% elif is_archived %}
+<div class="panel">
+  <h2>This version is archived</h2>
+  <p class="meta">
+    It was rejected, or superseded by a newer version. Archived versions are kept for
+    provenance and cannot be approved, rejected, or edited — open the current version of
+    this role to make a change.
+  </p>
+</div>
+{% endif %}
+
+{% if not is_published and not is_archived %}
 <div class="panel">
   <h2>Approve</h2>
   {% if packet.decision.approved %}
@@ -124,13 +154,22 @@
     <button type="submit" class="danger">Reject</button>
   </form>
 </div>
+{% endif %}
 
+{% if not is_archived %}
 <div class="panel" id="edit">
-  <h2>Edit</h2>
+  <h2>{% if is_published %}Propose an update{% else %}Edit{% endif %}</h2>
   <p class="meta">
+    {% if is_published %}
+    Change the fields below and save. This does not alter the published JD: it creates a
+    <strong>new draft version</strong> that a reviewer approves, and the current version
+    <strong>stays published</strong> in the meantime. Leave a blank duty or qualification
+    row empty to drop it.
+    {% else %}
     Edit the draft field by field. Saving creates a new draft version for review —
     nothing is published (a reviewer still approves). Leave a blank duty or
     qualification row empty to drop it.
+    {% endif %}
   </p>
   <form method="post" action="/jd-bank/ui/review/{{ packet.canonical_id }}/edit">
     <label for="edit-reason">Reason for this edit</label>
@@ -210,9 +249,10 @@
     <h3>10 · Additional context</h3>
     <textarea name="additional_context" rows="3">{{ edit.content.get('additional_context') or '' }}</textarea>
 
-    <button type="submit">Save edit</button>
+    <button type="submit">{% if is_published %}Save as a new draft version{% else %}Save edit{% endif %}</button>
   </form>
 </div>
+{% endif %}
 
 <p><a href="/jd-bank/ui/queue">← Back to queue</a></p>
 {% endblock %}

@@ -135,10 +135,28 @@ async def _get_for_update(session: AsyncSession, canonical_id: UUID) -> Canonica
 
 
 def _require_live_draft(canonical: CanonicalJD, *, action: str) -> None:
-    """A reviewer decision acts only on a live DRAFT. Approving/rejecting/editing a
+    """An approve/reject decision acts only on a live DRAFT. Approving or rejecting a
     canonical already published or archived is refused (no double-publish, no re-opening
     a settled decision)."""
     if canonical.status is not CanonicalStatus.DRAFT:
+        raise IllegalTransitionError(canonical.id, canonical.status, action)
+
+
+def _require_editable(canonical: CanonicalJD, *, action: str) -> None:
+    """An EDIT may act on a live DRAFT **or on the PUBLISHED version** — but never on an
+    ARCHIVED one.
+
+    Publishing is a settled decision; the CONTENT is not frozen for all time. An
+    approved role still needs corrections (the case that surfaced this: HR assigning
+    an APSA grade to an already-approved harmonized role), and refusing them pushes
+    that work outside the system — precisely what the audit trail exists to prevent.
+    The edit is still not a mutation of the published row and still cannot publish:
+    it mints a new DRAFT for a reviewer to approve (NN #1).
+
+    ARCHIVED stays refused. It means rejected or superseded — a settled row kept for
+    provenance, and editing one would fork a new version off dead history.
+    """
+    if canonical.status is CanonicalStatus.ARCHIVED:
         raise IllegalTransitionError(canonical.id, canonical.status, action)
 
 
@@ -313,6 +331,43 @@ async def approve(
         raise NotApprovableError(canonical_id, permitted)
 
     # PERMITTED — this is the one and only publish path.
+    #
+    # Retire any OTHER live published version of this cluster first. Editing a published
+    # JD leaves it published (so the Bank keeps serving an approved JD while the update
+    # is in review), which makes this the moment the old one retires. Without it the
+    # cluster would carry two PUBLISHED rows and "the approved JD" would stop having a
+    # single answer. Locked FOR UPDATE alongside the row being published so a concurrent
+    # approve cannot interleave and leave both live.
+    superseded = (
+        await session.scalars(
+            select(CanonicalJD)
+            .where(
+                CanonicalJD.cluster_id == canonical.cluster_id,
+                CanonicalJD.status == CanonicalStatus.PUBLISHED,
+                CanonicalJD.id != canonical.id,
+            )
+            .with_for_update()
+        )
+    ).all()
+    for previous in superseded:
+        previous.status = CanonicalStatus.ARCHIVED
+        session.add(
+            AuditLog(
+                event_type="review.superseded",
+                entity_type="canonical_jd",
+                entity_id=previous.id,
+                actor=reviewer_id,
+                payload={
+                    "cluster_id": str(canonical.cluster_id),
+                    "version": previous.version,
+                    "from_status": CanonicalStatus.PUBLISHED.value,
+                    "to_status": CanonicalStatus.ARCHIVED.value,
+                    "superseded_by_version": canonical.version,
+                    "superseded_by_id": str(canonical.id),
+                },
+            )
+        )
+
     canonical.status = CanonicalStatus.PUBLISHED
     canonical.change_log = {
         **(canonical.change_log or {}),
@@ -480,7 +535,8 @@ async def edit(
     rulebook = rules if rules is not None else get_rules()
 
     prior = await _get_for_update(session, canonical_id)
-    _require_live_draft(prior, action="edit")
+    _require_editable(prior, action="edit")
+    was_published = prior.status is CanonicalStatus.PUBLISHED
 
     # Re-validate the edited content (validator-as-oracle) — a malformed edit fails
     # here.
@@ -506,6 +562,7 @@ async def edit(
             ),
             "edit": {
                 "from_version": prior.version,
+                "from_status": prior.status.value,
                 "reviewer_id": reviewer_id,
                 "reason": written,
             },
@@ -515,8 +572,12 @@ async def edit(
     session.add(edited)
     await session.flush()  # assign edited.id
 
-    # Supersede the prior version — off the queue, kept for provenance.
-    prior.status = CanonicalStatus.ARCHIVED
+    # Supersede the prior version — off the queue, kept for provenance. A PUBLISHED
+    # prior is deliberately LEFT PUBLISHED: it is the approved JD the Bank is serving,
+    # and archiving it here would leave the cluster with no live approved version for
+    # the whole review window. It retires when its replacement is approved (`approve`).
+    if not was_published:
+        prior.status = CanonicalStatus.ARCHIVED
 
     session.add(
         # The EDIT action lands on the NEW version — that is what marks v2 a human
