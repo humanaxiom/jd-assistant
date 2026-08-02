@@ -754,7 +754,14 @@ def test_edit_reconstructs_full_faithful_content_and_redirects(
     # Every scalar/boolean survives — not just the edited title.
     assert content["title"] == "Updated Title"
     assert content["position_number"] == "AP-1234"
-    assert content["grade"] == "J"
+    # The Grade field drives the structured classification (scheme from employee_group,
+    # source=entered); the legacy free-string grade is deprecated -> None.
+    assert content["grade"] is None
+    assert content["classification"] == {
+        "scheme": "apsa",
+        "value": "J",
+        "source": "entered",
+    }
     assert content["employee_group"] == "apsa"
     assert content["about_sfu_present"] is True
     assert content["territorial_acknowledgement_present"] is True
@@ -885,6 +892,7 @@ def test_edit_empty_optional_scalars_become_none(
     content = mock.await_args.kwargs["new_content"]
     assert content["department"] is None
     assert content["grade"] is None
+    assert content["classification"] is None  # blank Grade -> no classification
     assert content["position_number"] is None
 
 

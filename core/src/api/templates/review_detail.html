@@ -143,8 +143,8 @@
     <input id="e-position_number" name="position_number" value="{{ edit.content.get('position_number') or '' }}">
     <label for="e-department">Department</label>
     <input id="e-department" name="department" value="{{ edit.content.get('department') or '' }}">
-    <label for="e-grade">Grade</label>
-    <input id="e-grade" name="grade" value="{{ edit.content.get('grade') or '' }}">
+    <label for="e-grade">Pay grade / classification (on the employee-group scale)</label>
+    <input id="e-grade" name="grade" value="{{ (edit.content.get('classification') or {}).get('value') or '' }}">
     <label for="e-employee_group">Employee group</label>
     <select id="e-employee_group" name="employee_group">
       <option value="">—</option>

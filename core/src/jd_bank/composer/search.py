@@ -85,6 +85,7 @@ def jd_to_answers(jd: SFUJobDescription) -> ComposerAnswers:
         title=jd.title,
         department=jd.department,
         employee_group=jd.employee_group,
+        grade=jd.classification.value if jd.classification is not None else None,
         position_summary=jd.position_summary,
         duties=[
             DutyAnswer(action_verb=d.action_verb, statement=d.statement)

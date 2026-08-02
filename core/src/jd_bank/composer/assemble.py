@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from src.jd_bank.composer.answers import ComposerAnswers, DutyAnswer, ModifiedQual
 from src.jd_core.models.parsed_jd import (
+    JobClassification,
     QualificationKind,
     SFUDuty,
     SFUJobDescription,
@@ -116,6 +117,18 @@ def _relationships(
     )
 
 
+def _classification(answers: ComposerAnswers) -> JobClassification | None:
+    """The author-entered grade as a structured classification, or ``None`` when blank.
+    The scheme is the ``employee_group`` scale (``"unknown"`` if unset); ``source`` is
+    ``"entered"`` — the author is the authority for a composed draft's grade."""
+    value = (answers.grade or "").strip()
+    if not value:
+        return None
+    return JobClassification(
+        scheme=answers.employee_group or "unknown", value=value, source="entered"
+    )
+
+
 def assemble_jd(
     answers: ComposerAnswers, *, rules: Rules | None = None
 ) -> SFUJobDescription:
@@ -132,6 +145,7 @@ def assemble_jd(
     return SFUJobDescription(
         title=answers.title.strip() or "Untitled role",
         department=(answers.department or "").strip() or None,
+        classification=_classification(answers),
         employee_group=answers.employee_group,
         about_sfu_present=boilerplate,
         position_summary=(answers.position_summary or "").strip() or None,

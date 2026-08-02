@@ -197,6 +197,18 @@ def _relationships_dict(pairs: list[tuple[str, str]]) -> dict[str, Any] | None:
     return {"supervisory": supervisory, "internal": internal, "external": external}
 
 
+def _classification_from_form(pairs: list[tuple[str, str]]) -> dict[str, Any] | None:
+    """The reviewer-entered grade as a structured classification dict, or ``None`` when
+    blank. The scheme is the ``employee_group`` scale (``"unknown"`` if unset); a
+    reviewer setting a grade is the authority, so ``source="entered"``. Returned as a
+    plain dict — ``service.edit`` re-validates it via ``SFUJobDescription`` (NN #3)."""
+    value = _first(pairs, "grade").strip()
+    if not value:
+        return None
+    group = _scalar_or_none(pairs, "employee_group")
+    return {"scheme": group or "unknown", "value": value, "source": "entered"}
+
+
 def _content_from_form(pairs: list[tuple[str, str]]) -> dict[str, Any]:
     """Reconstruct the COMPLETE ``SFUJobDescription`` content dict from the structured
     edit form. EVERY field is rebuilt, so editing one section never silently drops
@@ -208,12 +220,10 @@ def _content_from_form(pairs: list[tuple[str, str]]) -> dict[str, Any]:
         "title": _first(pairs, "title").strip(),
         "position_number": _scalar_or_none(pairs, "position_number"),
         "department": _scalar_or_none(pairs, "department"),
-        "grade": _scalar_or_none(pairs, "grade"),
-        # The structured grade/classification is not editable in the review form yet
-        # (Phase B of the grade-capture plan). Reconstruct it as None so the round-trip
-        # stays COMPLETE; canonical drafts carry no classification today, so this drops
-        # nothing. When Phase B adds a Grade editor here, carry it through instead.
-        "classification": None,
+        # The legacy free-string ``grade`` is deprecated (parser noise); the Grade field
+        # now drives the STRUCTURED classification (Phase B), so it is cleared here.
+        "grade": None,
+        "classification": _classification_from_form(pairs),
         "employee_group": _scalar_or_none(pairs, "employee_group"),
         "about_sfu_present": _first(pairs, "about_sfu_present") == "on",
         "position_summary": _scalar_or_none(pairs, "position_summary"),

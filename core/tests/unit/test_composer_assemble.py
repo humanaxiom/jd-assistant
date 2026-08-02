@@ -54,6 +54,21 @@ def _full_answers() -> ComposerAnswers:
     )
 
 
+def test_grade_answer_assembles_into_a_structured_classification() -> None:
+    """An author-entered grade becomes a structured JobClassification — scheme from the
+    employee group, source=entered (the author is the authority for a draft)."""
+    answers = _full_answers().model_copy(update={"grade": "8"})
+    jd = assemble_jd(answers)
+    assert jd.classification is not None
+    assert jd.classification.scheme == "apsa"
+    assert jd.classification.value == "8"
+    assert jd.classification.source == "entered"
+
+
+def test_no_grade_answer_leaves_classification_none() -> None:
+    assert assemble_jd(_full_answers()).classification is None
+
+
 def test_a_full_answer_set_assembles_into_an_approvable_jd() -> None:
     jd = assemble_jd(_full_answers())
     assessment = assess_draft(jd)

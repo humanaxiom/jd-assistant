@@ -58,9 +58,14 @@ docx filenames I can't open"). All read-only (NN #1), no rulebook/GPU change, `m
   (2,322 CUPE + 1), values 3–12, 0 errors** (idempotent; parser_version + downstream untouched).
   (2) **Grade-scale decision recorded** for HR in `docs/decisions/grade-scales.md` (the config-level
   `grades.yaml` + register is deferred until HR fills the real per-group scales — encoding guessed
-  scales into the drift-checked register would block the build). **STILL TO DO:** Builder + review
-  Grade entry (Phase B, step 3); HRIS `position_number→grade` import (Phase C, step 4, needs the
-  export + FIPPA); surface Grade with provenance in the library/reader (step 5).
+  scales into the drift-checked register would block the build).
+- **Grade capture Step 3 (Phase B) DONE — grade ENTRY, both surfaces.** `ComposerAnswers.grade` +
+  `assemble._classification` (scheme from `employee_group`, `source="entered"`) → the Builder gained
+  a Grade question; `jd_to_answers` carries it on clone. Reviewer edit: the Grade field now drives
+  the STRUCTURED `classification` (`ui._classification_from_form`), and the legacy free-string
+  `grade` is deprecated (set None). `make gates` **1963 passing, 93.59%**. **STILL TO DO:** HRIS
+  `position_number→grade` import (Phase C, step 4, needs the export + FIPPA); surface Grade with
+  provenance in the library/reader (step 5).
 - **On a branch, fast-forwarded to `main`** (CI still billing-blocked → local merge per ADR-006).
   Committed as ONE gates-green unit (the three parts interleave across shared templates/tests, so a
   per-part split would produce non-green intermediate commits — NN #4). Memories written:

@@ -49,6 +49,11 @@ class ComposerAnswers(BaseModel):
     title: str = Field(default="", max_length=200)
     department: str | None = Field(default=None, max_length=200)
     employee_group: SFUEmployeeGroup | None = None
+    #: The pay grade / classification VALUE the author enters (e.g. "8"). Its scheme is
+    #: the ``employee_group`` scale; the assembler builds a ``JobClassification`` with
+    #: ``source="entered"``. Blank -> no classification (grade lives in the HRIS for
+    #: most JDFN roles — see docs/decisions/grade-scales.md).
+    grade: str | None = Field(default=None, max_length=50)
     # 3. Position Summary
     position_summary: str | None = Field(default=None, max_length=4000)
     # 4. Duties

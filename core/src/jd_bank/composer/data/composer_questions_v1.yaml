@@ -42,6 +42,15 @@ questions:
       roles use a different instrument.
     target: employee_group
     required: false
+  - id: grade
+    section: identification
+    prompt: What is the pay grade / classification? (if known)
+    hint: >-
+      The grade on the employee group's scale (e.g. an APSA salary grade). Often assigned
+      after authoring — leave blank if not yet graded. Advisory only; see the grade-scale
+      decision (docs/decisions/grade-scales.md).
+    target: grade
+    required: false
 
   # --- 3. Position Summary ---------------------------------------------------------
   - id: position_summary

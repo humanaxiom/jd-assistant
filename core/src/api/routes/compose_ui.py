@@ -100,7 +100,7 @@ _SECTION_LABELS: dict[SFUSection, str] = {
 }
 
 #: How each ``ComposerAnswers`` target is rendered as a form control and read back.
-_SCALAR_TARGETS = {"title", "department", "supervisory"}
+_SCALAR_TARGETS = {"title", "department", "grade", "supervisory"}
 _TEXTAREA_TARGETS = {"position_summary", "additional_context"}
 _STRING_LIST_TARGETS = {
     "decision_making",
@@ -343,6 +343,7 @@ def _values_from_answers(answers: ComposerAnswers) -> dict[str, str]:
     for target, scalar in (
         ("title", answers.title),
         ("department", answers.department),
+        ("grade", answers.grade),
         ("employee_group", answers.employee_group),
         ("position_summary", answers.position_summary),
         ("supervisory", answers.supervisory),
