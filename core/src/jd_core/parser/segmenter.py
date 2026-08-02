@@ -54,7 +54,20 @@ from src.jd_core.parser.headings import Era, SectionKey
 #: This is a genuine parser change — a WJQ file that read as ~empty under v1 now parses
 #: to real content — so the version moves to force the archive re-parse the orchestrator
 #: runs (``parsed_jds`` is keyed on ``(source_document_id, parser_version)``).
-PARSER_VERSION = "jd_segmenter_v2"
+#:
+#: Bumped v2 -> v3 for the identification-block fix: the modern SFU template keeps its
+#: whole identification table in the docx *header*, which extraction excluded, so
+#: :func:`_fallback_title` took the first body paragraph as the title. Extraction now
+#: recovers that block (``jd_bank.ingest.extract._docx_identification_block``) and a
+#: UTF-16 BOM decodes instead of falling through to latin-1. Measured over all 14,565
+#: archive files, v2 -> v3: paragraph titles **4,986 -> 148**, ``position_number``
+#: 34.8% -> 68.3%, ``employee_group`` 35.6% -> 68.1%, ``department`` 49.9% -> 60.8%,
+#: structured ``classification`` 2,323 -> 3,049 (the first APSA/APEX grades the Bank
+#: has ever parsed). The 874-JD baseline cohort is UNCHANGED by this (it scores content,
+#: not identification); the only score-side movement is title-keyed gates finally seeing
+#: a title. Same reasoning as v1 -> v2: the stored parse genuinely differs, so the
+#: version moves to force the re-parse.
+PARSER_VERSION = "jd_segmenter_v3"
 
 #: Which SFU document template ``parse_jd`` read: the APSA/APEX/POLY "JDFN" form (the
 #: original segmenter), the CUPE/WJQ questionnaire, or neither recognisably.

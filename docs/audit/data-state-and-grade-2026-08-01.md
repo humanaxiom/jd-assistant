@@ -15,6 +15,48 @@ measured state and plans capture.
 > about the archive is checked against the archive). Every number below is reproducible
 > against the live DB / archive.
 
+> ## ⚠️ SUPERSEDED IN PART (2026-08-02) — parser `jd_segmenter_v3`
+>
+> **This audit measured `parsed_jds` at `jd_segmenter_v2`, and v2 could not see the docx
+> header.** §9 correctly named parser quality as the common upstream cause; that cause has
+> since been found and fixed, and it was bigger than this document assumed. The modern SFU
+> template keeps its *entire* identification table — `Position Title:`, `Position #:`,
+> `Department:`, `Employee Group:`, `Grade:` — in `header*.xml`, and extraction walked the
+> document body only. Measured over all 14,565 files: **4,968 of 9,948 `.docx` carry
+> `Position Title:` in the header and in no body line.**
+>
+> **Two conclusions below are now WRONG and must not be quoted:**
+>
+> 1. **"APSA grade 1–15 is not extracted anywhere / 0 of 600 in text."** It is stated in the
+>    header of **876 documents**; v3 parses **687 APSA + 34 APEX** structured grades. The
+>    audit looked only at body text. (`docs/decisions/grade-scales-hr-ask.md` was corrected
+>    to match.)
+> 2. **"34.4% look like a paragraph"** (§2) was a real defect and is now **1.0%** (148 of
+>    14,522) — and most of that residual is legitimately long titles, not parse failures.
+>
+> **Corrected field completeness at v3** (same 14,522 rows, same queries):
+>
+> | Field | v2 | v3 |
+> |---|---:|---:|
+> | paragraph-shaped `title` | 4,986 (34.3%) | **148 (1.0%)** |
+> | `position_number` | 5,049 (34.8%) | **9,921 (68.3%)** |
+> | `employee_group` | 5,171 (35.6%) | **9,892 (68.1%)** |
+> | `department` | 7,245 (49.9%) | **8,830 (60.8%)** |
+> | structured `classification` | 2,323 (CUPE only) | **3,049** (+687 APSA, +34 APEX, +6 unknown) |
+>
+> **What v3 does NOT fix, so it is not over-claimed:** the **2,053 `"Untitled Position"`**
+> rows are unchanged — those are CUPE/WJQ questionnaires, which carry identification in a
+> body table, not a docx header (that is the separate WJQ workstream). The oldest legacy
+> `.doc` files still take a weak fallback title (banner text or a bare position number,
+> ~135 documents). Counting every failure mode, unusable titles went from **~50% to ~16%**,
+> and 2,053 of that remaining 16% is the known WJQ gap.
+>
+> **What still stands:** the legacy free-string `grade` field is still unusable (§4) — it is
+> now *more* populated (430 → 1,297) because it also picks up the real header grades, but it
+> remains superseded by structured `classification`. The plan in §§6–8 (Builder/review entry,
+> HRIS import, surfacing with provenance) shipped as described. The HRIS join key is now
+> **68%** populated rather than 35%, which materially improves the import's reach.
+
 ---
 
 ## 1. Store inventory

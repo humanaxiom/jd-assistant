@@ -17,19 +17,23 @@ import pytest
 from docx import Document
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls
+from docx.shared import Inches
 
 from src.jd_bank.db.models import DocumentFormat
 from src.jd_bank.ingest import extract as extract_mod
 from src.jd_bank.ingest.extract import (
+    IDENTIFICATION_MARKER,
     MAX_DOCUMENT_BYTES,
     DocumentTooLargeError,
     ExtractionError,
     UnsupportedFormatError,
+    _iter_docx_block_text,
     extract_text,
     extract_text_from_path,
     stream_sha256,
 )
 from src.jd_bank.ingest.ingest import compute_sha256
+from src.jd_core.parser import parse_jd
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
@@ -82,6 +86,20 @@ def test_extract_txt_tolerant_decode() -> None:
     text = extract_text("Café résumé — Analyst\n".encode(), DocumentFormat.TXT)
     assert "Café résumé" in text
     assert "Analyst" in text
+
+
+def test_extract_txt_utf16_bom_is_not_read_as_latin1() -> None:
+    """latin-1 decodes ANY byte sequence, so a UTF-16 file that is not recognised up
+    front does not fail — it silently becomes mojibake. Measured on the archive: 24
+    UTF-16LE ``.txt`` exports decoded to ``ÿþP%P%P%…``, losing the entire document."""
+    blob = "═════ Job Profiles\nSecretary, grade 7\n".encode("utf-16")
+    assert blob[:2] == b"\xff\xfe"  # the BOM that broke the old ladder
+
+    text = extract_text(blob, DocumentFormat.TXT)
+    assert "Job Profiles" in text
+    assert "Secretary, grade 7" in text
+    assert "ÿþ" not in text
+    assert "P%" not in text
 
 
 def test_extract_txt_latin1_fallback() -> None:
@@ -294,25 +312,33 @@ def test_extract_docx_empty_document_extracts_to_empty_string() -> None:
     assert text == ""
 
 
-def test_extract_docx_excludes_headers_and_footers() -> None:
-    """BODY ONLY — a hard invariant. HANDOFF records that for this corpus the
-    territorial acknowledgement lives in the document *body* (``document.xml``),
-    NOT in ``footer*.xml``, and that the whole validation/HR baseline reads body
-    text — so pulling header/footer text in would silently MOVE HR numbers.
+def test_extract_docx_excludes_header_prose_and_all_footers() -> None:
+    """BODY ONLY, with ONE measured exception — see the identification-block
+    tests below.
 
-    The walk is over ``doc.element.body``, which structurally cannot reach the
-    header/footer parts, so no mutation is needed to make this meaningful: it is
-    a guard against a future well-meaning change that adds ``doc.sections``
-    traversal. Both sentinels round-trip into the saved file (asserted via the
-    parts) but must be absent from the extracted text.
+    The original invariant was *body only, unconditionally*: for this corpus the
+    territorial acknowledgement lives in the document body (``document.xml``), not
+    in ``footer*.xml``, and the whole validation/HR baseline reads body text — so
+    hauling header/footer prose in would move HR numbers for no gain.
+
+    That still holds for **prose**. What it wrongly excluded was the modern SFU
+    template's *identification table*, which lives only in ``header*.xml``
+    (measured: 4,968 of 9,948 archive ``.docx`` carry ``Position Title:`` in the
+    header and nowhere in the body) — the root cause of the 34% paragraph-titles
+    defect. So the rule is now: header **prose** is excluded, footers are excluded
+    entirely, and a header is admitted *only* when it carries the template's
+    identification labels.
+
+    This test pins the exclusion half; ``test_extract_docx_identification_block_*``
+    pins the exception.
     """
     doc = Document()
     doc.add_paragraph("BODY_SENTINEL")
     section = doc.sections[0]
     section.header.is_linked_to_previous = False
-    section.header.paragraphs[0].text = "HEADER_SENTINEL"
+    section.header.paragraphs[0].text = "HEADER_SENTINEL"  # prose, no labels
     section.footer.is_linked_to_previous = False
-    section.footer.paragraphs[0].text = "FOOTER_SENTINEL"
+    section.footer.paragraphs[0].text = "Position Title: FOOTER_SENTINEL"
     buf = BytesIO()
     doc.save(buf)
     blob = buf.getvalue()
@@ -320,12 +346,226 @@ def test_extract_docx_excludes_headers_and_footers() -> None:
     # The sentinels really are in the document (guards the test itself).
     reloaded = Document(BytesIO(blob))
     assert reloaded.sections[0].header.paragraphs[0].text == "HEADER_SENTINEL"
-    assert reloaded.sections[0].footer.paragraphs[0].text == "FOOTER_SENTINEL"
+    assert "FOOTER_SENTINEL" in reloaded.sections[0].footer.paragraphs[0].text
 
     text = extract_text(blob, DocumentFormat.DOCX)
     assert "BODY_SENTINEL" in text
     assert "HEADER_SENTINEL" not in text
+    # A footer is excluded even when it carries an identification label — the
+    # corpus keeps only revision dates there, and appending them would land in
+    # whichever body section happens to be last (7,171 .docx have footer text).
     assert "FOOTER_SENTINEL" not in text
+
+
+# ── identification block recovered from the docx header (the 34% defect) ────
+#
+# Measured over all 14,565 archive files: 4,968 `.docx` carry `Position Title:`
+# ONLY in `header*.xml` — zero of them repeat it in the body. Those are exactly
+# the documents whose title parsed as a paragraph, because the segmenter found no
+# title label and fell back to the first content line (the About-SFU banner or the
+# Position Summary prose). The header also carries `Position #:` (4,900),
+# `Employee Group:` (4,542), `Department:` (1,380) and `Grade:` (851) — the same
+# fields measured as missing/garbage in
+# `docs/audit/data-state-and-grade-2026-08-01.md`.
+
+
+def _docx_bytes_with_header_id_table(
+    rows: list[list[str]],
+    *,
+    body: tuple[str, ...] = ("POSITION SUMMARY", "The Executive Assistant supports."),
+    first_page: bool = True,
+) -> bytes:
+    """A .docx shaped like the modern SFU template: a two-column identification
+    table in the (first-page) header, and a body that starts at POSITION SUMMARY."""
+    doc = Document()
+    for line in body:
+        doc.add_paragraph(line)
+    section = doc.sections[0]
+    if first_page:
+        section.different_first_page_header_footer = True
+    header = section.first_page_header if first_page else section.header
+    header.is_linked_to_previous = False
+    table = header.add_table(rows=len(rows), cols=len(rows[0]), width=Inches(6))
+    for r, row in enumerate(rows):
+        for c, cell_text in enumerate(row):
+            table.cell(r, c).text = cell_text
+    buf = BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+_ID_ROWS = [
+    ["Position Title:", "Executive Assistant to the Vice-President"],
+    ["Position #:", "00100537"],
+    ["Department:", "VP Advancement and Alumni Engagement"],
+    ["Employee Group:", "APSA"],
+    ["Grade:", "12"],
+]
+
+
+def test_extract_docx_identification_block_is_invisible_to_a_body_only_walk() -> None:
+    """Pins the DEFECT: the identification table is genuinely unreachable from
+    ``doc.element.body``. If this goes red the fix below is not testing what it
+    claims to."""
+    blob = _docx_bytes_with_header_id_table(_ID_ROWS)
+    doc = Document(BytesIO(blob))
+    body_only = "\n".join(t for t in _iter_docx_block_text(doc.element.body) if t)
+    assert "Executive Assistant to the Vice-President" not in body_only
+    assert "00100537" not in body_only
+
+
+def test_extract_docx_identification_block_recovered_as_label_value_lines() -> None:
+    """Each header table ROW collapses to ONE ``Label: value`` line — the shape
+    the segmenter's identification regexes read. Cell-per-line (what the body walk
+    produces) would put the label and its value on separate lines, where those
+    regexes cannot see them."""
+    text = extract_text(_docx_bytes_with_header_id_table(_ID_ROWS), DocumentFormat.DOCX)
+    assert "Position Title: Executive Assistant to the Vice-President" in text
+    assert "Position #: 00100537" in text
+    assert "Department: VP Advancement and Alumni Engagement" in text
+    assert "Employee Group: APSA" in text
+    assert "Grade: 12" in text
+
+
+def test_extract_docx_identification_block_is_marked_and_leads_the_document() -> None:
+    """The block is emitted under the canonical IDENTIFICATION heading, first.
+
+    The marker is what scopes the identification-field extraction to this block
+    instead of the whole document — the defect behind the 430 garbage ``grade``
+    values ('Effective Date: February', 'Assistant'), which were captured by a
+    ``Grade:`` regex run over the entire text."""
+    text = extract_text(_docx_bytes_with_header_id_table(_ID_ROWS), DocumentFormat.DOCX)
+    assert text.startswith(IDENTIFICATION_MARKER + "\n")
+    assert text.index("Position Title:") < text.index("POSITION SUMMARY")
+
+
+def test_extract_docx_identification_block_read_from_a_plain_header_too() -> None:
+    """Not every template uses a distinct first-page header."""
+    text = extract_text(
+        _docx_bytes_with_header_id_table(_ID_ROWS, first_page=False),
+        DocumentFormat.DOCX,
+    )
+    assert "Position Title: Executive Assistant to the Vice-President" in text
+
+
+def test_extract_docx_running_header_page_furniture_stays_excluded() -> None:
+    """A one-label header is page furniture, not an identification block.
+
+    The template's *running* header is ``Position #: <numbers> <page no>``. Where the
+    first-page header is absent, admitting that gave 15 documents a position number of
+    ``2`` — the page number. A real identification block always carries a title label
+    or several fields, so that is what the gate requires."""
+    blob = _docx_bytes_with_header_id_table([["Position #:", "2"]], first_page=False)
+    doc = Document(BytesIO(blob))
+    body_only = "\n".join(t for t in _iter_docx_block_text(doc.element.body) if t)
+    assert extract_text(blob, DocumentFormat.DOCX) == body_only
+
+
+def test_extract_docx_partly_unfilled_identification_block_is_still_admitted() -> None:
+    """…but a real block with blank fields IS one. This document (measured) has an
+    empty ``Position Title:`` and ``Position #: 00`` — unfilled, not absent, and the
+    parse should reflect what it says rather than discard the section."""
+    text = extract_text(
+        _docx_bytes_with_header_id_table(
+            [
+                ["Position Title:", ""],
+                ["Position #:", "00"],
+                ["Employee Group:", "APSA"],
+            ]
+        ),
+        DocumentFormat.DOCX,
+    )
+    assert text.startswith(IDENTIFICATION_MARKER + "\n")
+    assert parse_jd(text).jd.employee_group == "apsa"
+
+
+def test_extract_docx_plural_position_number_label_captures_the_number() -> None:
+    """``Position #s:`` is a real header spelling (16 documents). The label regex read
+    the plural ``s`` as the value, so **243 rows** parsed to ``position_number = "s"``
+    — the HRIS join key, and visible as-is on the archive browser."""
+    text = extract_text(
+        _docx_bytes_with_header_id_table(
+            [["Position Title:", "Analyst"], ["Position #s:", "00127946, 00127947"]]
+        ),
+        DocumentFormat.DOCX,
+    )
+    assert parse_jd(text).jd.position_number == "00127946"
+
+
+def test_extract_docx_header_without_identification_labels_stays_excluded() -> None:
+    """THE BLAST-RADIUS GUARD for the exception: a header that is page furniture
+    (a running title, a page number) must not become a bogus IDENTIFICATION
+    section. Output must be byte-identical to the body-only walk."""
+    blob = _docx_bytes_with_header_id_table(
+        [["Executive Assistant", "Page 2 of 4"]], first_page=False
+    )
+    doc = Document(BytesIO(blob))
+    body_only = "\n".join(t for t in _iter_docx_block_text(doc.element.body) if t)
+    assert extract_text(blob, DocumentFormat.DOCX) == body_only
+
+
+def test_extract_docx_no_header_output_unchanged() -> None:
+    """A .docx with no header at all is untouched by this change."""
+    blob = _docx_bytes(["POSITION SUMMARY", "The Research Analyst compiles data."])
+    doc = Document(BytesIO(blob))
+    body_only = "\n".join(t for t in _iter_docx_block_text(doc.element.body) if t)
+    assert extract_text(blob, DocumentFormat.DOCX) == body_only
+
+
+def test_extract_docx_identification_row_with_two_label_value_pairs_is_split() -> None:
+    """THE REAL ARCHIVE SHAPE. The template packs two pairs onto one row —
+    ``Employee Group: | APSA | Grade: | 13`` — which is how **874 of the 876**
+    documents that state a grade write it. Joining the whole row would leave
+    ``Grade:`` mid-line, invisible to the line-anchored regexes that read it."""
+    text = extract_text(
+        _docx_bytes_with_header_id_table(
+            [
+                ["Position Title:", "Portfolio Manager", "Position #:", "00103132"],
+                ["Employee Group:", "APSA", "Grade:", "13"],
+            ]
+        ),
+        DocumentFormat.DOCX,
+    )
+    lines = text.splitlines()
+    assert "Position Title: Portfolio Manager" in lines
+    assert "Position #: 00103132" in lines
+    assert "Employee Group: APSA" in lines
+    assert "Grade: 13" in lines
+
+    jd = parse_jd(text).jd
+    assert jd.title == "Portfolio Manager"
+    assert jd.position_number == "00103132"
+    assert jd.classification is not None
+    assert (jd.classification.scheme, jd.classification.value) == ("apsa", "13")
+
+
+def test_extract_docx_identification_unfilled_label_yields_no_grade() -> None:
+    """An empty ``Grade:`` cell must stay empty — a grade the document does not
+    state is never manufactured (the field is assigned post-authoring for most
+    JDFN roles and lives in the HRIS)."""
+    text = extract_text(
+        _docx_bytes_with_header_id_table(
+            [["Position Title:", "Portfolio Manager"], ["Grade:", ""]]
+        ),
+        DocumentFormat.DOCX,
+    )
+    assert "Grade:" in text
+    assert parse_jd(text).jd.classification is None
+
+
+def test_extract_docx_identification_block_parses_to_real_fields() -> None:
+    """END TO END — the two halves must connect. Extraction shape is only useful
+    if ``parse_jd`` reads it, so this asserts the parsed contract, not the text:
+    a real title (not a paragraph), and the identification fields the audit
+    measured as missing."""
+    text = extract_text(_docx_bytes_with_header_id_table(_ID_ROWS), DocumentFormat.DOCX)
+    jd = parse_jd(text).jd
+    assert jd.title == "Executive Assistant to the Vice-President"
+    assert jd.position_number == "00100537"
+    assert jd.department == "VP Advancement and Alumni Engagement"
+    assert jd.employee_group == "apsa"
+    assert jd.classification is not None
+    assert jd.classification.value == "12"
 
 
 def test_extract_legacy_doc_via_antiword() -> None:

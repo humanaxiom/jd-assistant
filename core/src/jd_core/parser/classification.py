@@ -7,9 +7,19 @@ populated, mostly adjacent field text). This extracts a STRUCTURED, provenance-c
 
 * **CUPE** JDs print a numeric pay grade in the classification line ("Secretary,
   grade 8") — ~64% recoverable, measured. -> ``scheme="cupe"``.
-* **JDFN** (APSA/APEX/POLY) JDs almost never carry a grade — it is assigned
-  post-authoring and lives in the HRIS; the template's "Grade Approved:" field is
-  usually blank. Capture it ONLY when that field holds a plausible grade token.
+* **JDFN** (APSA/APEX/POLY) JDs state a grade in the identification block's ``Grade:``
+  field, or in the older "Classification & Grade Approved:" field. Both are captured
+  ONLY when they hold a plausible grade token; the field is often blank (a grade
+  assigned post-authoring lives in the HRIS), and a blank must never be invented.
+
+  The bare ``Grade:`` form is line-anchored *because* the identification block is now
+  a real, bounded section: until the docx-header fix
+  (:func:`~src.jd_bank.ingest.extract._docx_identification_block`) these documents had
+  no identification block at all, ``text`` was the whole document, and an unanchored
+  "grade" match there is what produced the 430 garbage ``grade`` strings the audit
+  found. Measured after the fix: **876 archive documents state a JDFN grade** in the
+  header — the same audit reported it "not extracted anywhere", having looked only at
+  body text.
 
 Pure and total — never raises; returns ``None`` when no trustworthy grade is present
 (the common case), so a grade the document does not state is never manufactured. Call
@@ -33,6 +43,13 @@ _JDFN_GRADE_APPROVED_RX = re.compile(
     r"grade\s+approved\s*[:#]?\s*((?:PG\s*)?\d{1,2})\b", re.IGNORECASE
 )
 
+#: The modern template's identification-block ``Grade:`` field. Line-anchored (see the
+#: module docstring): the whole point is that it is a labelled FIELD, not the word
+#: "grade" appearing somewhere in prose.
+_JDFN_GRADE_FIELD_RX = re.compile(
+    r"(?im)^[ \t]*(?:pay )?grade[ \t]*[:#][ \t]*((?:PG[ \t]*)?\d{1,2})\b"
+)
+
 _JDFN_SCHEMES = frozenset({"apsa", "apex", "poly"})
 
 
@@ -49,8 +66,8 @@ def extract_classification(
                 scheme="cupe", value=match.group(1), source="parsed"
             )
         return None
-    # JDFN / unknown group: only the explicit "Grade Approved: <n>" field, when filled.
-    match = _JDFN_GRADE_APPROVED_RX.search(text)
+    # JDFN / unknown group: only an explicit, filled grade FIELD.
+    match = _JDFN_GRADE_APPROVED_RX.search(text) or _JDFN_GRADE_FIELD_RX.search(text)
     if match is not None:
         scheme = employee_group if employee_group in _JDFN_SCHEMES else "unknown"
         return JobClassification(

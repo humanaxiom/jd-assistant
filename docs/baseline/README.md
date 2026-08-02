@@ -7,11 +7,31 @@
 | Archive | `C:\repos\hris\fixtures\SFU_JDs` (READ-ONLY), 14,565 files |
 | Accounted for | **14,522 scored + 43 skipped = 14,565.** No silent drops. |
 | Rules | `jd_rules_sfu_v4+c8ec90d74eb5` *(post-WJQ)* |
-| Parser | `jd_segmenter_v2` *(WJQ template router)* |
+| Parser | `jd_segmenter_v3` *(docx-header identification block)* |
 | Segmentation | `jd_rules_sfu_v4+d4c4e253c13a` |
 | Regenerate | `make baseline JD_ARCHIVE_PATH=<archive>` (~9 min) |
 
-> **⚠️ Regenerated at `jd_segmenter_v2` (2026-07-15) after two extraction fixes.** Two defects that
+> **✅ Regenerated at `jd_segmenter_v3` (2026-08-02) after the docx-header identification
+> fix — and THE COHORT HEADLINE DID NOT MOVE.** The modern SFU template keeps its whole
+> identification table (`Position Title:`, `Position #:`, `Department:`, `Employee Group:`,
+> `Grade:`) in `header*.xml`, which extraction skipped, so 4,968 of 9,948 `.docx` had their
+> title taken from the first body paragraph. v3 reads that block. **Effect on this baseline:**
+> the **874-JD cohort is unchanged** — approval **78.6%**, median **79.05**, **81A/551B/240C/2D**,
+> byte-identical; archive-wide median **58.47** unchanged, mean 55.9716 → 55.9707. That is the
+> expected result and worth stating plainly: the validator scores *content* sections, and this
+> fix repaired *identification metadata*. **The one real score-side movement is the fix working
+> as intended** — gates that key on the title now see a title instead of a paragraph, so
+> `SFU-AUTH-TITLE-HR` 513 → 528, `SFU-GATE-SENIOR-TITLE` 81 → 86,
+> `SFU-AUTH-TITLE-REGISTRAR` 35 → 37, `SFU-AUTH-TITLE-EXEC-DIR` 14 → 16 (total findings
+> 148,131 → 148,155). Those ~24 documents were evading title gates by being unreadable.
+> **What moved outside the scoring:** paragraph-shaped titles **4,986 → 148**,
+> `position_number` 34.8% → **68.3%**, `employee_group` 35.6% → **68.1%**, `department`
+> 49.9% → **60.8%**, structured `classification` 2,323 → **3,049**. Also note `config_stamp`
+> moved (`+bd05cbb48065` → `+538e6e0f17dd`): that is **not** from this run — `segmentation.yaml`
+> changed in `29a4c4e` (HR-194, 2026-07-24), after the previous baseline was generated, so the
+> committed artifact had been carrying a stale segmentation stamp.
+>
+> **⚠️ Previously regenerated at `jd_segmenter_v2` (2026-07-15) after two extraction fixes.** Two defects that
 > silently shrank what the parser could read were fixed: `_extract_docx` now reads TABLE and Word
 > CONTENT-CONTROL text (PR #30, ~20.7M chars recovered), and a new WJQ/CUPE-3338 template parser (PR
 > #32) reads the ~4,300 files (29.5%) the segmenter never understood. **Effect on this baseline:**

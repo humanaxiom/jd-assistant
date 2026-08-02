@@ -16,6 +16,7 @@ plain ``str`` out. Unsupported formats raise :class:`UnsupportedFormatError`.
 from __future__ import annotations
 
 import hashlib
+import re
 import subprocess
 import tempfile
 from collections.abc import Iterator
@@ -25,11 +26,23 @@ from typing import cast
 
 from docx import Document
 from docx import types as docx_types
+from docx.blkcntnr import BlockItemContainer
+from docx.document import Document as DocxDocument
 from docx.oxml.ns import qn
 from docx.oxml.xmlchemy import BaseOxmlElement
+from docx.table import Table
 from docx.text.paragraph import Paragraph
 
 from src.jd_bank.db.models import DocumentFormat
+from src.jd_core.parser.headings import (
+    CANONICAL_HEADING,
+    DEPARTMENT_LABEL_RX,
+    EMPLOYEE_GROUP_LABEL_RX,
+    GRADE_LABEL_RX,
+    POSITION_NO_LABEL_RX,
+    TITLE_LABEL_RX,
+    SectionKey,
+)
 
 # antiword ships in the ingestion image (Dockerfile). Overridable for tests.
 ANTIWORD_BIN = "antiword"
@@ -71,9 +84,28 @@ def _strip_nul(text: str) -> str:
     return text.replace("\x00", "") if "\x00" in text else text
 
 
+#: UTF-16 byte-order marks (LE, BE). Checked explicitly rather than added to the
+#: codec ladder: latin-1 decodes ANY byte sequence, so it can never fall through to a
+#: later rung — a UTF-16 file must be recognised up front or it silently becomes
+#: mojibake.
+_UTF16_BOMS = (b"\xff\xfe", b"\xfe\xff")
+
+
 def _decode(blob: bytes) -> str:
-    """Tolerant byte decode: UTF-8 BOM -> UTF-8 -> latin-1 (never raises).
-    Same ladder as hris so text inputs decode predictably across eras."""
+    """Tolerant byte decode: UTF-16 BOM -> UTF-8 BOM -> UTF-8 -> latin-1 (never
+    raises). The UTF-8/latin-1 ladder is hris's, so text inputs decode predictably
+    across eras; the UTF-16 rung is ours.
+
+    **Measured defect it fixes:** the archive holds UTF-16LE ``.txt`` exports whose
+    ``\\xff\\xfe`` BOM is invalid UTF-8, so the ladder fell through to latin-1 and
+    every one of them decoded to ``ÿþP%P%P%…`` — the whole document, title included,
+    turned to noise. Small (the archive is 24 ``.txt`` files) but total per file.
+    """
+    if blob[:2] in _UTF16_BOMS:
+        try:
+            return blob.decode("utf-16")
+        except UnicodeDecodeError:  # truncated/odd-length — fall through
+            pass
     for codec in ("utf-8-sig", "utf-8"):
         try:
             return blob.decode(codec)
@@ -120,21 +152,150 @@ def _iter_docx_block_text(el: BaseOxmlElement) -> Iterator[str]:
                 yield from _iter_docx_block_text(content)
 
 
+#: The heading the recovered header identification block is emitted under. Taken from
+#: the parser's own heading vocabulary rather than spelled again here — the flat text
+#: this function returns IS the segmenter's input, and its section markers are that
+#: interface's structure channel, so a second copy of the word would be a second source
+#: of truth for it (the drift `CANONICAL_HEADING` exists to prevent).
+IDENTIFICATION_MARKER = CANONICAL_HEADING[SectionKey.IDENTIFICATION]
+
+#: The SAME regexes the segmenter reads identification fields with, so "is this an
+#: identification block?" and "can the parser use it?" can never answer differently.
+_ID_LABEL_RXS = (
+    TITLE_LABEL_RX,
+    POSITION_NO_LABEL_RX,
+    DEPARTMENT_LABEL_RX,
+    EMPLOYEE_GROUP_LABEL_RX,
+    GRADE_LABEL_RX,
+)
+
+
+def _is_identification_block(block: str) -> bool:
+    """True when ``block`` is an identification table rather than page furniture.
+
+    A title label, or any two distinct identification labels. One lone label is the
+    *running* header — ``Position #: <numbers> <page no>`` — which admitting cost 15
+    documents a position number of ``2`` (the page number). A real block always names
+    the position or states several fields, even when some of them are blank.
+    """
+    if TITLE_LABEL_RX.search(block):
+        return True
+    return sum(1 for rx in _ID_LABEL_RXS if rx.search(block)) >= 2
+
+
+def _collapse(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _row_lines(cells: list[str]) -> Iterator[str]:
+    """Pair each ``Label:`` cell with the cell that follows it, one pair per line.
+
+    The identification table is a grid of label/value cells, and the archive packs
+    **two pairs onto one row** (measured — 874 of the 876 headers that state a
+    grade look like ``Employee Group: | APSA | Grade: | 13``). Joining the whole
+    row would leave ``Grade:`` mid-line, where the segmenter's line-anchored
+    ``^grade[ \\t]*:`` regex cannot see it; splitting per cell would separate every
+    label from its value. Pairing does both correctly.
+
+    A label with no value (an unfilled field) and a value with no label (a banner
+    cell) are each emitted alone rather than merged with a neighbour they do not
+    belong to.
+    """
+    index = 0
+    while index < len(cells):
+        cell = cells[index]
+        following = cells[index + 1] if index + 1 < len(cells) else None
+        if cell.endswith(":") and following is not None and not following.endswith(":"):
+            yield f"{cell} {following}"
+            index += 2
+        else:
+            yield cell
+            index += 1
+
+
+def _iter_container_lines(container: BlockItemContainer) -> Iterator[str]:
+    """Yield one line per paragraph, and per table row one line per label/value pair.
+
+    Deliberately different from :func:`_iter_docx_block_text`, which yields each
+    table cell on its own line: the segmenter's identification regexes are
+    line-anchored (``^Position Title:[ \\t]*(.+)$``), so a label and its value must
+    share a line. The body walk keeps cell-per-line because the CUPE/WJQ
+    questionnaire parser reads cells as lines.
+
+    Repeated cells from a horizontal merge are collapsed (``row.cells`` yields the
+    same cell once per grid column it spans).
+    """
+    for item in container.iter_inner_content():
+        if isinstance(item, Table):
+            for row in item.rows:
+                cells: list[str] = []
+                for cell in row.cells:
+                    value = _collapse(cell.text)
+                    if value and (not cells or cells[-1] != value):
+                        cells.append(value)
+                yield from _row_lines(cells)
+        else:
+            yield _collapse(item.text)
+
+
+def _docx_identification_block(doc: DocxDocument) -> str:
+    """The identification block from a section's header part, or ``""``.
+
+    **Why headers are read at all** (this is the one exception to body-only
+    extraction — see ``test_extract_docx_excludes_header_prose_and_all_footers``).
+    In the modern SFU template the entire identification table — ``Position
+    Title:``, ``Position #:``, ``Department:``, ``Employee Group:``, ``Grade:`` —
+    is in ``header*.xml``, not in the body. Measured over all 14,565 archive
+    files: **4,968 of 9,948 ``.docx`` carry ``Position Title:`` in the header and
+    in no body line**, which is precisely the set whose title parsed as a
+    paragraph (the segmenter found no label and fell back to the first content
+    line — the About-SFU banner or the Position Summary prose).
+
+    Only a header that :func:`_is_identification_block` recognises is returned; page
+    furniture (a running title, a page number) is left excluded, so the exception
+    stays as narrow as the evidence. The first-page header is preferred because
+    that is where the template puts the full table; the ordinary header usually
+    holds just a running ``Position #: … <page>`` line.
+
+    Footers stay excluded entirely: the corpus keeps only revision dates there,
+    and there is no heading to file them under, so they would land in whichever
+    body section happened to be last (7,171 ``.docx`` have footer text).
+    """
+    for section in doc.sections:
+        for part in (section.first_page_header, section.header):
+            lines = [line for line in _iter_container_lines(part) if line]
+            if not lines:
+                continue
+            block = "\n".join(lines)
+            if _is_identification_block(block):
+                return block
+    return ""
+
+
 def _extract_docx(blob: bytes) -> str:
     """python-docx — document-order body walk. Handles ``.docx`` and
     macro-enabled ``.docm`` (both OOXML).
 
     Recovers text from tables and Word content controls, which
     ``doc.paragraphs`` alone misses (measured: 2,596 of 9,947 archive
-    ``.docx`` lose >40% of their text, 24 lose everything). Walks
-    ``doc.element.body`` only — headers/footers are deliberately excluded,
-    matching what the validation baseline has always read.
+    ``.docx`` lose >40% of their text, 24 lose everything).
+
+    Walks ``doc.element.body``, plus — and only — a header part carrying the
+    template's identification labels, which is emitted first under
+    :data:`IDENTIFICATION_MARKER` (see :func:`_docx_identification_block`). Header
+    prose and all footers remain excluded. A document with no such header extracts
+    byte-identically to the body-only walk.
     """
     try:
         doc = Document(BytesIO(blob))
     except Exception as exc:  # noqa: BLE001 — normalise any python-docx failure
         raise ExtractionError(f"docx parse failed: {exc}") from exc
-    return "\n".join(t for t in _iter_docx_block_text(doc.element.body) if t)
+    body = "\n".join(t for t in _iter_docx_block_text(doc.element.body) if t)
+    identification = _docx_identification_block(doc)
+    if not identification:
+        return body
+    block = f"{IDENTIFICATION_MARKER}\n{identification}"
+    return f"{block}\n{body}" if body else block
 
 
 def _extract_rtf(blob: bytes) -> str:

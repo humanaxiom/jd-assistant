@@ -18,25 +18,36 @@ pay scale. Everything else about grade is already built and waiting on this one 
 
 - **CUPE** job descriptions **print the grade** ("Grade 8") — we've already captured
   **2,323** of them automatically (values seen: 3–12).
-- **APSA / APEX / Polytechnic** job descriptions **almost never** state a grade — it's
-  assigned after the JD is written and lives in HR's records, not the document. For these,
-  a reviewer types the grade in (already possible), or we import it from an HR export.
+- **APSA / APEX** job descriptions state a grade in the box at the top of the document
+  more often than we first thought: **876 documents** do, and we now read **687 APSA** and
+  **34 APEX** grades automatically. Where the box is blank — which is common, because the
+  grade is assigned after the JD is written and lives in HR's records — a reviewer types it
+  in (already possible), or we import it from an HR export.
+- **Polytechnic** job descriptions: still no grade found in any document.
+
+> **Correction (2026-08-02).** An earlier version of this page told you APSA/APEX JDs
+> "almost never" state a grade. That was wrong, and the mistake was ours: the grade sits in
+> the Word **page header**, which our reader was skipping. It now reads it. This is good
+> news for question ① — we can show you the grades your own documents already use.
 
 ## ① The scales — please fill in
 
-| Group | Kind | The full list of valid grades (lowest → highest) |
-|---|---|---|
-| CUPE | numeric | e.g. `1 … 14`? — please confirm the range |
-| APSA | ? | ? |
-| APEX | ? | ? |
-| Polytechnic | ? | ? |
+| Group | Kind | The full list of valid grades (lowest → highest) | What we see in your documents |
+|---|---|---|---|
+| CUPE | numeric | e.g. `1 … 14`? — please confirm the range | 2,323 JDs, values **3–12** |
+| APSA | ? | ? | 687 JDs carry a grade |
+| APEX | ? | ? | 34 JDs carry a grade |
+| Polytechnic | ? | ? | none found in the documents |
+
+*The right-hand column is what we observed, **not** a proposed scale — a range we happen to
+see is not the same as the range that is valid. Please give us the official list.*
 
 ## ② Two decisions
 
 | Question | Our recommendation |
 |---|---|
 | Should a missing/invalid grade ever **block** a JD from being approved? | **No** — keep grade as advisory information, not a pass/fail gate. |
-| May we **import grades from an HR export** (position number → grade) to fill them in at scale? | Yes, if you can provide the export — it's compensation data, so it would go through a **FIPPA/privacy check** first. |
+| May we **import grades from an HR export** (position number → grade) to fill them in at scale? | Yes, if you can provide the export — it's compensation data, so it would go through a **FIPPA/privacy check** first. We can now match **68%** of job descriptions to a position number (was 35%), so an import would reach most of the archive. |
 
 ## What your answers unblock
 

@@ -2,7 +2,80 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-08-02): SESSION SUMMARY — content library, grade capture (end-to-end), + quick
+**NEWEST (2026-08-02, later): THE PARSER IDENTIFICATION FIX — parser `jd_segmenter_v3`. The
+34% paragraph-title defect is GONE, and it was never a title bug: the modern SFU template
+keeps its ENTIRE identification table in the docx HEADER, which extraction skipped.**
+`make gates` **1,982 passing, 93.63%**. Archive re-parsed at v3 and re-baselined.
+
+- **Root cause, measured over all 14,565 files (not sampled).** `Position Title:`,
+  `Position #:`, `Department:`, `Employee Group:`, `Grade:` live in `header*.xml`;
+  `_extract_docx` walked `doc.element.body` only. **4,968 of 9,948 `.docx` carry
+  `Position Title:` in the header and in NO body line** — a clean partition, and exactly the
+  set whose title parsed as a paragraph (`_fallback_title` took the first content line: the
+  About-SFU banner or the Position Summary prose). 100% of sampled paragraph-titled docs
+  took that path — zero came from a mis-parsed label.
+- **The fix** (`jd_bank/ingest/extract.py`): a header part is read **only** when
+  `_is_identification_block` recognises it (a title label, or ≥2 distinct identification
+  labels), and is emitted first under the parser's own `IDENTIFICATION` heading — which is
+  what finally SCOPES identification extraction to a real block instead of the whole
+  document. Table rows are split **per label/value pair**, because the template packs two
+  pairs on one row (`Employee Group: | APSA | Grade: | 13` — how 874 of 876 grade-bearing
+  headers are written). **Header prose and ALL footers stay excluded**; the old body-only
+  invariant test was NARROWED, not deleted, and now pins both halves.
+- **Two more defects found by checking the re-parsed DATA, not the green run.** (a)
+  `Position #s:` is a real spelling and the label regex's optional colon matched empty, so
+  the capture took the plural `"s"` as the value — **243 rows** had `position_number = "s"`
+  (213 of them pre-existing at v2; the header change amplified it). Fixed with `s?`, now 14.
+  (b) With no first-page header, the **running** header (`Position #: … <page no>`) was
+  admitted, giving 15 docs `position_number = 2` — the page number. Fixed by the ≥2-label
+  gate. **The first baseline run was KILLED mid-flight** when these surfaced rather than
+  commit HR-facing artifacts built by superseded code.
+- **A third, unrelated defect the same measurement surfaced:** 24 UTF-16LE `.txt` files
+  decoded to `ÿþP%P%P%…` — latin-1 accepts any bytes, so the ladder never reached a correct
+  codec. `_decode` now checks the UTF-16 BOM up front.
+- **Measured effect (v2 → v3, all 14,522 parsed rows):** paragraph titles **4,986 → 148**
+  (and most of that residual is legitimately LONG titles, not defects) · `position_number`
+  34.8% → **68.3%** · `employee_group` 35.6% → **68.1%** · `department` 49.9% → **60.8%** ·
+  structured `classification` 2,323 → **3,049**.
+- **⚠️ THE AUDIT WAS WRONG ABOUT APSA GRADES — corrected.**
+  `docs/audit/data-state-and-grade-2026-08-01.md` concluded the APSA grade is "not extracted
+  anywhere (0/600 in text)". It was looking at BODY text: **876 documents state a JDFN grade
+  in the header**, and v3 parses **687 APSA + 34 APEX**. Both the audit and the HR-facing
+  `docs/decisions/grade-scales-hr-ask.md` (which told HR these groups "almost never" state a
+  grade) carry corrections. `classification.py` gained the bare `Grade:` field — trustworthy
+  ONLY because a real bounded identification block now exists.
+- **RE-BASELINED, and THE HR HEADLINE DID NOT MOVE.** The 874-JD cohort is byte-identical:
+  approval **78.6%**, median **79.05**, **81A/551B/240C/2D**. Archive-wide median **58.47**
+  unchanged. Expected — the validator scores CONTENT sections and this fixed IDENTIFICATION
+  metadata. The one score-side movement is the fix working: title-keyed gates now see a
+  title (`SFU-AUTH-TITLE-HR` 513→528, `SFU-GATE-SENIOR-TITLE` 81→86, REGISTRAR 35→37,
+  EXEC-DIR 14→16; findings 148,131→148,155) — ~24 docs were evading title gates by being
+  unreadable. `config_stamp` also moved, but **not from this run**: `segmentation.yaml`
+  changed in `29a4c4e` (HR-194) after the previous baseline, so the artifact was stale.
+- **NOT over-claimed:** the **2,053 `"Untitled Position"` rows are UNCHANGED** — CUPE/WJQ
+  questionnaires keep identification in a body table, not a header (the separate WJQ
+  workstream). Legacy `.doc` files still fall back to banner text or a bare position number
+  (~135). Counting every failure mode, unusable titles went **~50% → ~16%**, and 2,053 of
+  that 16% is the known WJQ gap. **`_fallback_title` was deliberately NOT hardened** — a
+  prose heuristic would turn legitimate long titles ("Executive Secretary to the Associate
+  Vice-President, Academic, and Chief Information Officer") into `Untitled Position`.
+- **➡️ THE OPEN DECISION — how far to propagate.** The fix reaches the **source-JD reader and
+  archive browser** now (they read the newest parse). It does **NOT** reach the **harmonized
+  roles library**, which reads `canonical_jds` and still holds v2-derived paragraph titles —
+  the surface HR was told to read JD content on. Propagating needs `make embed` (14.5k docs +
+  ~36k sections, GPU on `aria-gb10-2`, hours) → `near-dup`/`dedup-role` → `cluster` →
+  `canonical-drafts` (**~44h** LLM run last time). Two complications: re-clustering changes
+  membership and `cluster_id` is a uuid5 OF that membership, so new drafts land **alongside**
+  the existing 1,802 and need a prune (same as 2026-07-21); and **`review_actions` is now 6,
+  not 0** as older notes say — a human HAS touched the queue, so the producer's no-clobber
+  path is live. Recommendation: schedule it deliberately rather than as a side effect.
+- **Note for the next session:** `parsed_jds` now holds v1 + v2 + v3 (43,566 rows). Nothing
+  reads v1/v2 any more (everything selects on `PARSER_VERSION`) except the library's
+  newest-by-`created_at` lookup, which correctly gets v3. Pruning v1/v2 is optional cleanup.
+
+---
+
+**PRIOR (2026-08-02): SESSION SUMMARY — content library, grade capture (end-to-end), + quick
 wins. All on `main`, pushed; CI billing-blocked so merged locally per ADR-006. `make gates`
 1972 passing, 93.61%.** This session was HR-usability-driven and shipped a lot; the detailed log
 is in the PRIOR blocks below. What's new since 2026-07-31, at a glance:

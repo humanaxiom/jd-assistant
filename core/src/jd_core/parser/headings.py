@@ -272,8 +272,11 @@ TITLE_LABEL_RX = re.compile(
 DEPARTMENT_LABEL_RX = re.compile(
     r"(?im)^[ \t]*department(?:/unit| ?/ ?unit|/? ?unit)?[ \t]*:[ \t]*(.+)$"
 )
+# The trailing ``s?`` is load-bearing: ``Position #s:`` is a real header spelling, and
+# without it the optional colon matched empty and the capture group took the plural
+# ``s`` as the value — 243 documents parsed to ``position_number = "s"``.
 POSITION_NO_LABEL_RX = re.compile(
-    r"(?im)^[ \t]*position[ \t]*(?:#|no\.?|number)[ \t]*:?[ \t]*([A-Za-z0-9\-]+)"
+    r"(?im)^[ \t]*position[ \t]*(?:#|no\.?|number)s?[ \t]*:?[ \t]*([A-Za-z0-9\-]+)"
 )
 GRADE_LABEL_RX = re.compile(r"(?im)^[ \t]*(?:pay )?grade[ \t]*:[ \t]*(.+)$")
 EMPLOYEE_GROUP_LABEL_RX = re.compile(r"(?im)^[ \t]*employee group[ \t]*:[ \t]*(.+)$")

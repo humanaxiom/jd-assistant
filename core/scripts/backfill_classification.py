@@ -1,5 +1,11 @@
 """One-time backfill: populate ``parsed_jds.parsed['classification']`` on existing rows.
 
+**SUPERSEDED (parser v3).** This ran once, against ``jd_segmenter_v2`` rows, and the
+pinned version below is deliberately historical — v3 extracts ``classification`` during
+the parse itself (including the APSA/APEX grades in the docx header that v2 could not
+see), so a v3 archive re-parse needs no backfill. Kept as the audit trail of what was
+written to the v2 rows; do not re-point it at a newer version.
+
 Phase A wired ``extract_classification`` into the parsers, but the parse is idempotent on
 ``(source_document_id, parser_version)`` — existing rows are NOT re-parsed. This re-extracts
 each source document, runs the current parser, and writes the freshly-computed

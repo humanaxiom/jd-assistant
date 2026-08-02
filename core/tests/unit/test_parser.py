@@ -244,7 +244,10 @@ def test_whitespace_only_input() -> None:
 
 
 def test_parser_version_constant() -> None:
-    assert parse_jd("anything").parser_version == "jd_segmenter_v2"
+    """``parsed_jds`` is keyed on ``(source_document_id, parser_version)``, so this
+    literal is what forces (or fails to force) an archive re-parse. v3 = the
+    docx-header identification-block fix."""
+    assert parse_jd("anything").parser_version == "jd_segmenter_v3"
 
 
 # ── End-to-end on the real legacy .doc ───────────────────────────────────────
