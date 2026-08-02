@@ -32,6 +32,10 @@ list omits the auth deferrals — captured here.)
 
 | Area | Item | Status | Effort |
 |---|---|---|---|
+| Content | ~~Browsable content library — 🏦 JD Bank: roles → sources, source-JD reader, flat archive, click-to-sort; clone the harmonized role~~ **DONE (2026-08-01/02)** — HR can read the actual JD content | done | M |
+| Grade | ~~Grade capture — structured `classification{scheme,value,source}` + group-aware parser + 2,323 CUPE backfill + Builder/review entry + HRIS-import scaffold + surfacing~~ **DONE (2026-08-02, Phase A + steps 1–5)**. **Blocked on HR:** per-group grade scales (`grade-scales-hr-ask.md`) + HRIS export/FIPPA | done / HR-blocked | M |
+| Pipeline | **Parser paragraph-title fix** — ~34% of titles parse as whole paragraphs; corrupts titles, any title-derived level, and the reader header (the upstream cause behind the missing "level") | open (P) | M |
+| Builder | Gender-Decoder soft coded-language lexicon — the register-bearing expansion of the shipped inclusive-language meter (catches lean the exact-match list misses) | open | S/M |
 | Pipeline | **WJQ boilerplate redaction before harmonization** — WJQ over-clusters on template+seniority; the two biggest flagged clusters ("Untitled Position" n=132/108) are template artifacts. Blocks WJQ harmonization. | open (P4 priority) | L |
 | Pipeline | Embed **published canonicals** into the Neo4j index (search covers only the archive today) | open | S/M |
 | Pipeline | Tier-3 candidate-gen perf → Neo4j vector top-k (O(bucket²) on the 8.2k `unmapped` bucket) | open | M |
@@ -69,11 +73,13 @@ unblock the pilot** — do them first.
   the Builder's own "start from an existing JD." The Bank can't search its own output. Small
   write path; unblocks the template-library and near-duplicate-guard features below.
   *Invariant:* embeddings stay on self-hosted Ollama behind the egress guard.
-- **Coded-language / gender-lean meter in the live Builder panel.** The exact-match banned-
-  phrase gate fires on only 10/14,522 files (HR-041 suspects it misses what SFU authors
-  actually write). A softer masculine/feminine/age-coded lexicon meter (Gender-Decoder
-  pattern) catches lean the list misses and plugs into the existing 5.3 compliance panel.
-  *Invariant:* pure-YAML deterministic scan, registered, advisory — keep it off the LLM.
+- **Coded-language meter in the live Builder panel.** ~~Surface the coded/gendered findings
+  prominently.~~ **DONE (2026-08-02, `19e76d3`)** — the validator's `inclusive_language`
+  findings (`coded_terms.yaml`, `SFU-LANG-CODED`) are now pulled into a prominent "N flagged /
+  clear" meter with suggestions, at the top of the 5.3 panel. **Still open (the stretch):** a
+  softer masculine/feminine/age-coded lexicon (Gender-Decoder pattern) that catches lean the
+  exact-match list misses (fires on only 10/14,522) — a NEW unhashed rulebook file + register
+  entries. *Invariant:* pure-YAML deterministic scan, registered, advisory — keep it off the LLM.
 - **Authoring-time "is this role already covered?" near-duplicate guard.** JD Bank *measured*
   that SFU's redundancy is heavy cross-position cloning (77% of Tier-1 groups). Turning 5.4
   search from opt-in into a proactive "3 roles are ~87% similar — clone one?" prompt prevents

@@ -2,7 +2,43 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-08-01): THE BROWSABLE JD BANK — HR can finally READ the content, not just stats;
+**NEWEST (2026-08-02): SESSION SUMMARY — content library, grade capture (end-to-end), + quick
+wins. All on `main`, pushed; CI billing-blocked so merged locally per ADR-006. `make gates`
+1972 passing, 93.61%.** This session was HR-usability-driven and shipped a lot; the detailed log
+is in the PRIOR blocks below. What's new since 2026-07-31, at a glance:
+
+- **The browsable JD Bank (content library).** HR can now READ the JD content, not just stats:
+  🏦 JD Bank nav → `/jd-bank/ui/library` (all harmonized roles, searchable + **click-to-sort**) →
+  role detail (harmonized JD + the source JDs it distills) → **source-JD reader** (`/jd/{id}`, the
+  first content viewer the app ever had) + a flat **`/archive`** browser. All read-only (NN #1).
+- **Clone the HARMONIZED role** (not the raw archive parse): `clone-role/{cluster_id}`; Builder
+  search prefers it. Fixed the "cloning a green JD fails" report (was cloning the raw parse).
+- **No reliable job-level facet exists → level column removed; A–D relabeled "Quality"; scores
+  rounded.** (group empty, band mislabels, APSA grade absent — all measured.)
+- **GRADE CAPTURE — Phase A + Steps 1–5 COMPLETE.** Structured
+  `SFUJobDescription.classification{scheme,value,source}` + a group-aware parser extractor;
+  **2,323 CUPE grades backfilled** onto `parsed_jds`; grade ENTRY in the Builder + reviewer edit
+  (`source=entered`); an HRIS-import scaffold (`grade_import.py` + `scripts/import_grades.py`);
+  and surfacing with provenance on the reader/role/archive. **Two external blockers:** the
+  per-group grade SCALES (HR — see `docs/decisions/grade-scales-hr-ask.md`, the 15-min ask) and
+  the HRIS export + FIPPA review. Config-level `grades.yaml`+register deferred until HR gives real
+  scales (the drift-checked register can't hold guesses). Full audit: `docs/audit/data-state-and-grade-2026-08-01.md`.
+- **Quick win — inclusive-language meter** in the Builder panel: the coded/gendered findings the
+  validator already raises (`coded_terms.yaml`, `SFU-LANG-CODED`) pulled into a prominent
+  "N flagged / clear" meter with suggestions. Deterministic, advisory, no new decision.
+- **Docs:** `docs/AI-USAGE.md` (where LLMs/embeddings are used + guardrails, with mermaid diagrams);
+  `docs/decisions/grade-scales*.md`.
+
+**THE CRITICAL PATH IS STILL EXTERNAL** (nothing I can advance solo): HR ratification of the
+register (all 192+ `open`) · the 4.5 HR pilot · the per-group grade scales · the HRIS export +
+FIPPA · footer/territorial-acknowledgement sign-off · GitHub Actions billing. **Top UNBLOCKED
+next items** (see `docs/ROADMAP.md`): the Gender-Decoder soft lexicon (register-bearing expansion
+of the inclusive meter) · near-duplicate authoring guard · embed-published-canonicals write path
+(post-pilot value) · the parser paragraph-title fix (the upstream cause behind titles/levels).
+
+---
+
+**PRIOR (2026-08-01, session detail): THE BROWSABLE JD BANK — HR can finally READ the content, not just stats;
 + clone the HARMONIZED role; + level-band facet.** Driven by HR pilot feedback ("the Builder is
 better, but the dashboards are meaningless — where are the actual JD files? clusters just show
 docx filenames I can't open"). All read-only (NN #1), no rulebook/GPU change, `make gates`

@@ -645,7 +645,17 @@ jdfn_employee_groups` gain a `cupe` token and the Builder support the WJQ 14-sec
 Until HR rules on HR-194, "the Bank does not serve CUPE" is an explicit decision on the register,
 not one made by omission.
 
-### Phase 8 — The Published JD Bank (the final canonical library) + review-experience upgrades — PLANNED (2026-07-31)
+### Phase 8 — The Published JD Bank (the final canonical library) + review-experience upgrades — 8.1 SHIPPED EARLY (2026-08-01), adapted; 8.2+ open
+
+> **STATUS UPDATE (2026-08-02).** **8.1 was brought forward and shipped** in response to HR pilot
+> feedback ("where are the actual JD files?"), but **adapted**: since **zero canonicals are published
+> yet**, the browsable library (`jd_bank/library/` + `api/routes/library.py`, 🏦 JD Bank nav) covers
+> the **DRAFT roles + their source JDs** — roles → sources → a **source-JD reader** + a flat `/archive`
+> browser, click-to-sort, and **clone the harmonized role**. Same surfaces will show PUBLISHED
+> canonicals once the pilot publishes. Deltas vs. the 8.1 plan below: the planned **grade** facet is
+> unavailable (measured absent — see the grade-capture thread + `docs/audit/data-state-and-grade-2026-08-01.md`);
+> **provenance panel / version-history / propose-update** on a *published* view are still open (the
+> version-diff view already exists in review). **8.2 (embed published canonicals) remains open.**
 
 **What it is.** Everything to date *produces* draft canonicals and moves them through a review queue;
 approval sets `status=PUBLISHED` but there is **no destination surface** — the approved JDs have
