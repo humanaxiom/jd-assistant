@@ -389,6 +389,23 @@ def _grouped_questions(values: dict[str, str]) -> list[dict[str, Any]]:
     return groups
 
 
+def _inclusive_meter(assessment: DraftAssessment | None) -> dict[str, Any]:
+    """A live "inclusive language" meter for the panel: the coded / gendered /
+    exclusionary findings the validator raised (category ``inclusive_language``), pulled
+    OUT of the generic "Fix these" list into a prominent, always-visible check with each
+    term's suggested replacement. Deterministic + advisory — it reflects the same
+    rulebook lexicon the oracle scores on (``coded_terms.yaml``); it never blocks and
+    adds no new decision. ``checked`` is False only before the author runs a check."""
+    if assessment is None:
+        return {"checked": False, "count": 0, "terms": []}
+    terms = [
+        {"message": issue.message, "suggestion": issue.suggestion}
+        for issue in assessment.report.issues
+        if issue.category == "inclusive_language"
+    ]
+    return {"checked": True, "count": len(terms), "terms": terms}
+
+
 def _context(
     request: Request,
     *,
@@ -476,6 +493,9 @@ def _context(
         "structured_rows": padded_rows,
         "modifier_options": modifier_options,
         "assessment": assessment,
+        # A prominent, always-visible "inclusive language" meter (coded/gendered terms
+        # the validator flagged, with suggestions) — deterministic + advisory.
+        "inclusive_meter": _inclusive_meter(assessment),
         "error": error,
         "boilerplate_checked": boilerplate_checked,
         "state_badge": _STATE_BADGE,

@@ -60,6 +60,23 @@
     Duties: {{ assessment.duty_count }} (target 3–5)
   </p>
 
+  {% if inclusive_meter.checked %}
+  <div class="gate" style="border-color:{% if inclusive_meter.count %}var(--red){% else %}var(--green){% endif %}">
+    <strong>Inclusive language</strong>
+    {% if inclusive_meter.count %}
+    <span class="badge blocked">{{ inclusive_meter.count }} flagged</span>
+    <ul>
+      {% for item in inclusive_meter.terms %}
+      <li>{{ item.message }}{% if item.suggestion %} <span class="meta">— {{ item.suggestion }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <span class="badge ok">clear</span>
+    <span class="meta">no coded / gendered terms detected</span>
+    {% endif %}
+  </div>
+  {% endif %}
+
   {% if assessment.report.gate_decision and assessment.report.gate_decision.blocking %}
   <h3>Blocking gates</h3>
   {% for gate in assessment.report.gate_decision.blocking %}

@@ -131,6 +131,36 @@ def test_post_shows_the_live_panel_for_an_empty_draft() -> None:
     assert "Summary: 0 words" in html
 
 
+def test_inclusive_language_meter_flags_a_coded_term() -> None:
+    """The live panel surfaces coded/gendered language in a prominent 'Inclusive
+    language' meter (pulled out of the generic Fix-these list), with the count."""
+    summary = "The chairman leads the team. " + " ".join(["word"] * 40)
+    html = (
+        _client()
+        .post(
+            "/jd-bank/ui/compose/new",
+            data={"title": "Analyst", "position_summary": summary},
+        )
+        .text
+    )
+    assert "Inclusive language" in html
+    assert "1 flagged" in html  # exactly the one coded term ("chairman")
+
+
+def test_inclusive_language_meter_is_clear_when_no_coded_terms() -> None:
+    summary = " ".join(["collaborates"] * 40)
+    html = (
+        _client()
+        .post(
+            "/jd-bank/ui/compose/new",
+            data={"title": "Analyst", "position_summary": summary},
+        )
+        .text
+    )
+    assert "Inclusive language" in html
+    assert "clear" in html
+
+
 def test_post_reflects_the_submitted_summary_and_repopulates() -> None:
     summary = " ".join(["word"] * 40)
     resp = _client().post(
