@@ -44,7 +44,11 @@ from src.jd_bank.library import (
     list_roles,
     list_source_jds,
 )
-from src.jd_core.models.parsed_jd import SFUDuty, SFUJobDescription
+from src.jd_core.models.parsed_jd import (
+    JobClassification,
+    SFUDuty,
+    SFUJobDescription,
+)
 from src.jd_core.parser import PARSER_VERSION
 from tests.integration.test_dedup_tier1 import ALEMBIC_INI
 
@@ -367,6 +371,32 @@ async def test_list_source_jds_lists_and_filters_by_filename(
     assert page.items[0].filename == "finance-analyst.docx"
     assert page.items[0].title == "Finance Analyst"
     assert page.items[0].parsed is True
+
+
+@pytest.mark.asyncio
+async def test_grade_is_surfaced_on_the_reader_and_archive(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """A captured classification (e.g. a backfilled CUPE grade) surfaces on the source
+    reader and the archive list."""
+    async with session_maker() as session:
+        jd = _jd("Records Clerk").model_copy(
+            update={
+                "classification": JobClassification(
+                    scheme="cupe", value="8", source="parsed"
+                )
+            }
+        )
+        sid = await _seed_source(session, filename="records-clerk.docx", jd=jd)
+        await session.commit()
+
+        view = await get_source_jd(session, sid)
+        assert view is not None and view.classification is not None
+        assert view.classification.value == "8"
+        assert view.classification.scheme == "cupe"
+
+        page = await list_source_jds(session, q="records-clerk")
+        assert page.items[0].grade == "8"
 
 
 # --- acceptance #5: cloning the HARMONIZED role, not the raw archive JD ---------------

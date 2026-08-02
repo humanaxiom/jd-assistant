@@ -16,6 +16,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from src.jd_core.models.parsed_jd import JobClassification
+
 
 class _Frozen(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -43,6 +45,9 @@ class SourceJDView(_Frozen):
     grade: str | None
     position_number: str | None
     parse_confidence: float
+    #: The structured pay grade / classification, when captured (CUPE source JDs carry
+    #: it from the archive; JDFN grades come from Builder/review entry or the HRIS).
+    classification: JobClassification | None = None
     rendered_text: str
     #: The harmonized role this source JD fed into, if it is a cluster member — the
     #: back-link that makes "this file → that role" navigable. ``None`` for a singleton
@@ -74,6 +79,9 @@ class RoleView(_Frozen):
     version: int
     score: float | None
     grade: str | None
+    #: The structured pay grade / classification, when captured (None until entered in
+    #: the Builder/review or imported from the HRIS — see the grade-scales decision).
+    classification: JobClassification | None = None
     rendered_text: str
     members: tuple[MemberJD, ...]
     source_count: int
@@ -115,6 +123,8 @@ class SourceListItem(_Frozen):
     filename: str | None
     title: str | None
     employee_group: str | None
+    #: The captured pay grade value (e.g. "8"), when the parse recovered one (CUPE).
+    grade: str | None = None
     parsed: bool
 
 

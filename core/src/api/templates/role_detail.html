@@ -7,6 +7,7 @@
   <p class="meta"><a href="/jd-bank/ui/library">🏦 JD Bank</a></p>
   <p>
     Status: <strong>{{ role.status }}</strong> · version {{ role.version }}
+    {% if role.classification %}· Grade: <strong>{{ role.classification.value }}</strong> <span class="meta">({{ role.classification.scheme }} · {{ role.classification.source }})</span>{% endif %}
     {% if role.score is not none %}· Score: <strong>{{ "%.1f"|format(role.score) }}</strong> · Quality: <strong>{{ role.grade or "—" }}</strong>{% endif %}
   </p>
   <p class="note" style="border-left:3px solid var(--accent);background:rgba(47,129,247,.08);padding:.6rem .9rem;border-radius:0 6px 6px 0">

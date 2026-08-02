@@ -164,6 +164,7 @@ async def get_source_jd(
         grade=jd.grade,
         position_number=jd.position_number,
         parse_confidence=parse_row if parse_row is not None else 0.0,
+        classification=jd.classification,
         rendered_text=render_sfu_jd_text(jd),
         role=role,
     )
@@ -227,6 +228,7 @@ async def get_role(session: AsyncSession, cluster_id: UUID) -> RoleView | None:
         version=canonical.version,
         score=validator.get("score"),
         grade=validator.get("grade"),
+        classification=jd.classification,
         rendered_text=render_sfu_jd_text(jd),
         members=tuple(members),
         source_count=len(members),
@@ -332,16 +334,20 @@ async def list_source_jds(
         )
     ).all()
     parsed = await _latest_parsed_map(session, [doc.id for doc in docs])
-    items = [
-        SourceListItem(
-            source_document_id=doc.id,
-            filename=doc.filename,
-            title=parsed[doc.id].title if doc.id in parsed else None,
-            employee_group=parsed[doc.id].employee_group if doc.id in parsed else None,
-            parsed=doc.id in parsed,
+    items: list[SourceListItem] = []
+    for doc in docs:
+        jd = parsed.get(doc.id)
+        classification = jd.classification if jd is not None else None
+        items.append(
+            SourceListItem(
+                source_document_id=doc.id,
+                filename=doc.filename,
+                title=jd.title if jd is not None else None,
+                employee_group=jd.employee_group if jd is not None else None,
+                grade=classification.value if classification is not None else None,
+                parsed=jd is not None,
+            )
         )
-        for doc in docs
-    ]
     return SourcePage(
         items=tuple(items),
         total=int(total),

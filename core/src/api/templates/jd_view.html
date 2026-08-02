@@ -13,7 +13,11 @@
       <tr><th>File</th><td>{{ view.filename or "—" }}</td></tr>
       <tr><th>Employee group</th><td>{{ view.employee_group or "—" }}</td></tr>
       <tr><th>Department</th><td>{{ view.department or "—" }}</td></tr>
-      <tr><th>Grade</th><td>{{ view.grade or "—" }}</td></tr>
+      <tr><th>Grade</th><td>
+        {% if view.classification %}<strong>{{ view.classification.value }}</strong>
+        <span class="meta">({{ view.classification.scheme }} · {{ view.classification.source }})</span>
+        {% else %}—{% endif %}
+      </td></tr>
       <tr><th>Position #</th><td>{{ view.position_number or "—" }}</td></tr>
       <tr><th>Parse confidence</th><td>{{ (view.parse_confidence * 100) | round(0, 'floor') | int }}%</td></tr>
     </tbody>

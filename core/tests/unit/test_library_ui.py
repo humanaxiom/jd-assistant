@@ -29,6 +29,7 @@ from src.jd_bank.library import (
     SourceListItem,
     SourcePage,
 )
+from src.jd_core.models.parsed_jd import JobClassification
 
 
 class FakeSession:
@@ -102,6 +103,17 @@ def test_source_jd_shows_role_back_link(monkeypatch: pytest.MonkeyPatch) -> None
     assert resp.status_code == 200
     assert f"/jd-bank/ui/role/{cluster_id}" in resp.text
     assert "Budget Analyst" in resp.text
+
+
+def test_source_jd_shows_grade_with_provenance(monkeypatch: pytest.MonkeyPatch) -> None:
+    view = _source_view(
+        classification=JobClassification(scheme="cupe", value="8", source="parsed")
+    )
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=view))
+
+    body = make_client().get(f"/jd-bank/ui/jd/{view.source_document_id}").text
+
+    assert "8" in body and "cupe" in body and "parsed" in body  # value/scheme/source
 
 
 def test_source_jd_unknown_returns_404(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -63,9 +63,17 @@ docx filenames I can't open"). All read-only (NN #1), no rulebook/GPU change, `m
   `assemble._classification` (scheme from `employee_group`, `source="entered"`) → the Builder gained
   a Grade question; `jd_to_answers` carries it on clone. Reviewer edit: the Grade field now drives
   the STRUCTURED `classification` (`ui._classification_from_form`), and the legacy free-string
-  `grade` is deprecated (set None). `make gates` **1963 passing, 93.59%**. **STILL TO DO:** HRIS
-  `position_number→grade` import (Phase C, step 4, needs the export + FIPPA); surface Grade with
-  provenance in the library/reader (step 5).
+  `grade` is deprecated (set None). `make gates` **1963 passing, 93.59%**.
+- **Grade capture Steps 4–5 DONE — the whole 1–5 chain is complete.** (4) **HRIS importer scaffold**
+  — pure `src/jd_bank/grade_import.py::parse_grade_csv` (position_number→`JobClassification`,
+  `source="hris"`) + thin CLI `scripts/import_grades.py` (applies to `canonical_jds` by
+  position_number). **A scaffold: the real run needs the HR export + a FIPPA review** (grade is
+  compensation data; position_number is only 35% populated). (5) **Surfaced with provenance** —
+  `classification` on the source reader + role detail (conditional line: value · scheme · source)
+  and a **Grade column on the archive browser**; live-verified: CUPE source JDs show their backfilled
+  grade (e.g. `7 · cupe · parsed`). Deliberately NO roles-library Grade column yet — JDFN roles carry
+  no grade until reviewers enter them (an always-empty column would repeat the earlier UX complaint);
+  add it once grades populate. `make gates` **1970 passing, 93.60%**.
 - **On a branch, fast-forwarded to `main`** (CI still billing-blocked → local merge per ADR-006).
   Committed as ONE gates-green unit (the three parts interleave across shared templates/tests, so a
   per-part split would produce non-green intermediate commits — NN #4). Memories written:

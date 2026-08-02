@@ -22,12 +22,13 @@
   {% if page.items %}
   <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }}</p>
   <table>
-    <thead><tr><th>File</th><th>Title</th><th></th></tr></thead>
+    <thead><tr><th>File</th><th>Title</th><th>Grade</th><th></th></tr></thead>
     <tbody>
       {% for item in page.items %}
       <tr>
         <td>{{ item.filename or "—" }}</td>
         <td>{{ item.title or "—" }}</td>
+        <td>{{ item.grade or "—" }}</td>
         <td>
           {% if item.parsed %}
           <a href="/jd-bank/ui/jd/{{ item.source_document_id }}">Read →</a>
