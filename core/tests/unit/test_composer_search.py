@@ -121,6 +121,19 @@ def _jd(title: str, group: str) -> SFUJobDescription:
     return SFUJobDescription(title=title, employee_group=group)  # type: ignore[arg-type]
 
 
+def _no_title_matches(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Silence the title pass so a test can drive the SEMANTIC pass alone.
+
+    ``search_similar_jds`` now queries Postgres for exact/near title matches before it
+    embeds anything (the fix for "an exact title query returns unrelated roles"), so a
+    test that only fakes the vector seams would otherwise hit a real ``session``."""
+
+    async def _none(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
+        return {}
+
+    monkeypatch.setattr(search_mod, "_title_matches", _none)
+
+
 async def test_search_embeds_once_filters_and_caps(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -135,6 +148,7 @@ async def test_search_embeds_once_filters_and_caps(
     async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
         return parsed
 
+    _no_title_matches(monkeypatch)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
 
@@ -153,6 +167,116 @@ async def test_search_embeds_once_filters_and_caps(
     assert hits[0].score == 0.99
 
 
+async def test_an_exact_title_query_returns_that_title_first(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """THE REPORTED DEFECT. Typing a role's exact title returned unrelated roles.
+
+    The document vectors deliberately EXCLUDE the title
+    (``embeddings.yaml: include_title_in_document: false``) — that exclusion is what
+    makes ``bank/similarity`` "title-agnostic by construction" for dedup/clustering —
+    so a title query has nothing to match on. Measured against the live index: the top
+    25 for "AV Systems Analyst" contained none of the 12 documents with that title, and
+    the whole top-25 spanned 0.8042–0.8176 (a 0.013 spread — flat noise, all "81%").
+
+    Fixed in the search layer, not the vector substrate: an exact/near TITLE match is
+    looked up in Postgres and ranked ABOVE the semantic neighbours. Flipping
+    ``include_title_in_document`` would have "fixed" this by breaking dedup."""
+    titled, semantic = uuid.uuid4(), uuid.uuid4()
+
+    async def fake_titles(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
+        assert query == "AV Systems Analyst"
+        return {titled: _jd("AV Systems Analyst", "apsa")}
+
+    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+        return [(semantic, 0.8176)]
+
+    async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
+        return {semantic: _jd("Associate Director, Advancement", "apsa")}
+
+    monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
+    monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
+    monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
+
+    hits = await search_mod.search_similar_jds(
+        "AV Systems Analyst",
+        embed_client=_FakeEmbed([0.1] * 768),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+        session=object(),  # type: ignore[arg-type]
+        limit=10,
+    )
+
+    assert [h.source_document_id for h in hits] == [titled, semantic]
+    assert hits[0].title == "AV Systems Analyst"
+    # The two are DIFFERENT measures and must not be conflated into one number: a
+    # title match carries no cosine, and reporting one would invent a similarity.
+    assert hits[0].match == "title"
+    assert hits[0].score is None
+    assert hits[1].match == "semantic"
+    assert hits[1].score == 0.8176
+
+
+async def test_a_title_match_is_not_duplicated_by_the_semantic_pass(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A document can be both an exact title match and a near neighbour. It is one
+    candidate, listed once, as the stronger (title) match."""
+    both = uuid.uuid4()
+
+    async def fake_titles(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
+        return {both: _jd("AV Systems Analyst", "apsa")}
+
+    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+        return [(both, 0.93)]
+
+    async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
+        return {both: _jd("AV Systems Analyst", "apsa")}
+
+    monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
+    monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
+    monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
+
+    hits = await search_mod.search_similar_jds(
+        "AV Systems Analyst",
+        embed_client=_FakeEmbed([0.1] * 768),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+        session=object(),  # type: ignore[arg-type]
+        limit=10,
+    )
+
+    assert [h.source_document_id for h in hits] == [both]
+    assert hits[0].match == "title"
+
+
+async def test_title_matches_stay_jdfn_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The title pass is subject to the SAME JDFN scope as the semantic one — a CUPE
+    hit must not sneak in through the new path (HR-143/194)."""
+    cupe = uuid.uuid4()
+
+    async def fake_titles(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
+        return {cupe: _jd("AV Systems Analyst", "cupe")}
+
+    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+        return []
+
+    async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
+        return {}
+
+    monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
+    monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
+    monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
+
+    hits = await search_mod.search_similar_jds(
+        "AV Systems Analyst",
+        embed_client=_FakeEmbed([0.1] * 768),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+        session=object(),  # type: ignore[arg-type]
+        limit=10,
+    )
+
+    assert hits == []
+
+
 async def test_search_respects_the_limit(monkeypatch: pytest.MonkeyPatch) -> None:
     ids = [(uuid.uuid4(), 0.9 - i * 0.01) for i in range(5)]
     parsed = {sid: _jd(f"role-{i}", "apsa") for i, (sid, _) in enumerate(ids)}
@@ -163,6 +287,7 @@ async def test_search_respects_the_limit(monkeypatch: pytest.MonkeyPatch) -> Non
     async def fake_load(session: Any, sids: Any) -> dict[Any, Any]:
         return parsed
 
+    _no_title_matches(monkeypatch)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
 

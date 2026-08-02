@@ -27,6 +27,7 @@ still builds and submits through the review queue (NN #1).
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 from uuid import UUID
 
 from neo4j import AsyncDriver
@@ -60,15 +61,23 @@ ORDER BY score DESC
 
 
 class SearchHit(BaseModel):
-    """One "start from this" candidate: the archive document, its role title and
-    facets, and how similar it is to the query (cosine, higher = closer)."""
+    """One "start from this" candidate: the archive document, its role title and facets,
+    and HOW it was found.
+
+    ``match`` distinguishes two genuinely different measures, which is why they are
+    not flattened into one number. A ``semantic`` hit carries a cosine ``score``; a
+    ``title`` hit carries ``None``, because it was not found by distance and quoting a
+    similarity for it would invent one. The UI renders them differently for that reason.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     source_document_id: UUID
     title: str
     employee_group: str | None = None
-    score: float = Field(ge=-1.0, le=1.0)
+    #: Cosine similarity to the query — ``None`` for a title match (see above).
+    score: float | None = Field(default=None, ge=-1.0, le=1.0)
+    match: Literal["title", "semantic"] = "semantic"
 
 
 def jd_to_answers(jd: SFUJobDescription) -> ComposerAnswers:
@@ -158,6 +167,48 @@ async def _load_latest_parsed(
     return latest
 
 
+def _title_rank(title: str, query: str) -> int:
+    """Order among title matches: exact, then prefix, then contains. Lower is better."""
+    lowered, wanted = title.strip().lower(), query.strip().lower()
+    if lowered == wanted:
+        return 0
+    if lowered.startswith(wanted):
+        return 1
+    return 2
+
+
+async def _title_matches(
+    session: AsyncSession, query_text: str, *, limit: int
+) -> dict[UUID, SFUJobDescription]:
+    """Archive documents whose parsed TITLE contains ``query_text``, best-first.
+
+    Deliberately a plain SQL ``ILIKE`` rather than another vector: the whole point is to
+    find the title the vectors cannot see, so answering it with the same embedding that
+    excludes titles would be circular. No extension needed, and an exact title match is
+    a fact, not a distance.
+    """
+    if not query_text.strip():
+        return {}
+    pattern = f"%{query_text.strip()}%"
+    rows = (
+        await session.scalars(
+            select(ParsedJDRow)
+            .where(ParsedJDRow.parsed["title"].astext.ilike(pattern))
+            .order_by(ParsedJDRow.source_document_id, ParsedJDRow.created_at.desc())
+            .limit(limit * _OVERFETCH)
+        )
+    ).all()
+    latest: dict[UUID, SFUJobDescription] = {}
+    for row in rows:
+        if row.source_document_id not in latest:  # first = newest per the order_by
+            latest[row.source_document_id] = SFUJobDescription.model_validate(
+                row.parsed
+            )
+    return dict(
+        sorted(latest.items(), key=lambda item: _title_rank(item[1].title, query_text))
+    )
+
+
 async def search_similar_jds(
     query_text: str,
     *,
@@ -167,30 +218,71 @@ async def search_similar_jds(
     limit: int = 10,
     rules: Rules | None = None,
 ) -> list[SearchHit]:
-    """Semantic search over the embedded archive for JDs like ``query_text``.
+    """Search the archive for JDs to start from — **by title first, then semantically**.
 
-    Embeds the query (self-hosted, egress-guarded), fetches the nearest archive
-    documents, joins each to its parsed JD, and returns the JDFN ones as
-    "start from this" candidates, best-first, capped at ``limit``. Injected
-    ``embed_client`` / ``neo4j_driver`` / ``session`` (all mockable)."""
+    A title pass runs before the vector pass because the document vectors deliberately
+    EXCLUDE the title (``embeddings.yaml: include_title_in_document: false``, which is
+    what makes :mod:`src.jd_core.bank.similarity` title-agnostic for dedup). Without it,
+    typing a role's exact title cannot retrieve that role: measured against the live
+    index, the top 25 for "AV Systems Analyst" contained none of the 12 documents with
+    that title, and the whole top-25 spanned 0.8042–0.8176 — a 0.013 spread, flat noise,
+    every row rendering as "81%". A short title query against whole-document vectors has
+    no signal to work with.
+
+    Fixed HERE rather than in the vector substrate on purpose: flipping
+    ``include_title_in_document`` would make this query work by silently breaking the
+    dedup/clustering guarantee that two JDs with different titles and identical duties
+    are the same role.
+
+    Both passes are JDFN-scoped (CUPE/WJQ excluded, HR-143), deduplicated by document
+    (a title match that is also a near neighbour is listed once, as the title match),
+    and capped at ``limit``. Injected ``embed_client`` / ``neo4j_driver`` / ``session``
+    (all mockable).
+    """
     _ = rules if rules is not None else get_rules()
     if not query_text.strip():
         return []
-    vector = (await embed_client.embed_batch([query_text]))[0]
-    nearest = await _nearest_source_ids(neo4j_driver, vector, limit * _OVERFETCH)
-    parsed = await _load_latest_parsed(session, [sid for sid, _ in nearest])
 
     hits: list[SearchHit] = []
-    for source_id, score in nearest:
-        jd = parsed.get(source_id)
-        if jd is None or jd.employee_group == _NON_JDFN_GROUP:
-            continue  # pruned/unparsed, or CUPE/WJQ — the Builder is JDFN-only
+    seen: set[UUID] = set()
+
+    for source_id, jd in (
+        await _title_matches(session, query_text, limit=limit)
+    ).items():
+        if jd.employee_group == _NON_JDFN_GROUP:
+            continue  # the title pass is under the SAME JDFN scope as the vector pass
+        seen.add(source_id)
         hits.append(
             SearchHit(
                 source_document_id=source_id,
                 title=jd.title,
                 employee_group=jd.employee_group,
+                score=None,
+                match="title",
+            )
+        )
+        if len(hits) >= limit:
+            return hits
+
+    vector = (await embed_client.embed_batch([query_text]))[0]
+    nearest = await _nearest_source_ids(neo4j_driver, vector, limit * _OVERFETCH)
+    parsed = await _load_latest_parsed(session, [sid for sid, _ in nearest])
+
+    for source_id, score in nearest:
+        neighbour = parsed.get(source_id)
+        if (
+            neighbour is None
+            or neighbour.employee_group == _NON_JDFN_GROUP
+            or source_id in seen
+        ):
+            continue  # pruned/unparsed, CUPE/WJQ, or already listed as a title match
+        hits.append(
+            SearchHit(
+                source_document_id=source_id,
+                title=neighbour.title,
+                employee_group=neighbour.employee_group,
                 score=score,
+                match="semantic",
             )
         )
         if len(hits) >= limit:
