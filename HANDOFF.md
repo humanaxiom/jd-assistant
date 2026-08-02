@@ -34,6 +34,16 @@ docx filenames I can't open"). All read-only (NN #1), no rulebook/GPU change, `m
 - **Roles library columns are now click-to-sort** (server-side, no JS): Role/Sources/Score/Quality/
   Status headers toggle asc/desc via `?sort=&dir=`; `list_roles` gained `sort`/`direction`
   (`_ROLE_SORTS` whitelist, unknown → title asc; nulls last; stable title+id tiebreak).
+- **DATA-STATE REVIEW (grade/level) — `docs/audit/data-state-and-grade-2026-08-01.md`.** Measured
+  the whole corpus + Neo4j + the source archive: grade/level (pay-mapped, per-group) is **missing
+  and unreliable everywhere** — Postgres `grade` 3% and garbage, canonical roles ~0%, Neo4j has no
+  domain metadata, source docs carry grade for **CUPE ~64% (parseable)** but **JDFN/APSA largely
+  absent** (assigned post-authoring, lives in the HRIS). Also documented full field completeness
+  (position_number 35%, department 50%, employee_group 36%, **34% paragraph titles**). The doc
+  lays out a 4-phase capture plan (structured `grade{scheme,value,source}` + group-aware parser +
+  register the scales → Builder/review entry where absent → optional HRIS import (FIPPA) → surface
+  with provenance) and the HR decisions to register. **Nothing built yet — this is the plan; it
+  needs HR sign-off on the per-group grade scales.**
 - **On a branch, fast-forwarded to `main`** (CI still billing-blocked → local merge per ADR-006).
   Committed as ONE gates-green unit (the three parts interleave across shared templates/tests, so a
   per-part split would produce non-green intermediate commits — NN #4). Memories written:
