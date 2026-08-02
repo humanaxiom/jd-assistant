@@ -36,15 +36,23 @@
         {# A title match and a cosine are different measures — showing a percentage for
            a title match would invent a similarity it was never scored on. #}
         <td>
-          {% if hit.match == "title" %}
+          {% if hit.match == "role_title" %}
+          <span class="badge ok">harmonized role</span>
+          {% elif hit.match == "title" %}
           <span class="badge ok">title match</span>
           {% else %}
           {{ (hit.score * 100) | round(0, 'floor') | int }}% similar
           {% endif %}
         </td>
-        <td><a href="/jd-bank/ui/jd/{{ hit.source_document_id }}">Read →</a></td>
         <td>
-          {% set cid = role_clusters.get(hit.source_document_id) %}
+          {% if hit.match == "role_title" %}
+          <a href="/jd-bank/ui/role/{{ hit.cluster_id }}">Read →</a>
+          {% else %}
+          <a href="/jd-bank/ui/jd/{{ hit.source_document_id }}">Read →</a>
+          {% endif %}
+        </td>
+        <td>
+          {% set cid = hit.cluster_id or role_clusters.get(hit.source_document_id) %}
           {% if cid %}
           <a href="/jd-bank/ui/compose/clone-role/{{ cid }}">Start from harmonized role →</a>
           {% else %}

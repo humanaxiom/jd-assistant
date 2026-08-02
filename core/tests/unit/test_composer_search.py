@@ -122,15 +122,20 @@ def _jd(title: str, group: str) -> SFUJobDescription:
 
 
 def _no_title_matches(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Silence the title pass so a test can drive the SEMANTIC pass alone.
+    """Silence both TITLE passes so a test can drive the SEMANTIC pass alone.
 
-    ``search_similar_jds`` now queries Postgres for exact/near title matches before it
-    embeds anything (the fix for "an exact title query returns unrelated roles"), so a
-    test that only fakes the vector seams would otherwise hit a real ``session``."""
+    ``search_similar_jds`` now queries Postgres for harmonized-role and source-document
+    title matches before it embeds anything (the fix for "an exact title query returns
+    unrelated roles"), so a test that only fakes the vector seams would otherwise reach
+    a real ``session``."""
+
+    async def _no_roles(session: Any, query: str, *, limit: int) -> list[Any]:
+        return []
 
     async def _none(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
         return {}
 
+    monkeypatch.setattr(search_mod, "_role_title_matches", _no_roles)
     monkeypatch.setattr(search_mod, "_title_matches", _none)
 
 
@@ -194,6 +199,10 @@ async def test_an_exact_title_query_returns_that_title_first(
     async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
         return {semantic: _jd("Associate Director, Advancement", "apsa")}
 
+    async def _no_roles(session: Any, query: str, *, limit: int) -> list[Any]:
+        return []
+
+    monkeypatch.setattr(search_mod, "_role_title_matches", _no_roles)
     monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
@@ -216,6 +225,87 @@ async def test_an_exact_title_query_returns_that_title_first(
     assert hits[1].score == 0.8176
 
 
+async def test_a_harmonized_role_is_found_by_its_own_title(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Searching source documents alone cannot find most harmonized roles.
+
+    MEASURED: **746 of 1,222 harmonized role titles (61%) appear on NO source
+    document** — harmonization renames the role, so the title the author types exists
+    only on ``canonical_jds``. A title pass over ``parsed_jds`` therefore misses the
+    majority of the Bank's own roles, which is the deeper half of "searching for an
+    exact title doesn't pull it".
+
+    A role hit is the PREFERRED start (cloning the harmonized role, not a raw archive
+    parse), so it outranks both source-document passes."""
+    cluster, source = uuid.uuid4(), uuid.uuid4()
+
+    async def fake_roles(session: Any, query: str, *, limit: int) -> list[Any]:
+        return [(cluster, "Learning Space Technologist", "apsa")]
+
+    async def fake_titles(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
+        return {}
+
+    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+        return [(source, 0.81)]
+
+    async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
+        return {source: _jd("Something Else", "apsa")}
+
+    monkeypatch.setattr(search_mod, "_role_title_matches", fake_roles)
+    monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
+    monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
+    monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
+
+    hits = await search_mod.search_similar_jds(
+        "Learning Space Technologist",
+        embed_client=_FakeEmbed([0.1] * 768),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+        session=object(),  # type: ignore[arg-type]
+        limit=10,
+    )
+
+    assert hits[0].title == "Learning Space Technologist"
+    assert hits[0].match == "role_title"
+    assert hits[0].cluster_id == cluster
+    # A role is not an archive document; it has no source_document_id to read.
+    assert hits[0].source_document_id is None
+    assert hits[0].score is None
+    assert hits[1].match == "semantic"
+
+
+async def test_role_title_matches_stay_jdfn_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The role pass is under the SAME JDFN scope as the other two (HR-143/194)."""
+
+    async def fake_roles(session: Any, query: str, *, limit: int) -> list[Any]:
+        return [(uuid.uuid4(), "Clerk", "cupe")]
+
+    async def fake_titles(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
+        return {}
+
+    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+        return []
+
+    async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
+        return {}
+
+    monkeypatch.setattr(search_mod, "_role_title_matches", fake_roles)
+    monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
+    monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
+    monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
+
+    hits = await search_mod.search_similar_jds(
+        "Clerk",
+        embed_client=_FakeEmbed([0.1] * 768),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+        session=object(),  # type: ignore[arg-type]
+        limit=10,
+    )
+    assert hits == []
+
+
 async def test_a_title_match_is_not_duplicated_by_the_semantic_pass(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -232,6 +322,10 @@ async def test_a_title_match_is_not_duplicated_by_the_semantic_pass(
     async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
         return {both: _jd("AV Systems Analyst", "apsa")}
 
+    async def _no_roles(session: Any, query: str, *, limit: int) -> list[Any]:
+        return []
+
+    monkeypatch.setattr(search_mod, "_role_title_matches", _no_roles)
     monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
@@ -262,6 +356,10 @@ async def test_title_matches_stay_jdfn_only(monkeypatch: pytest.MonkeyPatch) -> 
     async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
         return {}
 
+    async def _no_roles(session: Any, query: str, *, limit: int) -> list[Any]:
+        return []
+
+    monkeypatch.setattr(search_mod, "_role_title_matches", _no_roles)
     monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)

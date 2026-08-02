@@ -32,7 +32,7 @@ from uuid import UUID
 
 from neo4j import AsyncDriver
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.jd_bank.composer.answers import ComposerAnswers, DutyAnswer, ModifiedQual
@@ -72,12 +72,17 @@ class SearchHit(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    source_document_id: UUID
+    #: The archive document — ``None`` for a ``role_title`` hit, which is a harmonized
+    #: ROLE (a cluster), not a document in the archive.
+    source_document_id: UUID | None = None
+    #: The harmonized role this hit starts from. Set for ``role_title``; resolved by the
+    #: route for the document hits.
+    cluster_id: UUID | None = None
     title: str
     employee_group: str | None = None
     #: Cosine similarity to the query — ``None`` for a title match (see above).
     score: float | None = Field(default=None, ge=-1.0, le=1.0)
-    match: Literal["title", "semantic"] = "semantic"
+    match: Literal["role_title", "title", "semantic"] = "semantic"
 
 
 def jd_to_answers(jd: SFUJobDescription) -> ComposerAnswers:
@@ -177,6 +182,54 @@ def _title_rank(title: str, query: str) -> int:
     return 2
 
 
+async def _role_title_matches(
+    session: AsyncSession, query_text: str, *, limit: int
+) -> list[tuple[UUID, str, str | None]]:
+    """Harmonized ROLES whose title contains ``query_text`` — ``(cluster_id, title,
+    employee_group)``, best-first.
+
+    Searching source documents alone cannot find most of the Bank's own roles:
+    **746 of 1,222 harmonized role titles (61%) appear on NO source document**, because
+    harmonization renames the role. The title an author types is frequently one that
+    exists only on ``canonical_jds``.
+
+    Reads the CURRENT version of each cluster (highest version), so a superseded title
+    never resurfaces.
+    """
+    if not query_text.strip():
+        return []
+    pattern = f"%{query_text.strip()}%"
+    current = (
+        select(
+            CanonicalJD.cluster_id,
+            func.max(CanonicalJD.version).label("version"),
+        )
+        .group_by(CanonicalJD.cluster_id)
+        .subquery()
+    )
+    rows = (
+        await session.execute(
+            select(CanonicalJD)
+            .join(
+                current,
+                (CanonicalJD.cluster_id == current.c.cluster_id)
+                & (CanonicalJD.version == current.c.version),
+            )
+            .where(CanonicalJD.content["title"].astext.ilike(pattern))
+            .limit(limit * _OVERFETCH)
+        )
+    ).scalars()
+    matches = [
+        (
+            row.cluster_id,
+            str((row.content or {}).get("title") or ""),
+            (row.content or {}).get("employee_group"),
+        )
+        for row in rows
+    ]
+    return sorted(matches, key=lambda item: _title_rank(item[1], query_text))
+
+
 async def _title_matches(
     session: AsyncSession, query_text: str, *, limit: int
 ) -> dict[UUID, SFUJobDescription]:
@@ -246,6 +299,27 @@ async def search_similar_jds(
     hits: list[SearchHit] = []
     seen: set[UUID] = set()
 
+    # 1. Harmonized ROLES by title — the preferred start (clone the harmonized role,
+    #    not a raw archive parse), and the only pass that can find the 61% of role
+    #    titles that exist on no source document at all.
+    for cluster_id, role_title, group in await _role_title_matches(
+        session, query_text, limit=limit
+    ):
+        if group == _NON_JDFN_GROUP:
+            continue
+        hits.append(
+            SearchHit(
+                cluster_id=cluster_id,
+                title=role_title,
+                employee_group=group,
+                score=None,
+                match="role_title",
+            )
+        )
+        if len(hits) >= limit:
+            return hits
+
+    # 2. Archive DOCUMENTS by title.
     for source_id, jd in (
         await _title_matches(session, query_text, limit=limit)
     ).items():

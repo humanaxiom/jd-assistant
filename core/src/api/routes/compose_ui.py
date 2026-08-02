@@ -678,8 +678,12 @@ async def search_page(
     # Prefer cloning the HARMONIZED role: map each hit's source doc to its cluster (if
     # any) so the template links "Start from this" to the reviewed canonical, not the
     # raw archive JD. A singleton (no cluster) keeps the raw-source clone as its option.
+    # A `role_title` hit already IS a role and carries its own cluster_id — only the
+    # document hits need the lookup.
     role_clusters: dict[UUID, UUID] = {}
     for hit in hits:
+        if hit.source_document_id is None:
+            continue
         cluster_id = await cluster_id_for_source(session, hit.source_document_id)
         if cluster_id is not None:
             role_clusters[hit.source_document_id] = cluster_id
