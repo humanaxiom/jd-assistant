@@ -1,0 +1,282 @@
+"""Unit tests for the server-rendered content library (the browsable JD Bank) — a thin
+read-only HTML transport over :mod:`src.jd_bank.library`.
+
+Mirrors ``test_review_ui.py``: drive ``TestClient(app)`` without the lifespan, override
+``get_session`` with a fake, and monkeypatch every ``src.api.routes.library.<fn>`` read
+function so the route logic (param passthrough, the single service call, 404 mapping,
+and HTML rendering through the real templates) is tested in isolation from the DB. Real
+view models flow through so the templates are exercised, not stubbed.
+"""
+
+from __future__ import annotations
+
+import uuid
+from collections.abc import AsyncIterator, Iterator
+from unittest.mock import AsyncMock
+
+import pytest
+from fastapi.testclient import TestClient
+
+from src.api.main import app, get_session
+from src.api.routes import library as library_route
+from src.jd_bank.library import (
+    MemberJD,
+    RoleListItem,
+    RolePage,
+    RoleRef,
+    RoleView,
+    SourceJDView,
+    SourceListItem,
+    SourcePage,
+)
+
+
+class FakeSession:
+    pass
+
+
+@pytest.fixture(autouse=True)
+def _clear_overrides() -> Iterator[None]:
+    yield
+    app.dependency_overrides.clear()
+
+
+def make_client() -> TestClient:
+    async def override_session() -> AsyncIterator[FakeSession]:
+        yield FakeSession()
+
+    app.dependency_overrides[get_session] = override_session
+    return TestClient(app, follow_redirects=False)
+
+
+# --- the source-JD reader -------------------------------------------------------------
+
+
+def _source_view(**update: object) -> SourceJDView:
+    base = dict(
+        source_document_id=uuid.uuid4(),
+        filename="analyst.docx",
+        title="Financial Analyst",
+        employee_group="apsa",
+        department="Finance",
+        grade="A1",
+        position_number="P123",
+        parse_confidence=0.87,
+        rendered_text="Manages the annual budget cycle end to end.",
+        role=None,
+    )
+    base.update(update)
+    return SourceJDView(**base)
+
+
+def test_source_jd_renders_readable_content(monkeypatch: pytest.MonkeyPatch) -> None:
+    view = _source_view()
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=view))
+    client = make_client()
+
+    resp = client.get(f"/jd-bank/ui/jd/{view.source_document_id}")
+
+    assert resp.status_code == 200
+    body = resp.text
+    assert "Financial Analyst" in body
+    assert "analyst.docx" in body
+    # The actual content is rendered — not just a filename/metadata.
+    assert "Manages the annual budget cycle end to end." in body
+
+
+def test_source_jd_shows_role_back_link(monkeypatch: pytest.MonkeyPatch) -> None:
+    cluster_id = uuid.uuid4()
+    view = _source_view(
+        role=RoleRef(
+            cluster_id=cluster_id,
+            canonical_id=uuid.uuid4(),
+            title="Budget Analyst",
+            status="draft",
+        )
+    )
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=view))
+    client = make_client()
+
+    resp = client.get(f"/jd-bank/ui/jd/{view.source_document_id}")
+
+    assert resp.status_code == 200
+    assert f"/jd-bank/ui/role/{cluster_id}" in resp.text
+    assert "Budget Analyst" in resp.text
+
+
+def test_source_jd_unknown_returns_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=None))
+    client = make_client()
+
+    resp = client.get(f"/jd-bank/ui/jd/{uuid.uuid4()}")
+
+    assert resp.status_code == 404
+    assert "Not found" in resp.text
+
+
+# --- the role (roles → sources) -------------------------------------------------------
+
+
+def test_role_renders_content_and_member_links(monkeypatch: pytest.MonkeyPatch) -> None:
+    cluster_id, canonical_id = uuid.uuid4(), uuid.uuid4()
+    member_a, member_b = uuid.uuid4(), uuid.uuid4()
+    role = RoleView(
+        canonical_id=canonical_id,
+        cluster_id=cluster_id,
+        title="Program Coordinator",
+        status="draft",
+        version=1,
+        score=82.0,
+        grade="A",
+        level_band="Director",
+        rendered_text="Coordinates the program across departments.",
+        members=(
+            MemberJD(
+                source_document_id=member_a,
+                filename="a.docx",
+                title="Coordinator A",
+                employee_group="apsa",
+                parsed=True,
+            ),
+            MemberJD(
+                source_document_id=member_b,
+                filename="b.docx",
+                title=None,
+                employee_group=None,
+                parsed=False,
+            ),
+        ),
+        source_count=2,
+    )
+    monkeypatch.setattr(library_route, "get_role", AsyncMock(return_value=role))
+    client = make_client()
+
+    resp = client.get(f"/jd-bank/ui/role/{cluster_id}")
+
+    assert resp.status_code == 200
+    body = resp.text
+    assert "Program Coordinator" in body
+    assert "Coordinates the program across departments." in body
+    assert "distilled from" in body.lower()
+    assert "Director" in body  # seniority tier shown, not the employee group
+    # a parsed member links to the reader; an unparsed one does not
+    assert f"/jd-bank/ui/jd/{member_a}" in body
+    assert f"/jd-bank/ui/jd/{member_b}" not in body
+    # links back to the review queue for approval (the sole approval surface)
+    assert f"/jd-bank/ui/review/{canonical_id}" in body
+
+
+def test_role_unknown_returns_404(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(library_route, "get_role", AsyncMock(return_value=None))
+    client = make_client()
+
+    resp = client.get(f"/jd-bank/ui/role/{uuid.uuid4()}")
+
+    assert resp.status_code == 404
+
+
+# --- the roles library ----------------------------------------------------------------
+
+
+def _role_item(title: str) -> RoleListItem:
+    return RoleListItem(
+        canonical_id=uuid.uuid4(),
+        cluster_id=uuid.uuid4(),
+        title=title,
+        status="draft",
+        level_band="Manager",
+        source_count=3,
+        score=79.0,
+        grade="B",
+    )
+
+
+def test_library_lists_roles_and_passes_query(monkeypatch: pytest.MonkeyPatch) -> None:
+    items = (_role_item("Finance Analyst"), _role_item("Finance Manager"))
+    mock = AsyncMock(
+        return_value=RolePage(items=items, total=2, limit=50, offset=0, q="finance")
+    )
+    monkeypatch.setattr(library_route, "list_roles", mock)
+    client = make_client()
+
+    resp = client.get("/jd-bank/ui/library", params={"q": "finance"})
+
+    assert resp.status_code == 200
+    body = resp.text
+    assert "Finance Analyst" in body and "Finance Manager" in body
+    assert f"/jd-bank/ui/role/{items[0].cluster_id}" in body
+    # The list shows the seniority tier (employee group is unpopulated for JDFN roles).
+    assert "<th>Seniority</th>" in body
+    mock.assert_awaited_once()
+    assert mock.await_args.kwargs["q"] == "finance"
+
+
+def test_library_next_link_only_when_more(monkeypatch: pytest.MonkeyPatch) -> None:
+    items = tuple(_role_item(f"Role {i}") for i in range(2))
+    mock = AsyncMock(
+        return_value=RolePage(items=items, total=5, limit=2, offset=0, q="")
+    )
+    monkeypatch.setattr(library_route, "list_roles", mock)
+    client = make_client()
+
+    resp = client.get("/jd-bank/ui/library", params={"limit": 2})
+
+    assert resp.status_code == 200
+    assert "Showing 1–2 of 5" in resp.text
+    assert "offset=2" in resp.text  # a next page exists
+    assert "← Prev" not in resp.text  # but not a prev on the first page
+
+
+def test_library_empty_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock = AsyncMock(
+        return_value=RolePage(items=(), total=0, limit=50, offset=0, q="zzz")
+    )
+    monkeypatch.setattr(library_route, "list_roles", mock)
+    client = make_client()
+
+    resp = client.get("/jd-bank/ui/library", params={"q": "zzz"})
+
+    assert resp.status_code == 200
+    assert "No roles match" in resp.text
+
+
+# --- the flat source archive ----------------------------------------------------------
+
+
+def test_archive_lists_source_files(monkeypatch: pytest.MonkeyPatch) -> None:
+    sid = uuid.uuid4()
+    items = (
+        SourceListItem(
+            source_document_id=sid,
+            filename="finance-analyst.docx",
+            title="Finance Analyst",
+            employee_group="apsa",
+            parsed=True,
+        ),
+    )
+    mock = AsyncMock(
+        return_value=SourcePage(items=items, total=1, limit=50, offset=0, q="finance")
+    )
+    monkeypatch.setattr(library_route, "list_source_jds", mock)
+    client = make_client()
+
+    resp = client.get("/jd-bank/ui/archive", params={"q": "finance"})
+
+    assert resp.status_code == 200
+    body = resp.text
+    assert "finance-analyst.docx" in body
+    assert f"/jd-bank/ui/jd/{sid}" in body
+    assert mock.await_args.kwargs["q"] == "finance"
+
+
+def test_nav_exposes_jd_bank(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The primary nav links to the library on every page (regression: the app used to
+    surface only dashboards/queue, never the content)."""
+    mock = AsyncMock(return_value=RolePage(items=(), total=0, limit=50, offset=0, q=""))
+    monkeypatch.setattr(library_route, "list_roles", mock)
+    client = make_client()
+
+    resp = client.get("/jd-bank/ui/library")
+
+    assert resp.status_code == 200
+    assert 'href="/jd-bank/ui/library">🏦 JD Bank' in resp.text

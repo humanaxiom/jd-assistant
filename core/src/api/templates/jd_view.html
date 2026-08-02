@@ -1,0 +1,35 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — {{ view.title }}{% endblock %}
+{% block header %}📄 {{ view.title }}{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <p class="meta">
+    <a href="/jd-bank/ui/library">🏦 JD Bank</a> ·
+    <a href="/jd-bank/ui/archive">source archive</a>
+  </p>
+  <table>
+    <tbody>
+      <tr><th>File</th><td>{{ view.filename or "—" }}</td></tr>
+      <tr><th>Employee group</th><td>{{ view.employee_group or "—" }}</td></tr>
+      <tr><th>Department</th><td>{{ view.department or "—" }}</td></tr>
+      <tr><th>Grade</th><td>{{ view.grade or "—" }}</td></tr>
+      <tr><th>Position #</th><td>{{ view.position_number or "—" }}</td></tr>
+      <tr><th>Parse confidence</th><td>{{ (view.parse_confidence * 100) | round(0, 'floor') | int }}%</td></tr>
+    </tbody>
+  </table>
+  {% if view.role %}
+  <p class="note" style="border-left:3px solid var(--accent);background:rgba(47,129,247,.08);padding:.6rem .9rem;margin-top:1rem;border-radius:0 6px 6px 0">
+    This source JD was harmonized into the role
+    <a href="/jd-bank/ui/role/{{ view.role.cluster_id }}"><strong>{{ view.role.title }}</strong></a>
+    ({{ view.role.status }}).
+  </p>
+  {% endif %}
+</div>
+
+<div class="panel">
+  <h2>Job description</h2>
+  <pre>{{ view.rendered_text }}</pre>
+</div>
+
+{% endblock %}

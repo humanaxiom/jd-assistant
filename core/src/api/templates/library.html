@@ -1,0 +1,59 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — the library{% endblock %}
+{% block header %}🏦 JD Bank — the library{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <p>
+    Every <strong>harmonized role</strong> the Bank has distilled from the SFU archive.
+    The archive's <strong>14,565 source .docx files</strong> were de-duplicated and
+    clustered into these roles; each role gathers the JDs for one job and is a draft
+    awaiting HR review (or a published JD). Open a role to read its harmonized text and
+    the source JDs behind it, or browse the
+    <a href="/jd-bank/ui/archive">source archive</a> file by file.
+  </p>
+  <form method="get" action="/jd-bank/ui/library">
+    <label for="q">Search roles by title</label>
+    <input id="q" name="q" value="{{ page.q }}" placeholder="e.g. financial analyst, research coordinator">
+    <button type="submit">Search</button>
+  </form>
+</div>
+
+<div class="panel">
+  <h2>Roles{% if page.q %} matching “{{ page.q }}”{% endif %}</h2>
+  {% if page.items %}
+  <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }}</p>
+  <table>
+    <thead>
+      <tr><th>Role</th><th>Seniority</th><th>Sources</th><th>Score</th><th>Grade</th><th>Status</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for item in page.items %}
+      <tr>
+        <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">{{ item.title }}</a></td>
+        <td>{{ item.level_band or "—" }}</td>
+        <td>{{ item.source_count }}</td>
+        <td>{{ item.score if item.score is not none else "—" }}</td>
+        <td>{{ item.grade or "—" }}</td>
+        <td>{{ item.status }}</td>
+        <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">Open →</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="meta">
+    {% if pagination.prev_offset is not none %}
+    <a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;offset={{ pagination.prev_offset }}&amp;limit={{ pagination.limit }}">← Prev</a>
+    {% endif %}
+    {% if pagination.next_offset is not none %}
+    <a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;offset={{ pagination.next_offset }}&amp;limit={{ pagination.limit }}">Next →</a>
+    {% endif %}
+  </p>
+  {% else %}
+  <p class="empty">
+    {% if page.q %}No roles match “{{ page.q }}”.{% else %}No roles yet — none have been produced.{% endif %}
+  </p>
+  {% endif %}
+</div>
+
+{% endblock %}

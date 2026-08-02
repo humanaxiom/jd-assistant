@@ -2,7 +2,39 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-07-31): review-UX fixes shipped + NEXT PHASE planned (Phase 8 — the Published JD
+**NEWEST (2026-08-01): THE BROWSABLE JD BANK — HR can finally READ the content, not just stats;
++ clone the HARMONIZED role; + level-band facet.** Driven by HR pilot feedback ("the Builder is
+better, but the dashboards are meaningless — where are the actual JD files? clusters just show
+docx filenames I can't open"). All read-only (NN #1), no rulebook/GPU change, `make gates`
+**1946 passing, 93.55%**. Live-verified over real full-run data (1,802 roles, 14,565 source docs).
+- **Content library (`jd_bank/library/` + `api/routes/library.py`).** New **🏦 JD Bank** nav (first
+  item). `/jd-bank/ui/library` = searchable/paginated home of all harmonized roles → `/role/{cluster_id}`
+  (canonical rendered readable + the source JDs it was distilled from, each → `/jd/{source_document_id}`,
+  the **source-JD reader** — the first content viewer the app has ever had). `/archive` = the flat
+  14,565-file browser. Renders stored `SFUJobDescription` via `render_sfu_jd_text`; roles list reuses
+  the stored `change_log["validator"]` roll-up (no recompute). Cross-links: search "Read →", review
+  detail "→ this role & its source JDs".
+- **Clone the HARMONIZED role, not the raw archive JD** ("archive is transitional until we harmonize
+  all"). `composer.load_role_clone_answers(cluster_id)` + `cluster_id_for_source`; route
+  `/jd-bank/ui/compose/clone-role/{cluster_id}`; "🧱 Start a new JD from this harmonized role" on the
+  role page; Builder search "Start from this" now prefers the harmonized clone (raw-JD clone only for
+  singletons). Fixes the "cloning a green JD fails" report — it was cloning the raw parse (177-word
+  summary, 1 duty) vs. the harmonized canonical (compliant); **same validator both sides** (NN #3),
+  different *content*.
+- **Employee group is empty in the JDFN data** (parses `None`, 0/2000 filenames match the group
+  pattern). Replaced the empty "Group" column with a **Seniority** tier (Manager/Director/VP/…),
+  classified from the CLEAN canonical title via the rulebook title-family classifier (HR-059). NOTE:
+  do NOT use the stored `cluster.constraint_metadata.bands` — it's computed from the RAW source title,
+  which is often a mis-parsed paragraph, so it confidently mislabels (a coordinator whose summary
+  mentions "Vice-Provost" landed on "VP"). Classifying the clean title fixes that (~70% unmapped →
+  "—", the rest reliable). Dropped the always-empty group column from the raw-file + member-list
+  screens (archive, search, role members table).
+- **On a branch, fast-forwarded to `main`** (CI still billing-blocked → local merge per ADR-006).
+  Committed as ONE gates-green unit (the three parts interleave across shared templates/tests, so a
+  per-part split would produce non-green intermediate commits — NN #4). Memories written:
+  `hr-wants-content-not-stats`, `jd-bank-content-library`.
+
+**PRIOR (2026-07-31): review-UX fixes shipped + NEXT PHASE planned (Phase 8 — the Published JD
 Bank).** All on `main`, `make gates` **1921 passing, 93.45%**.
 - **Review approve/fix UX fixed (`3efe837`).** A reviewer clicking Approve on a draft blocked by an
   *overridable* gate got a raw exception dump and no guidance. Now: a plain-language banner

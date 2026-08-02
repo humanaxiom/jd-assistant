@@ -132,6 +132,7 @@ from src.api.routes.compose_ui import router as jd_bank_compose_ui_router  # noq
 from src.api.routes.dashboard import router as jd_bank_dashboard_router  # noqa: E402
 from src.api.routes.guide import router as jd_bank_guide_router  # noqa: E402
 from src.api.routes.jd_bank import router as jd_bank_router  # noqa: E402
+from src.api.routes.library import router as jd_bank_library_router  # noqa: E402
 from src.api.routes.ui import router as jd_bank_ui_router  # noqa: E402
 
 # Auth routes (login/logout/CAS) are ungated — the login page must be reachable. The
@@ -143,6 +144,9 @@ app.include_router(
     jd_bank_ui_router,
     dependencies=[Depends(require_ui_roles(Role.REVIEWER, Role.ADMIN))],
 )
+# The content library (browse/read roles + source JDs) is read-only — any signed-in
+# user (redirect if not). It never publishes; approval stays on the reviewer queue.
+app.include_router(jd_bank_library_router, dependencies=[Depends(require_ui_user)])
 # Dashboards, the guide + the Builder require any authenticated user (redirect if not).
 app.include_router(jd_bank_dashboard_router, dependencies=[Depends(require_ui_user)])
 app.include_router(jd_bank_guide_router, dependencies=[Depends(require_ui_user)])

@@ -35,7 +35,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.jd_bank.composer.answers import ComposerAnswers, DutyAnswer, ModifiedQual
-from src.jd_bank.db.models import ParsedJDRow
+from src.jd_bank.db.models import CanonicalJD, Cluster, ParsedJDRow
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.rules import Rules, get_rules
@@ -205,3 +205,40 @@ async def load_clone_answers(
     parsed = await _load_latest_parsed(session, [source_document_id])
     jd = parsed.get(source_document_id)
     return jd_to_answers(jd) if jd is not None else None
+
+
+async def load_role_clone_answers(
+    session: AsyncSession, cluster_id: UUID
+) -> ComposerAnswers | None:
+    """The guided-authoring answers to pre-fill the Builder from a role's HARMONIZED
+    canonical (its current, highest-version content), or ``None`` if the cluster has no
+    canonical. This is the preferred clone source: the archive is transitional, so a new
+    JD should start from the reviewed, cleaned-up harmonized role — not a raw archive
+    member that may fail the current template (a 177-word summary, one un-split duty).
+    """
+    canonical = (
+        await session.scalars(
+            select(CanonicalJD)
+            .where(CanonicalJD.cluster_id == cluster_id)
+            .order_by(CanonicalJD.version.desc())
+            .limit(1)
+        )
+    ).first()
+    if canonical is None:
+        return None
+    return jd_to_answers(SFUJobDescription.model_validate(canonical.content))
+
+
+async def cluster_id_for_source(
+    session: AsyncSession, source_document_id: UUID
+) -> UUID | None:
+    """The cluster a source document belongs to, if any — so a search hit can offer to
+    clone the harmonized role instead of the raw archive JD. ``None`` for a singleton /
+    unclustered document (which has no harmonized version to prefer)."""
+    return (
+        await session.scalars(
+            select(Cluster.id)
+            .where(Cluster.members.contains([{"source_id": str(source_document_id)}]))
+            .limit(1)
+        )
+    ).first()

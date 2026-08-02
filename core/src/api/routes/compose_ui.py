@@ -56,8 +56,10 @@ from src.jd_bank.composer import (
     SummarySuggestion,
     assemble_jd,
     assess_draft,
+    cluster_id_for_source,
     load_clone_answers,
     load_question_set,
+    load_role_clone_answers,
     search_similar_jds,
     submit_composed_draft,
     suggest_summary,
@@ -629,32 +631,37 @@ async def search_page(
         finally:
             await embed_client.close()
             await neo4j_driver.close()
+    # Prefer cloning the HARMONIZED role: map each hit's source doc to its cluster (if
+    # any) so the template links "Start from this" to the reviewed canonical, not the
+    # raw archive JD. A singleton (no cluster) keeps the raw-source clone as its option.
+    role_clusters: dict[UUID, UUID] = {}
+    for hit in hits:
+        cluster_id = await cluster_id_for_source(session, hit.source_document_id)
+        if cluster_id is not None:
+            role_clusters[hit.source_document_id] = cluster_id
     return templates.TemplateResponse(
         request,
         "compose_search.html",
-        {"request": request, "query": query, "hits": hits, "message": None},
+        {
+            "request": request,
+            "query": query,
+            "hits": hits,
+            "role_clusters": role_clusters,
+            "message": None,
+        },
     )
 
 
-@router.get("/clone/{source_document_id}", response_class=HTMLResponse)
-async def clone_draft(
-    request: Request,
-    source_document_id: UUID,
-    session: AsyncSession = Depends(get_session),
-) -> HTMLResponse:
-    """Pre-fill the guided Builder from an existing archive JD (5.4). Lands the author
-    on a scored, ready-to-edit draft; the faithful clone rides in ``answers_json`` so
-    submit/export keep verbs/modifiers the lossy form view drops. 404 (HTML) if the
-    document has no parsed JD to clone. Read-only — nothing persists (NN #1)."""
-    answers = await load_clone_answers(session, source_document_id)
-    if answers is None:
-        raise HTTPException(status_code=404, detail="no parsed JD to clone")
-    # Cloning STARTS A NEW compliant JD, so default SFU boilerplate ON regardless of
-    # whether the source carried it — most archive JDs predate the territorial-footer
-    # rollout, so inheriting the source's flag would land the author on a draft with
-    # About-SFU / territorial / EE / the Relationships header all "missing". The author
-    # can still uncheck it. (The source's own boilerplate presence is a fact about the
-    # archive JD, not what a new JD authored from it should default to.)
+def _render_clone(request: Request, answers: ComposerAnswers) -> HTMLResponse:
+    """Land the author on a scored, ready-to-edit Builder draft pre-filled from
+    ``answers`` (the faithful clone rides in ``answers_json`` so submit/export keep the
+    verbs/modifiers the lossy form view drops). Read-only — nothing persists (NN #1).
+
+    Cloning STARTS A NEW compliant JD, so default SFU boilerplate ON regardless of
+    whether the source carried it — many archive JDs predate the territorial-footer
+    rollout, so inheriting the source's flag would land the author on a draft with
+    About-SFU / territorial / EE / the Relationships header all "missing". The author
+    can still uncheck it."""
     answers = answers.model_copy(update={"include_sfu_boilerplate": True})
     return templates.TemplateResponse(
         request,
@@ -669,6 +676,37 @@ async def clone_draft(
             structured_rows=_structured_rows_from_answers(answers),
         ),
     )
+
+
+@router.get("/clone-role/{cluster_id}", response_class=HTMLResponse)
+async def clone_role(
+    request: Request,
+    cluster_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """Pre-fill the Builder from a role's HARMONIZED canonical — the preferred clone
+    source now that the archive is transitional (start from the reviewed, cleaned-up
+    role, not a raw archive member that may fail the current template). 404 (HTML) if
+    the cluster has no canonical."""
+    answers = await load_role_clone_answers(session, cluster_id)
+    if answers is None:
+        raise HTTPException(status_code=404, detail="no harmonized JD for this role")
+    return _render_clone(request, answers)
+
+
+@router.get("/clone/{source_document_id}", response_class=HTMLResponse)
+async def clone_draft(
+    request: Request,
+    source_document_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """Pre-fill the Builder from a RAW archive JD (5.4) — the fallback for a singleton
+    with no harmonized role (prefer :func:`clone_role` when a role exists). 404 (HTML)
+    if the document has no parsed JD to clone. Read-only — nothing persists (NN #1)."""
+    answers = await load_clone_answers(session, source_document_id)
+    if answers is None:
+        raise HTTPException(status_code=404, detail="no parsed JD to clone")
+    return _render_clone(request, answers)
 
 
 @router.post("/submit")

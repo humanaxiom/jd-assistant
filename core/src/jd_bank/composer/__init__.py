@@ -32,8 +32,10 @@ from src.jd_bank.composer.questions import (
 )
 from src.jd_bank.composer.search import (
     SearchHit,
+    cluster_id_for_source,
     jd_to_answers,
     load_clone_answers,
+    load_role_clone_answers,
     search_similar_jds,
 )
 from src.jd_bank.composer.validate import assess_draft
@@ -53,9 +55,11 @@ __all__ = [
     "SummarySuggestion",
     "assemble_jd",
     "assess_draft",
+    "cluster_id_for_source",
     "jd_to_answers",
     "load_clone_answers",
     "load_question_set",
+    "load_role_clone_answers",
     "search_similar_jds",
     "submit_composed_draft",
     "suggest_summary",

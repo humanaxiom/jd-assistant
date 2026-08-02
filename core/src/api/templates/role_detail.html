@@ -1,0 +1,56 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — {{ role.title }}{% endblock %}
+{% block header %}🧩 {{ role.title }}{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <p class="meta"><a href="/jd-bank/ui/library">🏦 JD Bank</a></p>
+  <p>
+    Status: <strong>{{ role.status }}</strong> · version {{ role.version }} ·
+    Seniority: <strong>{{ role.level_band or "—" }}</strong>
+    {% if role.score is not none %}· Score: <strong>{{ role.score }}</strong> · Grade: <strong>{{ role.grade or "—" }}</strong>{% endif %}
+  </p>
+  <p class="note" style="border-left:3px solid var(--accent);background:rgba(47,129,247,.08);padding:.6rem .9rem;border-radius:0 6px 6px 0">
+    This is a <strong>harmonized role</strong> distilled from
+    <strong>{{ role.source_count }}</strong> source JD{{ "s" if role.source_count != 1 else "" }} in the archive
+    (listed below). It is a
+    {% if role.status == "published" %}published{% else %}draft awaiting HR review{% endif %} —
+    <a href="/jd-bank/ui/review/{{ role.canonical_id }}">open in the review queue →</a>
+  </p>
+  <p>
+    <a href="/jd-bank/ui/compose/clone-role/{{ role.cluster_id }}">🧱 Start a new JD from this harmonized role →</a>
+  </p>
+</div>
+
+<div class="panel">
+  <h2>Harmonized job description</h2>
+  <pre>{{ role.rendered_text }}</pre>
+</div>
+
+<div class="panel">
+  <h2>Distilled from {{ role.source_count }} source JD{{ "s" if role.source_count != 1 else "" }}</h2>
+  {% if role.members %}
+  <table>
+    <thead><tr><th>Source file</th><th>Title</th><th></th></tr></thead>
+    <tbody>
+      {% for m in role.members %}
+      <tr>
+        <td>{{ m.filename or "—" }}</td>
+        <td>{{ m.title or "—" }}</td>
+        <td>
+          {% if m.parsed %}
+          <a href="/jd-bank/ui/jd/{{ m.source_document_id }}">Read →</a>
+          {% else %}
+          <span class="empty">not parsed</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No source members recorded for this role.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

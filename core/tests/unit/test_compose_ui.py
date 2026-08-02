@@ -558,7 +558,13 @@ def test_search_renders_hits_with_clone_links(
     async def fake_search(query: str, **kwargs: object) -> list[SearchHit]:
         return [hit]
 
+    async def no_cluster(session: object, sid: object) -> None:
+        return (
+            None  # a singleton — no harmonized role, so raw-JD clone is the only link
+        )
+
     monkeypatch.setattr(compose_ui, "search_similar_jds", fake_search)
+    monkeypatch.setattr(compose_ui, "cluster_id_for_source", no_cluster)
     embed, neo = _FakeClose(), _FakeClose()
     app.dependency_overrides[compose.get_embed_client] = lambda: embed
     app.dependency_overrides[compose.get_neo4j_driver] = lambda: neo
@@ -571,6 +577,40 @@ def test_search_renders_hits_with_clone_links(
     assert f"/jd-bank/ui/compose/clone/{hit.source_document_id}" in html
     assert embed.closed is True
     assert neo.closed is True
+
+
+def test_search_prefers_the_harmonized_role_clone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When a hit's source belongs to a harmonized role, "Start from this" clones the
+    role's canonical (``clone-role/{cluster_id}``), NOT the raw archive JD — the archive
+    is transitional, so a new JD starts from the reviewed harmonized version."""
+    from src.jd_bank.composer import SearchHit
+
+    hit = SearchHit(
+        source_document_id=uuid.uuid4(),
+        title="Financial Analyst",
+        employee_group="apsa",
+        score=0.91,
+    )
+    cluster_id = uuid.uuid4()
+
+    async def fake_search(query: str, **kwargs: object) -> list[SearchHit]:
+        return [hit]
+
+    async def has_cluster(session: object, sid: object) -> uuid.UUID:
+        return cluster_id
+
+    monkeypatch.setattr(compose_ui, "search_similar_jds", fake_search)
+    monkeypatch.setattr(compose_ui, "cluster_id_for_source", has_cluster)
+    app.dependency_overrides[compose.get_embed_client] = lambda: _FakeClose()
+    app.dependency_overrides[compose.get_neo4j_driver] = lambda: _FakeClose()
+    _override_session_object()
+
+    html = _client().get("/jd-bank/ui/compose/search?q=analyst").text
+    assert f"/jd-bank/ui/compose/clone-role/{cluster_id}" in html
+    # and NOT the raw-source clone for a doc that has a harmonized role
+    assert f"/jd-bank/ui/compose/clone/{hit.source_document_id}" not in html
 
 
 def test_search_without_a_query_prompts_and_does_not_search(
@@ -638,4 +678,47 @@ def test_clone_404_when_no_parsed_jd(monkeypatch: pytest.MonkeyPatch) -> None:
     _override_session_object()
 
     resp = _client().get(f"/jd-bank/ui/compose/clone/{uuid.uuid4()}")
+    assert resp.status_code == 404
+
+
+def test_clone_role_prefills_from_the_harmonized_canonical(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Cloning a ROLE pre-fills the Builder from its harmonized canonical (the reviewed
+    version), lands on the guided form, and defaults boilerplate ON."""
+    from src.jd_bank.composer import ComposerAnswers, DutyAnswer
+
+    answers = ComposerAnswers(
+        title="Harmonized Analyst",
+        position_summary=" ".join(["word"] * 120),
+        duties=[DutyAnswer(statement="Own the quarterly forecast")],
+        include_sfu_boilerplate=True,
+    )
+
+    async def fake_role_load(session: object, cluster_id: object) -> ComposerAnswers:
+        return answers
+
+    monkeypatch.setattr(compose_ui, "load_role_clone_answers", fake_role_load)
+    _override_session_object()
+
+    resp = _client().get(f"/jd-bank/ui/compose/clone-role/{uuid.uuid4()}")
+    assert resp.status_code == 200
+    html = resp.text
+    assert "Harmonized Analyst" in html
+    assert "Own the quarterly forecast" in html
+    assert 'action="/jd-bank/ui/compose/new"' in html
+
+
+def test_clone_role_404_when_cluster_has_no_canonical(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A cluster with no harmonized canonical returns 404, not 500."""
+
+    async def fake_role_load(session: object, cluster_id: object) -> None:
+        return None
+
+    monkeypatch.setattr(compose_ui, "load_role_clone_answers", fake_role_load)
+    _override_session_object()
+
+    resp = _client().get(f"/jd-bank/ui/compose/clone-role/{uuid.uuid4()}")
     assert resp.status_code == 404

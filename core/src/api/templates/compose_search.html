@@ -27,15 +27,22 @@
   {% if hits %}
   <table>
     <thead>
-      <tr><th>Role</th><th>Group</th><th>Similarity</th><th></th></tr>
+      <tr><th>Role</th><th>Similarity</th><th></th><th></th></tr>
     </thead>
     <tbody>
       {% for hit in hits %}
       <tr>
         <td>{{ hit.title }}</td>
-        <td>{{ hit.employee_group or "—" }}</td>
         <td>{{ (hit.score * 100) | round(0, 'floor') | int }}%</td>
-        <td><a href="/jd-bank/ui/compose/clone/{{ hit.source_document_id }}">Start from this →</a></td>
+        <td><a href="/jd-bank/ui/jd/{{ hit.source_document_id }}">Read →</a></td>
+        <td>
+          {% set cid = role_clusters.get(hit.source_document_id) %}
+          {% if cid %}
+          <a href="/jd-bank/ui/compose/clone-role/{{ cid }}">Start from harmonized role →</a>
+          {% else %}
+          <a href="/jd-bank/ui/compose/clone/{{ hit.source_document_id }}">Start from raw JD →</a>
+          {% endif %}
+        </td>
       </tr>
       {% endfor %}
     </tbody>
