@@ -109,8 +109,8 @@ sequenceDiagram
   LLM1-->>Oracle: reworded DRAFT at temp 0
   Note over Oracle: scores/grades/gates the DRAFT<br/>AI text never self-scores
   Oracle->>LLM2: the scored draft text
-  LLM2-->>HR: advisory findings, each backed by a<br/>VERBATIM JD quote; fabrications dropped
-  Note over HR: human approves; nothing auto-publishes
+  LLM2-->>HR: advisory findings, each backed by a<br/> VERBATIM JD quote, fabrications dropped
+  Note over HR: human approves, nothing auto-publishes
 ```
 
 Key safeguards on these calls:
