@@ -59,16 +59,39 @@ keeps its ENTIRE identification table in the docx HEADER, which extraction skipp
   that 16% is the known WJQ gap. **`_fallback_title` was deliberately NOT hardened** — a
   prose heuristic would turn legitimate long titles ("Executive Secretary to the Associate
   Vice-President, Academic, and Chief Information Officer") into `Untitled Position`.
-- **➡️ THE OPEN DECISION — how far to propagate.** The fix reaches the **source-JD reader and
-  archive browser** now (they read the newest parse). It does **NOT** reach the **harmonized
-  roles library**, which reads `canonical_jds` and still holds v2-derived paragraph titles —
-  the surface HR was told to read JD content on. Propagating needs `make embed` (14.5k docs +
-  ~36k sections, GPU on `aria-gb10-2`, hours) → `near-dup`/`dedup-role` → `cluster` →
-  `canonical-drafts` (**~44h** LLM run last time). Two complications: re-clustering changes
-  membership and `cluster_id` is a uuid5 OF that membership, so new drafts land **alongside**
-  the existing 1,802 and need a prune (same as 2026-07-21); and **`review_actions` is now 6,
-  not 0** as older notes say — a human HAS touched the queue, so the producer's no-clobber
-  path is live. Recommendation: schedule it deliberately rather than as a side effect.
+- **✅ `make embed` RUN — and it was a NO-OP, BY DESIGN. THE VECTORS WERE NEVER STALE.**
+  Result: **`0 embedded, 14,404 unchanged, 0 embed calls`**. The reason is the point:
+  `embeddings.yaml` sets **`include_title_in_document: false`** and restricts
+  `document_sections` to the seven CONTENT sections — so the embedded text excludes title,
+  position number, department, employee group and grade *on purpose* (it is what gives
+  `bank/similarity` its "title-agnostic by construction" guarantee). v3 changed exactly that
+  excluded metadata, so every `text_sha256` is identical and skip-first correctly did
+  nothing. **This retires the "embed-published-canonicals / re-embed" worry for this change:
+  search and dedup Tier-3 were never running on stale vectors, and there is no GPU debt.**
+  Same root cause as the unchanged baseline cohort — the validator scores content, the
+  embedder embeds content, and this fix repaired identification.
+  - **`docs/embeddings/summary.json` was deliberately NOT updated.** The run wanted to write
+    `documents_embedded: 0 … texts_backed_off: 0` over the full run's record (14,404 embedded,
+    1,032 calls, **11 backed off — the HR-126 evidence**). That file is the committed audit
+    trail of the CORPUS's embedding state, not of the last run, and zeros there read as
+    "nothing is embedded" when 14,404/14,404 nodes verifiably carry a vector. Reverted.
+  - **⚠️ Vector nodes still carry `parser_version = jd_segmenter_v2` and a `parsed_jd_id`
+    pointing at v2 `parsed_jds` rows** (nothing was rewritten, so nothing restamped). Harmless
+    today — the vector content is identical either way — but **do NOT prune the v1/v2
+    `parsed_jds` rows without re-embedding first**, or that provenance link dangles (NN #6).
+- **➡️ STILL OPEN — the harmonized roles library.** The fix reaches the **source-JD reader and
+  archive browser** now (they read the newest parse), and **live-verified in the UI**: modern
+  APSA docs render "Database Administrator" / "Legal Counsel, Research Services" where they
+  showed "We are Canada's engaged university…". It does **NOT** reach the **roles library**,
+  which reads `canonical_jds` and still holds v2-derived paragraph titles — the surface HR was
+  told to read JD content on. That needs `near-dup`/`dedup-role` → `cluster` →
+  `canonical-drafts` (**~44h** LLM run last time; the embed prerequisite is already satisfied,
+  see above). Two complications: re-clustering changes membership and `cluster_id` is a uuid5
+  OF that membership, so new drafts land **alongside** the existing 1,802 and need a prune
+  (same as 2026-07-21); and **`review_actions` is now 6, not 0** as older notes say — a human
+  HAS touched the queue, so the producer's no-clobber path is live. Better titles should
+  genuinely improve `title_family` and therefore cluster quality, so it is worth doing —
+  schedule it deliberately rather than as a side effect.
 - **Note for the next session:** `parsed_jds` now holds v1 + v2 + v3 (43,566 rows). Nothing
   reads v1/v2 any more (everything selects on `PARSER_VERSION`) except the library's
   newest-by-`created_at` lookup, which correctly gets v3. Pruning v1/v2 is optional cleanup.
