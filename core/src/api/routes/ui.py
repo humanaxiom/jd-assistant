@@ -209,6 +209,11 @@ def _content_from_form(pairs: list[tuple[str, str]]) -> dict[str, Any]:
         "position_number": _scalar_or_none(pairs, "position_number"),
         "department": _scalar_or_none(pairs, "department"),
         "grade": _scalar_or_none(pairs, "grade"),
+        # The structured grade/classification is not editable in the review form yet
+        # (Phase B of the grade-capture plan). Reconstruct it as None so the round-trip
+        # stays COMPLETE; canonical drafts carry no classification today, so this drops
+        # nothing. When Phase B adds a Grade editor here, carry it through instead.
+        "classification": None,
         "employee_group": _scalar_or_none(pairs, "employee_group"),
         "about_sfu_present": _first(pairs, "about_sfu_present") == "on",
         "position_summary": _scalar_or_none(pairs, "position_summary"),

@@ -46,6 +46,7 @@ from src.jd_core.models.parsed_jd import (
     SFURelationships,
 )
 from src.jd_core.parser import headings as hd
+from src.jd_core.parser.classification import extract_classification
 from src.jd_core.parser.headings import Era, SectionKey
 
 #: Bumped v1 -> v2 for the WJQ template router (Phase 3.4): ``parse_jd`` now classifies
@@ -388,6 +389,7 @@ def parse_jd(text: str) -> ParseResult:
     ) or _extract_field(collapsed, hd.POSITION_NO_LABEL_RX)
     grade = _extract_field(id_text, hd.GRADE_LABEL_RX)
     employee_group = _extract_employee_group(id_text)
+    classification = extract_classification(id_text, employee_group)
     title = title_label or _fallback_title(lines, heading_lines)
 
     # Body sections.
@@ -411,6 +413,7 @@ def parse_jd(text: str) -> ParseResult:
         position_number=position_number,
         department=department,
         grade=grade,
+        classification=classification,
         employee_group=employee_group,
         about_sfu_present=about_sfu,
         position_summary=position_summary,

@@ -32,6 +32,31 @@ SkillModifier = Literal["basic", "intermediate", "advanced", "expert"]
 QualificationKind = Literal[
     "education", "experience", "knowledge", "skill", "ability", "security"
 ]
+#: Where a :class:`JobClassification` value came from — its trustworthiness follows.
+GradeSource = Literal["parsed", "entered", "hris"]
+
+
+class JobClassification(BaseModel):
+    """The position's pay grade / classification, structured with provenance.
+
+    Pay is set from this, and **each employee group has its OWN scale** (CUPE numeric
+    pay grades; APSA/APEX/POLY their own), so ``scheme`` — the employee-group scale — is
+    carried alongside the ``value``; a CUPE grade 8 is not an APSA grade 8. ``source``
+    records where the grade came from, because it is **absent from most JDFN JD
+    documents** (assigned post-authoring, held in the HRIS): ``parsed`` from the JD
+    text, ``entered`` by an author/reviewer, or ``hris`` from an authoritative import.
+
+    Advisory metadata — NOT a scored field and NOT a publish gate. ``value`` is a free
+    string until HR ratifies each group's scale (then a validator can constrain it).
+    This SUPERSEDES the legacy free-string ``SFUJobDescription.grade`` (parser noise).
+    See ``docs/audit/data-state-and-grade-2026-08-01.md``.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    scheme: str = Field(min_length=1, max_length=32)
+    value: str = Field(min_length=1, max_length=50)
+    source: GradeSource = "parsed"
 
 
 class SFUDuty(BaseModel):
@@ -95,6 +120,10 @@ class SFUJobDescription(BaseModel):
     position_number: str | None = Field(default=None, max_length=50)
     department: str | None = Field(default=None, max_length=200)
     grade: str | None = Field(default=None, max_length=50)
+    #: Structured pay grade / classification with provenance — supersedes the legacy
+    #: free-string ``grade`` (extraction filled it with noise). ``None`` until captured
+    #: (the common case for JDFN, whose grade lives in the HRIS). See JobClassification.
+    classification: JobClassification | None = None
     employee_group: SFUEmployeeGroup | None = None
     # 2. About SFU (boilerplate - presence only)
     about_sfu_present: bool = False

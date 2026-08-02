@@ -42,8 +42,20 @@ docx filenames I can't open"). All read-only (NN #1), no rulebook/GPU change, `m
   (position_number 35%, department 50%, employee_group 36%, **34% paragraph titles**). The doc
   lays out a 4-phase capture plan (structured `grade{scheme,value,source}` + group-aware parser +
   register the scales → Builder/review entry where absent → optional HRIS import (FIPPA) → surface
-  with provenance) and the HR decisions to register. **Nothing built yet — this is the plan; it
-  needs HR sign-off on the per-group grade scales.**
+  with provenance) and the HR decisions to register.
+- **GRADE CAPTURE — Phase A (slice 1) LANDED.** New structured `JobClassification{scheme,value,source}`
+  on `SFUJobDescription.classification` (ADD-only, `extra="ignore"` → backward-compatible with the
+  29k existing rows; supersedes the noise `grade` string, which stays as legacy). New group-aware
+  `jd_core/parser/classification.py::extract_classification` wired into BOTH parsers (segmenter +
+  wjq), fed the identification block. Verified end-to-end over the real archive: **CUPE ~58%
+  recovered clean (scheme=cupe, values 6/7/8/10/11), JDFN honestly None** (no manufactured grades).
+  Extraction patterns live in the parser layer (code, like `headings.py`) — NOT a registered
+  decision; `rules_version` untouched. Goldens updated (`classification: null`); the review
+  `_content_from_form` reconstructs it as `None` (Phase B adds the editor). `make gates` **1961
+  passing, 93.58%**. **STILL TO DO (Phase A/B/C):** re-parse the corpus to backfill classification
+  into `parsed_jds` (`make ingest`/re-parse — ops step, DB not yet backfilled); register the
+  per-group grade SCALES once HR confirms them; Builder + review Grade entry (Phase B); HRIS import
+  (Phase C); surface Grade in the library/reader.
 - **On a branch, fast-forwarded to `main`** (CI still billing-blocked → local merge per ADR-006).
   Committed as ONE gates-green unit (the three parts interleave across shared templates/tests, so a
   per-part split would produce non-green intermediate commits — NN #4). Memories written:

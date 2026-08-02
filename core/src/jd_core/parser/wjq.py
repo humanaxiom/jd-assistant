@@ -59,6 +59,7 @@ from src.jd_core.models.parsed_jd import (
     SFUQualification,
     SFURelationships,
 )
+from src.jd_core.parser.classification import extract_classification
 from src.jd_core.parser.headings import SectionKey
 from src.jd_core.parser.segmenter import (
     _FALLBACK_TITLE,
@@ -458,6 +459,7 @@ def segment_wjq(text: str, wjq: Wjq) -> ParseResult:
     department = _extract_label(cells, wjq.id_labels["department"], cap=200)
     position_number = _extract_label(cells, wjq.id_labels["position_number"], cap=50)
     grade = _extract_label(cells, wjq.id_labels["grade"], cap=50)
+    classification = extract_classification(id_text, _cast_group(wjq.employee_group))
 
     summary_block = sections.get("position_summary")
     position_summary = (
@@ -480,6 +482,7 @@ def segment_wjq(text: str, wjq: Wjq) -> ParseResult:
         position_number=position_number,
         department=department,
         grade=grade,
+        classification=classification,
         employee_group=_cast_group(wjq.employee_group),
         about_sfu_present=False,
         position_summary=position_summary,
