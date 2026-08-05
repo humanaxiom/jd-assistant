@@ -92,6 +92,11 @@ class SearchHit(BaseModel):
     #: route for the document hits.
     cluster_id: UUID | None = None
     title: str
+    #: What tells two same-titled roles apart. SFU genuinely has 9 distinct "Academic
+    #: Advisor" roles across 6 departments — they are different roles, not duplicates,
+    #: and without this the rows are indistinguishable. ``None`` when nothing is
+    #: recorded anywhere (72 of 791 ambiguous roles); never fabricated.
+    department: str | None = None
     employee_group: str | None = None
     #: Cosine similarity to the query — ``None`` for a title match (see above).
     score: float | None = Field(default=None, ge=-1.0, le=1.0)
@@ -223,6 +228,90 @@ def _title_rank(title: str, query: str) -> int:
     if lowered.startswith(wanted):
         return 1
     return 2
+
+
+async def _with_departments(
+    session: AsyncSession, hits: list[SearchHit]
+) -> list[SearchHit]:
+    """Label every role hit with its department, in one pass over the finished page.
+
+    Done at the single exit point rather than inside each pass so the lookup happens
+    once for the whole page regardless of which pass produced which hit.
+    """
+    role_ids = [h.cluster_id for h in hits if h.cluster_id is not None]
+    if not role_ids:
+        return hits
+    departments = await _role_departments(session, role_ids)
+    for hit in hits:
+        if hit.department is None and hit.cluster_id is not None:
+            hit.department = departments.get(hit.cluster_id)
+    return hits
+
+
+async def _role_departments(
+    session: AsyncSession, cluster_ids: Sequence[UUID]
+) -> dict[UUID, str]:
+    """``{cluster_id: department}`` for the roles shown on one page of results.
+
+    The canonical's own ``department`` first; where it is blank, the first department
+    any of the role's SOURCE documents states. Measured over the 791 roles that share
+    a title with another role: 570 carry one themselves, and 149 of the remaining 221
+    are recoverable from sources — 91% together. The last 72 stay ``None``, because an
+    invented department is worse than an unlabelled row.
+
+    Resolved here rather than stored on the ``(:JDRole)`` node on purpose: this is
+    display metadata, and folding it into the node would tie it to the vector's
+    content identity, so a department correction would not refresh until the TEXT
+    changed. A page shows at most ``limit`` roles, so this is two small queries.
+    """
+    if not cluster_ids:
+        return {}
+    wanted = list(dict.fromkeys(cluster_ids))
+    current = (
+        select(
+            CanonicalJD.cluster_id,
+            func.max(CanonicalJD.version).label("version"),
+        )
+        .where(CanonicalJD.cluster_id.in_(wanted))
+        .group_by(CanonicalJD.cluster_id)
+        .subquery()
+    )
+    rows = (
+        await session.execute(
+            select(CanonicalJD).join(
+                current,
+                (CanonicalJD.cluster_id == current.c.cluster_id)
+                & (CanonicalJD.version == current.c.version),
+            )
+        )
+    ).scalars()
+
+    departments: dict[UUID, str] = {}
+    fallback_sources: dict[UUID, list[UUID]] = {}
+    for row in rows:
+        content = row.content or {}
+        stated = content.get("department")
+        if stated:
+            departments[row.cluster_id] = str(stated)
+            continue
+        member_ids = [
+            UUID(str(entry["source_id"]))
+            for entry in (row.source_document_ids or [])
+            if isinstance(entry, dict) and entry.get("source_id")
+        ]
+        if member_ids:
+            fallback_sources[row.cluster_id] = member_ids
+
+    if fallback_sources:
+        flat = [sid for ids in fallback_sources.values() for sid in ids]
+        parsed = await _load_latest_parsed(session, flat)
+        for cluster_id, member_ids in fallback_sources.items():
+            for source_id in member_ids:
+                jd = parsed.get(source_id)
+                if jd is not None and jd.department:
+                    departments[cluster_id] = jd.department
+                    break
+    return departments
 
 
 async def _role_title_matches(
@@ -362,7 +451,7 @@ async def search_similar_jds(
             )
         )
         if len(hits) >= limit:
-            return hits
+            return await _with_departments(session, hits)
 
     # 2. Archive DOCUMENTS by title — COLLAPSED into the role they were harmonized
     #    into. Listing a role and then its own member documents underneath is how a
@@ -385,13 +474,14 @@ async def search_similar_jds(
                 source_document_id=source_id,
                 cluster_id=doc_cluster,
                 title=jd.title,
+                department=jd.department,
                 employee_group=jd.employee_group,
                 score=None,
                 match="title",
             )
         )
         if len(hits) >= limit:
-            return hits
+            return await _with_departments(session, hits)
 
     vector = (await embed_client.embed_batch([query_text]))[0]
 
@@ -414,7 +504,7 @@ async def search_similar_jds(
             )
         )
         if len(hits) >= limit:
-            return hits
+            return await _with_departments(session, hits)
 
     # 4. Semantic neighbours in the ARCHIVE — collapsed by role the same way, so one
     #    role cannot fill the page with its own members.
@@ -440,6 +530,7 @@ async def search_similar_jds(
                 source_document_id=source_id,
                 cluster_id=near_cluster,
                 title=neighbour.title,
+                department=neighbour.department,
                 employee_group=neighbour.employee_group,
                 score=score,
                 match="semantic",
@@ -447,7 +538,7 @@ async def search_similar_jds(
         )
         if len(hits) >= limit:
             break
-    return hits
+    return await _with_departments(session, hits)
 
 
 async def load_clone_answers(

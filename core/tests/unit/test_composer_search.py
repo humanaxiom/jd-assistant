@@ -126,6 +126,13 @@ async def _no_clusters_fn(session: Any, ids: Any) -> dict[Any, Any]:
     return {}
 
 
+async def _no_departments_fn(session: Any, ids: Any) -> dict[Any, Any]:
+    """No department labels — a test that is not about disambiguating same-titled
+    roles. ``search_similar_jds`` resolves them for every role hit at its exit point,
+    so any test producing a role hit reaches this seam."""
+    return {}
+
+
 def _no_title_matches(monkeypatch: pytest.MonkeyPatch) -> None:
     """Silence both TITLE passes so a test can drive the SEMANTIC pass alone.
 
@@ -214,6 +221,7 @@ async def test_an_exact_title_query_returns_that_title_first(
 
     monkeypatch.setattr(search_mod, "_role_title_matches", _no_roles)
     monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
+    monkeypatch.setattr(search_mod, "_role_departments", _no_departments_fn)
     monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
@@ -266,6 +274,7 @@ async def test_a_harmonized_role_is_found_by_its_own_title(
     monkeypatch.setattr(search_mod, "_role_title_matches", fake_roles)
     monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
     monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
+    monkeypatch.setattr(search_mod, "_role_departments", _no_departments_fn)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
 
@@ -305,6 +314,7 @@ async def test_role_title_matches_stay_jdfn_only(
 
     monkeypatch.setattr(search_mod, "_role_title_matches", fake_roles)
     monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
+    monkeypatch.setattr(search_mod, "_role_departments", _no_departments_fn)
     monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
@@ -357,6 +367,7 @@ async def test_documents_collapse_into_the_role_they_were_harmonized_into(
     monkeypatch.setattr(search_mod, "_role_title_matches", fake_roles)
     monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
     monkeypatch.setattr(search_mod, "_clusters_for_sources", fake_clusters)
+    monkeypatch.setattr(search_mod, "_role_departments", _no_departments_fn)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
 
@@ -405,6 +416,7 @@ async def test_semantic_pass_searches_harmonized_roles_not_just_the_archive(
     monkeypatch.setattr(search_mod, "_role_title_matches", fake_roles)
     monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
     monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
+    monkeypatch.setattr(search_mod, "_role_departments", _no_departments_fn)
     monkeypatch.setattr(search_mod, "_nearest_role_ids", fake_near_roles)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
@@ -450,6 +462,107 @@ async def test_role_index_lookup_degrades_instead_of_breaking_search() -> None:
     )
 
 
+async def test_same_titled_roles_are_disambiguated_by_department(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Four identical "Academic Advisor" rows are unusable — you cannot tell which is
+    which, so you cannot pick one to clone.
+
+    MEASURED: 791 roles share a title with another role (44% of 1,802), and SFU
+    genuinely has 9 distinct "Academic Advisor" roles across 6 departments — they are
+    NOT duplicates to be merged, they are different roles that need distinguishing.
+    Department is the only field that can do it: it is on 570 of those 791, and 149 of
+    the remaining 221 are recoverable from the role's source documents (91% overall)."""
+    advising, science = uuid.uuid4(), uuid.uuid4()
+
+    async def fake_roles(session: Any, query: str, *, limit: int) -> list[Any]:
+        return [
+            (advising, "Academic Advisor", "apsa"),
+            (science, "Academic Advisor", "apsa"),
+        ]
+
+    async def fake_titles(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
+        return {}
+
+    async def fake_facets(session: Any, ids: Any) -> dict[Any, Any]:
+        assert set(ids) == {advising, science}
+        return {advising: "Student Advising", science: "Faculty of Science"}
+
+    async def fake_near_roles(driver: Any, vector: Any, k: int) -> list[Any]:
+        return []
+
+    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+        return []
+
+    async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
+        return {}
+
+    monkeypatch.setattr(search_mod, "_role_title_matches", fake_roles)
+    monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
+    monkeypatch.setattr(search_mod, "_role_departments", fake_facets)
+    monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
+    monkeypatch.setattr(search_mod, "_nearest_role_ids", fake_near_roles)
+    monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
+    monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
+
+    hits = await search_mod.search_similar_jds(
+        "academic advisor",
+        embed_client=_FakeEmbed([0.1] * 768),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+        session=object(),  # type: ignore[arg-type]
+        limit=10,
+    )
+
+    assert [(h.title, h.department) for h in hits] == [
+        ("Academic Advisor", "Student Advising"),
+        ("Academic Advisor", "Faculty of Science"),
+    ]
+
+
+async def test_a_role_with_no_department_anywhere_still_lists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """72 of the 791 ambiguous roles have no department on the canonical OR on any
+    source document. They must still appear — an unlabelled row beats a missing one,
+    and a fabricated department would be worse than both."""
+    role = uuid.uuid4()
+
+    async def fake_roles(session: Any, query: str, *, limit: int) -> list[Any]:
+        return [(role, "Technology Coordinator", "apsa")]
+
+    async def fake_titles(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
+        return {}
+
+    async def fake_facets(session: Any, ids: Any) -> dict[Any, Any]:
+        return {}  # nothing known
+
+    async def empty_roles(driver: Any, vector: Any, k: int) -> list[Any]:
+        return []
+
+    async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
+        return {}
+
+    monkeypatch.setattr(search_mod, "_role_title_matches", fake_roles)
+    monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
+    monkeypatch.setattr(search_mod, "_role_departments", fake_facets)
+    monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
+    monkeypatch.setattr(search_mod, "_nearest_role_ids", empty_roles)
+    monkeypatch.setattr(search_mod, "_nearest_source_ids", empty_roles)
+    monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
+
+    hits = await search_mod.search_similar_jds(
+        "technology coordinator",
+        embed_client=_FakeEmbed([0.1] * 768),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+        session=object(),  # type: ignore[arg-type]
+        limit=10,
+    )
+
+    assert len(hits) == 1
+    assert hits[0].title == "Technology Coordinator"
+    assert hits[0].department is None
+
+
 async def test_a_title_match_is_not_duplicated_by_the_semantic_pass(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -471,6 +584,7 @@ async def test_a_title_match_is_not_duplicated_by_the_semantic_pass(
 
     monkeypatch.setattr(search_mod, "_role_title_matches", _no_roles)
     monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
+    monkeypatch.setattr(search_mod, "_role_departments", _no_departments_fn)
     monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
@@ -506,6 +620,7 @@ async def test_title_matches_stay_jdfn_only(monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setattr(search_mod, "_role_title_matches", _no_roles)
     monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
+    monkeypatch.setattr(search_mod, "_role_departments", _no_departments_fn)
     monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)

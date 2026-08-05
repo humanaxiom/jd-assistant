@@ -32,7 +32,15 @@
     <tbody>
       {% for hit in hits %}
       <tr>
-        <td>{{ hit.title }}</td>
+        <td>
+          {{ hit.title }}
+          {# SFU has 9 distinct "Academic Advisor" roles across 6 departments — same
+             title, different roles. Without the department the rows are impossible to
+             tell apart, so you cannot pick one to clone. #}
+          {% if hit.department %}
+          <div class="meta">{{ hit.department }}</div>
+          {% endif %}
+        </td>
         {# A title match and a cosine are different measures — showing a percentage for
            a title match would invent a similarity it was never scored on. #}
         <td>
