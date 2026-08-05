@@ -9,10 +9,12 @@ text is HTML-escaped (autoescape on, no ``|safe``).
 
 from __future__ import annotations
 
+import asyncio
 import html as html_lib
 import re
 import uuid
 from collections.abc import AsyncIterator, Iterator
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -20,6 +22,10 @@ from fastapi.testclient import TestClient
 
 from src.api.main import app, get_session
 from src.api.routes import compose, compose_ui
+from src.jd_bank.composer import DuplicateGuard, RelatedRole
+from src.jd_bank.embeddings import client as embed_client_mod
+from src.jd_core.rules import get_rules
+from tests.unit.retuned_rules import retuned_dedup
 
 
 def _post_form(client: TestClient, url: str, pairs: list[tuple[str, str]]):
@@ -80,6 +86,32 @@ class _FakeChat:
 def _clear_overrides() -> Iterator[None]:
     yield
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def _default_related_roles_deps() -> None:
+    """Phase 5.9: ``check_draft`` (POST /new) now also runs the near-duplicate
+    authoring guard, which needs a DB session + embed client + Neo4j driver. Wired
+    here, AUTOUSE, for every test in this file — the same way ``_clear_overrides``
+    already resets ``app.dependency_overrides`` after each test — so a plumbing
+    change to an existing route (a new ``Depends``) does not break the ~20 existing
+    tests in this file that only ever cared about the live-compliance panel and
+    never touched a session/embed/Neo4j fake. Any test that cares about the guard
+    itself overrides these again (last-write-wins) or monkeypatches
+    ``compose_ui.find_related_roles`` directly."""
+
+    async def override_session() -> AsyncIterator[object]:
+        yield object()
+
+    app.dependency_overrides[get_session] = override_session
+    app.dependency_overrides[compose.get_embed_client] = lambda: _FakeClose()
+    app.dependency_overrides[compose.get_neo4j_driver] = lambda: _FakeClose()
+    # `check_draft` takes the OPTIONAL factories (a client that cannot be constructed
+    # must not 500 the compliance panel — see `get_optional_embed_client`), so those
+    # are the hooks it actually resolves. Both pairs are wired: `/search` still uses
+    # the strict ones. A test that wants the real degrade path pops these two.
+    app.dependency_overrides[compose.get_optional_embed_client] = lambda: _FakeClose()
+    app.dependency_overrides[compose.get_optional_neo4j_driver] = lambda: _FakeClose()
 
 
 def _client_with_session(session: _FakeSession) -> TestClient:
@@ -816,14 +848,20 @@ def test_clone_role_prefills_from_the_harmonized_canonical(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Cloning a ROLE pre-fills the Builder from its harmonized canonical (the reviewed
-    version), lands on the guided form, and defaults boilerplate ON."""
+    version), lands on the guided form, and defaults boilerplate ON.
+
+    It also CARRIES THE LINEAGE into the form as a hidden field: without that, the
+    author's first Check forgets which role they cloned and the guard warns them they
+    duplicated it — the exact thing ``exclude_cluster_id`` exists to prevent."""
     from src.jd_bank.composer import ComposerAnswers, DutyAnswer
 
+    cluster_id = uuid.uuid4()
     answers = ComposerAnswers(
         title="Harmonized Analyst",
         position_summary=" ".join(["word"] * 120),
         duties=[DutyAnswer(statement="Own the quarterly forecast")],
         include_sfu_boilerplate=True,
+        cloned_from_cluster_id=cluster_id,
     )
 
     async def fake_role_load(session: object, cluster_id: object) -> ComposerAnswers:
@@ -832,12 +870,15 @@ def test_clone_role_prefills_from_the_harmonized_canonical(
     monkeypatch.setattr(compose_ui, "load_role_clone_answers", fake_role_load)
     _override_session_object()
 
-    resp = _client().get(f"/jd-bank/ui/compose/clone-role/{uuid.uuid4()}")
+    resp = _client().get(f"/jd-bank/ui/compose/clone-role/{cluster_id}")
     assert resp.status_code == 200
     html = resp.text
     assert "Harmonized Analyst" in html
     assert "Own the quarterly forecast" in html
     assert 'action="/jd-bank/ui/compose/new"' in html
+    assert (
+        f'name="cloned_from_cluster_id" value="{cluster_id}"' in html
+    ), "the clone page must carry its lineage into the form"
 
 
 def test_clone_role_404_when_cluster_has_no_canonical(
@@ -853,3 +894,441 @@ def test_clone_role_404_when_cluster_has_no_canonical(
 
     resp = _client().get(f"/jd-bank/ui/compose/clone-role/{uuid.uuid4()}")
     assert resp.status_code == 404
+
+
+# ── 5.9 — the near-duplicate authoring guard ──────────────────────────────────
+#
+# ``check_draft`` (POST /new) now also runs ``find_related_roles`` (Phase 5.9) to
+# show a RANKED, SCORE-FREE list of harmonized roles that look like the draft, so an
+# author clones one instead of authoring SFU's 10th "Academic Advisor" (NN #1:
+# advisory only — it never blocks submission). See ``test_composer_duplicates.py``
+# for the function's own behaviour; these pin the UI WIRING: the panel renders, links
+# to the right routes, never a percentage, and survives the guard blowing up.
+
+
+def _related_guard(
+    *,
+    title_collisions: tuple[RelatedRole, ...] = (),
+    related: tuple[RelatedRole, ...] = (),
+    same_title_count: int = 0,
+    departments: tuple[str, ...] = (),
+) -> DuplicateGuard:
+    return DuplicateGuard(
+        checked=True,
+        title_collisions=list(title_collisions),
+        related=list(related),
+        same_title_count=same_title_count,
+        departments=list(departments),
+    )
+
+
+def _override_related_roles_guard_deps() -> None:
+    """The guard's own deps — a session plus closable embed/Neo4j fakes, exactly
+    like the search+clone deps above (kept separate on purpose: those tests assert
+    on THEIR OWN fakes being closed, and reusing the same names would blur that)."""
+    _override_session_object()
+    app.dependency_overrides[compose.get_embed_client] = lambda: _FakeClose()
+    app.dependency_overrides[compose.get_neo4j_driver] = lambda: _FakeClose()
+    app.dependency_overrides[compose.get_optional_embed_client] = lambda: _FakeClose()
+    app.dependency_overrides[compose.get_optional_neo4j_driver] = lambda: _FakeClose()
+
+
+def test_check_renders_the_related_roles_panel_with_working_links(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Each row — title-collision or semantic-related — links to the role's own
+    library page AND to the route that clones it, so an author can go straight from
+    "this looks like a duplicate" to "start from that one instead"."""
+    collision_id, related_id = uuid.uuid4(), uuid.uuid4()
+    guard = _related_guard(
+        title_collisions=(
+            RelatedRole(
+                cluster_id=collision_id,
+                title="Academic Advisor",
+                department="Student Advising",
+                status="published",
+                reason="title_collision",
+            ),
+        ),
+        related=(
+            RelatedRole(
+                cluster_id=related_id,
+                title="Advising Coordinator",
+                department="Faculty of Science",
+                status="published",
+                reason="related",
+            ),
+        ),
+        same_title_count=1,
+        departments=("Student Advising",),
+    )
+
+    async def fake_find_related(*args: object, **kwargs: object) -> DuplicateGuard:
+        return guard
+
+    monkeypatch.setattr(compose_ui, "find_related_roles", fake_find_related)
+    _override_related_roles_guard_deps()
+
+    resp = _client().post(
+        "/jd-bank/ui/compose/new",
+        data={
+            "title": "Academic Advisor",
+            "position_summary": " ".join(["word"] * 120),
+        },
+    )
+    assert resp.status_code == 200
+    html = resp.text
+    for cluster_id in (collision_id, related_id):
+        assert f"/jd-bank/ui/role/{cluster_id}" in html
+        assert f"/jd-bank/ui/compose/clone-role/{cluster_id}" in html
+
+
+def _related_roles_panel_html(html: str) -> str:
+    """The WHOLE rendered panel, heading to closing tag.
+
+    Scoped to the panel rather than the page because the page legitimately carries a
+    ``%`` elsewhere (``width:100%`` in the base stylesheet), and scoped to the whole
+    panel rather than a window around one row because a window is not a check: at the
+    shipped ``max_matches`` of 5 the panel runs to ~2,700 characters and row 5's link
+    sits ~1,500 characters from row 1, so a ±400 window covers under a third of it and
+    a "94% similar" badge on rows 2-5, in the closing note, or in the same-title
+    sentence would sail straight through."""
+    start = html.index("Roles SFU already has")
+    end = html.index("</div>", html.index("</ul>", start))
+    return html[start:end]
+
+
+def test_related_roles_panel_shows_no_percentage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """NO similarity number, anywhere in the panel — the measured finding this whole
+    feature is shaped around (an unrelated role out-scores a genuine twin, so any
+    figure would look precise and mean nothing). Rendered with MULTIPLE rows and both
+    kinds of row, so the assertion covers every part of the panel a number could be
+    added to."""
+    collision_id, related_ids = uuid.uuid4(), [uuid.uuid4() for _ in range(3)]
+    guard = _related_guard(
+        title_collisions=(
+            RelatedRole(
+                cluster_id=collision_id,
+                title="Advising Coordinator",
+                department="Student Advising",
+                status="published",
+                reason="title_collision",
+            ),
+        ),
+        related=tuple(
+            RelatedRole(
+                cluster_id=cluster_id,
+                title=f"Advising Coordinator {i}",
+                department="Faculty of Science",
+                status="draft",
+                reason="related",
+            )
+            for i, cluster_id in enumerate(related_ids)
+        ),
+        same_title_count=1,
+        departments=("Student Advising",),
+    )
+
+    async def fake_find_related(*args: object, **kwargs: object) -> DuplicateGuard:
+        return guard
+
+    monkeypatch.setattr(compose_ui, "find_related_roles", fake_find_related)
+    _override_related_roles_guard_deps()
+
+    resp = _post_form(
+        _client(),
+        "/jd-bank/ui/compose/new",
+        [
+            ("title", "Advising Coordinator"),
+            ("position_summary", " ".join(["word"] * 120)),
+            ("duty_verb", "Manages"),
+            ("duty_statement", "Manages a caseload of first-year students"),
+            ("duty_allocation", "60"),
+        ],
+    )
+    assert resp.status_code == 200
+    html = resp.text
+    panel = _related_roles_panel_html(html)
+
+    # Every row really is inside the slice being checked (otherwise the assertion
+    # below could pass by covering nothing).
+    for cluster_id in [collision_id, *related_ids]:
+        assert f"/jd-bank/ui/role/{cluster_id}" in panel
+    assert "%" not in panel
+
+
+def test_title_collision_sentence_states_the_real_counts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Three roles already carry this exact title, across two distinct departments
+    — the sentence must state THOSE two numbers, not placeholders, and the two
+    numbers must not be interchangeable (picked deliberately unequal)."""
+    collisions = tuple(
+        RelatedRole(
+            cluster_id=uuid.uuid4(),
+            title="Academic Advisor",
+            department=dept,
+            status="published",
+            reason="title_collision",
+        )
+        for dept in ("Student Advising", "Faculty of Science", "Student Advising")
+    )
+    guard = _related_guard(
+        title_collisions=collisions,
+        same_title_count=3,
+        departments=("Student Advising", "Faculty of Science"),
+    )
+
+    async def fake_find_related(*args: object, **kwargs: object) -> DuplicateGuard:
+        return guard
+
+    monkeypatch.setattr(compose_ui, "find_related_roles", fake_find_related)
+    _override_related_roles_guard_deps()
+
+    html = (
+        _client()
+        .post(
+            "/jd-bank/ui/compose/new",
+            data={
+                "title": "Academic Advisor",
+                "position_summary": " ".join(["word"] * 120),
+            },
+        )
+        .text
+    )
+    assert "3 existing role" in html  # same_title_count
+    assert "2 department" in html  # len(departments) — distinct, not 3
+
+
+def test_check_survives_a_raising_duplicate_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The Builder must never lose the score/grade/blocking-gates panel it exists
+    for because the (best-effort, advisory) near-duplicate guard blew up outright —
+    the same "GPU down must not cost the compliance panel" invariant
+    ``test_composer_duplicates.py`` proves one layer down, proven here at the route
+    that actually wires it in."""
+
+    async def raising_find_related(*args: object, **kwargs: object) -> DuplicateGuard:
+        raise RuntimeError("aria-gb10-2 unreachable")
+
+    monkeypatch.setattr(compose_ui, "find_related_roles", raising_find_related)
+    _override_related_roles_guard_deps()
+
+    summary = " ".join(["word"] * 40)  # a bare draft: no duties -> blocking gates fire
+    resp = _client().post(
+        "/jd-bank/ui/compose/new",
+        data={"title": "Analyst", "position_summary": summary},
+    )
+    assert resp.status_code == 200
+    html = resp.text
+    assert "Live compliance" in html
+    assert "Score:" in html
+    assert "Grade:" in html
+    assert "Blocking gates" in html
+    assert "Fix these" in html
+
+
+def test_check_survives_clients_that_cannot_even_be_constructed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A misconfigured environment must not take the Builder down.
+
+    Both real factories raise at CONSTRUCTION on a misconfiguration — ``EmbedClient``
+    runs the egress guard (NN #5) in ``__init__``, and the Neo4j driver rejects a bad
+    URI scheme — and FastAPI solves dependencies BEFORE the route body, so a route-body
+    ``try/except`` cannot see it: the request 500s and the author loses the compliance
+    panel over a wrong environment variable.
+
+    So this drives the REAL factory chain end to end — every override for these two
+    deps is popped — and trips the actual construction-time failures: the egress guard
+    (NN #5) rejecting the configured host, and the Neo4j driver rejecting its URI.
+
+    It has to reach that far down to be a real pin. Rebinding the factory FUNCTIONS
+    would not do it: FastAPI captures the callable named in ``Depends(...)`` when the
+    route is defined, so a patched ``compose.get_embed_client`` is never consulted and
+    this test passed against the very defect it exists to catch (measured — twice: the
+    dependency overrides also had to go, or the fakes answered instead). With the
+    strict factories wired back onto this route, this goes red."""
+
+    def _boom(*args: object, **kwargs: object) -> object:
+        raise RuntimeError("OLLAMA_BASE_URL points outside the allow-list")
+
+    _override_related_roles_guard_deps()
+    for hook in (
+        compose.get_embed_client,
+        compose.get_neo4j_driver,
+        compose.get_optional_embed_client,
+        compose.get_optional_neo4j_driver,
+    ):
+        app.dependency_overrides.pop(hook, None)  # no fakes: reach the real factories
+    monkeypatch.setattr(embed_client_mod, "assert_inference_host_allowed", _boom)
+    monkeypatch.setattr(compose, "AsyncGraphDatabase", SimpleNamespace(driver=_boom))
+
+    resp = _client().post(
+        "/jd-bank/ui/compose/new",
+        data={"title": "Analyst", "position_summary": " ".join(["word"] * 40)},
+    )
+    assert resp.status_code == 200
+    html = resp.text
+    assert "Live compliance" in html
+    assert "Score:" in html
+    assert "Blocking gates" in html
+    # ...and the advisory panel is ABSENT, never a falsely reassuring "no matches".
+    assert "Roles SFU already has" not in html
+
+
+def test_check_survives_a_guard_that_never_returns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The failure a ``try/except`` cannot catch: an inference host that ACCEPTS and
+    then stalls. Without a bound, the embedding client would read for 600s with
+    retries while holding this request AND its checked-out database session, and a
+    handful of concurrent Checks would exhaust the pool and stop the Builder serving.
+
+    ``dedup.authoring_guard.timeout_seconds`` (HR-197) bounds it — retuned to a tiny
+    value here so the test is fast, which also proves the budget is READ FROM THE
+    RULEBOOK rather than hardcoded (at the shipped 5.0s this test would hang)."""
+    started = asyncio.Event()
+
+    async def never_returns(*args: object, **kwargs: object) -> DuplicateGuard:
+        started.set()
+        await asyncio.sleep(30)
+        raise AssertionError("the guard should have been abandoned long before this")
+
+    monkeypatch.setattr(compose_ui, "find_related_roles", never_returns)
+    monkeypatch.setattr(
+        compose_ui,
+        "get_rules",
+        lambda: retuned_dedup(
+            get_rules(),
+            authoring_guard={
+                "max_matches": 5,
+                "min_draft_chars": 500,
+                "timeout_seconds": 0.05,
+            },
+        ),
+    )
+    _override_related_roles_guard_deps()
+
+    resp = _client().post(
+        "/jd-bank/ui/compose/new",
+        data={"title": "Analyst", "position_summary": " ".join(["word"] * 40)},
+    )
+    assert resp.status_code == 200
+    assert started.is_set(), "the guard never ran, so nothing was actually bounded"
+    assert "Live compliance" in resp.text
+    assert "Roles SFU already has" not in resp.text
+
+
+def test_check_closes_its_clients_even_when_it_fails_before_the_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every path, including the ones that never reach the guard at all.
+
+    A body that is not valid UTF-8 fails at ``decode`` — before the answers are read,
+    before anything is assembled — and that used to be outside every ``try``, so the
+    injected clients were dropped un-closed. Low impact (neither has opened a socket
+    yet) but the module's own contract says they are closed on every path, and a
+    contract that is false in one corner is not a contract.
+
+    The second half of the same fix: a ``close()`` that RAISES must not swallow the
+    other client's close, which two bare sequential awaits did."""
+    embed, neo = _FakeClose(), _FakeClose()
+
+    async def _angry_close() -> None:
+        raise RuntimeError("connection already reset")
+
+    monkeypatch.setattr(embed, "close", _angry_close)
+    _override_session_object()
+    app.dependency_overrides[compose.get_optional_embed_client] = lambda: embed
+    app.dependency_overrides[compose.get_optional_neo4j_driver] = lambda: neo
+
+    # `raise_server_exceptions=False` so the 500 is observed as a RESPONSE rather than
+    # re-raised into the test: the point is what the handler did on its way out, not
+    # that a malformed body is an error.
+    resp = TestClient(app, raise_server_exceptions=False).post(
+        "/jd-bank/ui/compose/new",
+        content=b"\xff\xfe title=x",
+        headers={"content-type": "application/x-www-form-urlencoded"},
+    )
+    assert resp.status_code == 500  # the decode failure itself is not swallowed...
+    assert neo.closed is True  # ...and the driver was still closed, despite the
+    #                            embed client's own close() blowing up first.
+
+
+def test_check_passes_the_cloned_from_role_to_the_guard_as_the_exclusion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """THE feature's headline behaviour: cloning a role must not immediately warn you
+    that you duplicated the role you cloned. Every other route-level fake here
+    discards ``**kwargs``, so this captures what the route actually passes — change
+    the call to ``exclude_cluster_id=None`` and only this test notices."""
+    recorded: dict[str, object] = {}
+
+    async def recording_find_related(*args: object, **kwargs: object) -> DuplicateGuard:
+        recorded.update(kwargs)
+        return _related_guard()
+
+    monkeypatch.setattr(compose_ui, "find_related_roles", recording_find_related)
+    _override_related_roles_guard_deps()
+
+    cluster_id = uuid.uuid4()
+    resp = _post_form(
+        _client(),
+        "/jd-bank/ui/compose/new",
+        [("title", "Academic Advisor"), ("cloned_from_cluster_id", str(cluster_id))],
+    )
+    assert resp.status_code == 200
+    assert recorded["exclude_cluster_id"] == cluster_id
+
+
+def test_a_draft_that_was_not_cloned_excludes_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The other half — otherwise the assertion above would pass on a route that
+    always excluded the same thing."""
+    recorded: dict[str, object] = {}
+
+    async def recording_find_related(*args: object, **kwargs: object) -> DuplicateGuard:
+        recorded.update(kwargs)
+        return _related_guard()
+
+    monkeypatch.setattr(compose_ui, "find_related_roles", recording_find_related)
+    _override_related_roles_guard_deps()
+
+    resp = _client().post("/jd-bank/ui/compose/new", data={"title": "Academic Advisor"})
+    assert resp.status_code == 200
+    assert recorded["exclude_cluster_id"] is None
+
+
+def test_cloned_from_cluster_id_round_trips_through_answers_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Set when the author starts the Builder from a harmonized role (and passed as
+    ``exclude_cluster_id`` to the guard, so cloning a role never immediately warns
+    you that you duplicated the very role you cloned) — must survive a Check, so a
+    later Submit/Export rebuilds a draft that still remembers where it came from."""
+
+    async def fake_find_related(*args: object, **kwargs: object) -> DuplicateGuard:
+        return _related_guard()
+
+    monkeypatch.setattr(compose_ui, "find_related_roles", fake_find_related)
+    _override_related_roles_guard_deps()
+
+    cluster_id = uuid.uuid4()
+    resp = _post_form(
+        _client(),
+        "/jd-bank/ui/compose/new",
+        [
+            ("title", "Academic Advisor"),
+            ("cloned_from_cluster_id", str(cluster_id)),
+        ],
+    )
+    assert resp.status_code == 200
+    answers = compose_ui.ComposerAnswers.model_validate_json(
+        _answers_json_from(resp.text)
+    )
+    assert answers.cloned_from_cluster_id == cluster_id

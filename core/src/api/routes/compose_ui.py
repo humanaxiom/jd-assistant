@@ -30,6 +30,8 @@ makes of the current draft.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import re
 from pathlib import Path
 from typing import Annotated, Any
@@ -46,10 +48,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.db.models import User
 from src.api.main import get_session
 from src.api.routes.auth import require_ui_user
-from src.api.routes.compose import get_chat_client, get_embed_client, get_neo4j_driver
+from src.api.routes.compose import (
+    get_chat_client,
+    get_embed_client,
+    get_neo4j_driver,
+    get_optional_embed_client,
+    get_optional_neo4j_driver,
+)
 from src.jd_bank.composer import (
     ComposerAnswers,
     DraftAssessment,
+    DuplicateGuard,
     DutyAnswer,
     ModifiedQual,
     SearchHit,
@@ -57,6 +66,7 @@ from src.jd_bank.composer import (
     assemble_jd,
     assess_draft,
     cluster_id_for_source,
+    find_related_roles,
     load_clone_answers,
     load_question_set,
     load_role_clone_answers,
@@ -66,9 +76,12 @@ from src.jd_bank.composer import (
 )
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.llm.client import ChatClient
+from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.models.quality import SFUSection
 from src.jd_core.rules import get_rules
 from src.jd_export import render_sfu_docx
+
+logger = logging.getLogger(__name__)
 
 router: APIRouter = APIRouter(prefix="/jd-bank/ui/compose")
 
@@ -145,6 +158,25 @@ _APPROVABLE_STATE_LABEL = {
     "needs_attention": "Suggestion",
     "empty": "Not started",
 }
+
+#: A canonical role's lifecycle status -> the label the related-roles panel shows. A
+#: DRAFT role is not an approved one, and the panel offers to clone both (the role
+#: library already lists drafts, and 1,800-odd roles are drafts today), so it must say
+#: which is which rather than let "Start from this role" imply HR signed it off (NN #1).
+#: An unmapped/unknown status is labelled as unknown, never guessed — see
+#: :data:`~src.jd_bank.composer.duplicates.UNKNOWN_STATUS`.
+_ROLE_STATUS_LABEL = {
+    "draft": "draft — not yet approved",
+    "published": "published",
+    "archived": "archived",
+}
+_ROLE_STATUS_UNKNOWN = "status unavailable"
+
+#: How much of a role title the related-roles panel renders. 21 of the 1,802 canonical
+#: titles are whole prose paragraphs ("We are Canada's engaged university…") — a known
+#: upstream parser-v3 residue that is cosmetic here but would wreck the panel's layout.
+#: DISPLAY ONLY: the data is not touched, and fixing it is not this feature's job.
+_ROLE_TITLE_MAX_CHARS = 80
 
 #: state -> a human label for the section table. The raw enum ``needs_attention`` is
 #: jargon that tells the author nothing; the panel pairs this with the section's own
@@ -342,6 +374,13 @@ def _answers_from_form(
         if quals:
             data[target] = quals
     data["include_sfu_boilerplate"] = values.get("include_sfu_boilerplate") == "on"
+    # Not content: the role this draft was cloned from, carried through the form as a
+    # hidden field so a Check keeps it (the guard excludes it, and submit/export
+    # rebuild from the same answers). A tampered value fails UUID validation and
+    # re-renders with the error, like any other bad field.
+    cloned_from = values.get("cloned_from_cluster_id", "").strip()
+    if cloned_from:
+        data["cloned_from_cluster_id"] = cloned_from
     return ComposerAnswers(**data)
 
 
@@ -364,6 +403,8 @@ def _values_from_answers(answers: ComposerAnswers) -> dict[str, str]:
     ):
         if scalar:
             values[target] = scalar
+    if answers.cloned_from_cluster_id is not None:
+        values["cloned_from_cluster_id"] = str(answers.cloned_from_cluster_id)
     for target, items in (
         ("decision_making", answers.decision_making),
         ("problem_solving", answers.problem_solving),
@@ -429,6 +470,7 @@ def _context(
     answers_json: str = "",
     suggestion: SummarySuggestion | None = None,
     structured_rows: dict[str, list[dict[str, str]]] | None = None,
+    related_roles: DuplicateGuard | None = None,
 ) -> dict[str, Any]:
     groups = _grouped_questions(values)
     rules = get_rules()
@@ -509,6 +551,27 @@ def _context(
         # A prominent, always-visible "inclusive language" meter (coded/gendered terms
         # the validator flagged, with suggestions) — deterministic + advisory.
         "inclusive_meter": _inclusive_meter(assessment),
+        # The near-duplicate authoring guard (5.9): the harmonized roles that already
+        # look like this draft, RANKED and deliberately score-free (see
+        # `composer/duplicates.py` for the measurement that rules a number out).
+        # Advisory — it never blocks the submit button.
+        #
+        # `checked` is False on the paths where nothing was ASKED: before the author's
+        # first check, and when `_related_roles_panel` gave up (a client that could not
+        # be constructed, a timeout, an outright failure). It is True whenever
+        # `find_related_roles` ran to completion — including when its own internal
+        # degrade path emptied one half, in which case the panel renders whatever the
+        # other half found, or nothing at all if both are empty. Either way an empty
+        # panel does not render, so the author is never shown an unverified "all clear".
+        "related_roles": (
+            related_roles if related_roles is not None else DuplicateGuard()
+        ),
+        "role_status_label": _ROLE_STATUS_LABEL,
+        "role_status_unknown": _ROLE_STATUS_UNKNOWN,
+        "role_title_max_chars": _ROLE_TITLE_MAX_CHARS,
+        # Provenance carried through the form as a hidden field, so a Check does not
+        # forget which role the draft was cloned from (it is what the guard excludes).
+        "cloned_from_cluster_id": values.get("cloned_from_cluster_id", ""),
         "error": error,
         "boilerplate_checked": boilerplate_checked,
         # `assessment` is None before the author's first check — no panel renders, so
@@ -549,46 +612,141 @@ async def new_draft(request: Request) -> HTMLResponse:
     )
 
 
-@router.post("/new", response_class=HTMLResponse)
-async def check_draft(request: Request) -> HTMLResponse:
-    """Assemble the submitted answers and re-render the form with the live compliance
-    panel. Read-only — nothing is persisted (NN #1)."""
-    body = await request.body()
-    pairs = parse_qsl(body.decode("utf-8"), keep_blank_values=True)
-    values = _first_values(pairs)
-    checked = values.get("include_sfu_boilerplate") == "on"
-    # Repopulation rows come from the RAW submitted pairs, so a validation error still
-    # shows the author what they typed (never a silently emptied structured section).
-    rows = _structured_rows_from_pairs(pairs)
+async def _close_quietly(*clients: EmbedClient | AsyncDriver | None) -> None:
+    """Close every injected client, independently. ``None`` is skipped (the optional
+    factories return it when construction failed), and one client's ``close()``
+    blowing up must not leak the next — which it did while this was two bare awaits."""
+    for client in clients:
+        if client is None:
+            continue
+        try:
+            await client.close()
+        except Exception:  # noqa: BLE001 — a failed close must not fail the response
+            logger.exception("failed to close an injected client")
+
+
+async def _related_roles_panel(
+    jd: SFUJobDescription,
+    *,
+    session: AsyncSession,
+    embed_client: EmbedClient | None,
+    neo4j_driver: AsyncDriver | None,
+    exclude_cluster_id: UUID | None,
+) -> DuplicateGuard:
+    """The near-duplicate authoring guard for one Check — best effort, bounded in time,
+    and it never costs the compliance panel.
+
+    Three separate ways this is allowed to come back empty, and all of them render the
+    panel as ABSENT rather than as a reassuring "no duplicates found":
+
+    * a client could not be CONSTRUCTED (``None`` — see
+      :func:`~src.api.routes.compose.get_optional_embed_client`);
+    * something raised — :func:`find_related_roles` already absorbs the ordinary
+      failures itself, so reaching that ``except`` means something more fundamental
+      broke;
+    * it took too long. That is the case a ``try``/``except`` cannot cover, and it is
+      the dangerous one: the embedding client connects in 5s but then reads for 600s
+      with retries, so a host that ACCEPTS and stalls (a wedged GPU, a firewall DROP
+      after accept) would pin this request — and the ``AsyncSession`` it has checked
+      out of a small pool — for the better part of an hour. A few concurrent Checks
+      would then stop the Builder serving at all. ``timeout_seconds`` (HR-197) bounds
+      it. Note that ``/compose/search`` and ``/assist`` share the underlying
+      no-read-timeout property; those are pre-existing and deliberately NOT changed
+      here, as is :class:`EmbedClient`'s global default (the archive embedding runs
+      batch thousands of documents and may legitimately want a long read budget).
+
+    Closing the clients is the CALLER's job — this may be cancelled mid-flight, which
+    is no place to be awaiting a socket teardown.
+    """
+    budget = get_rules().dedup.authoring_guard.timeout_seconds
     try:
-        answers = _answers_from_form(values, pairs)
-    except (ValidationError, ValueError) as exc:
+        return await asyncio.wait_for(
+            find_related_roles(
+                jd,
+                session=session,
+                embed_client=embed_client,
+                neo4j_driver=neo4j_driver,
+                exclude_cluster_id=exclude_cluster_id,
+            ),
+            timeout=budget,
+        )
+    except TimeoutError:
+        logger.warning(
+            "the near-duplicate guard exceeded its %.1fs budget; omitting the panel",
+            budget,
+        )
+        return DuplicateGuard()
+    except Exception:  # noqa: BLE001 — advisory: never lose the compliance panel
+        logger.exception("the near-duplicate guard failed; omitting the panel")
+        return DuplicateGuard()
+
+
+@router.post("/new", response_class=HTMLResponse)
+async def check_draft(
+    request: Request,
+    embed_client: EmbedClient | None = Depends(get_optional_embed_client),
+    neo4j_driver: AsyncDriver | None = Depends(get_optional_neo4j_driver),
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """Assemble the submitted answers and re-render the form with the live compliance
+    panel, plus the advisory near-duplicate guard (5.9). Read-only — nothing is
+    persisted (NN #1), and the guard never blocks the submit button.
+
+    The whole body sits under one ``finally`` so the injected clients are closed on
+    EVERY path, including the ones that raise before the guard is ever reached (a body
+    that is not valid UTF-8 fails at ``decode``, before any ``try`` used to start).
+    The clients are OPTIONAL: this route must render its compliance verdict even when
+    the embedding/vector stack cannot be constructed at all — see
+    :func:`~src.api.routes.compose.get_optional_embed_client`.
+    """
+    try:
+        body = await request.body()
+        pairs = parse_qsl(body.decode("utf-8"), keep_blank_values=True)
+        values = _first_values(pairs)
+        checked = values.get("include_sfu_boilerplate") == "on"
+        # Repopulation rows come from the RAW submitted pairs, so a validation error
+        # still shows the author what they typed (never a silently emptied section).
+        rows = _structured_rows_from_pairs(pairs)
+        try:
+            answers = _answers_from_form(values, pairs)
+        except (ValidationError, ValueError) as exc:
+            return templates.TemplateResponse(
+                request,
+                "compose_new.html",
+                _context(
+                    request,
+                    values=values,
+                    assessment=None,
+                    error=str(exc),
+                    boilerplate_checked=checked,
+                    structured_rows=rows,
+                ),
+            )
+        jd = assemble_jd(answers)
+        assessment = assess_draft(jd)
+        guard = await _related_roles_panel(
+            jd,
+            session=session,
+            embed_client=embed_client,
+            neo4j_driver=neo4j_driver,
+            exclude_cluster_id=answers.cloned_from_cluster_id,
+        )
         return templates.TemplateResponse(
             request,
             "compose_new.html",
             _context(
                 request,
                 values=values,
-                assessment=None,
-                error=str(exc),
+                assessment=assessment,
+                error=None,
                 boilerplate_checked=checked,
+                answers_json=answers.model_dump_json(),
                 structured_rows=rows,
+                related_roles=guard,
             ),
         )
-    assessment = assess_draft(assemble_jd(answers))
-    return templates.TemplateResponse(
-        request,
-        "compose_new.html",
-        _context(
-            request,
-            values=values,
-            assessment=assessment,
-            error=None,
-            boilerplate_checked=checked,
-            answers_json=answers.model_dump_json(),
-            structured_rows=rows,
-        ),
-    )
+    finally:
+        await _close_quietly(embed_client, neo4j_driver)
 
 
 @router.post("/assist", response_class=HTMLResponse)

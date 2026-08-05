@@ -18,6 +18,11 @@ from src.jd_bank.composer.answers import (
 )
 from src.jd_bank.composer.assemble import assemble_jd
 from src.jd_bank.composer.assist import SummarySuggestion, suggest_summary
+from src.jd_bank.composer.duplicates import (
+    DuplicateGuard,
+    RelatedRole,
+    find_related_roles,
+)
 from src.jd_bank.composer.models import (
     DraftAssessment,
     DraftSectionStatus,
@@ -45,17 +50,20 @@ __all__ = [
     "ComposerAnswers",
     "DraftAssessment",
     "DraftSectionStatus",
+    "DuplicateGuard",
     "DutyAnswer",
     "ModifiedQual",
     "Question",
     "QuestionSet",
     "QuestionSetError",
+    "RelatedRole",
     "SearchHit",
     "SectionState",
     "SummarySuggestion",
     "assemble_jd",
     "assess_draft",
     "cluster_id_for_source",
+    "find_related_roles",
     "jd_to_answers",
     "load_clone_answers",
     "load_question_set",

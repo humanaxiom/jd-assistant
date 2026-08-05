@@ -21,6 +21,7 @@ and closed after the call.
 
 from __future__ import annotations
 
+import logging
 import re
 from uuid import UUID
 
@@ -45,6 +46,8 @@ from src.jd_bank.llm.client import ChatClient
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_export import render_sfu_docx
 from src.settings import get_settings
+
+logger = logging.getLogger(__name__)
 
 router: APIRouter = APIRouter(prefix="/jd-bank/compose")
 
@@ -78,6 +81,50 @@ def get_neo4j_driver() -> AsyncDriver:
     return AsyncGraphDatabase.driver(
         settings.neo4j_uri, auth=(settings.neo4j_user, settings.neo4j_password)
     )
+
+
+def get_optional_embed_client() -> EmbedClient | None:
+    """:func:`get_embed_client`, but a construction failure is ``None`` instead of a
+    dead endpoint — for routes where the client powers an ADVISORY extra.
+
+    Both factories above raise at CONSTRUCTION on a misconfiguration:
+    :class:`~src.jd_bank.embeddings.client.EmbedClient` runs the egress guard (NN #5)
+    in ``__init__``, and the Neo4j driver rejects a bad URI scheme. FastAPI solves
+    dependencies BEFORE the route body runs, so on the routes that merely *decorate* a
+    response with an embedding-powered panel that raise takes the whole page down —
+    the JD Builder losing its compliance panel because an environment variable points
+    at the wrong host.
+
+    So: caught, **logged with a stack trace**, and returned as ``None`` — the
+    "no clients" call :func:`~src.jd_bank.composer.duplicates.find_related_roles`
+    already supports. The page renders, the advisory panel is ABSENT (never a falsely
+    reassuring "no matches"), and the misconfiguration is on the server's record
+    instead of being normalised into silence. Routes whose whole purpose IS the
+    embedding — ``/search``, ``/assist`` — keep the strict factories and keep failing
+    loudly, because there a degraded answer would be a lie about the archive.
+    """
+    try:
+        return get_embed_client()
+    except Exception:
+        logger.exception(
+            "embedding client unavailable — the advisory near-duplicate panel will be "
+            "omitted from this response; check OLLAMA_BASE_URL / the egress allow-list"
+        )
+        return None
+
+
+def get_optional_neo4j_driver() -> AsyncDriver | None:
+    """:func:`get_neo4j_driver`, degrading to ``None`` — see
+    :func:`get_optional_embed_client` for why the advisory routes cannot let a
+    construction failure escape into dependency solving."""
+    try:
+        return get_neo4j_driver()
+    except Exception:
+        logger.exception(
+            "Neo4j driver unavailable — the advisory near-duplicate panel will be "
+            "omitted from this response; check NEO4J_URI"
+        )
+        return None
 
 
 @router.post("/validate", response_model=DraftAssessment)

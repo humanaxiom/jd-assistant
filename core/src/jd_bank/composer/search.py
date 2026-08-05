@@ -13,12 +13,27 @@ Two capabilities for the JD Builder's "start from an existing JD" flow:
   pre-filled from it. The inverse of
   :func:`~src.jd_bank.composer.assemble.assemble_jd`.
 
-**Corpus (v1).** The only vectors that exist are the archive **document** embeddings
-(keyed on ``source_document_id``). Cluster representatives are archive documents and
-so are searchable; **published canonicals are not yet embedded**, so searching them
-semantically is a follow-up (it needs a small new write path — embed canonical
-content into the index). v1 searches the embedded archive, **JDFN-scoped** (CUPE/WJQ
-excluded — the Builder authors the JDFN template, HR-143), and is honest about it.
+**Corpus.** Two vector stores, deliberately separate (``cadfc30``): the archive
+**document** embeddings (``jd_document_embeddings`` over ``(:JDDocument)``, keyed on
+``source_document_id``) and the **harmonized role** embeddings
+(``jd_role_embeddings`` over ``(:JDRole)``, one node per cluster, migration ``003``,
+written by ``make embed-roles``). A role is a different unit from an archive
+document, and folding them into one index would quietly corrupt the next
+``MATCH (d:JDDocument)`` corpus count. Both are **JDFN-scoped** (CUPE/WJQ excluded —
+the Builder authors the JDFN template, HR-143).
+
+The older note here — *"the only vectors that exist are the archive document
+embeddings; published canonicals are not yet embedded"* — was true at v1 and is now
+**false**: the Bank can search its own output. What is still deliberately absent is a
+write-on-publish hook; ``make embed-roles`` is a manual, idempotent, skip-first runner
+because publishing must never depend on the GPU being up.
+
+**Four passes, ranked.** role-title → document-title (both plain Postgres ``ILIKE``)
+→ role-semantic → archive-semantic. The title passes rank ABOVE the vector ones and
+carry **no score**: the document vectors deliberately exclude the title
+(``embeddings.yaml: include_title_in_document: false``), which is what makes
+``bank/similarity`` title-agnostic for dedup — so a title query has nothing to match
+on, and quoting a similarity for a title hit would invent one.
 
 **Read-only.** Nothing here writes or publishes; cloning pre-fills a draft the author
 still builds and submits through the review queue (NN #1).
@@ -403,9 +418,15 @@ async def search_similar_jds(
     limit: int = 10,
     rules: Rules | None = None,
 ) -> list[SearchHit]:
-    """Search the archive for JDs to start from — **by title first, then semantically**.
+    """Search for a JD to start from — **four passes, titles before vectors**.
 
-    A title pass runs before the vector pass because the document vectors deliberately
+    In order: (1) harmonized **role** titles, (2) source-**document** titles — both
+    plain Postgres ``ILIKE`` — then (3) role vectors and (4) archive-document vectors.
+    Role titles rank first because cloning the reviewed harmonized role is the preferred
+    start, and because **61% of role titles appear on no source document**
+    (harmonization renames the role), so no document pass can reach them.
+
+    The title passes run before the vector passes because the document vectors
     EXCLUDE the title (``embeddings.yaml: include_title_in_document: false``, which is
     what makes :mod:`src.jd_core.bank.similarity` title-agnostic for dedup). Without it,
     typing a role's exact title cannot retrieve that role: measured against the live
@@ -419,10 +440,12 @@ async def search_similar_jds(
     dedup/clustering guarantee that two JDs with different titles and identical duties
     are the same role.
 
-    Both passes are JDFN-scoped (CUPE/WJQ excluded, HR-143), deduplicated by document
-    (a title match that is also a near neighbour is listed once, as the title match),
-    and capped at ``limit``. Injected ``embed_client`` / ``neo4j_driver`` / ``session``
-    (all mockable).
+    All four passes are JDFN-scoped (CUPE/WJQ excluded, HR-143 — the filtering happens
+    here in Python; the indexes themselves DO hold CUPE nodes). Results are deduplicated
+    by document **and** by cluster: a document is dropped when the role it was
+    harmonized into is already on the page (``d71e333``), and a title match that is a
+    neighbour is listed once, as the title match. Capped at ``limit``. Injected
+    ``embed_client`` / ``neo4j_driver`` / ``session`` (all mockable).
     """
     _ = rules if rules is not None else get_rules()
     if not query_text.strip():
@@ -559,6 +582,11 @@ async def load_role_clone_answers(
     canonical. This is the preferred clone source: the archive is transitional, so a new
     JD should start from the reviewed, cleaned-up harmonized role — not a raw archive
     member that may fail the current template (a 177-word summary, one un-split duty).
+
+    The answers record WHICH role they were cloned from
+    (:attr:`~src.jd_bank.composer.answers.ComposerAnswers.cloned_from_cluster_id`), so
+    the Phase-5.9 authoring guard can exclude it — cloning a role must not immediately
+    warn the author that they duplicated the very role they cloned.
     """
     canonical = (
         await session.scalars(
@@ -570,7 +598,8 @@ async def load_role_clone_answers(
     ).first()
     if canonical is None:
         return None
-    return jd_to_answers(SFUJobDescription.model_validate(canonical.content))
+    answers = jd_to_answers(SFUJobDescription.model_validate(canonical.content))
+    return answers.model_copy(update={"cloned_from_cluster_id": cluster_id})
 
 
 async def _clusters_for_sources(

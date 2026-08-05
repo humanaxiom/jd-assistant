@@ -77,6 +77,54 @@
   </div>
   {% endif %}
 
+  {# ── 5.9 near-duplicate authoring guard ───────────────────────────────────
+     Advisory only: it never blocks the submit button below. There is deliberately
+     NO similarity score, percentage or bar on any row — measured on the live role
+     index, a role's nearest UNRELATED neighbour scores HIGHER (median 0.9604) than
+     a genuine same-title twin (0.9335), so a number here would look precise and
+     mean nothing. Ranking works; the number does not. See composer/duplicates.py.
+     Do not "improve" this by adding one. #}
+  {% if related_roles.checked and (related_roles.title_collisions or related_roles.related) %}
+  <div class="gate">
+    <strong>Roles SFU already has</strong>
+    <p class="meta">
+      Before you write a new job description, check whether one of these is the role
+      you mean. Starting from an existing role keeps SFU's job architecture tidy — and
+      it is usually faster than authoring from scratch. This is advice only: it does
+      not block your submission, and the compliance verdict above is unaffected.
+      {% if related_roles.same_title_count %}
+      SFU already has
+      <strong>{{ related_roles.same_title_count }} existing role{{ "s" if related_roles.same_title_count != 1 }}</strong>
+      with exactly this title, across
+      <strong>{{ related_roles.departments | length }} department{{ "s" if related_roles.departments | length != 1 }}</strong>{% if related_roles.departments %}
+      ({{ related_roles.departments | join(", ") }}){% endif %}.
+      Same-titled roles in different departments are often genuinely different jobs —
+      but that is worth confirming, not assuming.
+      {% endif %}
+    </p>
+    <ul>
+      {% for role in related_roles.title_collisions + related_roles.related %}
+      <li style="margin-bottom:.35rem">
+        <a href="/jd-bank/ui/role/{{ role.cluster_id }}">{{ role.title | truncate(role_title_max_chars, true, "…") }}</a>
+        <span class="meta">
+          {% if role.department %}{{ role.department }} · {% endif %}{{ role_status_label.get(role.status, role_status_unknown) }}
+          {% if role.reason == "title_collision" %}· same title{% endif %}
+        </span>
+        {# No clone link when the role has no current canonical to seed a draft from —
+           `clone_role` would 404, and a link that cannot work is worse than none. #}
+        {% if role.clonable %}<a class="meta" href="/jd-bank/ui/compose/clone-role/{{ role.cluster_id }}">Start from this role →</a>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="meta">
+      These are ordered by how closely the whole description matches what you have
+      written so far — nearest first. No closeness figure is shown, and no cut-off is
+      applied, because on this archive an absolute closeness figure does not separate a
+      genuine duplicate from an unrelated role: judge the roles themselves, not a number.
+    </p>
+  </div>
+  {% endif %}
+
   {% if assessment.report.gate_decision and assessment.report.gate_decision.blocking %}
   <h3>Blocking gates</h3>
   {% for gate in assessment.report.gate_decision.blocking %}
@@ -177,6 +225,10 @@
 
 <div class="panel">
   <form method="post" action="/jd-bank/ui/compose/new">
+    {# Provenance, not content: which harmonized role this draft was cloned from, so a
+       Check does not forget it (the near-duplicate guard excludes that role, and the
+       submit/export answers keep the lineage). Empty for a from-scratch draft. #}
+    <input type="hidden" name="cloned_from_cluster_id" value="{{ cloned_from_cluster_id }}">
     {% for group in groups %}
     <h3 id="section-{{ group.section }}">{{ group.label }}</h3>
     {% for q in group.questions %}

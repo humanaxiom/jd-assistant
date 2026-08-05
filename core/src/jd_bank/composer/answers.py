@@ -10,6 +10,8 @@ can place them in template order without re-parsing free text.
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.jd_core.models.parsed_jd import SFUEmployeeGroup
@@ -78,3 +80,12 @@ class ComposerAnswers(BaseModel):
     include_sfu_boilerplate: bool = True
     # 10. Additional Contextual Information (optional; dropped if blank)
     additional_context: str | None = Field(default=None, max_length=4000)
+    #: The harmonized role this draft was CLONED from, when it was (Phase 5.9). Not
+    #: content — provenance the Builder carries so the near-duplicate authoring guard
+    #: can exclude it (:func:`~src.jd_bank.composer.duplicates.find_related_roles`'s
+    #: ``exclude_cluster_id``): cloning a role must not immediately warn you that you
+    #: duplicated the very role you cloned. Additive and optional, so every
+    #: ``answers_json`` written before it existed still validates under
+    #: ``extra="forbid"``, and :func:`~src.jd_bank.composer.assemble.assemble_jd`
+    #: ignores it — it never reaches the JD, the validator or the review queue.
+    cloned_from_cluster_id: UUID | None = None
