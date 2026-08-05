@@ -16,7 +16,10 @@ Two docs to know:
   subagent at. Reviewers are always Opus; never downgrade a faithful port, rulebook/policy
   semantics, a security-touching diff, or anything changing a decision parameter.
 - `docs/decisions/HR-DECISION-REGISTER.md` — generated register of every non-trivial rulebook
-  default (**192 entries, all `open`** — SFU HR has ratified nothing yet). **Standing rule: any
+  default — **all entries `open`**; SFU HR has ratified nothing yet. **Do not restate the entry
+  count here: the generated register's own header is the count of record.** (This line used to
+  hardcode "192 entries"; it went stale twice, and was behind both the register header and
+  `decision_register.yaml` when it was removed on 2026-08-05.) **Standing rule: any
   non-trivial metric/rule must be YAML-configurable and registered in the same PR; if a default
   looks wrong, register it as `open`, don't quietly patch it.**
   A `ratified` entry **must** carry `decided_by` / `decided_on` / `decision_note` or the rulebook
@@ -65,6 +68,10 @@ hooks: no-commit-to-main, ruff auto-fix) for sessions run from the repo root, a 
 ## Non-negotiables
 1. HUMAN APPROVAL: canonical JDs are drafts until an HR reviewer explicitly approves.
    Nothing auto-publishes. Gate overrides require a written reason in the audit log.
+   Editing a PUBLISHED JD mints a **new DRAFT** and leaves the prior version published until
+   its replacement is approved; `approve` then **supersedes** any other live published version
+   of the cluster (`FOR UPDATE` + a `review.superseded` audit row), so **a cluster has exactly
+   one live PUBLISHED version**. ARCHIVED is settled — editing it is refused (`802bff0`).
 2. RULEBOOK AS DATA: gates, word lists, verb lists, KSA modifiers, restricted titles
    live in versioned YAML/JSON under src/jd_core/rules/ — never hardcoded in logic.
 3. VALIDATOR AS ORACLE: tests on LLM-touching code assert validator post-state,
@@ -96,9 +103,19 @@ hooks: no-commit-to-main, ruff auto-fix) for sessions run from the repo root, a 
 ## Neo4j — roles, do not conflate
 - Harness agent memory (day 1, via docker compose): lineage graph + vector artifact store.
   Query with /memory-query before implementing anything.
-- JD content vectors (MVP): JD document + section embeddings live in Neo4j's vector index
-  (768-dim cosine). This is the retrieval store for dedup Tier-3, search, and clustering —
-  NOT pgvector.
+- **Archive document vectors** — `jd_document_embeddings` over `(:JDDocument)`, one node per
+  **source file** (migration `002`, written by `make embed`). JD document + section embeddings,
+  768-dim cosine; the retrieval store for dedup Tier-3, clustering, and archive search — NOT
+  pgvector.
+- **Harmonized role vectors** — `jd_role_embeddings` over `(:JDRole)`, one node per **cluster**
+  (migration `003`, written by `make embed-roles`; read by Builder search and the near-duplicate
+  authoring guard). **A separate label and index from `jd_document_embeddings` on purpose**
+  (`cadfc30`): a role is a different unit from an archive document — one node distilled from many
+  files — and folding them together would quietly corrupt the next `MATCH (d:JDDocument)` corpus
+  count. Covers **every current-version role, drafts included** (the use is seeding a clone, not
+  publishing); each node carries `status` so a hit is labelled honestly. **Deliberately NOT wired
+  into `approve`** — publishing must not depend on the GPU, and network I/O inside the review
+  transaction would hold the `SELECT … FOR UPDATE` lock. Run it after, like `make embed`.
 - JD Bank domain overlap graph (Phase 7, deferred): role/duty overlap graph. NOT in MVP.
 
 ## External read-only paths
@@ -118,7 +135,8 @@ hooks: no-commit-to-main, ruff auto-fix) for sessions run from the repo root, a 
 
 ## Stack
 Python 3.11+ · FastAPI · **PostgreSQL 16 (all relational/transactional SQL)** · **Neo4j
-(vector index — 768-dim cosine, `nomic-embed-text` — + graph memory)** · **Redis + arq
+(two vector indexes — documents + roles, 768-dim cosine, `nomic-embed-text` — + graph
+memory)** · **Redis + arq
 (queues only)** · Ollama · pytest / ruff / black / mypy --strict
 Infrastructure: docker compose (postgres, neo4j, redis, api, worker) + Ollama on host metal
 **No pgvector.** Vectors live in Neo4j per inherited ADR-002. Postgres is the relational
