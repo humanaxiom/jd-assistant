@@ -32,7 +32,7 @@ from uuid import UUID
 
 from neo4j import AsyncDriver
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.jd_bank.composer.answers import ComposerAnswers, DutyAnswer, ModifiedQual
@@ -298,6 +298,7 @@ async def search_similar_jds(
 
     hits: list[SearchHit] = []
     seen: set[UUID] = set()
+    seen_clusters: set[UUID] = set()
 
     # 1. Harmonized ROLES by title — the preferred start (clone the harmonized role,
     #    not a raw archive parse), and the only pass that can find the 61% of role
@@ -307,6 +308,7 @@ async def search_similar_jds(
     ):
         if group == _NON_JDFN_GROUP:
             continue
+        seen_clusters.add(cluster_id)
         hits.append(
             SearchHit(
                 cluster_id=cluster_id,
@@ -319,16 +321,26 @@ async def search_similar_jds(
         if len(hits) >= limit:
             return hits
 
-    # 2. Archive DOCUMENTS by title.
-    for source_id, jd in (
-        await _title_matches(session, query_text, limit=limit)
-    ).items():
+    # 2. Archive DOCUMENTS by title — COLLAPSED into the role they were harmonized
+    #    into. Listing a role and then its own member documents underneath is how a
+    #    correctly harmonized role reads as "nothing was combined": a search for
+    #    "peoplesoft" showed the "PeopleSoft Developer" role and then, beneath it, the
+    #    16 "Senior Developer, PeopleSoft" documents that ARE that role.
+    titled = await _title_matches(session, query_text, limit=limit)
+    doc_clusters = await _clusters_for_sources(session, list(titled))
+    for source_id, jd in titled.items():
         if jd.employee_group == _NON_JDFN_GROUP:
             continue  # the title pass is under the SAME JDFN scope as the vector pass
+        doc_cluster = doc_clusters.get(source_id)
+        if doc_cluster is not None and doc_cluster in seen_clusters:
+            continue  # already on the page as the harmonized role it belongs to
+        if doc_cluster is not None:
+            seen_clusters.add(doc_cluster)
         seen.add(source_id)
         hits.append(
             SearchHit(
                 source_document_id=source_id,
+                cluster_id=doc_cluster,
                 title=jd.title,
                 employee_group=jd.employee_group,
                 score=None,
@@ -338,9 +350,12 @@ async def search_similar_jds(
         if len(hits) >= limit:
             return hits
 
+    # 3. Semantic neighbours — collapsed by role the same way, so one role cannot fill
+    #    the page with its own members.
     vector = (await embed_client.embed_batch([query_text]))[0]
     nearest = await _nearest_source_ids(neo4j_driver, vector, limit * _OVERFETCH)
     parsed = await _load_latest_parsed(session, [sid for sid, _ in nearest])
+    near_clusters = await _clusters_for_sources(session, [sid for sid, _ in nearest])
 
     for source_id, score in nearest:
         neighbour = parsed.get(source_id)
@@ -350,9 +365,15 @@ async def search_similar_jds(
             or source_id in seen
         ):
             continue  # pruned/unparsed, CUPE/WJQ, or already listed as a title match
+        near_cluster = near_clusters.get(source_id)
+        if near_cluster is not None and near_cluster in seen_clusters:
+            continue  # its harmonized role is already on the page
+        if near_cluster is not None:
+            seen_clusters.add(near_cluster)
         hits.append(
             SearchHit(
                 source_document_id=source_id,
+                cluster_id=near_cluster,
                 title=neighbour.title,
                 employee_group=neighbour.employee_group,
                 score=score,
@@ -394,6 +415,39 @@ async def load_role_clone_answers(
     if canonical is None:
         return None
     return jd_to_answers(SFUJobDescription.model_validate(canonical.content))
+
+
+async def _clusters_for_sources(
+    session: AsyncSession, ids: Sequence[UUID]
+) -> dict[UUID, UUID]:
+    """``{source_document_id: cluster_id}`` for the ids that belong to a cluster.
+
+    One query for the whole result page, rather than :func:`cluster_id_for_source` per
+    hit — and, more importantly, this is what lets the search COLLAPSE a document into
+    the role it was harmonized into (see :func:`search_similar_jds`).
+    """
+    if not ids:
+        return {}
+    wanted = {str(i) for i in ids}
+    rows = (
+        await session.execute(
+            select(Cluster.id, Cluster.members).where(
+                or_(
+                    *[
+                        Cluster.members.contains([{"source_id": str(i)}])
+                        for i in set(ids)
+                    ]
+                )
+            )
+        )
+    ).all()
+    mapping: dict[UUID, UUID] = {}
+    for cluster_id, members in rows:
+        for member in members or []:
+            source_id = member.get("source_id")
+            if source_id in wanted:
+                mapping[UUID(source_id)] = cluster_id
+    return mapping
 
 
 async def cluster_id_for_source(

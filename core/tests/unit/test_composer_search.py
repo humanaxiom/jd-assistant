@@ -121,6 +121,11 @@ def _jd(title: str, group: str) -> SFUJobDescription:
     return SFUJobDescription(title=title, employee_group=group)  # type: ignore[arg-type]
 
 
+async def _no_clusters_fn(session: Any, ids: Any) -> dict[Any, Any]:
+    """No cluster membership — a test that is not about role collapsing."""
+    return {}
+
+
 def _no_title_matches(monkeypatch: pytest.MonkeyPatch) -> None:
     """Silence both TITLE passes so a test can drive the SEMANTIC pass alone.
 
@@ -134,6 +139,11 @@ def _no_title_matches(monkeypatch: pytest.MonkeyPatch) -> None:
 
     async def _none(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
         return {}
+
+    async def _no_clusters(session: Any, ids: Any) -> dict[Any, Any]:
+        return {}
+
+    monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters)
 
     monkeypatch.setattr(search_mod, "_role_title_matches", _no_roles)
     monkeypatch.setattr(search_mod, "_title_matches", _none)
@@ -203,6 +213,7 @@ async def test_an_exact_title_query_returns_that_title_first(
         return []
 
     monkeypatch.setattr(search_mod, "_role_title_matches", _no_roles)
+    monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
     monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
@@ -254,6 +265,7 @@ async def test_a_harmonized_role_is_found_by_its_own_title(
 
     monkeypatch.setattr(search_mod, "_role_title_matches", fake_roles)
     monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
+    monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
 
@@ -292,6 +304,7 @@ async def test_role_title_matches_stay_jdfn_only(
         return {}
 
     monkeypatch.setattr(search_mod, "_role_title_matches", fake_roles)
+    monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
     monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
@@ -304,6 +317,64 @@ async def test_role_title_matches_stay_jdfn_only(
         limit=10,
     )
     assert hits == []
+
+
+async def test_documents_collapse_into_the_role_they_were_harmonized_into(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One role, one row. Listing a role and then its own member documents beneath it
+    is how a CORRECTLY harmonized role reads as "nothing was combined".
+
+    Reported case: searching "peoplesoft" showed the harmonized "PeopleSoft Developer"
+    role (17 sources) and then, underneath, the 16 "Senior Developer, PeopleSoft"
+    documents that ARE that role — verified against the DB: all 16 map to exactly one
+    cluster, whose canonical is that role. Harmonization was right; the page was not.
+
+    A document whose cluster is NOT already listed still appears — it carries new
+    information."""
+    cluster, member_a, member_b, other = (uuid.uuid4() for _ in range(4))
+
+    async def fake_roles(session: Any, query: str, *, limit: int) -> list[Any]:
+        return [(cluster, "PeopleSoft Developer", "apsa")]
+
+    async def fake_titles(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
+        return {
+            member_a: _jd("Senior Developer, PeopleSoft", "apsa"),
+            member_b: _jd("Senior Developer, PeopleSoft", "apsa"),
+            other: _jd("PeopleSoft Systems Engineer", "apsa"),
+        }
+
+    async def fake_clusters(session: Any, ids: Any) -> dict[Any, Any]:
+        # The two members belong to the role above; `other` is unclustered.
+        return {member_a: cluster, member_b: cluster}
+
+    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+        return []
+
+    async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
+        return {}
+
+    monkeypatch.setattr(search_mod, "_role_title_matches", fake_roles)
+    monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
+    monkeypatch.setattr(search_mod, "_clusters_for_sources", fake_clusters)
+    monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
+    monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
+
+    hits = await search_mod.search_similar_jds(
+        "peoplesoft",
+        embed_client=_FakeEmbed([0.1] * 768),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+        session=object(),  # type: ignore[arg-type]
+        limit=10,
+    )
+
+    assert [h.title for h in hits] == [
+        "PeopleSoft Developer",  # the harmonized role
+        "PeopleSoft Systems Engineer",  # unclustered — genuinely new information
+    ]
+    # Neither member of the already-listed role is repeated underneath it.
+    assert member_a not in [h.source_document_id for h in hits]
+    assert member_b not in [h.source_document_id for h in hits]
 
 
 async def test_a_title_match_is_not_duplicated_by_the_semantic_pass(
@@ -326,6 +397,7 @@ async def test_a_title_match_is_not_duplicated_by_the_semantic_pass(
         return []
 
     monkeypatch.setattr(search_mod, "_role_title_matches", _no_roles)
+    monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
     monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
@@ -360,6 +432,7 @@ async def test_title_matches_stay_jdfn_only(monkeypatch: pytest.MonkeyPatch) -> 
         return []
 
     monkeypatch.setattr(search_mod, "_role_title_matches", _no_roles)
+    monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
     monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
     monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
     monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
