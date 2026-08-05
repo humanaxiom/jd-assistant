@@ -30,7 +30,12 @@ from uuid import UUID
 
 from neo4j import AsyncDriver
 
-from src.jd_bank.embeddings.models import DocumentWrite, NodeKey, SectionWrite
+from src.jd_bank.embeddings.models import (
+    DocumentWrite,
+    NodeKey,
+    RoleWrite,
+    SectionWrite,
+)
 
 _FETCH_DOCUMENT_KEYS = """
 MATCH (d:JDDocument)
@@ -42,6 +47,45 @@ _FETCH_SECTION_KEYS = """
 MATCH (s:JDSection)
 RETURN s.id AS id, s.text_sha256 AS text_sha256, s.model AS model,
        s.embed_stamp AS embed_stamp
+"""
+
+_FETCH_ROLE_KEYS = """
+MATCH (r:JDRole)
+RETURN r.id AS id, r.text_sha256 AS text_sha256, r.model AS model,
+       r.embed_stamp AS embed_stamp
+"""
+
+# MERGE on the cluster id (constrained unique in migration 003) — a re-embed after a
+# reviewer's edit overwrites the SAME role node instead of leaving the old vector
+# beside it. That is what keeps "one role, one vector" true across versions.
+_WRITE_ROLES = """
+UNWIND $rows AS row
+MERGE (r:JDRole {id: row.id})
+SET r.embedding = row.embedding,
+    r.model = row.model,
+    r.dimensions = row.dimensions,
+    r.text_sha256 = row.text_sha256,
+    r.text_chars = row.text_chars,
+    r.truncated = row.truncated,
+    r.embed_stamp = row.embed_stamp,
+    r.serializer_version = row.serializer_version,
+    r.cluster_id = row.cluster_id,
+    r.canonical_jd_id = row.canonical_jd_id,
+    r.version = row.version,
+    r.status = row.status,
+    r.title = row.title,
+    r.employee_group = row.employee_group
+"""
+
+#: Delete role nodes whose cluster is no longer in the plan — a cluster that was
+#: pruned, or whose canonical no longer serializes to any text. MERGE alone would
+#: leave them behind as permanently stale search hits.
+_PRUNE_ROLES = """
+UNWIND $ids AS id
+OPTIONAL MATCH (r:JDRole {id: id})
+WITH collect(r) AS doomed
+FOREACH (n IN doomed | DETACH DELETE n)
+RETURN size(doomed) AS pruned
 """
 
 # MERGE on `id` (the constrained, unique key from migration 002) — never on any
@@ -117,6 +161,59 @@ async def fetch_existing_section_keys(driver: AsyncDriver) -> dict[str, NodeKey]
         for record in records
         if record["id"] is not None
     }
+
+
+async def fetch_existing_role_keys(driver: AsyncDriver) -> dict[UUID, NodeKey]:
+    """Every ``(:JDRole)``'s content identity, keyed by ``cluster_id`` — the pre-fetch
+    half of skip-first for roles. Same shape and same guard as the document version."""
+    async with driver.session() as session:
+        result = await session.run(_FETCH_ROLE_KEYS)
+        records = [record async for record in result]
+    return {
+        UUID(record["id"]): NodeKey(
+            record["text_sha256"], record["model"], record["embed_stamp"]
+        )
+        for record in records
+        if record["id"] is not None
+    }
+
+
+def _role_payload(row: RoleWrite) -> dict[str, object]:
+    return {
+        "id": str(row.cluster_id),
+        "cluster_id": str(row.cluster_id),
+        "canonical_jd_id": str(row.canonical_jd_id),
+        "version": row.version,
+        "status": row.status,
+        "title": row.title,
+        "employee_group": row.employee_group,
+        "text_sha256": row.text_sha256,
+        "text_chars": row.text_chars,
+        "truncated": row.truncated,
+        "embedding": row.embedding,
+        "model": row.model,
+        "dimensions": row.dimensions,
+        "embed_stamp": row.embed_stamp,
+        "serializer_version": row.serializer_version,
+    }
+
+
+async def write_roles(driver: AsyncDriver, rows: Sequence[RoleWrite]) -> None:
+    """``MERGE`` a batch of ``(:JDRole)`` nodes. No-op on an empty batch."""
+    if not rows:
+        return
+    async with driver.session() as session:
+        await session.run(_WRITE_ROLES, rows=[_role_payload(r) for r in rows])
+
+
+async def prune_roles(driver: AsyncDriver, ids: Sequence[UUID]) -> int:
+    """Delete the ``(:JDRole)`` nodes for ``ids``. Returns how many were removed."""
+    if not ids:
+        return 0
+    async with driver.session() as session:
+        result = await session.run(_PRUNE_ROLES, ids=[str(i) for i in ids])
+        record = await result.single()
+    return int(record["pruned"]) if record is not None else 0
 
 
 def _document_payload(row: DocumentWrite) -> dict[str, object]:

@@ -377,6 +377,79 @@ async def test_documents_collapse_into_the_role_they_were_harmonized_into(
     assert member_b not in [h.source_document_id for h in hits]
 
 
+async def test_semantic_pass_searches_harmonized_roles_not_just_the_archive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The Bank must be able to search its OWN output, not only the archive.
+
+    Role vectors live in their own index (``jd_role_embeddings``, migration 003,
+    written by ``embeddings.roles``). A reviewed harmonized role is a better seed for
+    a clone than a raw archive parse, so it ranks above an archive neighbour."""
+    role_cluster, archive_doc = uuid.uuid4(), uuid.uuid4()
+
+    async def fake_roles(session: Any, query: str, *, limit: int) -> list[Any]:
+        return []
+
+    async def fake_titles(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
+        return {}
+
+    async def fake_near_roles(driver: Any, vector: Any, k: int) -> list[Any]:
+        return [(role_cluster, "AV Systems Analyst", "apsa", 0.91)]
+
+    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+        return [(archive_doc, 0.88)]
+
+    async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
+        return {archive_doc: _jd("Audio Visual Technician", "apsa")}
+
+    monkeypatch.setattr(search_mod, "_role_title_matches", fake_roles)
+    monkeypatch.setattr(search_mod, "_title_matches", fake_titles)
+    monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
+    monkeypatch.setattr(search_mod, "_nearest_role_ids", fake_near_roles)
+    monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
+    monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
+
+    hits = await search_mod.search_similar_jds(
+        "runs AV kit for classrooms",
+        embed_client=_FakeEmbed([0.1] * 768),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+        session=object(),  # type: ignore[arg-type]
+        limit=10,
+    )
+
+    assert [h.title for h in hits] == [
+        "AV Systems Analyst",  # the harmonized role, first
+        "Audio Visual Technician",  # then the archive neighbour
+    ]
+    assert hits[0].cluster_id == role_cluster
+    assert hits[0].source_document_id is None
+    assert hits[0].score == 0.91
+    assert hits[0].match == "semantic"
+
+
+async def test_role_index_lookup_degrades_instead_of_breaking_search() -> None:
+    """Search must keep working on a stack where migration 003 / ``make embed-roles``
+    has not run yet — Neo4j raises for an unknown index, and that must cost the role
+    contribution only, never the whole search.
+
+    Drives the REAL ``_nearest_role_ids`` against a driver whose session raises."""
+
+    class _ExplodingDriver:
+        def session(self) -> Any:
+            raise RuntimeError(
+                "There is no such vector schema index: jd_role_embeddings"
+            )
+
+    assert (
+        await search_mod._nearest_role_ids(
+            _ExplodingDriver(),  # type: ignore[arg-type]
+            [0.1] * 768,
+            10,
+        )
+        == []
+    )
+
+
 async def test_a_title_match_is_not_duplicated_by_the_semantic_pass(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

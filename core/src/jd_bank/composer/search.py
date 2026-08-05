@@ -52,10 +52,23 @@ _NON_JDFN_GROUP = "cupe"
 #: parsed JD has since been pruned, so fetch more than ``limit`` and filter down.
 _OVERFETCH = 3
 
+#: The harmonized-role vector index (migration 003, written by
+#: :mod:`src.jd_bank.embeddings.roles`). Separate from the document index because a
+#: role and an archive file are different units — see that module's header.
+_ROLE_INDEX = "jd_role_embeddings"
+
 _NEAREST = """
 CALL db.index.vector.queryNodes($index, $k, $vector)
 YIELD node, score
 RETURN node.id AS id, score
+ORDER BY score DESC
+"""
+
+_NEAREST_ROLES = """
+CALL db.index.vector.queryNodes($index, $k, $vector)
+YIELD node, score
+RETURN node.id AS id, node.title AS title,
+       node.employee_group AS employee_group, score
 ORDER BY score DESC
 """
 
@@ -144,6 +157,36 @@ async def _nearest_source_ids(
         records = [record async for record in result]
     return [
         (UUID(record["id"]), float(record["score"]))
+        for record in records
+        if record["id"] is not None
+    ]
+
+
+async def _nearest_role_ids(
+    driver: AsyncDriver, vector: Sequence[float], k: int
+) -> list[tuple[UUID, str, str | None, float]]:
+    """Top-``k`` harmonized ROLES by cosine similarity — ``(cluster_id, title,
+    employee_group, score)`` best-first.
+
+    Returns empty (not an error) when the role index does not exist yet: the index is
+    created by migration 003 and populated by ``make embed-roles``, and search must
+    keep working on a stack where neither has run.
+    """
+    try:
+        async with driver.session() as session:
+            result = await session.run(
+                _NEAREST_ROLES, index=_ROLE_INDEX, k=k, vector=list(vector)
+            )
+            records = [record async for record in result]
+    except Exception:  # noqa: BLE001 — no index yet: degrade, never break search
+        return []
+    return [
+        (
+            UUID(record["id"]),
+            str(record["title"] or ""),
+            record["employee_group"],
+            float(record["score"]),
+        )
         for record in records
         if record["id"] is not None
     ]
@@ -350,9 +393,31 @@ async def search_similar_jds(
         if len(hits) >= limit:
             return hits
 
-    # 3. Semantic neighbours — collapsed by role the same way, so one role cannot fill
-    #    the page with its own members.
     vector = (await embed_client.embed_batch([query_text]))[0]
+
+    # 3. Semantic neighbours among the harmonized ROLES — the Bank searching its own
+    #    output. Ranked above archive neighbours at equal footing because a reviewed
+    #    role is a better seed for a clone than a raw archive parse.
+    for cluster_id, role_title, group, score in await _nearest_role_ids(
+        neo4j_driver, vector, limit * _OVERFETCH
+    ):
+        if group == _NON_JDFN_GROUP or cluster_id in seen_clusters:
+            continue
+        seen_clusters.add(cluster_id)
+        hits.append(
+            SearchHit(
+                cluster_id=cluster_id,
+                title=role_title,
+                employee_group=group,
+                score=score,
+                match="semantic",
+            )
+        )
+        if len(hits) >= limit:
+            return hits
+
+    # 4. Semantic neighbours in the ARCHIVE — collapsed by role the same way, so one
+    #    role cannot fill the page with its own members.
     nearest = await _nearest_source_ids(neo4j_driver, vector, limit * _OVERFETCH)
     parsed = await _load_latest_parsed(session, [sid for sid, _ in nearest])
     near_clusters = await _clusters_for_sources(session, [sid for sid, _ in nearest])

@@ -253,6 +253,32 @@ services:
       neo4j: { condition: service_healthy }
     command: ["python", "-m", "src.jd_bank.embeddings"]
 
+  # ─── Harmonized-role embeddings (Phase 5.4b) ──────────────────────────────
+  # `embed` covers the ARCHIVE; this covers the Bank's own output — one (:JDRole)
+  # vector per cluster, so the Builder's "start from an existing JD" can find a
+  # harmonized role semantically and not only by title. Same dependencies as
+  # `embed` (Postgres + Neo4j + Ollama) and migration 003 applied.
+  #
+  #   make embed-roles
+  #   make embed-roles EMBED_ROLES_ARGS="--limit 50"
+  #
+  # Not started by `up` (profile: tools). Deliberately NOT run from `approve` —
+  # publishing must never depend on the GPU.
+  embed-roles:
+    profiles: ["tools"]
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    environment:
+      <<: *app_env
+    volumes:
+      - ./core:/app
+      - ./docs/embeddings:/committed
+    depends_on:
+      postgres: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+    command: ["python", "scripts/embed_roles.py"]
+
   # ─── Tier-2 near-duplicate dedup (Phase 3.3) ──────────────────────────────
   # MinHash-candidate, exact-Jaccard-scored, DB-reconciled `dedup_edges` rows at
   # `tier=NEAR_DUPLICATE`. Needs Postgres (source_documents / parsed_jds — run

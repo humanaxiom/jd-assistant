@@ -1,0 +1,11 @@
+{
+  "dimensions": 768,
+  "embed_stamp": "jd_rules_sfu_v4+b760ce00210a",
+  "model": "nomic-embed-text",
+  "nodes_pruned": 0,
+  "roles_embedded": 0,
+  "roles_empty": 5,
+  "roles_seen": 1802,
+  "roles_unchanged": 1797,
+  "serializer_version": "embed_text_v1"
+}

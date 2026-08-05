@@ -46,6 +46,32 @@ class DocumentWrite:
 
 
 @dataclass(frozen=True, slots=True)
+class RoleWrite:
+    """One ``(:JDRole)`` node — a HARMONIZED role (a cluster), not an archive file.
+
+    Keyed on ``cluster_id`` because that is the role's stable identity across
+    versions: an edit mints ``version + 1`` but the role is the same role, and the
+    Builder clones a role by cluster. ``status``/``version`` ride along so a hit can
+    be labelled without a second Postgres round trip.
+    """
+
+    cluster_id: UUID
+    canonical_jd_id: UUID
+    version: int
+    status: str
+    title: str
+    employee_group: str | None
+    text_sha256: str
+    text_chars: int
+    truncated: bool
+    embedding: list[float]
+    model: str
+    dimensions: int
+    embed_stamp: str
+    serializer_version: str
+
+
+@dataclass(frozen=True, slots=True)
 class SectionWrite:
     """One ``(:JDSection)`` node, ready to MERGE, plus the ``HAS_SECTION`` edge from
     its document."""

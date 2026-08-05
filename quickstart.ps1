@@ -201,7 +201,8 @@ if (-not $SkipMigrate) {
 
     # Neo4j holds the JD vector index (768-dim cosine) + graph memory. Both cypher files
     # are idempotent, so re-running on a live stack is safe.
-    foreach ($cypher in @('001_init.cypher', '002_jd_vectors.cypher')) {
+    $cyphers = @('001_init.cypher', '002_jd_vectors.cypher', '003_jd_role_vectors.cypher')
+    foreach ($cypher in $cyphers) {
         $path = Join-Path 'core/db/migrations' $cypher
         if (-not (Test-Path $path)) { Write-Warn "missing $path — skipped"; continue }
         Get-Content -LiteralPath $path -Raw |

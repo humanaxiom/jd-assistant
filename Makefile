@@ -3,8 +3,9 @@
 # all project code, tests, and linters run INSIDE the `api` container (source is
 # bind-mounted at /app, so no rebuild is needed after edits). Run `make up` first.
 .PHONY: up down gates gates-fast gates-integration gates-live migrate logs shell \
-        hook-install register register-check baseline dedup ingest embed near-dup \
-        dedup-role cluster harmonize-measure canonical-drafts rewrite-golden quality-golden
+        hook-install register register-check baseline dedup ingest embed embed-roles \
+        near-dup dedup-role cluster harmonize-measure canonical-drafts rewrite-golden \
+        quality-golden
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -25,6 +26,7 @@ BASELINE_ARGS   ?=
 DEDUP_ARGS      ?=
 INGEST_ARGS     ?=
 EMBED_ARGS      ?=
+EMBED_ROLES_ARGS ?=
 NEARDUP_ARGS    ?=
 DEDUPROLE_ARGS  ?=
 CLUSTER_ARGS    ?=
@@ -160,6 +162,10 @@ embed:            ## Embed parsed_jds into Neo4j's vector index (needs `make ing
 	docker compose run --rm -T embed python -m src.jd_bank.embeddings $(EMBED_ARGS)
 	@echo "✅ embeddings summary written to docs/embeddings/summary.json"
 
+embed-roles:      ## Embed HARMONIZED ROLES (canonical_jds) into Neo4j (needs `make migrate`)
+	docker compose run --rm -T embed-roles python scripts/embed_roles.py $(EMBED_ROLES_ARGS)
+	@echo "✅ role-embedding summary written to docs/embeddings/roles-summary.json"
+
 # ── Tier-2 near-duplicate dedup (Phase 3.3) ────────────────────────────────
 # MinHash-candidate, exact-Jaccard-scored, DB-reconciled — needs Postgres AND the
 # archive bind (re-reads bytes via `dedup.text_source: raw_clean`). Run `make
@@ -235,11 +241,13 @@ canonical-drafts: ## Phase-4.4a: produce DRAFT canonical_jds over real clusters 
 # ── Migrations (already Docker) ────────────────────────────────────────────
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).
 # Neo4j constraints + vector indexes via each cypher file piped into cypher-shell.
-migrate:          ## Postgres (alembic) + Neo4j (cypher: 001 core, 002 JD vectors)
+migrate:          ## Postgres (alembic) + Neo4j (cypher: 001 core, 002 JD vectors, 003 role vectors)
 	docker compose exec api alembic upgrade head
 	cat core/db/migrations/001_init.cypher | \
 		docker compose exec -T neo4j cypher-shell -u neo4j -p harnesspass
 	cat core/db/migrations/002_jd_vectors.cypher | \
+		docker compose exec -T neo4j cypher-shell -u neo4j -p harnesspass
+	cat core/db/migrations/003_jd_role_vectors.cypher | \
 		docker compose exec -T neo4j cypher-shell -u neo4j -p harnesspass
 
 # ── Git pre-commit hook (Docker-only; replaces the host pre-commit framework) ─
