@@ -2,7 +2,60 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-08-05): THE BANK CAN SEARCH ITS OWN OUTPUT, AND THE BUILDER NOW WARNS BEFORE
+**NEWEST (2026-08-07): A ROADMAP QUICK WIN WAS MEASURED AND DECLINED — and its stated premise
+turned out to be a misattributed number.** No feature shipped; the deliverable is evidence, a
+corrected roadmap, and a redirect. Decision doc:
+`docs/decisions/coded-language-soft-lexicon.md`. `rules_version` **unmoved**; register still
+**197** (HR-029's prose gained measured evidence — no new entry, no changed default).
+
+- **The item.** ROADMAP proposed expanding the shipped inclusive-language meter (`19e76d3`) with
+  a **Gender-Decoder soft lexicon** (Gaucher et al. 2011 masculine/feminine stems) as a new
+  unhashed rulebook file + register entries. Measured over all **14,522** current-parser JDs
+  through the shipped scan path before building anything.
+- **⚠ THE PREMISE WAS A MISATTRIBUTED NUMBER.** The item justified itself with *"the exact-match
+  list … fires on only 10/14,522"*. That is **`SFU-QUAL-BANNED-PHRASE`** (HR-041/120 — the
+  neighbouring backlog row). **`SFU-LANG-CODED` fires on 11,160/14,522 = 76.8%**, confirmed
+  across six commits of the committed `docs/baseline/summary.json`. The premise was wrong by
+  three orders of magnitude. **ROADMAP corrected in both places.**
+- **AND THE LEXICON CANNOT BE HONEST ON THIS CORPUS.** **99.50% of JDs trip BOTH word lists**
+  (masculine 99.52%, feminine 99.82%, neither 0.16%); median JD is 18 vs 18; 95.7% would receive
+  a lean verdict. The verdict is an artefact of two free choices, not a property of the JD: the
+  unratified neutral band (neutral **4.3% → 48.9%** as it widens 0→5), and **one stem** —
+  dropping masculine `decision`, the word inside SFU's own mandated `IMPACT OF DECISION MAKING`
+  heading, flips the corpus from 30/37 to **19/55**; dropping feminine `respon`
+  (`DUTIES AND RESPONSIBILITIES`) flips it to 57/16.
+- **38–77% of hits are not gendered lean at all** (two auditable bounds over 566,492 tokens):
+  `confidential`/`confidentiality` is **99.8%** of the `confident` stem (literal "confident" = 6
+  tokens); `committee` is **84.5%** of `commit`; plus verbatim template headings, WJQ form
+  labels, the **Athletics** unit name, the job title *Practice Leader*, and surnames under `nag`.
+  The published list also double-counts every "interpersonal". **Curating does not rescue it** —
+  the median JD becomes 2 vs 2, 60% of the masculine side is `independently` and 61% of the
+  feminine side is `collaboratively`, both words SFU's own template asks authors to write.
+- **SAME FAILURE MODE, SAME ANSWER, AS PHASE 5.9.** Two features in a row have now been saved by
+  measuring before designing: a similarity threshold could not separate duplicate roles from
+  unrelated ones, and a coded-language verdict cannot separate a biased JD from the template.
+  **Rank or flag individually; never publish a number the data cannot support.**
+- **➡ REDIRECTED — the live defect is HR-029, and it is HR's call, not ours.** Three terms SFU
+  never published generate **83%** of everything the rule says: `confidential` **4,320 docs
+  (29.8%)**, `individual` **3,719 (25.6%)**, `agreement` **1,678 (11.6%)** — while **16 of the 37
+  terms never fire at all** and the ones HR would expect to matter barely appear (`ambitious` 29,
+  `aggressive` 22, `chairman` 14, `workman` 1). The one large signal that is both real and
+  mechanically fixable is the generic pronoun **`his/her`, 8,344 docs (57.5%)**. HR-029 now
+  carries these numbers so the call can be made on evidence; **per the standing rule nothing was
+  patched** — dropping just `confidential` + `agreement` would remove ~30% of the rule's findings,
+  which is the size of the decision.
+- **Also recorded:** the soft lexicon is **complementary, not redundant** — **45.9%** of the
+  shipped rule's findings are invisible to it (all the pronouns and gendered occupational nouns),
+  which is what `coded_terms.yaml` is actually *for*. Its genuinely-new, genuinely-coded
+  contribution is ~**0.4%** of coded tokens.
+- **PR [#81](https://github.com/humanaxiom/jd-assistant/pull/81)** carries the Phase-5.9 guard +
+  the docs refresh described in the block below (branch
+  `feat/near-duplicate-authoring-guard`, pushed). CI is still billing-blocked, so it carries
+  locally-verified gates instead.
+
+---
+
+**PRIOR (2026-08-05): THE BANK CAN SEARCH ITS OWN OUTPUT, AND THE BUILDER NOW WARNS BEFORE
 YOU AUTHOR A DUPLICATE ROLE. Plus SIX shipped commits that never got a handoff entry, and a
 docs refresh across the guide, `CLAUDE.md`, the plan and AI-USAGE.**
 `make gates` **2,048 passing, 93.05%**. Register **197** decisions (all `open`).

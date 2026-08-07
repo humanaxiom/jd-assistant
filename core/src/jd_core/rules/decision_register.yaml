@@ -762,9 +762,28 @@ decisions:
       mandatory About-SFU paragraph. The scan no longer looks inside that paragraph
       (HR-107), so SFU's boilerplate no longer trips our lexicon — but the term is
       still `medium` in a JD's own prose, and it is still not SFU's term. See HR-058.
+      ---
+      MEASURED over all 14,522 current-parser JDs (2026-08-07), so this is decidable on
+      evidence rather than impression. The rule fires on **11,160 documents (76.8%)**,
+      19,895 findings. Three terms produce **83% of everything the rule says**, and all
+      three are ours, not SFU's: `confidential` **4,320 docs (29.8%)**, `individual`
+      **3,719 (25.6%)** and `agreement` **1,678 (11.6%)** — exactly the over-firing this
+      entry predicted, now quantified. By contrast the terms HR would most expect to
+      matter barely appear: `ambitious` 29 docs, `aggressive` 22, `chairman` 14,
+      `workman` 1, and **16 of the 37 terms never fire at all** (ninja, rockstar,
+      policeman, salesman, waitress, mankind, …). The single largest real signal in the
+      archive is not in this list's disputed part at all: the generic pronoun `his/her`,
+      **8,344 docs (57.5%)** — unambiguous, and mechanically fixable.
+      Also measured and recorded so it is not re-proposed: a Gender-Decoder-style SOFT
+      lexicon (Gaucher et al. 2011) was evaluated as an expansion of this list and
+      **rejected** — 99.5% of JDs trip both the masculine and feminine word lists, and
+      38-77% of its hits are not gendered lean but stemming collisions and SFU's own
+      template headings. See `docs/decisions/coded-language-soft-lexicon.md`.
     impact_if_changed: >-
       Two separate calls. (a) The nine additions: adopt them as SFU policy, or drop
-      them. (b) The one deliberate OMISSION: SFU's list also carries "supporting",
+      them. **Dropping just `confidential` and `agreement` would remove ~30% of this
+      rule's total findings** — that is the size of the call. (b) The one deliberate
+      OMISSION: SFU's list also carries "supporting",
       which we do not flag (SFU marks it "vague — clarify" rather than a hard
       replace, and it appears in almost every JD); adding it would fire on most of
       the archive. Nothing here blocks approval today (HR-004) — it only costs

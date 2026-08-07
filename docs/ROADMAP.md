@@ -38,7 +38,7 @@ list omits the auth deferrals — captured here.)
 | Content | ~~Browsable content library — 🏦 JD Bank: roles → sources, source-JD reader, flat archive, click-to-sort; clone the harmonized role~~ **DONE (2026-08-01/02)** — HR can read the actual JD content | done | M |
 | Grade | ~~Grade capture — structured `classification{scheme,value,source}` + group-aware parser + 2,323 CUPE backfill + Builder/review entry + HRIS-import scaffold + surfacing~~ **DONE (2026-08-02, Phase A + steps 1–5)**. **Blocked on HR:** per-group grade scales (`grade-scales-hr-ask.md`) + HRIS export/FIPPA | done / HR-blocked | M |
 | Pipeline | ~~**Parser paragraph-title fix**~~ **DONE (2026-08-02, parser `v3`)** — the identification table lives in the docx *header*, which extraction skipped. Titles **34.3% → 1.0%** paragraph-shaped; `position_number` 35% → **68%**, `employee_group` 36% → **68%**, and the first **APSA/APEX grades** the Bank has ever parsed. Baseline cohort unchanged. **Follow-up: propagate to the harmonized roles** (needs the embed → cluster → canonical re-run) | done | M |
-| Builder | Gender-Decoder soft coded-language lexicon — the register-bearing expansion of the shipped inclusive-language meter (catches lean the exact-match list misses) | open | S/M |
+| Builder | ~~Gender-Decoder soft coded-language lexicon~~ **MEASURED AND DECLINED (2026-08-07)** — 99.50% of JDs trip both word lists; 38–77% of hits are stemming collisions and SFU's own template headings; the item's "fires on only 10/14,522" premise was `SFU-QUAL-BANNED-PHRASE`, not this rule (the real rate is **76.8%**). Evidence: `docs/decisions/coded-language-soft-lexicon.md`. **Redirected to HR-029**, which now carries measured firing rates | declined | — |
 | Pipeline | **WJQ boilerplate redaction before harmonization** — WJQ over-clusters on template+seniority; the two biggest flagged clusters ("Untitled Position" n=132/108) are template artifacts. Blocks WJQ harmonization. | open (P4 priority) | L |
 | Pipeline | ~~Embed **published canonicals** into the Neo4j index (search covers only the archive today)~~ **DONE (2026-08-04, `cadfc30`)** — shipped **wider and by a different mechanism** than planned: a separate `(:JDRole)` label + `jd_role_embeddings` index (migration `003`, `make embed-roles`), one vector per **cluster**, covering **every current-version role, drafts included** — not published-only, and not `kind=canonical` inside the document index (that would corrupt the `MATCH (d:JDDocument)` corpus count). Measured: **1,802 seen, 1,797 embedded, 5 empty**. **Deliberately not wired into `approve`** (see plan.md 8.2) | done | S/M |
 | Pipeline | ~~Builder search can't find a JD by its title~~ **DONE (2026-08-03/04)** — four passes now: role-title → document-title (Postgres) ranked **above** semantic, because the document vectors deliberately exclude the title (`embeddings.yaml: include_title_in_document: false`, which is what makes dedup title-agnostic). `89d0c74` exact/near title · `3b6a71b` role titles (**61%** of harmonized role titles — 746/1,222 — appear on **no** source document; harmonization renames the role) · `d71e333` documents collapsed into their harmonized role, membership in **one** query per pass (was an N-query loop) · `46a9443` same-titled roles disambiguated by department (**791/1,802 roles, 44%**, share a title; department resolves **719/791, 91%**; the last 72 stay unlabelled rather than invented) | done | M |
@@ -88,10 +88,23 @@ unblock the pilot** — do them first.
 - **Coded-language meter in the live Builder panel.** ~~Surface the coded/gendered findings
   prominently.~~ **DONE (2026-08-02, `19e76d3`)** — the validator's `inclusive_language`
   findings (`coded_terms.yaml`, `SFU-LANG-CODED`) are now pulled into a prominent "N flagged /
-  clear" meter with suggestions, at the top of the 5.3 panel. **Still open (the stretch):** a
-  softer masculine/feminine/age-coded lexicon (Gender-Decoder pattern) that catches lean the
-  exact-match list misses (fires on only 10/14,522) — a NEW unhashed rulebook file + register
-  entries. *Invariant:* pure-YAML deterministic scan, registered, advisory — keep it off the LLM.
+  clear" meter with suggestions, at the top of the 5.3 panel. ~~**Still open (the stretch):** a
+  softer masculine/feminine/age-coded lexicon (Gender-Decoder pattern)…~~ **MEASURED AND
+  DECLINED (2026-08-07)** — see [`docs/decisions/coded-language-soft-lexicon.md`](decisions/coded-language-soft-lexicon.md).
+  **This item's own premise was a misattributed number.** It claimed the exact-match list "fires
+  on only 10/14,522"; that is `SFU-QUAL-BANNED-PHRASE` (HR-041/120, the backlog row above).
+  `SFU-LANG-CODED` fires on **11,160/14,522 — 76.8%** — confirmed across six commits of the
+  committed baseline artifact. And the lexicon itself cannot be honest here: **99.50% of JDs trip
+  BOTH the masculine and feminine lists**, 95.7% would get a lean verdict, and the split is
+  decided by an unratified band (neutral 4.3% → 48.9% as it widens 0→5) and by single stems —
+  dropping `decision`, the word inside SFU's mandated `IMPACT OF DECISION MAKING` heading, flips
+  the corpus from 30/37 to 19/55. **38–77% of hits are not gendered lean at all** but stemming
+  collisions (`confidential`→"confident" is 99.8% of that stem; `committee`→"commit" 84.5%),
+  template headings, WJQ form labels and unit names. Same failure mode, same answer, as the
+  Phase-5.9 similarity threshold. **Redirected:** the live defect is **HR-029** — three terms SFU
+  never published (`confidential` 29.8%, `individual` 25.6%, `agreement` 11.6%) generate **83%**
+  of today's findings, while 16 of 37 terms never fire. That entry now carries the measured
+  evidence; it is an HR ruling, not an engineering change.
 - ~~**Authoring-time "is this role already covered?" near-duplicate guard.**~~ **DONE
   (2026-08-05, Phase 5.9, `jd_bank/composer/duplicates.py`).** Shipped, but **not as this item
   described it**: the *"3 roles are ~87% similar — clone one?"* prompt this item originally
