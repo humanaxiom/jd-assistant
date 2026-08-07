@@ -4,6 +4,10 @@ The production lifespan connects to real Postgres/Neo4j/Redis. We never trigger
 it (TestClient is used without its context manager, so startup/shutdown are
 skipped) and instead inject mocks into ``app.state`` plus a dependency override
 for the DB session.
+
+The tests above the P0.1a section run in the default dev posture (``cas_enabled=False``
+=> a transient admin, see ``src.api.deps``), so they still describe an *authorized*
+caller. The P0.1a section turns CAS on and pins what an unauthenticated one gets.
 """
 
 from __future__ import annotations
@@ -17,6 +21,7 @@ from fastapi.testclient import TestClient
 
 from src.api.main import app, get_session
 from src.models.db import Task, TaskStatus
+from tests.unit.auth_fakes import cas_on
 
 
 class FakeSession:
@@ -165,3 +170,81 @@ def test_run_gates(arq_mock: MagicMock, memory_mock: AsyncMock) -> None:
     assert resp.status_code == 200
     assert resp.json() == {"job_id": "job-123"}
     arq_mock.enqueue_job.assert_awaited_once_with("run_gates_job", branch="agent/x-y")
+
+
+# --- P0.1a: the legacy harness routes are not open to the internet -------------------
+#
+# These write to the DB, enqueue pipeline work and expose agent memory. Whoever they
+# belong to, it is not an unauthenticated caller in an HR service: they are admin-only
+# (see the table in test_authorization_matrix.py). What matters here is that the refusal
+# lands BEFORE the side effect — refusing after the row is written and the job is queued
+# would be no fix at all. ``/health`` stays open: it is a liveness probe.
+
+
+def make_anonymous_client(
+    *, session: FakeSession, arq: MagicMock, memory: AsyncMock
+) -> TestClient:
+    """A client with **CAS on** and no session cookie. Without ``cas_on()`` every
+    request here resolves to the dev transient ADMIN and these tests pass vacuously."""
+    client = make_client(session=session, arq=arq, memory=memory)
+    cas_on()
+    return client
+
+
+def test_health_stays_reachable_without_credentials(
+    arq_mock: MagicMock, memory_mock: AsyncMock
+) -> None:
+    client = make_anonymous_client(
+        session=FakeSession(), arq=arq_mock, memory=memory_mock
+    )
+    resp = client.get("/health")
+    assert resp.status_code == 200
+
+
+def test_unauthenticated_create_task_writes_nothing_and_enqueues_nothing(
+    arq_mock: MagicMock, memory_mock: AsyncMock
+) -> None:
+    session = FakeSession()
+    client = make_anonymous_client(session=session, arq=arq_mock, memory=memory_mock)
+
+    resp = client.post(
+        "/tasks", json={"title": "Add rate limiter", "spec": "throttle the api"}
+    )
+
+    assert resp.status_code == 401
+    assert session.added == []  # no row was created
+    assert session.committed is False
+    arq_mock.enqueue_job.assert_not_awaited()  # no pipeline was started
+
+
+def test_unauthenticated_run_gates_enqueues_nothing(
+    arq_mock: MagicMock, memory_mock: AsyncMock
+) -> None:
+    client = make_anonymous_client(
+        session=FakeSession(), arq=arq_mock, memory=memory_mock
+    )
+
+    resp = client.post("/gates/run", params={"branch": "agent/x-y"})
+
+    assert resp.status_code == 401
+    arq_mock.enqueue_job.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/tasks/{id}", "/tasks/{id}/lineage", "/memory/similar?q=rate+limit"],
+)
+def test_unauthenticated_read_of_task_state_or_agent_memory_is_refused(
+    path: str, arq_mock: MagicMock, memory_mock: AsyncMock
+) -> None:
+    task = Task(title="Existing", spec="an existing spec", status=TaskStatus.DONE)
+    task.id = uuid.uuid4()
+    client = make_anonymous_client(
+        session=FakeSession(get_result=task), arq=arq_mock, memory=memory_mock
+    )
+
+    resp = client.get(path.replace("{id}", str(task.id)))
+
+    assert resp.status_code == 401
+    memory_mock.task_lineage.assert_not_awaited()
+    memory_mock.similar_artifacts.assert_not_awaited()

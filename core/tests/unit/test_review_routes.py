@@ -7,6 +7,15 @@ ALSO monkeypatch every ``src.api.routes.jd_bank.service.<fn>`` so the route logi
 request unpacking, the single service call, commit-on-success, serialization, and the
 error -> HTTP status mapping — is tested in isolation from the DB and from the service's
 own behaviour (that is the 4.4b integration suite's job).
+
+**P0.1a — the actor is server-derived.** These routes used to take ``reviewer_id`` from
+the request *body* and hand it to the service, which writes it as ``actor`` into the
+hash-chained ``audit_log``: the chain stayed intact while attesting to an identity the
+caller simply typed (NN #6), on routes that had no auth gate at all (NN #1). So every
+test here now signs in (:func:`tests.unit.auth_fakes.signed_in_as`) and asserts the
+service receives the **authenticated** identity — never anything from the request. The
+per-override ``reviewer`` is a second forgeable actor and is pinned separately.
+Who may call these routes at all is pinned in ``test_authorization_matrix.py``.
 """
 
 from __future__ import annotations
@@ -14,12 +23,14 @@ from __future__ import annotations
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime
+from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from src.api.db.models import Role
 from src.api.main import app, get_session
 from src.api.routes import jd_bank
 from src.jd_bank.db.models import CanonicalStatus
@@ -34,6 +45,12 @@ from src.jd_bank.review import (
 )
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.models.quality import GateDecision, GateOverride, GateReason
+from tests.unit.auth_fakes import cas_on, signed_in_as, user_holding
+
+#: The signed-in reviewer these tests act as. Deliberately unlike any string a test
+#: puts in a request body, so "the service got the authenticated identity" cannot be
+#: confused with "the service got what the caller sent".
+REVIEWER_USERNAME = "reviewer-1"
 
 
 class FakeCanonical:
@@ -69,12 +86,28 @@ def _clear_overrides() -> Iterator[None]:
     app.dependency_overrides.clear()
 
 
-def make_client(session: FakeSession) -> TestClient:
+def _override_session(session: FakeSession) -> None:
     async def override_session() -> AsyncIterator[FakeSession]:
         yield session
 
     app.dependency_overrides[get_session] = override_session
+
+
+def make_client(session: FakeSession) -> TestClient:
+    """A client signed in as a reviewer — the normal case. The RBAC gate itself still
+    runs (only the cookie -> session -> user lookup is stubbed), so these tests exercise
+    an authorized request rather than an ungated one."""
+    _override_session(session)
+    signed_in_as(user_holding(Role.REVIEWER, username=REVIEWER_USERNAME))
     return TestClient(app)
+
+
+def make_anonymous_client(session: FakeSession) -> TestClient:
+    """A client with **CAS on** and no session at all — the attacker's view. No identity
+    override: the real ``resolve_user`` runs, finds no cookie and must refuse."""
+    _override_session(session)
+    cas_on()
+    return TestClient(app, follow_redirects=False)
 
 
 def _blocked_decision() -> GateDecision:
@@ -213,11 +246,9 @@ def test_approve_happy_path_passes_reviewer_and_overrides(
     resp = client.post(
         f"/jd-bank/review/{canonical_id}/approve",
         json={
-            "reviewer_id": "hr-1",
             "overrides": [
                 {
                     "gate_id": "SFU-GATE",
-                    "reviewer": "hr-1",
                     "reason": "waived for pilot",
                 }
             ],
@@ -234,9 +265,13 @@ def test_approve_happy_path_passes_reviewer_and_overrides(
     mock.assert_awaited_once()
     call = mock.await_args
     assert call.args == (session, canonical_id)
-    assert call.kwargs["reviewer_id"] == "hr-1"
+    # The actor is the SIGNED-IN user; the request body cannot name it (NN #1/#6).
+    assert call.kwargs["reviewer_id"] == REVIEWER_USERNAME
+    # An override names its reviewer too — also stamped from the session, not the body.
     assert call.kwargs["overrides"] == [
-        GateOverride(gate_id="SFU-GATE", reviewer="hr-1", reason="waived for pilot")
+        GateOverride(
+            gate_id="SFU-GATE", reviewer=REVIEWER_USERNAME, reason="waived for pilot"
+        )
     ]
     session.commit.assert_awaited_once()
 
@@ -256,13 +291,11 @@ def test_approve_default_overrides_is_empty_list(
     mock = AsyncMock(return_value=fake)
     monkeypatch.setattr(jd_bank.service, "approve", mock)
 
-    resp = client.post(
-        f"/jd-bank/review/{canonical_id}/approve", json={"reviewer_id": "hr-1"}
-    )
+    resp = client.post(f"/jd-bank/review/{canonical_id}/approve", json={})
 
     assert resp.status_code == 200
     mock.assert_awaited_once_with(
-        session, canonical_id, reviewer_id="hr-1", overrides=[]
+        session, canonical_id, reviewer_id=REVIEWER_USERNAME, overrides=[]
     )
     session.commit.assert_awaited_once()
 
@@ -281,10 +314,7 @@ def test_approve_rejects_malformed_override_before_calling_service(
 
     resp = client.post(
         f"/jd-bank/review/{canonical_id}/approve",
-        json={
-            "reviewer_id": "hr-1",
-            "overrides": [{"gate_id": "SFU-GATE", "reviewer": "hr-1", "reason": "  "}],
-        },
+        json={"overrides": [{"gate_id": "SFU-GATE", "reason": "  "}]},
     )
 
     assert resp.status_code == 422
@@ -313,7 +343,7 @@ def test_reject_happy_path_passes_reviewer_and_reason(
 
     resp = client.post(
         f"/jd-bank/review/{canonical_id}/reject",
-        json={"reviewer_id": "hr-1", "reason": "duplicate of another cluster"},
+        json={"reason": "duplicate of another cluster"},
     )
 
     assert resp.status_code == 200
@@ -326,7 +356,7 @@ def test_reject_happy_path_passes_reviewer_and_reason(
     mock.assert_awaited_once_with(
         session,
         canonical_id,
-        reviewer_id="hr-1",
+        reviewer_id=REVIEWER_USERNAME,
         reason="duplicate of another cluster",
     )
     session.commit.assert_awaited_once()
@@ -355,11 +385,7 @@ def test_edit_happy_path_passes_reviewer_content_and_reason(
 
     resp = client.post(
         f"/jd-bank/review/{canonical_id}/edit",
-        json={
-            "reviewer_id": "hr-1",
-            "new_content": new_content,
-            "reason": "clarified the summary",
-        },
+        json={"new_content": new_content, "reason": "clarified the summary"},
     )
 
     assert resp.status_code == 200
@@ -372,7 +398,7 @@ def test_edit_happy_path_passes_reviewer_content_and_reason(
     mock.assert_awaited_once_with(
         session,
         canonical_id,
-        reviewer_id="hr-1",
+        reviewer_id=REVIEWER_USERNAME,
         new_content=new_content,
         reason="clarified the summary",
     )
@@ -389,9 +415,7 @@ def test_canonical_not_found_maps_to_404(monkeypatch: pytest.MonkeyPatch) -> Non
     mock = AsyncMock(side_effect=CanonicalNotFoundError(canonical_id))
     monkeypatch.setattr(jd_bank.service, "approve", mock)
 
-    resp = client.post(
-        f"/jd-bank/review/{canonical_id}/approve", json={"reviewer_id": "hr-1"}
-    )
+    resp = client.post(f"/jd-bank/review/{canonical_id}/approve", json={})
 
     assert resp.status_code == 404
     session.commit.assert_not_awaited()
@@ -408,9 +432,7 @@ def test_illegal_transition_maps_to_409(monkeypatch: pytest.MonkeyPatch) -> None
     )
     monkeypatch.setattr(jd_bank.service, "approve", mock)
 
-    resp = client.post(
-        f"/jd-bank/review/{canonical_id}/approve", json={"reviewer_id": "hr-1"}
-    )
+    resp = client.post(f"/jd-bank/review/{canonical_id}/approve", json={})
 
     assert resp.status_code == 409
     session.commit.assert_not_awaited()
@@ -423,9 +445,7 @@ def test_not_approvable_maps_to_409(monkeypatch: pytest.MonkeyPatch) -> None:
     mock = AsyncMock(side_effect=NotApprovableError(canonical_id, _blocked_decision()))
     monkeypatch.setattr(jd_bank.service, "approve", mock)
 
-    resp = client.post(
-        f"/jd-bank/review/{canonical_id}/approve", json={"reviewer_id": "hr-1"}
-    )
+    resp = client.post(f"/jd-bank/review/{canonical_id}/approve", json={})
 
     assert resp.status_code == 409
     session.commit.assert_not_awaited()
@@ -440,15 +460,13 @@ def test_gate_override_error_maps_to_422(monkeypatch: pytest.MonkeyPatch) -> Non
 
     resp = client.post(
         f"/jd-bank/review/{canonical_id}/approve",
-        json={
-            "reviewer_id": "hr-1",
-            "overrides": [
-                {"gate_id": "SFU-GATE", "reviewer": "hr-1", "reason": "waived"}
-            ],
-        },
+        json={"overrides": [{"gate_id": "SFU-GATE", "reason": "waived"}]},
     )
 
     assert resp.status_code == 422
+    # The 422 must come from the SERVICE error, not from body validation — otherwise
+    # this mapping test would still "pass" against a route that rejects every request.
+    mock.assert_awaited_once()
     session.commit.assert_not_awaited()
 
 
@@ -461,10 +479,11 @@ def test_missing_reason_maps_to_422(monkeypatch: pytest.MonkeyPatch) -> None:
 
     resp = client.post(
         f"/jd-bank/review/{canonical_id}/reject",
-        json={"reviewer_id": "hr-1", "reason": "whitespace passed the wire somehow"},
+        json={"reason": "whitespace passed the wire somehow"},
     )
 
     assert resp.status_code == 422
+    mock.assert_awaited_once()  # the service raised it, not body validation
     session.commit.assert_not_awaited()
 
 
@@ -477,8 +496,224 @@ def test_malformed_edit_content_maps_to_422(monkeypatch: pytest.MonkeyPatch) -> 
 
     resp = client.post(
         f"/jd-bank/review/{canonical_id}/edit",
-        json={"reviewer_id": "hr-1", "new_content": {}, "reason": "typo fix"},
+        json={"new_content": {}, "reason": "typo fix"},
     )
 
     assert resp.status_code == 422
+    mock.assert_awaited_once()  # the service raised it, not body validation
+    session.commit.assert_not_awaited()
+
+
+# --- P0.1a: the actor is the session, never the request ------------------------------
+#
+# The service writes ``actor=reviewer_id`` into the hash-chained append-only audit log.
+# If a caller can choose that string, the chain is intact but the identity it attests to
+# is fiction (NN #6) — so these pin the ONE thing a route may not let its caller choose.
+
+
+@pytest.mark.parametrize(
+    ("action", "payload"),
+    [
+        ("approve", {}),
+        ("reject", {"reason": "duplicate of another cluster"}),
+        ("edit", {"new_content": {"title": "T"}, "reason": "clarified the summary"}),
+    ],
+)
+def test_action_is_attributed_to_the_authenticated_user(
+    action: str,
+    payload: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """approve / reject / edit each hand the service the SIGNED-IN identity."""
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    mock = AsyncMock(
+        return_value=FakeCanonical(
+            canonical_id=canonical_id,
+            cluster_id=uuid.uuid4(),
+            version=1,
+            status=CanonicalStatus.DRAFT,
+        )
+    )
+    monkeypatch.setattr(jd_bank.service, action, mock)
+
+    resp = client.post(f"/jd-bank/review/{canonical_id}/{action}", json=payload)
+
+    assert resp.status_code == 200
+    mock.assert_awaited_once()
+    assert mock.await_args.kwargs["reviewer_id"] == REVIEWER_USERNAME
+
+
+@pytest.mark.parametrize(
+    ("action", "payload"),
+    [
+        ("approve", {"reviewer_id": "hr-1"}),
+        ("reject", {"reviewer_id": "hr-1", "reason": "duplicate"}),
+        (
+            "edit",
+            {"reviewer_id": "hr-1", "new_content": {"title": "T"}, "reason": "typo"},
+        ),
+    ],
+)
+def test_reviewer_id_in_the_body_is_rejected_not_ignored(
+    action: str,
+    payload: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``reviewer_id`` must be GONE from the request models, not merely unused.
+
+    The models are ``extra="forbid"``, so a body still carrying it fails validation
+    (422) — which proves the field was removed. Silently ignoring it would leave every
+    existing caller believing it had named the reviewer.
+    """
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    # A mock that would succeed, so a failure here reads "200, expected 422" — i.e. the
+    # route accepted a caller-named reviewer — rather than a serialization crash.
+    mock = AsyncMock(
+        return_value=FakeCanonical(
+            canonical_id=canonical_id,
+            cluster_id=uuid.uuid4(),
+            version=1,
+            status=CanonicalStatus.DRAFT,
+        )
+    )
+    monkeypatch.setattr(jd_bank.service, action, mock)
+
+    resp = client.post(f"/jd-bank/review/{canonical_id}/{action}", json=payload)
+
+    assert resp.status_code == 422
+    mock.assert_not_awaited()
+    session.commit.assert_not_awaited()
+
+
+def test_override_reviewer_from_the_body_never_reaches_the_service(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The subtle one: ``overrides[].reviewer`` is a SECOND caller-supplied actor.
+
+    ``service.review.override`` writes ``actor=override.reviewer`` to the audit log, so
+    deleting the top-level ``reviewer_id`` alone would leave the forgery open — a caller
+    could still record "approved-by anyone" against a waived gate. Whether the route
+    rejects the field or overwrites it is its choice; what may never happen is the
+    caller's string reaching the service.
+
+    A GUARD, not a driver: it also passes today (the whole body is rejected because
+    ``reviewer_id`` is missing). The test that forces the shape is
+    :func:`test_every_override_is_stamped_with_the_authenticated_reviewer` — it is RED.
+    """
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    mock = AsyncMock(
+        return_value=FakeCanonical(
+            canonical_id=canonical_id,
+            cluster_id=uuid.uuid4(),
+            version=2,
+            status=CanonicalStatus.PUBLISHED,
+        )
+    )
+    monkeypatch.setattr(jd_bank.service, "approve", mock)
+
+    resp = client.post(
+        f"/jd-bank/review/{canonical_id}/approve",
+        json={
+            "overrides": [
+                {"gate_id": "SFU-GATE", "reviewer": "mallory", "reason": "waived"}
+            ]
+        },
+    )
+
+    reviewers = [
+        override.reviewer
+        for override in (mock.await_args.kwargs["overrides"] if mock.await_args else [])
+    ]
+    assert "mallory" not in reviewers, (
+        "a caller-supplied override reviewer reached the service and would be written "
+        "to the audit log as the actor who waived the gate"
+    )
+    assert resp.status_code == 422 or reviewers == [REVIEWER_USERNAME]
+
+
+def test_every_override_is_stamped_with_the_authenticated_reviewer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The positive half: a body names only the gate and the written reason, and the
+    route stamps the session identity onto each override — the way ``ui.py`` already
+    does (``_parse_overrides(pairs, reviewer_id=actor.cas_username)``)."""
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    mock = AsyncMock(
+        return_value=FakeCanonical(
+            canonical_id=canonical_id,
+            cluster_id=uuid.uuid4(),
+            version=2,
+            status=CanonicalStatus.PUBLISHED,
+        )
+    )
+    monkeypatch.setattr(jd_bank.service, "approve", mock)
+
+    resp = client.post(
+        f"/jd-bank/review/{canonical_id}/approve",
+        json={
+            "overrides": [
+                {"gate_id": "SFU-ONE", "reason": "waived for pilot"},
+                {"gate_id": "SFU-TWO", "reason": "director sign-off attached"},
+            ]
+        },
+    )
+
+    assert resp.status_code == 200
+    assert mock.await_args.kwargs["overrides"] == [
+        GateOverride(
+            gate_id="SFU-ONE", reviewer=REVIEWER_USERNAME, reason="waived for pilot"
+        ),
+        GateOverride(
+            gate_id="SFU-TWO",
+            reviewer=REVIEWER_USERNAME,
+            reason="director sign-off attached",
+        ),
+    ]
+
+
+# --- P0.1a: the regression that proves the breach is closed --------------------------
+
+
+def test_unauthenticated_approve_of_a_gate_clean_draft_does_not_publish(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """**The test that would have caught the original defect.**
+
+    With CAS on and no session, ``POST /jd-bank/review/{id}/approve`` used to reach the
+    review service and be refused only by *business* rules — so against a gate-clean
+    DRAFT (exactly what ``service.approve`` is mocked to publish here) an anonymous
+    caller would have published a canonical JD, breaching NN #1's human-approval
+    requirement and writing a forged actor into the audit log.
+
+    401, and the service is never called: the refusal happens in the gate, before any
+    publish decision is even considered.
+    """
+    session = FakeSession()
+    client = make_anonymous_client(session)
+    canonical_id = uuid.uuid4()
+    would_publish = AsyncMock(
+        return_value=FakeCanonical(
+            canonical_id=canonical_id,
+            cluster_id=uuid.uuid4(),
+            version=1,
+            status=CanonicalStatus.PUBLISHED,
+        )
+    )
+    monkeypatch.setattr(jd_bank.service, "approve", would_publish)
+
+    resp = client.post(f"/jd-bank/review/{canonical_id}/approve", json={})
+
+    assert resp.status_code == 401, (
+        "an unauthenticated approve must be refused with 401 — not redirected (this is "
+        "a JSON route) and not merely turned away by a business rule"
+    )
+    would_publish.assert_not_awaited()
     session.commit.assert_not_awaited()

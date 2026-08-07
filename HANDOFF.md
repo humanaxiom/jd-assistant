@@ -8,8 +8,13 @@ Plan + iteration list: **`docs/tasks/architecture-review-response-2026-08-07.md`
 Every claim was re-verified against the code before being planned around; 9 of 11 confirmed,
 2 partly true, none false.
 
-- **➡️ WHERE WE ARE IN THE ITERATION: starting P0.1a** (authenticate the JSON API + derive the
-  actor server-side). The full ordered list is §6 of the plan doc — P0.1a → P0.1b (CSRF) → P0.2
+- **➡️ WHERE WE ARE IN THE ITERATION: P0.1a is DONE (below); NEXT IS P0.2, then P0.1b.**
+  I reordered: P0.2 (fail-closed startup) jumps ahead of P0.1b (CSRF) because **P0.1a's gates only
+  bind when `cas_enabled=True`, and the shipped default is `False`** — where `resolve_user` returns
+  a transient **admin** before reading any cookie. P0.1a closed the *missing gate*; the *unsafe
+  default* is still open, so in the shipped posture the system remains anonymous-admin. Treat
+  P0.1a+P0.2 as one security fix delivered in two commits, and do not describe the breach as fixed
+  until both land. The full ordered list is §6 of the plan doc — P0.1a → P0.2 → P0.1b (CSRF)
   (fail-closed startup) → P1.1 (author status) → P1.2 (harmonization provenance) → P1.3 (tier the
   register) → P2 → P3. **Nothing below P0 ships before P0 does**, because until P0.1a lands the
   system does not enforce the invariant everything else assumes. Each task is one gates-green PR
@@ -25,8 +30,25 @@ Every claim was re-verified against the code before being planned around; 9 of 1
      was wrong.** `3e32103` removed the service, dep and package but touched `README.md` by four
      lines and never touched the Mermaid diagram. **8 live references** across `README.md`,
      `DEVELOPER_GUIDE_1.md`, `harness-claude-code/CLAUDE.md`, `docs/adr/002`, `.env.example`.
-- **🔴 P0.1 — THE JSON API IS AN UNAUTHENTICATED PUBLISH ENDPOINT. This is a live breach of NN #1,
-  not hardening.** `jd_bank_router` (`/jd-bank`) and the legacy harness routes carry **no gate**,
+- **✅ P0.1a — CLOSED (this session).** What follows is the defect as found; **it is fixed** —
+  `jd_bank_router` now sits behind `require_roles(REVIEWER, ADMIN)` (401 unauthenticated, 403 wrong
+  role, never a redirect — it is a JSON surface), the compose JSON router behind `current_user`,
+  and the five legacy harness routes behind a shared admin dependency (`/health` stays public).
+  `reviewer_id` is gone from all three request bodies and the actor is derived from the session;
+  a route-local `GateOverrideRequest{gate_id, reason}` is stamped server-side so **`overrides[].reviewer`
+  can no longer be chosen by a caller either**. `make gates` **2,132 passing, 93.26%**.
+  **⚠️ BUT READ THE PARAGRAPH ABOVE: these gates only bind with `cas_enabled=True`.** Until P0.2
+  lands, the shipped default still grants anonymous admin, so the breach is *not* fully closed in
+  the default posture.
+  **How it is pinned — and this is worth knowing precisely, because the first description of it was
+  wrong:** removing the router gate alone does **not** re-open the breach (the mutating routes also
+  carry `actor: CurrentUser`, which 401s on its own). Mutations are **double-locked**; reads are
+  single-locked. The breach regression pins the **actor parameter**; the **authorization matrix**
+  (`test_authorization_matrix.py`) is what pins the **router gate** — removing it turns 7 tests red,
+  including anonymous read of unpublished draft JD content. The matrix walks the live routing table,
+  so **a new route with no gate fails automatically** — that is the durable artifact, and nothing
+  pinned any of this before.
+  *(The defect as originally found:)* `jd_bank_router` (`/jd-bank`) and the legacy harness routes carried **no gate**,
   and there is **no middleware** (verified: `grep add_middleware` → nothing). Proven with
   `CAS_ENABLED=true`: an unauthenticated `POST /jd-bank/review/{id}/approve` reaches the review
   **service** and is refused only by *business* rules (wrong status / blank reason) — never by
@@ -34,9 +56,11 @@ Every claim was re-verified against the code before being planned around; 9 of 1
   (`actor: Depends(require_ui_user)`); the JSON router was never brought along.
   **The review missed the aggravator: `service.py` writes `actor=reviewer_id` — the
   ATTACKER-SUPPLIED string — into the hash-chained `audit_log`.** The chain stays cryptographically
-  intact while attesting to a forged identity, so this reaches **NN #6** too. **No test pins any of
-  it.** `main.py` calls this "ADR-008 phase 2", but ADR-008 records phase 2 as DONE — the note
-  reads as a plan when it is a gap.
+  intact while attesting to a forged identity, so this reaches **NN #6** too. **Nothing pinned any
+  of it** — now fixed, and the matrix is what stops it regressing. `main.py` called this "ADR-008
+  phase 2" while ADR-008 recorded phase 2 as DONE; **both are corrected** — ADR-008 narrows phase 2
+  to "the UI, and only the UI" and gains a **Phase 4** recording what was missed, rather than
+  quietly flipping itself green.
 - **🔴 P0.2 — the production startup guard `settings.py` claims DOES NOT EXIST.** The comment says
   "*a startup check refuses `cas_enabled` + a dev-fake user together*"; there is no
   `model_validator`, no `ValueError`, no hits outside the three files reading the flag. Meanwhile
