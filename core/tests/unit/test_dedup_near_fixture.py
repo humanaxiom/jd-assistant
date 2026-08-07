@@ -312,6 +312,18 @@ _NOT_BEHAVIOURAL_ON_THIS_FIXTURE: dict[str, str] = {
         "A safety valve that RAISES; it cannot change a result, only refuse to "
         "produce one. Pinned by test_dedup_near_pure.py's overflow tests."
     ),
+    "authoring_guard": (
+        "Not an input to the Tier-2 pipeline at all: `max_matches` / "
+        "`min_draft_chars` / `timeout_seconds` configure the Phase-5.9 JD Builder's "
+        "advisory "
+        "near-duplicate AUTHORING panel (jd_bank/composer/duplicates.py), which runs "
+        "against the harmonized-role vector index while someone types a NEW JD. It "
+        "cannot move a candidate, a Jaccard or an edge on this — or any — archive "
+        "corpus. Pinned by mutation in test_composer_duplicates.py (max_matches=2 "
+        "caps a 6-neighbour result at 2; the same draft embeds at a low "
+        "min_draft_chars and does not at 500), and by stamp mutation in "
+        "test_dedup_rules.py."
+    ),
 }
 
 

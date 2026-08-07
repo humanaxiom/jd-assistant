@@ -2,7 +2,183 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-08-02, later): THE PARSER IDENTIFICATION FIX — parser `jd_segmenter_v3`. The
+**NEWEST (2026-08-07): A ROADMAP QUICK WIN WAS MEASURED AND DECLINED — and its stated premise
+turned out to be a misattributed number.** No feature shipped; the deliverable is evidence, a
+corrected roadmap, and a redirect. Decision doc:
+`docs/decisions/coded-language-soft-lexicon.md`. `rules_version` **unmoved**; register still
+**197** (HR-029's prose gained measured evidence — no new entry, no changed default).
+
+- **The item.** ROADMAP proposed expanding the shipped inclusive-language meter (`19e76d3`) with
+  a **Gender-Decoder soft lexicon** (Gaucher et al. 2011 masculine/feminine stems) as a new
+  unhashed rulebook file + register entries. Measured over all **14,522** current-parser JDs
+  through the shipped scan path before building anything.
+- **⚠ THE PREMISE WAS A MISATTRIBUTED NUMBER.** The item justified itself with *"the exact-match
+  list … fires on only 10/14,522"*. That is **`SFU-QUAL-BANNED-PHRASE`** (HR-041/120 — the
+  neighbouring backlog row). **`SFU-LANG-CODED` fires on 11,160/14,522 = 76.8%**, confirmed
+  across six commits of the committed `docs/baseline/summary.json`. The premise was wrong by
+  three orders of magnitude. **ROADMAP corrected in both places.**
+- **AND THE LEXICON CANNOT BE HONEST ON THIS CORPUS.** **99.50% of JDs trip BOTH word lists**
+  (masculine 99.52%, feminine 99.82%, neither 0.16%); median JD is 18 vs 18; 95.7% would receive
+  a lean verdict. The verdict is an artefact of two free choices, not a property of the JD: the
+  unratified neutral band (neutral **4.3% → 48.9%** as it widens 0→5), and **one stem** —
+  dropping masculine `decision`, the word inside SFU's own mandated `IMPACT OF DECISION MAKING`
+  heading, flips the corpus from 30/37 to **19/55**; dropping feminine `respon`
+  (`DUTIES AND RESPONSIBILITIES`) flips it to 57/16.
+- **38–77% of hits are not gendered lean at all** (two auditable bounds over 566,492 tokens):
+  `confidential`/`confidentiality` is **99.8%** of the `confident` stem (literal "confident" = 6
+  tokens); `committee` is **84.5%** of `commit`; plus verbatim template headings, WJQ form
+  labels, the **Athletics** unit name, the job title *Practice Leader*, and surnames under `nag`.
+  The published list also double-counts every "interpersonal". **Curating does not rescue it** —
+  the median JD becomes 2 vs 2, 60% of the masculine side is `independently` and 61% of the
+  feminine side is `collaboratively`, both words SFU's own template asks authors to write.
+- **SAME FAILURE MODE, SAME ANSWER, AS PHASE 5.9.** Two features in a row have now been saved by
+  measuring before designing: a similarity threshold could not separate duplicate roles from
+  unrelated ones, and a coded-language verdict cannot separate a biased JD from the template.
+  **Rank or flag individually; never publish a number the data cannot support.**
+- **➡ REDIRECTED — the live defect is HR-029, and it is HR's call, not ours.** Three terms SFU
+  never published generate **83%** of everything the rule says: `confidential` **4,320 docs
+  (29.8%)**, `individual` **3,719 (25.6%)**, `agreement` **1,678 (11.6%)** — while **16 of the 37
+  terms never fire at all** and the ones HR would expect to matter barely appear (`ambitious` 29,
+  `aggressive` 22, `chairman` 14, `workman` 1). The one large signal that is both real and
+  mechanically fixable is the generic pronoun **`his/her`, 8,344 docs (57.5%)**. HR-029 now
+  carries these numbers so the call can be made on evidence; **per the standing rule nothing was
+  patched** — dropping just `confidential` + `agreement` would remove ~30% of the rule's findings,
+  which is the size of the decision.
+- **Also recorded:** the soft lexicon is **complementary, not redundant** — **45.9%** of the
+  shipped rule's findings are invisible to it (all the pronouns and gendered occupational nouns),
+  which is what `coded_terms.yaml` is actually *for*. Its genuinely-new, genuinely-coded
+  contribution is ~**0.4%** of coded tokens.
+- **PR [#81](https://github.com/humanaxiom/jd-assistant/pull/81)** carries the Phase-5.9 guard +
+  the docs refresh described in the block below (branch
+  `feat/near-duplicate-authoring-guard`, pushed). CI is still billing-blocked, so it carries
+  locally-verified gates instead.
+
+---
+
+**PRIOR (2026-08-05): THE BANK CAN SEARCH ITS OWN OUTPUT, AND THE BUILDER NOW WARNS BEFORE
+YOU AUTHOR A DUPLICATE ROLE. Plus SIX shipped commits that never got a handoff entry, and a
+docs refresh across the guide, `CLAUDE.md`, the plan and AI-USAGE.**
+`make gates` **2,048 passing, 93.05%**. Register **197** decisions (all `open`).
+`rules_version` **unmoved** — `jd_rules_sfu_v4+90af5e27dc83`, byte-identical to the previous
+block. Live DB: `canonical_jds` = **1,798 DRAFT + 4 PUBLISHED**, `review_actions` = **6**.
+
+- **⚠ FIRST, THE GAP THIS BLOCK CLOSES.** The block below was written at `57a54a8` and six
+  commits shipped after it with **no handoff entry at all** — `docs/plan.md` and
+  `docs/ROADMAP.md` were equally silent. If you read this file last session, you did not know
+  any of the following had happened:
+  - **`802bff0` — a PUBLISHED JD can be edited.** It mints a new DRAFT; the prior version
+    **deliberately stays PUBLISHED** (archiving at edit time would leave the cluster with no
+    live approved JD for the whole review window) and retires only when its replacement is
+    approved — so `approve` now **supersedes** any other live published version of the
+    cluster, under `FOR UPDATE` with a `review.superseded` audit row. **ARCHIVED stays
+    refused.** Also: advisory findings stopped being presented as errors.
+  - **`89d0c74` / `3b6a71b` / `d71e333` / `46a9443` — the search overhaul.** Exact-title
+    lookup in Postgres ranked **above** semantic hits (the document vectors exclude the title
+    by design, which is what makes dedup title-agnostic — so a title query had nothing to
+    match on); a **role-title pass**, load-bearing because **61% of harmonized role titles
+    appear on no source document**; source documents **collapsed into the role** they were
+    harmonized into; and same-titled roles **disambiguated by department** (791 of 1,802 roles
+    share a title; department resolves 719/791, and the last 72 stay unlabelled rather than
+    get an invented one).
+  - **`cadfc30` — `make embed-roles`.** One `(:JDRole)` vector per cluster in a new
+    `jd_role_embeddings` index (Neo4j migration **003**), reusing `serialize_document`
+    verbatim. **A separate label and index from `JDDocument` on purpose** — folding them
+    together works today while quietly corrupting the next `MATCH (d:JDDocument)` corpus
+    count. Covers every current-version role, **drafts included** (published-only would index
+    4 roles). Measured 1,802 seen / 1,797 embedded / 5 empty. **Deliberately NOT wired into
+    `approve`** — publishing must not depend on the GPU, and network I/O inside the review
+    transaction would hold the row lock. This retires ROADMAP's "the Bank can't search its own
+    output."
+- **➡ NEW THIS SESSION — the near-duplicate authoring guard (Phase 5.9).** While an author
+  composes, the Builder shows **"Roles SFU already has"**: existing harmonized roles that look
+  like the one being written, each with *Start from this role →*, plus one non-vector fact —
+  how many roles carry **exactly this title**, across how many departments. Advisory only: it
+  never blocks submission and never touches the validator's verdict (NN #1/#3).
+  `jd_bank/composer/duplicates.py`, config `dedup.authoring_guard`, registered **HR-195**
+  (`max_matches: 5`), **HR-196** (`min_draft_chars: 500`), **HR-197**
+  (`timeout_seconds: 5.0`), all `open` / `our_invention`. `dedup.yaml` is unhashed, so
+  `rules_version` did not move.
+- **🔴 THE DESIGN WAS DECIDED BY MEASUREMENT, AND THE OBVIOUS DESIGN IS WRONG. A SIMILARITY
+  THRESHOLD CANNOT WORK ON THIS CORPUS.** Measured over the live index (1,797 role vectors)
+  *before* anything was specified: same-title role pairs — genuine duplicates, n=2,618 —
+  median cosine **0.9335**, while a role's nearest **unrelated** neighbour (n=200) medians
+  **0.9604**. *The unrelated role scores HIGHER than a real twin.* Any cutoff is a constant: at
+  0.90 the guard fires on **99.2%** of drafts at **22%** precision; at 0.97 it still fires on
+  24% and loses most true duplicates. A top1−top2 **margin** rule fails identically (0.0065 vs
+  0.0052). But **ranking works** — for the 790 roles with a same-title sibling it is top-5 for
+  76%, top-10 for 84% — and a **500-char draft retrieves better than the full document**
+  (14/20 vs 11/20 in top-5), which is where `min_draft_chars` comes from. **So the panel ranks
+  and shows NO score, NO percentage, NO cutoff.** A number here would repeat the defect
+  `89d0c74` already fixed, where a 0.013 spread rendered as "81%" on every row. The absence is
+  pinned by a test; `dedup.yaml` and HR-196 carry the numbers so nobody re-proposes it.
+- **A live trap, recorded:** Ollama embeds `""` into a **constant vector that is a plausible
+  nearest neighbour to everything** — every empty query returned the identical role at exactly
+  **0.8038**. `roles.py`'s "NEVER embed `''`" guard is load-bearing, and `retruncate_within`
+  returns `""` when the first unit exceeds the target, so it is easy to reintroduce. The guard
+  refuses empty/whitespace text **unconditionally**, separately from the length floor.
+- **BOTH MERGE-BLOCKING REVIEWS RETURNED DEFECTS, AND THEY WERE REAL** (Opus correctness +
+  Opus security; the model strategy's "downgrade the writer, never the checker" earned its
+  keep again). The four worth remembering:
+  1. **A hung Ollama could take the whole Builder down.** `EmbedClient` builds `AsyncOpenAI`
+     with no `timeout=` → read 600 s × 2 SDK retries × `_MAX_ATTEMPTS 3` ≈ **90 minutes** of a
+     held request *holding a checked-out DB session*. `connect=5.0` means a *refused*
+     connection fails fast, so "Ollama down" was never the risk — a host that **accepts then
+     stalls** is. The degrade path covered *raise* and never covered *hang*. Fixed with
+     `asyncio.wait_for` at the guard's call site (HR-197). **`/compose/search` and
+     `/assist` share the missing timeout — pre-existing, still open.**
+  2. **`POST /new` 500'd when a client could not be *constructed*** — dependency solving runs
+     before the route body, so the guard's `try/except` never saw it. Fixed with optional
+     factories that `logger.exception` and return `None`, so the Builder survives while an
+     egress misconfiguration is still recorded rather than silently normalised.
+  3. **The no-percentage test — the one invariant the whole feature rests on — covered 29% of
+     the panel** (a ±400-char window over 2,731 chars; row 5 sat at anchor+1520), and its
+     stated justification was **factually false** (it claimed the page carries the duty's
+     `60%`; measured, all 9 `%` are `width:100%` in the stylesheet). Now slices the whole panel.
+  4. **`exclude_cluster_id` — the headline behaviour — was unasserted**: every route-level fake
+     took `**kwargs` and discarded them, so wiring it to `None` kept the suite green.
+- **DOCS REFRESHED (the six-commit gap above is why).**
+  - **`docs/OPERATOR-GUIDE.md`** (+ re-rendered `operator-guide.html`; `make guide-check`
+    green). Fixed a **falsehood** — it told reviewers "saving creates a new draft version; the
+    prior is archived", untrue since `802bff0`. Added a whole **missing section: the content
+    library** (`/library`, role detail, source-JD reader, `/archive`) — a user-facing surface
+    with its own router and nav entry that the guide never mentioned. Added `make embed-roles`,
+    migration `003`, and `make guide`/`guide-check` (never documenting how to re-render the
+    guide is how it went stale).
+  - **`CLAUDE.md`** — the "Neo4j — roles, do not conflate" block listed **one** vector index
+    and never mentioned `jd_role_embeddings`, in the section whose entire job is preventing
+    that conflation. Now names both. The register line hardcoded "192 entries" and had rotted
+    twice; it now defers to the generated register's own header — **do not reintroduce a
+    hardcoded count.**
+  - **`docs/plan.md`** — Phase **8.2 adjudicated: goal met, mechanism superseded** (separate
+    `(:JDRole)` index, not `kind=canonical` upserts), and no-embed-on-approve recorded as a
+    **decision, not a gap**. Corrected "zero canonicals are published" (there are 4). New 5.9.
+  - **`docs/AI-USAGE.md`** — second embedding path added, and the honest framing for an
+    AI-usage doc: **the two highest-ranked search passes are plain Postgres `ILIKE`, so the
+    top results are not AI-derived at all.** Mermaid verified by rendering (4/4).
+- **⚠ STILL OPEN — the harmonized roles library and parser v3, and it is SMALLER than the
+  block below claims.** That block prices propagating v3 into the roles at a ~44h LLM
+  re-cluster. **Measured against the live DB this session: of 1,802 roles, 72 titles exceed 60
+  chars, 21 are clearly prose, 1 is `Untitled Position` — ~4%, not the 34% archive-wide
+  defect.** LLM harmonization already cleaned most of it. Re-clustering is still defensible
+  for `title_family`/cluster quality, but **it is a ~4% cosmetic win, not a blocker** — price
+  it accordingly, and note it still lands new drafts alongside the existing 1,802 (needs a
+  prune) and that `review_actions = 6` means the no-clobber path is live.
+- **Follow-ups this session deliberately did NOT do:** the missing timeout on `/compose/search`
+  and `/assist` (pre-existing, same root cause as #1 above) · no rate limit on the embed path
+  (authenticated + CAS-gated, so amplification not a hole) · `embed_stamp` parity is never
+  verified at query time, so a stamp change would silently compare incomparable vectors
+  (pre-existing, matches `search.py`) · `cloned_from_cluster_id` is dropped by `assemble_jd`,
+  so clone lineage is lost at submit (an NN #6 opportunity) · `docs/status/*` stops at
+  2026-07-24 · `docs/rulebook/rulebook/` is a byte-identical duplicate directory tracked since
+  Phase 0.
+- **THE CRITICAL PATH IS UNCHANGED AND STILL EXTERNAL:** HR has ratified **nothing** (all 197
+  `open`), and **4 published JDs out of 1,802 roles is a smoke test, not the pilot.**
+  Ratification · the 4.5 pilot · per-group grade scales · the HRIS export + FIPPA · footer /
+  territorial-acknowledgement sign-off · GitHub Actions billing.
+
+---
+
+**PRIOR (2026-08-02, later): THE PARSER IDENTIFICATION FIX — parser `jd_segmenter_v3`. The
 34% paragraph-title defect is GONE, and it was never a title bug: the modern SFU template
 keeps its ENTIRE identification table in the docx HEADER, which extraction skipped.**
 `make gates` **1,982 passing, 93.63%**. Archive re-parsed at v3 and re-baselined.

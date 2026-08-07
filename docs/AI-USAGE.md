@@ -3,7 +3,8 @@
 **One-pager for:** anyone (HR, security, engineering) asking "where does this system use
 AI, and can we trust it?" **Scope:** every place an LLM or an embedding model touches a job
 description. **Sources of truth:** `embeddings.yaml`, `rewrite.yaml`, `quality.yaml`,
-ADR-003 (inference topology), `src/jd_bank/security/egress.py`.
+`dedup.yaml` (`authoring_guard`), ADR-003 (inference topology),
+`src/jd_bank/security/egress.py`. **Last checked against the code: 2026-08-05.**
 
 ## The three rules AI operates under
 
@@ -61,14 +62,35 @@ advisory — it computes no score.
 
 | # | AI use | Model (self-hosted) | Purpose | Judged by | Config / register |
 |---|---|---|---|---|---|
-| 1 | **Document + section embeddings** | `nomic-embed-text`, **768-dim** cosine | power semantic search, dedup Tier-3, and clustering | similarity only — **produces no score/decision** | `embeddings.yaml` (unhashed); `max_chars` backoff ladder **HR-193** |
+| 1 | **Archive document + section embeddings** | `nomic-embed-text`, **768-dim** cosine | dedup Tier-3, clustering, and the *semantic* leg of Builder search | similarity only — **produces no score/decision** | `embeddings.yaml` (unhashed); `max_chars` backoff ladder **HR-193** |
+| 1b | **Harmonized role embeddings** (`make embed-roles`) | `nomic-embed-text`, **768-dim** cosine | let the Bank search **its own output** — one vector per cluster in `jd_role_embeddings` (migration `003`), so a descriptive query can reach a harmonized role and not just a raw archive parse | similarity only — **no score/decision**; each node carries `status`, so a DRAFT is labelled a DRAFT | same `embeddings.yaml` knobs and the same `serialize_document`, reused verbatim (no new decision) |
 | 2 | **Harmonization rewrite** (Phase 4.2a) | `gpt-oss:120b`, temp **0.0** | reword the deterministic 4.1 merge draft into cleaner prose | **the validator** (the draft is scored/graded after) | `rewrite.yaml` **HR-176…184**; `reasoning_effort` **HR-191** |
 | 3 | **Quality audit** (Phase 4.2b) | `gpt-oss:120b`, temp **0.0** | nuanced *advisory* findings a regex can't judge: inclusive language · clarity · seniority-mismatch | **advisory** + a verbatim-evidence anti-fabrication scrub | `quality.yaml` **HR-185…190, 192** |
 | 4 | **Summary-assist** (Builder, Phase 5.8b) | self-hosted LLM (`ChatClient`) | suggest a better Position Summary, **applied for the author to review** | the validator re-checks + the human decides | — |
+| 5 | **Near-duplicate authoring guard** (Builder, Phase 5.9) | `nomic-embed-text` (the draft, embedded **once, to query**) | show the existing roles that look like the one being authored, so the author clones instead of duplicating | **advisory** — it never blocks, never publishes, and **shows no similarity number at all** | `dedup.authoring_guard` — **HR-195/196/197** |
+
+**On the guard's draft text (#5):** the in-progress draft is serialized and embedded on the
+self-hosted host, used as a **query vector, and never stored** — nothing is written to either
+index, no node is created, no text is persisted (verified 2026-08-05 in
+`jd_bank/composer/duplicates.py`: the semantic pass embeds, queries, and returns). It shows **no
+score** because the measurement forbids one: on this corpus a role's nearest *unrelated*
+neighbour (median cosine **0.9604**) outscores a genuine same-title twin (**0.9335**), so any
+percentage would be a fabricated precision. Ranking survives that; a number does not.
 
 **Not AI (deterministic):** the parser/segmenter, the validator/scoring/gates, dedup
 Tier-1 (SHA-256) and Tier-2 (MinHash/Jaccard — an optional embedding *cosine confirm*
-exists but ships **off**), and grade/classification extraction (regex).
+exists but ships **off**), grade/classification extraction (regex), **and the top-ranked
+Builder search results themselves** — see below.
+
+**Retrieval is not "semantic search" any more, and the honest framing matters here.** Builder
+search runs **four ranked passes**: (1) harmonized **role titles** and (2) archive **document
+titles**, both **plain Postgres `ILIKE`**, ranked **above** (3) semantic neighbours among roles
+and (4) semantic neighbours in the archive. **So the highest-ranked results are not AI-derived
+at all**, and they carry **no similarity score** — they were not found by distance. The title
+passes live in Postgres because the vectors **deliberately exclude the title**
+(`embeddings.yaml: include_title_in_document: false`), which is exactly what makes dedup
+title-agnostic; and they are load-bearing, not a fallback — **61%** of harmonized role titles
+(746/1,222) appear on **no** source document, because harmonization renames the role.
 
 ---
 
@@ -76,16 +98,31 @@ exists but ships **off**), and grade/classification extraction (regex).
 
 ```mermaid
 flowchart LR
-  T["JD text<br/>(document + each section)"] --> M{{"nomic-embed-text<br/>on Ollama @ aria-gb10-2"}}
+  T["Archive JD text<br/>(document + each section)"] --> M{{"nomic-embed-text<br/>on Ollama @ aria-gb10-2"}}
+  RT["Harmonized role<br/>(1 per cluster, make embed-roles)"] --> M
   M --> V["768-dim vector"]
-  V --> N[("Neo4j vector index<br/>jd_document_embeddings")]
-  N --> S["Semantic search<br/>(Builder 'start from a JD')"]
+  V --> N[("Neo4j: jd_document_embeddings<br/>:JDDocument — 1 per source file")]
+  V --> RN[("Neo4j: jd_role_embeddings<br/>:JDRole — 1 per cluster, migration 003")]
   N --> R["Dedup Tier-3<br/>role-equivalence"]
   N --> C["Role clustering"]
+  N --> S["Builder search<br/>(archive neighbours)"]
+  RN --> S2["Builder search<br/>(the Bank's own roles)"]
+  RN --> G["Near-duplicate guard<br/>(advisory, no score)"]
+  Q["Builder draft text"] -.-> M
+  M -.->|"query only, never written"| RN
 
   classDef ai fill:#2f81f7,color:#ffffff,stroke:#1c4fa0;
   class M ai;
 ```
+
+**Two indexes, deliberately** (`cadfc30`, migration `003`). A **role** is a different unit from an
+**archive document** — one node distilled from many files, versus one node per source file — so
+folding roles into `:JDDocument` would quietly corrupt the next `MATCH (d:JDDocument)` corpus
+count. The role pass reuses `serialize_document` verbatim, so the two sets of cosines stay
+comparable. It covers **every current-version role, drafts included** (the use is seeding a clone,
+not publishing), and is **not wired into `approve`**: publishing must not depend on the GPU, so
+`make embed-roles` is a separate idempotent run. The **dotted path** is the guard's draft query —
+embedded, matched against `jd_role_embeddings`, **never written to it**.
 
 **Idempotent + deterministic:** the same text yields a byte-identical vector, so
 embeddings are content-keyed on `text_sha256` (re-embedding is a skip). The dimension

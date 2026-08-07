@@ -197,8 +197,17 @@ Cypher ports directly (Neo4j is retained); the rewrite is re-wiring to JD Bank's
 
 ### 2.5 JD Composer
 
-- **Find:** semantic + faceted search over published canonicals (Neo4j vector search + Postgres
-  facet filters). "Start from this JD" → clones a draft.
+- **Find:** *(design corrected 2026-08-05 — what shipped is materially different from this line's
+  original "semantic + faceted search over published canonicals".)* **Four ranked passes**, in
+  order: (1) harmonized **role titles** in Postgres, (2) archive **document titles** in Postgres —
+  collapsed into the role they were harmonized into — then (3) semantic neighbours among
+  **roles** (`jd_role_embeddings`) and (4) semantic neighbours in the **archive**
+  (`jd_document_embeddings`). **The title passes are Postgres-side because the vectors cannot see
+  the title**: `embeddings.yaml: include_title_in_document: false`, which is exactly what makes
+  dedup/clustering title-agnostic — flipping it would make title search work by silently breaking
+  that guarantee. A title hit therefore carries **no similarity score**; it was not found by
+  distance. Same-titled roles are disambiguated **by department** at the single exit point.
+  "Start from this JD" → clones a draft. See `jd_bank/composer/search.py`.
 - **Create:** JAQ-style guided flow (SFU toolkit prompting questions) → assembles a draft in
   template order → live validation panel (word count, % totals, KSA order, bias terms, footer).
 - **Export:** `jd_export` (from `bank/export.py`, #13) renders the SFU template — TNR 10, bold
@@ -331,8 +340,10 @@ their ratification, and *then* correcting them would have made the sign-off mean
 
 **Net: approval 71.9% → 78.6%, median 77.3 → 79.0, blocked 246 → 187, score-floor rejections 5 → 2.**
 
-Test suite at HEAD: **1143 passing**, coverage **97.40%**. Decision register: **122**, all `open`.
-Rulebook: `jd_rules_sfu_v4+8c004c4dadd1`.
+Test suite **at that point (Phase 2.6)**: **1143 passing**, coverage **97.40%**. Decision register:
+**122**, all `open`. Rulebook: `jd_rules_sfu_v4+8c004c4dadd1`. *(Dated record, not a current
+figure — the "at HEAD" wording was wrong the moment the next commit landed; for today's numbers
+read the newest `make gates` line in `git log` and the register's own header.)*
 
 ### Phase 2.7 — ⏭ HR ratification (needs SFU, not us)
 
@@ -586,7 +597,9 @@ if violated, rather than resting on a code read.
 > 5.4 search/clone · 5.5 LLM assist · 5.6 submit-to-queue · 5.7 `.docx` export), the guided form
 > wires every route (5.8a/b/c), the compliance panel explains each section and links findings to
 > their fields, and correctness fixes landed (Relationships-header insertion; clone defaults
-> boilerplate ON). **Also since shipped:** an **auth/RBAC layer (ADR-008)** — CAS SSO, sessions,
+> boilerplate ON). **Also since shipped:** **5.9**, the near-duplicate authoring guard (2026-08-05,
+> below), the four search fixes of 2026-08-03/04 (`89d0c74`/`3b6a71b`/`d71e333`/`46a9443`), and an
+> **auth/RBAC layer (ADR-008)** — CAS SSO, sessions,
 > author/reviewer/admin roles, the UI gate, user-management admin, authenticated actor on every
 > review/compose action, and a tamper-evident hash-chained audit. **What's next is in
 > [`ROADMAP.md`](ROADMAP.md)**, not here — the critical path is the 4.5 HR pilot + HR ratification.
@@ -617,11 +630,39 @@ plan.
   service stays the sole publish path.
 - **5.7** `jd_export`: port `bank/export.py` (#13) + SFU-template styling (TNR-10, footer) +
   snapshot tests. Footer wording = the Phase-6 sign-off flag.
+- **5.9** **Near-duplicate authoring guard — ✅ SHIPPED (2026-08-05)**, `jd_bank/composer/duplicates.py`.
+  *(Numbered 5.9 to match the code, which already carries that tag; 5.8a/b/c were the guided-form
+  wiring. The role-vector index it reads is tagged 5.4b in migration `003`.)* While an author
+  composes, show which existing harmonized roles look like the same role, so they clone one instead
+  of authoring SFU's 10th "Academic Advisor". **Advisory only** (NN #1) — nothing blocks, nothing
+  publishes, the validator remains the sole oracle.
+  **It carries no similarity score, and that is the finding, not an omission.** Measured over the
+  live 1,797-vector role index *before* the module was specified: same-title role pairs (genuine
+  twins, n=2,618) median cosine **0.9335**, while a role's nearest **unrelated** neighbour (n=200)
+  medians **0.9604** — *an unrelated role scores higher than a real twin*. So **a threshold cannot
+  work on this corpus**: at 0.90 the guard fires on **99.2%** of drafts at **22%** precision, at
+  0.97 it still fires on 24% and loses most true duplicates, and a top1-vs-top2 margin rule fails
+  identically. **Ranking is good** (a same-title sibling is top-5 for **76%** of roles, top-10 for
+  84%), so the panel is a **ranked list plus one honest non-vector fact** — *"SFU already has 9
+  roles titled 'Academic Advisor', across 6 departments"* is true and needs no vector; *"your draft
+  is 94% similar"* is not. `RelatedRole` has no score field and a test pins that absence.
+  **Two independent passes:** a Postgres **title-collision** pass (no GPU, always runs, JDFN-scoped,
+  ARCHIVED excluded) and a **semantic** pass that serializes the draft with the *same*
+  `serialize_document` the role vectors used and degrades to empty on any failure — Ollama down, the
+  role index not built — so the Builder never loses its compliance panel to a wedged GPU. An
+  empty/whitespace serialization is refused **unconditionally and first** (Ollama embeds `""` into a
+  constant vector that is a plausible nearest neighbour to everything — measured: every empty query
+  returned the identical role at exactly 0.8038), separately from the length floor.
+  **Register:** `dedup.authoring_guard` — **HR-195** `max_matches` (5), **HR-196** `min_draft_chars`
+  (500), **HR-197** `timeout_seconds` (5.0), all `open`.
 
 **MVP (user-decided 2026-07-22) = {5.1+5.2+5.3 guided builder} → 5.5 LLM-assist → 5.6 review queue**
 (full guided author → live-validate → assist → submit). Search corpus = cluster reps + published
 canonicals. LLM-assist is mock-tested under gates; its live sign-off waits for the GPU (held by the
-full-archive run). 5.4 (search/clone) and 5.7 (export) layer on.
+full-archive run). 5.4 (search/clone) and 5.7 (export) layer on. *(Corrected 2026-08-05: the
+shipped **search corpus** is the embedded **archive documents** plus **every current-version
+harmonized role**, drafts included — not "cluster reps + published canonicals". Published-only
+would be 4 roles; see 8.2.)*
 
 **Exit:** recruiter/hiring-manager can find, compose, validate live, and export a JD; drafts land
 in review.
@@ -645,17 +686,21 @@ jdfn_employee_groups` gain a `cupe` token and the Builder support the WJQ 14-sec
 Until HR rules on HR-194, "the Bank does not serve CUPE" is an explicit decision on the register,
 not one made by omission.
 
-### Phase 8 — The Published JD Bank (the final canonical library) + review-experience upgrades — 8.1 SHIPPED EARLY (2026-08-01), adapted; 8.2+ open
+### Phase 8 — The Published JD Bank (the final canonical library) + review-experience upgrades — 8.1 SHIPPED EARLY (2026-08-01), adapted; 8.2 GOAL MET by a different mechanism (2026-08-04); 8.3 open
 
-> **STATUS UPDATE (2026-08-02).** **8.1 was brought forward and shipped** in response to HR pilot
-> feedback ("where are the actual JD files?"), but **adapted**: since **zero canonicals are published
-> yet**, the browsable library (`jd_bank/library/` + `api/routes/library.py`, 🏦 JD Bank nav) covers
-> the **DRAFT roles + their source JDs** — roles → sources → a **source-JD reader** + a flat `/archive`
-> browser, click-to-sort, and **clone the harmonized role**. Same surfaces will show PUBLISHED
-> canonicals once the pilot publishes. Deltas vs. the 8.1 plan below: the planned **grade** facet is
-> unavailable (measured absent — see the grade-capture thread + `docs/audit/data-state-and-grade-2026-08-01.md`);
-> **provenance panel / version-history / propose-update** on a *published* view are still open (the
-> version-diff view already exists in review). **8.2 (embed published canonicals) remains open.**
+> **STATUS UPDATE (2026-08-05).** **8.1 was brought forward and shipped** in response to HR pilot
+> feedback ("where are the actual JD files?"), but **adapted**: the browsable library
+> (`jd_bank/library/` + `api/routes/library.py`, 🏦 JD Bank nav) covers the **DRAFT roles + their
+> source JDs** — roles → sources → a **source-JD reader** + a flat `/archive` browser,
+> click-to-sort, and **clone the harmonized role**. *The earlier wording — "since **zero canonicals
+> are published yet**" — is now false: measured 2026-08-04, `canonical_jds` holds **1,798 DRAFT +
+> 4 PUBLISHED** and `review_actions` holds **6** rows. Four published roles out of 1,802 is the
+> publish path being exercised, not the 4.5 pilot; the library is still overwhelmingly a draft
+> library.* Deltas vs. the 8.1 plan below: the planned **grade** facet is unavailable (measured
+> absent — see the grade-capture thread + `docs/audit/data-state-and-grade-2026-08-01.md`);
+> **provenance panel / version-history** on a *published* view are still open (the version-diff
+> view already exists in review), and **"propose an update" SHIPPED (2026-08-02, `802bff0`)**.
+> **8.2's goal is met (`cadfc30`) by a mechanism that supersedes the one specified below.**
 
 **What it is.** Everything to date *produces* draft canonicals and moves them through a review queue;
 approval sets `status=PUBLISHED` but there is **no destination surface** — the approved JDs have
@@ -685,21 +730,61 @@ self-contained first slice.*
   `render_sfu_docx`), and two forward actions — **"Start a new draft from this"** (clone into the
   Builder) and **"Propose an update"** (edit → a new DRAFT into the review queue). Nothing here
   publishes.
+  - **"Propose an update" — ✅ SHIPPED (2026-08-02, `802bff0`), and the semantics are worth
+    stating**, because they are not the obvious ones. Editing a PUBLISHED version mints a **new
+    DRAFT** (it never mutates the published row — NN #1 still holds). The prior version
+    **deliberately stays PUBLISHED** rather than being archived at edit time: archiving it then
+    would leave the cluster with **no live approved JD for the whole review window**. It retires
+    only when its replacement is approved — so `approve` now **supersedes** any other live
+    published version of the cluster, under the same `SELECT … FOR UPDATE` lock, writing a
+    `review.superseded` audit row; without that a cluster would carry two PUBLISHED rows and "the
+    approved JD" would stop having one answer. **ARCHIVED stays refused**: rejected or superseded
+    is settled, and editing one would fork a new version off dead history. The page followed — a
+    published JD no longer offers Approve/Reject buttons the service can only refuse, an archived
+    version offers no action, and advisory findings stopped being labelled as errors ("Suggested
+    improvements" + amber badge when nothing blocks; "Fix these" only when a gate blocks).
 - **Tests:** TestClient over a faked read service; empty-state (200, not a crash); JDFN-scoped;
   every figure mutation-pinned.
 
-**8.2 — Embed published canonicals into the vector index (the write path).** *Live sign-off needs the
-GPU/Neo4j host; built + unit-tested with mocks (the embeddings live-test posture).* The prerequisite
-the 2026-07-29 session scoped and deferred.
-- On **approve/publish**, embed the canonical content and upsert a node into the
-  `jd_document_embeddings` index, marked `kind=canonical` with title/`employee_group` **on the node**
-  (published canonicals have no `parsed_jds` row to join). **Best-effort + injected + mockable +
-  non-fatal** — a Neo4j failure must NEVER block a publish (publish is the invariant; indexing is
-  best-effort).
-- Extend `search_similar_jds` to include canonical hits, labelled **"approved"** (vs archive
-  **"reference"** hits), reading title/facets off the node; extend the library + Builder search to
-  cover published output; add a **clone-from-canonical** path (answers from canonical content).
-- **Register:** the search corpus choice + any top-k / min-similarity knobs `open` (mirror 5.4).
+**8.2 — Embed the Bank's own output into the vector index.** **✅ GOAL MET (2026-08-04, `cadfc30`) —
+by a mechanism that SUPERSEDES the one specified here. Adjudicated 2026-08-05; not to be re-opened.**
+
+*The goal — "the Bank can search its own output" — is met.* `make embed-roles`
+(`jd_bank/embeddings/roles.py`, `scripts/embed_roles.py`) writes one vector per **cluster** and
+`search_similar_jds` reads it. Measured on the live corpus: **1,802 roles seen, 1,797 embedded,
+5 empty** (`docs/embeddings/roles-summary.json`).
+
+**What changed vs. the plan below, and why — three deliberate departures.**
+1. **A separate `(:JDRole)` label and `jd_role_embeddings` index (migration `003`) — not
+   `kind=canonical` inside `jd_document_embeddings`.** A role is a different **unit** from an
+   archive document: one node distilled from many files, versus one node per source file. Folding
+   them together would work today and **quietly corrupt the next `MATCH (d:JDDocument)` corpus
+   count** — the "one index, two purposes" trap, which had already produced both the title-search
+   and advisory-badge defects. Serialization is **not** re-invented: `serialize_document` is reused
+   verbatim (same rulebook knobs, same `embed_stamp`, same title exclusion), so the cosines stay
+   comparable and `rules_version` is untouched.
+2. **Every current-version role, drafts included — not published-only.** The use is **seeding a
+   clone, not publishing**: restricting to PUBLISHED would index **4** roles instead of ~1,800 and
+   make the feature useful only after the pilot. Each node carries `status`, so a hit is labelled
+   honestly, and only the **highest version per cluster** is embedded (a superseded version would
+   put a second, competing vector in the index).
+3. **NOT wired into `approve` — a decision, not a gap.** There is no embed-on-publish write path
+   and there is not meant to be one: **publishing must not depend on the GPU** (a reviewer has to
+   be able to approve with Ollama down), and network I/O inside the review transaction would hold
+   the `SELECT … FOR UPDATE` lock across a slow call. Instead `make embed-roles` is an
+   **idempotent, skip-first** runner — same `NodeKey` identity as documents, so a re-run costs
+   nothing and an edited role re-embeds automatically, and `prune_roles` removes nodes whose
+   cluster is gone. The cost is accepted and named: **a role approved after the last run is not
+   searchable until the next one.** The "best-effort, non-fatal hook" the plan called for is
+   strictly weaker than this — it would still open a socket inside the publish path.
+
+*Still open from this slice:* labelling role hits **"approved" vs "reference"** in the UI beyond
+the `status` the node already carries, and the library-side faceted browse over published output.
+The `clone-from-canonical` path exists (library "Start from harmonized role").
+
+**Register:** no new knob was needed — the role pass reuses the 5.4 search knobs and the
+`embeddings.yaml` serialization decisions. The authoring guard that reads this index registered its
+own (HR-195/196/197, see 5.9).
 
 **8.3 — Review-experience upgrades.** *No GPU; parallelizable.*
 - **8.3a Better diff — word/inline level.** The 2026-07-29 version diff is section before/after;
@@ -716,17 +801,19 @@ the 2026-07-29 session scoped and deferred.
   Edit field, via a **rulebook-driven** gate→section map (the rule catalog's `section`, surfaced as
   data). Extends the coarse whole-Edit `#edit` jump shipped 2026-07-31.
 
-**Sequencing:** **8.1** (library, no GPU) → **8.2** (embed + search; GPU for live sign-off) → **8.3**
-(review UX, no GPU). 8.1 first — it is self-contained and turns the 1,801 latent drafts, once
-approved, into a usable resource.
+**Sequencing:** ~~**8.1** (library) → **8.2** (embed + search) →~~ both landed 2026-08-01…04, out of
+the order planned and partly ahead of it. **8.3** (review UX, no GPU) is what remains. 8.1 turned
+the **1,798** latent drafts into a readable resource; 8.2 made them findable.
 
 **Exit:** an approved JD has a permanent, browsable, searchable home; a reviewer navigates
 cluster/version/related-role structure and reads a word-level diff; the Bank can search its own
-published output. **Detailed TDD task breakdown: `docs/tasks/phase-8-published-bank.md` (to write).**
+output. *No separate `docs/tasks/phase-8-published-bank.md` was written and none is planned —
+8.1/8.2 shipped directly and 8.3's three items are already session-sized as written above.*
 
-**Relationship to earlier work:** 8.2 subsumes the roadmap's *embed-published-canonicals* quick win
-and unblocks the *approved-position template library*; 8.3b is a lightweight review-time slice of
-Phase 7's org-design overlap graph; 8.1's "propose an update" reuses the review queue's edit path.
+**Relationship to earlier work:** 8.2 discharged the roadmap's *embed-published-canonicals* quick
+win (goal met, mechanism changed) and supplied the vector prerequisite for the *approved-position
+template library*; 8.3b is a lightweight review-time slice of Phase 7's org-design overlap graph;
+8.1's "propose an update" reuses the review queue's edit path (`802bff0`).
 
 ---
 

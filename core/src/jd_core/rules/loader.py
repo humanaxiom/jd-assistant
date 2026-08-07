@@ -889,6 +889,51 @@ class Embeddings(_RuleFile):
         return f"{self.version}{VERSION_SEPARATOR}{self.digest[:CONTENT_HASH_LENGTH]}"
 
 
+class AuthoringGuard(BaseModel):
+    """The JD Builder's near-duplicate AUTHORING guard
+    (``dedup.yaml: authoring_guard``, Phase 5.9).
+
+    Advisory only (NN #1): it shows an author which existing harmonized roles look
+    like the role they are typing, so they clone one instead of authoring SFU's 10th
+    "Academic Advisor". It never blocks submission and never publishes.
+
+    **There is deliberately no threshold knob**, and that is the measured finding —
+    see the YAML header: on the live role index a role's nearest *unrelated*
+    neighbour medians a HIGHER cosine (0.9604) than a genuine same-title twin
+    (0.9335), so any cutoff is a constant dressed as a measurement. Ranking is good,
+    the absolute number is meaningless, and the guard therefore renders a ranked list
+    and no score at all. Do not add ``cosine_min`` here.
+
+    A NESTED block inside an otherwise flat rule file, so it is the one place
+    :func:`decision_surface` has to walk down into (it enumerates the LEAVES —
+    ``dedup.authoring_guard.max_matches`` — never the block itself, because a
+    register entry must name the parameter that is decided, not the object that
+    contains it).
+
+    Every field validates HERE and nowhere else, so a fixture built through
+    ``tests/unit/retuned_rules.py`` is rejected exactly as the loader would reject
+    it — that fixture's whole promise.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: How many semantically-related roles the panel offers at most (HR-195). A panel
+    #: that offers nothing is the "gate that can never fire" failure applied to a
+    #: shortlist, so zero is refused outright.
+    max_matches: int = Field(gt=0)
+    #: How long the SERIALIZED draft must be before the guard embeds it at all
+    #: (HR-196). A length FLOOR, never the empty-text guard — an empty serialization
+    #: is refused unconditionally and FIRST, whatever this is set to, so the two
+    #: refusals stay independently provable.
+    min_draft_chars: int = Field(gt=0)
+    #: How long the whole guard may take before the Builder gives up on it (HR-197).
+    #: The degrade path can only catch a RAISE; a self-hosted inference host that
+    #: accepts a connection and then stalls (a wedged GPU, a firewall DROP after
+    #: accept) would otherwise hold the request — and its checked-out DB session —
+    #: for as long as the client's own read timeout allows. This is the bound.
+    timeout_seconds: float = Field(gt=0.0)
+
+
 class Dedup(_RuleFile):
     """Tier-2 near-duplicate detection (``dedup.yaml``, Phase 3.3).
 
@@ -943,6 +988,13 @@ class Dedup(_RuleFile):
     #: truncating the LSH candidate list if this is exceeded. Registered TRIVIAL, not
     #: an HR decision — see ``decision_register.yaml``.
     max_candidate_pairs: int = Field(gt=0)
+    #: The JD Builder's advisory near-duplicate AUTHORING guard (Phase 5.9). The one
+    #: NESTED block in this otherwise flat file — see :class:`AuthoringGuard`. It sits
+    #: here rather than in a file of its own because it is the same subject (which JDs
+    #: are the same role) under the same charter: it can never move a JD's score, so it
+    #: inherits this file's unhashed-but-registered treatment for free, and its knobs
+    #: ride in :attr:`stamp` like every other one.
+    authoring_guard: AuthoringGuard
 
     @model_validator(mode="after")
     def _bands_times_rows_equals_num_perm(self) -> Dedup:
@@ -3343,6 +3395,31 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
 )
 
 
+def _flat_file_paths(prefix: str, model: BaseModel) -> set[str]:
+    """Every decision-surface path a :data:`_FLAT_SURFACE_FILES` file contributes.
+
+    Every field is on the surface — that is what "flat" buys — except that a field
+    holding a NESTED BLOCK (``dedup.authoring_guard``) contributes its LEAVES, not
+    itself: a register entry must name the parameter that is decided, and
+    :func:`normalize_config_value` refuses a whole model outright, so
+    ``dedup.authoring_guard`` is not a path anything could ever pin. Recursing keeps
+    the flat-file guarantee intact through one — ``dedup.authoring_guard.max_matches``
+    lands on the surface the moment it is declared, exactly as a top-level knob does,
+    and :func:`check_register` breaks the build until someone says whether HR must
+    ratify it.
+    """
+    paths: set[str] = set()
+    for field in type(model).model_fields:
+        if field == "version":
+            continue
+        value = getattr(model, field)
+        if isinstance(value, BaseModel):
+            paths |= _flat_file_paths(f"{prefix}.{field}", value)
+        else:
+            paths.add(f"{prefix}.{field}")
+    return paths
+
+
 def decision_surface(rules: Rules) -> frozenset[str]:
     """Every parameter of the loaded rules that carries a policy judgement.
 
@@ -3428,11 +3505,7 @@ def decision_surface(rules: Rules) -> frozenset[str]:
     # thresholds / patterns / qualifications / action_verbs / markers: every field
     for file_field in _FLAT_SURFACE_FILES:
         rule_file = cast(_RuleFile, getattr(rules, file_field))
-        paths |= {
-            f"{file_field}.{field}"
-            for field in type(rule_file).model_fields
-            if field != "version"
-        }
+        paths |= _flat_file_paths(file_field, rule_file)
 
     paths |= {
         "scoring.max_score",

@@ -762,9 +762,28 @@ decisions:
       mandatory About-SFU paragraph. The scan no longer looks inside that paragraph
       (HR-107), so SFU's boilerplate no longer trips our lexicon — but the term is
       still `medium` in a JD's own prose, and it is still not SFU's term. See HR-058.
+      ---
+      MEASURED over all 14,522 current-parser JDs (2026-08-07), so this is decidable on
+      evidence rather than impression. The rule fires on **11,160 documents (76.8%)**,
+      19,895 findings. Three terms produce **83% of everything the rule says**, and all
+      three are ours, not SFU's: `confidential` **4,320 docs (29.8%)**, `individual`
+      **3,719 (25.6%)** and `agreement` **1,678 (11.6%)** — exactly the over-firing this
+      entry predicted, now quantified. By contrast the terms HR would most expect to
+      matter barely appear: `ambitious` 29 docs, `aggressive` 22, `chairman` 14,
+      `workman` 1, and **16 of the 37 terms never fire at all** (ninja, rockstar,
+      policeman, salesman, waitress, mankind, …). The single largest real signal in the
+      archive is not in this list's disputed part at all: the generic pronoun `his/her`,
+      **8,344 docs (57.5%)** — unambiguous, and mechanically fixable.
+      Also measured and recorded so it is not re-proposed: a Gender-Decoder-style SOFT
+      lexicon (Gaucher et al. 2011) was evaluated as an expansion of this list and
+      **rejected** — 99.5% of JDs trip both the masculine and feminine word lists, and
+      38-77% of its hits are not gendered lean but stemming collisions and SFU's own
+      template headings. See `docs/decisions/coded-language-soft-lexicon.md`.
     impact_if_changed: >-
       Two separate calls. (a) The nine additions: adopt them as SFU policy, or drop
-      them. (b) The one deliberate OMISSION: SFU's list also carries "supporting",
+      them. **Dropping just `confidential` and `agreement` would remove ~30% of this
+      rule's total findings** — that is the size of the call. (b) The one deliberate
+      OMISSION: SFU's list also carries "supporting",
       which we do not flag (SFU marks it "vague — clarify" rather than a hard
       replace, and it appears in almost every JD); adding it would fire on most of
       the archive. Nothing here blocks approval today (HR-004) — it only costs
@@ -5636,6 +5655,122 @@ decisions:
       and deliberate, not a bug. Pinned by mutation in `test_embeddings_rules.py` (ladder
       moves the stamp; descend/positive validators) and the runner's backoff integration
       tests, incl. the idempotent-second-run assertion (`test_embeddings_store.py`).
+    status: open
+
+  # ── The JD Builder's near-duplicate AUTHORING guard (Phase 5.9). ──
+  # Advisory only: it shows an author the existing roles that look like the one they
+  # are typing, so they clone instead of authoring a tenth near-copy. It never blocks
+  # a submission and never publishes (CLAUDE.md §1). NOTE WHAT IS *NOT* REGISTERED
+  # HERE: there is no similarity threshold, because the measurement says a threshold
+  # cannot exist on this data — see HR-196's `why_it_matters`.
+  - id: HR-195
+    question: >-
+      When the Builder warns an author that their new job description looks like roles
+      SFU already has, how many of those existing roles should it list?
+    config:
+      file: dedup.yaml
+      path: dedup.authoring_guard.max_matches
+    current_default: 5
+    provenance: our_invention
+    why_it_matters: >-
+      This is how much advice the panel gives while someone is typing, and it is a
+      judgement about attention, not a measurement. It is set to 5 because the useful
+      signal is concentrated at the very top of the ranking: MEASURED over the live
+      `jd_role_embeddings` index (1,797 role vectors), for the 790 roles that have a
+      same-title sibling the sibling is in the top 5 for 76% of them and in the top 10
+      for 84% — so rows 6-10 add 8 points of recall and double the reading. A shorter
+      list (3) is a stronger nudge and misses more real duplicates; a longer one (10)
+      turns an advisory panel into a search results page the author will scroll past.
+      The panel ALSO states one non-vector fact that carries no cutoff at all — how many
+      existing roles already hold the exact same title, and across how many departments
+      — and that sentence is unaffected by this number.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (dedup.yaml is unhashed); it does move `Dedup.stamp`.
+      Purely how many rows the Builder's advisory panel shows — it cannot change a
+      score, a grade, a gate, a dedup edge or a cluster, and nothing downstream reads
+      it. Pinned by mutation (`test_composer_duplicates.py`: retune it to 2 and the
+      guard returns 2 matches from a 6-neighbour result).
+    status: open
+
+  - id: HR-196
+    question: >-
+      How much must an author have written before the Builder goes looking for existing
+      roles that resemble their draft?
+    config:
+      file: dedup.yaml
+      path: dedup.authoring_guard.min_draft_chars
+    current_default: 500
+    provenance: our_invention
+    why_it_matters: >-
+      Below this length the guard does not run at all — no advice, and no embedding round
+      trip. 500 characters is roughly one Position Summary, and MEASURED against the live
+      role index a 500-character draft retrieves its own twin BETTER than the full
+      document does (14 of 20 in the top 5, versus 11 of 20 for the whole JD); a summary
+      retrieves its parent role at 0.968-0.987. Below ~500 retrieval degrades but does not
+      collapse, so this is the point at which the answer starts being worth asking for,
+      not a quality bar on the draft. Set it lower to advise earlier (and more noisily);
+      higher to stay quiet until the draft is substantial.
+      ⚠ READ THIS BEFORE ASKING FOR A SIMILARITY THRESHOLD OR A PERCENTAGE. There is
+      deliberately no cutoff and no number shown on any row, because the measurement says
+      neither can be honest here: same-title role pairs (2,618 genuine duplicates) sit at
+      a MEDIAN cosine of 0.9335, while a role's nearest UNRELATED neighbour sits at 0.9604
+      — the unrelated neighbour scores HIGHER than the real twin. At a 0.90 cutoff the
+      guard would fire on 99.2% of drafts at 22% precision; at 0.97 it would still fire on
+      24% and lose most true duplicates; a top1-vs-top2 margin rule fails the same way
+      (0.0065 for a true sibling vs 0.0052 for noise). Ranking works, the absolute number
+      does not, so the panel ranks and shows no number. A percentage here would repeat the
+      defect this project already fixed once in title search, where a 0.013 spread across
+      the whole result page rendered as "81%" on every row.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (dedup.yaml is unhashed); it does move `Dedup.stamp`.
+      It gates ONE embedding call per compliance check, so lowering it costs GPU time on
+      drafts too thin to match anything, and raising it means an author can get a long way
+      into a duplicate before being told. It is a length floor and NOT the empty-draft
+      guard: a draft whose serialized text is empty or whitespace is refused
+      unconditionally at any setting, because the embedding model turns "" into a constant
+      vector that is a plausible nearest neighbour to everything (measured: every empty
+      query returned the same role at exactly 0.8038), and the empty check runs FIRST so
+      no setting of this floor can switch it off. The rulebook refuses to LOAD a value of
+      0 or below: a floor is a length, not an on/off flag. Pinned by mutation
+      (`test_composer_duplicates.py`: the same draft embeds at a low floor and does not
+      at 500; and a whitespace-only draft LONGER than the floor still never embeds).
+    status: open
+
+  - id: HR-197
+    question: >-
+      How long should the Builder wait for the "roles SFU already has" panel before
+      giving up on it and showing the compliance result without it?
+    config:
+      file: dedup.yaml
+      path: dedup.authoring_guard.timeout_seconds
+    current_default: 5.0
+    provenance: our_invention
+    why_it_matters: >-
+      This is a trade between an author's time and the university's. The panel is
+      ADVISORY — it never blocks a submission and never changes a compliance verdict —
+      so it is worth a couple of seconds of waiting, and it is NOT worth a held
+      connection. It exists because the ordinary "if it breaks, carry on without it"
+      handling cannot cover every failure: it catches an error, and an inference host
+      that is switched off does produce an error quickly (the connection is refused in
+      about 5 seconds). What it cannot catch is a host that ACCEPTS the request and then
+      never answers — a graphics card wedged by another job, or a network rule that
+      silently drops traffic after the connection is made. In that case the underlying
+      client would keep waiting, with retries, for the better part of an hour, holding
+      both the author's page and one of a small pool of database connections. A handful
+      of authors clicking "Check compliance" would then stop the Builder serving anyone.
+      5 seconds is chosen as roughly a page load: a working lookup takes well under a
+      second, so it is far above normal operation and far below the point where an author
+      concludes the Builder is broken.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (dedup.yaml is unhashed); it does move `Dedup.stamp`.
+      It bounds ONE call — the near-duplicate panel on the Builder's Check — and nothing
+      else: raising it makes an author wait longer before the panel is silently omitted;
+      lowering it may drop the panel on a slow-but-healthy day. When the budget is spent
+      the panel is ABSENT, never rendered as "no duplicates found" (an unverified all
+      clear is exactly the wrong thing to show). Deliberately NOT the embedding client's
+      global timeout, which the archive embedding runs share and may legitimately want
+      long. Pinned by mutation in `test_compose_ui.py` (a guard that never returns leaves
+      the compliance panel intact and the duplicate panel absent).
     status: open
 
 # ═════════════════════════════════════════════════════════════════════════════

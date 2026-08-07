@@ -146,3 +146,71 @@ edge_scope: content
 # candidate of every other). Registered TRIVIAL (see decision_register.yaml `trivial:`)
 # — it cannot change a result, only refuse to produce one.
 max_candidate_pairs: 250000
+
+# --- the JD Builder's near-duplicate AUTHORING guard (Phase 5.9) ---------------------
+# `jd_bank/composer/duplicates.py`. While an author composes a NEW JD, show which
+# existing harmonized roles look like the same role, so they clone one instead of
+# authoring SFU's 10th "Academic Advisor". ADVISORY ONLY (NN #1): it never blocks
+# submission, never publishes, and the validator remains the sole oracle for
+# approvability.
+#
+# THERE IS NO THRESHOLD KNOB HERE, AND THAT IS THE FINDING.
+# Measured over the live `jd_role_embeddings` index (1,797 role vectors) BEFORE this
+# was specified:
+#   * same-title role pairs (genuine duplicates, n=2,618): median cosine 0.9335;
+#   * a role's nearest UNRELATED neighbour (n=200): median 0.9604 — HIGHER than a real
+#     twin. The absolute number does not separate the two populations at all.
+#   * consequently any cutoff is a constant dressed as a measurement: at 0.90 the guard
+#     fires on 99.2% of drafts at 22% precision; at 0.97 it still fires on 24% and loses
+#     most true duplicates. A top1-top2 margin rule fails the same way (0.0065 vs
+#     0.0052).
+#   * RANKING, however, works: for the 790 roles that have a same-title sibling, the
+#     sibling is top-5 for 76% and top-10 for 84%.
+# So the guard ships a RANKED LIST and renders no score, no percentage and no
+# similarity number anywhere — the same defect commit 89d0c74 fixed for title search
+# (every row rendering "81%" off a 0.013 spread). A `cosine_min` added here tomorrow
+# would be that defect returning; the absence is pinned by
+# `test_composer_duplicates.py::test_related_role_never_carries_a_similarity_number`.
+authoring_guard:
+  # How many semantically-related roles the panel offers at most. A ranked shortlist,
+  # not a search page: the measured hit rate is concentrated at the top (a same-title
+  # sibling is top-5 for 76% of roles, and only 8 points more by top-10), so rows 6-10
+  # buy little and dilute a panel the author reads while typing. Registered `open`
+  # (HR-195) — how much advice is too much is a judgement, not a measurement.
+  max_matches: 5
+  # The minimum length of the SERIALIZED draft (`embed_text.serialize_document`, the
+  # same text the role vectors were built from) before the guard spends a GPU round
+  # trip on it. MEASURED: a 500-char draft retrieves its own twin BETTER than the full
+  # document (14/20 vs 11/20 in top-5) — 500 chars is about a Position Summary, which
+  # retrieves its parent role at 0.968-0.987 — and below ~500 retrieval degrades but
+  # does not collapse. So this is the point at which the answer starts being worth
+  # asking for, not a quality bar on the draft. Registered `open` (HR-196).
+  #
+  # It is a length FLOOR, never the empty-text guard: an empty/whitespace serialization
+  # is refused separately, unconditionally, and FIRST — because Ollama embeds "" into a
+  # constant vector that is a plausible nearest neighbour to EVERYTHING (measured live:
+  # every empty query returned the identical role at exactly 0.8038). Raising this floor
+  # can never make that refusal redundant, and lowering it can never switch it off — see
+  # `roles.py`'s "NEVER embed ''" guard, same reason.
+  min_draft_chars: 500
+
+  # How long the whole guard may take before the Builder gives up on it and renders the
+  # compliance panel without it.
+  #
+  # WHY A TIMEOUT AND NOT JUST THE DEGRADE PATH. `find_related_roles` already degrades on
+  # any RAISE, which covers an inference host that is down: the embedding client's
+  # connect timeout is 5s, so a REFUSED connection fails fast. What a try/except cannot
+  # cover is a host that ACCEPTS and then stalls — a GPU wedged mid-`make embed-roles`, a
+  # firewall that DROPs after accept. There the client's own read budget (600s, retried)
+  # would hold the request AND its checked-out database session for the better part of an
+  # hour, and a handful of concurrent Checks would exhaust the connection pool and stop
+  # the Builder serving anything at all. This bounds that to one number.
+  #
+  # 5 seconds is a page-load's worth of patience: a successful pass is an embed call plus
+  # one vector query plus two small SQL reads (well under a second in normal operation),
+  # so this is far above the working case and far below "the author thinks the Builder is
+  # broken". Registered `open` (HR-197) — how long an advisory panel is worth waiting for
+  # is an operational judgement, not a measurement. Deliberately scoped to THIS call and
+  # not pushed into the embedding client's global defaults: the archive embedding runs
+  # batch thousands of documents and may legitimately want a long read timeout.
+  timeout_seconds: 5.0

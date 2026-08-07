@@ -23,11 +23,26 @@ host and the allowlist.
 | Sink | File:line | Points at | Carries | Guarded? |
 |---|---|---|---|---|
 | Rewrite + quality-audit LLM | `core/src/jd_bank/llm/client.py:94` (`ChatClient.__init__` builds `AsyncOpenAI(base_url=settings.ollama_base_url, ...)`) | `settings.ollama_base_url` (default `http://aria-gb10-2:11434/v1`) | **SFU JD archive content** (JD text sent for rewrite / quality audit) | **YES** — `assert_inference_host_allowed(...)` at line 90, before the client is built |
-| Embeddings | `core/src/jd_bank/embeddings/client.py:70` (`EmbedClient.__init__` builds `AsyncOpenAI(base_url=settings.ollama_base_url, ...)`) | `settings.ollama_base_url` (default `http://aria-gb10-2:11434/v1`) | **SFU JD archive content** (parsed JD section text sent to embed) | **YES** — `assert_inference_host_allowed(...)` at line 66, before the client is built |
+| Embeddings | `core/src/jd_bank/embeddings/client.py:70` (`EmbedClient.__init__` builds `AsyncOpenAI(base_url=settings.ollama_base_url, ...)`) | `settings.ollama_base_url` (default `http://aria-gb10-2:11434/v1`) | **SFU JD content** — parsed JD section text sent to embed, **and (Phase 5.9) in-progress author-typed DRAFT text** (see below) | **YES** — `assert_inference_host_allowed(...)` at line 66, before the client is built |
 
-These are the **only two** sinks that transmit SFU JD archive content. Both build their
+These are the **only two** sinks that transmit SFU JD content. Both build their
 client from the same `settings.ollama_base_url`; both now refuse to build against a host
 not on the allowlist.
+
+**Phase 5.9 widened WHAT the embedding sink carries, not WHERE it goes.** The JD
+Builder's near-duplicate authoring guard (`core/src/jd_bank/composer/duplicates.py`)
+embeds the draft a hiring manager is *currently typing*, so this sink now carries
+unsaved, unreviewed, not-yet-submitted JD text in addition to archive content. Same
+host, same guard, same boundary, and therefore the same ratified trust decision
+(ADR-003: Ollama runs on `aria-gb10-2`, a trusted internal host, and JD text crossing a
+private network to it is accepted — NN #5's real invariant is "no third-party or cloud
+LLM API, ever"). It is recorded here rather than left implicit because the *category* of
+content changed: draft text is a live document rather than an archived one, and if the
+inference host ever moves off a trusted segment this is one more thing that moves with
+it. Two properties bound the exposure: the guard is skipped entirely for drafts below
+`dedup.authoring_guard.min_draft_chars` (HR-196), and a draft is embedded but **never
+written to the vector index** — only read against it. Nothing about a draft is persisted
+anywhere by this path (NN #1).
 
 **Threat model / known limitation (deliberate):** the guard checks the `base_url` **host
 string**, not the DNS-resolved IP. A **public** FQDN is rejected regardless of what it
