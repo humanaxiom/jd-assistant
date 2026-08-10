@@ -8,13 +8,40 @@ Plan + iteration list: **`docs/tasks/architecture-review-response-2026-08-07.md`
 Every claim was re-verified against the code before being planned around; 9 of 11 confirmed,
 2 partly true, none false.
 
-- **➡️ WHERE WE ARE IN THE ITERATION: P0.1a is DONE (below); NEXT IS P0.2, then P0.1b.**
-  I reordered: P0.2 (fail-closed startup) jumps ahead of P0.1b (CSRF) because **P0.1a's gates only
-  bind when `cas_enabled=True`, and the shipped default is `False`** — where `resolve_user` returns
-  a transient **admin** before reading any cookie. P0.1a closed the *missing gate*; the *unsafe
-  default* is still open, so in the shipped posture the system remains anonymous-admin. Treat
-  P0.1a+P0.2 as one security fix delivered in two commits, and do not describe the breach as fixed
-  until both land. The full ordered list is §6 of the plan doc — P0.1a → P0.2 → P0.1b (CSRF)
+- **✅➡️ WHERE WE ARE: BOTH P0 ITEMS ARE MERGED. NEXT IS P0.1b.**
+  **P0.1a — PR [#82](https://github.com/humanaxiom/jd-assistant/pull/82), `4b4eed9`** (gated the
+  JSON API, both identity-forgery paths closed, authorization matrix). **P0.2 — PR
+  [#83](https://github.com/humanaxiom/jd-assistant/pull/83), `8d8df23`** (an unsafe production
+  posture now refuses to boot). Both CI-green. They were **one security fix in two commits** and
+  neither was sufficient alone: P0.1a's gates only bind when `cas_enabled=True`, and the shipped
+  default was `False`, where `resolve_user` returns a transient **admin** before reading any
+  cookie. `make gates` **2,282 passing, 93.41%**.
+  **⚠️ THE LESSON WORTH CARRYING, because it will recur:** P0.2's implementation was correct on
+  the first pass — nine conditions enforced, secret leakage genuinely prevented, no bypass, 2,218
+  tests green across three independent runs — and it was a **complete no-op**, because
+  `ENVIRONMENT` reached **zero of fourteen containers**. A test that constructs
+  `Settings(environment="production")` directly can never see that; only trying to deploy it can.
+  **Both reviewers found it independently, and neither found it by reading code.** The second-order
+  trap is just as important: plumbing `ENVIRONMENT` through *without* making the hardcoded compose
+  credentials `${VAR:-default}` would have turned "refuses to start" into "refuses to start and you
+  cannot fix it." **When you build a control, prove it is reachable from the documented deployment
+  path — not merely that its logic is right.**
+  The durable answer is a test that derives its required set **from a real refusal message**
+  (`test_compose_env_delivery.py`), so a new condition automatically demands a compose key — the
+  same shape as the authorization matrix walking the live routing table. Note that pin ALSO needed
+  a second pass: its first version protected only `api`, and a `worker` merge block pinning
+  credentials back to literals sailed through 44/44 green.
+  **➡️ NEXT — P0.1b**, now a coherent bundle rather than four odds and ends, all of the form *"the
+  deployment posture is enforceable now, so make the runtime match it"*: **CSRF** for
+  cookie-authenticated state changes · **`session_cookie_samesite: strict`**, deliberately deferred
+  from P0.2 because `strict` suppresses the cookie on the **CAS cross-site return leg** and a
+  fail-closed check that bricks production login is worse than the gap — it needs end-to-end
+  testing, not an assertion · **`/ready` amplification** (measured: 200 concurrent → 3.00s vs
+  `/health` 0.43s, Postgres backends 1→13; flooding it makes it self-report `degraded` and a load
+  balancer pull healthy pods — needs a rate-limit/memoize decision) · **a production compose
+  profile**, since there is none and `--reload` currently turns a refusal into "Up but serving
+  nothing" · and `GraphMemory.__init__` building an `AsyncOpenAI` without the egress guard.
+  The full ordered list is §6 of the plan doc — ~~P0.1a~~ → ~~P0.2~~ → P0.1b (CSRF)
   (fail-closed startup) → P1.1 (author status) → P1.2 (harmonization provenance) → P1.3 (tier the
   register) → P2 → P3. **Nothing below P0 ships before P0 does**, because until P0.1a lands the
   system does not enforce the invariant everything else assumes. Each task is one gates-green PR
