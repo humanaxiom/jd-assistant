@@ -53,11 +53,25 @@ services:
     command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
     ports: ["${JD_API_PORT:-25800}:8000"]
     environment: &app_env
-      DATABASE_URL: postgresql+asyncpg://app:app@postgres:5432/harness
-      NEO4J_URI: bolt://neo4j:7687
-      NEO4J_USER: neo4j
-      NEO4J_PASSWORD: harnesspass
-      REDIS_URL: redis://redis:6379/0
+      # EVERY value here is `${VAR:-<dev default>}` ON PURPOSE, and it is a security
+      # property, not a style: a hardcoded literal cannot be overridden by the operator's
+      # repo-root `.env`, so a setting the production startup check (P0.2,
+      # core/src/settings.py) demands would be UNSATISFIABLE and every service would
+      # refuse to start forever. `DATABASE_URL` and `NEO4J_PASSWORD` were literals until
+      # 2026-08-09 and were exactly that trap. `tests/unit/test_compose_env_delivery.py`
+      # now fails if a setting named in a refusal message is missing here or pinned to a
+      # literal. NB pydantic's own `env_file=".env"` resolves inside the container (/app
+      # = ./core) and is NOT how the repo-root `.env` reaches these services — compose
+      # interpolation, right here, is.
+      #
+      # ── Deployment posture (P0.2) ── `production` makes the startup check binding.
+      # Development is the default so nobody gets production behaviour by accident.
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://app:app@postgres:5432/harness}
+      NEO4J_URI: ${NEO4J_URI:-bolt://neo4j:7687}
+      NEO4J_USER: ${NEO4J_USER:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-harnesspass}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       # Ollama runs on metal on a TRUSTED INTERNAL HOST (`aria-gb10-2`) — NOT on the dev
       # box, and NOT `host.docker.internal` (which is what this said until we checked).
       # Overridable, so the hostname is config and not a fact welded into the repo.
@@ -66,6 +80,10 @@ services:
       # self-contained — a constraint that had been deferring work on the strength of an
       # unchecked assumption. See ADR-003.
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://aria-gb10-2:11434/v1}
+      # NN #5 host allowlist. The default repeats `settings.allowed_inference_hosts`
+      # rather than being empty: `${VAR:-}` would deliver an EMPTY allowlist, which
+      # refuses the internal Ollama host itself and breaks `make embed`.
+      ALLOWED_INFERENCE_HOSTS: ${ALLOWED_INFERENCE_HOSTS:-aria-gb10-2,localhost,127.0.0.1,host.docker.internal}
       AGENT_MODEL: qwen2.5-coder:14b
       EMBED_MODEL: nomic-embed-text
       MAX_REVIEW_ITERATIONS: "5"
@@ -77,9 +95,19 @@ services:
       # WITHOUT the SFU round-trip (useful when localhost isn't a whitelisted service).
       CAS_ENABLED: ${CAS_ENABLED:-false}
       CAS_SERVICE_BASE_URL: ${CAS_SERVICE_BASE_URL:-http://localhost:25800}
+      # Derive the CAS service origin from X-Forwarded-Host instead of the pinned one.
+      # A client-controllable header; production refuses to start with it on.
+      CAS_SERVICE_FROM_REQUEST: ${CAS_SERVICE_FROM_REQUEST:-false}
       CAS_VERIFY_TLS: ${CAS_VERIFY_TLS:-true}
       CAS_DEV_FAKE_USER: ${CAS_DEV_FAKE_USER:-}
       BOOTSTRAP_ADMINS: ${BOOTSTRAP_ADMINS:-}
+      # The synthetic dev actor and the role it holds — the reason CAS-off is a dev-only
+      # posture. Must never be blank (it would write an empty audit actor).
+      CAS_ANONYMOUS_USER: ${CAS_ANONYMOUS_USER:-dev-anonymous}
+      CAS_DEV_DEFAULT_ROLE: ${CAS_DEV_DEFAULT_ROLE:-admin}
+      # HTTPS-only session cookie. Must be true in production (and needs an https
+      # CAS_SERVICE_BASE_URL, or the cookie is never sent and login cannot complete).
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
     extra_hosts:
       # Kept: testcontainers still resolves sibling containers via the host gateway. It is
       # no longer how Ollama is reached.
@@ -128,6 +156,24 @@ services:
       CAS_ENABLED: "false"
       CAS_DEV_FAKE_USER: ""
       BOOTSTRAP_ADMINS: ""
+      # …and pinned to development, for the same hermetic reason: `ENVIRONMENT` is now
+      # interpolated from the host environment, and an operator (or a CI runner) with
+      # ENVIRONMENT=production exported would otherwise make the whole suite refuse to
+      # construct Settings. The gate suite tests the production check; it does not run
+      # under it. A literal here is correct — this block is the one place it is.
+      ENVIRONMENT: "development"
+      # The data stores, pinned for the SAME reason. These were anchor literals until
+      # 2026-08-09; making them `${VAR:-…}` (so production can supply real credentials)
+      # silently made the gate suite inherit whatever DSN the operator's shell or
+      # repo-root .env carries. `alembic/env.py` falls back to
+      # `get_settings().database_url`, so an ambient production DSN could be reached
+      # from a gate run. Integration tests use testcontainers and do not connect to
+      # these today — this makes that a guarantee rather than an accident.
+      DATABASE_URL: postgresql+asyncpg://app:app@postgres:5432/harness
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: harnesspass
+      REDIS_URL: redis://redis:6379/0
       TESTCONTAINERS_HOST_OVERRIDE: host.docker.internal
       TESTCONTAINERS_RYUK_DISABLED: "true"
       DOCKER_HOST: unix:///var/run/docker.sock
@@ -136,6 +182,12 @@ services:
     volumes:
       - ./core:/app
       - /var/run/docker.sock:/var/run/docker.sock
+      # THIS FILE, read-only. `tests/unit/test_compose_env_delivery.py` asserts that
+      # every setting the P0.2 startup check can demand is actually deliverable through
+      # the `&app_env` anchor above — the guard was inert for exactly one reason, that
+      # `ENVIRONMENT` appeared in `.env.example` and nowhere in compose. The container
+      # binds only ./core, so the file has to be mounted to be checked.
+      - ./docker-compose.yml:/docker-compose.yml:ro
     command: ["pytest", "-q"]
 
   # ─── Archive baseline (Phase 2.5) ────────────────────────────────────────

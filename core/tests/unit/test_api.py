@@ -248,3 +248,55 @@ def test_unauthenticated_read_of_task_state_or_agent_memory_is_refused(
     assert resp.status_code == 401
     memory_mock.task_lineage.assert_not_awaited()
     memory_mock.similar_artifacts.assert_not_awaited()
+
+
+# --- P0.2: /health is LIVENESS and stays static --------------------------------------
+#
+# An orchestrator polls `/health` on a short interval and RESTARTS the container when it
+# fails. A dependency check inside it inverts what it is for: a Neo4j blip would kill
+# every healthy API pod simultaneously, escalating a degraded dependency into an
+# outage. Dependency health belongs to `/ready` (tests/unit/test_readiness.py); this
+# pins that it never creeps back in here.
+
+
+class ExplodesIfTouched:
+    """An ``app.state`` stand-in that fails the test if anything reads it."""
+
+    def __init__(self, name: str) -> None:
+        self.__dict__["_name"] = name
+
+    def __getattr__(self, item: str) -> object:
+        raise AssertionError(
+            f"/health read app.state.{self.__dict__['_name']}.{item} — the liveness "
+            "probe must not touch a dependency (P0.2). Move the check to /ready."
+        )
+
+
+@pytest.fixture
+def no_dependencies_reachable() -> Iterator[None]:
+    keys = ("engine", "sessionmaker", "arq", "memory")
+    saved = {key: getattr(app.state, key, None) for key in keys}
+    for key in keys:
+        setattr(app.state, key, ExplodesIfTouched(key))
+    yield
+    for key, value in saved.items():
+        setattr(app.state, key, value)
+
+
+def test_health_is_a_static_liveness_probe_and_touches_no_dependency(
+    no_dependencies_reachable: None,
+) -> None:
+    resp = TestClient(app).get("/health")
+
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+
+
+def test_health_does_not_report_dependency_state(
+    no_dependencies_reachable: None,
+) -> None:
+    """Not even optimistically. If ``/health`` grows a ``checks`` key, someone will wire
+    an orchestrator's liveness probe to it and the restart loop is back."""
+    body = TestClient(app).get("/health").json()
+
+    assert set(body) == {"status"}

@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from src.api.db.models import Role
 from src.api.deps import current_user, require_roles
+from src.api.readiness import router as readiness_router
 from src.memory.graph import GraphMemory
 from src.models.db import Task, TaskStatus
 from src.settings import get_settings
@@ -77,8 +78,8 @@ class TaskOut(BaseModel):
 # subsystem's entry point is a bigger decision than a security fix should make on its
 # own. Whether the harness API belongs in this service at all is a separate question.
 #
-# `/health` alone stays public: it is a liveness probe and must answer before — and
-# whether or not — anyone can sign in.
+# `/health` and `/ready` alone stay public: they are the probes, and must answer
+# before — and whether or not — anyone can sign in.
 
 #: The gate for every legacy harness route. One name so a new one cannot be added at a
 #: different (or no) access level by accident.
@@ -87,7 +88,20 @@ _HARNESS_ADMIN = [Depends(require_roles(Role.ADMIN))]
 
 @app.get("/health")
 async def health() -> dict[str, str]:
+    """LIVENESS — static, and it must stay that way.
+
+    An orchestrator restarts the container when this fails, so a dependency check here
+    would turn a Neo4j blip into a simultaneous restart of every healthy pod. Dependency
+    health is `/ready` (src/api/readiness.py); `tests/unit/test_api.py` pins that this
+    handler touches no `app.state` at all.
+    """
     return {"status": "ok"}
+
+
+# READINESS — public like `/health` (the poller has no cookie) but, unlike it, actually
+# asks Postgres/Neo4j/Redis whether they are answering. Ungated on purpose; its body is
+# a fixed vocabulary and never a DSN, host or driver error. See src/api/readiness.py.
+app.include_router(readiness_router)
 
 
 @app.post(

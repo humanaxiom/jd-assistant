@@ -98,6 +98,14 @@ EXPECTED_ACCESS: dict[tuple[str, str], Rule] = {
     # ── Legacy harness API (src/api/main.py) ─────────────────────────────────────
     # /health is a liveness probe: it must answer before anyone can sign in.
     ("GET", "/health"): Rule(Access.PUBLIC, Surface.JSON, "liveness probe, no data"),
+    # P0.2: readiness, split off from liveness. Public on purpose — the thing that polls
+    # it is an orchestrator or load balancer with no credentials, and a probe that can
+    # only answer 401 is not a health signal. Safe because the body is a fixed
+    # vocabulary (dependency name -> "ok"/"down") and never a DSN, host, port or driver
+    # exception; see tests/unit/test_readiness.py.
+    ("GET", "/ready"): Rule(
+        Access.PUBLIC, Surface.JSON, "readiness probe: per-dependency status only"
+    ),
     # The rest write, enqueue work, or expose agent memory. None of that belongs to an
     # unauthenticated caller in an HR service.
     ("POST", "/tasks"): Rule(Access.ADMIN, Surface.JSON),

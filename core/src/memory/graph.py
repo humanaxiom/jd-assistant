@@ -34,6 +34,15 @@ class GraphMemory:
     async def close(self) -> None:
         await self._driver.close()
 
+    async def verify_connectivity(self) -> None:
+        """Round-trip the driver; raise if Neo4j is unreachable or refuses the auth.
+
+        The readiness probe (``src.api.readiness``) needs *a* cheap liveness question to
+        ask Neo4j, and it must ask it through this class rather than reaching into
+        ``_driver`` — the driver is this object's private business.
+        """
+        await self._driver.verify_connectivity()
+
     # ── Write path ─────────────────────────────────────────────────────────
 
     async def record_subtask(
