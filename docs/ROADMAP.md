@@ -61,7 +61,14 @@ list omits the auth deferrals — captured here.)
 | Rulebook | CUPE/WJQ authoring scope (HR-194) — a whole project, HR-gated | open | XL |
 | Ops | Footer / territorial-acknowledgement wording sign-off (blocks external export) | open (external) | S |
 | Ops | Backup + reindex runbooks; rate/size limits (Phase-6 hardening) | open | M |
-| Ops | GitHub Actions billing block — reconcile open PRs + re-run CI on `main` | open (external) | S |
+| Ops | ~~GitHub Actions billing block~~ **RESOLVED (verified 2026-08-07)** — CI is green on every commit including `main` (run `31199851819`). **The "merge locally per ADR-006" instruction in older notes is now WRONG** — use normal PR + CI | done | — |
+| Security | ~~🔴 **P0.1a — the JSON API (`/jd-bank`) and legacy harness routes carry NO auth gate**; an unauthenticated `POST /jd-bank/review/{id}/approve` reached the review service and on a gate-clean DRAFT would **publish** (NN #1), with the body-supplied `reviewer_id` written into the hash-chained audit log as the actor (NN #6)~~ **CLOSED (2026-08-07):** review JSON → `require_roles(reviewer, admin)`, compose JSON → `current_user`, harness routes → `require_roles(admin)`, `/health` public; `reviewer_id` **and** `overrides[].reviewer` removed from the request bodies and stamped from the session; `tests/unit/test_authorization_matrix.py` walks the live routing table so an unclassified route fails the build. See ADR-008 phase 4 | done | — |
+| Security | 🟠 **P0.1b — CSRF for cookie-authenticated state changes.** Split from P0.1a; touches every UI form. A cross-site form POST carrying a valid session cookie is still accepted. Plan: `docs/tasks/architecture-review-response-2026-08-07.md` §6 | open | M |
+| Security | 🔴 **P0 — the production startup guard `settings.py` claims does not exist**, and `cas_enabled=False` returns a transient **admin** before any cookie is read; `.env.example` has no auth keys | open | S/M |
+| Governance | **Tier the decision register before the HR workshop** — 57 of 197 entries sit in the `comparison`/`hay_signals` adapter ADR-007 disclaims as *not* classification, and 8 are embedding knobs; only ~55–60 touch the approval bar. Add `hr_policy`/`hr_informed`/`technical` so HR sees ~60 real calls, not 197 | open | S/M |
+| Pipeline | **31.9% of the archive (4,630 JDs) has no parsed `employee_group`** — the parser's residual — so "the Bank serves JDFN" is unfalsifiable for a third of the corpus. Close before the CUPE scope conversation; no HR dependency | open | M |
+| UX | **Submit → 403.** The draft commits, then redirects to a reviewer-only page; the default new-user role is `author`, so this is the default first experience. No author-scoped status route exists | open | S |
+| Review | **Harmonization provenance** — a reviewer sees a raised education/experience bar with no indication that most sources stated lower (`seniority_bar_policy: max`, HR-175; ~4.3% of clusters). The NN #1 control cannot rule on what it cannot see | open | M |
 | Chore | `jd_core → jd_bank` import edge; `get_session` → `api/deps.py` shim | open | S |
 | Docs | Refresh HANDOFF.md for the auth/RBAC + operator-guide work | open | S |
 | Phase 7 | Role-duty overlap graph (Neo4j); Hay-readiness summaries; transposer service; M365/SharePoint | deferred | S–XL |
@@ -129,9 +136,10 @@ unblock the pilot** — do them first.
   cluster) + a standalone `/jd-bank/ui/review/{id}/diff` page linked from review detail.
 - **Reinstate `SFU-STRUCT-HOW-WHY`** if the `how_why` field can be populated (retired only
   because the parser couldn't fill it; designed to return "with one YAML word").
-- **Refresh HANDOFF.md + reconcile the open GitHub PRs.** The single-source-of-truth handoff
-  predates ADR-008, and Actions is billing-blocked so several PRs are unmerged while work went
-  to `main`. Accumulating confusion debt for every future session.
+- ~~**Refresh HANDOFF.md + reconcile the open GitHub PRs.**~~ **DONE (2026-08-05/07).** HANDOFF is
+  current, and **the billing block is resolved** — CI is green on every commit including `main`,
+  and PR #81 merged normally. **Older notes saying "Actions is billing-blocked, merge locally per
+  ADR-006" are now WRONG; do not follow them.**
 - **Footer / territorial-acknowledgement sign-off.** A single `boilerplate.yaml` constant that
   blocks any external `.docx`/posting export — a verification task, get it in front of the
   right person before the posting features can ship externally.

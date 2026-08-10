@@ -11,6 +11,16 @@ The route COMMITS; the service only ``flush``es (the caller owns the transaction
 the service's own docstring). On a service error, nothing is committed — the mapped
 ``HTTPException`` propagates and the session is left uncommitted for the caller
 (``get_session``) to close out.
+
+**Who may call these routes** is decided where the router is mounted
+(``src.api.main``: ``require_roles(Role.REVIEWER, Role.ADMIN)`` — 401 unauthenticated,
+403 wrong role, never a redirect: this is a JSON surface) and pinned by
+``tests/unit/test_authorization_matrix.py``. **Who an action is attributed to** is
+decided *here*, and only here: the actor is :data:`~src.api.deps.CurrentUser`, never a
+field of the request. ``service.approve`` writes that identity into the hash-chained,
+append-only ``audit_log``, so a caller-chosen actor would leave the chain intact while
+attesting to a fiction (NN #6) — see :class:`GateOverrideRequest` for the second, less
+obvious path this closes.
 """
 
 from __future__ import annotations
@@ -19,9 +29,10 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.deps import CurrentUser
 from src.api.main import get_session
 from src.jd_bank.db.models import CanonicalJD, CanonicalStatus
 from src.jd_bank.review import (
@@ -42,24 +53,53 @@ router: APIRouter = APIRouter(prefix="/jd-bank")
 # --- request / response schemas -------------------------------------------------------
 
 
+class GateOverrideRequest(BaseModel):
+    """One gate waiver **as a caller may state it**: which gate, and why.
+
+    Deliberately *not* the domain :class:`~src.jd_core.models.quality.GateOverride`,
+    which also carries ``reviewer`` — and ``service.approve`` writes that string into
+    the audit log as the actor who waived the gate. Accepting it from the body would be
+    a second forged-identity path, so the field is absent here and ``extra="forbid"``
+    turns sending it into a 422 rather than a silent ignore. :meth:`stamped` fills it
+    from the session. The domain model is unchanged; only the wire shape is narrower.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    gate_id: str = Field(min_length=1, max_length=64)
+    reason: str = Field(min_length=1, max_length=500)
+
+    @field_validator("reason")
+    @classmethod
+    def _is_written(cls, value: str) -> str:
+        """Mirrors ``GateOverride``'s own rule (CLAUDE.md #1: an override REQUIRES a
+        written reason) so a blank one is refused by body validation — before the
+        service is reached, not when :meth:`stamped` reconstructs it."""
+        written = value.strip()
+        if not written:
+            raise ValueError("must not be blank: an override requires a written reason")
+        return written
+
+    def stamped(self, reviewer: str) -> GateOverride:
+        """The domain override, attributed to the **authenticated** reviewer."""
+        return GateOverride(gate_id=self.gate_id, reviewer=reviewer, reason=self.reason)
+
+
 class ApproveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    reviewer_id: str
-    overrides: list[GateOverride] = Field(default_factory=list)
+    overrides: list[GateOverrideRequest] = Field(default_factory=list)
 
 
 class RejectRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    reviewer_id: str
     reason: str
 
 
 class EditRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    reviewer_id: str
     new_content: dict[str, Any]
     reason: str
 
@@ -141,14 +181,18 @@ async def get_packet(
 async def approve_canonical(
     canonical_id: UUID,
     body: ApproveRequest,
+    actor: CurrentUser,
     session: AsyncSession = Depends(get_session),
 ) -> CanonicalOut:
+    # The reviewer — for the action AND for every waived gate — is the authenticated
+    # user (NN #1 attribution, NN #6 audit), never a request field.
+    reviewer_id = actor.cas_username
     try:
         canonical = await service.approve(
             session,
             canonical_id,
-            reviewer_id=body.reviewer_id,
-            overrides=body.overrides,
+            reviewer_id=reviewer_id,
+            overrides=[override.stamped(reviewer_id) for override in body.overrides],
         )
     except _SERVICE_ERRORS as exc:
         raise _map_error(exc) from exc
@@ -160,13 +204,14 @@ async def approve_canonical(
 async def reject_canonical(
     canonical_id: UUID,
     body: RejectRequest,
+    actor: CurrentUser,
     session: AsyncSession = Depends(get_session),
 ) -> CanonicalOut:
     try:
         canonical = await service.reject(
             session,
             canonical_id,
-            reviewer_id=body.reviewer_id,
+            reviewer_id=actor.cas_username,
             reason=body.reason,
         )
     except _SERVICE_ERRORS as exc:
@@ -179,13 +224,14 @@ async def reject_canonical(
 async def edit_canonical(
     canonical_id: UUID,
     body: EditRequest,
+    actor: CurrentUser,
     session: AsyncSession = Depends(get_session),
 ) -> CanonicalOut:
     try:
         canonical = await service.edit(
             session,
             canonical_id,
-            reviewer_id=body.reviewer_id,
+            reviewer_id=actor.cas_username,
             new_content=body.new_content,
             reason=body.reason,
         )

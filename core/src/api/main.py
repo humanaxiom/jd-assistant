@@ -1,4 +1,11 @@
-"""FastAPI application — task API, gate status, memory queries."""
+"""FastAPI application — task API, gate status, memory queries.
+
+**Authorization lives here**, at the mount points: every router below is included with
+the dependency that decides who may reach it, and the legacy harness routes further
+down carry theirs per route. ``tests/unit/test_authorization_matrix.py`` holds the table
+of record and fails if a route is served without an entry — a new route must not ship
+without an access decision.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +20,8 @@ from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from src.api.db.models import Role
+from src.api.deps import current_user, require_roles
 from src.memory.graph import GraphMemory
 from src.models.db import Task, TaskStatus
 from src.settings import get_settings
@@ -59,6 +68,21 @@ class TaskOut(BaseModel):
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────
+#
+# These are the INHERITED HARNESS API (agent tasks, the `run_pipeline` arq job, agent
+# memory) — no JD Bank surface calls them. They write, enqueue work and read the agent
+# memory graph, none of which belongs to an anonymous caller in an HR service, so they
+# are **admin-only**. They are gated rather than deleted: `POST /tasks` is the entry
+# point to the vendored subagents pipeline (CLAUDE.md §Subagents), and removing a
+# subsystem's entry point is a bigger decision than a security fix should make on its
+# own. Whether the harness API belongs in this service at all is a separate question.
+#
+# `/health` alone stays public: it is a liveness probe and must answer before — and
+# whether or not — anyone can sign in.
+
+#: The gate for every legacy harness route. One name so a new one cannot be added at a
+#: different (or no) access level by accident.
+_HARNESS_ADMIN = [Depends(require_roles(Role.ADMIN))]
 
 
 @app.get("/health")
@@ -66,7 +90,9 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/tasks", response_model=TaskOut, status_code=201)
+@app.post(
+    "/tasks", response_model=TaskOut, status_code=201, dependencies=_HARNESS_ADMIN
+)
 async def create_task(
     payload: TaskCreate, session: AsyncSession = Depends(get_session)
 ) -> Task:
@@ -87,7 +113,7 @@ async def create_task(
     return task
 
 
-@app.get("/tasks/{task_id}", response_model=TaskOut)
+@app.get("/tasks/{task_id}", response_model=TaskOut, dependencies=_HARNESS_ADMIN)
 async def get_task(
     task_id: uuid.UUID, session: AsyncSession = Depends(get_session)
 ) -> Task:
@@ -97,21 +123,21 @@ async def get_task(
     return task
 
 
-@app.get("/tasks/{task_id}/lineage")
+@app.get("/tasks/{task_id}/lineage", dependencies=_HARNESS_ADMIN)
 async def task_lineage(task_id: uuid.UUID) -> list[dict[str, Any]]:
     """Neo4j lineage: subtasks, agents, artifacts for a task."""
     result = await app.state.memory.task_lineage(str(task_id))
     return cast("list[dict[str, Any]]", result)
 
 
-@app.get("/memory/similar")
+@app.get("/memory/similar", dependencies=_HARNESS_ADMIN)
 async def similar(q: str, k: int = 5) -> list[dict[str, Any]]:
     """Vector search over prior artifacts."""
     result = await app.state.memory.similar_artifacts(q, k=k)
     return cast("list[dict[str, Any]]", result)
 
 
-@app.post("/gates/run")
+@app.post("/gates/run", dependencies=_HARNESS_ADMIN)
 async def run_gates(branch: str) -> dict[str, str]:
     job = await app.state.arq.enqueue_job("run_gates_job", branch=branch)
     return {"job_id": job.job_id}
@@ -119,7 +145,6 @@ async def run_gates(branch: str) -> dict[str, str]:
 
 # Imported here (not with the top-of-file imports) because the router imports
 # `get_session` back from this module — importing it at the top would be circular.
-from src.api.db.models import Role  # noqa: E402
 from src.api.routes.admin import router as jd_bank_admin_router  # noqa: E402
 from src.api.routes.auth import (  # noqa: E402
     RedirectToLogin,
@@ -135,10 +160,19 @@ from src.api.routes.jd_bank import router as jd_bank_router  # noqa: E402
 from src.api.routes.library import router as jd_bank_library_router  # noqa: E402
 from src.api.routes.ui import router as jd_bank_ui_router  # noqa: E402
 
-# Auth routes (login/logout/CAS) are ungated — the login page must be reachable. The
-# JSON API router keeps its body-actor pilot model for now (ADR-008 phase 2).
+# Auth routes (login/logout/CAS) are ungated — the login page and the CAS legs must be
+# reachable by a visitor who has no session yet, and logout must work for an expired
+# one (it revokes only the caller's own cookie-identified session).
 app.include_router(jd_bank_auth_router)
-app.include_router(jd_bank_router)
+# The JSON review API is the same NN #1 approval surface as the review UI, so it takes
+# the same roles — but `require_roles`, not `require_ui_roles`: an API client must get
+# 401/403, never a 303 to an HTML login page. Reads are gated too; a review packet is
+# unpublished draft JD content. (P0.1a: this router shipped with NO gate at all, and
+# took its `reviewer_id` from the request body — see routes/jd_bank.py.)
+app.include_router(
+    jd_bank_router,
+    dependencies=[Depends(require_roles(Role.REVIEWER, Role.ADMIN))],
+)
 # The review queue is the NN #1 human-approval surface — reviewer or admin only.
 app.include_router(
     jd_bank_ui_router,
@@ -150,7 +184,10 @@ app.include_router(jd_bank_library_router, dependencies=[Depends(require_ui_user
 # Dashboards, the guide + the Builder require any authenticated user (redirect if not).
 app.include_router(jd_bank_dashboard_router, dependencies=[Depends(require_ui_user)])
 app.include_router(jd_bank_guide_router, dependencies=[Depends(require_ui_user)])
-app.include_router(jd_bank_compose_router)
+# The JSON compose API mirrors the Builder UI's access — any signed-in user — but with
+# the JSON gate (`current_user` -> 401), not the redirecting UI one. Nothing publishes
+# here; it does disclose archive JD content and drive the self-hosted LLM.
+app.include_router(jd_bank_compose_router, dependencies=[Depends(current_user)])
 app.include_router(jd_bank_compose_ui_router, dependencies=[Depends(require_ui_user)])
 # User management — admin only.
 app.include_router(

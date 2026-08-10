@@ -2,7 +2,116 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-08-07): A ROADMAP QUICK WIN WAS MEASURED AND DECLINED — and its stated premise
+**NEWEST (2026-08-07, later): EXTERNAL ARCHITECTURE REVIEW TRIAGED — it found a LIVE AUTH HOLE
+THAT PUBLISHES JDs — and we are now EXECUTING the fixes.**
+Plan + iteration list: **`docs/tasks/architecture-review-response-2026-08-07.md` §6.**
+Every claim was re-verified against the code before being planned around; 9 of 11 confirmed,
+2 partly true, none false.
+
+- **➡️ WHERE WE ARE IN THE ITERATION: P0.1a is DONE (below); NEXT IS P0.2, then P0.1b.**
+  I reordered: P0.2 (fail-closed startup) jumps ahead of P0.1b (CSRF) because **P0.1a's gates only
+  bind when `cas_enabled=True`, and the shipped default is `False`** — where `resolve_user` returns
+  a transient **admin** before reading any cookie. P0.1a closed the *missing gate*; the *unsafe
+  default* is still open, so in the shipped posture the system remains anonymous-admin. Treat
+  P0.1a+P0.2 as one security fix delivered in two commits, and do not describe the breach as fixed
+  until both land. The full ordered list is §6 of the plan doc — P0.1a → P0.2 → P0.1b (CSRF)
+  (fail-closed startup) → P1.1 (author status) → P1.2 (harmonization provenance) → P1.3 (tier the
+  register) → P2 → P3. **Nothing below P0 ships before P0 does**, because until P0.1a lands the
+  system does not enforce the invariant everything else assumes. Each task is one gates-green PR
+  with a stated DoD; **use a normal PR + CI, the billing block is over.**
+
+- **⚠️⚠️ TWO OF OUR OWN BELIEFS WERE WRONG — fix these in your head first.**
+  1. **CI IS NOT BILLING-BLOCKED.** It is green on every commit including `main`
+     (run `31199851819`, 9m34s). **PR #81 MERGED to `main` as `f26b059`.** Multiple docs still
+     say Actions is blocked and instruct you to "merge locally per ADR-006" — **that instruction
+     is now WRONG.** Use normal PR + CI. (Dated historical blocks below were true when written;
+     the live guidance in ROADMAP/plan is corrected.)
+  2. **The "README still describes a Flask frontend" claim is TRUE — I predicted it was stale and
+     was wrong.** `3e32103` removed the service, dep and package but touched `README.md` by four
+     lines and never touched the Mermaid diagram. **8 live references** across `README.md`,
+     `DEVELOPER_GUIDE_1.md`, `harness-claude-code/CLAUDE.md`, `docs/adr/002`, `.env.example`.
+- **✅ P0.1a — CLOSED (this session).** What follows is the defect as found; **it is fixed** —
+  `jd_bank_router` now sits behind `require_roles(REVIEWER, ADMIN)` (401 unauthenticated, 403 wrong
+  role, never a redirect — it is a JSON surface), the compose JSON router behind `current_user`,
+  and the five legacy harness routes behind a shared admin dependency (`/health` stays public).
+  `reviewer_id` is gone from all three request bodies and the actor is derived from the session;
+  a route-local `GateOverrideRequest{gate_id, reason}` is stamped server-side so **`overrides[].reviewer`
+  can no longer be chosen by a caller either**. `make gates` **2,132 passing, 93.26%**.
+  **⚠️ BUT READ THE PARAGRAPH ABOVE: these gates only bind with `cas_enabled=True`.** Until P0.2
+  lands, the shipped default still grants anonymous admin, so the breach is *not* fully closed in
+  the default posture.
+  **How it is pinned — and this is worth knowing precisely, because the first description of it was
+  wrong:** removing the router gate alone does **not** re-open the breach (the mutating routes also
+  carry `actor: CurrentUser`, which 401s on its own). Mutations are **double-locked**; reads are
+  single-locked. The breach regression pins the **actor parameter**; the **authorization matrix**
+  (`test_authorization_matrix.py`) is what pins the **router gate** — removing it turns 7 tests red,
+  including anonymous read of unpublished draft JD content. The matrix walks the live routing table,
+  so **a new route with no gate fails automatically** — that is the durable artifact, and nothing
+  pinned any of this before.
+  *(The defect as originally found:)* `jd_bank_router` (`/jd-bank`) and the legacy harness routes carried **no gate**,
+  and there is **no middleware** (verified: `grep add_middleware` → nothing). Proven with
+  `CAS_ENABLED=true`: an unauthenticated `POST /jd-bank/review/{id}/approve` reaches the review
+  **service** and is refused only by *business* rules (wrong status / blank reason) — never by
+  auth. **On a gate-clean DRAFT it would publish.** The UI router does this correctly
+  (`actor: Depends(require_ui_user)`); the JSON router was never brought along.
+  **The review missed the aggravator: `service.py` writes `actor=reviewer_id` — the
+  ATTACKER-SUPPLIED string — into the hash-chained `audit_log`.** The chain stays cryptographically
+  intact while attesting to a forged identity, so this reaches **NN #6** too. **Nothing pinned any
+  of it** — now fixed, and the matrix is what stops it regressing. `main.py` called this "ADR-008
+  phase 2" while ADR-008 recorded phase 2 as DONE; **both are corrected** — ADR-008 narrows phase 2
+  to "the UI, and only the UI" and gains a **Phase 4** recording what was missed, rather than
+  quietly flipping itself green.
+- **🔴 P0.2 — the production startup guard `settings.py` claims DOES NOT EXIST.** The comment says
+  "*a startup check refuses `cas_enabled` + a dev-fake user together*"; there is no
+  `model_validator`, no `ValueError`, no hits outside the three files reading the flag. Meanwhile
+  `cas_enabled=False` short-circuits **before any cookie is read** and returns a transient
+  **admin** — every cookieless request from anywhere is a full administrator — and `.env.example`
+  carries **no auth keys at all**, so an operator following it deploys exactly that. *(The other
+  five config sub-claims — dev creds, `--reload`, bind mounts, exposed ports — are all true but are
+  normal dev-compose defaults; the review flattens their severity against this one.)*
+- **P1 — two more that block a MEANINGFUL pilot, not just a running one.** (a) **Submit → 403**:
+  the draft commits, then redirects to a reviewer-only page; `default_new_user_role` is `author`,
+  so that is the *default* first-time experience, with no author-scoped status route anywhere.
+  (b) **Harmonization provenance** — `seniority_bar_policy: max` is registered (HR-175) and small
+  (~77/1,801 clusters, ~4.3%), but a reviewer reading one draft sees a master's requirement with
+  **no indication 9 of 10 sources said bachelor's**. The human is the NN #1 control and cannot rule
+  on what they cannot see. **Raised above the scalability work for that reason.**
+- **➡ THE "197 OPEN" FINDING IS RIGHT, BUT THE DENOMINATOR IS WRONG — and this is our main
+  disagreement with the review.** Iteration is not ratification (`ratified` needs
+  `decided_by`/`decided_on`/`decision_note`, an actual SFU ruling), so the counter cannot move by
+  engineering effort. But the register **conflates HR policy with plumbing**: provenance is
+  **106 `our_invention` / 72 `prior_calibration` / only 19 `sfu_rulebook`**, and **57 of 197 (29%)
+  sit in `comparison.yaml` + `hay_signals.yaml`** — the derived-signals adapter ADR-007 explicitly
+  disclaims as *not* formal classification — plus 8 `embeddings.yaml` retrieval knobs of the
+  `max_matches: 5` / `timeout_seconds: 5.0` kind. **HR should never be asked to rule on an
+  embedding timeout.** Only ~**55–60** entries touch the approval bar. **Plan: add a
+  `hr_policy` / `hr_informed` / `technical` tier to every entry before the workshop**, keep every
+  ID, and apply the review's 12 approval packages to the `hr_policy` tier only. Nothing becomes
+  unregistered; ratification becomes *achievable*.
+- **➡ CUPE IS DELIBERATELY OUT — and there is a THIRD bucket nobody was discussing.** Measured over
+  14,522 current-parser JDs: **JDFN served 5,416 (37.3%)** · **cupe excluded 4,440 (30.6%)**
+  (HR-194, `open`) · **`employee_group` not parsed at all: 4,630 (31.9%)**. The exclusion is
+  defensible — the validator only scores the JDFN template, so scoring CUPE guarantees a
+  category-error mis-score. **But the third bucket is OURS, not HR's:** it is exactly the parser's
+  residual (v3 recovers `employee_group` for 68.1%), so for a third of the archive "the Bank serves
+  JDFN" is **unfalsifiable**. Close that BEFORE the CUPE scope conversation — otherwise HR is asked
+  to rule on a boundary we cannot measure. **One sentence for HR: the Bank serves roughly a third of
+  SFU's archive, deliberately excludes another third, and cannot classify the rest.**
+- **Where the review is off the mark** (detail in the plan doc): live-model tests were never
+  claimed to be canaries and are deselected from gates twice over — the real residual is that the
+  opt-in golden targets **exit 0 when everything skipped**; the DB→queue outbox is
+  **legacy-harness-only** (exactly two `enqueue_job` sites, **no JD pipeline stage uses arq**), so
+  it drops in priority; the "stale hard-coded corpus counts" are hardcoded but **correct** (only
+  `dashboard.py` over-claims "all 14,565" where **14,522** were scored); and the circular import is
+  documented at the import site with the fix pre-scoped, so "conceal" is the wrong verb.
+- **Adopted unchanged:** the review's 12 HR approval packages (applied to the `hr_policy` tier),
+  its four-plane target architecture, and its acceptance-evidence definition of done for the
+  benchmark. Its bottom line stands: **do not add more intelligence before adding authority,
+  measurement and operability.**
+
+---
+
+**PRIOR (2026-08-07): A ROADMAP QUICK WIN WAS MEASURED AND DECLINED — and its stated premise
 turned out to be a misattributed number.** No feature shipped; the deliverable is evidence, a
 corrected roadmap, and a redirect. Decision doc:
 `docs/decisions/coded-language-soft-lexicon.md`. `rules_version` **unmoved**; register still

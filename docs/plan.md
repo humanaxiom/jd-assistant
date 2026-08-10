@@ -512,14 +512,20 @@ reviewer is asked to trust it. **4.5 (the human pilot) is now the next milestone
   - **4.4d** ✅ **MERGED locally** (PR #56 — GitHub Actions billing-blocked at merge, PR open/unmerged).
     Minimal server-rendered UI inside FastAPI (`api/routes/ui.py` + Jinja2 templates): queue → detail
     (draft + 4.3 diff + validation report) → approve/edit/reject/override. Transport only; no new
-    dependency (stdlib form parsing). **Reconcile PR #56 + re-run CI once billing is restored.**
+    dependency (stdlib form parsing). **Reconcile PR #56 + re-run CI once billing is restored.** ⚠️ **SUPERSEDED (2026-08-07): the billing block is
+    RESOLVED and there is nothing left to reconcile — no PR below #81 is still open, and CI is
+    green on every commit including `main`. Do NOT follow the "merge locally per ADR-006"
+    guidance in older notes; use a normal PR + CI.**
   - **4.4a-followup** ✅ **MERGED locally** (PR #57 — GitHub Actions still billing-blocked, PR open/unmerged).
     Split the producer's single injected LLM client into `rewrite_client` (bound to `rules.rewrite.model`) +
     `audit_client` (bound EXPLICITLY to `rules.quality.model`), so the `QualityAudit.model` stamp — always
     taken from the RULES, not the client — stops being a latent NN #6 lie once `quality.yaml` retunes.
     `_build_clients` (both-or-neither) in `canonical/__main__.py`; pure wiring, nothing registered. Two pins
     (routing + binding), both proven RED under their regression. Gates 1734/93.89%; Opus-approved.
-    **Reconcile PR #57 + re-run CI once billing is restored.**
+    **Reconcile PR #57 + re-run CI once billing is restored.** ⚠️ **SUPERSEDED (2026-08-07): the billing block is
+    RESOLVED and there is nothing left to reconcile — no PR below #81 is still open, and CI is
+    green on every commit including `main`. Do NOT follow the "merge locally per ADR-006"
+    guidance in older notes; use a normal PR + CI.**
 - **4.5** — Pilot: 5–10 clusters end to end with a real HR reviewer through the review UI; feedback
   becomes fixtures/rules (NN #7). Where the 4.2/4.3/4.4 provisional `open` defaults meet human judgment.
   **⬅ NEXT — 4.6 is complete AND the queue is now LLM-ENRICHED**: all 379 drafts were refreshed in place
