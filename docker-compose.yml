@@ -108,6 +108,11 @@ services:
       # HTTPS-only session cookie. Must be true in production (and needs an https
       # CAS_SERVICE_BASE_URL, or the cookie is never sent and login cannot complete).
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      # SameSite for the session cookie (P0.1b-i). `lax` is the ruling — every mutation
+      # here is a POST and Lax withholds the cookie from a cross-site POST. `strict` is
+      # permitted; `none` is refused in production, and an unrecognised value is refused
+      # in every mode (it would otherwise 500 the first login, not the boot).
+      SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-lax}
     extra_hosts:
       # Kept: testcontainers still resolves sibling containers via the host gateway. It is
       # no longer how Ollama is reached.

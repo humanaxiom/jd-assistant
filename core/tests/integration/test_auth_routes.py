@@ -61,8 +61,14 @@ def client(
     )
     app.dependency_overrides[get_session] = _override_session
     app.dependency_overrides[get_settings] = lambda: fake_settings
+    # `resolve_user` and the CSRF check each open their OWN short-lived session off
+    # `app.state` (pure reads that must work with no request-scoped session), so both
+    # doors have to lead to this database — as in test_csrf_session_token.py.
+    previous = getattr(app.state, "sessionmaker", None)
+    app.state.sessionmaker = maker
     yield TestClient(app), maker
     app.dependency_overrides.clear()
+    app.state.sessionmaker = previous
 
 
 def test_login_page_renders(
@@ -110,7 +116,15 @@ def test_logout_revokes_the_session(
     token = tc.cookies.get("jdbank_session")
     assert token is not None  # login minted an active session (see the test above)
 
-    out = tc.post("/jd-bank/ui/logout", follow_redirects=False)
+    # An AUTHENTICATED logout revokes a session row, so it is a cookie-authenticated
+    # state change and carries the session's CSRF token like every other form (P0.1b-i).
+    # The browser reads that token off a rendered page; here, off the session row it
+    # was minted onto. Refusal is pinned in test_csrf_session_token.py.
+    out = tc.post(
+        "/jd-bank/ui/logout",
+        data={"csrf_token": _csrf_token_of(migrated_pg_url, token)},
+        follow_redirects=False,
+    )
     assert out.status_code == 303
     assert out.headers["location"] == "/jd-bank/ui/login"
 
@@ -124,3 +138,20 @@ def test_logout_revokes_the_session(
             await engine.dispose()
 
     assert asyncio.run(_is_active()) is False
+
+
+def _csrf_token_of(pg_url: str, session_id: str) -> str:
+    """The session row's own CSRF token, read in a fresh event loop (every TestClient
+    call must be finished first, so no asyncpg connection crosses loops)."""
+
+    async def _read() -> str:
+        engine = create_async_engine(pg_url)
+        try:
+            async with async_sessionmaker(engine)() as db:
+                row = await session_service.get_active_session(db, session_id)
+                assert row is not None
+                return str(row.csrf_token)
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(_read())

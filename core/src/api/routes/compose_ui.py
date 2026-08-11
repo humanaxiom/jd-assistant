@@ -6,9 +6,10 @@ the same Jinja UI that already lives inside the FastAPI ``api`` service (the 4.4
 4.6c pattern) — no new service, no new runtime dependency.
 
 **Dependency-free, like the review UI** (:mod:`src.api.routes.ui`): the POST body is
-``application/x-www-form-urlencoded`` and is parsed from the RAW body with the stdlib
-:func:`urllib.parse.parse_qsl` — never FastAPI's ``Form(...)`` / ``request.form()``,
-which assert ``python-multipart`` on the installed Starlette.
+``application/x-www-form-urlencoded`` and is read through the ONE shared parser,
+:func:`src.api.routes._forms.read_form_pairs` (stdlib :func:`urllib.parse.parse_qsl`
+over the raw body) — never FastAPI's ``Form(...)`` / ``request.form()``, which assert
+``python-multipart`` on the installed Starlette.
 
 **Read-only authoring.** Nothing here persists or publishes (NN #1): the page assembles
 the answers into a draft (:func:`~src.jd_bank.composer.assemble_jd`), assesses it
@@ -35,7 +36,6 @@ import logging
 import re
 from pathlib import Path
 from typing import Annotated, Any
-from urllib.parse import parse_qsl
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -47,6 +47,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.db.models import User
 from src.api.main import get_session
+from src.api.routes._forms import read_form_pairs
 from src.api.routes.auth import require_ui_user
 from src.api.routes.compose import (
     get_chat_client,
@@ -700,8 +701,7 @@ async def check_draft(
     :func:`~src.api.routes.compose.get_optional_embed_client`.
     """
     try:
-        body = await request.body()
-        pairs = parse_qsl(body.decode("utf-8"), keep_blank_values=True)
+        pairs = await read_form_pairs(request)
         values = _first_values(pairs)
         checked = values.get("include_sfu_boilerplate") == "on"
         # Repopulation rows come from the RAW submitted pairs, so a validation error
@@ -760,8 +760,7 @@ async def assist_draft(
     compliance (validator-as-oracle, NN #3). Decision-support only — nothing
     auto-applies or publishes (NN #1); the author still Checks/Submits. The injected
     client is egress-guarded at construction (NN #5) and always closed."""
-    body = await request.body()
-    pairs = parse_qsl(body.decode("utf-8"), keep_blank_values=True)
+    pairs = await read_form_pairs(request)
     values = _first_values(pairs)
     checked = values.get("include_sfu_boilerplate") == "on"
     rows = _structured_rows_from_pairs(pairs)
@@ -926,7 +925,7 @@ async def submit_draft(
     check step); this rebuilds the identical draft, persists it as a DRAFT
     ``canonical_jds`` row (:func:`~src.jd_bank.composer.submit_composed_draft`), and
     commits. Nothing publishes (NN #1) — it enters the same queue as any draft."""
-    pairs = await _read_form(request)
+    pairs = await read_form_pairs(request)
     values = _first_values(pairs)
     # The author is the AUTHENTICATED user, not a form field.
     author_id = actor.cas_username
@@ -960,7 +959,7 @@ async def export_draft(request: Request) -> Response:
     writes (the submit form uses it too), so the export rebuilds the identical draft.
     Pure rendering — nothing is validated, persisted, or published (NN #1). A tampered
     hidden field re-renders the form with the error rather than 500 (mirrors submit)."""
-    values = _first_values(await _read_form(request))
+    values = _first_values(await read_form_pairs(request))
     try:
         answers = ComposerAnswers.model_validate_json(values.get("answers_json", ""))
     except ValidationError as exc:
@@ -984,8 +983,3 @@ async def export_draft(request: Request) -> Response:
             "Content-Disposition": f'attachment; filename="{_docx_filename(jd.title)}"'
         },
     )
-
-
-async def _read_form(request: Request) -> list[tuple[str, str]]:
-    body = await request.body()
-    return parse_qsl(body.decode("utf-8"), keep_blank_values=True)

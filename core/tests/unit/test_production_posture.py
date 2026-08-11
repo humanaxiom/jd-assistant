@@ -44,14 +44,34 @@ config — and it is meaningless for the eight non-API compose services, which h
 fails is a ten-minute config fix; a pilot that runs half-open is a conversation with the
 Privacy Office.
 
+**``session_cookie_samesite`` — RESOLVED in P0.1b-i; it is no longer deferred.** This
+file used to defer it with: *"``strict`` suppresses the cookie on a cross-site
+navigation and the CAS return leg IS one; mandating it here could break login in exactly
+the posture this file makes compulsory."* That reasoning was right about the risk and
+wrong about the remedy — it framed the choice as *mandate ``strict`` or do nothing*. The
+ruling is neither:
+
+    **Keep ``lax``; refuse ``none``.**
+
+* ``lax`` already delivers the protection that matters here, because **every mutation in
+  this app is a POST** and ``Lax`` withholds cookies from cross-site POSTs. The residual
+  ``Strict`` would add is protection against top-level cross-site *GET* navigation,
+  which in this app cannot change anything.
+* ``strict`` is *permitted* but not mandated, because the session cookie is set on the
+  response to ``/cas/validate`` — which **is** the cross-site-arriving request — and
+  whether a freshly-set ``Strict`` cookie rides the immediately following same-origin
+  302 is browser-dependent: "site for cookies" is computed across a redirect chain that
+  began at ``cas.sfu.ca``. A fail-closed check that bricks production login is worse
+  than the gap it closes.
+* ``none`` is **refused in production**: it disables the cross-site protection outright
+  and is the one value that turns a defence into an opt-out.
+
+Token CSRF (``tests/unit/test_csrf_protection.py``) is defence in depth **on top of**
+this, not a replacement for it: ``Lax`` is a browser behaviour this service cannot
+verify at runtime, and it does not separate a same-site subdomain from us.
+
 **Deliberately out of scope, so their absence is not an oversight:**
 
-* ``session_cookie_samesite='strict'`` — **P0.1b**, with CSRF as a whole. ``strict``
-  suppresses the cookie on a cross-site navigation and the CAS return leg *is* one
-  (``cas.sfu.ca`` -> us). Depending on when the session cookie is issued relative to
-  that hop, mandating ``strict`` here could break login in exactly the posture this file
-  makes compulsory, and a fail-closed check that bricks production is worse than the
-  gap. It needs the redirect flow tested end to end first.
 * **No app/session secret is validated, because none exists.** Sessions are opaque
   server-side tokens (``secrets.token_urlsafe(32)`` in a Postgres row), not signed
   cookies — there is no signing key in ``Settings``. The one secret-shaped committed
@@ -138,6 +158,13 @@ VIOLATIONS: dict[str, tuple[dict[str, Any], str]] = {
     "inference_host_not_allowlisted": (
         {"ollama_base_url": "https://api.openai.com/v1"},
         "ollama_base_url",
+    ),
+    # P0.1b-i: `none` sends the session cookie on EVERY cross-site request, which is
+    # precisely the request a CSRF attack makes. It is the one SameSite value that
+    # cannot be a deliberate choice for this app — see the module docstring's ruling.
+    "samesite_none": (
+        {"session_cookie_samesite": "none"},
+        "session_cookie_samesite",
     ),
 }
 
@@ -638,6 +665,66 @@ def test_deriving_the_origin_from_a_request_header_is_fine_in_development() -> N
     )
 
     assert settings.cas_service_from_request is True
+
+
+# ── D. session_cookie_samesite — the P0.1b-i ruling (see the module docstring) ───────
+
+
+@pytest.mark.parametrize("spelling", ["none", "None", "NONE", " none "])
+def test_samesite_none_is_refused_in_production(spelling: str) -> None:
+    """``SameSite=None`` sends the session cookie on every cross-site request — it is
+    the setting that *creates* the exposure token CSRF exists to cover, and no
+    deployment of this app has a reason for it (there is no cross-site embed, no
+    third-party iframe, no separate front-end origin).
+
+    Every spelling, because ``None`` is how the RFC and Starlette's own docs write it: a
+    case-sensitive comparison against ``"none"`` would be a check with a one-keystroke
+    bypass, and Starlette lower-cases the value before honouring it, so ``"None"`` is
+    the *same setting*, not a different one.
+    """
+    message = refusal_message(session_cookie_samesite=spelling).lower()
+
+    assert "session_cookie_samesite" in message
+
+
+@pytest.mark.parametrize("value", ["lax", "strict"])
+def test_both_lax_and_strict_load_in_production(value: str) -> None:
+    """The ruling permits either, and mandates neither.
+
+    ``lax`` is the shipped default and delivers the protection that matters (every
+    mutation here is a POST, and Lax withholds cookies from cross-site POSTs).
+    ``strict`` is a legitimate hardening choice for an operator who has verified the CAS
+    return leg against the browsers their users actually run — so it must not be
+    refused. What is NOT acceptable is a check that quietly mandates ``strict`` and
+    breaks login in the posture this file makes compulsory.
+    """
+    settings = Settings(**{**SAFE_PRODUCTION, "session_cookie_samesite": value})
+
+    assert settings.session_cookie_samesite == value
+
+
+@pytest.mark.parametrize("value", ["", "lax;", "sameorigin", "true"])
+def test_an_unrecognised_samesite_value_is_refused_in_every_mode(value: str) -> None:
+    """Fail closed on a typo, in development too — because this one does not fail at
+    load, it fails at *login*.
+
+    Starlette's ``set_cookie`` asserts the value is one of strict/lax/none, and the only
+    place the session cookie is set is the CAS return leg. So ``SESSION_COOKIE_SAMESITE=
+    sameorigin`` produces a service that starts cleanly, serves the login page, and
+    500s the instant anyone tries to sign in. Worse under ``python -O``, where the
+    assertion is compiled out and the browser silently receives an attribute it will
+    discard. A three-value enum is worth checking at load.
+    """
+    with pytest.raises(Exception) as excinfo:  # noqa: B017 - see the module docstring
+        Settings(session_cookie_samesite=value)
+
+    assert "session_cookie_samesite" in str(excinfo.value).lower()
+
+
+def test_the_shipped_samesite_default_is_lax() -> None:
+    """The ruling is "keep lax", so the default must not have drifted to something the
+    reasoning above does not describe."""
+    assert Settings().session_cookie_samesite == "lax"
 
 
 def test_settings_cannot_be_mutated_after_the_invariant_was_checked() -> None:

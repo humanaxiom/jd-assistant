@@ -218,11 +218,30 @@ async def logout(
     db: Annotated[AsyncSession, Depends(get_session)],
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> RedirectResponse:
-    """Revoke the current session, clear the cookie, and return to the login page."""
+    """Revoke the current session, clear the cookie, and return to the login page.
+
+    Deliberately ungated so an *expired* session can still log out rather than be told
+    to sign in first. It needs no CSRF exemption either: an authenticated logout revokes
+    a session row, so it is a cookie-authenticated state change and takes a token like
+    everything else (the button in ``_base.html`` carries one); a logout with no live
+    session revokes nothing, so it is not a state change and passes.
+
+    **The session-less path must emit no ``Set-Cookie`` at all** (P0.1b-i). ``SameSite``
+    governs which requests *carry* a cookie, not which responses may *set* one — so a
+    cross-site ``POST`` here arrives with no cookie (Lax), skips the token check for
+    want of a session, and, while this route cleared the cookie unconditionally, still
+    achieved a **forced logout without ever holding the victim's cookie**. Nothing is
+    lost by not clearing it: the cookie left behind is expired or revoked,
+    :func:`~src.api.deps.resolve_user` refuses it, and the next login overwrites it.
+    """
     token = request.cookies.get(settings.session_cookie_name)
-    if token:
-        await session_service.revoke_session(db, token)
-        await db.commit()
+    live = await session_service.get_active_session(db, token) if token else None
+    if token is None or live is None:
+        # Nothing to revoke, so nothing to clear — and no header for a cross-site POST
+        # to weaponise. Still a 303 to the login page: the escape hatch is intact.
+        return RedirectResponse(url="/jd-bank/ui/login", status_code=303)
+    await session_service.revoke_session(db, token)
+    await db.commit()
     response = RedirectResponse(url="/jd-bank/ui/login", status_code=303)
     response.delete_cookie(settings.session_cookie_name, path="/")
     return response

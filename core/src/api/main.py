@@ -5,6 +5,20 @@ the dependency that decides who may reach it, and the legacy harness routes furt
 down carry theirs per route. ``tests/unit/test_authorization_matrix.py`` holds the table
 of record and fails if a route is served without an entry — a new route must not ship
 without an access decision.
+
+**CSRF lives here too, but one level up** (P0.1b-i): :func:`src.api.csrf.enforce_csrf`
+is an *application-wide* dependency, not a per-router one, because the rule it enforces
+is a property of the request (*"a state change authenticated by a session cookie must
+carry that session's token"*) and not of a route. Mounted at the app, it covers a route
+added tomorrow with nobody having to remember it exists — there is no allow-list here to
+drift out of step with the routing table. Scoping it to the browser surface would have
+been a real hole and not a hypothetical one: ``POST /gates/run`` takes ``branch`` as a
+**query parameter with no body**, so an ordinary cross-site form with an admin's cookie
+enqueued an arq job.
+
+:class:`~src.api.security_headers.SecurityHeadersMiddleware` is mounted for the same
+feature's sake — a framed review page carries its own valid token, so clickjacking
+borrows the CSRF control rather than bypassing it.
 """
 
 from __future__ import annotations
@@ -20,9 +34,11 @@ from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from src.api.csrf import enforce_csrf
 from src.api.db.models import Role
 from src.api.deps import current_user, require_roles
 from src.api.readiness import router as readiness_router
+from src.api.security_headers import SecurityHeadersMiddleware
 from src.memory.graph import GraphMemory
 from src.models.db import Task, TaskStatus
 from src.settings import get_settings
@@ -43,7 +59,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await app.state.engine.dispose()
 
 
-app = FastAPI(title="JD Bank API", version="2.0.0", lifespan=lifespan)
+# `dependencies=` on the app applies to EVERY route this app serves, including the ones
+# included below with their own gates — an app-level dependency is solved BEFORE the
+# route's own, so the CSRF check runs ahead of the handler and ahead of any effect. A
+# `GET`, and a request carrying no session cookie, both pass straight through; see
+# src/api/csrf.py.
+app = FastAPI(
+    title="JD Bank API",
+    version="2.0.0",
+    lifespan=lifespan,
+    dependencies=[Depends(enforce_csrf)],
+)
+# Clickjacking defeats token CSRF outright (a framed page carries its own valid token),
+# so the headers that prevent framing ship with the CSRF feature. Raw ASGI, not
+# BaseHTTPMiddleware — nothing upstream of these handlers may re-wrap the request body.
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:

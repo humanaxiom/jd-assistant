@@ -1,0 +1,23 @@
+{#
+  The hidden CSRF field, defined once and called inside every posting form (P0.1b-i).
+  A Jinja {% block %} cannot inject into a child template's form, so "define once" has
+  to mean "a macro called everywhere" — and tests/unit/test_csrf_protection.py scans the
+  template SOURCE to prove nobody forgot one, because the symptom (a single button that
+  403s) reads like a route bug.
+
+  NB: this comment deliberately does NOT spell out a form's opening tag. When it did,
+  the source scanner matched it, found no closing tag, sliced to end-of-file, and passed
+  on THIS file for the wrong reason — a green that proved nothing. The scanner now
+  rejects an unclosed form, so the trap is closed from both ends.
+
+  The value comes off request.state, where src.api.deps.resolve_user puts the live
+  session's token. A page rendered with NO session (dev/CI, where cas_enabled=False)
+  must still render: `default` degrades to an empty value instead of raising, which is
+  correct — with no session there is nothing to protect and the check skips.
+
+  This is the RENDER side only. The check itself never reads request.state; it resolves
+  the session from the cookie for itself (see src/api/csrf.py for why that matters).
+#}
+{%- macro csrf_token_field(request) -%}
+<input type="hidden" name="csrf_token" value="{{ request.state.csrf_token | default('', true) }}">
+{%- endmacro -%}
