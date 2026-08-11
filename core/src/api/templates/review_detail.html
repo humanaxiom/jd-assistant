@@ -1,4 +1,5 @@
 {% extends "_base.html" %}
+{% from "_csrf.html" import csrf_token_field %}
 {% block title %}JD Bank — Review {{ packet.canonical_id }}{% endblock %}
 {% block content %}
 
@@ -108,6 +109,7 @@
   {% if packet.decision.approved %}
   <p class="meta">All gates pass — you can publish this draft.</p>
   <form method="post" action="/jd-bank/ui/review/{{ packet.canonical_id }}/approve">
+    {{ csrf_token_field(request) }}
     <button type="submit">Approve &amp; publish</button>
   </form>
   {% else %}
@@ -132,6 +134,7 @@
     (recorded in the audit log), then click <strong>Approve &amp; publish</strong>.
   </p>
   <form method="post" action="/jd-bank/ui/review/{{ packet.canonical_id }}/approve">
+    {{ csrf_token_field(request) }}
     {% for gate in overridable %}
     <div class="gate">
       <div class="meta">{{ gate.gate_id }} · {{ gate.source_part }}</div>
@@ -149,6 +152,7 @@
 <div class="panel">
   <h2>Reject</h2>
   <form method="post" action="/jd-bank/ui/review/{{ packet.canonical_id }}/reject">
+    {{ csrf_token_field(request) }}
     <label for="reject-reason">Reason</label>
     <textarea id="reject-reason" name="reason" required></textarea>
     <button type="submit" class="danger">Reject</button>
@@ -172,6 +176,7 @@
     {% endif %}
   </p>
   <form method="post" action="/jd-bank/ui/review/{{ packet.canonical_id }}/edit">
+    {{ csrf_token_field(request) }}
     <label for="edit-reason">Reason for this edit</label>
     <textarea id="edit-reason" name="reason" required></textarea>
 

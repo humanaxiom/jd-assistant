@@ -13,6 +13,7 @@ server-side token row (revocable per-session + auditable), not a signed cookie.
 from __future__ import annotations
 
 import enum
+import secrets
 import uuid
 from datetime import datetime
 
@@ -21,6 +22,15 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.models.db import Base
+
+
+def new_csrf_token() -> str:
+    """A fresh per-session CSRF secret (P0.1b-i) — the column default for
+    :attr:`Session.csrf_token`. Same CSPRNG and width as the session id, and
+    **independently drawn**: deriving one from the other would put the ``httponly``
+    cookie value into every rendered page."""
+    return secrets.token_urlsafe(32)
+
 
 # ── Closed value sets (Postgres ENUM types; DB value = enum member name) ─────
 
@@ -97,6 +107,22 @@ class Session(Base):
 
     #: Opaque, unguessable token (``secrets.token_urlsafe``) — the cookie value.
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    #: The session's CSRF token (P0.1b-i): minted with the row, rendered into every
+    #: form on every page, and required back on every cookie-authenticated state
+    #: change (see :mod:`src.api.csrf`).
+    #:
+    #: **Deliberately NOT :attr:`id`.** The id is the ``httponly`` cookie value; this
+    #: goes into HTML, and from there into ``Referer`` headers and any log that records
+    #: a form body. Reusing one secret for both would hand the session id to every one
+    #: of those. There is no signing key in this service (sessions are opaque rows, not
+    #: signed cookies, and P0.2 deliberately declined to invent an app secret), so a
+    #: random per-session value in the row every request already reads is the cheapest
+    #: honest answer: one column, no new concept.
+    #:
+    #: The default lives on the COLUMN, not in the service that mints sessions, so no
+    #: code path can produce a session row without a token — a tokenless row would not
+    #: fail loudly, it would silently make that session's every form submission 403.
+    csrf_token: Mapped[str] = mapped_column(String(64), default=new_csrf_token)
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )

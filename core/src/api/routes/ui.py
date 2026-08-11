@@ -8,13 +8,14 @@ result. On a service error it re-renders the SAME detail page with the error and
 approve a blocked draft any more than the JSON route can — the service raises.
 
 **No new runtime dependency.** POST bodies are ``application/x-www-form-urlencoded``
-(the default HTML form enctype — no file uploads) and are parsed from the RAW body
-with the stdlib :func:`urllib.parse.parse_qsl`, never FastAPI's ``Form(...)`` params.
+(the default HTML form enctype — no file uploads) and are read through the ONE shared
+parser, :func:`src.api.routes._forms.read_form_pairs` — stdlib
+:func:`urllib.parse.parse_qsl` over the raw body, never FastAPI's ``Form(...)`` params.
 NB: on the installed Starlette (1.3.x) even ``await request.form()`` asserts
 ``python-multipart`` is present — its ``_get_form`` requires ``parse_options_header``
-regardless of content type — so ``request.form()`` is deliberately NOT used here;
-``parse_qsl`` on ``await request.body()`` keeps this handler dependency-free (see the
-module deviation note in the 4.4d task report).
+regardless of content type — so ``request.form()`` is deliberately NOT used here (see
+the module deviation note in the 4.4d task report). This module carried its own copy of
+that parser until P0.1b-i; the copies had already drifted.
 
 **Structured edit, not raw JSON.** The reviewer edit view is a per-field editor (a
 reviewer cannot be asked to hand-edit JSON). :func:`_content_from_form` reconstructs
@@ -34,7 +35,6 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Annotated, Any, get_args
-from urllib.parse import parse_qsl
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
@@ -45,6 +45,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.db.models import User
 from src.api.main import get_session
+from src.api.routes._forms import first_value, read_form_pairs
 from src.api.routes.auth import require_ui_user
 from src.jd_bank.review import (
     CanonicalNotFoundError,
@@ -97,25 +98,6 @@ _OVERRIDE_PREFIX = "override_reason__"
 # --- helpers ---------------------------------------------------------------------
 
 
-async def _read_form(request: Request) -> list[tuple[str, str]]:
-    """Parse the ``application/x-www-form-urlencoded`` POST body into ``(key, value)``
-    pairs from the RAW body — no ``request.form()`` (which asserts ``python-multipart``
-    on Starlette 1.3.x) and so no new runtime dependency. ``keep_blank_values`` so an
-    empty override textarea is still SEEN as blank (and then skipped), never silently
-    dropped before it can be recognized as an unfilled field."""
-    body = await request.body()
-    return parse_qsl(body.decode("utf-8"), keep_blank_values=True)
-
-
-def _first(pairs: list[tuple[str, str]], key: str, default: str = "") -> str:
-    """The first value for ``key`` in the form pairs (an HTML form's scalar field
-    appears once), or ``default`` if absent."""
-    for k, v in pairs:
-        if k == key:
-            return v
-    return default
-
-
 def _column(pairs: list[tuple[str, str]], key: str) -> list[str]:
     """Every value submitted for ``key``, in document order — the structured edit rows
     post parallel arrays (``duty_statement`` × N, ``qual_text`` × N, …) that stay
@@ -135,7 +117,7 @@ def _lines(value: str) -> list[str]:
 def _scalar_or_none(pairs: list[tuple[str, str]], key: str) -> str | None:
     """A trimmed scalar field, or ``None`` when blank — so clearing an optional field
     really clears it (not stored as an empty string the model would misrepresent)."""
-    return _first(pairs, key).strip() or None
+    return first_value(pairs, key).strip() or None
 
 
 def _duty_dicts(pairs: list[tuple[str, str]]) -> list[dict[str, Any]]:
@@ -190,8 +172,8 @@ def _relationships_dict(pairs: list[tuple[str, str]]) -> dict[str, Any] | None:
     """The Relationships section, or ``None`` when the whole section is empty (matching
     the model's ``relationships: None`` default)."""
     supervisory = _scalar_or_none(pairs, "supervisory")
-    internal = _lines(_first(pairs, "rel_internal"))
-    external = _lines(_first(pairs, "rel_external"))
+    internal = _lines(first_value(pairs, "rel_internal"))
+    external = _lines(first_value(pairs, "rel_external"))
     if not (supervisory or internal or external):
         return None
     return {"supervisory": supervisory, "internal": internal, "external": external}
@@ -202,7 +184,7 @@ def _classification_from_form(pairs: list[tuple[str, str]]) -> dict[str, Any] | 
     blank. The scheme is the ``employee_group`` scale (``"unknown"`` if unset); a
     reviewer setting a grade is the authority, so ``source="entered"``. Returned as a
     plain dict — ``service.edit`` re-validates it via ``SFUJobDescription`` (NN #3)."""
-    value = _first(pairs, "grade").strip()
+    value = first_value(pairs, "grade").strip()
     if not value:
         return None
     group = _scalar_or_none(pairs, "employee_group")
@@ -217,7 +199,7 @@ def _content_from_form(pairs: list[tuple[str, str]]) -> dict[str, Any]:
     an empty title, a bad enum, an over-long field, etc. raise there (caught by the
     handler), keeping the service the sole validator-as-oracle authority (NN #3)."""
     return {
-        "title": _first(pairs, "title").strip(),
+        "title": first_value(pairs, "title").strip(),
         "position_number": _scalar_or_none(pairs, "position_number"),
         "department": _scalar_or_none(pairs, "department"),
         # The legacy free-string ``grade`` is deprecated (parser noise); the Grade field
@@ -225,18 +207,20 @@ def _content_from_form(pairs: list[tuple[str, str]]) -> dict[str, Any]:
         "grade": None,
         "classification": _classification_from_form(pairs),
         "employee_group": _scalar_or_none(pairs, "employee_group"),
-        "about_sfu_present": _first(pairs, "about_sfu_present") == "on",
+        "about_sfu_present": first_value(pairs, "about_sfu_present") == "on",
         "position_summary": _scalar_or_none(pairs, "position_summary"),
         "duties": _duty_dicts(pairs),
-        "decision_making": _lines(_first(pairs, "decision_making")),
-        "problem_solving": _lines(_first(pairs, "problem_solving")),
+        "decision_making": _lines(first_value(pairs, "decision_making")),
+        "problem_solving": _lines(first_value(pairs, "problem_solving")),
         "relationships": _relationships_dict(pairs),
         "qualifications": _qual_dicts(pairs),
-        "territorial_acknowledgement_present": _first(
+        "territorial_acknowledgement_present": first_value(
             pairs, "territorial_acknowledgement_present"
         )
         == "on",
-        "employment_equity_present": _first(pairs, "employment_equity_present") == "on",
+        "employment_equity_present": (
+            first_value(pairs, "employment_equity_present") == "on"
+        ),
         "additional_context": _scalar_or_none(pairs, "additional_context"),
     }
 
@@ -472,7 +456,7 @@ async def approve_action(
     actor: Annotated[User, Depends(require_ui_user)],
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    pairs = await _read_form(request)
+    pairs = await read_form_pairs(request)
     # The reviewer is the AUTHENTICATED user (NN #1 attribution), not a form field.
     reviewer_id = actor.cas_username
     try:
@@ -493,9 +477,9 @@ async def reject_action(
     actor: Annotated[User, Depends(require_ui_user)],
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    pairs = await _read_form(request)
+    pairs = await read_form_pairs(request)
     reviewer_id = actor.cas_username
-    reason = _first(pairs, "reason")
+    reason = first_value(pairs, "reason")
     try:
         await service.reject(
             session, canonical_id, reviewer_id=reviewer_id, reason=reason
@@ -513,9 +497,9 @@ async def edit_action(
     actor: Annotated[User, Depends(require_ui_user)],
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    pairs = await _read_form(request)
+    pairs = await read_form_pairs(request)
     reviewer_id = actor.cas_username
-    reason = _first(pairs, "reason")
+    reason = first_value(pairs, "reason")
     # Reconstruct the FULL JD dict from the structured fields; the service re-validates
     # it via SFUJobDescription (validator-as-oracle, NN #3) and raises a ValidationError
     # for a bad edit (empty title, bad enum, over-long field) — caught below, nothing

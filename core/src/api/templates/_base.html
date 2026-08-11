@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% from "_csrf.html" import csrf_token_field %}<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -52,6 +52,7 @@
     <span style="margin-left:auto"></span>
     <span class="meta" style="align-self:center">{{ request.state.user.display_name }}</span>
     <form method="post" action="/jd-bank/ui/logout" style="display:inline">
+      {{ csrf_token_field(request) }}
       <button type="submit">Sign out</button>
     </form>
     {% endif %}

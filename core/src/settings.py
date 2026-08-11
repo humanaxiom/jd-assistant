@@ -254,7 +254,16 @@ class Settings(BaseSettings):
     session_ttl_hours: int = 8
     session_idle_refresh_hours: int = 1  # slide the TTL when <1h from expiry
     session_cookie_secure: bool = False  # True in prod (HTTPS only)
-    session_cookie_samesite: str = "lax"  # 'strict' in prod
+    # `lax` is the ruling (P0.1b-i), not a placeholder: EVERY mutation in this app is a
+    # POST, and `Lax` withholds the cookie from a cross-site POST. `strict` is PERMITTED
+    # for an operator who has verified the CAS return leg against their users' browsers,
+    # but it is deliberately not mandated — the cookie is set on the response to
+    # /cas/validate, which IS the cross-site-arriving request, and whether a freshly-set
+    # Strict cookie rides the immediately following same-origin redirect is
+    # browser-dependent. A check that bricks production login is worse than the gap.
+    # `none` is REFUSED in production (`_unsafe_for_production`); an unrecognised value
+    # is refused in EVERY mode (`_always_unsafe`) — see `_normalised_samesite`.
+    session_cookie_samesite: str = "lax"
 
     # The synthetic actor used when cas_enabled=False, and the role it holds. Lets a
     # dev/CI run exercise every role-gated surface without a login. Prod ignores both —
@@ -361,9 +370,31 @@ class Settings(BaseSettings):
             "so this message is safe to paste into a ticket."
         )
 
+    def _normalised_samesite(self) -> str:
+        """The ``SameSite`` value **as Starlette will honour it**.
+
+        ``set_cookie`` does ``assert samesite.lower() in ['strict', 'lax', 'none']``, so
+        ``None`` and ``NONE`` are the *same setting* as ``none``, not different ones. A
+        case-sensitive comparison against ``"none"`` would therefore be a check with a
+        one-keystroke bypass. Nothing else is normalised — Starlette does not strip, so
+        ``" none "`` is not a spelling of ``none``, it is an unrecognised value, and it
+        is refused as one.
+        """
+        return self.session_cookie_samesite.lower()
+
     def _always_unsafe(self) -> list[str]:
         """Conditions refused in every mode, production or not."""
         problems: list[str] = []
+        if self._normalised_samesite() not in ("strict", "lax", "none"):
+            problems.append(
+                "session_cookie_samesite is not one of strict / lax / none, and this "
+                "one does not fail at load - it fails at LOGIN. Starlette's set_cookie "
+                "asserts the value, and the only place the session cookie is set is "
+                "the CAS return leg, so the service would start cleanly, serve the "
+                "login page, and 500 the instant anyone signed in; under -O the "
+                "assert is compiled out and the browser silently discards the "
+                "attribute. Set SESSION_COOKIE_SAMESITE to lax (the default) or strict"
+            )
         if not self.cas_anonymous_user.strip():
             problems.append(
                 "cas_anonymous_user is blank or whitespace. It is the actor a "
@@ -404,6 +435,15 @@ class Settings(BaseSettings):
             problems.append(
                 "session_cookie_secure is false, so the session cookie would be sent "
                 "over plain http - set SESSION_COOKIE_SECURE=true"
+            )
+        if self._normalised_samesite() == "none":
+            problems.append(
+                "session_cookie_samesite is 'none' (in any spelling), which attaches "
+                "the session cookie to EVERY cross-site request - precisely the "
+                "request a CSRF attack makes. The one value that turns a defence into "
+                "an opt-out, and this app has no cross-site embed, no third-party "
+                "iframe and no separate front-end origin that could need it - set "
+                "SESSION_COOKIE_SAMESITE=lax (the default) or strict"
             )
         if self.cas_service_from_request:
             problems.append(

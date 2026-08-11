@@ -2,13 +2,79 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-08-07, later): EXTERNAL ARCHITECTURE REVIEW TRIAGED — it found a LIVE AUTH HOLE
+**NEWEST (2026-08-11): P0.1b-i — CSRF FOR COOKIE-AUTHENTICATED STATE CHANGES IS DONE (branch
+`fix/csrf-cookie-authenticated-state-changes`, NOT yet merged).** `make gates` **2,431 passing,
+93.6%**; `register-check` in step; `rules_version` **unmoved** (`jd_rules_sfu_v4+90af5e27dc83`)
+— transport security, not a rulebook metric, so **no register entry**.
+
+- **What was open.** Every UI mutation was a cookie-authenticated form POST with no CSRF
+  defence. P0.1a made the actor server-derived and P0.2 made the posture enforceable; neither
+  stops a cross-site page causing a signed-in reviewer's browser to POST an approve. Measured
+  before the fix: `POST /jd-bank/ui/review/{id}/approve` answered **303 — it reached the service
+  and published**.
+- **The rule, and why it is stated over the REQUEST and not the route:** *any state-changing
+  request authenticated by a session cookie must carry that session's token.* No per-route
+  allow-list, so nothing drifts, and a new `POST` is covered the day it is written.
+  Implementation: a random per-session token on the **session row** (Alembic `0006`; **not** the
+  session id — that is the `httponly` cookie value and this goes into HTML), checked by an
+  **app-wide FastAPI dependency** (`src/api/csrf.py`), rendered by one Jinja macro called at all
+  ten form sites. A dependency, **not `BaseHTTPMiddleware`** — middleware consumes the request
+  stream and must re-inject it; a dependency is handed the same `Request` and Starlette caches
+  the body.
+- **⚠️ THE FINDING WORTH CARRYING: mounting it app-wide was right for a reason nobody predicted.**
+  It was flagged in review as unrequested scope creep — a browser-surface mount would be tighter.
+  Then the security reviewer found **`POST /gates/run` takes `branch` as a query parameter and
+  declares no body at all**, so a plain `<form method=POST action=".../gates/run?branch=x">` with
+  an admin's cookie enqueued an arq job (measured pre-fix: `200`, `enqueue_job` awaited once). The
+  comfortable argument — *"a cross-site form cannot drive a JSON route, because a Pydantic body
+  rejects a form-encoded one"* — is TRUE for the eight Pydantic-bodied routes and **generalises
+  into a falsehood**. A scoped mount would have left it open. **When an argument for "out of
+  scope" rests on a property of *most* members of a set, enumerate the set.** The table now covers
+  all **18** state-changing routes, not 10.
+- **Three more holes closed on the way.** (a) An **unauthenticated `/logout` still sent
+  `Set-Cookie`** — `SameSite` governs which requests *carry* a cookie, not which responses may
+  *set* one, so a cross-site POST forced a logout **without ever holding the victim's cookie**;
+  it now emits no header at all when there is no live session to revoke. (b)
+  `session_cookie_samesite` refuses `none` **in every spelling** (Starlette lower-cases, so a
+  case-sensitive check would be a one-keystroke bypass) in production, and refuses an
+  **unrecognised** value at load in *every* mode — otherwise Starlette's `assert` means the
+  service starts clean, serves the login page and 500s the first sign-in (and under `python -O`
+  the assert compiles out and the browser silently discards the attribute). (c) **Clickjacking
+  fully defeats token CSRF** — a framed review page carries its own valid token and posts
+  same-origin — so `X-Frame-Options: DENY` + CSP `frame-ancestors 'none'` ship with the feature,
+  as raw ASGI middleware (never `BaseHTTPMiddleware` upstream of handlers that re-read a body).
+- **`X-CSRF-Token` is not a convenience, and the two reviewers split on it.** A JSON body cannot
+  carry a hidden form field, so for the eight Pydantic-bodied routes the header is the **only**
+  satisfying path — delete it and every cookie-authenticated JSON call is a permanent 403.
+  Kept, with all four of security's conditions: accepted-case test, wrong-value test, a test that
+  **no CORS middleware is installed** (the global invariant the header's safety rests on, which
+  nothing pinned), and **body-first precedence** so a stray header from a proxy or extension
+  cannot shadow a valid form field and brick every form.
+- **Parser consolidation done at the same time:** `src/api/routes/_forms.py::read_form_pairs` is
+  now the one reader of a form body (`ui.py`, `compose_ui.py`, `admin.py` ×2, plus the guard).
+  Three copies had already drifted — `admin.py` dropped `keep_blank_values`.
+- **🔧 `docker compose exec api pytest` IS NOT A VALID GATE ON THIS BOX.** The repo-root `.env`
+  sets `CAS_ENABLED=true`; the `api` service inherits it and **9 unit tests fail spuriously**.
+  The hermetic `gates` service pins the posture and is the runner of record — always `make gates`.
+- **Deploy note (migration `0006`):** no server default on `csrf_token`, so old-code+new-schema
+  breaks login and new-code+old-schema breaks every request. **Not rolling-safe; it needs an
+  atomic swap**, which is what `docker compose up` does. Stated in the migration docstring.
+- **Recorded, deliberately NOT fixed here** (see ROADMAP): **login CSRF** — `GET /cas/validate`
+  mutates (provisions a user, may grant ADMIN via `bootstrap_admins`, mints a session, commits),
+  and no token can exist before the session it belongs to, so it needs the CAS `state`/`next`
+  round trip reworked · the open redirect on `next` · `/ready` amplification · a production
+  compose profile · `GraphMemory` egress.
+
+---
+
+**PRIOR (2026-08-07, later): EXTERNAL ARCHITECTURE REVIEW TRIAGED — it found a LIVE AUTH HOLE
 THAT PUBLISHES JDs — and we are now EXECUTING the fixes.**
 Plan + iteration list: **`docs/tasks/architecture-review-response-2026-08-07.md` §6.**
 Every claim was re-verified against the code before being planned around; 9 of 11 confirmed,
 2 partly true, none false.
 
-- **✅➡️ WHERE WE ARE: BOTH P0 ITEMS ARE MERGED. NEXT IS P0.1b.**
+- **✅➡️ WHERE WE ARE: BOTH P0 ITEMS ARE MERGED, AND P0.1b-i (CSRF) IS DONE ON A BRANCH — see
+  the newest block above. What follows was written before it.**
   **P0.1a — PR [#82](https://github.com/humanaxiom/jd-assistant/pull/82), `4b4eed9`** (gated the
   JSON API, both identity-forgery paths closed, authorization matrix). **P0.2 — PR
   [#83](https://github.com/humanaxiom/jd-assistant/pull/83), `8d8df23`** (an unsafe production

@@ -10,14 +10,15 @@ Under ``/jd-bank/ui/admin``:
 The whole router is gated to ``admin`` (registered with ``require_ui_roles(Role.ADMIN)``
 in :mod:`src.api.main`). Two self-lockout guards mirror HRIS: an admin cannot strip its
 own admin role, nor disable itself — else a one-admin deployment could brick its own
-access. Dependency-free forms (stdlib ``parse_qsl``), like the rest of the UI.
+access. Dependency-free forms, read through the ONE shared parser
+(:func:`src.api.routes._forms.read_form_pairs`), like the rest of the UI — this module
+had its own copy and it had drifted, dropping ``keep_blank_values``.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Annotated
-from urllib.parse import parse_qsl
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
@@ -27,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.db.models import Role, User, UserStatus
 from src.api.main import get_session
+from src.api.routes._forms import first_value, read_form_pairs
 from src.api.routes.auth import require_ui_user
 from src.api.services import session_service, user_service
 
@@ -72,8 +74,11 @@ async def set_user_roles(
 ) -> Response:
     """Replace ``user_id``'s roles with the checked ones. An admin cannot remove their
     OWN admin role (self-lockout guard)."""
-    pairs = parse_qsl((await request.body()).decode("utf-8"))
-    roles = {Role(value) for key, value in pairs if key == "roles"}
+    pairs = await read_form_pairs(request)
+    # `if value` because the shared parser keeps blank values (this module's private
+    # copy silently dropped them): an empty `roles` field is an unchecked box, not the
+    # empty-string role, and `Role("")` would 500 rather than mean anything.
+    roles = {Role(value) for key, value in pairs if key == "roles" and value}
     if actor.id == user_id and Role.ADMIN not in roles:
         return await _render_users(
             request, db, error="You cannot remove your own admin role."
@@ -92,9 +97,17 @@ async def set_user_status(
 ) -> Response:
     """Activate or disable a user. Disabling revokes their live sessions. An admin
     cannot disable themselves (self-lockout guard)."""
-    values = dict(parse_qsl((await request.body()).decode("utf-8")))
+    pairs = await read_form_pairs(request)
+    # NB this is NOT a pure refactor, and the diff should not be read as one. The old
+    # `dict(parse_qsl(...)).get("status")` was LAST-wins and dropped blanks; this is
+    # FIRST-wins and keeps them. Nothing reachable from the UI submits `status` twice
+    # (the form emits one hidden field) and the router is admin-gated, so there is no
+    # behaviour change in practice — but a duplicated field would now resolve the other
+    # way, and first-wins is the safer of the two for a crafted body.
     status = (
-        UserStatus.DISABLED if values.get("status") == "disabled" else UserStatus.ACTIVE
+        UserStatus.DISABLED
+        if first_value(pairs, "status") == "disabled"
+        else UserStatus.ACTIVE
     )
     if actor.id == user_id and status is UserStatus.DISABLED:
         return await _render_users(

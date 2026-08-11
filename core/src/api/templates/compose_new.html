@@ -1,4 +1,5 @@
 {% extends "_base.html" %}
+{% from "_csrf.html" import csrf_token_field %}
 {% block title %}JD Bank — Builder{% endblock %}
 {% block header %}🧱 JD Bank — Builder{% endblock %}
 {% block content %}
@@ -206,6 +207,7 @@
     nothing is validated or published.
   </p>
   <form method="post" action="/jd-bank/ui/compose/export">
+    {{ csrf_token_field(request) }}
     <input type="hidden" name="answers_json" value="{{ answers_json }}">
     <button type="submit">Export .docx ↓</button>
   </form>
@@ -217,6 +219,7 @@
     approvable yet{% endif %}.
   </p>
   <form method="post" action="/jd-bank/ui/compose/submit">
+    {{ csrf_token_field(request) }}
     <input type="hidden" name="answers_json" value="{{ answers_json }}">
     <button type="submit">Submit for review →</button>
   </form>
@@ -225,6 +228,7 @@
 
 <div class="panel">
   <form method="post" action="/jd-bank/ui/compose/new">
+    {{ csrf_token_field(request) }}
     {# Provenance, not content: which harmonized role this draft was cloned from, so a
        Check does not forget it (the near-duplicate guard excludes that role, and the
        submit/export answers keep the lineage). Empty for a from-scratch draft. #}

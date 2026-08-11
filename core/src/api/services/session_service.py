@@ -27,7 +27,14 @@ async def create_session(
     user_agent: str | None = None,
     ip: str | None = None,
 ) -> Session:
-    """Mint a new session for ``user_id`` (opaque token, ``ttl_seconds`` lifetime)."""
+    """Mint a new session for ``user_id`` (opaque token, ``ttl_seconds`` lifetime).
+
+    The row also carries a **second, independent** secret — its CSRF token (P0.1b-i),
+    drawn per session by the column's own default (``Session.csrf_token``, so no code
+    path can create a tokenless row) and never derived from the id, which is the
+    ``httponly`` cookie value. A per-process or per-deployment constant would be no
+    protection at all: an attacker obtains one by signing in themselves.
+    """
     row = Session(
         id=secrets.token_urlsafe(32),
         user_id=user_id,

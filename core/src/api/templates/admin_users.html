@@ -1,4 +1,5 @@
 {% extends "_base.html" %}
+{% from "_csrf.html" import csrf_token_field %}
 {% block title %}JD Bank — Users{% endblock %}
 {% block header %}👤 JD Bank — User management{% endblock %}
 {% block content %}
@@ -30,6 +31,7 @@
         </td>
         <td>
           <form method="post" action="/jd-bank/ui/admin/users/{{ u.id }}/roles">
+            {{ csrf_token_field(request) }}
             {% for role in all_roles %}
             <label style="display:inline-block; margin-right:.6rem">
               <input type="checkbox" name="roles" value="{{ role.value }}"
@@ -43,6 +45,7 @@
         <td>
           <span class="badge {{ 'ok' if u.status.value == 'active' else 'blocked' }}">{{ u.status.value }}</span>
           <form method="post" action="/jd-bank/ui/admin/users/{{ u.id }}/status" style="display:inline">
+            {{ csrf_token_field(request) }}
             {% if u.status.value == 'active' %}
             <input type="hidden" name="status" value="disabled">
             <button type="submit">Disable</button>

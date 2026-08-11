@@ -55,10 +55,22 @@ async def resolve_user(request: Request, settings: Settings) -> User:
     returns the transient synthetic user with no DB access; real mode reads the session
     cookie -> session row -> user in its OWN short-lived DB session (a pure read),
     raising :class:`NotAuthenticated` if there is no live session. Stashes the user on
-    ``request.state.user`` so templates (the nav pill) can read it."""
+    ``request.state.user`` so templates (the nav pill) can read it — and, beside it, the
+    session's CSRF token, which is what the ``_csrf.html`` macro renders into every form
+    (P0.1b-i).
+
+    **The CSRF *check* does not read that stashed value** and must never start to: it
+    resolves the session itself (:func:`src.api.csrf.expected_csrf_token`), because a
+    guard that trusts ``request.state`` reads an empty state as "no session" and turns
+    a skip into a bypass whenever it happens to run first. This stash is for RENDERING
+    only, which is a different direction of trust.
+    """
     if not settings.cas_enabled:
         dev = transient_dev_user(settings)
         request.state.user = dev
+        # No session, therefore no token. The macro must render an empty value rather
+        # than raise — the CAS-off posture is the one `make gates` runs in.
+        request.state.csrf_token = ""
         return dev
 
     token = request.cookies.get(settings.session_cookie_name)
@@ -72,8 +84,11 @@ async def resolve_user(request: Request, settings: Settings) -> User:
         if user is None or user.status is not UserStatus.ACTIVE:
             raise NotAuthenticated("user inactive or deleted")
         _ = user.role_names  # force the selectin role load before the session closes
+        # Read before the row detaches; the templates need it on every rendered page.
+        csrf_token = session.csrf_token
         db.expunge(user)
     request.state.user = user
+    request.state.csrf_token = csrf_token
     return user
 
 
