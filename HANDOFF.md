@@ -2,10 +2,39 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-08-11): P0.1b-i — CSRF FOR COOKIE-AUTHENTICATED STATE CHANGES IS DONE (branch
-`fix/csrf-cookie-authenticated-state-changes`, NOT yet merged).** `make gates` **2,431 passing,
-93.6%**; `register-check` in step; `rules_version` **unmoved** (`jd_rules_sfu_v4+90af5e27dc83`)
-— transport security, not a rulebook metric, so **no register entry**.
+**NEWEST (2026-08-11, later): 🔴 NEW TOP PRIORITY — P0.0 NAVIGABILITY. Do this BEFORE P0.1b-ii.**
+Task: **`docs/tasks/P0.0-navigability.md`**.
+
+- **Found live, minutes before an HR demo: `http://localhost:25800` answers
+  `{"detail":"Not Found"}`.** So does `/jd-bank/ui`. The shallowest working path is
+  `/jd-bank/ui/library`, so anyone who types or bookmarks the bare host lands on a raw JSON
+  error.
+- **It is not a missing redirect — it is three gaps meeting at the front door.** (1) No landing
+  route. (2) **Errors are written for machines, not people**: every UI 404/403/500 is a JSON blob
+  in the browser, *including the stale-tab CSRF 403* that now fires after P0.1b-i. (3) **Nothing
+  anywhere tests that a rendered link resolves** — every `href` in every template is unverified,
+  so a Jinja-built path with one wrong segment ships silently.
+- **Fix the class, not the instances:** a landing route, HTML error pages in the app's own chrome
+  (with copy for the stale-tab case that says *reload and try again*, not "Forbidden"), and a
+  **crawl test that extracts every `href`/`form action` from every rendered page and fails when
+  one 404s**. Build it the way the other nets in this repo had to be rebuilt — **enumerate from
+  the live artifact**, as the authorization matrix walks the real routing table and the
+  compose-delivery pin derives its set from a real refusal message — and **prove it fails** before
+  trusting it.
+- **Why P0:** the pilot is a person clicking around unsupervised. A reviewer who hits a JSON blob
+  does not file a bug, they lose confidence. And it is cheap.
+- **Cost, stated honestly:** any new route needs an entry in `test_authorization_matrix.py` (its
+  completeness assertion fails otherwise, by design) and in the CSRF table if it changes state.
+  A full crawl inventory — every entry point and rendered link, authenticated and not — is being
+  attached to the task doc.
+
+---
+
+**PRIOR (2026-08-11): P0.1b-i — CSRF FOR COOKIE-AUTHENTICATED STATE CHANGES — MERGED**
+(PR [#85](https://github.com/humanaxiom/jd-assistant/pull/85), `591a3f3`, CI green).
+`make gates` **2,433 passing, 93.63%**; `register-check` in step; `rules_version` **unmoved**
+(`jd_rules_sfu_v4+90af5e27dc83`) — transport security, not a rulebook metric, so **no register
+entry**.
 
 - **What was open.** Every UI mutation was a cookie-authenticated form POST with no CSRF
   defence. P0.1a made the actor server-derived and P0.2 made the posture enforceable; neither
