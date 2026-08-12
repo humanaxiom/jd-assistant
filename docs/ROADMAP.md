@@ -7,11 +7,14 @@ PeopleAdmin/Unified Talent, JDXpert, Interfolio). Every item respects the six ha
 invariants; conflicts are called out explicitly.
 
 > **▶ Order of work as of 2026-08-12** (full state: `HANDOFF.md` §START HERE):
-> **P0.0 navigability** → **P0.3 deployment origins** → **P0.1b-ii** → **P1.3 tier the register**
+> ~~P0.0 navigability~~ ✅ **DONE (PR [#87](https://github.com/humanaxiom/jd-assistant/pull/87))**
+> → **P0.3 deployment origins** → **P0.1b-ii** → **P1.3 tier the register**
 > (worth promoting) → **P1.2 harmonization provenance**. PR
 > [#86](https://github.com/humanaxiom/jd-assistant/pull/86) carries the docs behind all of this
-> and should merge first. ⚠️ The running stack's CAS origin points at `sfuai.ca:7000`, so
-> **localhost sign-in is broken until you change it back** — that is P0.3's live symptom.
+> and merges first (#87 is stacked on it). ⚠️ The running stack's CAS origin points at
+> `sfuai.ca:7000`, so **localhost sign-in is broken until you change it back** — that is
+> P0.3's live symptom, and P0.3 now also owns the `--proxy-headers` decision P0.0 declined
+> to make for it.
 >
 > **The governing reality:** the engineering pipeline is essentially built and has run over
 > the real 14,565-file corpus end-to-end. What stands between it and daily HR use is
@@ -42,7 +45,7 @@ list omits the auth deferrals — captured here.)
 
 | Area | Item | Status | Effort |
 |---|---|---|---|
-| UX | 🔴 **P0.0 — NAVIGABILITY: no dead ends anywhere. NEXT UP — do this before P0.1b.** Found live during an HR demo: `http://localhost:25800` answers `{"detail":"Not Found"}`, and so does `/jd-bank/ui`. A 51-route crawl found **8 defect classes** and something worse than the front door: **`author` is the default new-user role**, and for an author the nav shows a **Review queue** link that answers `403` raw JSON, while **Submit commits the draft, redirects to a reviewer-only page and strands them on a JSON blob** with no sign the work saved — that is the *first-run experience*. The organising defect: the authorization matrix distinguishes JSON from UI surfaces **for the status code**, and nothing does so **for the body**. Ship together — root redirect (`/`, `/jd-bank`, `/jd-bank/ui` → library), **HTML error pages** (404/403/401/405/500), **role-aware nav**, author-visible "my drafts" landing after submit, empty-state links, and a **crawl test enumerated from rendered HTML** that fails when any `href`/`action` 404s. Good news: **zero broken template links today** — the crawl proved it. Inventory + registration costs: `docs/tasks/P0.0-navigability.md` | **open — next** | S/M |
+| UX | ✅ **P0.0 — NAVIGABILITY: DONE (PR [#87](https://github.com/humanaxiom/jd-assistant/pull/87), 2026-08-12).** All eight classes closed; `--proxy-headers` and the `next=` open redirect explicitly deferred (to P0.3 and P0.1b-ii) with reasons in the task doc. The durable artifact is a **template link crawl** resolved against the live routing table, shown to fail by mutating a real template — plus the rule that **no page an author reaches may link to a route the authorization matrix says they cannot**. *What follows is the defect as found.* Found live during an HR demo: `http://localhost:25800` answers `{"detail":"Not Found"}`, and so does `/jd-bank/ui`. A 51-route crawl found **8 defect classes** and something worse than the front door: **`author` is the default new-user role**, and for an author the nav shows a **Review queue** link that answers `403` raw JSON, while **Submit commits the draft, redirects to a reviewer-only page and strands them on a JSON blob** with no sign the work saved — that is the *first-run experience*. The organising defect: the authorization matrix distinguishes JSON from UI surfaces **for the status code**, and nothing does so **for the body**. Ship together — root redirect (`/`, `/jd-bank`, `/jd-bank/ui` → library), **HTML error pages** (404/403/401/405/500), **role-aware nav**, author-visible "my drafts" landing after submit, empty-state links, and a **crawl test enumerated from rendered HTML** that fails when any `href`/`action` 404s. Good news: **zero broken template links today** — the crawl proved it. Inventory + registration costs: `docs/tasks/P0.0-navigability.md` | ✅ **done** | S/M |
 | Content | ~~Browsable content library — 🏦 JD Bank: roles → sources, source-JD reader, flat archive, click-to-sort; clone the harmonized role~~ **DONE (2026-08-01/02)** — HR can read the actual JD content | done | M |
 | Grade | ~~Grade capture — structured `classification{scheme,value,source}` + group-aware parser + 2,323 CUPE backfill + Builder/review entry + HRIS-import scaffold + surfacing~~ **DONE (2026-08-02, Phase A + steps 1–5)**. **Blocked on HR:** per-group grade scales (`grade-scales-hr-ask.md`) + HRIS export/FIPPA | done / HR-blocked | M |
 | Pipeline | ~~**Parser paragraph-title fix**~~ **DONE (2026-08-02, parser `v3`)** — the identification table lives in the docx *header*, which extraction skipped. Titles **34.3% → 1.0%** paragraph-shaped; `position_number` 35% → **68%**, `employee_group` 36% → **68%**, and the first **APSA/APEX grades** the Bank has ever parsed. Baseline cohort unchanged. **Follow-up: propagate to the harmonized roles** (needs the embed → cluster → canonical re-run) | done | M |

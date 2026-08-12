@@ -2,17 +2,42 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-12) — the state of the world in one screen
+## ▶ START HERE (2026-08-12, later) — the state of the world in one screen
 
 **Everything is committed and pushed. Nothing is stranded.**
 
 | | |
 |---|---|
 | `main` | `591a3f3` — three security PRs merged (#82 JSON-API auth · #83 fail-closed posture · #85 CSRF) |
-| **Open PR** | **[#86](https://github.com/humanaxiom/jd-assistant/pull/86)** — `chore/hr-docs-and-backlog`, 12 commits, **docs + one renderer change, no behaviour change.** Merge it first; everything below assumes it. |
-| Gates | **2,436 passing, 93.63%**; `register-check` + `guide-check` green; `rules_version` `jd_rules_sfu_v4+90af5e27dc83` **unmoved all session** |
+| **Open PR 1** | **[#86](https://github.com/humanaxiom/jd-assistant/pull/86)** — `chore/hr-docs-and-backlog`, 12 commits, **docs only.** CI green, mergeable. **Merge it first.** |
+| **Open PR 2** | **[#87](https://github.com/humanaxiom/jd-assistant/pull/87)** — `feat/p0.0-navigability`, **P0.0 DONE**. Stacked on #86 (its base retargets to `main` automatically when #86 merges). |
+| Gates | **2,507 passing, 93.71%** (was 2,436 / 93.63%); `register-check` + `guide-check` green; `rules_version` `jd_rules_sfu_v4+90af5e27dc83` **still unmoved** |
 | Register | **197** decisions, **0 ratified** |
 | Live data | 14,565 files · 14,522 parsed (v3) · 1,802 roles · **4 published** · `review_actions` 6 |
+
+### ✅ P0.0 NAVIGABILITY IS DONE — and the sting was not the front door
+
+`http://localhost:25800` reaching the app is the *small* half. The half that mattered:
+**`author` is `default_new_user_role`, and the first-run experience was — write a JD,
+press Submit, get a raw `403` JSON blob with no sign the work had saved**, while the nav
+offered that same user a Review queue link answering the same blob. Shipped as one change
+(you cannot fix a redirect that lands on a dead end by moving the dead end): the front
+door · **HTML error pages negotiated on `Accept`, never on a path prefix** · a role-aware
+nav · **📝 My drafts** · empty states with escapes · `/favicon.ico` + `/robots.txt`.
+
+**Three things from it worth carrying:**
+
+1. **The durable artifact is the crawl** (`tests/unit/test_template_links.py`): every
+   `href`/`form action` in every template, method-aware, resolved by asking the app's own
+   route objects the same `matches(scope)` question the router asks. Both ends enumerate
+   from the live artifact — templates globbed, routes walked. **And it was shown to fail**
+   — two tests mutate a *real* template and assert the crawl reports it. Six proofs total.
+2. **The rule that outlives the fix:** *no page an author reaches may link to a route the
+   **authorization matrix** says they cannot reach* — asserted against the matrix itself,
+   so it covers pages nobody thought about. That is what would have caught this on day one.
+3. **The scheme-blind `307` was fixed by NOT buying it with `--proxy-headers`.**
+   `redirect_slashes` is off; the rescue is a **relative** `Location`, which cannot name a
+   scheme. Trusting a forwarded header is P0.2's refusal and **P0.3's** decision to make.
 
 ### ⚠️ Two things about the RUNNING system you must know before touching it
 
@@ -31,11 +56,11 @@ Read this first every session. Single source of truth for current state + how we
 
 | | Task | Why it is here |
 |---|---|---|
-| 1 | **P0.0 — Navigability** (`docs/tasks/P0.0-navigability.md`) | `localhost:25800` returns raw JSON. A 51-route crawl found **8 defect classes**; the inventory is in the task. **Absorbs the old P1.1.** |
-| 2 | **P0.3 — Deployment origins** (`docs/tasks/P0.3-deployment-origins.md`) | CAS origin allowlist + the unanswered exposure question. Item 1 above is the live symptom. |
-| 3 | **P0.1b-ii** (`architecture-review-response-2026-08-07.md` §6) | login CSRF · open redirect on `next` · `/ready` amplification · production compose profile · `GraphMemory` egress |
-| 4 | **P1.3 — Tier the register** | **Consider promoting.** Two HR complaints this session traced to one cause: the register does two incompatible jobs. Tiering turns "197 decisions" into ~60 real policy calls — the difference between an ask HR can act on and one they bounce. |
-| 5 | **P1.2 — Harmonization provenance** | A reviewer sees a raised education bar with no sign that most sources said lower. |
+| ~~1~~ | ~~**P0.0 — Navigability**~~ | ✅ **DONE** — PR #87. All 8 defect classes closed; deferrals stated in the task doc. **Absorbed the old P1.1.** |
+| 1 | **P0.3 — Deployment origins** (`docs/tasks/P0.3-deployment-origins.md`) | CAS origin allowlist + the unanswered exposure question. **It now also owns `--proxy-headers`**, which P0.0 deliberately did not turn on: it is a decision about trusting a forwarded header, and P0.0 fixed its own redirect without one. Localhost sign-in is still broken (see above) — that is this task's live symptom. |
+| 2 | **P0.1b-ii** (`architecture-review-response-2026-08-07.md` §6) | login CSRF · **open redirect on `next`** (P0.0's crawl declares that link as one whose target it cannot read — the validation is still owed) · `/ready` amplification · production compose profile · `GraphMemory` egress |
+| 3 | **P1.3 — Tier the register** | **Consider promoting.** Two HR complaints traced to one cause: the register does two incompatible jobs. Tiering turns "197 decisions" into ~60 real policy calls — the difference between an ask HR can act on and one they bounce. |
+| 4 | **P1.2 — Harmonization provenance** | A reviewer sees a raised education bar with no sign that most sources said lower. |
 
 ### How this session worked, and what it kept catching
 
@@ -50,6 +75,12 @@ pass — nine conditions, no bypass, 2,218 tests green — and it was a **comple
 `ENVIRONMENT` reached zero of fourteen containers. Both reviewers found it by *trying to deploy*.
 **When you build a control, prove it is reachable from the documented path, not merely that its
 logic is right.**
+
+**P0.0 added a fourth, and it is about the OTHER direction:** every one of those nets asked
+*"is this refused?"*. The navigability crawl asks **"is this offered?"** — and the defect it
+found lived exactly in the gap between them. The authorization matrix was right on all 51
+routes while an author's very first click was a link to a `403`. **A correct gate on a link
+nobody should have been shown is still a defect, and no gate test can see it.**
 
 ---
 
