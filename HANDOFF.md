@@ -41,7 +41,32 @@ Task: **`docs/tasks/P0.0-navigability.md`**.
   fixing the nav that offered the link just moves the dead end. Ship together: root redirect · HTML
   error pages (404/403/401/405/500) · role-aware nav · author "my drafts" landing · empty-state
   links · the crawl test.
-- **Order:** ~~P0.1a~~ ✅ → ~~P0.2~~ ✅ → ~~P0.1b-i~~ ✅ → **P0.0 ⟵ NEXT** → P0.1b-ii → P1.2 → P1.3.
+- **Order:** ~~P0.1a~~ ✅ → ~~P0.2~~ ✅ → ~~P0.1b-i~~ ✅ → **P0.0 ⟵ NEXT** → **P0.3** → P0.1b-ii →
+  P1.2 → P1.3.
+
+- **🟠 NEW — P0.3 DEPLOYMENT ORIGINS (`docs/tasks/P0.3-deployment-origins.md`).** The system was
+  reached from outside the dev box for the first time (`sfuai.ca:7000` → `25800`) and **sign-in
+  broke**: CAS authenticated, issued a ticket, then returned the browser to
+  **`http://localhost:25800/...`**, because the CAS return origin is a **single static setting**.
+  Repointing `CAS_SERVICE_BASE_URL` fixed it live — **a workaround, not a design.** One value
+  cannot serve localhost, the forward and a future hostname; while it points at the forward,
+  **localhost sign-in does not work.** The existing alternative (`cas_service_from_request`, taken
+  from `X-Forwarded-Host`) is the **header-injection vector P0.2 deliberately refuses in
+  production**, so today's options are *rigid* or *exploitable*. Build the third: derive the
+  origin, **validate it against an allowlist** (shape it like `allowed_inference_hosts`), force
+  https in production, and fall back to the static value — **never** to the header. Note P0.2's
+  refusal of that flag must be updated in the same change or it will refuse the new mechanism too.
+  *Useful fact: SFU CAS accepted `http://localhost:25800` as a service and issued a ticket, so CAS
+  is **not** validating service URLs for us.*
+- **⚠️ P0.3 PART 2 — AN UNANSWERED QUESTION, AND IT IS THE BIGGER ONE.** The app is now reachable
+  at a **public DNS name over plain http** while running `environment=development` — so **P0.2's
+  fail-closed guard is inactive**, session cookies and CAS tickets cross the network in the clear,
+  DB/Neo4j creds are the committed `app`/`harnesspass`, and the data stores publish on `0.0.0.0`
+  (**25432 / 25474 / 25687 / 25379**). **If port 7000 reaches this host from outside, check whether
+  those do too — that is a larger exposure than the CAS redirect that surfaced it.** Ask whether
+  the forward is internet-facing or campus/VPN-only; bind the data ports to loopback either way.
+  If internet-facing, the missing **production compose profile** (P0.1b-ii) stops being optional —
+  `api` still runs `--reload`, so a refuse-to-boot would present as "Up but serving nothing".
 
 ---
 
