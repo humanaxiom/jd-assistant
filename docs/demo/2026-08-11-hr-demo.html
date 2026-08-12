@@ -108,12 +108,19 @@
   <h2>Before you open the laptop</h2>
   <p class="sec-note">Checked ten minutes ago against the running system.</p>
   <dl class="status">
-    <div><dt>Address</dt><dd><code>localhost:25800</code></dd></div>
-    <div><dt>Sign-in</dt><dd class="live">Working</dd></div>
+    <div><dt>Address</dt><dd><code>localhost:25800/jd-bank/ui/library</code></dd></div>
+    <div><dt>Sign-in</dt><dd class="live">SFU CAS &middot; working</dd></div>
     <div><dt>Postgres / Neo4j / Redis</dt><dd class="live">All healthy</dd></div>
-    <div><dt>Signed in as</dt><dd>asalah &middot; admin</dd></div>
+    <div><dt>CSRF protection</dt><dd class="live">Live (migration applied)</dd></div>
   </dl>
-  <p class="sec-note" style="margin-top:1rem">Sign-in is set to a local account for the demo, so nothing depends on reaching SFU's single sign-on from this laptop. Real SSO is one setting away, but it has never been tested against <code>cas.sfu.ca</code> from a <code>localhost</code> address — don't try it live.</p>
+  <div class="panel" style="margin-top:1rem">
+    <h3>Type the full address — bookmark it now</h3>
+    <ul>
+      <li>Bare <code>localhost:25800</code> returns <code>{"detail":"Not Found"}</code>. So does <code>/jd-bank/ui</code>. There is no route at either.</li>
+      <li>The entry point is <code>localhost:25800/jd-bank/ui/library</code>.</li>
+      <li>First visit redirects to <code>cas.sfu.ca</code> — sign in with your SFU credentials and it returns you to the library.</li>
+    </ul>
+  </div>
 </section>
 
 <section>
@@ -277,7 +284,7 @@
   <div class="panel">
     <h3>Recovery, in order of likelihood</h3>
     <ul>
-      <li><strong>A page asks you to sign in.</strong> Go to <code>localhost:25800/jd-bank/ui/cas/login</code> — it signs straight in, no password.</li>
+      <li><strong>A page asks you to sign in.</strong> That is CAS doing its job — sign in with your SFU credentials.</li>
       <li><strong>A form says "Forbidden".</strong> The tab has been open too long. Reload the page and redo the action.</li>
       <li><strong>A role's title looks like a paragraph.</strong> Known: about 4% of titles are still a sentence lifted from the document. Move on — don't open the published role titled <em>"In collaboration with the Communications Officer"</em>.</li>
       <li><strong>The Builder's duplicate panel doesn't appear.</strong> It needs a few sentences of content first, and it needs the inference host reachable. Skip it rather than waiting.</li>
