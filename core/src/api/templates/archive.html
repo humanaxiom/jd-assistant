@@ -53,6 +53,12 @@
     {% if page.q %}No files match “{{ page.q }}”.{% else %}No source documents ingested yet.{% endif %}
   </p>
   {% endif %}
+  {# Outside the "has items" branch — see the note in library.html. #}
+  <p class="meta">
+    {% if page.q %}<a href="/jd-bank/ui/archive">← Show all files</a> · {% endif %}
+    {% if not page.items and page.offset %}<a href="/jd-bank/ui/archive?q={{ page.q | urlencode }}&amp;limit={{ page.limit }}">← Back to the first page</a> · {% endif %}
+    <a href="/jd-bank/ui/library">🏦 Back to the harmonized roles</a>
+  </p>
 </div>
 
 {% endblock %}

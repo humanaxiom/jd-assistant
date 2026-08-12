@@ -68,6 +68,16 @@
     {% if page.q %}No roles match “{{ page.q }}”.{% else %}No roles yet — none have been produced.{% endif %}
   </p>
   {% endif %}
+  {# OUTSIDE the "has items" branch, deliberately (P0.0): pagination and every escape
+     link used to live inside it, so a search with no hits — or a page past the last one
+     — rendered a sentence and nothing to click. A page that strands the reader is the
+     same dead end as a 404, wearing a 200. #}
+  <p class="meta">
+    {% if page.q %}<a href="/jd-bank/ui/library">← Show all roles</a> · {% endif %}
+    {% if not page.items and page.offset %}<a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;limit={{ page.limit }}">← Back to the first page</a> · {% endif %}
+    <a href="/jd-bank/ui/compose/new">🧱 Write a new job description</a> ·
+    <a href="/jd-bank/ui/archive">🗂 Browse the source archive</a>
+  </p>
 </div>
 
 {% endblock %}

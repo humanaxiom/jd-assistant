@@ -95,6 +95,16 @@ EXPECTED_ACCESS: dict[tuple[str, str], Rule] = {
     ("GET", "/docs"): Rule(Access.PUBLIC, Surface.JSON, "Swagger UI, no data"),
     ("GET", "/docs/oauth2-redirect"): Rule(Access.PUBLIC, Surface.JSON, "docs helper"),
     ("GET", "/redoc"): Rule(Access.PUBLIC, Surface.JSON, "ReDoc UI, no data"),
+    # ── The front door (src/api/routes/front_door.py) — P0.0 ─────────────────────
+    # Public for the same reason the login page is: these must answer BEFORE anyone can
+    # sign in, because they are how a visitor reaches the login page at all. Each one
+    # discloses nothing — a `Location` header naming a route that carries its own gate,
+    # or a static byte string with no data in it.
+    ("GET", "/"): Rule(Access.PUBLIC, Surface.UI, "the bare host -> the library"),
+    ("GET", "/jd-bank"): Rule(Access.PUBLIC, Surface.UI, "prefix -> the library"),
+    ("GET", "/jd-bank/ui"): Rule(Access.PUBLIC, Surface.UI, "prefix -> the library"),
+    ("GET", "/favicon.ico"): Rule(Access.PUBLIC, Surface.JSON, "an icon, no data"),
+    ("GET", "/robots.txt"): Rule(Access.PUBLIC, Surface.JSON, "refuses indexing"),
     # ── Legacy harness API (src/api/main.py) ─────────────────────────────────────
     # /health is a liveness probe: it must answer before anyone can sign in.
     ("GET", "/health"): Rule(Access.PUBLIC, Surface.JSON, "liveness probe, no data"),
@@ -182,6 +192,13 @@ EXPECTED_ACCESS: dict[tuple[str, str], Rule] = {
         Access.ANY_AUTHENTICATED, Surface.UI
     ),
     ("GET", "/jd-bank/ui/archive"): Rule(Access.ANY_AUTHENTICATED, Surface.UI),
+    # ── My drafts (src/api/routes/drafts.py) — P0.0 ──────────────────────────────
+    # Any signed-in user, because it is where the Builder lands whoever just submitted,
+    # and `author` is the default new-user role. It shows each reader only their OWN
+    # drafts: the filter is the authenticated username, never a request parameter.
+    ("GET", "/jd-bank/ui/my-drafts"): Rule(
+        Access.ANY_AUTHENTICATED, Surface.UI, "the author's own submitted drafts"
+    ),
     # ── Dashboards + guide — any signed-in user ──────────────────────────────────
     ("GET", "/jd-bank/ui/dashboard"): Rule(Access.ANY_AUTHENTICATED, Surface.UI),
     ("GET", "/jd-bank/ui/dashboard/baseline"): Rule(

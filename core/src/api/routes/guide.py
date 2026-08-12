@@ -12,26 +12,41 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse
 
+from src.api.errors import error_page
 from src.settings import Settings, get_settings
 
 router: APIRouter = APIRouter(prefix="/jd-bank/ui")
 
 
 @router.get("/guide", response_class=HTMLResponse)
-def operator_guide(
+async def operator_guide(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> HTMLResponse:
-    """The rendered operator & user guide (a self-contained page). A plain ``def`` route
-    so the (blocking) file read runs in the threadpool, not the event loop."""
+    """The rendered operator & user guide (a self-contained page).
+
+    The not-yet-rendered case used to answer a bare ``<h1>`` fragment with no
+    ``<html>``, no nav and no way back — a dead end for the reader and a broken
+    document for the browser. It now uses the app's own error page like every other
+    miss (P0.0). The (blocking) file read is pushed to the threadpool explicitly,
+    which is what the route got for free while it was a plain ``def``.
+    """
     try:
-        html = Path(settings.operator_guide_path).read_text(encoding="utf-8")
+        html = await run_in_threadpool(
+            Path(settings.operator_guide_path).read_text, encoding="utf-8"
+        )
     except OSError:
-        return HTMLResponse(
-            "<h1>Guide not available</h1><p>Run <code>make guide</code> to render "
-            "<code>docs/operator-guide.html</code>.</p>",
-            status_code=404,
+        return await error_page(
+            request,
+            404,
+            headline="The guide has not been rendered yet",
+            message=(
+                "The operator guide is built from its Markdown source by "
+                "`make guide`, and this deployment has not run it (or docs/ is not "
+                "mounted into the container)."
+            ),
         )
     return HTMLResponse(html)

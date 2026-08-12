@@ -28,6 +28,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.deps import may_review
 from src.api.main import get_session
 from src.jd_bank.library import (
     get_role,
@@ -97,7 +98,14 @@ async def role_view(
             {"what": "role", "id": cluster_id},
             status_code=404,
         )
-    return templates.TemplateResponse(request, "role_detail.html", {"role": role})
+    # Whether to OFFER the review-queue link. The role page rendered it to everyone, and
+    # an `author` (the default new-user role) following it got a raw 403 — the same
+    # defect as the nav's Review queue link, one page further in (P0.0).
+    return templates.TemplateResponse(
+        request,
+        "role_detail.html",
+        {"role": role, "may_review": may_review(request)},
+    )
 
 
 @router.get("/jd/{source_document_id}", response_class=HTMLResponse)

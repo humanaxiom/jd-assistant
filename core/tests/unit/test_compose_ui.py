@@ -378,9 +378,17 @@ def test_check_offers_a_submit_form_carrying_the_answers() -> None:
     assert 'name="answers_json"' in html
 
 
-def test_submit_persists_and_redirects_to_review(
+def test_submit_persists_and_lands_the_author_on_their_own_drafts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """The destination is the fix, not a preference (P0.0).
+
+    This used to redirect to ``/jd-bank/ui/review/{id}`` — reviewer-or-admin only —
+    while ``default_new_user_role`` is ``author``. So the ordinary case was: the draft
+    commits, and the person who wrote it is bounced onto a raw 403 with no sign that
+    their work saved. ``/my-drafts`` is reachable by whoever just submitted, by
+    construction, and carries the new id so the page can confirm it.
+    """
     session = _FakeSession()
     canonical_id = uuid.uuid4()
     persisted = type("C", (), {"id": canonical_id})()
@@ -393,7 +401,7 @@ def test_submit_persists_and_redirects_to_review(
         follow_redirects=False,
     )
     assert resp.status_code == 303
-    assert resp.headers["location"] == f"/jd-bank/ui/review/{canonical_id}"
+    assert resp.headers["location"] == f"/jd-bank/ui/my-drafts?submitted={canonical_id}"
     submit_mock.assert_awaited_once()
     session.commit.assert_awaited_once()
 
