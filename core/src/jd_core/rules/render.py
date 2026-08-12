@@ -71,11 +71,33 @@ _PROVENANCE_BLURB: Final[dict[DecisionProvenance, str]] = {
     ),
 }
 
+#: The label shown in the SUMMARY TABLE. It must be self-explaining: an HR reader
+#: asked "prior calibration — what is this??", and they were right to. A term of
+#: art in a column, with its definition in a section heading hundreds of lines
+#: below, is not a label — it is a lookup the reader will not perform.
 _PROVENANCE_LABEL: Final[dict[DecisionProvenance, str]] = {
     "our_invention": "our invention",
-    "prior_calibration": "prior calibration",
+    "prior_calibration": "inherited (not SFU's)",
     "sfu_rulebook": "SFU rulebook",
 }
+
+#: Printed immediately above the summary table, so the fourth column can be read
+#: without leaving it.
+_PROVENANCE_LEGEND: Final[tuple[str, ...]] = (
+    "**Reading the last column** — where a default came from is the whole point of "
+    "this register, so it is spelled out here rather than left as a term of art:",
+    "",
+    "| Label | What it means |",
+    "|---|---|",
+    "| **SFU rulebook** | Transcribed from SFU's own published standard. *How* we act "
+    "on it may still be ours — each entry says which part. |",
+    "| **inherited (not SFU's)** | Carried over from an earlier internal "
+    "implementation's calibration. SFU publishes no scoring model at all, so these "
+    "were an earlier engineering judgement — **not SFU policy, and nobody has "
+    "ratified them.** |",
+    "| **our invention** | We made it up because the system needed *a* value. There "
+    "is no SFU precedent behind it. |",
+)
 
 #: Status sections, in the order they are rendered: what is still open first.
 _STATUS_ORDER: Final[tuple[DecisionStatus, ...]] = ("open", "ratified", "deferred")
@@ -151,6 +173,19 @@ def _decision_block(decision: HRDecision) -> list[str]:
     return lines
 
 
+def _is_pattern_valued(decision: HRDecision) -> bool:
+    """Is this decision's value a regular expression?
+
+    Detected from the config path rather than by sniffing the string, so a value
+    that merely *looks* regex-ish is never mangled and a real pattern is never
+    missed. Every pattern in the rulebook lives either at a ``*_pattern`` key or
+    in ``patterns.yaml``.
+    """
+    return decision.config.path.endswith("_pattern") or (
+        decision.config.file == "patterns.yaml"
+    )
+
+
 def _summary_table(decisions: tuple[HRDecision, ...]) -> list[str]:
     lines = [
         "| ID | Decision | Default | Where the default came from |",
@@ -158,10 +193,17 @@ def _summary_table(decisions: tuple[HRDecision, ...]) -> list[str]:
     ]
     for d in decisions:
         question = " ".join(d.question.split())
+        # A regex in a table cell tells this document's stated audience nothing —
+        # it is not a decision they can weigh. The full pattern is in the detail
+        # block below, next to the `why_it_matters` that explains what it does.
+        value = (
+            "*a text pattern — see below*"
+            if _is_pattern_valued(d)
+            else _format_value(d.current_default, compact=True)
+        )
         lines.append(
             f"| [{d.id}](#{d.id.lower()}) | {question} | "
-            f"{_format_value(d.current_default, compact=True)} | "
-            f"{_PROVENANCE_LABEL[d.provenance]} |"
+            f"{value} | {_PROVENANCE_LABEL[d.provenance]} |"
         )
     lines.append("")
     return lines
@@ -208,6 +250,8 @@ def render_register(rules: Rules) -> str:
         " fails.",
         "",
     ]
+
+    out += [*_PROVENANCE_LEGEND, ""]
 
     for status in _STATUS_ORDER:
         in_status = register.by_status(status)

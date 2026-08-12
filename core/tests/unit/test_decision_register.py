@@ -1757,3 +1757,66 @@ def test_main_rejects_an_unknown_argument(
 ) -> None:
     assert main(["--wat"]) == 2
     assert "usage" in capsys.readouterr().err
+
+
+# --- readability: the register is read by HR, not only by engineers ------------------
+#
+# Two complaints from an HR reader, both about the SUMMARY TABLE (the part anyone
+# actually reads; the detail blocks below it are for us):
+#
+#   1. "prior calibration" appeared as a bare label with nothing nearby saying what
+#      it means. The phrase is not self-evident, and the sentence that defines it
+#      sits in a section heading far below the table.
+#   2. A regex was printed as a decision's value -- e.g. HR-117's
+#      `JDFN_[A-Z]+_((?:19|20)\d{2})(\d{2})(\d{2})`. That is unreadable to the
+#      audience the document names in its title, and it tells them nothing about
+#      the decision they are being asked to make.
+#
+# The raw pattern is still shown in the entry's own detail block, where the
+# engineer who needs it looks and where `why_it_matters` explains it.
+
+
+def test_the_summary_table_explains_where_a_default_came_from(rules: Rules) -> None:
+    """Every provenance label the table uses is defined right next to the table."""
+    document = render_register(rules)
+    legend = document.split("## Open —", 1)[0]
+    for label in ("our invention", "inherited", "SFU rulebook"):
+        assert label in legend, f"{label!r} is used in the table but never explained"
+    # The specific complaint: the reader must not have to guess what this means.
+    assert "earlier" in legend.lower(), "'inherited' needs to say inherited from WHERE"
+
+
+def test_no_raw_regex_reaches_the_summary_table(rules: Rules) -> None:
+    """A pattern is summarised in the table and shown in full in its detail block.
+
+    The detail blocks are ``####`` sections inside the same status section, not a
+    separate ``## Details`` heading — so "the table" is precisely the lines that
+    are table rows, and nothing else.
+    """
+    document = render_register(rules)
+    rows = [line for line in document.splitlines() if line.startswith("| [HR-")]
+    assert rows, "no summary-table rows found — the table's shape must have changed"
+
+    for row in rows:
+        assert "(?:" not in row, f"a raw regex is shown to HR in the table: {row[:90]}"
+        assert "[A-Z]" not in row, f"a raw regex is shown to HR: {row[:90]}"
+
+    # HR-117 is the entry the complaint named: summarised in the table…
+    hr117 = next(row for row in rows if row.startswith("| [HR-117]"))
+    assert "a text pattern" in hr117
+    # …and still recorded in full in its own detail block.
+    assert r"JDFN_[A-Z]+_((?:19|20)\d{2})(\d{2})(\d{2})" in document
+
+
+def test_a_pattern_valued_decision_is_still_fully_recorded(rules: Rules) -> None:
+    """Summarising in the table must not lose the value anywhere in the document."""
+    document = render_register(rules)
+    for decision in rules.decision_register.decisions:
+        if isinstance(decision.current_default, str) and (
+            decision.config.path.endswith("_pattern")
+            or decision.config.file == "patterns.yaml"
+        ):
+            assert decision.current_default in document, (
+                f"{decision.id}'s pattern is summarised in the table but missing "
+                "from its detail block"
+            )
