@@ -54,7 +54,12 @@ from src.jd_core.rules import (
     normalize_config_value,
     resolve_config_path,
 )
-from src.jd_core.rules.render import check_markdown, main, render_register
+from src.jd_core.rules.render import (
+    _PROVENANCE_HEADING,
+    check_markdown,
+    main,
+    render_register,
+)
 
 # --- fixtures / helpers -------------------------------------------------------
 
@@ -1672,11 +1677,17 @@ def test_the_rendered_register_names_every_decision(rules: Rules) -> None:
 
 
 def test_the_rendered_register_leads_with_what_nobody_ratified(rules: Rules) -> None:
-    """Our-invention entries are what HR most needs to see, so they come first."""
+    """Our-invention entries are what HR most needs to see, so they come first.
+
+    Pinned against the heading *constants* rather than literal prose: the property
+    is the ordering, and rewording a heading for readability should not have to
+    touch this test. (It did once — the headings were rewritten after an HR reader
+    could not decode "prior calibration".)
+    """
     markdown = render_register(rules)
-    ours = markdown.index("Our invention")
-    inherited = markdown.index("Prior calibration")
-    rulebook = markdown.index("From SFU's published rulebook")
+    ours = markdown.index(_PROVENANCE_HEADING["our_invention"])
+    inherited = markdown.index(_PROVENANCE_HEADING["prior_calibration"])
+    rulebook = markdown.index(_PROVENANCE_HEADING["sfu_rulebook"])
     assert ours < inherited < rulebook
 
 
@@ -1780,10 +1791,21 @@ def test_the_summary_table_explains_where_a_default_came_from(rules: Rules) -> N
     """Every provenance label the table uses is defined right next to the table."""
     document = render_register(rules)
     legend = document.split("## Open —", 1)[0]
-    for label in ("our invention", "inherited", "SFU rulebook"):
+    for label in (
+        "we chose it",
+        "an earlier version of this tool",
+        "SFU's published standard",
+    ):
         assert label in legend, f"{label!r} is used in the table but never explained"
-    # The specific complaint: the reader must not have to guess what this means.
-    assert "earlier" in legend.lower(), "'inherited' needs to say inherited from WHERE"
+
+    # The reader must not have to guess, and must not be misled into thinking an
+    # inherited value carries outside authority. It does not: nothing in the
+    # register claims an industry basis, and the values were tuned to agree with
+    # our own approval floor. Saying "industry standard" here would make an
+    # unratified guess sound externally sanctioned — the exact failure this
+    # register exists to prevent.
+    assert "**not** an industry standard" in legend
+    assert "nobody at SFU has agreed to this yet" in legend
 
 
 def test_no_raw_regex_reaches_the_summary_table(rules: Rules) -> None:

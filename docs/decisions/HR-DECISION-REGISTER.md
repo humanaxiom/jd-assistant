@@ -12,225 +12,227 @@ Every policy call JD Bank currently makes **by default**, because SFU HR has not
 
 **This document cannot rot.** The register is data, and the build checks it against the live rules three ways: every `Configured in` path must resolve; every `We ship` value must equal the real one; and every parameter on the decision surface must be either listed here or explicitly exempted as trivial. Tune a threshold without updating the register and `make gates` fails.
 
-**Reading the last column** — where a default came from is the whole point of this register, so it is spelled out here rather than left as a term of art:
+**Reading the last column.** Where each value came from is the whole point of this register — so it is written out plainly here, and no term of art is used anywhere in it:
 
-| Label | What it means |
+| Where it came from | What that means for you |
 |---|---|
-| **SFU rulebook** | Transcribed from SFU's own published standard. *How* we act on it may still be ours — each entry says which part. |
-| **inherited (not SFU's)** | Carried over from an earlier internal implementation's calibration. SFU publishes no scoring model at all, so these were an earlier engineering judgement — **not SFU policy, and nobody has ratified them.** |
-| **our invention** | We made it up because the system needed *a* value. There is no SFU precedent behind it. |
+| **SFU's published standard** | The number is SFU's own, taken from the JD Toolkit or the official template. *What we do about a breach* — whether it merely costs points or actually blocks approval — is still ours, and each entry says which part is which. |
+| **an earlier version of this tool** | A number an earlier version of this software already used, which we kept. SFU has never published a scoring model, so this is **not** an SFU rule and it is **not** an industry standard — it is an engineering guess that happens to be older than the others. Treat it exactly as you would *"we chose it"*. |
+| **we chose it** | We picked a value because the system needed one. There is no SFU precedent behind it, and nobody outside this project has approved it. |
+
+Two of the three mean *nobody at SFU has agreed to this yet.* That is the honest position, and it is why this document exists.
 
 ## Open — we defaulted these; SFU HR has not decided them
 
 | ID | Decision | Default | Where the default came from |
 |---|---|---|---|
-| [HR-001](#hr-001) | What quality score must a job description reach before an HR reviewer is allowed to approve it? | `60.0` | our invention |
-| [HR-002](#hr-002) | What quality grade must a job description reach before approval? | `C` | our invention |
-| [HR-003](#hr-003) | At what finding severity does an outstanding problem make approval impossible, regardless of score? | `high` | our invention |
-| [HR-004](#hr-004) | Which rulebook failures should make approval impossible — the "never approve if…" list? | *14 entries — see below* | our invention |
-| [HR-005](#hr-005) | Which gates may a reviewer NEVER waive, even with a written justification in the audit log? | `SFU-APPROVE-MANDATORY-SECTIONS`, `SFU-APPROVE-NO-PLACEHOLDERS` | our invention |
-| [HR-006](#hr-006) | Which template sections are so essential that a job description without them cannot be reviewed at all? | `SFU-COMP-SUMMARY`, `SFU-COMP-DUTIES`, `SFU-COMP-QUALS` | our invention |
-| [HR-007](#hr-007) | Should a draft that still contains the template's own instructional text be un-waivably blocked? | `SFU-STRUCT-PLACEHOLDER` | our invention |
-| [HR-008](#hr-008) | How many points should a HIGH-severity problem cost a job description? | `20.0` | inherited (not SFU's) |
-| [HR-009](#hr-009) | How many points should a MEDIUM-severity problem cost? | `10.0` | inherited (not SFU's) |
-| [HR-010](#hr-010) | How many points should a LOW-severity problem cost? | `5.0` | inherited (not SFU's) |
-| [HR-011](#hr-011) | Should advisory (INFO) findings cost any score at all? | `0.0` | inherited (not SFU's) |
-| [HR-012](#hr-012) | Should the second, third and fourth problem of the same severity cost less than the first? | `0.7` | inherited (not SFU's) |
-| [HR-013](#hr-013) | What score earns an A? | `90.0` | inherited (not SFU's) |
-| [HR-014](#hr-014) | What score earns a B? | `75.0` | inherited (not SFU's) |
-| [HR-015](#hr-015) | What score earns a C — and is C really the pass mark? | `60.0` | inherited (not SFU's) |
-| [HR-016](#hr-016) | What score earns a D (rather than an F)? | `40.0` | inherited (not SFU's) |
-| [HR-017](#hr-017) | Should a flawless job description score 100? | `100.0` | inherited (not SFU's) |
-| [HR-018](#hr-018) | Should the score bottom out at 0, or can it go negative? | `0.0` | inherited (not SFU's) |
-| [HR-019](#hr-019) | SFU's template says a Position Summary is 100–150 words. Should a SHORT summary (under 100) be flagged at all — and should it ever block approval? | `100` | SFU rulebook |
-| [HR-020](#hr-020) | Is 150 words the hard maximum for a Position Summary? | `150` | SFU rulebook |
-| [HR-021](#hr-021) | SFU says 3–5 major responsibilities. Should FEWER than 3 duties be flagged — and should it block? | `3` | SFU rulebook |
-| [HR-022](#hr-022) | Is 5 the maximum number of major duties? | `5` | SFU rulebook |
-| [HR-023](#hr-023) | Duty time-allocations must total 100%. How much rounding slack do we allow at the bottom? | `99` | our invention |
-| [HR-024](#hr-024) | How much rounding slack at the top of the duty-percentage total? | `101` | our invention |
-| [HR-025](#hr-025) | Should the "duties must total 100%" check run on a JD that lists only ONE time allocation? | `2` | our invention |
-| [HR-026](#hr-026) | How many offending items should a single finding name before it says "and others"? | `5` | inherited (not SFU's) |
-| [HR-027](#hr-027) | How many rule ids may a blocked-approval reason cite? (A second, independent copy of HR-026.) | `5` | inherited (not SFU's) |
-| [HR-028](#hr-028) | Three words on SFU's own replace-list — "individual", "honest", "trust" — are demoted to LOW severity here. Is that right? | *6 entries — see below* | our invention |
-| [HR-029](#hr-029) | NINE of these 31 "coded terms" are NOT on SFU's published list — we added them. Does SFU HR adopt them, or should they go? | *31 entries — see below* | inherited (not SFU's) |
-| [HR-030](#hr-030) | Should a job titled "Executive Director" that is NOT in the APEX group be blocked — and should the check even run when the employee group is unknown? | `low` | inherited (not SFU's) |
-| [HR-031](#hr-031) | Is "Executive Director" reserved for APEX-classified roles, and only those? | `apex` | SFU rulebook |
-| [HR-032](#hr-032) | "Registrar" is reserved for AVPSI Student Services. We cannot verify that from a JD — should we still say anything? | `info` | inherited (not SFU's) |
-| [HR-033](#hr-033) | "Human Resources" is reserved for roles inside SFU HR (elsewhere: "personnel"). Same unverifiable-context problem — should we still say anything? | `info` | inherited (not SFU's) |
-| [HR-034](#hr-034) | A JD with no "Impact of Decision Making" section is incomplete. Should it be blocked from approval? | `medium` | inherited (not SFU's) |
-| [HR-035](#hr-035) | Same question for "Problem Solving & Level of Supervision" — should a missing section block approval? | `medium` | inherited (not SFU's) |
-| [HR-036](#hr-036) | SFU says a JD has 3–5 major duties. Should MORE THAN FIVE block approval? | `medium` | inherited (not SFU's) |
-| [HR-037](#hr-037) | Should FEWER than three duties be a defect at all? | `medium` | inherited (not SFU's) |
-| [HR-038](#hr-038) | Should a Position Summary shorter than 100 words be a defect at all? | `low` | inherited (not SFU's) |
-| [HR-039](#hr-039) | Is the territorial acknowledgement's WORDING correct — and is a missing territorial acknowledgement really only a `low` finding? | `low` | inherited (not SFU's) |
-| [HR-040](#hr-040) | SFU's knowledge tiers are EXCELLENT / WORKING / [NO MODIFIER]. We encode the third as the literal word "none". Is that the right representation? | `excellent`, `none`, `working` | inherited (not SFU's) |
-| [HR-041](#hr-041) | Should the banned-phrase check ("may include", "assets", "preferences") search the WHOLE document, or only the Qualifications section? | `may include`, `assets`, `preferences` | SFU rulebook |
-| [HR-042](#hr-042) | Must a JD contain the literal phrase "equivalent combination" — or is any equivalency wording acceptable? | `equivalent combination` | SFU rulebook |
-| [HR-043](#hr-043) | SFU's action-verb glossary lists "accountable" — an adjective, not a verb. Should a duty be allowed to start with it? | `true` | SFU rulebook |
-| [HR-044](#hr-044) | Same for "responsible" — an adjective in SFU's action-verb glossary. | `true` | SFU rulebook |
-| [HR-045](#hr-045) | Should only PARENTHESIZED percentages — "(40%)" — count as duty time allocations? | *a text pattern — see below* | our invention |
-| [HR-046](#hr-046) | Should a Position Summary that mentions parking, housing or relocation be BLOCKED from approval? | *11 entries — see below* | our invention |
-| [HR-047](#hr-047) | Should the phrase "action verb" appearing anywhere in a JD un-waivably block it as an unfinished draft? | *7 entries — see below* | our invention |
-| [HR-048](#hr-048) | A JD is blocked for "incumbent-focused language" if its summary contains "my", "myself" or "I am". Is that the right test? | *a text pattern — see below* | our invention |
-| [HR-049](#hr-049) | A "Senior" title with no stated supervisory scope is blocked. Should the test be the bare word "senior" anywhere in the title? | *a text pattern — see below* | our invention |
-| [HR-050](#hr-050) | What counts as "a degree requirement" in a JD? | *a text pattern — see below* | inherited (not SFU's) |
-| [HR-051](#hr-051) | What wordings count as "allows a related or relevant discipline"? | *a text pattern — see below* | inherited (not SFU's) |
-| [HR-052](#hr-052) | Qualifications must run Knowledge -> Skills -> Abilities. This mapping IS that order. Is it right? | `knowledge` → 0; `skill` → 1; `ability` → 2 | SFU rulebook |
-| [HR-053](#hr-053) | Are BASIC / INTERMEDIATE / ADVANCED / EXPERT the only accepted skill levels? | `advanced`, `basic`, `expert`, `intermediate` | SFU rulebook |
-| [HR-054](#hr-054) | Must an ability literally start with "Ability to" / "Able to" to count as observable behaviour? | `ability to`, `able to` | inherited (not SFU's) |
-| [HR-055](#hr-055) | Is SFU's 116-verb action-verb glossary the right list — and should a duty that starts with a good verb NOT on it be flagged? | *116 entries — see below* | SFU rulebook |
-| [HR-056](#hr-056) | Must every JD's Relationships section open with SFU's standard sentence, verbatim? | `establishes and maintains relationships and alliances` | SFU rulebook |
-| [HR-057](#hr-057) | Which rules are severe enough that their mere presence blocks approval — whatever the score, and without being named in any gate? | `SFU-COMP-DUTIES`, `SFU-COMP-QUALS`, `SFU-COMP-SUMMARY` | our invention |
-| [HR-058](#hr-058) | SFU's mandatory, "do not edit" About SFU paragraph contains the word "compassionate" — which our lexicon flags as a coded term. Every compliant JD is penalised. What should give? | `"caring"` | inherited (not SFU's) |
-| [HR-059](#hr-059) | What are SFU's job-title seniority levels — the ladder every title is classified onto (and, later, compared and de-duplicated by)? | *7 entries — see below* | inherited (not SFU's) |
-| [HR-060](#hr-060) | When a job title carries TWO seniority words — "Associate Director" is both an associate and a director — which one decides the family? | *7 entries — see below* | inherited (not SFU's) |
-| [HR-061](#hr-061) | Which title words signal each seniority family? | *7 entries — see below* | inherited (not SFU's) |
-| [HR-062](#hr-062) | SFU writes a supervisory title as "Manager, Laboratory Operations" and a non-supervisory one as "Laboratory Operations Manager" (Part 3.4). WHICH families, written first and followed by a comma, actually signal supervision? | *5 entries — see below* | inherited (not SFU's) |
-| [HR-063](#hr-063) | What are the functional title types — SFU's Job-Title Application Table? | *10 entries — see below* | SFU rulebook |
-| [HR-064](#hr-064) | "Executive Director" and "Associate Director" both contain "Director". Which functional type wins? | *10 entries — see below* | inherited (not SFU's) |
-| [HR-065](#hr-065) | Which words in a title map it onto each functional type? | *10 entries — see below* | SFU rulebook |
-| [HR-066](#hr-066) | Which words in a JD's education requirement mean "graduate-level"? | `phd`, `doctora`, `master` | inherited (not SFU's) |
-| [HR-067](#hr-067) | Which words in a JD's education requirement mean "undergraduate"? | `bachelor`, `undergraduate`, `degree` | inherited (not SFU's) |
-| [HR-068](#hr-068) | Which language in the Problem Solving section signals independent, non-routine thinking? | *14 entries — see below* | inherited (not SFU's) |
-| [HR-069](#hr-069) | Which language in the Problem Solving section signals routine, closely supervised work — and should it really SUBTRACT? | *8 entries — see below* | inherited (not SFU's) |
-| [HR-070](#hr-070) | Which language in the Impact of Decision Making section signals freedom to act and magnitude of impact? | *15 entries — see below* | inherited (not SFU's) |
-| [HR-071](#hr-071) | Which Toolkit skill modifiers count as "advanced" depth for the Know-How signal? | `advanced`, `expert` | inherited (not SFU's) |
-| [HR-072](#hr-072) | Which Toolkit knowledge modifiers count as top-level knowledge? | `excellent` | inherited (not SFU's) |
-| [HR-073](#hr-073) | How much is each Know-How signal worth? | *7 entries — see below* | inherited (not SFU's) |
-| [HR-074](#hr-074) | How many advanced skills is "many", and how many qualification kinds is "broad"? | `advanced_skills_for_many` → 3; `qualification_kinds_for_broad` → 4 | inherited (not SFU's) |
-| [HR-075](#hr-075) | At what Know-How score does a role read as moderate, and at what score high? | `moderate` → 3.0; `high` → 5.0 | inherited (not SFU's) |
-| [HR-076](#hr-076) | How much is each Problem-Solving signal worth — and how much does routine language cost? | `section_item` → 0.5; `challenge_hit` → 1.0; `routine_hit` → -1.0 | inherited (not SFU's) |
-| [HR-077](#hr-077) | How many Problem Solving entries are worth scoring before length stops counting? | `section_items_scored` → 3 | inherited (not SFU's) |
-| [HR-078](#hr-078) | At what Problem-Solving score does a role read as moderate, and at what score high? | `moderate` → 1.5; `high` → 3.0 | inherited (not SFU's) |
-| [HR-079](#hr-079) | How much is each Accountability signal worth? | `section_item` → 0.5; `autonomy_hit` → 1.0; `supervisory_scope` → 2.0; `external_breadth` → 1.0 | inherited (not SFU's) |
-| [HR-080](#hr-080) | How many Impact-of-Decision-Making entries are scored, and how many external relationships count as "breadth of impact"? | `section_items_scored` → 3; `external_for_breadth` → 3 | inherited (not SFU's) |
-| [HR-081](#hr-081) | At what Accountability score does a role read as moderate, and at what score high? | `moderate` → 2.0; `high` → 4.0 | inherited (not SFU's) |
-| [HR-082](#hr-082) | Are these the education levels JD Bank recognises, in this order — high school < associate < bachelors < masters < phd? | *5 entries — see below* | inherited (not SFU's) |
-| [HR-083](#hr-083) | Which words in a free-text qualification place it on each rung of the education ladder — and is "degree", with no adjective, a bachelors? | *5 entries — see below* | inherited (not SFU's) |
-| [HR-084](#hr-084) | How much of the JD-similarity score is the summary-embedding cosine? | `0.45` | inherited (not SFU's) |
-| [HR-085](#hr-085) | How much of the JD-similarity score is idf-weighted skill overlap? | `0.45` | inherited (not SFU's) |
-| [HR-086](#hr-086) | How much of the JD-similarity score is seniority (experience + education) closeness? | `0.1` | inherited (not SFU's) |
-| [HR-087](#hr-087) | When two skills are not the same but belong to the same ontology family (postgresql / mysql), what fraction of an exact match do they earn? | `0.5` | inherited (not SFU's) |
-| [HR-088](#hr-088) | Which ontology families are so generic that sharing one is worth nothing — currently "other" and "domain"? | `domain`, `other` | inherited (not SFU's) |
-| [HR-089](#hr-089) | Which title words are ignored when two titles are compared for sameness — is "Senior Developer II" the same title as "Developer"? | *21 entries — see below* | inherited (not SFU's) |
-| [HR-090](#hr-090) | When a JD does not state an experience bar or an education level, how close do we assume the two roles are — currently 0.7 out of 1? | `0.7` | inherited (not SFU's) |
-| [HR-091](#hr-091) | How many years of experience apart must two roles be before they count as completely different in seniority? | `10.0` | inherited (not SFU's) |
-| [HR-092](#hr-092) | How similar must two JDs be before we show one as a "similar role" at all (the noise floor)? | `0.6` | inherited (not SFU's) |
-| [HR-093](#hr-093) | At what similarity score do we call two JDs a CLONE (identical role, no re-evaluation needed)? | `0.92` | inherited (not SFU's) |
-| [HR-094](#hr-094) | How much DISTINCTIVE skill overlap must two JDs share before they may be merged into one cluster? | `0.3` | inherited (not SFU's) |
-| [HR-095](#hr-095) | How strong must an edge be to merge two JDs into a redundancy cluster (the floor, independent of the noise floor)? | `0.8` | inherited (not SFU's) |
-| [HR-096](#hr-096) | DERIVED — the effective cluster threshold: max(sim_threshold, cluster_threshold_floor). Is a derived-not-duplicated threshold the right shape? | `0.8` | inherited (not SFU's) |
-| [HR-097](#hr-097) | Is a pair of near-duplicate JDs already a "cluster", or does it take three? | `2` | inherited (not SFU's) |
-| [HR-098](#hr-098) | How much can a posting's skill set diverge from its canonical role before the drift is called MINOR? | `0.25` | inherited (not SFU's) |
-| [HR-099](#hr-099) | And at what divergence is a posting's drift MAJOR — i.e. worth a re-evaluation conversation? | `0.5` | inherited (not SFU's) |
-| [HR-100](#hr-100) | How many years may a posting's experience bar move from its canonical role's before it counts as a change to the technical knowledge required? | `2` | inherited (not SFU's) |
-| [HR-101](#hr-101) | Is a change of MORE THAN 5 direct reports a material change of supervisory scope? | `5` | inherited (not SFU's) |
-| [HR-102](#hr-102) | How is a years-of-experience requirement read out of free text — is "3+ years" a 3? | *a text pattern — see below* | inherited (not SFU's) |
-| [HR-103](#hr-103) | How is a direct-reports count read out of a free-text supervisory statement? | *a text pattern — see below* | inherited (not SFU's) |
-| [HR-104](#hr-104) | Is this SFU's current "About SFU" paragraph, word for word — the pre-populated block the template says not to edit? | `We are Canada's engaged university, defined by our dynamic integration of innovative education, cutting-edge research, and far-reaching community engagement.`, `We are unconventional, fearless, compassionate, approachable and ready.`, `We celebrate the diversity of people, ideas and cultures.` | SFU rulebook |
-| [HR-105](#hr-105) | Is this SFU's current official territorial acknowledgement — including the spelling of every Nation's name? | `Simon Fraser University respectfully acknowledges the xwmethkweyem (Musqueam), Skwxwu7mesh Uxwumixw (Squamish), selilwetal (Tsleil-Waututh), q'ic'ey' (Katzie), kwikwetl'em (Kwikwetlem), Qayqayt, Kwantlen, Semiahmoo and Tsawwassen peoples on whose unceded traditional territories our three campuses reside.` | SFU rulebook |
-| [HR-106](#hr-106) | Is this SFU's current Employment Equity statement, word for word? | `Simon Fraser University is committed to the principle of Employment Equity.` | SFU rulebook |
-| [HR-107](#hr-107) | Should our scanners mark down text that SFU wrote, pre-populated, and forbids the JD author to edit? | `about_sfu`, `territorial_acknowledgement`, `employment_equity` | our invention |
-| [HR-108](#hr-108) | When a document's formatting splits a phrase in two, may a scanner still read it as one phrase — and if so, may it read ACROSS a paragraph break? | `false` | our invention |
-| [HR-109](#hr-109) | What marks a JD as having been authored under SFU's CURRENT template — and should that mark override the JD's date? | `JDFN` | our invention |
-| [HR-110](#hr-110) | Where does the OLD template era end? | `2009` | our invention |
-| [HR-111](#hr-111) | Where does the TRANSITION era end and the CURRENT template era begin? | `2018` | our invention |
-| [HR-112](#hr-112) | A JDFN filename carries TWO dates. Which one says "this is the current version of this position"? | `true` | our invention |
-| [HR-113](#hr-113) | Are files with no readable position ID part of the "current JD" population, or excluded from it? | `true` | our invention |
-| [HR-114](#hr-114) | What counts as a position ID in a filename? | *a text pattern — see below* | our invention |
-| [HR-115](#hr-115) | How is a file's date read out of its name? | *a text pattern — see below* | our invention |
-| [HR-116](#hr-116) | A filename can bundle SEVERAL positions into one document. Which position does that document belong to? | `first` | our invention |
-| [HR-117](#hr-117) | How is a JD's REVISION date read out of its name? | *a text pattern — see below* | our invention |
-| [HR-118](#hr-118) | How is the employee group (APSA / APEX / CUPE / POLY) read out of a name? | *a text pattern — see below* | our invention |
-| [HR-119](#hr-119) | Should a duty that does not spell out HOW and WHY it is performed be marked down — when almost every job description SFU writes omits it? | `low` | inherited (not SFU's) |
-| [HR-120](#hr-120) | Should the banned-phrase check ("may include", "assets", "preferences") search only the Qualifications section — or the whole job description? | `qualifications` | SFU rulebook |
-| [HR-121](#hr-121) | Which quality rules may the deterministic engine raise at all — and which are retired because the parsed JD does not carry the data they judge? | `SFU-STRUCT-HOW-WHY` | our invention |
-| [HR-122](#hr-122) | Where does the CURRENT era begin — i.e. from what year is a JD judged by the bar that assumes SFU's territorial acknowledgement and EDI footer? | `2023` | our invention |
-| [HR-123](#hr-123) | When N archive files are BYTE-IDENTICAL, how is that fact recorded — as N-1 edges to one representative file (a star), or as an edge between every pair (a clique)? | `star` | our invention |
-| [HR-124](#hr-124) | Which embedding model turns a parsed JD's text into the vector JD Bank stores and searches on? | `nomic-embed-text` | our invention |
-| [HR-125](#hr-125) | How many dimensions does an embedding have, and does everything that needs to agree on that number actually agree? | `768` | our invention |
-| [HR-126](#hr-126) | How much of a parsed JD's serialized text is actually sent to the embedding model before it is truncated? | `10000` | our invention |
-| [HR-127](#hr-127) | How short can one section's text be before it is not worth giving its own embedding at all? | `40` | our invention |
-| [HR-128](#hr-128) | Does the JD's TITLE become part of the whole-document embedding, or is the document vector title-agnostic like the rest of the similarity score? | `false` | our invention |
-| [HR-129](#hr-129) | Which parts of a parsed JD make up the WHOLE-DOCUMENT text an embedding model sees? | *7 entries — see below* | our invention |
-| [HR-130](#hr-130) | Which sections get their OWN separate embedding (a `JDSection` node), in addition to the whole-document vector? | `position_summary`, `duties`, `qualifications` | our invention |
-| [HR-131](#hr-131) | What TEXT does Tier-2 compare — the raw extracted (incumbent-scrubbed) text, or the parsed JD serialized the way Phase 3.2b embeds it? | `raw_clean` | our invention |
-| [HR-132](#hr-132) | How many consecutive words make up one shingle — the unit Tier-2's Jaccard similarity is computed over? | `5` | our invention |
-| [HR-133](#hr-133) | Is SFU's own mandated boilerplate (About-SFU / territorial acknowledgement / Employment Equity) cut out of a JD's text before it is shingled? | `true` | our invention |
-| [HR-134](#hr-134) | How few shingles can a document have before Tier-2 refuses to build a MinHash signature for it at all? | `20` | our invention |
-| [HR-135](#hr-135) | How many MinHash permutations make up one document's signature? | `128` | our invention |
-| [HR-136](#hr-136) | How many LSH bands is a MinHash signature split into? | `16` | our invention |
-| [HR-137](#hr-137) | How many MinHash values make up one LSH band (the other half of the S-curve, alongside `bands`)? | `8` | our invention |
-| [HR-138](#hr-138) | At what EXACT-Jaccard shingle similarity does a candidate pair become a `DedupEdge` at `tier=NEAR_DUPLICATE`? | `0.85` | our invention |
-| [HR-139](#hr-139) | Does Tier-2 additionally require a minimum DOCUMENT COSINE similarity (Neo4j vectors) before a Jaccard-qualifying candidate becomes an edge? | `null` | our invention |
-| [HR-140](#hr-140) | Does Tier-2 compare DISTINCT CONTENTS (one unit per Tier-1 sha256 group) or every individual FILE? | `content` | our invention |
-| [HR-141](#hr-141) | How do we recognise that a job description is on SFU's CUPE / Weighted Job Questionnaire template rather than the APSA/APEX/POLY one? | `WEIGHTED JOB QUESTIONNAIRE` | our invention |
-| [HR-142](#hr-142) | What does a WJQ duty's `(D)` / `(W)` / `(M)` / `(S)` frequency tag mean, and should it be captured as a field on the duty? | `D` → daily; `W` → weekly; `M` → monthly; `S` → semester | our invention |
-| [HR-143](#hr-143) | Should CUPE / WJQ-template job descriptions be excluded from the "current practice" cohort that the JDFN approval bar is ratified against? | `true` | our invention |
-| [HR-144](#hr-144) | What are the 14 section headings of the WJQ template, and how is each recognised (numbering, `(CONTINUED)` recurrence, line-wrap)? | *14 entries — see below* | our invention |
-| [HR-145](#hr-145) | Where do the WJQ point-factor (Hay) sections go — and is IMPACT OF ERRORS mapped to the JDFN Decision-Making / Problem-Solving fields? | *7 entries — see below* | our invention |
-| [HR-146](#hr-146) | How is each WJQ qualification classified as education / experience / skill / ability? | `education` → ['formal education']; `experience` → ['number of years', 'years of minimum experience', 'minimum experience']; `skill` → ['occupational skill']; `ability` → ['occupational requirement'] | our invention |
-| [HR-147](#hr-147) | Which WJQ POSITION IDENTIFICATION field labels supply the JD's title, department, position number and grade? | `title` → ['Department Position Title', 'Position Title']; `department` → ['Department Name']; `position_number` → ['Position Number(s)', 'Position Number']; `grade` → ['Classification & Grade Approved', 'Classification and Grade Approved'] | our invention |
-| [HR-148](#hr-148) | What employee group does the WJQ marker imply? | `cupe` | our invention |
-| [HR-149](#hr-149) | Which qualification kinds are treated as the source of a JD's SKILLS? | `ability`, `knowledge`, `skill` | our invention |
-| [HR-150](#hr-150) | Which noise tokens are stripped from the skill keyword-bag? | *20 entries — see below* | our invention |
-| [HR-151](#hr-151) | What is the minimum length of a skill keyword? | `3` | our invention |
-| [HR-152](#hr-152) | Are SPELLED-OUT year counts ("five years") read as an experience bar, and which words map to which numbers? | *20 entries — see below* | our invention |
-| [HR-153](#hr-153) | Which qualification kinds may an EDUCATION requirement be read out of? | `education`, `knowledge` | our invention |
-| [HR-154](#hr-154) | Which qualification kinds is a JD's EXPERIENCE bar read from, and in what fallback order? | `experience`, `knowledge` | our invention |
-| [HR-155](#hr-155) | Which title seniority bands are "too far apart to be the same role", and where does each title family sit on that band ladder? | *7 entries — see below* | our invention |
-| [HR-156](#hr-156) | How many seniority bands apart may two titles be and still be considered the same role? | `1` | our invention |
-| [HR-157](#hr-157) | Should two JDs from DIFFERENT employee groups (e.g. APSA vs CUPE) be barred from being the same role? | `true` | our invention |
-| [HR-158](#hr-158) | What blended similarity score must two JDs reach before they are recorded as the SAME ROLE (role-equivalent)? | `0.5` | our invention |
-| [HR-159](#hr-159) | How many nearest neighbours per JD are generated as role-equivalence CANDIDATES? | `25` | our invention |
-| [HR-160](#hr-160) | Should every Tier-2 near-duplicate pair be treated as a guaranteed role-equivalence candidate? | `true` | our invention |
-| [HR-161](#hr-161) | Which dedup tiers (exact, near-duplicate, role-equivalent) may connect two JDs into the same role cluster? | `exact`, `near_duplicate`, `role_equivalent` | our invention |
-| [HR-162](#hr-162) | How strong must a role-equivalence (Tier-3) edge be before it is allowed to MERGE two JDs into the same cluster? | `0.75` | our invention |
-| [HR-163](#hr-163) | How many seniority bands may a role cluster's members span before it is flagged for HR review? | `1` | our invention |
-| [HR-164](#hr-164) | Should a role cluster that mixes more than one known employee group (e.g. APSA + CUPE) be flagged for HR review? | `true` | our invention |
-| [HR-165](#hr-165) | Above how many members is a role cluster flagged as oversize (too big for one canonical JD without HR eyes)? | `50` | our invention |
-| [HR-166](#hr-166) | How does a role cluster pick the member that every other member's drift is measured against (and that the report names)? | `max_parse_confidence` | our invention |
-| [HR-167](#hr-167) | How should the harmonization engine choose the canonical TITLE for a role cluster's merged draft? | `modal_normalized` | our invention |
-| [HR-168](#hr-168) | How should the engine pick which member's POSITION SUMMARY becomes the draft's summary (with no rewrite)? | `within_target_then_central` | our invention |
-| [HR-169](#hr-169) | What should the engine do with members' ADDITIONAL CONTEXTUAL INFORMATION when merging a cluster? | `drop` | our invention |
-| [HR-170](#hr-170) | How should the engine set the boilerplate PRESENCE booleans (About SFU, territorial acknowledgement, employment equity) on the merged draft? | `or_across_members` | our invention |
-| [HR-171](#hr-171) | At what token-Jaccard similarity should two DUTY statements be treated as the same duty and collapsed onto one representative? | `0.7` | our invention |
-| [HR-172](#hr-172) | How many deduped duties may a merged draft carry before the extras are dropped and the draft is flagged for HR review? | `12` | our invention |
-| [HR-173](#hr-173) | What fraction of a cluster's members must require a skill before it is treated as a CORE qualification (kept) rather than an incidental one (dropped)? | `0.5` | our invention |
-| [HR-174](#hr-174) | How should SECURITY qualifications (e.g. a criminal-record check) be combined across a cluster's members? | `union` | our invention |
-| [HR-175](#hr-175) | How should the required EDUCATION and EXPERIENCE bars be chosen when a cluster's members disagree? | `max` | our invention |
-| [HR-176](#hr-176) | Which self-hosted chat model should rewrite a merge draft into cleaner, template-faithful prose? | `gpt-oss:120b` | our invention |
-| [HR-177](#hr-177) | At what sampling temperature should the rewrite model run? | `0.0` | our invention |
-| [HR-178](#hr-178) | What token budget should one rewrite completion get? | `2048` | our invention |
-| [HR-179](#hr-179) | How many times should an invalid-JSON rewrite response be re-requested before the pass gives up? | `1` | our invention |
-| [HR-180](#hr-180) | Which prompt template should the rewrite pass use? | `jd_harmonize_v1` | our invention |
-| [HR-181](#hr-181) | Should the anti-fabrication guard run at all on the rewrite output? | `true` | our invention |
-| [HR-182](#hr-182) | How should the guard decide a rewritten qualification is grounded in the merge draft's vocabulary? | `token_overlap` | our invention |
-| [HR-183](#hr-183) | What fraction of a rewritten qualification's content tokens must be grounded in the merge draft for it to be kept? | `0.5` | our invention |
-| [HR-184](#hr-184) | Below what token-Jaccard with any draft duty should a rewritten duty be flagged for HR review? | `0.2` | our invention |
-| [HR-185](#hr-185) | Which self-hosted chat model should run the nuanced quality audit of a JD? | `gpt-oss:120b` | our invention |
-| [HR-186](#hr-186) | At what sampling temperature should the quality-audit model run? | `0.0` | our invention |
-| [HR-187](#hr-187) | What token budget should one quality-audit completion get? | `1024` | our invention |
-| [HR-188](#hr-188) | How many times should an invalid-JSON audit response be re-requested before the pass gives up? | `1` | our invention |
-| [HR-189](#hr-189) | Should the anti-fabrication (verbatim-evidence) guard run at all on the audit findings? | `true` | our invention |
-| [HR-190](#hr-190) | Which prompt template should the quality-audit pass use? | `jd_quality_v1` | our invention |
-| [HR-191](#hr-191) | How hard should the reasoning model think before rewriting a merge draft — and should we constrain its reasoning effort at all? | `null` | our invention |
-| [HR-192](#hr-192) | How hard should the reasoning model think before running the nuanced quality audit? | `low` | our invention |
-| [HR-193](#hr-193) | When a JD's serialized text is still too long for the embedding model AFTER `max_chars` truncation, what shorter lengths do we retry before giving up? | `8000`, `6000`, `4000` | our invention |
-| [HR-194](#hr-194) | Which bargaining units does the JD Bank serve under the JDFN approval bar — and therefore which may the Phase-5 Builder author? Specifically: should CUPE (and exempt/`excluded`) roles remain OUT until HR defines a quality bar for them? | `apsa`, `apex`, `poly` | our invention |
-| [HR-195](#hr-195) | When the Builder warns an author that their new job description looks like roles SFU already has, how many of those existing roles should it list? | `5` | our invention |
-| [HR-196](#hr-196) | How much must an author have written before the Builder goes looking for existing roles that resemble their draft? | `500` | our invention |
-| [HR-197](#hr-197) | How long should the Builder wait for the "roles SFU already has" panel before giving up on it and showing the compliance result without it? | `5.0` | our invention |
+| [HR-001](#hr-001) | What quality score must a job description reach before an HR reviewer is allowed to approve it? | `60.0` | we chose it |
+| [HR-002](#hr-002) | What quality grade must a job description reach before approval? | `C` | we chose it |
+| [HR-003](#hr-003) | At what finding severity does an outstanding problem make approval impossible, regardless of score? | `high` | we chose it |
+| [HR-004](#hr-004) | Which rulebook failures should make approval impossible — the "never approve if…" list? | *14 entries — see below* | we chose it |
+| [HR-005](#hr-005) | Which gates may a reviewer NEVER waive, even with a written justification in the audit log? | `SFU-APPROVE-MANDATORY-SECTIONS`, `SFU-APPROVE-NO-PLACEHOLDERS` | we chose it |
+| [HR-006](#hr-006) | Which template sections are so essential that a job description without them cannot be reviewed at all? | `SFU-COMP-SUMMARY`, `SFU-COMP-DUTIES`, `SFU-COMP-QUALS` | we chose it |
+| [HR-007](#hr-007) | Should a draft that still contains the template's own instructional text be un-waivably blocked? | `SFU-STRUCT-PLACEHOLDER` | we chose it |
+| [HR-008](#hr-008) | How many points should a HIGH-severity problem cost a job description? | `20.0` | an earlier version of this tool |
+| [HR-009](#hr-009) | How many points should a MEDIUM-severity problem cost? | `10.0` | an earlier version of this tool |
+| [HR-010](#hr-010) | How many points should a LOW-severity problem cost? | `5.0` | an earlier version of this tool |
+| [HR-011](#hr-011) | Should advisory (INFO) findings cost any score at all? | `0.0` | an earlier version of this tool |
+| [HR-012](#hr-012) | Should the second, third and fourth problem of the same severity cost less than the first? | `0.7` | an earlier version of this tool |
+| [HR-013](#hr-013) | What score earns an A? | `90.0` | an earlier version of this tool |
+| [HR-014](#hr-014) | What score earns a B? | `75.0` | an earlier version of this tool |
+| [HR-015](#hr-015) | What score earns a C — and is C really the pass mark? | `60.0` | an earlier version of this tool |
+| [HR-016](#hr-016) | What score earns a D (rather than an F)? | `40.0` | an earlier version of this tool |
+| [HR-017](#hr-017) | Should a flawless job description score 100? | `100.0` | an earlier version of this tool |
+| [HR-018](#hr-018) | Should the score bottom out at 0, or can it go negative? | `0.0` | an earlier version of this tool |
+| [HR-019](#hr-019) | SFU's template says a Position Summary is 100–150 words. Should a SHORT summary (under 100) be flagged at all — and should it ever block approval? | `100` | SFU's published standard |
+| [HR-020](#hr-020) | Is 150 words the hard maximum for a Position Summary? | `150` | SFU's published standard |
+| [HR-021](#hr-021) | SFU says 3–5 major responsibilities. Should FEWER than 3 duties be flagged — and should it block? | `3` | SFU's published standard |
+| [HR-022](#hr-022) | Is 5 the maximum number of major duties? | `5` | SFU's published standard |
+| [HR-023](#hr-023) | Duty time-allocations must total 100%. How much rounding slack do we allow at the bottom? | `99` | we chose it |
+| [HR-024](#hr-024) | How much rounding slack at the top of the duty-percentage total? | `101` | we chose it |
+| [HR-025](#hr-025) | Should the "duties must total 100%" check run on a JD that lists only ONE time allocation? | `2` | we chose it |
+| [HR-026](#hr-026) | How many offending items should a single finding name before it says "and others"? | `5` | an earlier version of this tool |
+| [HR-027](#hr-027) | How many rule ids may a blocked-approval reason cite? (A second, independent copy of HR-026.) | `5` | an earlier version of this tool |
+| [HR-028](#hr-028) | Three words on SFU's own replace-list — "individual", "honest", "trust" — are demoted to LOW severity here. Is that right? | *6 entries — see below* | we chose it |
+| [HR-029](#hr-029) | NINE of these 31 "coded terms" are NOT on SFU's published list — we added them. Does SFU HR adopt them, or should they go? | *31 entries — see below* | an earlier version of this tool |
+| [HR-030](#hr-030) | Should a job titled "Executive Director" that is NOT in the APEX group be blocked — and should the check even run when the employee group is unknown? | `low` | an earlier version of this tool |
+| [HR-031](#hr-031) | Is "Executive Director" reserved for APEX-classified roles, and only those? | `apex` | SFU's published standard |
+| [HR-032](#hr-032) | "Registrar" is reserved for AVPSI Student Services. We cannot verify that from a JD — should we still say anything? | `info` | an earlier version of this tool |
+| [HR-033](#hr-033) | "Human Resources" is reserved for roles inside SFU HR (elsewhere: "personnel"). Same unverifiable-context problem — should we still say anything? | `info` | an earlier version of this tool |
+| [HR-034](#hr-034) | A JD with no "Impact of Decision Making" section is incomplete. Should it be blocked from approval? | `medium` | an earlier version of this tool |
+| [HR-035](#hr-035) | Same question for "Problem Solving & Level of Supervision" — should a missing section block approval? | `medium` | an earlier version of this tool |
+| [HR-036](#hr-036) | SFU says a JD has 3–5 major duties. Should MORE THAN FIVE block approval? | `medium` | an earlier version of this tool |
+| [HR-037](#hr-037) | Should FEWER than three duties be a defect at all? | `medium` | an earlier version of this tool |
+| [HR-038](#hr-038) | Should a Position Summary shorter than 100 words be a defect at all? | `low` | an earlier version of this tool |
+| [HR-039](#hr-039) | Is the territorial acknowledgement's WORDING correct — and is a missing territorial acknowledgement really only a `low` finding? | `low` | an earlier version of this tool |
+| [HR-040](#hr-040) | SFU's knowledge tiers are EXCELLENT / WORKING / [NO MODIFIER]. We encode the third as the literal word "none". Is that the right representation? | `excellent`, `none`, `working` | an earlier version of this tool |
+| [HR-041](#hr-041) | Should the banned-phrase check ("may include", "assets", "preferences") search the WHOLE document, or only the Qualifications section? | `may include`, `assets`, `preferences` | SFU's published standard |
+| [HR-042](#hr-042) | Must a JD contain the literal phrase "equivalent combination" — or is any equivalency wording acceptable? | `equivalent combination` | SFU's published standard |
+| [HR-043](#hr-043) | SFU's action-verb glossary lists "accountable" — an adjective, not a verb. Should a duty be allowed to start with it? | `true` | SFU's published standard |
+| [HR-044](#hr-044) | Same for "responsible" — an adjective in SFU's action-verb glossary. | `true` | SFU's published standard |
+| [HR-045](#hr-045) | Should only PARENTHESIZED percentages — "(40%)" — count as duty time allocations? | *a text pattern — see below* | we chose it |
+| [HR-046](#hr-046) | Should a Position Summary that mentions parking, housing or relocation be BLOCKED from approval? | *11 entries — see below* | we chose it |
+| [HR-047](#hr-047) | Should the phrase "action verb" appearing anywhere in a JD un-waivably block it as an unfinished draft? | *7 entries — see below* | we chose it |
+| [HR-048](#hr-048) | A JD is blocked for "incumbent-focused language" if its summary contains "my", "myself" or "I am". Is that the right test? | *a text pattern — see below* | we chose it |
+| [HR-049](#hr-049) | A "Senior" title with no stated supervisory scope is blocked. Should the test be the bare word "senior" anywhere in the title? | *a text pattern — see below* | we chose it |
+| [HR-050](#hr-050) | What counts as "a degree requirement" in a JD? | *a text pattern — see below* | an earlier version of this tool |
+| [HR-051](#hr-051) | What wordings count as "allows a related or relevant discipline"? | *a text pattern — see below* | an earlier version of this tool |
+| [HR-052](#hr-052) | Qualifications must run Knowledge -> Skills -> Abilities. This mapping IS that order. Is it right? | `knowledge` → 0; `skill` → 1; `ability` → 2 | SFU's published standard |
+| [HR-053](#hr-053) | Are BASIC / INTERMEDIATE / ADVANCED / EXPERT the only accepted skill levels? | `advanced`, `basic`, `expert`, `intermediate` | SFU's published standard |
+| [HR-054](#hr-054) | Must an ability literally start with "Ability to" / "Able to" to count as observable behaviour? | `ability to`, `able to` | an earlier version of this tool |
+| [HR-055](#hr-055) | Is SFU's 116-verb action-verb glossary the right list — and should a duty that starts with a good verb NOT on it be flagged? | *116 entries — see below* | SFU's published standard |
+| [HR-056](#hr-056) | Must every JD's Relationships section open with SFU's standard sentence, verbatim? | `establishes and maintains relationships and alliances` | SFU's published standard |
+| [HR-057](#hr-057) | Which rules are severe enough that their mere presence blocks approval — whatever the score, and without being named in any gate? | `SFU-COMP-DUTIES`, `SFU-COMP-QUALS`, `SFU-COMP-SUMMARY` | we chose it |
+| [HR-058](#hr-058) | SFU's mandatory, "do not edit" About SFU paragraph contains the word "compassionate" — which our lexicon flags as a coded term. Every compliant JD is penalised. What should give? | `"caring"` | an earlier version of this tool |
+| [HR-059](#hr-059) | What are SFU's job-title seniority levels — the ladder every title is classified onto (and, later, compared and de-duplicated by)? | *7 entries — see below* | an earlier version of this tool |
+| [HR-060](#hr-060) | When a job title carries TWO seniority words — "Associate Director" is both an associate and a director — which one decides the family? | *7 entries — see below* | an earlier version of this tool |
+| [HR-061](#hr-061) | Which title words signal each seniority family? | *7 entries — see below* | an earlier version of this tool |
+| [HR-062](#hr-062) | SFU writes a supervisory title as "Manager, Laboratory Operations" and a non-supervisory one as "Laboratory Operations Manager" (Part 3.4). WHICH families, written first and followed by a comma, actually signal supervision? | *5 entries — see below* | an earlier version of this tool |
+| [HR-063](#hr-063) | What are the functional title types — SFU's Job-Title Application Table? | *10 entries — see below* | SFU's published standard |
+| [HR-064](#hr-064) | "Executive Director" and "Associate Director" both contain "Director". Which functional type wins? | *10 entries — see below* | an earlier version of this tool |
+| [HR-065](#hr-065) | Which words in a title map it onto each functional type? | *10 entries — see below* | SFU's published standard |
+| [HR-066](#hr-066) | Which words in a JD's education requirement mean "graduate-level"? | `phd`, `doctora`, `master` | an earlier version of this tool |
+| [HR-067](#hr-067) | Which words in a JD's education requirement mean "undergraduate"? | `bachelor`, `undergraduate`, `degree` | an earlier version of this tool |
+| [HR-068](#hr-068) | Which language in the Problem Solving section signals independent, non-routine thinking? | *14 entries — see below* | an earlier version of this tool |
+| [HR-069](#hr-069) | Which language in the Problem Solving section signals routine, closely supervised work — and should it really SUBTRACT? | *8 entries — see below* | an earlier version of this tool |
+| [HR-070](#hr-070) | Which language in the Impact of Decision Making section signals freedom to act and magnitude of impact? | *15 entries — see below* | an earlier version of this tool |
+| [HR-071](#hr-071) | Which Toolkit skill modifiers count as "advanced" depth for the Know-How signal? | `advanced`, `expert` | an earlier version of this tool |
+| [HR-072](#hr-072) | Which Toolkit knowledge modifiers count as top-level knowledge? | `excellent` | an earlier version of this tool |
+| [HR-073](#hr-073) | How much is each Know-How signal worth? | *7 entries — see below* | an earlier version of this tool |
+| [HR-074](#hr-074) | How many advanced skills is "many", and how many qualification kinds is "broad"? | `advanced_skills_for_many` → 3; `qualification_kinds_for_broad` → 4 | an earlier version of this tool |
+| [HR-075](#hr-075) | At what Know-How score does a role read as moderate, and at what score high? | `moderate` → 3.0; `high` → 5.0 | an earlier version of this tool |
+| [HR-076](#hr-076) | How much is each Problem-Solving signal worth — and how much does routine language cost? | `section_item` → 0.5; `challenge_hit` → 1.0; `routine_hit` → -1.0 | an earlier version of this tool |
+| [HR-077](#hr-077) | How many Problem Solving entries are worth scoring before length stops counting? | `section_items_scored` → 3 | an earlier version of this tool |
+| [HR-078](#hr-078) | At what Problem-Solving score does a role read as moderate, and at what score high? | `moderate` → 1.5; `high` → 3.0 | an earlier version of this tool |
+| [HR-079](#hr-079) | How much is each Accountability signal worth? | `section_item` → 0.5; `autonomy_hit` → 1.0; `supervisory_scope` → 2.0; `external_breadth` → 1.0 | an earlier version of this tool |
+| [HR-080](#hr-080) | How many Impact-of-Decision-Making entries are scored, and how many external relationships count as "breadth of impact"? | `section_items_scored` → 3; `external_for_breadth` → 3 | an earlier version of this tool |
+| [HR-081](#hr-081) | At what Accountability score does a role read as moderate, and at what score high? | `moderate` → 2.0; `high` → 4.0 | an earlier version of this tool |
+| [HR-082](#hr-082) | Are these the education levels JD Bank recognises, in this order — high school < associate < bachelors < masters < phd? | *5 entries — see below* | an earlier version of this tool |
+| [HR-083](#hr-083) | Which words in a free-text qualification place it on each rung of the education ladder — and is "degree", with no adjective, a bachelors? | *5 entries — see below* | an earlier version of this tool |
+| [HR-084](#hr-084) | How much of the JD-similarity score is the summary-embedding cosine? | `0.45` | an earlier version of this tool |
+| [HR-085](#hr-085) | How much of the JD-similarity score is idf-weighted skill overlap? | `0.45` | an earlier version of this tool |
+| [HR-086](#hr-086) | How much of the JD-similarity score is seniority (experience + education) closeness? | `0.1` | an earlier version of this tool |
+| [HR-087](#hr-087) | When two skills are not the same but belong to the same ontology family (postgresql / mysql), what fraction of an exact match do they earn? | `0.5` | an earlier version of this tool |
+| [HR-088](#hr-088) | Which ontology families are so generic that sharing one is worth nothing — currently "other" and "domain"? | `domain`, `other` | an earlier version of this tool |
+| [HR-089](#hr-089) | Which title words are ignored when two titles are compared for sameness — is "Senior Developer II" the same title as "Developer"? | *21 entries — see below* | an earlier version of this tool |
+| [HR-090](#hr-090) | When a JD does not state an experience bar or an education level, how close do we assume the two roles are — currently 0.7 out of 1? | `0.7` | an earlier version of this tool |
+| [HR-091](#hr-091) | How many years of experience apart must two roles be before they count as completely different in seniority? | `10.0` | an earlier version of this tool |
+| [HR-092](#hr-092) | How similar must two JDs be before we show one as a "similar role" at all (the noise floor)? | `0.6` | an earlier version of this tool |
+| [HR-093](#hr-093) | At what similarity score do we call two JDs a CLONE (identical role, no re-evaluation needed)? | `0.92` | an earlier version of this tool |
+| [HR-094](#hr-094) | How much DISTINCTIVE skill overlap must two JDs share before they may be merged into one cluster? | `0.3` | an earlier version of this tool |
+| [HR-095](#hr-095) | How strong must an edge be to merge two JDs into a redundancy cluster (the floor, independent of the noise floor)? | `0.8` | an earlier version of this tool |
+| [HR-096](#hr-096) | DERIVED — the effective cluster threshold: max(sim_threshold, cluster_threshold_floor). Is a derived-not-duplicated threshold the right shape? | `0.8` | an earlier version of this tool |
+| [HR-097](#hr-097) | Is a pair of near-duplicate JDs already a "cluster", or does it take three? | `2` | an earlier version of this tool |
+| [HR-098](#hr-098) | How much can a posting's skill set diverge from its canonical role before the drift is called MINOR? | `0.25` | an earlier version of this tool |
+| [HR-099](#hr-099) | And at what divergence is a posting's drift MAJOR — i.e. worth a re-evaluation conversation? | `0.5` | an earlier version of this tool |
+| [HR-100](#hr-100) | How many years may a posting's experience bar move from its canonical role's before it counts as a change to the technical knowledge required? | `2` | an earlier version of this tool |
+| [HR-101](#hr-101) | Is a change of MORE THAN 5 direct reports a material change of supervisory scope? | `5` | an earlier version of this tool |
+| [HR-102](#hr-102) | How is a years-of-experience requirement read out of free text — is "3+ years" a 3? | *a text pattern — see below* | an earlier version of this tool |
+| [HR-103](#hr-103) | How is a direct-reports count read out of a free-text supervisory statement? | *a text pattern — see below* | an earlier version of this tool |
+| [HR-104](#hr-104) | Is this SFU's current "About SFU" paragraph, word for word — the pre-populated block the template says not to edit? | `We are Canada's engaged university, defined by our dynamic integration of innovative education, cutting-edge research, and far-reaching community engagement.`, `We are unconventional, fearless, compassionate, approachable and ready.`, `We celebrate the diversity of people, ideas and cultures.` | SFU's published standard |
+| [HR-105](#hr-105) | Is this SFU's current official territorial acknowledgement — including the spelling of every Nation's name? | `Simon Fraser University respectfully acknowledges the xwmethkweyem (Musqueam), Skwxwu7mesh Uxwumixw (Squamish), selilwetal (Tsleil-Waututh), q'ic'ey' (Katzie), kwikwetl'em (Kwikwetlem), Qayqayt, Kwantlen, Semiahmoo and Tsawwassen peoples on whose unceded traditional territories our three campuses reside.` | SFU's published standard |
+| [HR-106](#hr-106) | Is this SFU's current Employment Equity statement, word for word? | `Simon Fraser University is committed to the principle of Employment Equity.` | SFU's published standard |
+| [HR-107](#hr-107) | Should our scanners mark down text that SFU wrote, pre-populated, and forbids the JD author to edit? | `about_sfu`, `territorial_acknowledgement`, `employment_equity` | we chose it |
+| [HR-108](#hr-108) | When a document's formatting splits a phrase in two, may a scanner still read it as one phrase — and if so, may it read ACROSS a paragraph break? | `false` | we chose it |
+| [HR-109](#hr-109) | What marks a JD as having been authored under SFU's CURRENT template — and should that mark override the JD's date? | `JDFN` | we chose it |
+| [HR-110](#hr-110) | Where does the OLD template era end? | `2009` | we chose it |
+| [HR-111](#hr-111) | Where does the TRANSITION era end and the CURRENT template era begin? | `2018` | we chose it |
+| [HR-112](#hr-112) | A JDFN filename carries TWO dates. Which one says "this is the current version of this position"? | `true` | we chose it |
+| [HR-113](#hr-113) | Are files with no readable position ID part of the "current JD" population, or excluded from it? | `true` | we chose it |
+| [HR-114](#hr-114) | What counts as a position ID in a filename? | *a text pattern — see below* | we chose it |
+| [HR-115](#hr-115) | How is a file's date read out of its name? | *a text pattern — see below* | we chose it |
+| [HR-116](#hr-116) | A filename can bundle SEVERAL positions into one document. Which position does that document belong to? | `first` | we chose it |
+| [HR-117](#hr-117) | How is a JD's REVISION date read out of its name? | *a text pattern — see below* | we chose it |
+| [HR-118](#hr-118) | How is the employee group (APSA / APEX / CUPE / POLY) read out of a name? | *a text pattern — see below* | we chose it |
+| [HR-119](#hr-119) | Should a duty that does not spell out HOW and WHY it is performed be marked down — when almost every job description SFU writes omits it? | `low` | an earlier version of this tool |
+| [HR-120](#hr-120) | Should the banned-phrase check ("may include", "assets", "preferences") search only the Qualifications section — or the whole job description? | `qualifications` | SFU's published standard |
+| [HR-121](#hr-121) | Which quality rules may the deterministic engine raise at all — and which are retired because the parsed JD does not carry the data they judge? | `SFU-STRUCT-HOW-WHY` | we chose it |
+| [HR-122](#hr-122) | Where does the CURRENT era begin — i.e. from what year is a JD judged by the bar that assumes SFU's territorial acknowledgement and EDI footer? | `2023` | we chose it |
+| [HR-123](#hr-123) | When N archive files are BYTE-IDENTICAL, how is that fact recorded — as N-1 edges to one representative file (a star), or as an edge between every pair (a clique)? | `star` | we chose it |
+| [HR-124](#hr-124) | Which embedding model turns a parsed JD's text into the vector JD Bank stores and searches on? | `nomic-embed-text` | we chose it |
+| [HR-125](#hr-125) | How many dimensions does an embedding have, and does everything that needs to agree on that number actually agree? | `768` | we chose it |
+| [HR-126](#hr-126) | How much of a parsed JD's serialized text is actually sent to the embedding model before it is truncated? | `10000` | we chose it |
+| [HR-127](#hr-127) | How short can one section's text be before it is not worth giving its own embedding at all? | `40` | we chose it |
+| [HR-128](#hr-128) | Does the JD's TITLE become part of the whole-document embedding, or is the document vector title-agnostic like the rest of the similarity score? | `false` | we chose it |
+| [HR-129](#hr-129) | Which parts of a parsed JD make up the WHOLE-DOCUMENT text an embedding model sees? | *7 entries — see below* | we chose it |
+| [HR-130](#hr-130) | Which sections get their OWN separate embedding (a `JDSection` node), in addition to the whole-document vector? | `position_summary`, `duties`, `qualifications` | we chose it |
+| [HR-131](#hr-131) | What TEXT does Tier-2 compare — the raw extracted (incumbent-scrubbed) text, or the parsed JD serialized the way Phase 3.2b embeds it? | `raw_clean` | we chose it |
+| [HR-132](#hr-132) | How many consecutive words make up one shingle — the unit Tier-2's Jaccard similarity is computed over? | `5` | we chose it |
+| [HR-133](#hr-133) | Is SFU's own mandated boilerplate (About-SFU / territorial acknowledgement / Employment Equity) cut out of a JD's text before it is shingled? | `true` | we chose it |
+| [HR-134](#hr-134) | How few shingles can a document have before Tier-2 refuses to build a MinHash signature for it at all? | `20` | we chose it |
+| [HR-135](#hr-135) | How many MinHash permutations make up one document's signature? | `128` | we chose it |
+| [HR-136](#hr-136) | How many LSH bands is a MinHash signature split into? | `16` | we chose it |
+| [HR-137](#hr-137) | How many MinHash values make up one LSH band (the other half of the S-curve, alongside `bands`)? | `8` | we chose it |
+| [HR-138](#hr-138) | At what EXACT-Jaccard shingle similarity does a candidate pair become a `DedupEdge` at `tier=NEAR_DUPLICATE`? | `0.85` | we chose it |
+| [HR-139](#hr-139) | Does Tier-2 additionally require a minimum DOCUMENT COSINE similarity (Neo4j vectors) before a Jaccard-qualifying candidate becomes an edge? | `null` | we chose it |
+| [HR-140](#hr-140) | Does Tier-2 compare DISTINCT CONTENTS (one unit per Tier-1 sha256 group) or every individual FILE? | `content` | we chose it |
+| [HR-141](#hr-141) | How do we recognise that a job description is on SFU's CUPE / Weighted Job Questionnaire template rather than the APSA/APEX/POLY one? | `WEIGHTED JOB QUESTIONNAIRE` | we chose it |
+| [HR-142](#hr-142) | What does a WJQ duty's `(D)` / `(W)` / `(M)` / `(S)` frequency tag mean, and should it be captured as a field on the duty? | `D` → daily; `W` → weekly; `M` → monthly; `S` → semester | we chose it |
+| [HR-143](#hr-143) | Should CUPE / WJQ-template job descriptions be excluded from the "current practice" cohort that the JDFN approval bar is ratified against? | `true` | we chose it |
+| [HR-144](#hr-144) | What are the 14 section headings of the WJQ template, and how is each recognised (numbering, `(CONTINUED)` recurrence, line-wrap)? | *14 entries — see below* | we chose it |
+| [HR-145](#hr-145) | Where do the WJQ point-factor (Hay) sections go — and is IMPACT OF ERRORS mapped to the JDFN Decision-Making / Problem-Solving fields? | *7 entries — see below* | we chose it |
+| [HR-146](#hr-146) | How is each WJQ qualification classified as education / experience / skill / ability? | `education` → ['formal education']; `experience` → ['number of years', 'years of minimum experience', 'minimum experience']; `skill` → ['occupational skill']; `ability` → ['occupational requirement'] | we chose it |
+| [HR-147](#hr-147) | Which WJQ POSITION IDENTIFICATION field labels supply the JD's title, department, position number and grade? | `title` → ['Department Position Title', 'Position Title']; `department` → ['Department Name']; `position_number` → ['Position Number(s)', 'Position Number']; `grade` → ['Classification & Grade Approved', 'Classification and Grade Approved'] | we chose it |
+| [HR-148](#hr-148) | What employee group does the WJQ marker imply? | `cupe` | we chose it |
+| [HR-149](#hr-149) | Which qualification kinds are treated as the source of a JD's SKILLS? | `ability`, `knowledge`, `skill` | we chose it |
+| [HR-150](#hr-150) | Which noise tokens are stripped from the skill keyword-bag? | *20 entries — see below* | we chose it |
+| [HR-151](#hr-151) | What is the minimum length of a skill keyword? | `3` | we chose it |
+| [HR-152](#hr-152) | Are SPELLED-OUT year counts ("five years") read as an experience bar, and which words map to which numbers? | *20 entries — see below* | we chose it |
+| [HR-153](#hr-153) | Which qualification kinds may an EDUCATION requirement be read out of? | `education`, `knowledge` | we chose it |
+| [HR-154](#hr-154) | Which qualification kinds is a JD's EXPERIENCE bar read from, and in what fallback order? | `experience`, `knowledge` | we chose it |
+| [HR-155](#hr-155) | Which title seniority bands are "too far apart to be the same role", and where does each title family sit on that band ladder? | *7 entries — see below* | we chose it |
+| [HR-156](#hr-156) | How many seniority bands apart may two titles be and still be considered the same role? | `1` | we chose it |
+| [HR-157](#hr-157) | Should two JDs from DIFFERENT employee groups (e.g. APSA vs CUPE) be barred from being the same role? | `true` | we chose it |
+| [HR-158](#hr-158) | What blended similarity score must two JDs reach before they are recorded as the SAME ROLE (role-equivalent)? | `0.5` | we chose it |
+| [HR-159](#hr-159) | How many nearest neighbours per JD are generated as role-equivalence CANDIDATES? | `25` | we chose it |
+| [HR-160](#hr-160) | Should every Tier-2 near-duplicate pair be treated as a guaranteed role-equivalence candidate? | `true` | we chose it |
+| [HR-161](#hr-161) | Which dedup tiers (exact, near-duplicate, role-equivalent) may connect two JDs into the same role cluster? | `exact`, `near_duplicate`, `role_equivalent` | we chose it |
+| [HR-162](#hr-162) | How strong must a role-equivalence (Tier-3) edge be before it is allowed to MERGE two JDs into the same cluster? | `0.75` | we chose it |
+| [HR-163](#hr-163) | How many seniority bands may a role cluster's members span before it is flagged for HR review? | `1` | we chose it |
+| [HR-164](#hr-164) | Should a role cluster that mixes more than one known employee group (e.g. APSA + CUPE) be flagged for HR review? | `true` | we chose it |
+| [HR-165](#hr-165) | Above how many members is a role cluster flagged as oversize (too big for one canonical JD without HR eyes)? | `50` | we chose it |
+| [HR-166](#hr-166) | How does a role cluster pick the member that every other member's drift is measured against (and that the report names)? | `max_parse_confidence` | we chose it |
+| [HR-167](#hr-167) | How should the harmonization engine choose the canonical TITLE for a role cluster's merged draft? | `modal_normalized` | we chose it |
+| [HR-168](#hr-168) | How should the engine pick which member's POSITION SUMMARY becomes the draft's summary (with no rewrite)? | `within_target_then_central` | we chose it |
+| [HR-169](#hr-169) | What should the engine do with members' ADDITIONAL CONTEXTUAL INFORMATION when merging a cluster? | `drop` | we chose it |
+| [HR-170](#hr-170) | How should the engine set the boilerplate PRESENCE booleans (About SFU, territorial acknowledgement, employment equity) on the merged draft? | `or_across_members` | we chose it |
+| [HR-171](#hr-171) | At what token-Jaccard similarity should two DUTY statements be treated as the same duty and collapsed onto one representative? | `0.7` | we chose it |
+| [HR-172](#hr-172) | How many deduped duties may a merged draft carry before the extras are dropped and the draft is flagged for HR review? | `12` | we chose it |
+| [HR-173](#hr-173) | What fraction of a cluster's members must require a skill before it is treated as a CORE qualification (kept) rather than an incidental one (dropped)? | `0.5` | we chose it |
+| [HR-174](#hr-174) | How should SECURITY qualifications (e.g. a criminal-record check) be combined across a cluster's members? | `union` | we chose it |
+| [HR-175](#hr-175) | How should the required EDUCATION and EXPERIENCE bars be chosen when a cluster's members disagree? | `max` | we chose it |
+| [HR-176](#hr-176) | Which self-hosted chat model should rewrite a merge draft into cleaner, template-faithful prose? | `gpt-oss:120b` | we chose it |
+| [HR-177](#hr-177) | At what sampling temperature should the rewrite model run? | `0.0` | we chose it |
+| [HR-178](#hr-178) | What token budget should one rewrite completion get? | `2048` | we chose it |
+| [HR-179](#hr-179) | How many times should an invalid-JSON rewrite response be re-requested before the pass gives up? | `1` | we chose it |
+| [HR-180](#hr-180) | Which prompt template should the rewrite pass use? | `jd_harmonize_v1` | we chose it |
+| [HR-181](#hr-181) | Should the anti-fabrication guard run at all on the rewrite output? | `true` | we chose it |
+| [HR-182](#hr-182) | How should the guard decide a rewritten qualification is grounded in the merge draft's vocabulary? | `token_overlap` | we chose it |
+| [HR-183](#hr-183) | What fraction of a rewritten qualification's content tokens must be grounded in the merge draft for it to be kept? | `0.5` | we chose it |
+| [HR-184](#hr-184) | Below what token-Jaccard with any draft duty should a rewritten duty be flagged for HR review? | `0.2` | we chose it |
+| [HR-185](#hr-185) | Which self-hosted chat model should run the nuanced quality audit of a JD? | `gpt-oss:120b` | we chose it |
+| [HR-186](#hr-186) | At what sampling temperature should the quality-audit model run? | `0.0` | we chose it |
+| [HR-187](#hr-187) | What token budget should one quality-audit completion get? | `1024` | we chose it |
+| [HR-188](#hr-188) | How many times should an invalid-JSON audit response be re-requested before the pass gives up? | `1` | we chose it |
+| [HR-189](#hr-189) | Should the anti-fabrication (verbatim-evidence) guard run at all on the audit findings? | `true` | we chose it |
+| [HR-190](#hr-190) | Which prompt template should the quality-audit pass use? | `jd_quality_v1` | we chose it |
+| [HR-191](#hr-191) | How hard should the reasoning model think before rewriting a merge draft — and should we constrain its reasoning effort at all? | `null` | we chose it |
+| [HR-192](#hr-192) | How hard should the reasoning model think before running the nuanced quality audit? | `low` | we chose it |
+| [HR-193](#hr-193) | When a JD's serialized text is still too long for the embedding model AFTER `max_chars` truncation, what shorter lengths do we retry before giving up? | `8000`, `6000`, `4000` | we chose it |
+| [HR-194](#hr-194) | Which bargaining units does the JD Bank serve under the JDFN approval bar — and therefore which may the Phase-5 Builder author? Specifically: should CUPE (and exempt/`excluded`) roles remain OUT until HR defines a quality bar for them? | `apsa`, `apex`, `poly` | we chose it |
+| [HR-195](#hr-195) | When the Builder warns an author that their new job description looks like roles SFU already has, how many of those existing roles should it list? | `5` | we chose it |
+| [HR-196](#hr-196) | How much must an author have written before the Builder goes looking for existing roles that resemble their draft? | `500` | we chose it |
+| [HR-197](#hr-197) | How long should the Builder wait for the "roles SFU already has" panel before giving up on it and showing the compliance result without it? | `5.0` | we chose it |
 
-### Our invention — nobody has ratified these
+### We chose it — nobody has ratified these
 
-JD Bank made these up because the system needed *a* value. There is no SFU precedent behind any of them. **Start here.**
+We picked these because the system needed *a* value. There is no SFU precedent behind any of them. **Start here.**
 
 #### HR-001 — What quality score must a job description reach before an HR reviewer is allowed to approve it?
 
 - **We ship:** `60.0`
 - **Configured in:** `gates.yaml` → `gates.SFU-APPROVE-SCORE-FLOOR.min_score`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** This is the single number that decides how much of the archive is even presentable for review. It is OUR roll-up of the rulebook, not a number SFU published anywhere — SFU's rulebook names conditions ("never approve if…"), never a score. We chose 60 to line up with the C grade band. ✅ THE PHASE-2.5 ARCHIVE BASELINE HAS NOW TESTED THIS NUMBER AGAINST ALL 14,565 REAL JDs, AND IT SURVIVES. Measured on the CURRENT-PRACTICE COHORT (defined below): the median JD scores 77.3 (mean 76.4, range 47.5-95.0), and 869 of 874 — 99.4% — clear the floor of 60. The floor rejects FIVE files. Grades: 5 A, 509 B, 355 C, 5 D, and ZERO F. The archive ratifies the bar; it does not kill it. ⚠ BUT READ HR-004 BEFORE RATIFYING: 60 is not the number that is actually stopping anything. Of the 246 current-practice JDs that cannot be approved, this floor blocks 5 and the grade floor 5, while two FORMATTING gates block 134 and 104. HR would be ratifying a score bar that is very nearly inert. ⚠ AND DO NOT READ THE WHOLE-ARCHIVE NUMBER AS QUALITY. Across all 6,259 `new`-era JDs the score distribution is BIMODAL (a mode at 10-29, n=1,304; a mode at 60-79, n=3,929; a valley at 30-59, n=580) and this floor does sit in the valley — but the two modes are NOT good JDs and bad JDs. They are JDs that carry the territorial acknowledgement and JDs that do not (see HR-109). The floor is separating a document era, not a quality level, and read carelessly that would look like a ringing endorsement of 60 when it is really an artefact. COHORT DEFINITION (used by HR-001..HR-005, HR-019/020, HR-047, HR-109..HR-111, and reproducible from `docs/baseline/` with one filter): "current practice" = the 874 `new`-era JDs on which SFU-COMP-TERRITORIAL did NOT fire, i.e. the validator found SFU's mandated acknowledgement actually present. A raw-text scan of all 6,259 new-era JDs puts SFU-COMP-TERRITORIAL's false-positive rate at ~0.2% (10 files), so a text-presence cohort is ~883 and every figure above moves by under one point.
 - **If it changes:** Directly sets the size of the review queue. Raising it to 70 turns every C-grade JD into a blocked draft; lowering it to 50 lets D-grade JDs through to a reviewer. MEASURED against the current-practice cohort: raising the floor to 70 would newly block 111 of 874 JDs (the 106 in the 60-69 band plus those already below); lowering it to 50 would release 4 of the 5 it currently rejects. So the knob is real but the region it operates in is nearly empty — which is the finding. RECOMMENDATION TO HR: ratify 60. It is defensible against the real corpus, it rejects almost nothing that current practice produces, and no evidence was found that it is wrong. It stays `open` because only SFU HR can ratify it; JD Bank does not get to mark its own homework.
 
@@ -238,7 +240,7 @@ JD Bank made these up because the system needed *a* value. There is no SFU prece
 
 - **We ship:** `C`
 - **Configured in:** `gates.yaml` → `gates.SFU-APPROVE-GRADE-FLOOR.min_grade`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** A second, independent floor next to the score floor (HR-001). The grade letter is what a reviewer actually sees, so this is the bar in the language the dashboard speaks. Also not an SFU number. ✅ MEASURED (Phase 2.5, current-practice cohort — see HR-001 for the definition): the grade floor blocks 5 of 874. The grade distribution is 5 A / 509 B / 355 C / 5 D / ZERO F — i.e. essentially the whole cohort already sits at C or above, and a C floor is where the population naturally begins rather than a bar it has to clear. ⚠ Like HR-001, this is nearly inert: 5 blocks, against 134 and 104 for two formatting gates (HR-004). HR should not mistake it for the operative bar.
 - **If it changes:** Deliberately a separate knob from HR-001 and today aligned with it (grade C starts at 60.0 — HR-015). They can be tuned apart, but if they disagree the stricter one silently wins, which is confusing to a reviewer. Ratify them together. MEASURED: raising the floor to B would newly block the 355 C-grade JDs — 41% of everything current practice produces — turning a nearly-inert gate into the single largest blocker in the system. That is the asymmetry to be aware of: this knob is quiet at C and violent at B. RECOMMENDATION TO HR: ratify C, together with HR-001. Stays `open` — only SFU HR can ratify.
 
@@ -246,7 +248,7 @@ JD Bank made these up because the system needed *a* value. There is no SFU prece
 
 - **We ship:** `high`
 - **Configured in:** `gates.yaml` → `gates.SFU-APPROVE-SEVERITY-FLOOR.min_severity`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The backstop: any finding at this severity or worse blocks approval even if the JD scores well. It is also the only gate that catches findings with no rule id at all — i.e. the Phase-5 LLM pass. Today only three rules are `high` (no summary / no duties / no qualifications). ✅ MEASURED (Phase 2.5, current-practice cohort — definition in HR-001): the severity floor blocks 7 of 874. It behaves exactly as a backstop should — it almost never fires on a JD written under current practice, and when it does, the JD is genuinely missing a mandatory section. No evidence was found that `high` is wrong.
 - **If it changes:** Lowering it to `medium` would block on missing Decision-Making, missing Problem-Solving, banned qualification phrases, leftover placeholders and any coded term flagged `medium` — a very large share of the archive at once. That is no longer a guess: SFU-QUAL-BANNED-PHRASE alone has a KNOWN scoping bug (it scans the whole document though its rule text says Qualifications only — see the project backlog), so lowering this floor would promote a bug straight to blocking. Fix the scoping bug first, then reconsider. RECOMMENDATION TO HR: ratify `high`. Stays `open` — only SFU HR can ratify.
 
@@ -254,7 +256,7 @@ JD Bank made these up because the system needed *a* value. There is no SFU prece
 
 - **We ship:** `SFU-AUTH-SUMMARY-CONDITIONS`, `SFU-AUTH-SUMMARY-INCUMBENT`, `SFU-COMP-DUTIES`, `SFU-COMP-EDI`, `SFU-COMP-QUALS`, `SFU-COMP-SUMMARY`, `SFU-COMP-TERRITORIAL`, `SFU-GATE-DUTY-PCT`, `SFU-GATE-KSA-ORDER`, `SFU-GATE-SENIOR-TITLE`, `SFU-QUAL-BANNED-PHRASE`, `SFU-QUAL-EQUIVALENT`, `SFU-STRUCT-PLACEHOLDER`, `SFU-STRUCT-SUMMARY-TOO-LONG`
 - **Configured in:** `gates.yaml` → `gates.blocking_rule_ids`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** THE master list, and the most reviewable line in the whole system: it is the complete set of rule failures that disable the approve button. The selection is ours. Notably ABSENT and therefore NOT blocking today — each a live question for HR: coded/gendered terms (SFU-LANG-CODED, HR-028/HR-029), a JD with more than five duties (SFU-STRUCT-DUTIES-TOO-MANY, HR-036), a missing Impact-of-Decision-Making or Problem-Solving section (HR-034/HR-035), and the three restricted-title rules (HR-030/HR-032/HR-033). ⚠⚠ THE SINGLE MOST IMPORTANT THING PHASE 2.5 LEARNED, AND HR MUST SEE IT BEFORE RATIFYING ANYTHING: **THE OPERATIVE APPROVAL BAR IS NOT THE SCORE FLOOR — IT IS TWO FORMATTING GATES.** Of the 246 current-practice JDs that cannot be approved (cohort defined in HR-001), the blocking gates are:
   SFU-APPROVE-SUMMARY-LENGTH     134  (54.5%)   <- the summary is too short/long
   SFU-APPROVE-QUAL-MINIMUM       104  (42.3%)
@@ -272,7 +274,7 @@ HR believes it is ratifying a quality bar. It is in fact ratifying a WORD-COUNT 
 
 - **We ship:** `SFU-APPROVE-MANDATORY-SECTIONS`, `SFU-APPROVE-NO-PLACEHOLDERS`
 - **Configured in:** `gates.yaml` → `gates.non_overridable_gate_ids`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Every other gate is overridable: a reviewer who judges a block to be a false positive waives it WITH A WRITTEN REASON, which is exactly the audit trail CLAUDE.md §1 asks for. These two are absolute — a JD with no summary, duties or qualifications, and a draft still carrying the template's own instructional text. We asserted that no override could reasonably speak to either.
 - **If it changes:** Removing a gate from this set hands reviewers discretion they do not have today; adding one takes discretion away. Flipping ANY gate's `overridable` flag moves this list and breaks the build until HR is told. ✅ MEASURED (Phase 2.5): on the current-practice cohort (HR-001) the un-waivable set almost never fires — SFU-APPROVE-MANDATORY-SECTIONS blocks 7 of 874, and SFU-APPROVE-NO-PLACEHOLDERS blocks **ZERO**. Both blocks are, on inspection, correct: a JD really is missing a mandatory section. Taking a reviewer's discretion away is only defensible when the gate is never wrong, and on current practice these two are not wrong. ⚠ The legacy corpus is a different story, and it is the reason HR-047 exists: SFU-APPROVE-NO-PLACEHOLDERS makes 29.4% of the WHOLE archive permanently un-approvable with no waiver available. See HR-047 — that is a legacy-corpus problem, not a current-practice one.
 
@@ -280,7 +282,7 @@ HR believes it is ratifying a quality bar. It is in fact ratifying a WORD-COUNT 
 
 - **We ship:** `SFU-COMP-SUMMARY`, `SFU-COMP-DUTIES`, `SFU-COMP-QUALS`
 - **Configured in:** `gates.yaml` → `gates.SFU-APPROVE-MANDATORY-SECTIONS.rule_ids`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** This is the un-waivable gate (HR-005), so its membership is the strongest claim in the policy. SFU's Part 2 template makes ALL its sections mandatory; restricting the absolute bar to these three is our call. Impact of Decision Making and Problem Solving — both Hay evaluation inputs — are deliberately NOT here (HR-034 / HR-035).
 - **If it changes:** Anything added here becomes un-waivable: no reviewer, no reason, no override. A large slice of the legacy archive would become permanently un-approvable until rewritten.
 
@@ -288,7 +290,7 @@ HR believes it is ratifying a quality bar. It is in fact ratifying a WORD-COUNT 
 
 - **We ship:** `SFU-STRUCT-PLACEHOLDER`
 - **Configured in:** `gates.yaml` → `gates.SFU-APPROVE-NO-PLACEHOLDERS.rule_ids`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The second un-waivable gate (HR-005). It fires on the literal placeholder markers in markers.yaml — and one of those markers is the phrase "action verb" (HR-047). A real JD that happens to contain that phrase is therefore blocked with NO override available. That combination is a trap worth HR's attention.
 - **If it changes:** Making this gate overridable (or narrowing the marker list) would let a reviewer waive a false positive. Leaving it as-is keeps genuinely unfinished drafts out of review at the cost of the false positives in HR-047.
 
@@ -296,7 +298,7 @@ HR believes it is ratifying a quality bar. It is in fact ratifying a WORD-COUNT 
 
 - **We ship:** `99`
 - **Configured in:** `thresholds.yaml` → `thresholds.duty_allocation_total_min`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** SFU says 100%, full stop (Part 11.6, an explicit never-approve condition). The 99–101 tolerance is a rounding window WE invented so that a JD whose duties are 33/33/33 is not blocked over 1%.
 - **If it changes:** Tightening to exactly 100 would block every JD whose percentages were written by hand and round; widening it lets genuinely wrong allocations through a gate SFU explicitly named.
 
@@ -304,7 +306,7 @@ HR believes it is ratifying a quality bar. It is in fact ratifying a WORD-COUNT 
 
 - **We ship:** `101`
 - **Configured in:** `thresholds.yaml` → `thresholds.duty_allocation_total_max`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The upper half of the invented rounding window in HR-023.
 - **If it changes:** See HR-023 — ratify the window as a pair.
 
@@ -312,7 +314,7 @@ HR believes it is ratifying a quality bar. It is in fact ratifying a WORD-COUNT 
 
 - **We ship:** `2`
 - **Configured in:** `thresholds.yaml` → `thresholds.duty_allocation_min_count`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** It does not today. The check only runs when at least two parenthesized "(NN%)" allocations are present, so a JD with a single duty marked "(50%)" — an obviously incomplete document — SILENTLY PASSES an SFU never-approve gate. The threshold exists to avoid false positives on documents where extraction found one stray percentage; the cost is this escape.
 - **If it changes:** Setting it to 1 closes the escape and will fire on legacy documents whose extraction produced a single spurious "(100%)". Worth measuring against the Phase-2.5 archive baseline before deciding.
 
@@ -320,7 +322,7 @@ HR believes it is ratifying a quality bar. It is in fact ratifying a WORD-COUNT 
 
 - **We ship:** `he/she` → "they" or "the incumbent"; `his/her` → "their" or "the incumbent's"; `honest` → "candid"; `individual` → "single"/"lone", or "position"/"role" (as "this individual"); `s/he` → "they" or "the incumbent"; `trust` → "reliable"
 - **Configured in:** `coded_terms.yaml` → `coded_terms.low`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** SFU's Part 6 lexicon lists these as terms to replace. We demoted them to `low` because they over-fire on ordinary JD prose ("the individual is responsible for…", "maintains the trust of stakeholders"), where a `medium` finding would drag the grade on a false positive. That demotion is OUR call, not SFU's. The generic pronouns (he/she, s/he, his/her) sit here too, though those are unambiguous.
 - **If it changes:** Promoting them to `medium` doubles their score cost (HR-009 vs HR-010) and would fire on a large share of the archive. Note also that NO coded term blocks approval today (HR-004) — this is only about score and the reviewer's checklist.
 
@@ -328,7 +330,7 @@ HR believes it is ratifying a quality bar. It is in fact ratifying a WORD-COUNT 
 
 - **We ship:** `\((\d{1,3})\s*%\)`
 - **Configured in:** `patterns.yaml` → `patterns.duty_allocation`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Our pattern, not SFU's. A JD that writes "40% of time" or "40 percent" without brackets contributes NOTHING to the total, so its allocations can never fail the "must total 100%" gate — the JD escapes an SFU never-approve condition through a formatting choice. Chosen to keep false positives low (any bare "%" would sweep up "95% uptime").
 - **If it changes:** Loosening the pattern catches more real violations and more noise. Interacts with HR-025 (a JD needs ≥2 matches before the gate runs at all).
 
@@ -336,7 +338,7 @@ HR believes it is ratifying a quality bar. It is in fact ratifying a WORD-COUNT 
 
 - **We ship:** `on-call`, `on call`, `shift work`, `evenings and weekends`, `evening and weekend`, `weekends and holidays`, `standby`, `stand-by`, `housing`, `parking`, `relocation`
 - **Configured in:** `markers.yaml` → `markers.working_conditions`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** SFU's rule (Part 2B) is that the summary states the role's PURPOSE, not its working conditions. This specific word list is ours, and it BLOCKS approval (overridable). "housing", "parking" and "relocation" are the risky entries: a Parking Services or Residence & Housing role whose summary names its own domain is blocked by a rule about shift patterns.
 - **If it changes:** Removing the three domain-noun entries removes a class of false blocks that falls hardest on exactly the units named. Adding entries widens a blocking gate — do it knowingly.
 
@@ -344,7 +346,7 @@ HR believes it is ratifying a quality bar. It is in fact ratifying a WORD-COUNT 
 
 - **We ship:** `action verb`, `how and why`, `what by`, `spell out acronyms`, `provide a high level summary`, `____`, `[insert`
 - **Configured in:** `markers.yaml` → `markers.placeholder`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** These are the fragments of the template's own instructional text that a writer is supposed to delete. Finding one means the draft is unfinished — and that gate is NON-OVERRIDABLE (HR-005/HR-007): no reviewer can waive it. But "action verb", "how and why" and "what by" are ordinary English. A JD for a writing-instruction role, or one whose Qualifications say "coaches staff on how and why decisions are made", is permanently un-approvable until the words are removed. The strictest gate in the system rests on the loosest markers.
 - **If it changes:** Either make the gate overridable (HR-007) or make the markers more specific (e.g. require the template's full instructional sentence). Both are config edits. ✅ MEASURED (Phase 2.5) — AND THE PRIORITY OF THIS ENTRY CHANGES AS A RESULT. The damage is real but it is **entirely in the legacy corpus**:
   * whole archive:          4,268 of 14,522 scored JDs (29.4%) are permanently
@@ -358,7 +360,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `\bmy\b|\bmyself\b|\bi am\b`
 - **Configured in:** `patterns.yaml` → `patterns.incumbent`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** SFU's Part 2B rule ("describe the position, not the person") is real; this three-word regex is our entire implementation of it, and it BLOCKS approval (SFU-APPROVE-SUMMARY-INCUMBENT). It is both too narrow — "he is responsible for…", the commonest incumbent-focused phrasing in the legacy archive, sails through — and capable of false positives on "my" inside quoted text.
 - **If it changes:** Widening it blocks more of the archive; narrowing it makes a blocking gate nearly inert. Either way the approval bar moves, with no change to gates.yaml.
 
@@ -366,7 +368,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `\bsenior\b`
 - **Configured in:** `patterns.yaml` → `patterns.senior_title`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Blocking (SFU-APPROVE-SENIOR-TITLE). SFU Part 3.5 reserves "Senior" for roles supervising junior peers — but the pattern matches the word ANYWHERE in the title, so "Advisor, Senior Leadership Programs" or "Senior Citizens Programs Coordinator" is blocked for having no supervisory scope. The rule is about a title PREFIX; the pattern does not know that.
 - **If it changes:** Anchoring it to a leading "Senior" would remove a class of false blocks. A config edit.
 
@@ -374,7 +376,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `SFU-COMP-DUTIES`, `SFU-COMP-QUALS`, `SFU-COMP-SUMMARY`
 - **Configured in:** `rule_catalog.yaml` → `rule_catalog.rules_by_severity.high`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** THERE ARE TWO ROUTES TO BLOCKING, NOT ONE. A rule blocks if it is named in a gate's rule_ids (pinned by HR-004) — OR if its severity reaches the severity floor (HR-003, currently `high`), because SFU-APPROVE-SEVERITY-FLOOR blocks on *any* finding at or above it. So raising a `low` drafting nudge like SFU-STRUCT-ACTION-VERB to `high` would silently make a non-approved verb block a JD, with no edit to gates.yaml at all. This entry pins the membership of every tier that reaches the floor, so that promotion cannot happen quietly.
 - **If it changes:** Anything added to this list starts blocking approval. Note the list adjusts itself: if HR lowers the severity floor (HR-003) to `medium`, the `medium` tier becomes a blocking tier too, appears on the decision surface, and the build fails until it is registered here as well.
 
@@ -382,7 +384,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `about_sfu`, `territorial_acknowledgement`, `employment_equity`
 - **Configured in:** `boilerplate.yaml` → `boilerplate.coded_term_scan_exempt`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** WE SAY NO, AND THIS IS US SAYING IT — not SFU. It is the fix for HR-058, and the only entry in this group that is a judgement rather than a transcription. Before it, a JD that obeyed SFU scored 91.5/A without the About-SFU paragraph and 81.5/B with it — because SFU's own sentence says "compassionate", which our lexicon (HR-028/HR-029) files at `medium`. Removing the paragraph to dodge that tripped SFU-COMP-ABOUT instead. The JD could not win, on nearly every compliant JD in the archive, systematically depressing the very baseline the score floor (HR-001) is to be ratified against. So the Part-6 scan no longer looks inside the blocks named here. SCOPE, precisely: the exemption is granted to SFU's TEXT, never to a section — only a verbatim mandated passage (whitespace / case / smart-quote insensitive, nothing else) is skipped, so coded language cannot be smuggled past the scan by putting it under an "About SFU" heading, by quoting a fragment, or by splicing words into a mandated sentence. Every other scan (placeholders, banned qualification phrases, duty percentages, and the PRESENCE gates SFU-COMP-ABOUT / -TERRITORIAL / -EDI) still reads the whole document.
 - **If it changes:** Empty this list and HR-058 returns in full: every compliant JD in the archive is docked 10 points and a grade for SFU's own word. Alternatives HR may prefer instead of (or as well as) this: drop "compassionate" from the lexicon entirely — it is one of the nine terms SFU never published (HR-029) — or demote it to `low`. Those are lexicon decisions and are separately open. Note the exemption is currently doing work ONLY for `about_sfu`; the other two blocks carry no coded term today and are listed so that the same class of defect cannot reappear the day a term is added to the lexicon.
 
@@ -390,7 +392,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `false`
 - **Configured in:** `textnorm.yaml` → `textnorm.collapse_across_paragraph_break`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** SFU's rulebook was written for people reading Word documents; our scanners read an `antiword` dump. `antiword` HARD-WRAPS the legacy `.doc` corpus, so a JD that plainly says "…or an equivalent combination of education, training and experience…" reaches the scanner as "equivalent\n      combination" — and was reported as MISSING the equivalency path. MEASURED on the real archive (a random 400-document `.doc` sample, extracted through our own ingest): SFU-QUAL-EQUIVALENT fired 74 times, and 39 of those are this artefact — 9.75% of legacy JDs marked down for text they plainly contain. Exactly the HR-058 defect in a new place: penalising a JD for how a converter wrapped it. So a whitespace RUN collapses to one space and the wrongly-missing text is found (the same sample also GAINS 3 findings the wrap was hiding — 1 leftover "start with an action verb…" template instruction, 2 real "may include" phrases — all three verified genuine). THE DECISION IS HOW FAR THE COLLAPSE GOES. Collapse across a PARAGRAPH break too and normalization starts INVENTING findings out of two unrelated paragraphs. All three of these are real, and none fire under the shipped default: "Decides what" + "By whom is set elsewhere." becomes the placeholder marker "what by", which feeds the NON-OVERRIDABLE no-placeholders gate (HR-047) — a permanently un-approvable JD, no waiver, manufactured by a text transform; "Duties may" + "Include other tasks." becomes the banned phrase "may include" (medium, -10); and "Coordinates on" + "call centre staffing." becomes a working-condition marker. We ship `false`: collapse a wrap, treat a blank line as a boundary a term cannot cross.
 - **If it changes:** Set it `true` and a term may match across a paragraph break: a phrase an extraction split across paragraphs is caught, at the price of the three invented findings above (one of them non-overridable). What it does NOT cost today: on the same 400-`.doc` / 599-`.docx` archive samples, `true` and `false` produce BYTE-IDENTICAL findings — no archive document currently has a term straddling a paragraph break. So the boundary costs nothing of the antiword win and is pure insurance against the invented-finding class. That result is NOT vacuous: the boundary is actually exercised on 100% of the `.doc` corpus (498/498 carry blank lines) and on 47% of `.docx` (373/799) — it engages, and still changes nothing. ⚠ SEPARATELY, A PARTIAL GAP AND NOT A DECISION: a paragraph break is detected as a BLANK LINE. `ingest/extract.py` joins `.docx` paragraphs with a single "\n" and drops empty ones — but `if p.text` only drops the TRULY empty ones, so a whitespace-only paragraph (" ") survives and yields "\n \n", which IS a boundary. Measured on 799 archive `.docx`: 101 carry a literal blank line, 329 a whitespace-only paragraph, and 373 (47%) do get a paragraph boundary. The gap is the OTHER ~53%, whose adjacent paragraphs are separated by a single "\n" and are therefore still joined for matching. It protects the legacy `.doc` corpus in full, which is where the wrapping problem actually lives. Closing the `.docx` half means changing the extractor's paragraph separator, which rewrites stored raw text the segmenter reads: a separate change, on the backlog. Note finally what is NOT here. Dropping zero-width characters, soft hyphens and BOMs, and folding smart quotes and ligatures to ASCII, are MECHANICAL text facts, not decisions — there is no defensible rulebook in which "comp<zero-width-space>assionate" escapes a scan for "compassionate" — so they live in code and are not configurable. They also move almost nothing on today's archive: 600 sampled `.docx` carry ZERO such characters. This entry is the part of the fold that actually changes findings.
 
@@ -398,7 +400,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `JDFN`
 - **Configured in:** `segmentation.yaml` → `segmentation.era_template_token`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** This is the most consequential line in the file, because era is what the archive actually fails on. The Phase-0 census (§4b) found body headings unusable as an era signal across the whole 2008-2021 middle band and concluded that era "is most reliably inferred from the JDFN filename token, not body headings" — so we read the token. `JDFN` is SFU's own job-description form marker; it appears in 4,637 of the 14,565 files (re-measured against the archive; the census says 4,637 too). ⚠ THE PART AN HR REVIEWER MUST ACTUALLY RULE ON: the token OVERRIDES the date band, IN BOTH DIRECTIONS. A file carrying `JDFN` is classified `new` however old its date. MEASURED CONSEQUENCE: 50 real files carry `JDFN` with a pre-2019 date (1 in 2010, 1 in 2012, 1 in 2015, 2 in 2016, 20 in 2017, 25 in 2018) and are therefore judged `new` — i.e. held to the CURRENT approval bar — despite predating the band that otherwise defines it. We ship the override because a JD written on the current form should be judged against the current form, whatever year it was filed. It is a judgement, not a fact, and it is why this entry exists.
 - **If it changes:** Retire the token (or empty it) and era collapses to the date bands alone: those 50 files fall back to `old`/`transition`, and — far more importantly — the `new` segment stops meaning "authored under the current template" and starts meaning only "filed after 2018", which re-imports every mis-dated re-save into the population the bar is being ratified against. Change the token string and it matches nothing: every file falls to its date band and the override silently stops existing. Nothing about any JD's SCORE moves either way — only which files' scores are averaged together. ⚠⚠ THE ARCHIVE BASELINE DISPROVED THE MODEL THIS ENTRY ASSUMES. We assumed SFU made ONE transition. IT MADE TWO, FOUR YEARS APART: (1) the JDFN TEMPLATE rolled out in 2019 (1 file in 2010 … 332 in 2019, 1,131 in 2020); and (2) the TERRITORIAL ACKNOWLEDGEMENT / EDI FOOTER became standard practice only in 2023-2024. MEASURED presence by year across all 6,259 `new`-era JDs — 2019 0.2% · 2020 0.8% · 2021 1.4% · 2022 1.0% · 2023 10.0% · 2024 63.1% · 2025 84.9% · 2026 88.6%. It is a rollout STILL IN PROGRESS, not a settled standard. `new` captures transition (1), and is then judged by SFU-APPROVE-EDI-FOOTER — a BLOCKING gate that only transition (2) satisfies. So a 2019 JDFN document, authored CORRECTLY under the template of its day, is un-approvable for lacking a paragraph that did not yet exist. THE COST, MEASURED: `new`-era approval is 10.0%; current-practice approval is 71.9%. Same rulebook, same bar, two populations — A SEVENFOLD GAP, and every point of it is a date, not a quality difference. The gate itself is NOT wrong: a raw-text scan of all 6,259 new-era JDs puts SFU-COMP-TERRITORIAL's false-positive rate at ~0.2% (10 files). The archive genuinely does not have the paragraph yet. ✅ PHASE 2.6 TOOK OPTION (a): A FOURTH BAND, `current`, FROM 2024 (HR-122) — the year footer adoption crosses 50% (11% in 2023 -> 63% in 2024). The model, not the token, was what the baseline disproved, so the model is what changed. WHAT THIS ENTRY STILL DECIDES, AND IT IS UNCHANGED: the token is still `JDFN` and it still overrides a pre-2019 date for those 50 files. One thing about it DID change, and it is the reason a naive fourth band would not have worked: the token used to win OUTRIGHT, in both directions. Every JD SFU writes today carries `JDFN`, so a token that wins outright would have pulled every 2024+ file straight back into `new` and collapsed the new band on the day it was added. The token now PROMOTES an old file up the ladder and never demotes a current one down it. ✅ MEASURED, full-archive re-run: `old` 3,339 and `transition` 4,964 are UNCHANGED (re-banding the top of the ladder cannot move a file across the bottom of it), and the old 6,262-file `new` era splits into **`new` 5,228 (2019-2023)** and **`current` 1,034 (2024+)**. Approval: `new` **1.0%**, `current` **61.2%** — against the 10.0% that the merged band used to report. The merged number was an average of two populations that share a template and nothing else. OPTION (b) IS STILL LIVE AND IS STILL HR'S: define the era by the FOOTER'S PRESENCE rather than by a date. It is the truer signal — it is how the 874-JD current-practice cohort in HR-001 is defined, and a date band provably cannot reproduce that cohort (see HR-122) — but it makes era depend on document CONTENT, so `file_facets` would stop being a pure, never-raising function of a filename. That is an architectural change, not a knob, and we have not taken it.
 
@@ -406,7 +408,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `2009`
 - **Configured in:** `segmentation.yaml` → `segmentation.era_old_max_year`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The census (§4a) puts the OLD band at 1967-2009 — paper-derived, `.doc`-dominated, lettered section headings, an incumbent NAME field. Re-measured on the leading YYYYMMDD filename prefix (present on all 14,565 files): 3,339 files fall at or below 2009. These JDs predate the About-SFU paragraph, the territorial acknowledgement and the Employment Equity statement entirely, so three completeness rules and a BLOCKING gate fire on essentially all of them. Reporting that as "non-compliance" would be reporting that they are old.
 - **If it changes:** Moves the OLD/TRANSITION boundary. Every file in the years that change sides moves segment, so both segments' score distributions and approval rates move — with no change to any JD's score. The bands must stay ordered (`era_old_max_year` below `era_transition_max_year`) or the config refuses to load, because a `transition` segment nothing can land in is a segment that silently reports nothing. ⚠ THE BASELINE SHOWED THE THREE-BAND MODEL IS THE WRONG SHAPE (see HR-109 for the evidence): SFU made TWO transitions, four years apart — the template in 2019 and the territorial/EDI footer in 2023-2024 — and this ladder only has a rung for the first. The OLD/TRANSITION boundary itself is not what is wrong (nothing in the baseline contradicts 2009), but the ladder it sits on is incomplete, so ratifying this band in isolation would ratify a model the data does not support. Read HR-109, HR-110 and HR-111 together, or not at all. ✅ PHASE 2.6 GAVE THE LADDER ITS MISSING RUNG (HR-122: `current`, from 2024). THIS BOUNDARY IS UNCHANGED at 2009 — the baseline never contradicted it — but it can now be ratified as part of a model the data actually supports, which is the whole reason it was held back. MEASURED, and the number that matters for THIS band is that it did not move: re-banding the top of the ladder cannot move a file across the bottom of it. `old` is 3,339 files before and after.
 
@@ -414,7 +416,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `2018`
 - **Configured in:** `segmentation.yaml` → `segmentation.era_transition_max_year`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The bar is FOR the current-template population, so this line decides who the bar is actually being tried on. The census (§4a) puts TRANSITION at 2010-2018 and NEW at 2019+, and the JDFN rollout confirms the cliff: 25 JDFN files in 2018, then 332 in 2019 and 1,131 in 2020. Re-measured on the leading date prefix: 5,014 files in 2010-2018 and 6,212 from 2019. Anything above this year is `new` — there is deliberately no upper bound, so a file dated 2030 cannot fall off the end of the ladder into no segment at all.
 - **If it changes:** Directly changes the population the approval bar is ratified against, which is the whole point of Phase 2.5. Lower it and pre-current-template JDs are judged by the current bar; raise it and genuinely current JDs are excused from it. Note the JDFN token (HR-109) already overrides this for 50 files, so the two entries interact and should be read together. ⚠⚠ AND THE BASELINE SHOWED THIS BOUNDARY IS IN THE WRONG PLACE FOR THE JOB IT IS DOING. `new` (2019+) is meant to be "the population the bar is FOR". It is not. MEASURED: `new`-era approval is 10.0%, while approval among JDs that actually carry SFU's mandated acknowledgement is 71.9% — a SEVENFOLD gap produced entirely by SFU-APPROVE-EDI-FOOTER blocking 86.2% of the `new` era, because the acknowledgement only became standard practice in 2023-2024 (year-by-year adoption in HR-109). Judged by this boundary, the archive looks catastrophically non-compliant. Judged by the population the bar is really for, it PASSES — 99.4% clear the score floor, median 77.3, zero F grades (HR-001). ✅ PHASE 2.6 FIXED THE LADDER, NOT THIS BOUNDARY. The 2018 default is UNCHANGED, and that is deliberate: 2018/2019 is where the JDFN TEMPLATE rollout really happened (25 JDFN files in 2018, 332 in 2019, 1,131 in 2020), and nothing in the baseline contradicts it. What was wrong was that `new` had no CEILING — so it was made to carry a second rollout it knows nothing about. It now ends in 2023, and `current` (2024+) carries the footer era (HR-122). `new` therefore means what this entry always claimed it meant: "authored under the JDFN template, before the acknowledgement became standard practice". ✅ MEASURED after the 2.6 re-banding: `new` is now **5,225 scored files (2019-2023)** with **1.0% approval** and a median of 68.3, while `current` (2024+, 1,034 files) runs at **61.2%**. THE 1.0% IS NOT A QUALITY VERDICT AND MUST NOT BE READ AS ONE: 5,146 of those 5,171 blocks are SFU-APPROVE-EDI-FOOTER, i.e. the paragraph that did not exist yet. It is the cleanest statement of the whole finding — hold the template era to the footer era's bar and essentially nothing passes, at a median score of 68. Read with HR-109 and HR-122. Moving THIS year still moves who is judged by the current-template bar at all, and it remains `open`.
 
@@ -422,7 +424,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `true`
 - **Configured in:** `segmentation.yaml` → `segmentation.prefer_revision_date_for_version`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The archive is a revision history, not a set of current JDs: the census (§7b) counts ~8,160 files that are a non-first version of an already-seen position. The `latest_per_position` population exists to recover the CURRENT JD for each position, and "latest" needs a date. A JDFN filename gives two — the leading (original / effective) YYYYMMDD and the trailing `JDFN_<GROUP>_<YYYYMMDD>` revision date. We take the revision date when there is one. MEASURED: 4,494 real files carry a revision token, and on 2,857 of them the revision date DIFFERS from the leading date — so this is not a formality, it re-picks the current JD for thousands of positions. (Measured on the first 1,500 files, this population shifts the median score from 25.3 to 27.8: superseded drafts really are worse than the JDs that replaced them.)
 - **If it changes:** Set it `false` and versions are ordered by the leading date alone — for a position whose JD was created in 2018 and revised in 2024, the 2018 file can win, and the baseline reports a superseded draft as the position's current JD. The 143 JDFN files with no revision token, and the 9,928 non-JDFN files, are unaffected either way (they have only one date to use).
 
@@ -430,7 +432,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `true`
 - **Configured in:** `segmentation.yaml` → `segmentation.keep_files_without_position_id`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** ~7% of the archive (993 of 14,565 files by our own pattern — see HR-114) carries no zero-padded position ID at all, so it cannot be de-versioned: there is no position to be the latest version OF. We keep them, each as its own position. The alternative is to drop them — which would silently shrink the decision-relevant population by about a thousand JDs, and would do so NON-RANDOMLY (un-IDed files skew old and skew toward the irregular filenames the census flags), quietly biasing the very number the approval bar is about to be judged against.
 - **If it changes:** Set it `false` and the `latest_per_position` population loses ~993 files. Every distribution, grade count and approval rate reported for that population moves, and the files it loses are not a random sample of the archive. No JD's score changes.
 
@@ -438,7 +440,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `(?<![0-9])(0[0-9]{7})(?![0-9])`
 - **Configured in:** `segmentation.yaml` → `segmentation.position_id_pattern`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The position ID is what turns 14,565 FILES into POSITIONS, and therefore what the entire `latest_per_position` population rests on. We claim only the ZERO-PADDED 8-digit PeopleSoft number. The zero-padding is what makes it safe: a date (YYYYMMDD) and a JDFN revision date both begin `19` or `20`, so a leading `0` cannot collide with either. Older UNPADDED IDs (e.g. `43353` in `20060411_43353Technician.doc`) are deliberately NOT claimed: a 5-digit matcher would also claim years, grades and percentages, and a wrong position ID silently MERGES two unrelated positions into one revision chain — which would delete a real JD from the current-JD population. MEASURED, by running THIS pattern over all 14,565 real filenames: 13,572 files carry an ID and 993 carry none. ⚠ THE NUMBER OF DISTINCT POSITIONS IS NOT ONE NUMBER — it depends on how a BUNDLED filename is counted (HR-116): 5,327 distinct positions under the shipped `first` grouping, 5,541 counting every ID in every name. THE CENSUS (§7b) REPORTED 5,436, WHICH IS NEITHER — a ~2% divergence from the shipped figure. It is recorded here, unresolved, rather than explained away: the census's own method is not reproducible from its write-up, and an earlier draft of this entry "reconciled" the gap to ~0.2% against a distinct-ID count (5,428) that was an artefact of the measuring command and not a property of this pattern at all. Do not let a number into this register that nobody has re-measured.
 - **If it changes:** Loosen it to catch the unpadded legacy IDs and more files gain a position — at the risk of false IDs that merge unrelated positions and drop real current JDs from the population. Tighten it and more files fall to HR-113's "no position ID" bucket. Both change the size and membership of `latest_per_position`; neither changes any score.
 
@@ -446,7 +448,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `^((?:19|20)\d{2})(\d{2})(\d{2})`
 - **Configured in:** `segmentation.yaml` → `segmentation.file_date_pattern`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Era (HR-110 / HR-111) is a function of this date, so a JD whose date cannot be read cannot be placed in an era band. The archive's naming convention (census §3) is `YYYYMMDD_<positionID>_<role-slug>`, and MEASURED, the leading prefix is present on all 14,565 files — so today nothing falls to the `unknown` era. An unparseable or impossible date (`20211301` is not a month) yields no date and an `unknown` era rather than a guess or a crash: the file is still counted, in a segment that says plainly that we could not classify it.
 - **If it changes:** A pattern that fails to match sends files to the `unknown` era, where they are counted but excluded from every era comparison — the baseline would quietly narrow without appearing to lose anything. A pattern that matches the WRONG digits (e.g. a trailing revision date) would silently re-band files across eras.
 
@@ -454,7 +456,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `first`
 - **Configured in:** `segmentation.yaml` → `segmentation.position_id_grouping`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Real filenames bundle positions — `20220201_00114560,_00114369,_00132130_JDFN_APSA_20220201.docx` is one document describing three. We ship `first`: the file is attributed to the first ID in its name. ⚠ THE LIMITATION IS THE CENSUS'S OWN, AND IT IS REAL (§7b): grouping by the first ID OVER-counts the first position's revision history and UNDER-counts the others, which lose a version they genuinely have — so a bundled position can be represented in `latest_per_position` by an older standalone JD than the bundle that actually supersedes it. `first` ships because it reproduces the census's method, and the census is the number every other claim in this phase is cross-checked against. The alternative (`all` — the file belongs to every ID it names, and survives if it is the current version for any of them) is IMPLEMENTED, not hypothetical: this is a `Literal`, not a free string, so a data-only switch to a strategy nobody wrote fails loudly instead of silently doing nothing. Every ID in a bundle is recorded on the row (`position_ids`) whichever way this is set, so no evidence is lost.
 - **If it changes:** Set it to `all` and each bundled document counts as the current JD of every position it names: the under-count is removed, `latest_per_position` grows, and positions that are only described by a bundle stop being represented by a stale standalone file. It is the more defensible reading of what a bundle IS; it is not the census's, which is the only reason it is not the default. No JD's score changes either way.
 
@@ -462,7 +464,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `JDFN_[A-Z]+_((?:19|20)\d{2})(\d{2})(\d{2})`
 - **Configured in:** `segmentation.yaml` → `segmentation.revision_date_pattern`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** This is the date HR-112 chooses to trust, so the two stand or fall together: if this pattern stops matching, `prefer_revision_date_for_version` silently has nothing to prefer and every file falls back to its leading date, with no error and no visible change. MEASURED: it matches 4,494 of the 4,637 JDFN files (143 carry no revision token), and on 2,857 of those the revision date differs from the leading date.
 - **If it changes:** Re-picks which file is the current version for thousands of positions, or — if it matches nothing — quietly disables HR-112 altogether. That silent-disable is the failure mode worth watching: the baseline would still run, still stamp itself, and still report a number, computed over a different population than the register says.
 
@@ -470,7 +472,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `JDFN_([A-Z]+)`
 - **Configured in:** `segmentation.yaml` → `segmentation.employee_group_pattern`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The employee group is recorded on every row so the baseline can be read by bargaining unit — which matters because the CUPE template line genuinely differs from APSA/APEX and, per the census (§4b caveat), does NOT always carry the territorial-acknowledgement footer. Three of twenty modern `.docx` sampled were CUPE and legitimately lacked it. A CUPE JD therefore trips SFU-COMP-TERRITORIAL for following ITS OWN template, and without this field that would be invisible in the aggregate — it would just look like CUPE JDs are worse. MEASURED over all 14,565 filenames, this pattern yields 12 distinct values across 4,536 files: APSA 3,351 / CUPE 771 / APEX 329 / POLY 49 — the four real bargaining units — plus 36 files whose group token is TYPO'D OR TRUNCATED IN THE SOURCE FILENAME (ASPA 26, ASAP 2, D 2, B 2, S 1, CUPS 1, ASPSA 1, APA 1). Those 36 are reported exactly as found. The baseline does not silently repair the archive's own data: `ASPA` is a real transposition in a real filename, and a matcher that quietly "corrected" it would be inventing a fact about SFU's records.
 - **If it changes:** Only the group label moves; era, population and score are all unaffected. But losing it would hide a template-line confound inside the headline non-compliance number, which is exactly the class of error Phase 2.5 exists to avoid. Widening the pattern to absorb the 36 typo'd tokens into their intended units would make the by-group numbers tidier and the archive's data-quality problem invisible — which is a decision, not a cleanup, and would belong here.
 
@@ -478,7 +480,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `SFU-STRUCT-HOW-WHY`
 - **Configured in:** `rule_catalog.yaml` → `rule_catalog.unevaluable_rule_ids`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** A rule that CANNOT NOT FIRE is not a quality signal. It is a constant subtracted from every score, and it tells a reviewer nothing about the JD in front of them. This entry is the list of rules the engine therefore stays silent on, and it exists because Phase 2.5 found one. SFU-STRUCT-HOW-WHY (HR-119) asks whether each duty spells out HOW and WHY it is performed — a real SFU expectation (Part 2C). It reads `SFUDuty.how_why`. Our deterministic segmenter **never populates that field** ("how_why left empty" — it cannot split a duty's sub-points out of a regex-parsed line), so the test `not d.how_why` was true for every duty of every JD, by construction. MEASURED (2.5): it fired on 77.7% of the new era, 99.4% of current practice, and **100% of the 628 JDs the bar would approve**. It was measuring our parser, not SFU's writing. The rule is retired, not deleted: it stays catalogued with its text, its severity and its rulebook citation, and `evaluable: true` reinstates it with NO code change. ✅ MEASURED AFTER THE FIX (Phase 2.6, full archive re-run): the finding disappears from all **8,593** files it fired on (59.2% of the archive). **Every score that carried it rose; NOT ONE SCORE FELL.** Precisely: of the 14,522 scored files, 9,217 rose, 5,305 are unchanged (they had no duties for the rule to fire on) and 0 fell — the two 2.6 fixes combined. Even inside the 874-JD cohort, 4 scores do not move. "Every score in the archive rose" is NOT true and is not claimed. On the current-practice cohort (874 JDs): median **77.3 -> 79.0**, mean 76.4 -> **79.5**, grades **5 A / 509 B / 355 C / 5 D -> 81 A / 551 B / 240 C / 2 D** (zero F before and after), score floor cleared by 99.4% -> **99.8%**, and the score floor's rejections fall from 5 to 2. AND IT MOVED **ZERO APPROVALS** — the rule never blocked, and nothing was blocked by the floors alone. It changed what every JD is WORTH, not what any JD is PERMITTED. Say that plainly to HR: the score distribution they are about to ratify HR-001/002/003 against has moved up by ~2 points and gained 76 A grades, and not one JD changed status. That is what a constant looks like when you remove it.
 - **If it changes:** Adding a rule here silences its finding wherever it fired and lifts the score of every JD that carried it; removing one does the reverse. That is a change to the approval bar by any other name, which is why the whole set is pinned here rather than left to 29 per-rule flags — flip `evaluable` on any rule and this list moves and the build fails until HR is told. REINSTATE SFU-STRUCT-HOW-WHY when a producer actually populates `how_why`: the Phase-4.2 `sfu_jd_extract` LLM pass is the one on the plan (it is what populated the field in the earlier build, which is why the rule worked there and not here). Then re-baseline and tell HR what the finding rate on real JDs turns out to be — that number has never been measured, because until now the rule could not produce one. A rule in this list may NOT also sit in a blocking gate: the rulebook refuses to load, because a gate keyed to a rule nobody raises is a gate that can never fire — a false safety guarantee. SFU-STRUCT-HOW-WHY blocks nothing, so it retires cleanly.
 
@@ -486,7 +488,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 
 - **We ship:** `2023`
 - **Configured in:** `segmentation.yaml` → `segmentation.era_new_max_year`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** This is the fourth era band the 2.5 baseline said we needed, and the fix to the modelling error registered as HR-109 / HR-110 / HR-111. SFU made TWO transitions, four years apart: the JDFN TEMPLATE in 2019, and the TERRITORIAL / EDI FOOTER in 2023-24. The three-band model had a rung for the first only — and then judged the whole `new` era with SFU-APPROVE-EDI-FOOTER, a BLOCKING gate that only the second satisfies. A 2019 JDFN document, authored correctly under the template of its day, was un-approvable for missing a paragraph that did not yet exist. MEASURED: 10.0% approval for `new` against 71.9% among JDs that actually carry the acknowledgement — a SEVENFOLD gap that was pure date and no quality. 2024 IS THE YEAR THE SECOND ROLLOUT CROSSES 50%. Measured footer adoption by year: 0.2% (2019) · 1.0% (2020) · 1.4% (2021) · 1.0% (2022) · 11.2% (2023) · **63.3% (2024)** · 84.9% (2025) · 88.6% (2026). So `new` ends in 2023 and `current` begins in 2024 — the first year in which carrying the acknowledgement is the norm rather than the exception, which is exactly the population the bar is written for. ✅ MEASURED AFTER THE FIX (Phase 2.6, full archive re-run). The 6,262-file `new` era splits into **`new` 5,228 (2019-2023)** and **`current` 1,034 (2024+)**; `old` (3,339) and `transition` (4,964) are untouched. Approval, which was reported as a single meaningless 10.0%, resolves into:
   * `new` (2019-2023): **1.0%**, median 68.3 — and 5,146 of its 5,171 blocks are
     SFU-APPROVE-EDI-FOOTER. It is not a quality verdict. It is the footer, and it is
@@ -500,7 +502,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `star`
 - **Configured in:** `comparison.yaml` → `comparison.exact_edge_topology`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** This is the shape of the archive's duplication as JD Bank will store it, and it is the first thing Phase 3 writes. It exists as a knob at all because of what it sits on top of — a PROVENANCE FIX, not a preference. THE BUG IT REPLACES. `source_documents.sha256` was UNIQUE and `ingest_document` returned the existing row on a duplicate hash. So the table was a ledger of distinct CONTENT while every consumer read it as a ledger of the ARCHIVE. ✅ MEASURED over all 14,565 files with this repo's own `compute_sha256` (NOT the Phase 0 census's md5+shell toolchain — a different pipeline, so it was re-verified rather than quoted): 1,037 SHA-256 groups hold more than one file, 3,009 files sit in one, and 1,972 of those are byte-for-byte redundant copies. Under the old schema those 1,972 files would have been ingested and their FILENAMES DISCARDED — no row, no record they ever existed. "Which archive files produced this canonical JD?" was unanswerable (non-negotiable #6), and `DedupTier.EXACT` / `dedup_edges` were dead code, because an edge needs two source ids and the duplicate never got one. Migration 0002 makes the ledger one row per FILE; this parameter decides how the duplication is then SAID. ✅ MEASURED, the shape that decides the answer: 616 groups of 2, 207 of 3, 87 of 4, 49 of 5, 32 of 6, 17 of 7, 17 of 8, 6 of 9, 4 of 10, 2 of 11. LARGEST GROUP: 11. star = 1,972 edges; clique = 4,068. Both are affordable TODAY, so the choice is about meaning and growth, not about this corpus:
   * byte-identity is an EQUIVALENCE relation, so the clique's extra 2,096 edges are
     all derivable from the star by transitivity — they state nothing new;
@@ -515,7 +517,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `nomic-embed-text`
 - **Configured in:** `embeddings.yaml` → `embeddings.model`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** ✅ VERIFIED live from inside the `gates` container (ADR-003, amended 2026-07-13): `aria-gb10-2` is reachable, `nomic-embed-text` is present, and it returns 768-dim vectors matching the Neo4j vector index `core/db/migrations/002_jd_vectors.cypher` already mandates. ✅ MEASURED: the SAME text returns a BYTE-IDENTICAL vector across repeated calls, and a batched call returns the identical vectors to one-at-a-time — which is what makes `text_sha256`-keyed idempotency (the store's skip-first pass, the runner's in-run memo) sound, and what makes batch size an OPERATIONAL setting (`settings.embed_batch_size`) rather than a rulebook decision: it cannot change the output, only the throughput.
 - **If it changes:** Moves `embeddings.stamp` (`embed_stamp`), which is what the store's skip-first comparison keys on — so swapping the model forces a full re-embed of the archive, MERGEd in place onto the same `(source_document_id | source_document_id:section)` node ids, no orphans. It must also return `embeddings.dimensions`-dim vectors (HR-125) or every write to the Neo4j vector index fails outright.
 
@@ -523,7 +525,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `768`
 - **Configured in:** `embeddings.yaml` → `embeddings.dimensions`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** This number lives in THREE homes that cannot see each other: the model's own output, `core/db/migrations/002_jd_vectors.cypher`'s `vector.dimensions` on BOTH `jd_document_embeddings` and `jd_section_embeddings` (hardcoded — Cypher cannot read this YAML), and here. The loader validates YAML, not a live Neo4j instance or a live Ollama call, so nothing at LOAD time can catch the three drifting apart — only the opt-in, local-only live golden test (`tests/live`, never in `make gates` / CI — ADR-003: CI cannot reach `aria-gb10-2`) asserts `len(vector) == rules.embeddings.dimensions` against the real endpoint, and only an integration test's `SHOW VECTOR INDEXES` assertion catches the migration drifting from this value.
 - **If it changes:** A mismatch between this value and the model's REAL output dimensionality makes every Neo4j write to the vector index fail (or, worse, silently index a vector of the wrong length if Neo4j ever stopped enforcing it). A mismatch between this value and the CYPHER migration's `vector.dimensions` requires a NEW migration (Neo4j vector indexes are not alterable in place) — this YAML value alone changes nothing in the already-applied index.
 
@@ -531,7 +533,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `10000`
 - **Configured in:** `embeddings.yaml` → `embeddings.max_chars`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** ⚠️ RE-MEASURED 2026-07-21 over the v2 (post-WJQ) corpus — the ORIGINAL basis for 10,000 is now FALSIFIED. The original numbers (median 2,559 · p99 5,993 · p99.9 8,870 · MAX 8,987 · ZERO exceed 10,000, "10,000 truncates nothing") were measured BEFORE the WJQ template parser + docx table/content-control recovery pulled dense real text back into the serialization. Re-measured over all 14,522 v2 parsed JDs: median 3,909 · p99 11,816 · p99.9 12,825 · MAX 13,486 — and **1,400 documents (~9.6%) now exceed 10,000 and are TRUNCATED** (whole-unit, so their document vector is built on partial text). The server still 400s at 8,192 tokens; dense WJQ text runs closer to ~1.1–1.2 chars/token, so ~11 of those 1,400 are so dense that even the 10,000-char-TRUNCATED text still exceeds 8,192 tokens → a live 400 → the runner skips them (0 doc vector; `bad_requests=11` in the last embed run).
 - **If it changes:** ⚠️ There is NO single `max_chars` that both avoids truncation AND avoids the 400: many WJQ docs are genuinely longer than the model's 8,192-token window (MAX 13,486 chars ≈ ~11k tokens). Lowering `max_chars` reduces 400s but truncates EVEN MORE of the 1,400 (worse information loss). Raising it truncates fewer but 400s more of the dense tail. This is now an OPEN DESIGN DECISION, not a knob tweak — options to weigh at the post-run session (each needs the Ollama host on `aria-gb10-2`, so it waits until the full canonical run frees the GPU, and every claim must be re-measured against the archive): (a) keep truncating + add a progressive re-truncation on a single-item 400 so the ~11 densest still get a (shorter) vector instead of none; (b) chunk long docs into multiple embeddings and pool/mean them for the document vector (no loss, real design change); (c) lean on the already- present SECTION vectors for long docs and treat the doc vector as best-effort; (d) lower `max_chars` to a token-safe floor and accept the wider truncation. The runner today catches a 400, isolates it (re-issues the batch ONE TEXT AT A TIME so one over-long JD costs only itself, not the up-to-63 batched with it), and records `bad_requests` — but the over-long JD then silently has no document vector, so this is not a free lunch. See HANDOFF "post-run" + `docs/embeddings/summary.json`. ✅ RESOLVED 2026-07-22 (design, pre-re-embed): `max_chars` is KEPT at 10,000 and the decision is (a)+(c) — a `max_chars_fallback` ladder (HR-193) rescues the ~11 over-window docs into best-effort shorter vectors, and the doc vector is treated as best-effort for the long tail (per-section vectors carry the role signal). (b) and (d) rejected. Full rationale + the re-embed/verify command: `docs/embeddings/max-chars-decision.md`. The re-embed itself waits on `aria-gb10-2` (busy with the full canonical run) and every count must be re-measured after.
 
@@ -539,7 +541,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `40`
 - **Configured in:** `embeddings.yaml` → `embeddings.min_section_chars`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** A near-empty section (one word, or a stray period the segmenter left behind) produces a vector cosine similarity treats unreliably, and an unhelpfully "close" neighbour is worse than an honest gap. ✅ MEASURED over all 14,522 parsed JDs: this threshold excludes exactly 1 position-summary and 6 duty-blocks — a guard-rail nobody trips much, not a filter that trims real content out of the corpus.
 - **If it changes:** Raising it starts excluding genuinely short-but-real sections from getting a `JDSection` node (a real, if terse, position summary loses its own embedding and falls back to being findable only via the whole-document vector). Lowering it to 0 disables the guard-rail outright and lets a near-empty section get a vector.
 
@@ -547,7 +549,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `false`
 - **Configured in:** `embeddings.yaml` → `embeddings.include_title_in_document`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** `jd_core.bank.similarity`'s module docstring promises the overall score is "title-agnostic BY CONSTRUCTION" — "Software Engineer", "Developer II" and "Applications Programmer" can score as the same role because titles are not a term of the score. If the title were folded into the document text, that guarantee would be broken through the back door: `weight_vector` would now be scoring title similarity too, silently. `false` keeps the promise true at the vector layer, not just at the maths layer.
 - **If it changes:** Flipping to `true` smuggles the title back into "title-agnostic" similarity and moves EVERY document embedding (a full re-embed via `embeddings.stamp`) plus every downstream similarity ranking and Tier-3 dedup edge that reads it. Pinned by mutation in `test_embed_text.py`: flip it via `model_copy` and the title appears in the serialized text; the shipped default omits it.
 
@@ -555,7 +557,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `position_summary`, `duties`, `decision_making`, `problem_solving`, `relationships`, `qualifications`, `additional_context`
 - **Configured in:** `embeddings.yaml` → `embeddings.document_sections`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** This IS what "this JD's content" means for retrieval, dedup Tier-3 and search — the vector is only as good as what it was computed over. `identification` is deliberately excluded (structured columns — department, grade, position number — not prose a similarity search should match on), and the three boilerplate blocks (`about_sfu` / territorial-ack / EDI footer) are excluded because they are presence BOOLEANS on the parsed model with no text at all: serializing the PARSED JD (never raw extracted text) keeps SFU's mandated, byte-identical boilerplate out of every JD's vector for free, with no exemption list to maintain (unlike HR-058's coded-term scan, which has to redact it explicitly because it scans raw text).
 - **If it changes:** Adding or removing a section moves `embeddings.stamp` and forces a full re-embed. A section name outside `jd_core.rules.loader._CONTENT_SECTIONS` fails to load — the rulebook refuses a section `embed_text.py` has no producer for, the same "a gate that can never fire" failure applied to a section that could never serialize anything.
 
@@ -563,7 +565,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `position_summary`, `duties`, `qualifications`
 - **Configured in:** `embeddings.yaml` → `embeddings.section_vectors`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** These are the three sections with a NAMED downstream consumer TODAY: `comparison.yaml`'s own docstring calls the similarity term "the summary embedding" (`position_summary`); `duties` is the clearest single role signal a parsed JD carries; `qualifications` is the proposed skill source for Tier-3 dedup / `skill_overlap` once a skill ontology exists (2.4c's similarity module, currently unwired). `decision_making` / `problem_solving` / `relationships` / `additional_context` are in the DOCUMENT vector (HR-129) but have no named per-section consumer yet, so they get no separate node.
 - **If it changes:** Adding a section here creates a new class of `JDSection` node (storage cost, more retrieval surface, one more embed call per affected JD) and moves `embeddings. stamp`. REMOVING one DELETES every `JDSection` node of that kind on the next run — the pass reconciles, it does not only MERGE. That is deliberate and it is load-bearing: a MERGE-only pass would leave the orphaned vectors LIVE IN THE QUERYABLE INDEX, so `db.index.vector.queryNodes` would go on returning a section this rulebook no longer says exists, and Tier-3 dedup / search (3.3, 3.4) would retrieve it. Pinned by `test_dropping_a_section_vector_prunes_its_nodes`. Every member MUST also be a member of `document_sections` (HR-129, loader-enforced) — a section vector for content the document text does not include would embed something the document vector cannot be compared against.
 
@@ -571,7 +573,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `raw_clean`
 - **Configured in:** `dedup.yaml` → `dedup.text_source`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** ✅ MEASURED: raw extracted text is available for 14,452 of 14,565 archive files; the PARSED/serialized text (`jd_core.bank.embed_text.serialize_document`) is available for only 9,517, because 34.5% of parsed JDs (5,012 of 14,522) serialize to EMPTY — the WJQ-template gap HANDOFF already documents (a different document template the segmenter cannot read; `transition` era is 52.7% unparseable). `raw_clean` rescues 98.6% of those 5,012 files for shingling. Scoring on `serialized` text alone would silently run Tier-2 over roughly two-thirds of the archive and bias the finding against the eras most likely to actually contain duplicates — precisely the "metrics computed on a corpus quietly missing a third of itself" trap 2.6 already caught once (HOW-WHY, HR-121). Both branches are IMPLEMENTED (`ArchiveTextSource` / `SerializedTextSource`, `jd_bank.dedup.near.text`) — a knob whose alternative does nothing is the `cluster_algo` landmine HR-123 already fixed once, in a new place.
 - **If it changes:** Moves `dedup.stamp`, forcing a full Tier-2 re-run (the reconcile prunes every edge the new config no longer implies and inserts/updates the rest — see `dedup/near/runner.py`). Switching to `serialized` would silently drop Tier-2 coverage on the WJQ-heavy eras until a WJQ parser lands (already tracked as a blocker for Phase 3.5 clustering, HANDOFF "THE BIG NEW FINDING").
 
@@ -579,7 +581,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `5`
 - **Configured in:** `dedup.yaml` → `dedup.shingle_size`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** ✅ MEASURED all-pairs median Jaccard by word-gram width k: k=4 -> 0.0039, k=5 -> 0.0022 (the widest separation from the nearest-neighbour median of 0.126), k=7 -> 0.0009 but the nearest-neighbour median ALSO falls to 0.10 at k=7 — i.e. k=7 starts losing true near-duplicate pairs, not just random ones. k=5 is the measured sweet spot. Character n-grams were ruled out without a separate measurement run: every SFU JD shares the same vocabulary and template, so character grams would collide constantly and discriminate nothing — the same failure mode document cosine has on this corpus (see HR-138).
 - **If it changes:** Moves `dedup.stamp` and every shingle set in the corpus — forces a full Tier-2 re-run. A smaller k raises Jaccard scores across the board (more coincidental overlap) and would require `jaccard_min` (HR-138) to be re-derived, not just re-read at the old value; a larger k risks losing true near-duplicates the way k=7 measurably does. Pinned by `test_shingles.py`: changing `shingle_size` from 5 to 4 changes the shingle SET for the same text, not merely its size.
 
@@ -587,7 +589,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `true`
 - **Configured in:** `dedup.yaml` → `dedup.redact_boilerplate`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** SFU's mandated text (`boilerplate.yaml`) is byte-identical across thousands of JDs — reusing HR-058's exact mechanism (`jd_core.quality.boilerplate. redact_passages`, never a second redactor) keeps it from inflating every pair's shingle overlap by a constant unrelated to whether the two JDs describe the same role. ✅ MEASURED effect on this corpus is small but real: all-pairs p90 Jaccard is 0.0311 redacted vs 0.036 raw — the boilerplate is contributing real, if modest, coincidental overlap. `false` would let two otherwise-unrelated JDs share only the mandated paragraphs and still register meaningful shingle overlap.
 - **If it changes:** Moves `dedup.stamp`, forcing a full Tier-2 re-run. `false` raises Jaccard scores slightly for every pair that carries the mandated text (the growing share of the archive with the acknowledgement/EDI footer — HANDOFF's adoption curve), which would also need `jaccard_min` re-derived rather than merely re-read. Pinned by mutation: two JDs sharing ONLY SFU's mandated text score near-zero Jaccard redacted, and a large positive Jaccard unredacted (`test_shingles.py`).
 
@@ -595,7 +597,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `20`
 - **Configured in:** `dedup.yaml` → `dedup.min_shingles`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** A document with almost no shingles produces a signature LSH will bucket almost randomly — not a genuine similarity signal, just noise that happens to collide. ✅ MEASURED over the archive's raw-clean text: this threshold excludes 70 of 14,522 parsed JDs (0.48%) — a guard-rail nobody trips much, not a filter that trims real content, mirroring `embeddings.min_section_chars`'s "excludes 7" shape and register entry (HR-127).
 - **If it changes:** A document below this threshold is COUNTED (`documents_below_min_shingles`), never silently dropped — visible in `docs/dedup/near-dup-summary.json`. Lowering it lets near-empty documents into the candidate pool (noisy, low-precision matches); raising it excludes more of the legitimately short/legacy corpus from Tier-2 entirely. Moves `dedup.stamp`.
 
@@ -603,7 +605,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `128`
 - **Configured in:** `dedup.yaml` → `dedup.num_perm`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The MinHash estimator's standard error is sqrt(J(1-J)/num_perm) — at 128 that is sigma ~= 0.088 in the worst case (J=0.5), far too coarse to threshold a similarity DECISION on. That is exactly why `jd_core.bank.minhash` never scores on the estimate: MinHash is only the CANDIDATE INDEX, and the actual score is always exact Jaccard recomputed on the two shingle sets. ✅ MEASURED: pure Python (no `numpy` — not needed, see `jd_core.bank.minhash`'s module docstring) computes MinHash signatures for the whole corpus in ~3.5 minutes at this value.
 - **If it changes:** Moves `dedup.stamp`, forcing a full Tier-2 re-run. Must stay a multiple that `bands * rows` can factor exactly (loader-enforced — the rulebook FAILS TO LOAD otherwise, `test_dedup_rules.py`). Lowering it speeds up signature computation but widens the estimator's error (irrelevant to the SCORE, since that is always exact Jaccard, but it widens which candidates the LSH banding surfaces in the first place). Raising it slows computation for no benefit to precision, since the score is never the estimate.
 
@@ -611,7 +613,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `16`
 - **Configured in:** `dedup.yaml` → `dedup.bands`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Together with `rows` (HR-137), this decides the LSH "S-curve" — the probability that two documents become a CANDIDATE (worth an exact-Jaccard comparison) as a function of their true Jaccard similarity. The curve's 50% midpoint is `(1/bands)^(1/rows)` — DERIVED, never a stored key (`Dedup.s_curve_threshold`), so it cannot drift from `bands`/`rows` the way a hand-maintained third number could. ✅ MEASURED at bands=16/rows=8: midpoint 0.707, 23,705 candidate pairs -> 15,080 near-dup edges over the whole corpus. CHANGED from bands=32/rows=4 (midpoint 0.420) after the docx extraction fix (PR #30) + WJQ parser (PR #32) recovered ~20.7M chars dominated by SFU's shared WJQ template scaffolding, near-identical across ~4,300 WJQ files: at the loose 0.420 midpoint those collided into mega-buckets and blew past `max_candidate_pairs` (98,193+ candidates, the valve fired). 0.707 filters that low-Jaccard boilerplate noise WITHOUT losing edges (15,080 vs 15,082 — a 2-edge / 0.01% difference), 4x fewer candidates. The boilerplate never became an edge at `jaccard_min` = 0.85 (HR-138) anyway — it was pure candidate-generation waste.
 - **If it changes:** Moves `dedup.stamp`. Must satisfy `bands * rows == num_perm` (HR-135/HR-137, loader-enforced — the rulebook fails to load otherwise). More bands / fewer rows per band raises the candidate-generation recall (more true near-duplicates surfaced as candidates) at the cost of more candidate pairs to exact-Jaccard-score — bounded by `max_candidate_pairs`, the safety valve (trivial exemption, below).
 
@@ -619,7 +621,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `8`
 - **Configured in:** `dedup.yaml` → `dedup.rows`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** See HR-136 — `bands` and `rows` are a single decision (the LSH banding) split across two registered fields because both are independently meaningful numbers a reviewer could ask about, not because they are two separate policy calls. The measured basis (midpoint 0.707, 23,705 candidates -> 15,080 edges, and why it was changed from 32/4 after the corpus grew) is recorded once, on HR-136, rather than duplicated here.
 - **If it changes:** Identical mechanism to HR-136: moves `dedup.stamp`, must satisfy `bands * rows == num_perm` (loader-enforced), and retunes the S-curve midpoint together with `bands`.
 
@@ -627,7 +629,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `0.85`
 - **Configured in:** `dedup.yaml` → `dedup.jaccard_min`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** THE most consequential number in this file — it is the line between "these two files are the same JD, lightly re-saved or reformatted" and "these two files happen to share some template language". ✅ MEASURED edge counts over the whole corpus at several thresholds: 0.9 -> 11,398 edges * 0.85 -> 14,312 edges (SHIPPED) * 0.8 -> 15,877 * 0.7 -> 19,110. ✅ MEASURED random-pair Jaccard p99.9 is 0.30, so 0.85 sits far into the tail of what an unrelated pair could plausibly reach by chance. ⚠ THE LABEL SET DOES NOT CALIBRATE THIS NUMBER. `fixtures/labels/ pairs.csv` (101 pairs, 12 near-dup positives, `best_guess_label`, authored in Phase 0 citing a census this repo later found wrong) measures same-position "negative" pairs at median Jaccard 0.30 and cross-position LSH "candidate" pairs at median Jaccard 0.58 — the negatives are MORE similar than the candidates, at every threshold tried the hard-negative rate exceeds the weak-positive rate, and 69-73% of near-dup edges this pass would write are cross-position (Tier-1 found the identical shape: 77% of exact-duplicate groups span more than one position — SFU's redundancy is cross-position CLONING, not within-position revision). This is THE number a human reviewer with real JD-reading judgement must ultimately rule on, not a percentage optimised against a label set that measures the wrong thing.
 - **If it changes:** Moves `dedup.stamp`. THE RECONCILE, not mere addition, is what makes this safe to retune: raising it DELETES every existing NEAR_DUPLICATE edge that no longer qualifies (`dedup/near/runner.py`'s plan/present/insert/update/prune shape, mirroring 3.2b's embedding reconcile) rather than leaving a database full of edges a config that no longer exists produced. Lowering it surfaces more edges for human adjudication (`docs/dedup/near-dup-adjudication-sample.csv`) at lower average precision.
 
@@ -635,7 +637,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `null`
 - **Configured in:** `dedup.yaml` → `dedup.cosine_confirm_min`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** ✅ MEASURED (HANDOFF 2026-07-13, and the basis of the amended HR-093): over 300 random JDs excluding self and byte-identical content, nearest-neighbour document cosine is min 0.877, p10 0.953, median 0.988 — 98% (250/255) sit AT OR ABOVE the inherited `comparison.clone_threshold` of 0.92. A cosine confirm at any realistic bar would confirm almost every Jaccard-qualifying pair — "a filter that can never reject", the same failure shape as HR-121's `SFU-STRUCT-HOW-WHY` (a finding that could never NOT fire), inverted into a gate that could never NOT pass. It is also UNAVAILABLE for 34.5% of the corpus (no vectors for documents that serialize to empty — the WJQ gap, HR-131), so turning it on would silently run a DIFFERENT policy on WJQ files (Jaccard alone) than on JDFN files (Jaccard + cosine) with no flag distinguishing the two in the data. The code path IS implemented and tested (`jd_bank.dedup.near.runner`, reading Neo4j vectors directly — it never constructs an embed client) so the knob is real the day HR turns it on; it ships `null` (OFF) because turning it on today would not filter anything real.
 - **If it changes:** Moves `dedup.stamp`. A non-null value vetoes a Jaccard-qualifying candidate pair whose cosine sits below it; a pair with a missing vector on either side is accepted on Jaccard alone (its `method` string says so, e.g. `minhash+jaccard@<stamp>` with no `+cosine` suffix) rather than silently excluded — a cosine-blind policy for a third of the corpus is a real and visible state, not a silent gap.
 
@@ -643,7 +645,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `content`
 - **Configured in:** `dedup.yaml` → `dedup.edge_scope`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** ✅ MEASURED consequence: two 11-member Tier-1 exact-duplicate groups that are near-duplicates of each other would emit 121 `DedupEdge` rows under `file` scope (11 x 11, since NONE of the internal pairs carry an EXACT edge under Tier-1's default `star` topology — only 5 of the 11 members' 15 possible pairs, in a 6-member group, hub on the representative) and exactly 1 under `content` scope. `content` scope is ALSO what makes the EXACT/NEAR ladder correct BY CONSTRUCTION: a sha256 group is a single node, so a byte-identical pair can never even become a candidate for a spurious NEAR edge. The naive alternative — "skip a pair if it already carries an EXACT edge" — is WRONG and quietly so, because Tier-1's `star` topology means most of a large identical group's internal pairs carry NO EXACT edge at all; a 6-member byte-identical group under `star` has only 5 of 15 pairs covered. Pinned by `test_a_six_member_exact_duplicate_group_gets_zero_near_edges` — a pair-sized test cannot catch this, because `star` and `clique` coincide on a pair of two. Both scopes are IMPLEMENTED — a knob whose alternative does nothing is the `cluster_algo` landmine (HR-123) in a new place.
 - **If it changes:** Moves `dedup.stamp`, forcing a full Tier-2 re-run. `file` scope produces dramatically more edges for large exact-duplicate groups (quadratic in group size) with zero new information over `content` scope's one edge per group pair — Tier-1's `redundant_files` count already says how many files that is. `file` scope would ALSO require re-introducing the "already has an EXACT edge" check this design deliberately avoids, and getting it right for a non-star topology (HR-123's `clique` alternative) is exactly the kind of quiet correctness trap this decision exists to close off.
 
@@ -651,7 +653,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `WEIGHTED JOB QUESTIONNAIRE`
 - **Configured in:** `wjq.yaml` → `wjq.marker_primary`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Detection is whole-document, case-insensitive, and MARKER-based, never filename-based (the `JDFN_CUPE` filename token covers only ~771 files, so trusting the name would miss ~85% of the WJQ corpus). It is also TWO-TIER: this DEFINITIVE title phrase alone routes a document to WJQ, because a JDFN JD would never carry it; the looser union markers (`LOCAL 3338` / `C.U.P.E`, `wjq.marker_corroborating`) route only in pairs, because each ALSO appears when a JDFN JD merely cites the union in a duty. ✅ MEASURED: a bare `LOCAL 3338` misrouted 69 real JDFN JDs (old 7 / transition 51 / new 11) — emptying their rich parse and stamping them `wjq`, which excluded the 11 `new`-era ones from the very cohort HR ratifies the bar against. Under the shipped two-tier rule ~29% of the archive routes to WJQ. The title phrase SURVIVES antiword on legacy `.doc`.
 - **If it changes:** Moves `rules_version` (this file is hashed). Dropping the primary phrase (or loosening the corroboration to 1) re-admits the union-citation misroute; adding a too-common phrase would pull JDFN JDs onto the WJQ path (they parse to ~nothing). Pinned by mutation (`test_parser_wjq.py`: remove the marker from a WJQ fixture -> it routes JDFN; a JDFN doc citing "CUPE, Local 3338" routes `jdfn`, not `wjq`).
 
@@ -659,7 +661,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `D` → daily; `W` → weekly; `M` → monthly; `S` → semester
 - **Configured in:** `wjq.yaml` → `wjq.frequency_markers`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** SFU's WJQ MAJOR FUNCTIONS section tags each duty with how often it is performed. The user's decision (Phase 3.4) is to ADD a `frequency` field to `SFUDuty` (additive, optional; JDFN duties leave it `None`), strip the marker from the duty statement, and store the meaning here. The detection is anchored to a STANDALONE, UPPERCASE `(D)/(W)/(M)/(S)` token — the false-positive guard against lowercase `(s)` mid-word (`location(s)`, ✅ present in the archive), which must never read as a frequency.
 - **If it changes:** Moves `rules_version`. Pinned by mutation (`test_parser_wjq.py`: a duty with a trailing `(D)` gets `frequency == "daily"` and the marker stripped; a duty containing `location(s)` is neither split nor tagged).
 
@@ -667,7 +669,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `true`
 - **Configured in:** `segmentation.yaml` → `segmentation.wjq_excluded_from_current_practice`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The WJQ questionnaire is a DIFFERENT template with no About-SFU / territorial footer by design, so `SFU-APPROVE-EDI-FOOTER` fails it for a reason that has nothing to do with its quality — scoring it on the JDFN bar is a category error. ✅ MEASURED: the WJQ marker's era split is old 1,848 / transition 1,991 / new 1,011 / current 182, so without this exclusion 1,193 newly-parseable WJQ files (v2 router) would flow into the 874-JD cohort and move the number HR ratifies. Whether CUPE gets an approval bar of its OWN is a SEPARATE deferred HR decision — deliberately NOT built here.
 - **If it changes:** Does not move `rules_version` (segmentation.yaml is unhashed) but moves `Segmentation.stamp`. `false` lets WJQ JDs into `current_practice_cohort` and shifts its approval rate. Pinned by mutation (`test_baseline_aggregate.py`: a current-era WJQ file is in the cohort under `false`, excluded under `true`).
 
@@ -675,7 +677,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `position_identification` → ['POSITION IDENTIFICATION']; `position_summary` → ['POSITION SUMMARY']; `major_functions` → ['MAJOR FUNCTIONS']; `minor_functions` → ['MINOR FUNCTIONS']; `level_of_independence` → ['LEVEL OF INDEPENDENCE', 'LEVEL OF']; `training_exercised` → ['TRAINING EXERCISED']; `direction_exercised` → ['DIRECTION EXERCISED']; `internal_external_contacts` → ['INTERNAL AND EXTERNAL CONTACTS']; `impact_of_errors` → ['IMPACT OF ERRORS']; `effort` → ['EFFORT']; `working_conditions` → ['WORKING CONDITIONS']; `continuing_education` → ['CONTINUING EDUCATION']; `qualifications` → ['QUALIFICATIONS']; `approval_review` → ['APPROVAL AND REVIEW']
 - **Configured in:** `wjq.yaml` → `wjq.section_headings`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** This vocabulary is how a WJQ document is cut into sections, so it directly decides which text becomes a JD's `position_summary` / `duties` / `qualifications` — which is why the whole file is hashed. ✅ MEASURED heading counts (e.g. POSITION IDENTIFICATION 2,109 · MAJOR FUNCTIONS 2,091 · QUALIFICATIONS present in nearly every file). `LEVEL OF` is the wrap variant of `LEVEL OF INDEPENDENCE`; a repeated heading with a `(CONTINUED)` suffix concatenates onto the same section.
 - **If it changes:** Moves `rules_version`. A heading that stops matching drops its whole section's text from the parse. Pinned by mutation (`test_wjq_rules.py`: rename a heading and a WJQ parse test goes red; `test_rules_version.py` proves the hash moved).
 
@@ -683,7 +685,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `level_of_independence`, `training_exercised`, `direction_exercised`, `impact_of_errors`, `effort`, `working_conditions`, `continuing_education`
 - **Configured in:** `wjq.yaml` → `wjq.context_sections`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** These seven checkbox/point-factor sections are stored VERBATIM in `additional_context` (lossless), NOT mapped to `decision_making` / `problem_solving` — which are left EMPTY. WJQ carries no Hay Accountability / Problem-Solving prose, and force-mapping IMPACT OF ERRORS -> decision_making would feed `bank/hay_signals.py` a bogus signal. ✅ MEASURED: the checkbox glyphs are unreliable (present in 280/2,553 `.docx`, 0/2,473 `.doc`), so the sections are treated as plain text. The embedding-quality concern (checkbox boilerplate diluting WJQ vectors) is an explicit Phase-3.5 follow-up, NOT solved here.
 - **If it changes:** Moves `rules_version`. Removing a section here drops it from `additional_context`. Pinned by mutation (`test_wjq_rules.py`).
 
@@ -691,7 +693,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `education` → ['formal education']; `experience` → ['number of years', 'years of minimum experience', 'minimum experience']; `skill` → ['occupational skill']; `ability` → ['occupational requirement']
 - **Configured in:** `wjq.yaml` → `wjq.qualification_cues`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The WJQ QUALIFICATIONS section is a sequence of instruction-led blocks; a cue line switches the `kind` of the qualifications that follow it (`SFUQualification.kind`). Grounded in the real form's wording ("Formal education qualifications…", "Occupational Skills…", "Occupational Requirement(s)…", "the number of years of minimum experience…"). `kind` feeds the KSA-order gate, so it is on the hashed surface.
 - **If it changes:** Moves `rules_version`. Pinned by mutation (`test_parser_wjq.py`: qualifications get the expected kinds).
 
@@ -699,7 +701,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `title` → ['Department Position Title', 'Position Title']; `department` → ['Department Name']; `position_number` → ['Position Number(s)', 'Position Number']; `grade` → ['Classification & Grade Approved', 'Classification and Grade Approved']
 - **Configured in:** `wjq.yaml` → `wjq.id_labels`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** These inline labels are read to populate `title` / `department` / `position_number` / `grade`. ✅ MEASURED: the `.docx` template carries `Department Position Title`; many `.doc` renders omit it, so `title` falls back to `Untitled Position` rather than misreading the SFU/CUPE banner line (the base parser's WJQ title misread was one of the finding's symptoms). Reading the label — not a hardcoded column — is what makes the extraction data-driven.
 - **If it changes:** Moves `rules_version`. Pinned by mutation (`test_parser_wjq.py`: rename the title label and `title` becomes `Untitled Position` — proving it reads the data, not a hardcode).
 
@@ -707,7 +709,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `cupe`
 - **Configured in:** `wjq.yaml` → `wjq.employee_group`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** CUPE 3338 is the WJQ bargaining unit (the JDFN template covers APSA/APEX/POLY, which are Hay-graded). Set on the parsed JD's `employee_group` so the two templates cannot cross-apply. Held as data and validated against the `SFUEmployeeGroup` vocabulary at load, rather than hardcoded in `parser/wjq.py`.
 - **If it changes:** Moves `rules_version`. Pinned by mutation (`test_parser_wjq.py`: a parsed WJQ JD has `employee_group == "cupe"`).
 
@@ -715,7 +717,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `ability`, `knowledge`, `skill`
 - **Configured in:** `comparison.yaml` → `comparison.skill_source_kinds`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The skill keyword-bag is built ONLY from these kinds. `skill`/`knowledge`/`ability` carry what a role needs to know and do; `experience` and `education` are deliberately EXCLUDED because they inject year-counts ("five years") and degree words ("bachelor") into the bag as if they were skills. MEASURED context: 41% of archive JDs have zero qualifications of any kind, so their skill bag is empty — an honest consequence, not a bug (`build_job_signals` returns `frozenset()`). Note `knowledge` ALSO feeds education detection (HR-153): the same JDFN blob legitimately states both a degree and a domain.
 - **If it changes:** Moves `rules_version`. Adding `experience`/`education` would pollute the bag with seniority tokens; dropping `knowledge` would empty the bag for JDFN JDs that state their competencies only in the knowledge blob. Pinned by mutation in `test_bank_signals.py`.
 
@@ -723,7 +725,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `ability`, `accuracy`, `applications`, `degree`, `education`, `equivalent`, `excellent`, `experience`, `good`, `high`, `knowledge`, `level`, `management`, `related`, `skills`, `training`, `with`, `word`, `work`, `years`
 - **Configured in:** `comparison.yaml` → `comparison.skill_stopwords`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** MEASURED: these are the 20 most frequent tokens across the archive's 5,584-token skill vocabulary, and they dominate it — `ability, excellent, knowledge, skills, with, experience, work, degree, good, related, ...`. Without stripping them the bag is meaningless (every JD "overlaps" on `ability` and `experience`). ⚠ HONEST CONSEQUENCE: genuinely contentful tokens like `management` and `applications` are stripped too. That is acceptable ONLY because this is a keyword bag, not an ontology, and idf-weighting (Phase 3.4b) is what will actually separate distinctive skills from ubiquitous ones — a stopword list is the crude stand-in until then. Do NOT read this as a curated skill vocabulary.
 - **If it changes:** Moves `rules_version`. Emptying it re-floods the bag with the top-20 noise (pinned by mutation in `test_bank_signals.py`: a CUPE skill-list JD's bag gains `experience` / `knowledge` once the list is emptied). A real fix is idf, not a longer list.
 
@@ -731,7 +733,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `3`
 - **Configured in:** `comparison.yaml` → `comparison.skill_min_token_len`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Tokens shorter than this are dropped before they reach the bag, removing 1-2 char noise (`a`, `of`, stray list-numbering). 3 keeps `hr`, `it`, `qa`? — no, those are length 2 and are dropped; a genuinely 2-letter skill acronym would be lost, which is the cost of a blunt length cut and another reason the bag is a stopgap for idf.
 - **If it changes:** Moves `rules_version`. Raising it drops more short tokens; lowering it to 1 lets single characters in. Pinned by mutation in `test_bank_signals.py`.
 
@@ -739,7 +741,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `eight` → 8; `eighteen` → 18; `eleven` → 11; `fifteen` → 15; `five` → 5; `four` → 4; `fourteen` → 14; `nine` → 9; `nineteen` → 19; `one` → 1; `seven` → 7; `seventeen` → 17; `six` → 6; `sixteen` → 16; `ten` → 10; `thirteen` → 13; `three` → 3; `twelve` → 12; `twenty` → 20; `two` → 2
 - **Configured in:** `comparison.yaml` → `comparison.experience_word_numbers`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** A real, MEASURED bug in the digit-only `experience_years_pattern` (HR-102): SFU's JDFN template WRITES YEARS OUT — "five years of related experience", "(one|two|…|ten) years" — so the digit regex matched only 226 JDFN JDs where 4,585 of 4,888 are derivable. The number words are DATA (non-negotiable #2 — NOT hardcoded in `drift.py`); `Comparison.experience_word_year_pattern` derives the matcher from these keys (single source of truth), requiring the count be followed by "year" exactly as the digit path does, so a bare determiner never reads as a year count. `a`/`an` are deliberately EXCLUDED — an unmeasured call, and mapping determiners to 1 risks false counts; flagged for review.
 - **If it changes:** Moves `rules_version`. Emptying the map turns word support off (digits still work) — pinned by mutation in `test_bank_drift.py` / `test_bank_signals.py`: a JDFN blob "five years of related experience" yields None once the map is emptied, proving the fix is load-bearing.
 
@@ -747,7 +749,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `education`, `knowledge`
 - **Configured in:** `comparison.yaml` → `comparison.education_source_kinds`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Two facts pull in opposite directions and `[education, knowledge]` is the balance point. (1) SFU's JDFN template files the degree inside the `knowledge` blob — "Bachelor's degree in Computing Science or related discipline, and five years of related experience" is kind=knowledge, not kind=education — so `knowledge` is REQUIRED beyond `education`. Scoped to JDFN, reading `kind == education` alone finds a degree in only ~40 of ~10,000 JDFN JDs. (2) BUT the bachelors cue list contains the bare substring `degree`, and SFU's CUPE clerical JDs say "55 wpm keyboarding skill with a high degree of accuracy" under kind=skill/ability, which `degree` misreads as a bachelors. MEASURED over the WHOLE v2 corpus with the real `education_level_from_quals`: all-6-kinds -> 8,417 extractions but 1,161 are "degree of ..." FALSE-POSITIVE bachelors (18.6% of all bachelors, a systematic clerical-typist upward bias); [education, knowledge] -> 7,880 (93.6% of the all-6 win) with only 4 such FPs (-99.7%); [education] alone -> 3,307 (loses the JDFN blob degrees). So `[education, knowledge]` keeps almost the whole win and removes almost all the noise, and it is DATA.
 - **If it changes:** Moves `rules_version`. Adding `skill`/`ability` back re-injects the ~1,161 "degree of accuracy" false positives; dropping `knowledge` loses the JDFN blob degrees. Pinned by mutation in `test_bank_drift.py` / `test_bank_signals.py`: a JD whose only degree signal is in a `knowledge` qual yields None under `[education]`, and a `skill` qual saying "high degree of accuracy" yields an ordinal once `skill` is added back.
 
@@ -755,7 +757,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `experience`, `knowledge`
 - **Configured in:** `comparison.yaml` → `comparison.experience_source_kinds`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The adapter reads the years bar from these kinds IN ORDER — the first that yields any count wins. `experience` quals are authoritative; `knowledge` is the JDFN fallback, because JDFN spells the years inside the same knowledge blob that carries the degree ("...and five years of related experience"). Order is policy, not cosmetic: a JD stating "2 years" under experience and "10 years" inside a knowledge blob reads as 2, not 10 (fallback, not union). Held as DATA so this matches its siblings HR-149 (skills) / HR-153 (education) rather than being a bare literal tuple in signals.py — the standing rule is that every non-trivial signal-source decision is on the surface.
 - **If it changes:** Moves `rules_version`. `[experience]` alone would miss every JDFN JD whose bar lives only in the knowledge blob; reordering to `[knowledge, experience]` would let a blob count override an explicit experience qual. Pinned by mutation in `test_bank_signals.py` (a knowledge-only JD yields its blob years; emptying the fallback loses them).
 
@@ -763,7 +765,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `assistant` → 0; `associate` → 1; `chief` → 5; `director` → 4; `lead` → 2; `manager` → 3; `vp` → 6
 - **Configured in:** `comparison.yaml` → `comparison.family_band_ladder`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** This is the HARD constraint on role-equivalence: a pair whose title families sit more than `max_band_gap` (HR-156) bands apart is NEVER role-equivalent, whatever the blended score. The bands are the reverse-index of the HR-059 seniority ladder (`titles.yaml :: families`), highest first. ⚠ PARTIAL BY DESIGN: `unmapped` carries NO band (the loader FORBIDS giving it one), and MEASURED 70% of archive titles are `unmapped` — the HR-059 ladder classifies only ~30% — so the veto fires ONLY when BOTH sides map. On that 30% it cleanly stops director<->assistant merges; the threshold (HR-158) does the rest. Note the ladder itself is inherited the earlier build calibration nobody at SFU has ratified (HR-059), so this band map inherits that caveat: it is a defensible ordering, not an SFU standard.
 - **If it changes:** Moves `rules_version`. Collapsing all families to one band disables the veto; giving adjacent families the same band widens what counts as "same band". Pinned by mutation in `test_dedup_role_pure.py` (a director<->assistant pair is dropped pre-scoring even at blended 1.0; setting `max_band_gap` high lets it survive) and by the loader refusing to load an `unmapped` band.
 
@@ -771,7 +773,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `1`
 - **Configured in:** `comparison.yaml` → `comparison.max_band_gap`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The conflict veto (HR-155) fires when the two families' bands differ by MORE than this. 1 keeps adjacent rungs admissible (a Manager and a Lead can still be scored as the same role) while vetoing a two-rung gap (Director vs Lead) and anything wider (Director vs Assistant). It only bites on the ~30% of pairs where BOTH titles map to a band.
 - **If it changes:** Moves `rules_version`. 0 would require the SAME band exactly; a large value disables the veto entirely (everything is "close enough"). Pinned by mutation in `test_dedup_role_pure.py`.
 
@@ -779,7 +781,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `true`
 - **Configured in:** `comparison.yaml` → `comparison.group_conflict_veto`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** A SOFT veto: when `true`, a pair whose two `employee_group`s are BOTH known and DIFFER is dropped before scoring — an APSA role and a CUPE role are governed by different agreements and instruments and are not the same position. It vetoes ONLY when both sides state a group; an unknown group is NOT a conflict (a null never vetoes), so a JD whose group could not be read is still eligible.
 - **If it changes:** Moves `rules_version`. `false` lets cross-group pairs through to scoring. Pinned by mutation in `test_dedup_role_pure.py` (an apsa<->cupe pair is dropped, but an apsa<->null pair is never dropped; turning the veto off lets the apsa<->cupe pair survive).
 
@@ -787,7 +789,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `0.5`
 - **Configured in:** `comparison.yaml` → `comparison.role_equiv_threshold`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The threshold on the blended `score_job_similarity` (vector + idf-weighted skill overlap + seniority). MEASURED: on real pairs, Tier-2 near-dup weak-positives vs random-same-function negatives separate at 0.5 -> 99.2% positive / 3.0% negative. ⚠ HONEST CAVEAT (the SAME lesson as 3.3's `jaccard_min`, HR-138): the positives are Tier-2 near-dup WEAK LABELS and are vector-dominated; genuinely-different-text same-role pairs lean on skill overlap, and there is NO honest precision/recall oracle — so this ships with a pinned behavioural fixture + a stratified adjudication sample (`docs/dedup/role-equiv-adjudication-sample.csv`), and CI is NOT gated on P/R. The blended score is BIMODAL: 41% of JDs have empty skills and floor ~0.52 on vector+seniority alone; skill-overlapping pairs reach 0.9+. Honest, not a bug.
 - **If it changes:** Moves `rules_version` AND re-reconciles every Tier-3 edge (the threshold rides in the edge `method` stamp, so a retune UPDATES or PRUNES existing rows, never leaves them stale). Raising it demands more agreement; lowering it merges more aggressively. Pinned by mutation in `test_dedup_role_pure.py` (0.5 in / 0.4999 out at the default; raising the threshold drops a boundary pair) and by the integration reconcile test.
 
@@ -795,7 +797,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `25`
 - **Configured in:** `comparison.yaml` → `comparison.candidate_k`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Candidate generation buckets JDs by their functional title `function` and, within a bucket, takes each JD's top-`candidate_k` cosine neighbours as candidate pairs (plus the Tier-2 near-dup seeds, HR-160). This is a candidate-GENERATION knob (recall vs cost), NOT a decision about whether a given pair is the same role — the veto (HR-155) and threshold (HR-158) decide that. ⚠ A STARTING VALUE, not a measured optimum: cosine is saturated on this corpus (98% of JDs have a neighbour >= 0.92), so k-NN alone returns a dense blob and 25 is a first cut to be TUNED by the adjudication sample once a human has labelled candidates.
 - **If it changes:** Moves `rules_version`. Larger = more candidates surfaced (more recall, more scoring cost); it does not change any surviving edge's score. Pinned by the pure candidate test. ⚠ PERF FOLLOW-UP (not a 3.4b blocker): candidate generation is O(bucket²) — Python all-pairs cosine within each `function` bucket. The largest real bucket is `unmapped` (~8,215 docs) -> ~44 min for that bucket, ~1 hour whole-archive; it COMPLETES (candidates are k-bounded, no overflow). The 3.5-era optimization is to use the existing Neo4j 768-dim cosine vector index for true top-k retrieval instead of the all-pairs scan.
 
@@ -803,7 +805,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `true`
 - **Configured in:** `comparison.yaml` → `comparison.seed_from_near_dup`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** When `true`, every existing `DedupEdge(tier=NEAR_DUPLICATE)` pair is admitted as a candidate in addition to the cosine k-NN — a near-dup IS role-equivalent, so it must not be missed. It also lets a pair reach Tier-3 when one side has NO document vector (118 empty-serialization + 11 token-limit JDs): such a pair cannot be a cosine neighbour, but it can be a near-dup seed, and it scores with `vector_score` 0.0 on skill + seniority alone.
 - **If it changes:** Moves `rules_version`. `false` restricts candidates to cosine k-NN and silently drops the vector-less near-dups. Pinned by the pure candidate test (a near-dup-seeded pair with no vector still scores).
 
@@ -811,7 +813,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `exact`, `near_duplicate`, `role_equivalent`
 - **Configured in:** `comparison.yaml` → `comparison.cluster_tiers`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Clustering runs connected-components over the `dedup_edges` graph. EXACT (byte- identical, score 1.0) and NEAR (MinHash/Jaccard >= 0.85) are always-in: they are strong, well-scaled evidence of the same role. ROLE_EQUIVALENT edges are additionally gated by `cluster_role_equiv_min` (HR-162), because the raw Tier-3 score is bimodal and clustering over it at the Tier-3 bar collapses the archive into one blob. Dropping a tier here removes a whole class of evidence; adding a tier JD Bank does not write is inert (no such edge exists).
 - **If it changes:** Moves `rules_version`. Report-only — persists nothing. Pinned by mutation in the pure admit tests (an EXACT edge is dropped when `exact` is removed from the set) and by the integration clustering test.
 
@@ -819,7 +821,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `0.75`
 - **Configured in:** `comparison.yaml` → `comparison.cluster_role_equiv_min`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** THE load-bearing clustering decision, and it is ABOVE the Tier-3 `role_equiv_threshold` (0.5, HR-158) BY DESIGN: Tier-3 records a same-role PAIR, clustering takes the TRANSITIVE CLOSURE, so the bar to merge must be higher than the bar to record one edge. MEASURED sweep of the ROLE gate against the largest resulting cluster: 0.5->8884-JD blob (61% of the archive), 0.6->1940, 0.65->1302, 0.7->696, 0.75->132, 0.8->61. 0.75 is the knee — the first gate at which no cluster exceeds ~200 members and the archive-wide blob breaks apart. ⚠ The Tier-3 ROLE score is BIMODAL (41% skill-empty pairs floor ~0.52 on vector+seniority alone), which is exactly why a low gate over-merges. ⚠ Note that once the runner calls `build_clusters(threshold=0.0)` on the admitted edges, the DERIVED `cluster_threshold` (HR-096) / `cluster_threshold_floor` (HR-095) no longer gate this path — this knob replaces them for clustering.
 - **If it changes:** Moves `rules_version`. Report-only. THE blob lever: lower it and clusters merge into a giant blob (0.5 -> 8,884 JDs in one), raise it and the Bank finds less redundancy to harmonize. Pinned by mutation in the "blob guard" test — a fixture whose low-score ROLE edges transitively merge a blob at 0.5 but NOT at 0.75; setting this knob to 0.5 makes the blob reappear (red).
 
@@ -827,7 +829,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `1`
 - **Configured in:** `comparison.yaml` → `comparison.cluster_max_band_spread`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The cohesion cap on seniority: a cluster whose MAPPED members (the ~30% on the HR-059 family band ladder) span more than this many bands is FLAGGED (never split) as possibly welding a director to an assistant. Set to `max_band_gap` (HR-156) by intent — the same "how far apart is too far" call, applied to the whole cluster rather than a single edge. ⚠ NEAR-INERT on this corpus: 70% of titles are `unmapped` (no band), so the check bites only where both a spread and a mapping exist; the ROLE gate and the size cap do the real work. A cheap correctness backstop, honestly weak.
 - **If it changes:** Moves `rules_version`. Report-only — it sets a `constraint_violations` flag and the report's sort order, never the cluster membership. Pinned by mutation in the pure cohesion-cap test (a band-0/1/2 chain flags `band_spread` at 1 but not when raised).
 
@@ -835,7 +837,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `true`
 - **Configured in:** `comparison.yaml` → `comparison.cluster_group_homogeneous`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The cohesion cap on employee group: when `true`, a cluster spanning more than one KNOWN `employee_group` is FLAGGED (never split). An unknown group is never a mix (a null never flags). ⚠ NEAR-INERT: `employee_group` is non-null on only 36% of JDs, so most clusters cannot trip this at all — it catches the clear APSA<->CUPE case a null-group JD bridged, and nothing more. The ROLE gate + the human eyeball carry the cohesion argument; this is a backstop.
 - **If it changes:** Moves `rules_version`. Report-only (a flag + sort order, not membership). Pinned by mutation in the pure cohesion-cap test (a null-group-bridged APSA+CUPE cluster flags `group_mix` when `true`, and does not when `false`).
 
@@ -843,7 +845,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `50`
 - **Configured in:** `comparison.yaml` → `comparison.cluster_max_size`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The cohesion cap on size: a cluster with more than this many members is FLAGGED (never split). MEASURED at gate 0.75 the clusters with >50 members are [132, 108, 74, 57, 52] — exactly the ones an HR reviewer must eyeball before they become a single canonical role. A flag, not a split: a report surfaces them; it does not silently break a real role apart on a member count.
 - **If it changes:** Moves `rules_version`. Report-only. Lower it and more clusters carry the `oversize` flag (more HR review); raise it and the biggest clusters pass unremarked. Pinned by mutation in the pure cohesion-cap test.
 
@@ -851,7 +853,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `max_parse_confidence`
 - **Configured in:** `comparison.yaml` → `comparison.cluster_representative_policy`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The cluster's drift/report anchor. `max_parse_confidence` picks the best-parsed member (tie-break: the `order_key` archive order, deterministic), so the within-cluster drift roll-up compares every member to the most reliably-read JD rather than an arbitrary one. A closed set (like `cluster_algo`, HR-093): a data-only switch to an unimplemented policy fails to LOAD rather than stamping a report with an anchor the runner never used.
 - **If it changes:** Moves `rules_version`. Report-only — it changes which member is the drift baseline and the `representative_filename` column, never the cluster membership. Pinned by the pure representative test (highest parse_confidence wins; ties break on `order_key`).
 
@@ -859,7 +861,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `modal_normalized`
 - **Configured in:** `harmonization.yaml` → `harmonization.title_policy`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The draft's title is descriptive, not authoritative (a human approves it later). `modal_normalized` groups members by their `normalize_title` stem, takes the most-populous group (the role the cluster mostly is), and picks the representative raw title by SHORTEST-then-lexicographic — a deterministic tie-break so the same member SET yields a byte-identical draft in any order. It does NOT rewrite the title (that is 4.2). `first_raw` is the trivial alternative (lexicographically-first raw title, modality ignored). MEASURED (1,801 JDFN clusters): the modal role DOMINATES — 72% (1,297) carry a single distinct normalized title, and the modal-group fraction spikes at 0.9–1.0 (1,308 clusters), so representative-of-modal reflects what the cluster mostly is. Kept.
 - **If it changes:** Does NOT move `rules_version` (harmonization.yaml is unhashed). Pure, report-only — it only changes the drafted title a human reviews. Pinned by mutation in the pure title-selection test (a cluster whose modal-group representative differs from the lexicographically-first raw title flips its drafted title when set to `first_raw`).
 
@@ -867,7 +869,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `within_target_then_central`
 - **Configured in:** `harmonization.yaml` → `harmonization.summary_policy`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** 4.1 is deterministic and LLM-free, so it SELECTS an existing member summary verbatim rather than composing one (rewrite is 4.2). `within_target_then_central` prefers a summary already inside SFU's published 100–150-word range (`thresholds.summary_min_words`/`_max_words` — one rulebook fact, one home), then the most-central (highest token-Jaccard to the others), falling back to most-central over all when none is in range. `most_central` drops the in-range preference. Choosing an in-range summary is what keeps the draft from tripping SUMMARY-LENGTH — the single biggest operative gate (HANDOFF: 134 of 187 current-practice blocks). MEASURED (1,798 multi-member JDFN clusters): an in-range (100–150w) summary exists in 731 clusters and is chosen every time one exists; 1,050 have a summary but none in range and fall back to most-central; the remaining ~17 carry no member summary at all. The in-range preference engages whenever it possibly can. Kept.
 - **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by mutation in the pure summary-selection test (a cluster whose most-central summary is OUT of range but has an in-range alternative picks the in-range one by default, and the out-of-range central one when set to `most_central`).
 
@@ -875,7 +877,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `drop`
 - **Configured in:** `harmonization.yaml` → `harmonization.additional_context_policy`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Additional context is free-text and often position-specific (one incumbent's parking, one office's hours), so a union across members is noisy. `drop` omits it from the draft (the reviewer/LLM pass can add role-level context deliberately); `longest` carries the single longest member note verbatim. MEASURED (7,391 JDFN members across 1,801 clusters): only 44 members (0.6%) carry any additional_context, and just 12 clusters have more than one — so a union would be near-empty and noisy where present. `drop` justified; kept.
 - **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by mutation in the pure section-selection test (a cluster with per-member context yields no `additional_context` by default and the longest note when set to `longest`).
 
@@ -883,7 +885,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `or_across_members`
 - **Configured in:** `harmonization.yaml` → `harmonization.boilerplate_presence_policy`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The model carries these as presence BOOLEANS, not boilerplate TEXT (bank/render.py), so a draft asserting "present" still cannot render the mandated paragraphs — a re-parse trips SFU-COMP-ABOUT / the footer gates regardless. `or_across_members` asserts present iff ANY member had it — the honest reading. MEASURED (1,801 JDFN clusters): members frequently DISAGREE on presence — mixed in 106 (about_sfu) / 129 (employment_equity) / 179 (territorial) clusters — so the OR really engages, and asserting present iff any member carried it is the defensible reading of a merge. ⚠ This flips to `all_present` ONLY IF HR ratifies composer auto-insert of the footer (an HR-pending decision — see the HR-DECISION-MATRIX footer question); shipping `all_present` now would pre-empt that ruling and make the draft claim compliance it does not carry. Kept, pending HR's footer ruling.
 - **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by mutation in the draft-is-a-draft test (a cluster whose members all LACK the footer yields `territorial_acknowledgement_present=False` by default — so the draft honestly trips the footer gate — and True when set to `all_present`).
 
@@ -891,7 +893,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `0.7`
 - **Configured in:** `harmonization.yaml` → `harmonization.duty_dedup_jaccard_min`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Duties are unioned across members and near-identical statements deduped so the draft carries each real duty once (coverage-ordered). Also reused for near-identical QUALIFICATION-text dedup (one Jaccard threshold, one home). Too low welds distinct duties; too high leaves obvious paraphrases as separate duties and burns the `max_duties` budget. CALIBRATED (1,801 JDFN clusters): the pairwise duty-Jaccard distribution is strongly BIMODAL — a "distinct" mass below 0.15 (>900k pairs) and a "near-identical" mode from 0.85 rising to 109,797 pairs at 0.95–1.00 — separated by a broad flat valley from 0.45 to 0.80 (every bin <=628 pairs) whose GLOBAL MINIMUM is the 0.70–0.75 bin (288 pairs). 0.7 sits on the valley floor, and the outcome is nearly threshold-insensitive there: total deduped duties 9,419 (at 0.5) -> 9,660 (0.7) -> 9,786 (0.8). Kept at 0.7 — valley-floor placement, and merging is the destructive direction.
 - **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by a BOUNDARY mutation in the duty-dedup test: a duty pair whose exact token-Jaccard is 0.75 collapses to one representative at the shipped 0.7 and splits into two when the knob is raised past it (0.8) — the deduped duty count goes 1 -> 2 (red).
 
@@ -899,7 +901,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `12`
 - **Configured in:** `harmonization.yaml` → `harmonization.max_duties`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Above this many deduped duties, the top-by-member-coverage duties are kept and the draft is FLAGGED `duties_over_max` (never a silent drop — HR eyeballs it). CALIBRATED (measured over 1,801 JDFN clusters): the deduped-duty count spikes at exactly 12 — 237 real clusters sit at the model's own `SFUJobDescription.duties` cap (`max_length=12`, parsed_jd.py) — and the provisional cap of 10 flagged 374 clusters (20.8%), 288 of which held 11–12 duties the model could have kept. Raised 10 → 12 so the flag fires only when the model cap forces a REAL drop (86 clusters, 4.8%): non-destructive, and the flag is now honest. SFU's Toolkit guidance is "3–5 major duties", but real clusters carry far more and dropping a real duty is destructive. Still `open` — the model's 12-duty ceiling is itself our_invention, not an SFU number.
 - **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by a BOUNDARY mutation in the duty-cap test: a cluster that dedups to exactly 12 distinct duties keeps all 12 and does NOT flag at the shipped 12, and drops to the top 11 with a `duties_over_max` flag when the cap is lowered to 11 — so reverting the YAML to 10 turns a behavioural test red even with the register silenced.
 
@@ -907,7 +909,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `0.5`
 - **Configured in:** `harmonization.yaml` → `harmonization.core_skill_min_fraction`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The KSA rebuild keeps a skill token's representative qualification iff at least this fraction of members require it (at/above, `>=`), and drops one-offs — SFU is minimum-not-desired, so an incidental skill is not carried as "desired". CALIBRATED (1,801 JDFN clusters): skill-frequency is bimodal — a spike at 0.9–1.0 (21,335 skill tokens required by ~all members) with a sparse middle — so 0.5 sits in the valley, robustly away from either mode. The `no_core_skills` rate is FLAT at 852–854 clusters across candidate fractions 0.3–0.7: it is dominated by the ~47% of clusters that carry no skill quals AT ALL (the keyword bag is empty — a known parser limitation), not by this fraction. Kept at 0.5 — robustly placed in the sparse middle; the binding constraint is skill-qual absence, not the threshold.
 - **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by a BOUNDARY mutation in the KSA test: a skill required by exactly 2 of 4 members (fraction 0.5) is CORE at the shipped 0.5 and DROPPED when the knob is raised to 0.6 (the surviving qualification disappears — red).
 
@@ -915,7 +917,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `union`
 - **Configured in:** `harmonization.yaml` → `harmonization.security_policy`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** A security requirement is a hard legal/role constraint, so `union` keeps every distinct security qualification ANY member states (deduped near-identical) — a requirement one member states is real even if the others omit it. `core_only` instead keeps a security qualification only when required by >= `core_skill_min_fraction` of members (treating it like a skill), which risks dropping a genuine requirement a single JD carried. ⚠ COUPLING: under `core_only` this SHARES `core_skill_min_fraction` (HR-173) — re-calibrating that knob would move the security threshold too. MEASURED (1,801 JDFN clusters): ZERO clusters carry ANY security qualification archive-wide — the JDFN parser extracts none — so union vs core_only is INERT and untestable on this corpus. Kept at `union` as the safe no-op; revisit if security extraction lands.
 - **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by mutation in the KSA security test (a security qualification stated by only 1 of 3 members survives under `union` and is dropped under `core_only`).
 
@@ -923,7 +925,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `max`
 - **Configured in:** `harmonization.yaml` → `harmonization.seniority_bar_policy`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** `max` takes the highest bar any member states (a masters over a bachelors, 5 years over 3) and emits the representative qualification whose parsed bar matches — the conservative "the role needs at least the strongest stated bar" reading. `modal` takes the most common bar instead, which better reflects the typical member but can understate a genuinely senior role. The bar is read from the SAME parsers `build_job_signals` uses (`education_level_from_text` / `experience_years_from_text`), so it never manufactures a bar no member stated. MEASURED (1,801 JDFN clusters): bars rarely diverge — education spread is 0 in 817/844 clusters that state one, experience spread is 0 in 756/843 — and `max` differs from `modal` in only 16 (education) / 61 (experience) clusters. Kept at `max` (do not understate a stated requirement). ⚠ On those ~77 divergent clusters, max-vs-modal is arguably an HR POLICY call, not a pure measurement — flag it for the 4.5 pilot.
 - **If it changes:** Does NOT move `rules_version`. Pure, report-only. Pinned by mutation in the KSA seniority test (a cluster mixing a bachelors and a masters emits the masters qualification under `max` and the modal (bachelors) one under `modal`).
 
@@ -931,7 +933,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `gpt-oss:120b`
 - **Configured in:** `rewrite.yaml` → `rewrite.model`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The rewrite pass asks the model to reword the grounded 4.1 draft and return the SFUJobDescription schema as JSON, so JSON-schema adherence matters most. `gpt-oss:120b` is the strongest general instruct on `aria-gb10-2` today (available alternatives: gpt-oss:20b, qwen3.5:latest, gemma4:26b, llama4:latest). It is a RULEBOOK decision, NOT `settings.agent_model` (the harness's own coder-agent model) — the two are free to diverge, and reading the setting would make a JD Bank rewrite silently follow a change nobody made to the JD Bank rulebook. PROVISIONAL — pick the model that best holds the schema at the 4.5 pilot; no comparative measurement exists yet.
 - **If it changes:** Does NOT move `rules_version` (rewrite.yaml is unhashed). Changes only which model words the draft; the anti-fabrication guard + validator still bound the result. Pinned by mutation in the client model-source test (rules.rewrite.model and settings.agent_model are DISTINCT strings; the call must carry the rules value).
 
@@ -939,7 +941,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `0.0`
 - **Configured in:** `rewrite.yaml` → `rewrite.temperature`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** A rewrite is a TRANSFORM of a grounded draft, not a brainstorm, so determinism is what makes a re-run reproducible and an audit trail meaningful. `0.0` picks the greedy decode. Raising it trades reproducibility for phrasing variety — a decision to make deliberately, not a default to drift. PROVISIONAL.
 - **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the client discipline test (the temperature passed to the chat API is `rules.rewrite.temperature`; a fake asserts the exact value flows through, so a hardcoded temperature goes red).
 
@@ -947,7 +949,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `2048`
 - **Configured in:** `rewrite.yaml` → `rewrite.max_tokens`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The whole SFUJobDescription JSON must fit in one completion; too small truncates the JSON (which then fails to parse and burns a retry). 2048 mirrors the earlier build's harmonize call. PROVISIONAL — size it against real cluster outputs at the 4.5 pilot.
 - **If it changes:** Does NOT move `rules_version`. Operational headroom, not a policy lever on the output content. Pinned by mutation in the rewrite consumer test (the value the consumer reads from `rules.rewrite.max_tokens` is the one passed to `chat_json`).
 
@@ -955,7 +957,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `1`
 - **Configured in:** `rewrite.yaml` → `rewrite.max_retries`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** When the model returns JSON that does not parse or does not match the schema, the client re-asks once with a terse repair nudge before raising LLMOutputInvalidError. Transient network/5xx retries are SEPARATE (fixed in the client, and a 400 is NEVER retried). 1 mirrors the earlier build. Higher spends more inference on a model that keeps missing the schema; 0 makes the first miss fatal. PROVISIONAL.
 - **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the client discipline test (invalid JSON is retried exactly `max_retries` times, then LLMOutputInvalidError — the call count is asserted, so changing the budget without the register goes red on drift).
 
@@ -963,7 +965,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `jd_harmonize_v1`
 - **Configured in:** `rewrite.yaml` → `rewrite.prompt_version`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Names the versioned template pair under `jd_bank/llm/templates/` (`jd_harmonize_v1.system.j2` + `.user.j2`, ported from the earlier build and kept faithful save the grounding instruction). The loaded template's own version is what stamps `RewrittenDraft.prompt_version`, so provenance traces to the exact wording. Swapping this selects a different template version. PROVISIONAL — the prompt is refined at the 4.5 pilot, and each refinement is a new versioned template, not an in-place edit.
 - **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the prompt-loader test (the loaded prompt's `.version` is stamped onto `RewrittenDraft.prompt_version`; a missing template variable RAISES rather than shipping a `{{ x }}` in the prompt).
 
@@ -971,7 +973,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `true`
 - **Configured in:** `rewrite.yaml` → `rewrite.anti_fabrication_enabled`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** THE core safety of 4.2a. The rewrite may rephrase the grounded draft but must not INTRODUCE skills/duties/qualifications the merge draft did not contain. With the guard ON, any output qualification whose skill/knowledge/ability content is not grounded in the draft's vocabulary is SCRUBBED (dropped, recorded), and a duty with no token overlap to any draft duty is FLAGGED (recorded, not dropped). `false` ships the model's output unscrubbed — the escape hatch, registered so flipping it can never be quiet. There is no reason to ship it off; it exists so a deliberate off-switch is a visible, ratifiable decision rather than a code edit. PROVISIONAL calibration of the thresholds below, but the guard itself should stay ON.
 - **If it changes:** Does NOT move `rules_version`. Pinned BY MUTATION (acceptance #2): with the guard on, a fake LLM that injects a skill NOT in the merge draft has it scrubbed and absent from the returned draft; flip this to `false` (and update this entry so the drift alarm stays silent) and a BEHAVIOURAL assertion — the injected skill is gone — goes red.
 
@@ -979,7 +981,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `token_overlap`
 - **Configured in:** `rewrite.yaml` → `rewrite.skill_grounding_policy`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** `token_overlap` keeps a qualification iff the fraction of its content tokens present in the draft's vocabulary (built from the draft's own text + its member-derived skill-frequency names) reaches `skill_grounding_threshold` — tolerant of rephrasing, strict about wholly new content. `all_grounded` keeps it only if EVERY content token is in the vocabulary (the threshold is inert under it — a documented coupling, mirroring security_policy/core_skill_min_fraction), which is stricter and would scrub a legitimate synonym. PROVISIONAL — calibrate against real rewrites at the 4.5 pilot.
 - **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the anti-fabrication test (a qualification that is partially grounded is KEPT under `token_overlap` at the shipped threshold and SCRUBBED under `all_grounded`).
 
@@ -987,7 +989,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `0.5`
 - **Configured in:** `rewrite.yaml` → `rewrite.skill_grounding_threshold`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Under `token_overlap`, a qualification is KEPT iff at least this fraction of its content tokens (stopword/short-token filtered, the same filter the skill signals use) appear in the draft's vocabulary; below it the qualification is SCRUBBED and recorded. Too high scrubs legitimate rephrasings; too low lets fabricated content through. 0.5 is a provisional midpoint. NOT backed by measured evidence — calibrate at the 4.5 pilot.
 - **If it changes:** Does NOT move `rules_version`. Pinned by a BOUNDARY mutation in the anti-fabrication test (a qualification whose grounded-token fraction sits just at 0.5 is kept at the shipped threshold and scrubbed when the knob is raised past it).
 
@@ -995,7 +997,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `0.2`
 - **Configured in:** `rewrite.yaml` → `rewrite.duty_flag_threshold`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** A rewritten duty is FLAGGED (recorded in the anti-fabrication record, never dropped) when its best token-Jaccard against any draft duty falls below this — the signal that the model may have invented a duty rather than reworded one. Duties are flagged, not scrubbed, because a legitimate rewrite can rephrase heavily; the human reviewer (4.4) decides. Too high floods the reviewer; too low never catches an invented duty. 0.2 is a provisional low bar. NOT measured — calibrate at the 4.5 pilot.
 - **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the anti-fabrication test (a duty with no overlap to any draft duty is flagged at the shipped threshold; raising the knob flags a duty that shared some overlap, and disabling the guard clears the flags).
 
@@ -1003,7 +1005,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `gpt-oss:120b`
 - **Configured in:** `quality.yaml` → `quality.model`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The audit pass asks the model to return the JDQualityFindings schema as JSON, each finding backed by a verbatim JD quote, so JSON-schema adherence and quote fidelity matter most. `gpt-oss:120b` is the strongest general instruct on `aria-gb10-2` today (available alternatives: gpt-oss:20b, qwen3.5:latest, gemma4:26b, llama4:latest). It is a RULEBOOK decision, NOT `settings.agent_model` (the harness's own coder-agent model), and a SEPARATE decision from the rewrite model (`rewrite.model`, HR-176) — a rewrite-policy change must not silently move the audit model, which is why this is its own file. PROVISIONAL — pick the model that best holds the schema and grounds its quotes at the 4.5 pilot; no comparative measurement exists yet.
 - **If it changes:** Does NOT move `rules_version` (quality.yaml is unhashed). Changes only which model audits the JD; the audit is advisory and the anti-fabrication guard still drops ungrounded findings. Pinned by mutation in the client model-source test (quality.model, rewrite.model and settings.agent_model are THREE DISTINCT strings; the audit's call must carry quality.model).
 
@@ -1011,7 +1013,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `0.0`
 - **Configured in:** `quality.yaml` → `quality.temperature`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** An audit should be REPRODUCIBLE — the same JD yields the same findings on a re-run, so an audit trail is meaningful — not a brainstorm. `0.0` picks the greedy decode. Raising it trades reproducibility for finding variety, a decision to make deliberately, not a default to drift. PROVISIONAL.
 - **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the client generalization test (the temperature passed to the chat API is the audit override `quality.temperature`; a fake asserts the exact value flows through, so a hardcoded temperature goes red).
 
@@ -1019,7 +1021,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `1024`
 - **Configured in:** `quality.yaml` → `quality.max_tokens`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The nuanced findings list must fit in one completion; too small truncates the JSON (which then fails to parse and burns a retry). 1024 mirrors the earlier build's value for THIS pass (the findings list is far smaller than a full SFUJobDescription rewrite, which gets 2048). PROVISIONAL — size it against real audit outputs at the 4.5 pilot.
 - **If it changes:** Does NOT move `rules_version`. Operational headroom, not a policy lever on the findings content. Pinned by mutation in the audit consumer test (the value the consumer reads from `quality.max_tokens` is the one passed to `chat_json`).
 
@@ -1027,7 +1029,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `1`
 - **Configured in:** `quality.yaml` → `quality.max_retries`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** When the model returns JSON that does not parse or does not match the JDQualityFindings schema, the client re-asks once with a terse repair nudge before raising LLMOutputInvalidError. Transient network/5xx retries are SEPARATE (fixed in the client, and a 400 is NEVER retried). 1 mirrors the earlier build. Higher spends more inference on a model that keeps missing the schema; 0 makes the first miss fatal. PROVISIONAL.
 - **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the audit consumer test (the value the consumer reads from `quality.max_retries` is the one passed to `chat_json`), and the reused client's own discipline test asserts the retry/400 behaviour.
 
@@ -1035,7 +1037,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `true`
 - **Configured in:** `quality.yaml` → `quality.anti_fabrication_enabled`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** THE core safety of 4.2b. Every audit finding must cite a VERBATIM quote from the JD; with the guard ON, any finding whose `evidence` is not a casefold substring of the flattened JD (empty/None evidence included) is DROPPED and recorded in the audit's `dropped` list — so a model that fabricates a quote cannot inject an ungrounded issue. `false` keeps every finding unscrubbed — the escape hatch, registered so flipping it can never be quiet. There is no reason to ship it off; it exists so a deliberate off-switch is a visible, ratifiable decision rather than a code edit. The guard itself should stay ON.
 - **If it changes:** Does NOT move `rules_version`. Pinned BY MUTATION (acceptance #2): with the guard on, a fake LLM finding whose evidence is NOT in the JD is dropped and absent from `issues`; flip this to `false` (and update this entry so the drift alarm stays silent) and a BEHAVIOURAL assertion — the fabricated finding is absent — goes red, because it now survives unscrubbed.
 
@@ -1043,7 +1045,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `jd_quality_v1`
 - **Configured in:** `quality.yaml` → `quality.prompt_version`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Names the versioned template pair under `jd_bank/llm/templates/` (`jd_quality_v1.system.j2` + `.user.j2`, ported faithfully from the earlier build). Its only variable is `{{ jd_text }}` (the flattened JD). The loaded template's own version is what stamps `QualityAudit.prompt_version`, so provenance traces to the exact wording. Swapping this selects a different template version. PROVISIONAL — the prompt is refined at the 4.5 pilot, and each refinement is a new versioned template, not an in-place edit.
 - **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the prompt-loader test (the loaded prompt's `.version` is stamped onto `QualityAudit.prompt_version`; a missing `jd_text` variable RAISES rather than shipping a `{{ jd_text }}` in the prompt).
 
@@ -1051,7 +1053,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `null`
 - **Configured in:** `rewrite.yaml` → `rewrite.reasoning_effort`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** gpt-oss is a reasoning model: it produces a reasoning stream (separate from the JSON content) whose length dominates latency — measured ~6x the output tokens, and `reasoning_effort: low` cuts it ~5x. But the rewrite produces PROSE, and prose quality benefits from full reasoning, so unlike the audit (HR-192, which ships `low`) the rewrite leaves this UNSET (`null`): the client sends no `reasoning_effort` and the model runs at its own default, exactly as it did before 4.6. Setting it to `low`|`medium`|`high` is a deliberate speed/quality trade to make at the 4.5 pilot, not a default to drift. PROVISIONAL. NB `high` can exhaust the token budget with reasoning and return empty content (observed live), so raising it must be sized against `max_tokens`.
 - **If it changes:** Does NOT move `rules_version` (rewrite.yaml is unhashed). `null` -> the parameter is omitted from the chat request entirely (pre-4.6 behaviour); a level flows straight through to the API. Pinned by mutation in the client test (the effort the client sends is `rules.rewrite.reasoning_effort`; unset omits the kwarg, a value passes it verbatim).
 
@@ -1059,7 +1061,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `low`
 - **Configured in:** `quality.yaml` → `quality.reasoning_effort`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** The audit reports nuanced findings, each quoted VERBATIM from the JD — it does not need deep chain-of-thought. But gpt-oss's reasoning stream dominates latency: MEASURED ~1000 reasoning tokens vs ~164 output tokens per audit (~6x), and `reasoning_effort: low` cuts the reasoning ~5x (to ~194) with no loss of schema adherence in testing. So `low` is the disciplined, far cheaper default. It is SEPARATE from the rewrite's effort (HR-191, unset): a rewrite-policy change must not silently move the audit's, which is why each pass owns its own knob in its own file. PROVISIONAL — confirm the quality/speed trade at the 4.5 pilot.
 - **If it changes:** Does NOT move `rules_version` (quality.yaml is unhashed). `low` flows through to the chat API; set it to `null` and the parameter is omitted (the model runs at full default effort — slower). Pinned by mutation in the client generalization test (the effort the audit sends is the override `quality.reasoning_effort`; a fake asserts the exact value flows through, and that `null` omits the kwarg).
 
@@ -1067,7 +1069,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `8000`, `6000`, `4000`
 - **Configured in:** `embeddings.yaml` → `embeddings.max_chars_fallback`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** This is the resolution of HR-126's open design decision (see `docs/embeddings/max-chars-decision.md`). Re-measured over the v2 corpus, ~11 dense WJQ documents exceed the model's 8,192-token window even after `max_chars=10000` truncation, so the server 400s and — before this knob — they got NO document vector at all (`bad_requests=11`). The runner now re-cuts such a text (on whole-line boundaries, mirroring the primary path's whole-unit truncation) to each of these caps in turn and embeds the first the server accepts, so the document gets a best-effort SHORTER vector rather than a gap. The rungs are token-safe: 8,000 chars ≈ ~7.3k tokens even at the densest measured ~1.1 chars/token (under the 8,192 window with margin); 6,000/4,000 are backstops. `max_chars` itself is deliberately KEPT at 10,000 (HR-126) so the 1,389 truncated-but-servable docs keep their fuller vector — this ladder only ever runs for the tail the window physically cannot hold. The whole-document vector is a retrieval/dedup substrate, never the approval bar, and for these long docs the per-section vectors (duties/summary/quals, HR-130) carry the role signal in full regardless (option (a)+(c) in the decision doc; chunk-and-pool (b) rejected as disproportionate, lowering `max_chars` (d) as strictly worse).
 - **If it changes:** On the register but NOT in `rules_version` (embeddings.yaml is unhashed) — it does move `embeddings.stamp`, so changing it forces a full re-embed, MERGEd in place. Empty list `[]` restores the exact pre-HR-193 behavior: an over-window text is written off to `bad_requests` with no vector. The loader REJECTS a ladder that does not strictly descend (a rung ≥ its predecessor buys nothing) or that contains a non-positive rung — but it is deliberately NOT coupled to `max_chars` (the two are independent knobs; a rung ≥ `max_chars` is harmlessly skipped at runtime). NOTE the one accepted imprecision: a backed-off document's vector is memoised under its ORIGINAL `max_chars` text_sha256, which KEEPS skip-first idempotent (an unchanged corpus re-embeds nothing — the ~11 are skipped like every other node), at the price that for those ~11 nodes the stored sha is the text we intended to embed, not the shorter bytes we actually embedded (`truncated=True` flags them partial). Bounded and deliberate, not a bug. Pinned by mutation in `test_embeddings_rules.py` (ladder moves the stamp; descend/positive validators) and the runner's backoff integration tests, incl. the idempotent-second-run assertion (`test_embeddings_store.py`).
 
@@ -1075,7 +1077,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `apsa`, `apex`, `poly`
 - **Configured in:** `segmentation.yaml` → `segmentation.jdfn_employee_groups`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** This is the scope boundary of the whole product, made explicit. CUPE is ~29.5% of the archive (~4,300 WJQ-instrument files, `parser/wjq.py`) — a major bargaining unit, not an edge case. It is deliberately absent because there is NO ratified CUPE quality bar: the validator (the oracle for everything the Builder does — NN #3) can only score the JDFN template, so scoring a CUPE JD on the JDFN gates is a category error (the same one HR-143 keeps out of the baseline cohort), and the Builder must not offer to author a role it cannot check. Before Phase 5 this list lived as a hardcoded tuple in `compose_ui.py`; lifting it here makes "the Bank does not serve ~30% of SFU JDs" a decision HR can see and change on purpose, not one made silently by omission — exactly what this register exists to prevent. To SERVE CUPE the order is: HR defines a CUPE bar (a WJQ ruleset with an oracle) FIRST, THEN a token is added here. Adding one without a bar would surface the group in the Builder with nothing behind it. Whether that CUPE bar should be built at all is the real open question this entry raises.
 - **If it changes:** Does NOT move `rules_version` (segmentation.yaml is unhashed) but moves `Segmentation.stamp`. The list is the employee-group dropdown the Builder offers and the only groups it will assemble a draft for. Adding `cupe` here would surface CUPE in the Builder and let a user author a CUPE JD that the validator then mis-scores on the JDFN bar — do not, until a CUPE bar exists. Pinned by mutation (`test_compose_ui.py`: the dropdown equals this list and excludes `cupe`).
 
@@ -1083,7 +1085,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `5`
 - **Configured in:** `dedup.yaml` → `dedup.authoring_guard.max_matches`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** This is how much advice the panel gives while someone is typing, and it is a judgement about attention, not a measurement. It is set to 5 because the useful signal is concentrated at the very top of the ranking: MEASURED over the live `jd_role_embeddings` index (1,797 role vectors), for the 790 roles that have a same-title sibling the sibling is in the top 5 for 76% of them and in the top 10 for 84% — so rows 6-10 add 8 points of recall and double the reading. A shorter list (3) is a stronger nudge and misses more real duplicates; a longer one (10) turns an advisory panel into a search results page the author will scroll past. The panel ALSO states one non-vector fact that carries no cutoff at all — how many existing roles already hold the exact same title, and across how many departments — and that sentence is unaffected by this number.
 - **If it changes:** Does NOT move `rules_version` (dedup.yaml is unhashed); it does move `Dedup.stamp`. Purely how many rows the Builder's advisory panel shows — it cannot change a score, a grade, a gate, a dedup edge or a cluster, and nothing downstream reads it. Pinned by mutation (`test_composer_duplicates.py`: retune it to 2 and the guard returns 2 matches from a 6-neighbour result).
 
@@ -1091,7 +1093,7 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `500`
 - **Configured in:** `dedup.yaml` → `dedup.authoring_guard.min_draft_chars`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** Below this length the guard does not run at all — no advice, and no embedding round trip. 500 characters is roughly one Position Summary, and MEASURED against the live role index a 500-character draft retrieves its own twin BETTER than the full document does (14 of 20 in the top 5, versus 11 of 20 for the whole JD); a summary retrieves its parent role at 0.968-0.987. Below ~500 retrieval degrades but does not collapse, so this is the point at which the answer starts being worth asking for, not a quality bar on the draft. Set it lower to advise earlier (and more noisily); higher to stay quiet until the draft is substantial. ⚠ READ THIS BEFORE ASKING FOR A SIMILARITY THRESHOLD OR A PERCENTAGE. There is deliberately no cutoff and no number shown on any row, because the measurement says neither can be honest here: same-title role pairs (2,618 genuine duplicates) sit at a MEDIAN cosine of 0.9335, while a role's nearest UNRELATED neighbour sits at 0.9604 — the unrelated neighbour scores HIGHER than the real twin. At a 0.90 cutoff the guard would fire on 99.2% of drafts at 22% precision; at 0.97 it would still fire on 24% and lose most true duplicates; a top1-vs-top2 margin rule fails the same way (0.0065 for a true sibling vs 0.0052 for noise). Ranking works, the absolute number does not, so the panel ranks and shows no number. A percentage here would repeat the defect this project already fixed once in title search, where a 0.013 spread across the whole result page rendered as "81%" on every row.
 - **If it changes:** Does NOT move `rules_version` (dedup.yaml is unhashed); it does move `Dedup.stamp`. It gates ONE embedding call per compliance check, so lowering it costs GPU time on drafts too thin to match anything, and raising it means an author can get a long way into a duplicate before being told. It is a length floor and NOT the empty-draft guard: a draft whose serialized text is empty or whitespace is refused unconditionally at any setting, because the embedding model turns "" into a constant vector that is a plausible nearest neighbour to everything (measured: every empty query returned the same role at exactly 0.8038), and the empty check runs FIRST so no setting of this floor can switch it off. The rulebook refuses to LOAD a value of 0 or below: a floor is a length, not an on/off flag. Pinned by mutation (`test_composer_duplicates.py`: the same draft embeds at a low floor and does not at 500; and a whitespace-only draft LONGER than the floor still never embeds).
 
@@ -1099,19 +1101,19 @@ The two bands now say two different, true things. The merged band said one false
 
 - **We ship:** `5.0`
 - **Configured in:** `dedup.yaml` → `dedup.authoring_guard.timeout_seconds`
-- **Where the default came from:** our invention
+- **Where the default came from:** we chose it
 - **Why it matters:** This is a trade between an author's time and the university's. The panel is ADVISORY — it never blocks a submission and never changes a compliance verdict — so it is worth a couple of seconds of waiting, and it is NOT worth a held connection. It exists because the ordinary "if it breaks, carry on without it" handling cannot cover every failure: it catches an error, and an inference host that is switched off does produce an error quickly (the connection is refused in about 5 seconds). What it cannot catch is a host that ACCEPTS the request and then never answers — a graphics card wedged by another job, or a network rule that silently drops traffic after the connection is made. In that case the underlying client would keep waiting, with retries, for the better part of an hour, holding both the author's page and one of a small pool of database connections. A handful of authors clicking "Check compliance" would then stop the Builder serving anyone. 5 seconds is chosen as roughly a page load: a working lookup takes well under a second, so it is far above normal operation and far below the point where an author concludes the Builder is broken.
 - **If it changes:** Does NOT move `rules_version` (dedup.yaml is unhashed); it does move `Dedup.stamp`. It bounds ONE call — the near-duplicate panel on the Builder's Check — and nothing else: raising it makes an author wait longer before the panel is silently omitted; lowering it may drop the panel on a slow-but-healthy day. When the budget is spent the panel is ABSENT, never rendered as "no duplicates found" (an unverified all clear is exactly the wrong thing to show). Deliberately NOT the embedding client's global timeout, which the archive embedding runs share and may legitimately want long. Pinned by mutation in `test_compose_ui.py` (a guard that never returns leaves the compliance panel intact and the duplicate panel absent).
 
-### Prior calibration — not an SFU-published number
+### An earlier version of this tool chose it — also unratified
 
-Carried over from an earlier internal implementation's calibration. SFU publishes no scoring model at all, so these numbers were our own earlier judgement, not SFU policy.
+Numbers an earlier version of this software already used, which we kept. SFU has never published a scoring model, so these are **not** SFU rules and **not** industry standards — they are engineering guesses that happen to be older than the rest. They need your ruling exactly as much as the group above.
 
 #### HR-008 — How many points should a HIGH-severity problem cost a job description?
 
 - **We ship:** `20.0`
 - **Configured in:** `scoring.yaml` → `scoring.severity_penalty.high`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** Sets what "high" means numerically. Three high-severity findings (missing summary + duties + qualifications) take a JD from 100 to ~59 — just under the approval floor (HR-001). The calibration and the floor were tuned to agree; moving either alone breaks that agreement.
 - **If it changes:** Moves every score in the archive and therefore the whole grade distribution.
 
@@ -1119,7 +1121,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `10.0`
 - **Configured in:** `scoring.yaml` → `scoring.severity_penalty.medium`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The tier most SFU never-approve conditions sit in (duty percentages, banned qualification phrases, leftover placeholders, most coded terms).
 - **If it changes:** Six medium findings currently cost ~28 points, not 60, because of the decay factor (HR-012). Raising this without revisiting the decay changes that arithmetic sharply.
 
@@ -1127,7 +1129,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `5.0`
 - **Configured in:** `scoring.yaml` → `scoring.severity_penalty.low`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The drafting-nudge tier: action verbs, "how and why" detail, proficiency modifiers, a thin summary. These are the findings the archive fires most.
 - **If it changes:** Because low-severity findings are common, this is the knob most likely to move the median JD across the approval floor in either direction.
 
@@ -1135,7 +1137,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `0.0`
 - **Configured in:** `scoring.yaml` → `scoring.severity_penalty.info`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** Zero, today: `info` findings appear on the reviewer's checklist but are free. That is what makes the two unverifiable restricted-title checks (Registrar, Human Resources — HR-032 / HR-033) harmless.
 - **If it changes:** Giving `info` a non-zero cost would make every advisory observation drag the grade, including checks we KNOW cannot verify their own context.
 
@@ -1143,7 +1145,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `0.7`
 - **Configured in:** `scoring.yaml` → `scoring.severity_decay`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** Diminishing returns: the k-th finding in a tier costs penalty × 0.7^k, so a tier can never cost more than penalty ÷ (1 − 0.7). A wall of minor nudges therefore cannot alone force an F, while genuine high-severity failures still drive a low grade. It is the reason a badly-extracted legacy document does not automatically score zero.
 - **If it changes:** At 1.0 (no decay) a JD with ten low findings would score 50 and be blocked. At 0.0 only the worst finding in each tier would count at all.
 
@@ -1151,7 +1153,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `90.0`
 - **Configured in:** `scoring.yaml` → `scoring.grade_bands.A.min_score`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The grade letters are what HR sees on the dashboard and in reports.
 - **If it changes:** Re-labels the archive; does not by itself change what is approvable.
 
@@ -1159,7 +1161,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `75.0`
 - **Configured in:** `scoring.yaml` → `scoring.grade_bands.B.min_score`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The grade letters are what HR sees on the dashboard and in reports.
 - **If it changes:** Re-labels the archive; does not by itself change what is approvable.
 
@@ -1167,7 +1169,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `60.0`
 - **Configured in:** `scoring.yaml` → `scoring.grade_bands.C.min_score`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** This band is load-bearing: the grade floor (HR-002) is C and the score floor (HR-001) is 60.0, so this number is where the two floors meet. It is the de facto definition of "good enough to review".
 - **If it changes:** Changing it without changing HR-001 and HR-002 silently decouples the score floor from the grade floor.
 
@@ -1175,7 +1177,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `40.0`
 - **Configured in:** `scoring.yaml` → `scoring.grade_bands.D.min_score`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** Both D and F are below the approval floor, so this line only affects how a failing JD is *reported* — "needs work" vs "start over".
 - **If it changes:** Cosmetic for approval; matters for how the archive triage reads.
 
@@ -1183,7 +1185,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `100.0`
 - **Configured in:** `scoring.yaml` → `scoring.max_score`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The perfect-JD baseline every penalty is subtracted from, and therefore the scale the approval floor (HR-001) and the grade bands are measured on. The earlier build hardcoded it as a literal in Python; it is data here precisely so it is visible.
 - **If it changes:** Changing the top of the scale silently rescales HR-001, HR-002 and every grade band at once. In practice: don't — tune the penalties and floors.
 
@@ -1191,7 +1193,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `0.0`
 - **Configured in:** `scoring.yaml` → `scoring.min_score`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The floor a saturating pile of findings stops at. Keeps a badly-extracted legacy `.doc` from producing a meaningless −40.
 - **If it changes:** Presentation of the worst documents only; nothing is approvable there anyway.
 
@@ -1199,7 +1201,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `5`
 - **Configured in:** `thresholds.yaml` → `thresholds.max_listed`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** Presentation, but not nothing: a JD with twelve non-approved action verbs shows the reviewer five of them. The reviewer sees a partial list and may not realise it is partial.
 - **If it changes:** Purely what the reviewer reads; changes no decision. Judged low-stakes, but registered rather than waved through because it shapes what a human sees before pressing approve.
 
@@ -1207,7 +1209,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `5`
 - **Configured in:** `gates.yaml` → `gates.max_listed`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** FOUND WHILE BUILDING THIS REGISTER: `max_listed` exists TWICE — once in thresholds.yaml (used by the validators, HR-026) and once in gates.yaml (used by the gate runner). They are independent knobs that happen to hold the same number, and NOTHING keeps them in step. Registering both at least makes a divergence visible.
 - **If it changes:** Presentation only, but the duplication is a maintenance trap: an editor who changes "the" cap will likely change one of the two.
 
@@ -1215,7 +1217,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `actress` → "actor"; `aggressive` → "rapid", "intense", or "large"; `agreement` → "contract" or "partnership"; `ambitious` → "motivated"; `businessman` → "business person" or "executive"; `chairman` → "chair" or "chairperson"; `championing` → "advocating" or "promoting"; `compassionate` → "caring"; `competitive` → "tough" or "intense"; `confidential` → "restricted"; `craftsman` → "artisan" or "craftsperson"; `dominant` → "top"; `fireman` → "firefighter"; `foreman` → "foreperson"; `guru` → "specialist"; `in-kind` → "non-monetary"; `man-hours` → "work hours"; `mankind` → "humankind"; `manmade` → "artificial", "manufactured", or "synthetic"; `manpower` → "workforce" or "staffing"; `middleman` → "intermediary" or "go-between"; `ninja` → "expert"; `persistent` → "tenacious" or "continuing"; `policeman` → "police officer"; `repairman` → "technician" or "repairer"; `rockstar` → "skilled"; `salesman` → "sales representative"; `spokesman` → "spokesperson"; `stewardess` → "flight attendant"; `waitress` → "server"; `workman` → "worker"
 - **Configured in:** `coded_terms.yaml` → `coded_terms.medium`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** DO NOT READ THIS LIST AS SFU POLICY. It is NOT a transcription of SFU's Part 6 lexicon, and labelling it as one (which an earlier draft of this register did) would invite HR to rubber-stamp our own guesses as their published standard. The gendered occupational nouns (chairman, foreman, policeman, waitress, manpower, …) ARE SFU's. But NINE terms — aggressive, ambitious, championing, competitive, compassionate, confidential, dominant, agreement, in-kind — plus the three slang entries (rockstar, ninja, guru) do NOT appear in SFU's Part 6 list. The earlier build added them ("plus a few widely-recognised coded terms") and we inherited them unexamined. Several over-fire badly on ordinary JD prose: "handles confidential information" and "negotiates the agreement" are flagged today. "compassionate" is the worst of them: it appears in SFU's OWN mandatory About-SFU paragraph. The scan no longer looks inside that paragraph (HR-107), so SFU's boilerplate no longer trips our lexicon — but the term is still `medium` in a JD's own prose, and it is still not SFU's term. See HR-058. --- MEASURED over all 14,522 current-parser JDs (2026-08-07), so this is decidable on evidence rather than impression. The rule fires on **11,160 documents (76.8%)**, 19,895 findings. Three terms produce **83% of everything the rule says**, and all three are ours, not SFU's: `confidential` **4,320 docs (29.8%)**, `individual` **3,719 (25.6%)** and `agreement` **1,678 (11.6%)** — exactly the over-firing this entry predicted, now quantified. By contrast the terms HR would most expect to matter barely appear: `ambitious` 29 docs, `aggressive` 22, `chairman` 14, `workman` 1, and **16 of the 37 terms never fire at all** (ninja, rockstar, policeman, salesman, waitress, mankind, …). The single largest real signal in the archive is not in this list's disputed part at all: the generic pronoun `his/her`, **8,344 docs (57.5%)** — unambiguous, and mechanically fixable. Also measured and recorded so it is not re-proposed: a Gender-Decoder-style SOFT lexicon (Gaucher et al. 2011) was evaluated as an expansion of this list and **rejected** — 99.5% of JDs trip both the masculine and feminine word lists, and 38-77% of its hits are not gendered lean but stemming collisions and SFU's own template headings. See `docs/decisions/coded-language-soft-lexicon.md`.
 - **If it changes:** Two separate calls. (a) The nine additions: adopt them as SFU policy, or drop them. **Dropping just `confidential` and `agreement` would remove ~30% of this rule's total findings** — that is the size of the call. (b) The one deliberate OMISSION: SFU's list also carries "supporting", which we do not flag (SFU marks it "vague — clarify" rather than a hard replace, and it appears in almost every JD); adding it would fire on most of the archive. Nothing here blocks approval today (HR-004) — it only costs score and fills the reviewer's checklist.
 
@@ -1223,7 +1225,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `low`
 - **Configured in:** `titles.yaml` → `titles.executive_director.severity`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** Two problems, one entry. (a) The finding is only `low` and does not block approval (HR-004), so a mis-titled Executive Director can be approved. (b) Worse: THE CHECK SILENTLY PASSES WHEN `employee_group` IS UNPARSED — a legacy JD whose group we could not extract escapes the restriction entirely, and says nothing about having done so. Restricted titles are an SFU governance rule (Part 3.5), so a rule that quietly no-ops is the wrong default.
 - **If it changes:** Blocking on it would mean blocking JDs whose employee group we cannot read — a check that cannot know whether it is right should arguably not gate. The real fix may be a third state ("cannot verify") rather than a severity bump.
 
@@ -1231,7 +1233,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `info`
 - **Configured in:** `titles.yaml` → `titles.registrar.severity`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** `info` means: shown on the reviewer's checklist, costs zero score (HR-011), blocks nothing. We chose to surface it as a prompt to a human rather than pretend to adjudicate it.
 - **If it changes:** Any severity above `info` starts penalising JDs for a restriction the validator cannot actually check.
 
@@ -1239,7 +1241,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `info`
 - **Configured in:** `titles.yaml` → `titles.human_resources.severity`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** As HR-032. Note this rule fires on the SUBSTRING "human resources" in a title, so "Human Resources Advisor" inside SFU HR — a correct title — is flagged too. Harmless at `info`; not harmless at anything higher.
 - **If it changes:** Raising the severity would penalise SFU HR's own correctly-titled roles.
 
@@ -1247,7 +1249,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `medium`
 - **Configured in:** `rule_catalog.yaml` → `rule_catalog.SFU-COMP-DECISION.default_severity`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** It is NOT blocked today (absent from HR-004): `medium` costs 10 points and appears on the checklist, but the JD is still approvable. The section is a Hay evaluation input — a JD missing it cannot be properly evaluated for classification, which is arguably a stronger reason to block than several things we DO block on.
 - **If it changes:** Promoting to `high` would make it trip the severity floor (HR-003) automatically; adding it to SFU-APPROVE-MANDATORY-SECTIONS would make it un-waivable (HR-006). Either is a one-line YAML edit.
 
@@ -1255,7 +1257,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `medium`
 - **Configured in:** `rule_catalog.yaml` → `rule_catalog.SFU-COMP-PROBLEM.default_severity`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** As HR-034: the other Hay input, also `medium`, also non-blocking today. Decide the pair together.
 - **If it changes:** See HR-034.
 
@@ -1263,7 +1265,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `medium`
 - **Configured in:** `rule_catalog.yaml` → `rule_catalog.SFU-STRUCT-DUTIES-TOO-MANY.default_severity`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** This is the side of the duty-count rule that SFU actually names as the defect ("more than 3-5 main responsibilities"), and we do NOT gate it (HR-004). We defaulted to leniency because duty granularity is an authoring judgement and gating it would block a large slice of the archive on a formatting call. That is a reasonable position — but it is OUR position, not SFU's.
 - **If it changes:** Gating it costs one line in gates.yaml (add SFU-STRUCT-DUTIES-TOO-MANY to a gate's rule_ids). Measure against the Phase-2.5 archive baseline first.
 
@@ -1271,7 +1273,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `medium`
 - **Configured in:** `rule_catalog.yaml` → `rule_catalog.SFU-STRUCT-DUTIES-TOO-FEW.default_severity`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** SFU names the over-run, not the under-run (HR-021). Firing at `medium` — the same cost as a genuine SFU never-approve condition — on a JD that consolidated its work into two well-written duties is our invention, and is arguably too harsh relative to HR-036, which does not block at all.
 - **If it changes:** Demoting to `low` (5 points) would put it in line with the other drafting nudges. Note the inconsistency: today a JD with 2 duties and a JD with 9 duties are penalised identically.
 
@@ -1279,7 +1281,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `low`
 - **Configured in:** `rule_catalog.yaml` → `rule_catalog.SFU-STRUCT-SUMMARY-TOO-SHORT.default_severity`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The summary-length rule is split in two precisely so this question can be answered separately (HR-019/HR-020): the over-run blocks approval, the under-run is a `low` nudge that only costs score. Firing on the under-run at all is our choice — SFU states a maximum.
 - **If it changes:** Low stakes on its own, but it is one of the most frequently-fired rules in the archive, so it moves the median score.
 
@@ -1287,7 +1289,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `low`
 - **Configured in:** `rule_catalog.yaml` → `rule_catalog.SFU-COMP-TERRITORIAL.default_severity`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** CLAUDE.md's standing open flag, and the one entry here that blocks PUBLICATION rather than development. TWO distinct gaps. (a) SEVERITY: a missing acknowledgement is `low` (5 points) — yet it DOES block approval via the EDI-footer gate, so a `low` finding is doing a `high` finding's job. (b) WORDING: THE SYSTEM STILL ONLY CHECKS PRESENCE, NEVER TEXT. Nothing verifies the JD carries SFU's current official acknowledgement rather than an outdated or paraphrased one. UPDATED (2.5-prep): the config key this entry said was missing now EXISTS — `boilerplate.territorial_acknowledgement` (HR-105) — but it was added to serve the coded-term scan exemption (HR-107), and NO VALIDATOR COMPARES A JD AGAINST IT. Storing a wording is not verifying one, and our stored copy is itself unverified (three known wordings disagree — see HR-105). This entry stays open on both counts.
 - **If it changes:** Must be signed off against SFU's current official text before any external distribution (Phase 6). Until then every "approved" JD carries an unverified acknowledgement. ENFORCING the wording (making SFU-COMP-TERRITORIAL compare text rather than detect presence) is a validator change, not a config edit, and would fail a large share of the archive at once — the archive template and our rulebook copy do not agree.
 
@@ -1295,7 +1297,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `excellent`, `none`, `working`
 - **Configured in:** `qualifications.yaml` → `qualifications.knowledge_modifiers`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** "[NO MODIFIER]" in the rulebook means *the absence of a modifier*. We model it as a sentinel value `none`, which means a JD that literally writes "None knowledge of Python" passes the modifier-vocabulary check, while a knowledge item with genuinely no modifier depends on the parser emitting the sentinel. A representation choice, made in the earlier build, that SFU never made.
 - **If it changes:** Modelling absence as `null` instead would be a parser + validator change, not a config edit — the one entry here where ratifying a change is NOT free. Flagged so that is known before HR is asked.
 
@@ -1303,7 +1305,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `\b(bachelor|master|phd|doctorate|degree)\b`
 - **Configured in:** `patterns.yaml` → `patterns.degree_mention`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** Triggers the check that a stated degree names a discipline and allows related fields (SFU-QUAL-DEGREE-DISCIPLINE, `low`, non-blocking). Matching the bare word "degree" anywhere means "a degree of independent judgement" in a duty trips it.
 - **If it changes:** Only score and the checklist; not the approval bar.
 
@@ -1311,7 +1313,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `(related|relevant)\s+(discipline|field)|or\s+other\s+relevant`
 - **Configured in:** `patterns.yaml` → `patterns.related_discipline`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The other half of HR-050. A JD that says "…or a closely allied field" or "…in a comparable area" satisfies the rulebook in substance but not this pattern. Same shape of problem as the literal "equivalent combination" match (HR-042) — but this one is advisory, not blocking.
 - **If it changes:** Only score and the checklist.
 
@@ -1319,7 +1321,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `ability to`, `able to`
 - **Configured in:** `qualifications.yaml` → `qualifications.ability_prefixes`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** SFU Part 5.3 gives the FORMAT 'Ability to [observable behavior]'. Our check is a literal prefix test, so "Demonstrated ability to lead teams" — which is the same thing, better written — is flagged (SFU-AUTH-ABILITIES-OBSERVABLE, `low`, non-blocking).
 - **If it changes:** Score and checklist only; not the approval bar.
 
@@ -1327,7 +1329,7 @@ Carried over from an earlier internal implementation's calibration. SFU publishe
 
 - **We ship:** `"caring"`
 - **Configured in:** `coded_terms.yaml` → `coded_terms.medium.compassionate`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** ⚠ THE FALSE POSITIVE IS FIXED (Phase 2.5-prep) — the QUESTION IS STILL OPEN. Read the history, then what is left to decide.
 HISTORY. SFU's pre-populated About-SFU block reads "We are unconventional, fearless, COMPASSIONATE, approachable and ready." The template says do not edit it. Our lexicon files "compassionate" at `medium` — one of the nine terms that are NOT on SFU's own published list (HR-029). Measured on a clean JD: WITHOUT the About-SFU paragraph, score 91.5 / grade A, no coded-term finding. WITH it — i.e. exactly as SFU mandates — score 81.5 / grade B, one `medium` coded-term finding. A JD was penalised 10 points for obeying SFU, and penalised again (SFU-COMP-ABOUT) if it left the paragraph out. It could not win. Because it fired on nearly every compliant JD it systematically DEPRESSED THE WHOLE ARCHIVE BASELINE — the very baseline the score floor (HR-001) is to be ratified against.
 WHAT WAS DONE. Of the three ways out, we took the third: the coded-term scan no longer looks inside SFU's mandated boilerplate. That is a decision in its own right and it is registered as its own entry — HR-107, provenance `our_invention`, status open — with the mandated text itself at HR-104 (About SFU), HR-105 (territorial) and HR-106 (equity). The archive baseline is now measured with the artefact removed, so HR-001 can be ratified against a real number. Behaviour is pinned by tests both ways: paragraph present -> no coded-term finding AND no SFU-COMP-ABOUT; paragraph absent -> SFU-COMP-ABOUT still fires.
@@ -1338,7 +1340,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `vp`, `chief`, `director`, `manager`, `lead`, `associate`, `assistant`
 - **Configured in:** `titles.yaml` → `titles.families`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** the earlier build shipped this ladder claiming it as "SFU's official title ladder (Toolkit p18-19)". IT IS NOT IN THE RULEBOOK. docs/rulebook/sfu-jd-standards.txt has no title-family ladder at all: `chief` does not appear anywhere in it, and the only occurrence of "VP" (Part 3.5) lists VP as a RESTRICTED title — a title you may not use — not as a seniority family. So the seven rungs below are an inherited guess, and the guess is load-bearing: the ladder is the seniority dimension of title classification, it will normalize titles for dedup Tier-3 (deciding whether "Manager, Research" and "Research Lead" are the same role), and it drives the composer's facets. A missing rung is not a cosmetic gap — a ladder with no `supervisor` or `coordinator` rung cannot classify those titles at all, and they fall to `unmapped`. This is HR-029's problem (nine coded terms SFU never published, shipped as if it had) in the title dimension.
 - **If it changes:** Config only — add, remove or reorder rungs in titles.yaml. Nothing here blocks approval; no gate reads it. But HR should either point us at the real SFU ladder (the Job Titling Guide / Toolkit p18-19, which this repo does not hold), confirm these seven, or replace them. NOTE the SEPARATE functional dimension (assistant / coordinator / analyst / officer / specialist / consultant / manager / associate director / director / executive) IS rulebook-sourced — Part 3.3's Application Table — and is not in question here.
 
@@ -1346,7 +1348,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `vp`, `chief`, `manager`, `director`, `lead`, `assistant`, `associate`
 - **Configured in:** `titles.yaml` → `titles.family_match_order`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The classifier tries the families in THIS order and the first keyword that matches wins. That makes the order a policy statement, not an implementation detail, and it is deliberately NOT the seniority ladder of HR-059: `manager` is tried before `director`, which is the *entire* reason "Associate Director, Advancement" classifies as a manager rather than a director. Likewise `assistant` before `associate`. Shuffle two rungs and real titles change family with no other edit anywhere. The earlier build buried this ordering in a Python tuple with a one-line comment; SFU has never been asked whether an Associate Director is a manager.
 - **If it changes:** Config only. Reordering changes which family a *multi-keyword* title lands in — it cannot change a title that carries only one family keyword. Nothing blocks approval on it (no gate reads the family); it feeds titling advice, and will feed title normalization for dedup Tier-3 and the composer's facets.
 
@@ -1354,7 +1356,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `vp` → ['vice president', 'associate vice', ' avp ', ' vp ']; `chief` → ['chief', ' cio ', ' cfo ', ' cto ', ' ceo ', ' coo ']; `manager` → ['associate director', 'manager', 'supervisor']; `director` → ['director']; `lead` → ['team lead', ' lead ']; `assistant` → ['assistant']; `associate` → ['associate', 'representative']
 - **Configured in:** `titles.yaml` → `titles.family_keywords`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** This is the ladder of HR-059 made operational: a rung with no keyword can never be matched, and a word missing from a rung sends every title carrying it to `unmapped`. The list is small and inherited — `supervisor` is a manager, `representative` is an associate, and nothing here recognises `coordinator`, `officer`, `analyst` or `specialist` as a seniority at all (they are the FUNCTIONAL dimension, HR-063). The space-padded entries (" vp ", " cio ") match a whole word only; the unpadded ones are substrings, so "manager" also matches "Managerial Accountant".
 - **If it changes:** Config only. Adding a word makes titles carrying it classify into that family; removing one sends them to `unmapped` (visible, not silent). Advisory — no gate reads it.
 
@@ -1362,7 +1364,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `chief`, `director`, `lead`, `manager`, `vp`
 - **Configured in:** `titles.yaml` → `titles.comma_supervisory_families`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The comma FORMAT rule is SFU's (Part 3.4). The set of families it applies to is not: The earlier build chose these five. It is the guard that stops "Software Developer, Platform" reading as a supervisory title, so it must exclude non-role prefixes — but it also decides that a `lead` supervises and an `associate` does not, which is a real HR judgement nobody made. Note `lead` is in the set even though SFU's own ladder does not exist (HR-059), so this compounds an unratified default with another one.
 - **If it changes:** Config only; advisory. It sets `TitleClassification.comma_supervisory`, which is surfaced to reviewers and (later) used to sanity-check a JD's Relationships section against its title. No gate reads it.
 
@@ -1370,7 +1372,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `executive`, `associate_director`, `director`, `manager`, `consultant`, `specialist`, `officer`, `analyst`, `coordinator`, `assistant`
 - **Configured in:** `titles.yaml` → `titles.function_match_order`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The Application Table (HR-063) is SFU's; the ORDER its rows are tried in is not — the earlier build chose it, and it is what resolves the overlaps. `executive` is tried first, so "Executive Director" is an executive (consistent with SFU reserving that title for APEX roles, Part 3.5 / SFU-AUTH-TITLE-EXEC-DIR); then `associate_director`, so "Associate Director" is not a director. Both readings are defensible and neither is written down by SFU. Reorder and titles change function.
 - **If it changes:** Config only, and only for titles carrying two function words. Advisory.
 
@@ -1378,7 +1380,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `phd`, `doctora`, `master`
 - **Configured in:** `hay_signals.yaml` → `hay_signals.edu_high`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The single biggest contributor to the Know-How signal (HR-073 gives it 3.0 points, more than any other). Matched as substrings of the `education` qualifications only: "doctora" catches doctoral/doctorate, "master" catches master's — and also "Masters of the craft" or a "Mastercard" reconciliation duty, if either ever appeared in an education line.
 - **If it changes:** Config only. Advisory: it moves a Hay SIGNAL, never a grade and never a gate.
 
@@ -1386,7 +1388,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `bachelor`, `undergraduate`, `degree`
 - **Configured in:** `hay_signals.yaml` → `hay_signals.edu_mid`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The fallback when no graduate cue is found (2.0 points, HR-073). Note `degree` is deliberately broad and will also match "Master's degree" — harmless only because the graduate cue is tested first. A JD saying "Diploma or equivalent" scores nothing here.
 - **If it changes:** Config only; advisory.
 
@@ -1394,7 +1396,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `independent`, `judgment`, `judgement`, `novel`, `complex`, `ambiguous`, `unprecedented`, `analyze`, `analyse`, `evaluate`, `interpret`, `strategic`, `non-routine`, `creative`
 - **Configured in:** `hay_signals.yaml` → `hay_signals.ps_challenge`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** Each distinct phrase found adds a full point (HR-076) — more than the entire section is worth for existing — so a JD's Problem-Solving signal is close to a count of how many of these 14 words its author happened to use. It rewards a vocabulary, not a role: "Resolves novel, ambiguous, complex problems requiring independent judgment" scores 5 for one sentence. Both spellings of judgment/judgement and analyze/analyse are listed, so a JD using both would double-count.
 - **If it changes:** Config only; advisory. Adding words makes the signal easier to raise.
 
@@ -1402,7 +1404,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `routine`, `defined procedure`, `established procedure`, `under supervision`, `close supervision`, `step-by-step`, `prescribed`, `clearly defined`
 - **Configured in:** `hay_signals.yaml` → `hay_signals.ps_routine`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** These are the only NEGATIVE cues in the whole estimator (HR-076 weights each hit -1.0). A JD that accurately describes a junior role — "handles routine issues using established procedure, under close supervision" — is pushed to a low Problem-Solving signal, which is the intent; but the same words in a senior JD ("establishes the procedures others follow") are penalised just as hard, because the match is a bare substring with no sense of who is doing what. Note "under supervision" does NOT match "under close supervision" (the words are not adjacent) — "close supervision" is what catches it.
 - **If it changes:** Config only; advisory. Setting the weight to 0 (HR-076) neutralises the list without deleting it.
 
@@ -1410,7 +1412,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `without approval`, `without prior approval`, `autonomous`, `independently`, `authority`, `approve`, `sign`, `budget`, `strategic`, `organization-wide`, `institution`, `significant impact`, `accountable`, `final decision`, `discretion`
 - **Configured in:** `hay_signals.yaml` → `hay_signals.acc_autonomy`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The whole Accountability signal, one point per distinct phrase (HR-079). Known quirks HR should see rather than have hidden: `sign` is a substring, so it also fires on "design" and "significant"; `approve` fires on "requires approval from the Director", which is the OPPOSITE of autonomy; and `without approval` / `without prior approval` overlap, so "without prior approval" scores one, not two ("without approval" is not a substring of it). `institution` fires on the boilerplate word "institution" wherever it appears.
 - **If it changes:** Config only; advisory — this can never produce a grade.
 
@@ -1418,7 +1420,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `advanced`, `expert`
 - **Configured in:** `hay_signals.yaml` → `hay_signals.advanced_skill_modifiers`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** SFU's Toolkit defines the skill modifier scale (basic / intermediate / advanced / expert). Which END of it counts as depth is the earlier build's call: `intermediate` scores nothing today, so a JD requiring six intermediate skills reads as no more skilled than one requiring none.
 - **If it changes:** Config only; advisory.
 
@@ -1426,7 +1428,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `excellent`
 - **Configured in:** `hay_signals.yaml` → `hay_signals.excellent_knowledge_modifiers`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The knowledge scale is excellent / working / none. Only `excellent` scores (1.0, HR-073) — `working` knowledge contributes nothing at all.
 - **If it changes:** Config only; advisory.
 
@@ -1434,7 +1436,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `education_graduate` → 3.0; `education_undergraduate` → 2.0; `many_advanced_skills` → 2.0; `some_advanced_skills` → 1.0; `excellent_knowledge` → 1.0; `supervisory_scope` → 1.0; `broad_qualifications` → 1.0
 - **Configured in:** `hay_signals.yaml` → `hay_signals.know_how_points`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The weights that turn a JD into a Know-How score, which HR-075 then turns into low/moderate/high. Education dominates: a graduate degree alone (3.0) is worth as much as supervising staff PLUS excellent knowledge PLUS a broad qualification set (1.0 each), and it alone reaches the `moderate` cutoff. SFU has published no weighting at all — these seven numbers are somebody else's judgement about what makes a job senior.
 - **If it changes:** Config only; advisory. Changing a weight re-levels every JD's Know-How signal. Nothing blocks approval on it and no grade is ever derived from it.
 
@@ -1442,7 +1444,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `advanced_skills_for_many` → 3; `qualification_kinds_for_broad` → 4
 - **Configured in:** `hay_signals.yaml` → `hay_signals.know_how_counts`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The two counting cliffs inside Know-How. 3 advanced/expert skills scores 2.0; 2 scores 1.0 — a one-skill difference halves the contribution. 4 distinct qualification kinds (of the six the template has: education, experience, knowledge, skill, ability, security) scores 1.0 for "breadth", which rewards a JD for filling in more sections as much as for the role being broader.
 - **If it changes:** Config only; advisory.
 
@@ -1450,7 +1452,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `moderate` → 3.0; `high` → 5.0
 - **Configured in:** `hay_signals.yaml` → `hay_signals.know_how_levels`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The cutoffs that turn the score into the only thing a human sees. With HR-073's weights, `moderate` (3.0) is reached by a graduate degree ALONE, and `high` (5.0) needs roughly a graduate degree plus three advanced skills. Below 3.0 the role reads `low`. The earlier build hardcoded these as `_level(score, mod=3, hi=5)` in a Python default argument.
 - **If it changes:** Config only; advisory — a Hay SIGNAL, never a Hay grade. Two levels may not share a cutoff, and every level except `low` (the floor) must have one, or the rulebook does not load.
 
@@ -1458,7 +1460,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `section_item` → 0.5; `challenge_hit` → 1.0; `routine_hit` → -1.0
 - **Configured in:** `hay_signals.yaml` → `hay_signals.problem_solving_points`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** A single challenge word (HR-068) is worth twice as much as an entire written Problem Solving entry, and a single routine word (HR-069) cancels a challenge word outright. That makes the Problem-Solving signal mostly a word count. The NEGATIVE weight is the only one in the estimator and is the strongest claim it makes: that describing supervision honestly is evidence of a less demanding role.
 - **If it changes:** Config only; advisory. Set `routine_hit` to 0.0 to keep the routine lexicon as evidence while removing its penalty.
 
@@ -1466,7 +1468,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `section_items_scored` → 3
 - **Configured in:** `hay_signals.yaml` → `hay_signals.problem_solving_counts`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** Credit for merely HAVING a section, capped at 3 entries (1.5 points) so a JD cannot inflate its signal by padding the list. Length is not depth — but the cap also means the 4th genuinely distinct problem a role solves counts for nothing.
 - **If it changes:** Config only; advisory.
 
@@ -1474,7 +1476,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `moderate` → 1.5; `high` → 3.0
 - **Configured in:** `hay_signals.yaml` → `hay_signals.problem_solving_levels`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** With HR-076's weights, a JD with three Problem Solving entries and no challenge vocabulary at all scores exactly 1.5 and reads `moderate` — the signal can be earned by writing three sentences. `high` needs three challenge words net of any routine language. The earlier build hardcoded these as `mod=1.5, hi=3`.
 - **If it changes:** Config only; advisory.
 
@@ -1482,7 +1484,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `section_item` → 0.5; `autonomy_hit` → 1.0; `supervisory_scope` → 2.0; `external_breadth` → 1.0
 - **Configured in:** `hay_signals.yaml` → `hay_signals.accountability_points`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** Supervising staff is worth 2.0 — twice any single autonomy phrase, and twice what supervision is worth to Know-How (HR-073 gives it 1.0). Whether "freedom to act" should be dominated by headcount at all is a real Hay question, and this answers it by default. External breadth (HR-080) adds a point for having enough external contacts listed.
 - **If it changes:** Config only; advisory. The Accountability signal never becomes an Accountability grade.
 
@@ -1490,7 +1492,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `section_items_scored` → 3; `external_for_breadth` → 3
 - **Configured in:** `hay_signals.yaml` → `hay_signals.accountability_counts`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** `external_for_breadth: 3` says a role dealing with three external parties has institution-scale impact and one dealing with two does not. It counts LIST ENTRIES, so a JD that writes "Vendors, government, and peer institutions" as a single line scores 0 while one that writes three lines scores 1 — the same role, formatted differently.
 - **If it changes:** Config only; advisory.
 
@@ -1498,7 +1500,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `moderate` → 2.0; `high` → 4.0
 - **Configured in:** `hay_signals.yaml` → `hay_signals.accountability_levels`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** With HR-079's weights, supervising staff alone (2.0) reaches `moderate` with no decision-making language whatsoever, and `high` (4.0) is two autonomy phrases away. The earlier build hardcoded these as `mod=2, hi=4`.
 - **If it changes:** Config only; advisory.
 
@@ -1506,7 +1508,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `high_school`, `associate`, `bachelors`, `masters`, `phd`
 - **Configured in:** `comparison.yaml` → `comparison.education_ladder`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** This is the ONE education ladder in the rulebook, and it is an ordinal scale, not a list: a rung's position IS its value. Drift reads an education change off it (HR-100's sibling escalation) and similarity measures how far apart two roles sit on it. The earlier build held the same fact twice — a name->ordinal dict in drift.py and a tuple in similarity.py — with nothing keeping them in step. Re-ordering it, or inserting a rung, silently re-scales both. SFU's rulebook names no education ladder; it requires the minimum education be STATED (Part 5), not that it be graded.
 - **If it changes:** Config only, but it re-scales two metrics at once. Adding a rung (e.g. a professional designation) also widens the ladder, which shrinks every education distance in `seniority_closeness` — a JD Bank-wide effect from a one-line edit. Each rung needs a matching cue list (HR-083); the loader refuses a rung with no cues.
 
@@ -1514,7 +1516,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `high_school` → ['high school', 'high-school', 'secondary school']; `associate` → ['associate', 'diploma']; `bachelors` → ['bachelor', 'bsc', 'b.sc', 'undergraduate', 'baccalaureate', 'degree']; `masters` → ['master', 'msc', 'm.sc', 'mba']; `phd` → ['phd', 'ph.d', 'doctora', 'dphil']
 - **Configured in:** `comparison.yaml` → `comparison.education_text_cues`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** These substrings are how a written requirement ("Master's degree in a related discipline") becomes a rung. The cues are tried MOST-SENIOR FIRST — derived from the ladder, not written down separately — which is the only reason that example reads as `masters` and not as the generic `degree` -> `bachelors` rung. Two judgement calls are baked in: bare "degree" counts as a bachelors (an SFU JD that says "university degree" gets a rung it never asked for), and "diploma" is an associate (SFU's own usage varies). An unrecognised requirement yields NO level, and drift then never escalates on it — deliberately conservative.
 - **If it changes:** Config only. Note the cross-file guard: `hay_signals.yaml`'s education cues (`edu_high` / `edu_mid`) must all appear here, so DELETING a cue that Hay also reads is a LOAD ERROR, not a silent Know-How regression.
 
@@ -1522,7 +1524,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `0.45`
 - **Configured in:** `comparison.yaml` → `comparison.weight_vector`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** `sim = 0.45*vector + 0.45*skills + 0.10*seniority`. The earlier build rebalanced the embedding DOWN to parity with skills because on real JDs the summary embedding mostly captures generic institutional tone — every "university admin" JD reads alike — so an embedding-led score over-merges. That was a judgement about the earlier corpus, made against a skill graph JD Bank does not have; it has never been checked against SFU's archive.
 - **If it changes:** The three weights must sum to 1.0 (the loader enforces it), so moving one means moving another. Every threshold below (HR-092, HR-093, HR-095) is calibrated against THIS mix — retuning the weights invalidates them.
 
@@ -1530,7 +1532,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `0.45`
 - **Configured in:** `comparison.yaml` → `comparison.weight_skill`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** Skills carry EQUAL weight to the embedding — the deliberate anti-over-merge choice (see HR-084). In JD Bank this weight currently multiplies a number nothing can compute: a parsed SFU JD has no skill set, no skill ontology and no idf corpus. Phase 3 has to build all three before this weight means anything, and whatever it builds them from will change what "skill overlap" IS.
 - **If it changes:** Must be re-decided WITH the Phase-3 skill representation, not before it. Weights must sum to 1.0.
 
@@ -1538,7 +1540,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `0.1`
 - **Configured in:** `comparison.yaml` → `comparison.weight_seniority`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The tie-break term: 10% of the score. It is what stops a Coordinator and a Director with identical skill vocabulary scoring as the same role — and at 0.10 it barely does. SFU cares a great deal about level (the whole Hay method is about level), so a 10% weight may be far too low; it is also the term whose inputs are most often missing, and a missing input scores 0.7 (HR-090) rather than 0.
 - **If it changes:** Raising it makes the score more level-sensitive and less likely to merge a junior and a senior variant of one role — probably desirable for SFU, and testable against the archive in Phase 3. Weights must sum to 1.0.
 
@@ -1546,7 +1548,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `0.5`
 - **Configured in:** `comparison.yaml` → `comparison.family_weight`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** Half credit. It decides how generously the scorer treats "similar but not the same" expertise, which for JDs is precisely the interesting case (a JD asking for Tableau vs one asking for Power BI). Too generous and unrelated roles merge; too strict and genuinely redundant JDs never cluster.
 - **If it changes:** Config only. Meaningless until Phase 3 supplies a skill ontology — and the ontology's own granularity will matter more than this number.
 
@@ -1554,7 +1556,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `domain`, `other`
 - **Configured in:** `comparison.yaml` → `comparison.non_matchable_families`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The catch-all families. Without this exclusion every skill pair that fell into the ontology's junk drawer would earn HR-087's partial credit, and the skill component would drift towards "everything overlaps a bit".
 - **If it changes:** Config only. The names must match the Phase-3 ontology's own family names — a typo silently re-enables credit for the junk drawer, which is why the value is pinned here rather than left as a set literal in Python.
 
@@ -1562,7 +1564,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `1`, `2`, `3`, `4`, `5`, `assistant`, `associate`, `i`, `ii`, `iii`, `intern`, `iv`, `jr`, `junior`, `lead`, `principal`, `senior`, `sr`, `staff`, `trainee`, `v`
 - **Configured in:** `comparison.yaml` → `comparison.title_stopwords`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** Yes, today: every one of these tokens is DISCARDED before titles are compared, so "Senior Developer II" and "Developer" are one title, and a cluster of them reports one distinct title, not three. That is exactly what SFU's harmonization wants for the *skills* comparison — and exactly wrong for reporting, because SFU's own Part 3.6 says "Senior" is reserved for roles supervising junior roles in the same area. The word carries meaning; the normalizer throws it away.
 - **If it changes:** Config only, but it moves BOTH the same-title flag in the clone verdict and the `distinct_titles` metric a cluster reports. Dropping `principal` (or adding `head`) silently re-groups every title in the archive. Note this list is NOT the seniority ladder in titles.yaml (HR-059) — different vocabulary, different job: discarded here, classified there.
 
@@ -1570,7 +1572,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `0.7`
 - **Configured in:** `comparison.yaml` → `comparison.unknown_signal_closeness`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** A pure guess, and it fires constantly: a JD Bank JD has NO structured education level or years bar at all, so on today's data every seniority comparison would take this default on both halves and score exactly 0.7. High enough not to punish a JD for what it does not say; low enough not to reward it. Nobody has validated that 0.7 is the right neutral.
 - **If it changes:** Config only, but it is the most-taken branch in `seniority_closeness`. Setting it to 0.0 would treat silence as maximum distance (punishing terse JDs); 1.0 would treat silence as agreement (merging everything).
 
@@ -1578,7 +1580,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `10.0`
 - **Configured in:** `comparison.yaml` → `comparison.experience_span_years`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** the earlier build divided the year gap by a hardcoded 10.0, so a 2-year role and a 12-year role score ZERO on experience closeness, while 2 and 7 score 0.5. Ten years is a whole career stage; for SFU's grade structure the meaningful distance may be far shorter.
 - **If it changes:** Config only. Narrowing it makes experience a sharper discriminator (fewer merges across levels); widening it makes it nearly inert.
 
@@ -1586,7 +1588,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `0.6`
 - **Configured in:** `comparison.yaml` → `comparison.sim_threshold`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** Two jobs: it is the floor below which a neighbour is not surfaced to a human, AND it is one of the two inputs to the derived cluster threshold (HR-096) — raise it above 0.80 and clustering tightens with it. It is also the score above which a different-title/different-department match is called a NEW JOB needing Hay evaluation (`clone_verdict`), which is a recommendation to Compensation.
 - **If it changes:** Too low and reviewers drown in weak matches; too high and real redundancy is never surfaced. This is the number Phase 2.5's archive baseline should be used to calibrate — it cannot be judged in the abstract.
 
@@ -1594,7 +1596,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `0.92`
 - **Configured in:** `comparison.yaml` → `comparison.clone_threshold`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The most consequential number in this file, because its verdict goes to Compensation: "clone" means no Hay re-evaluation. SFU's actual cloning rule (Toolkit p10, via sfu-reference.md §4) is an IDENTITY check — identical duties AND supervisor AND title AND qualifications — and the earlier build replaced it with a 0.92 cosine plus same-title plus same-department. A score can be 0.92 while the duties differ. This is an approximation of a rule SFU wrote precisely, and it is ours. ⚠ MEASURED ON THIS CORPUS AND FOUND WRONG (Phase 3.3, HANDOFF 2026-07-13). Over 300 random JDs, EXCLUDING self AND excluding exact-duplicate content (different `text_sha256`, so Tier-1's 1,972 byte-identical files cannot inflate this): the nearest non-identical neighbour's document cosine is min 0.877 · p10 0.953 · median 0.988 — 98% (250/255) sit AT OR ABOVE 0.92. A 0.92 bar declares almost the whole archive a clone of something; document-level cosine barely discriminates at all on a corpus where every JD is written in the same register, the same template, the same vocabulary. Tier-2 (`dedup.yaml`) does NOT use this value — it scores exact shingle Jaccard, never cosine (HR-138) — and its OPTIONAL cosine confirm (HR-139, shipped OFF for the identical reason) is a separate, freshly measured number, not this one. This threshold must be RE-DERIVED against the real vector distribution before Tier-3 (embedding + skill similarity) uses it for anything — carrying the earlier 0.92 forward unexamined would have been exactly the "faithful port, wrong here" trap (CLAUDE.md, the `render.py` lesson).
 - **If it changes:** Advisory today (nothing calls it — Tier-2 does not read it, and Tier-3 does not exist yet). Before it is EVER shown to a reviewer, or used to gate anything, the honest fix may be to stop approximating: check the identity conditions SFU actually names, and use the score only to shortlist candidates. At minimum, any future caller must re-derive this against the measured nearest-neighbour distribution above (median 0.988) rather than trust the inherited the earlier build number — 0.92 is below the P10 of ordinary non-duplicate neighbours on this corpus, so it would not merely mis-calibrate, it would invert: it declares typical dissimilar JDs "close" more often than not.
 
@@ -1602,7 +1604,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `0.3`
 - **Configured in:** `comparison.yaml` → `comparison.min_cluster_skill_overlap`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The gate that stops JDs merging on generic tone alone: sharing only ubiquitous skills (communication, MS Office — low idf) falls below it; sharing distinctive skills clears it. Without it, connected-components clustering on embedding-led similarity collapses into one giant blob.
 - **If it changes:** Config only, and NOTHING READS IT YET — the Phase-3 edge builder will. It is registered now precisely so it does not arrive as an undeclared default inside that PR. It depends entirely on an idf corpus that does not exist yet.
 
@@ -1610,7 +1612,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `0.8`
 - **Configured in:** `comparison.yaml` → `comparison.cluster_threshold_floor`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** A precision call: cluster only on STRONG edges, well above the per-JD "show me similar" floor of 0.60, because clustering merges roles and a false merge produces a canonical JD that describes two different jobs. Connected components is transitive, so one bad edge can chain two clusters together — the threshold is the only thing holding that back (with HR-094).
 - **If it changes:** This is THE lever on how much of the archive gets harmonized. Lower it and clusters grow (and over-merge); raise it and the Bank finds no redundancy to consolidate. Phase 3 must justify it against the real corpus, not inherit it. ⚠ RETIRED FOR THE PHASE-3.5 CLUSTER PATH: the clustering runner calls `build_clusters(threshold=0.0)` on edges already gated by tier + `cluster_role_equiv_min` (HR-162), so this floor no longer decides which JDs cluster. It remains live for any OTHER `build_clusters` caller that relies on the derived `cluster_threshold`.
 
@@ -1618,7 +1620,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `0.8`
 - **Configured in:** `comparison.yaml` → `comparison.cluster_threshold`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** the earlier build wrote `CLUSTER_THRESHOLD = max(SIM_THRESHOLD, 0.80)`: the cluster threshold is never allowed below the noise floor. Shipping the ANSWER (0.80) as a third YAML key would be two knobs holding one value with nothing keeping them in step — the exact `max_listed` landmine on the backlog. So it is computed, and this entry pins the computed value: raise HR-092 (the noise floor) above 0.80 and the effective cluster threshold moves with it, and this register entry breaks the build until HR is told.
 - **If it changes:** Not directly settable — it changes only when HR-092 or HR-095 changes. It is on the register because the number REVIEWERS care about is the effective one, and because it is the tripwire proving the two knobs stayed in step. ⚠ RETIRED FOR THE PHASE-3.5 CLUSTER PATH: that runner passes `threshold=0.0` to `build_clusters` and gates ROLE edges upstream via `cluster_role_equiv_min` (HR-162), so this derived value no longer gates clustering. It survives only for any other caller that omits an explicit threshold.
 
@@ -1626,7 +1628,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `2`
 - **Configured in:** `comparison.yaml` → `comparison.min_cluster_size`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** A singleton has nothing to be redundant WITH, so it is not a cluster — that much is definitional. Whether a mere PAIR is worth harmonizing into a canonical JD is not: it is an HR judgement about where the Bank's effort goes, and the earlier build settled it with an inline `>= 2`.
 - **If it changes:** Config only. Raising it to 3 hides every two-JD redundancy from the Bank — which may be most of the archive's real duplication (two departments with the same Coordinator role).
 
@@ -1634,7 +1636,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `0.25`
 - **Configured in:** `comparison.yaml` → `comparison.drift_minor_at`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** A Jaccard distance of 0.25 — one skill added to a set of three. The earlier build tuned this conservatively (prefer calling a borderline case "minor" over crying "major"). SFU's rulebook has no skill-churn metric at all: it says a JD should be reviewed annually and that "major revisions can trigger re-evaluation" (l.22), and quantifies nothing.
 - **If it changes:** Config only; drift is ADVISORY and blocks nothing (it flags a posting worth a second look at review time). Nothing reads it yet — a JD Bank JD has no skill set.
 
@@ -1642,7 +1644,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `0.5`
 - **Configured in:** `comparison.yaml` → `comparison.drift_major_at`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** Half the skill set changed. It is the number that decides which postings appear on a reviewer's "these have drifted" list, so it sets the review workload. The loader enforces minor < major.
 - **If it changes:** Config only; advisory. Same caveat as HR-098 — this is a metric SFU never published.
 
@@ -1650,7 +1652,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `2`
 - **Configured in:** `comparison.yaml` → `comparison.material_years_delta`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** SFU's re-evaluation criteria (as the earlier build recorded them from Toolkit p26 — NOT in the rulebook this repo ships) make "qualifications that change the technical knowledge required" a major trigger in its own right, whatever the skills did. The earlier build keyed that on two signals and QUANTIFIED one of them itself: a >= 2-year move. SFU does not quantify it anywhere. The 2 is ours.
 - **If it changes:** Config only; advisory. An escalation fires only when BOTH sides state a number, so a missing requirement never manufactures drift.
 
@@ -1658,7 +1660,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `5`
 - **Configured in:** `comparison.yaml` → `comparison.material_reports_delta`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** This is the entry most likely to be mistaken for an SFU standard, so: The earlier build cited it to "SFU's explicit supervisory-scope threshold (Toolkit p23-24)", and the rulebook in this repo contains NO such rule — no re-evaluation criteria at all. The only direct-reports number in it is Part 2G's drafting advice to state an "approximate range only (e.g. up to 10 direct reports)". The threshold may well be SFU's; we cannot show it from what we hold, so it is registered as inherited calibration and NOT as a rulebook transcription (the HR-029 / HR-059 rule).
 - **If it changes:** Config only; advisory. If SFU confirms the Toolkit rule, this entry becomes `ratified` with a source — that is the win condition, and it needs the Toolkit PDF, not a code change.
 
@@ -1666,7 +1668,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `(\d{1,2})\s*\+?\s*year`
 - **Configured in:** `comparison.yaml` → `comparison.experience_years_pattern`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The regex takes the FIRST year-count it finds, so "3 to 5 years" reads as 3 (the minimum — defensible) and "5 years in a role requiring 2 years of supervision" reads as 5 (the first, not the relevant one). It is capped at two digits. This is the DIGIT primitive only: SFU's JDFN template spells years out ("five years"), and those are handled by the sibling `experience_word_numbers` (HR-152, added Phase 3.4a), which the reader searches in parallel and merges by first-position. This is a heuristic feeding HR-100's escalation, and it is data so that fixing it is a config change, not a code change.
 - **If it changes:** Config only; advisory. Text that names no number yields no signal and never escalates.
 
@@ -1674,7 +1676,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `\b(\d{1,3})\b`
 - **Configured in:** `comparison.yaml` → `comparison.supervisory_reports_pattern`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The first small integer ANYWHERE in the supervisory statement. "Supervises 4 coordinators" -> 4; "manages a team of 8" -> 8; "supervises 2 FTE across 3 campuses" -> 2 (right, by luck); "supervises staff in 3 buildings" -> 3 (wrong). the earlier build documented it as a heuristic and so do we. It feeds HR-101's escalation, which is the drift signal that maps most directly to an SFU re-evaluation trigger — so its false positives matter.
 - **If it changes:** Config only; advisory. A qualitative statement ("supervises the comms team") names no number and never escalates, which is the conservative half of the design.
 
@@ -1682,7 +1684,7 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 
 - **We ship:** `low`
 - **Configured in:** `rule_catalog.yaml` → `rule_catalog.SFU-STRUCT-HOW-WHY.default_severity`
-- **Where the default came from:** inherited (not SFU's)
+- **Where the default came from:** an earlier version of this tool
 - **Why it matters:** SFU's Part 2C asks that a duty say what is done, HOW it is done and WHY. The rule fires once per duty that carries no "how/why" clause. It does NOT block approval — it only costs score — which is why it sat in the register's `trivial` list as a "low drafting nudge" until Phase 2.5 measured it. ⚠ IT IS THE LARGEST SINGLE DEPRESSANT ON THE ENTIRE SCORE DISTRIBUTION. MEASURED:
   * it fires on 4,865 of 6,259 `new`-era JDs — **77.7%**;
   * on the current-practice cohort (874 JDs, defined in HR-001) it fires on
@@ -1692,15 +1694,15 @@ WHAT IS STILL OPEN, AND WHY THIS ENTRY STAYS. The scan exemption made the JD sto
 Read the last two lines together. This rule fires on essentially every JD SFU writes, approved and blocked alike. A finding that is present on 100% of the JDs we are willing to approve is not distinguishing anything — it is a constant subtracted from every score in the corpus. Either SFU's authors are near-universally ignoring Part 2C (possible, and worth telling them), or the parser's notion of a "how/why clause" is too narrow (also possible, and untested). We do not yet know which, and that is exactly why this is registered rather than tuned. It is the top candidate for the next false-positive investigation — and the one to look at BEFORE anyone concludes anything from the shape of the score distribution.
 - **If it changes:** It is `low`, so each finding costs little — but at ~4,865 firings across the new era it is doing more to the median score than any other rule in the rulebook. Demoting it to `info` would lift scores corpus-wide; promoting it toward the severity floor (HR-003 / HR-057) would make it BLOCKING and instantly un-approve ~99% of everything SFU currently writes. That asymmetry is the reason this is now a registered decision and not a `trivial:` exemption. ✅ PHASE 2.6 ANSWERED THE QUESTION 2.5 LEFT OPEN, AND IT WAS THE SECOND ANSWER: THE RULE IS BROKEN, NOT SFU'S WRITING. `SFU-STRUCT-HOW-WHY` reads `SFUDuty.how_why`, and our deterministic segmenter LEAVES THAT FIELD EMPTY — always, by construction (`segmenter.py`: "how_why left empty"; it has no way to split a duty's how/why sub-points out of a regex-parsed line). So `not d.how_why` was true for every duty of every JD and the rule COULD NOT NOT FIRE. The 100% figure was never a fact about SFU's job descriptions; it was a fact about our parser. (This is the Phase-2.4 `render.py` lesson again: faithful to the earlier build, wrong here — in the earlier build an LLM populated `how_why`, so the same rule worked there.) THE FIX IS NOT THIS KNOB. The severity still ships at `low` and this entry stays `open` — because `low` is the right severity for the rule IF it is ever evaluable, and demoting it to `info` would have been the wrong fix twice over: `info` costs zero score (checked, not assumed — `scoring.severity_penalty.info` is 0.0), so scores would have risen while the finding still landed on every JD in every report. That hides the constant instead of removing it. The rule is instead marked `evaluable: false` (HR-121) — catalogued, silent, and reinstatable in one YAML line when Phase 4's extractor populates the field. ✅ MEASURED, full-archive re-run: the finding is gone from all 8,593 files it fired on (0 archive-wide; 0 of 628 approved -> 0 of 687). **Every score that carried the finding rose — all 8,593 of them — and NOT ONE SCORE FELL.** Said exactly: across the 14,522 scored files, 9,217 rose, 5,305 are unchanged and 0 fell (the two 2.6 fixes combined); the 5,305 are the JDs that had no duties for the rule to fire on. "Every score in the archive rose" would be false, and a false number under a ✅ MEASURED banner is precisely what this register exists to prevent. The current-practice cohort (n=874) moved as follows — median **77.3 -> 79.0**, mean 76.4 -> **79.5**, grades **5 A / 509 B / 355 C / 5 D -> 81 A / 551 B / 240 C / 2 D** (zero F throughout), and the share clearing the score floor of 60 went 99.4% -> **99.8%**. IT MOVED ZERO APPROVALS, and that is the honest headline: the rule never blocked, and no JD was blocked by the score/grade floors ALONE, so retiring it changed what every JD is WORTH without changing what any JD is PERMITTED. (The +59 approvals in this re-run are HR-120's, not this one's.) It also makes HR-001/002/003 measurable for the first time against a distribution that is not being pushed down by a constant.
 
-### From SFU's published rulebook — but read the caveats
+### SFU's published standard — but read the caveats
 
-The value is transcribed from SFU's own rulebook — but *how we act on it* (whether it merely costs score or actually blocks approval, and how widely we search for it) is still ours. Each entry says which part is SFU's.
+The value is SFU's own, from the JD Toolkit or the official template — but *what we do about a breach* (whether it merely costs points or actually blocks approval, and how widely we search for it) is still ours. Each entry says which part is which.
 
 #### HR-019 — SFU's template says a Position Summary is 100–150 words. Should a SHORT summary (under 100) be flagged at all — and should it ever block approval?
 
 - **We ship:** `100`
 - **Configured in:** `thresholds.yaml` → `thresholds.summary_min_words`
-- **Where the default came from:** SFU rulebook (Part 2B)
+- **Where the default came from:** SFU's published standard (Part 2B)
 - **Why it matters:** Note the asymmetry, which is the real question here. SFU states a MAXIMUM ("100-150 words MAXIMUM") and its Part 11.6 never-approve list names only the over-run. So the 100-word floor is rulebook text, but CHOOSING TO FIRE on it is ours: SFU-STRUCT-SUMMARY-TOO-SHORT is a `low` advisory that costs score and does NOT block (HR-038). A 60-word summary that says everything necessary is penalised today.
 - **If it changes:** Raising it makes more of the archive score lower; setting the rule non-firing would require removing the check, which is a rulebook question, not a code one. ✅ MEASURED (Phase 2.5, current-practice cohort — definition in HR-001): the under-run fires on 340 of 874 JDs (38.9%) — so more than a third of everything SFU writes today has a summary under 100 words — and because we chose NOT to gate it, it blocks ZERO of them. The asymmetry this entry describes is real, it is large, and it is currently working as intended: 340 JDs are nudged, none are stopped. Had we gated the under-run "for symmetry", it would instantly have become the single largest blocker in the system.
 
@@ -1708,7 +1710,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `150`
 - **Configured in:** `thresholds.yaml` → `thresholds.summary_max_words`
-- **Where the default came from:** SFU rulebook (Part 2B)
+- **Where the default came from:** SFU's published standard (Part 2B)
 - **Why it matters:** This one IS an SFU never-approve condition, and we gate it: a summary over 150 words blocks approval (overridable). It is the only two-sided threshold whose over-run blocks and whose under-run does not. ⚠⚠ MEASURED (Phase 2.5): **THIS IS THE #1 OPERATIVE APPROVAL BAR IN THE ENTIRE SYSTEM.** On the current-practice cohort (874 JDs — definition in HR-001), 246 cannot be approved, and SFU-APPROVE-SUMMARY-LENGTH blocks **134 of them (54.5%)** — every one of them driven by SFU-STRUCT-SUMMARY-TOO-LONG, i.e. by this number. For comparison, the score floor everyone will argue about (HR-001) blocks 5. So: whatever HR believes it is ratifying when it ratifies "the approval bar", the thing that is actually turning JDs away is a 150-WORD LIMIT ON THE POSITION SUMMARY. It is the most consequential integer in the rulebook, and — unlike the score floor — it is genuinely SFU's own (Part 2B, and Part 11.6 names the over-run explicitly). That is the good news: the bar that is really operating is the one bit of it SFU actually published.
 - **If it changes:** Legacy JDs commonly run long. This threshold is a major driver of how many archive documents are blocked on first pass — MEASURED: 134 of the 246 unapprovable current-practice JDs, more than all other gates combined bar one. Moving it is the single highest-leverage change available to HR: relaxing it to, say, 200 words would release the majority of the review queue at a stroke; tightening it would swamp the queue. Because it is SFU's own published number, JD Bank recommends NOT moving it — but HR should ratify it knowing that this, not the score, is the bar.
 
@@ -1716,7 +1718,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `3`
 - **Configured in:** `thresholds.yaml` → `thresholds.duties_min`
-- **Where the default came from:** SFU rulebook (Part 2C)
+- **Where the default came from:** SFU's published standard (Part 2C)
 - **Why it matters:** Rulebook text, but the same asymmetry as HR-019: SFU names the over-run as the defect ("more than 3-5 main responsibilities"). Firing on the under-run is our choice, and it is advisory only (HR-037).
 - **If it changes:** Duty granularity is an authoring judgement — one author's 2 duties are another's 4. Blocking on this would be blocking on a formatting call.
 
@@ -1724,7 +1726,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `5`
 - **Configured in:** `thresholds.yaml` → `thresholds.duties_max`
-- **Where the default came from:** SFU rulebook (Part 2C)
+- **Where the default came from:** SFU's published standard (Part 2C)
 - **Why it matters:** Rulebook text. But see HR-036: exceeding it does NOT block approval today, even though this is the side SFU actually names. That is the single biggest "we defaulted to leniency" call in the policy.
 - **If it changes:** Gating the over-run (a one-line YAML edit — add SFU-STRUCT-DUTIES-TOO-MANY to a gate's rule_ids) would block a large slice of the archive on a duty-count technicality. HR to ratify.
 
@@ -1732,7 +1734,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `apex`
 - **Configured in:** `titles.yaml` → `titles.executive_director.reserved_for_employee_group`
-- **Where the default came from:** SFU rulebook (Part 3.5)
+- **Where the default came from:** SFU's published standard (Part 3.5)
 - **Why it matters:** The only restricted title whose restriction is checkable from the JD alone (the other two need organisational context — HR-032, HR-033). If the APEX claim is wrong or out of date, the one title check that CAN fire is firing on the wrong condition.
 - **If it changes:** Confirm against the current Job Titling Guide. Setting it to null would turn this into a third unverifiable advisory.
 
@@ -1740,7 +1742,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `may include`, `assets`, `preferences`
 - **Configured in:** `qualifications.yaml` → `qualifications.banned_phrases`
-- **Where the default came from:** SFU rulebook (Part 2H)
+- **Where the default came from:** SFU's published standard (Part 2H)
 - **Why it matters:** The phrases are SFU's (they signal *desired* rather than the *minimum* needed). The SCOPE is ours, and it is wrong in a knowable way: the match runs over the whole raw document, so a DUTY that mentions "capital assets" or "manages physical assets" raises a QUALIFICATIONS gate and BLOCKS APPROVAL. Every facilities, finance and property JD in the archive is a candidate. The gate is overridable for exactly this reason — but a reviewer has to waive it by hand, with a written reason, every time.
 - **If it changes:** Narrowing the scope to the Qualifications section removes a large class of false blocks. Removing "assets" from the list would diverge from SFU's text. This is the highest-frequency false block we know of. ⚠⚠ MEASURED (Phase 2.5) — AND IT IS WORSE THAN THIS ENTRY GUESSED. This rule is the **#2 OPERATIVE APPROVAL BAR IN THE SYSTEM**. On the current-practice cohort (874 JDs — definition in HR-001), 246 cannot be approved, and SFU-APPROVE-QUAL-MINIMUM blocks **104 of them (42.3%)** — and **all 104 are raised by this rule alone** (SFU-QUAL-BANNED-PHRASE is that gate's only member). For comparison, the score floor blocks 5. So the second-largest thing standing between SFU's current JDs and approval is a qualifications rule **whose scope is a known bug** — it matches "may include" / "assets" / "preferences" anywhere in the document, including in DUTIES prose, which this entry already documented and which the project backlog already tracks. We do not yet know how many of the 104 are genuine; what is now certain is that the population is large enough that the answer matters, and that fixing the scope is no longer a tidy-up — it is a change to the approval bar. ✅ FIXED IN PHASE 2.6, AND RE-MEASURED. The scope is now rulebook data — HR-120, `qualifications.banned_phrase_scope`, shipping as `qualifications` — so the rule finally does what this entry's own question describes, and the whole-document scan remains selectable in one YAML word if HR wants it. THE PHRASE LIST ITSELF (this entry) IS UNCHANGED and stays `open`: "may include" / "assets" / "preferences" are SFU's words, and whether "assets" belongs among them is still HR's call. What changed is only WHERE we look for them. MEASURED, full-archive re-run: this rule now fires on **10 of 14,522 files (0.1%)**, down from 1,600 (11.0%) — and on **ZERO of the 874 current-practice JDs**, down from 104. Read that again: *all 104 blocks were matches outside the Qualifications*. SFU-APPROVE-QUAL-MINIMUM, the #2 gate in the bar, now blocks nothing at all in current practice, and approval rises 628 -> 687 (71.9% -> 78.6%) — exactly the 59 JDs it was the SOLE blocker of. ⚠ AND THE FINDING THAT REPLACES IT: correctly scoped, this list is now **nearly inert**. "may include" / "assets" / "preferences" essentially do not appear in the Qualifications sections SFU actually writes (10 files in 14,522). Either the list is right and simply not binding — fine, but then HR should know it is decorative — or it is missing the phrases SFU's authors really use. That question is now the live one, and it cannot be answered from a rule whose 104 hits were all in the wrong section.
 
@@ -1748,7 +1750,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `equivalent combination`
 - **Configured in:** `qualifications.yaml` → `qualifications.equivalent_combination`
-- **Where the default came from:** SFU rulebook (Part 2H)
+- **Where the default came from:** SFU's published standard (Part 2H)
 - **Why it matters:** SFU requires an equivalency path so the bar does not exclude equivalently-qualified applicants — a genuine equity requirement, and it BLOCKS approval. But the check is a literal case-folded substring: a JD that says "or an equivalent mix of education and experience" is blocked despite satisfying the requirement in substance.
 - **If it changes:** Accepting more wordings means either a list of accepted phrases or a regex — both are config, no code change. Leaving it strict means reviewers waive it by hand on correctly-written JDs. ⚠ NEW IN 2.6, AND IT IS A QUESTION FOR HR ABOUT THE *OTHER* QUALIFICATIONS GATE: `SFU-APPROVE-QUAL-MINIMUM` was made **waivable** for one stated reason — its rule matched the whole document, so it falsely blocked JDs whose DUTIES mentioned "capital assets". HR-120 fixed that scope, and the gate now blocks ZERO current-practice JDs (was 104). **The justification for its waivability has therefore evaporated.** We did NOT quietly harden it — tightening a gate off the back of a bug fix, with nobody's ratification, is exactly what this register exists to stop — so it still ships `overridable: true` (the un-waivable set is pinned by HR-005). But HR should now decide deliberately whether a JD whose QUALIFICATIONS genuinely advertise desired extras may still be waived through, because that — and no longer a false positive — is all the override now buys. ✅ MEASURED (Phase 2.5): the **#3 operative approval bar**. On the current-practice cohort (HR-001), SFU-APPROVE-QUAL-EQUIVALENT blocks 42 of the 246 unapprovable JDs (17.1%) — again more than eight times what the score floor (HR-001) turns away. A literal-substring test for one phrase is therefore a real gate on real JDs, not a formality, and every wording SFU's own authors chose that is not the exact words "equivalent combination" is being blocked by it. Note this is AFTER the line-wrap fix of PR #17, which already removed ~50% of this rule's legacy false positives — so these 42 are not an extraction artefact.
 
@@ -1756,7 +1758,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `true`
 - **Configured in:** `action_verbs.yaml` → `action_verbs.approved.accountable`
-- **Where the default came from:** SFU rulebook (Glossary)
+- **Where the default came from:** SFU's published standard (Glossary)
 - **Why it matters:** It is in SFU's published glossary, so we kept it (fidelity over tidiness). The consequence: "Accountable for the departmental budget" passes the action-verb check, while "Accountable to the Director" — not a duty at all — also passes. The glossary is SFU's to fix, not ours. CAVEAT ON THE PROVENANCE: the glossary lives in the JD Toolkit, which is NOT among the sources shipped in this repo (docs/rulebook/sfu-jd-standards.txt does not contain it), so the citation is inherited from the earlier build and CANNOT BE VERIFIED FROM OUR OWN SOURCES. Confirming it is part of the decision.
 - **If it changes:** Removing it tightens the check but diverges from SFU's own glossary. Purely a YAML edit either way.
 
@@ -1764,7 +1766,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `true`
 - **Configured in:** `action_verbs.yaml` → `action_verbs.approved.responsible`
-- **Where the default came from:** SFU rulebook (Glossary)
+- **Where the default came from:** SFU's published standard (Glossary)
 - **Why it matters:** As HR-043. "Responsible for…" is the single most common opening in the legacy archive, and SFU's glossary blesses it — while the same rulebook asks for action-verb-led duties. Decide the pair with HR-043. The same provenance caveat applies: the glossary is not among the sources shipped in this repo, so the citation cannot be verified from them.
 - **If it changes:** Removing it would fire the action-verb rule on a very large share of the archive at once.
 
@@ -1772,7 +1774,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `knowledge` → 0; `skill` → 1; `ability` → 2
 - **Configured in:** `qualifications.yaml` → `qualifications.ksa_rank`
-- **Where the default came from:** SFU rulebook (Part 5.4)
+- **Where the default came from:** SFU's published standard (Part 5.4)
 - **Why it matters:** The order is SFU's (Part 5.4) and it BLOCKS approval (SFU-APPROVE-KSA-ORDER). Registered because it is the one place where the *values* of a config mapping are the policy: permuting the ranks would silently invert what a blocking gate enforces. Note it says nothing about education or experience items, which are unranked and therefore never out of order.
 - **If it changes:** Changing a rank re-points a blocking gate. Ranking education/experience too would extend the gate to items it ignores today.
 
@@ -1780,7 +1782,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `advanced`, `basic`, `expert`, `intermediate`
 - **Configured in:** `qualifications.yaml` → `qualifications.skill_modifiers`
-- **Where the default came from:** SFU rulebook (Part 5.2)
+- **Where the default came from:** SFU's published standard (Part 5.2)
 - **Why it matters:** SFU's Toolkit vocabulary, transcribed. A skill tagged "proficient" or "strong" — common in the archive — is flagged as non-standard (SFU-QUAL-MODIFIER-VOCAB, `low`, non-blocking).
 - **If it changes:** Accepting synonyms reduces noise but diverges from the published vocabulary. Score and checklist only.
 
@@ -1788,7 +1790,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `accomplishes`, `accountable`, `accounts`, `acknowledges`, `acts`, `adapts`, `administers`, `advises`, `allocates`, `analyzes`, `applies`, `approves`, `arranges`, `assemble`, `assembles`, `assesses`, `assigns`, `assists`, `assures`, `attends`, `audits`, `authorizes`, `calculates`, `carries`, `checks`, `collaborates`, `communicates`, `compiles`, `composes`, `computes`, `conducts`, `constructs`, `contributes`, `controls`, `coordinates`, `corrects`, `counsels`, `creates`, `decides`, `delegates`, `demonstrates`, `designs`, `determines`, `develops`, `directs`, `disciplines`, `distributes`, `drafts`, `enforces`, `ensures`, `establishes`, `estimates`, `evaluates`, `examines`, `exercises`, `facilitates`, `forecasts`, `formulates`, `guides`, `handles`, `identifies`, `implements`, `initiates`, `inspects`, `instructs`, `integrates`, `interprets`, `interviews`, `investigates`, `leads`, `maintains`, `manages`, `measures`, `monitors`, `motivates`, `negotiates`, `observes`, `operates`, `organizes`, `outlines`, `oversees`, `participates`, `performs`, `plans`, `prepares`, `processes`, `programs`, `promotes`, `proposes`, `provides`, `purchases`, `receives`, `recommends`, `records`, `repairs`, `reports`, `represents`, `requisitions`, `researches`, `resolves`, `responsible`, `reviews`, `revises`, `schedules`, `screens`, `selects`, `services`, `sorts`, `suggests`, `supervises`, `tests`, `trains`, `transcribes`, `transfers`, `troubleshoots`, `verifies`
 - **Configured in:** `action_verbs.yaml` → `action_verbs.approved`
-- **Where the default came from:** SFU rulebook (Glossary)
+- **Where the default came from:** SFU's published standard (Glossary)
 - **Why it matters:** The glossary is a CLOSED list: a duty beginning with any verb outside it is flagged (SFU-STRUCT-ACTION-VERB, `low`, non-blocking). Ordinary, perfectly good verbs are absent — "supports", "delivers", "liaises", "administrates", "writes", "edits", "responds", "escalates" — so well-written duties are penalised for word choice. It also contains two adjectives (HR-043, HR-044) and both "assemble" and "assembles". The whole list is pinned here so it cannot be edited without SFU HR being told. Same provenance caveat as HR-043: the glossary is in the JD Toolkit, which is not shipped in this repo.
 - **If it changes:** Adding verbs reduces a very common false positive; removing any tightens it. Score and checklist only today — but if SFU-STRUCT-ACTION-VERB were ever gated (HR-004) or promoted to the severity floor (HR-057), this list would become the approval bar.
 
@@ -1796,7 +1798,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `establishes and maintains relationships and alliances`
 - **Configured in:** `markers.yaml` → `markers.relationships_header`
-- **Where the default came from:** SFU rulebook (Part 2F)
+- **Where the default came from:** SFU's published standard (Part 2F)
 - **Why it matters:** A literal case-folded substring test. SFU's boilerplate, transcribed — but a JD that paraphrases it is flagged (SFU-GATE-REL-HEADER, `low`, non-blocking). The composer restores the boilerplate anyway, which is why this is a nudge rather than a bar.
 - **If it changes:** Score and checklist only.
 
@@ -1804,7 +1806,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `assistant`, `coordinator`, `analyst`, `officer`, `specialist`, `consultant`, `manager`, `associate_director`, `director`, `executive`
 - **Configured in:** `titles.yaml` → `titles.functions`
-- **Where the default came from:** SFU rulebook (Part 3.3)
+- **Where the default came from:** SFU's published standard (Part 3.3)
 - **Why it matters:** The SECOND, independent title dimension: what the title *word* means, as against how senior it is. "Data Analyst" has no rung on the seniority ladder (family `unmapped`) but a perfectly clear function (`analyst`). Unlike the ladder of HR-059 this table IS SFU's — it is transcribed from the Total Comp Learning Series' Application Table — so the question for HR is not "is this right" but "is this still current, and is it complete". A missing row means every title using that word falls to `unmapped`.
 - **If it changes:** Config plus a one-line type change: `jd_core.models.bank.TitleFunction` is the type mirror of this list and the loader REFUSES TO START if the two disagree, so a row cannot be added to the YAML alone. Advisory — no gate reads it.
 
@@ -1812,7 +1814,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `executive` → ['executive']; `associate_director` → ['associate director']; `director` → ['director']; `manager` → ['manager']; `consultant` → ['consultant']; `specialist` → ['specialist']; `officer` → ['officer']; `analyst` → ['analyst']; `coordinator` → ['coordinator']; `assistant` → ['assistant']
 - **Configured in:** `titles.yaml` → `titles.function_keywords`
-- **Where the default came from:** SFU rulebook (Part 3.3)
+- **Where the default came from:** SFU's published standard (Part 3.3)
 - **Why it matters:** Each function is matched by its own name, so the keywords are a direct transcription of the Application Table's title words — that part is SFU's. What is NOT SFU's is that they are matched as bare substrings anywhere in the title: "Chief Information Officer" therefore reads as function `officer`, and any title containing "Assistant" reads as `assistant` however senior it is. HR should confirm the words; the matching strategy is ours to answer for.
 - **If it changes:** Config only; advisory. Every keyword must belong to a function that exists in HR-063 or the rulebook fails to load.
 
@@ -1820,7 +1822,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `We are Canada's engaged university, defined by our dynamic integration of innovative education, cutting-edge research, and far-reaching community engagement.`, `We are unconventional, fearless, compassionate, approachable and ready.`, `We celebrate the diversity of people, ideas and cultures.`
 - **Configured in:** `boilerplate.yaml` → `boilerplate.about_sfu`
-- **Where the default came from:** SFU rulebook (Part 1.5)
+- **Where the default came from:** SFU's published standard (Part 1.5)
 - **Why it matters:** This text is now load-bearing, not decoration: the coded-term scan (Part 6) SKIPS it (HR-107), because SFU's own second sentence contains "compassionate", which our lexicon files at `medium` (HR-058). Get the wording wrong and the exemption silently stops applying — the JD is docked 10 points again and nothing fails. Two things HR should know. (a) OUR COPY MAY BE STALE: it is transcribed from our copy of the rulebook, not from SFU's live source. (b) THE ARCHIVE DISAGREES WITH THE RULEBOOK: SFU's own new-template JDs carry only the first TWO sentences — the third ("We celebrate the diversity...") is absent from the template we have. That is precisely why the block is a LIST of passages and each is matched on its own: a whole-paragraph match would have failed on the real archive and left the false positive in place.
 - **If it changes:** Config only. Correcting a word restores the exemption for JDs carrying the corrected text and withdraws it from JDs carrying the old text — so if SFU has revised this paragraph, BOTH wordings belong in this list until the archive is re-issued. Adding a passage that is not SFU's would hand every JD quoting it a free pass from the coded-term scan, which is the only real abuse route here.
 
@@ -1828,7 +1830,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `Simon Fraser University respectfully acknowledges the xwmethkweyem (Musqueam), Skwxwu7mesh Uxwumixw (Squamish), selilwetal (Tsleil-Waututh), q'ic'ey' (Katzie), kwikwetl'em (Kwikwetlem), Qayqayt, Kwantlen, Semiahmoo and Tsawwassen peoples on whose unceded traditional territories our three campuses reside.`
 - **Configured in:** `boilerplate.yaml` → `boilerplate.territorial_acknowledgement`
-- **Where the default came from:** SFU rulebook (Part 1.6)
+- **Where the default came from:** SFU's published standard (Part 1.6)
 - **Why it matters:** CLAUDE.md's standing open flag, and HR-039's missing half. HR-039 records that the system "only checks presence, never text — there is no configured canonical wording anywhere in the rulebook data, and deciding the wording implies ADDING a config key to hold it." THIS IS THAT KEY — but adding it VERIFIES NOTHING. Three wordings are now known to exist and no two agree: our rulebook copy (above, an ASCII transliteration that is almost certainly NOT SFU's current orthography for the Nations' names), the archive template (English names only), and whatever SFU publishes today. Getting an Indigenous Nation's name wrong is not a typo. NOTE: nothing today reads this text as an acknowledgement CHECK — SFU-COMP-TERRITORIAL still only checks presence — so this key does not yet enforce a wording on anyone. It exists because the acknowledgement is mandated boilerplate and therefore, like About SFU, exempt from the coded-term scan (HR-107); it happens to contain no coded term today, so the exemption is currently a no-op that guards against a future lexicon addition.
 - **If it changes:** Must be verified against SFU's official text before ANY external distribution (Phase 6 sign-off; blocks publish, not development). Deciding to ENFORCE the wording — i.e. having SFU-COMP-TERRITORIAL compare text rather than detect presence — is a separate decision (HR-039) and would be a validator change, not a config edit.
 
@@ -1836,7 +1838,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `Simon Fraser University is committed to the principle of Employment Equity.`
 - **Configured in:** `boilerplate.yaml` → `boilerplate.employment_equity`
-- **Where the default came from:** SFU rulebook (Part 1.6)
+- **Where the default came from:** SFU's published standard (Part 1.6)
 - **Why it matters:** The second of the two statements Part 1.6 says MUST appear on every SFU JD. Same shape as HR-105: transcribed from our copy of the rulebook, unverified against SFU's live source, and held here because mandated boilerplate is exempt from the coded-term scan (HR-107). It contains no coded term today, so the exemption is a no-op for it — it is registered so that it cannot QUIETLY become one.
 - **If it changes:** Config only. Presence is still what SFU-COMP-EDI checks (and that gate DOES block approval — HR-004); this key does not change that.
 
@@ -1844,7 +1846,7 @@ The value is transcribed from SFU's own rulebook — but *how we act on it* (whe
 
 - **We ship:** `qualifications`
 - **Configured in:** `qualifications.yaml` → `qualifications.banned_phrase_scope`
-- **Where the default came from:** SFU rulebook (Part 2H)
+- **Where the default came from:** SFU's published standard (Part 2H)
 - **Why it matters:** SFU bans these phrases FROM QUALIFICATIONS: they advertise *desired* extras where the rulebook wants the *minimum* needed to do the job. Until Phase 2.6 we searched the WHOLE DOCUMENT for them, which is not what the rule says and not what SFU asked for — so a duty reading "responsibilities may include arranging catering" or "manages capital assets" raised a QUALIFICATIONS finding and BLOCKED APPROVAL through SFU-APPROVE-QUAL-MINIMUM. ⚠ THE 2.5 BASELINE MEASURED WHAT THAT COST, AND IT WAS NOT A ROUNDING ERROR. On the current-practice cohort (874 JDs — definition in HR-001), 246 could not be approved and SFU-APPROVE-QUAL-MINIMUM blocked 104 of them — **all 104 raised by this one rule**, making it the #2 operative gate in the entire approval bar, ahead of everything except the summary word-count. For comparison, the score floor everybody argues about blocks 5. ✅ MEASURED AFTER THE FIX (Phase 2.6, full archive re-run), on the current-practice cohort of 874:
   * SFU-QUAL-BANNED-PHRASE fires on **0 files** (was 104 — every one of them a match
     in the wrong section);
