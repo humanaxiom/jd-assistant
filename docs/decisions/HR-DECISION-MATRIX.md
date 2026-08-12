@@ -10,6 +10,10 @@ code**, and every decision below is a setting we change in minutes and re-measur
 the system's behaviour is provisional and unchanged.
 **Last verified against the live system: 11 August 2026.**
 
+> ⚠️ **`docs/HR-DECISION-MATRIX.pdf` is a manual export dated 31 July 2026 and is now out of
+> date** — it predates the corrections below. Re-export it from this file before sending anything
+> to HR, or delete it. **This Markdown file is the source of truth.**
+
 **Evidence base:** every number here is measured against the **entire SFU job-description archive —
 14,565 files.** It is not a sample.
 
