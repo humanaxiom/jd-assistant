@@ -2,7 +2,58 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-08-11, later): 🔴 NEW TOP PRIORITY — P0.0 NAVIGABILITY. Do this BEFORE P0.1b-ii.**
+## ▶ START HERE (2026-08-12) — the state of the world in one screen
+
+**Everything is committed and pushed. Nothing is stranded.**
+
+| | |
+|---|---|
+| `main` | `591a3f3` — three security PRs merged (#82 JSON-API auth · #83 fail-closed posture · #85 CSRF) |
+| **Open PR** | **[#86](https://github.com/humanaxiom/jd-assistant/pull/86)** — `chore/hr-docs-and-backlog`, 12 commits, **docs + one renderer change, no behaviour change.** Merge it first; everything below assumes it. |
+| Gates | **2,436 passing, 93.63%**; `register-check` + `guide-check` green; `rules_version` `jd_rules_sfu_v4+90af5e27dc83` **unmoved all session** |
+| Register | **197** decisions, **0 ratified** |
+| Live data | 14,565 files · 14,522 parsed (v3) · 1,802 roles · **4 published** · `review_actions` 6 |
+
+### ⚠️ Two things about the RUNNING system you must know before touching it
+
+1. **`CAS_SERVICE_BASE_URL` is pointed at `http://sfuai.ca:7000`, so LOCALHOST SIGN-IN IS
+   BROKEN.** That is deliberate — the system was demoed through a port forward. CAS returns the
+   browser to whatever this single value says, and it can only say one thing. To work on
+   localhost, set it back to `http://localhost:25800` and `docker compose up -d api`. **This is
+   exactly what P0.3 exists to fix.** A copy of the pre-demo `.env` is at
+   `/tmp/.env.before-sfuai` (host temp — may not survive a reboot; the only line that differs is
+   that one).
+2. **`docker compose exec api pytest` is NOT a valid gate on this box.** The repo-root `.env` sets
+   `CAS_ENABLED=true`, the `api` service inherits it, and 9 unit tests fail spuriously. The
+   hermetic `gates` service pins the posture. **Always `make gates`.**
+
+### The queue, in order
+
+| | Task | Why it is here |
+|---|---|---|
+| 1 | **P0.0 — Navigability** (`docs/tasks/P0.0-navigability.md`) | `localhost:25800` returns raw JSON. A 51-route crawl found **8 defect classes**; the inventory is in the task. **Absorbs the old P1.1.** |
+| 2 | **P0.3 — Deployment origins** (`docs/tasks/P0.3-deployment-origins.md`) | CAS origin allowlist + the unanswered exposure question. Item 1 above is the live symptom. |
+| 3 | **P0.1b-ii** (`architecture-review-response-2026-08-07.md` §6) | login CSRF · open redirect on `next` · `/ready` amplification · production compose profile · `GraphMemory` egress |
+| 4 | **P1.3 — Tier the register** | **Consider promoting.** Two HR complaints this session traced to one cause: the register does two incompatible jobs. Tiering turns "197 decisions" into ~60 real policy calls — the difference between an ask HR can act on and one they bounce. |
+| 5 | **P1.2 — Harmonization provenance** | A reviewer sees a raised education bar with no sign that most sources said lower. |
+
+### How this session worked, and what it kept catching
+
+**Three controls shipped green while a hole existed** — the authorization matrix (green while an
+open route was served), the compose-delivery pin (protected 1 of 12 services), and the CSRF
+guard's three untested branches. **Every one was found by mutation, not by reading.** So: build
+safety nets that **enumerate from the live artifact** (the routing table, a real refusal message,
+rendered HTML), and **prove the net fails before trusting it.**
+
+**And the one that no test could have caught:** P0.2's implementation was correct on the first
+pass — nine conditions, no bypass, 2,218 tests green — and it was a **complete no-op**, because
+`ENVIRONMENT` reached zero of fourteen containers. Both reviewers found it by *trying to deploy*.
+**When you build a control, prove it is reachable from the documented path, not merely that its
+logic is right.**
+
+---
+
+**PRIOR (2026-08-11, later): 🔴 P0.0 NAVIGABILITY filed.**
 Task: **`docs/tasks/P0.0-navigability.md`**.
 
 - **Found live, minutes before an HR demo: `http://localhost:25800` answers

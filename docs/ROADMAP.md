@@ -6,6 +6,13 @@ scan of peer-university JD/HR systems (UBC, Toronto, McGill; Workday, PageUp, Co
 PeopleAdmin/Unified Talent, JDXpert, Interfolio). Every item respects the six hard
 invariants; conflicts are called out explicitly.
 
+> **▶ Order of work as of 2026-08-12** (full state: `HANDOFF.md` §START HERE):
+> **P0.0 navigability** → **P0.3 deployment origins** → **P0.1b-ii** → **P1.3 tier the register**
+> (worth promoting) → **P1.2 harmonization provenance**. PR
+> [#86](https://github.com/humanaxiom/jd-assistant/pull/86) carries the docs behind all of this
+> and should merge first. ⚠️ The running stack's CAS origin points at `sfuai.ca:7000`, so
+> **localhost sign-in is broken until you change it back** — that is P0.3's live symptom.
+>
 > **The governing reality:** the engineering pipeline is essentially built and has run over
 > the real 14,565-file corpus end-to-end. What stands between it and daily HR use is
 > **governance** (the approval bar is unsigned — **every** HR decision in the register is
