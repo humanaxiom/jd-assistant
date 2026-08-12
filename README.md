@@ -193,7 +193,7 @@ the dashboards and `make gates` all run without it; only the embedding and LLM j
 
 | | |
 |---|---|
-| App | <http://localhost:25800/jd-bank/ui/library> |
+| App | <http://localhost:25800> (the bare host lands in the JD Bank library) |
 | Neo4j browser | <http://localhost:25474> (`neo4j` / `harnesspass`) |
 | Postgres · Redis | `localhost:25432` · `localhost:25379` |
 

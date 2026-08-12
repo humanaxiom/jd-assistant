@@ -278,7 +278,7 @@ $casEnv = (& docker compose exec -T api printenv CAS_ENABLED 2>$null | Select-Ob
 $casOn = "$casEnv".Trim() -eq 'true'
 
 Write-Host "`n  Open:" -ForegroundColor Cyan
-Write-Info "  App          $apiUrl/jd-bank/ui/library     (JD Bank — browse roles)"
+Write-Info "  App          $apiUrl                        (lands in the JD Bank library)"
 Write-Info "  Review queue $apiUrl/jd-bank/ui/queue"
 Write-Info "  Dashboards   $apiUrl/jd-bank/ui/dashboard/baseline"
 Write-Info "  Neo4j        http://localhost:$Neo4jPort  (neo4j / harnesspass)"
