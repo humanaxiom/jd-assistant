@@ -133,7 +133,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from src.api import csrf
+from src.api import csrf, errors
 from src.api import main as api_main
 from src.api.db.models import Role
 from src.api.main import app, get_session
@@ -1240,3 +1240,42 @@ def test_a_cross_site_shaped_form_post_cannot_drive_the_json_review_api(
         "protection of its own and the scope of P0.1b-i is wrong."
     )
     approve.assert_not_awaited()
+
+
+# ── 7. The refusal a reviewer actually meets (P0.0) ─────────────────────────────────
+
+
+def test_the_stale_tab_refusal_reaches_a_browser_as_a_page_it_can_act_on(
+    signed_in: SignedIn, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The copy is only worth writing if the real guard can reach it.
+
+    ``tests/unit/test_navigability.py`` proves the stale-tab page renders when a route
+    raises :class:`~src.api.csrf.CsrfError`; that is the handler's contract, not this
+    control's. This is the other half, and it is the half P0.2 taught us to insist on:
+    the request a reviewer will actually make — a real form POST, from a real session,
+    with a token that no longer matches — must arrive at that page **through the live
+    guard**, not through a route written to demonstrate it.
+
+    The check that matters is the instruction. "Forbidden" tells a reviewer nothing and
+    reads as *you are not allowed to approve*, which is false and is the more damaging
+    reading of the two.
+    """
+    monkeypatch.setattr(ui.service, "list_review_queue", AsyncMock(return_value=[]))
+    approve_path = "/jd-bank/ui/review/{canonical_id}/approve"
+    effect = STATE_CHANGES[("POST", approve_path)].install(monkeypatch)
+
+    resp = signed_in.client.post(
+        authz._concrete(approve_path),
+        data={"reason": "approved", CSRF_FIELD: "the-token-this-tab-was-rendered-with"},
+        headers={"accept": "text/html,application/xhtml+xml,*/*;q=0.8"},
+    )
+
+    assert resp.status_code == 403
+    assert not effect.called, "the draft was published by a request that was refused"
+    assert resp.headers["content-type"].startswith("text/html")
+    assert errors.STALE_TAB_HEADLINE in resp.text
+    assert "reload" in resp.text.lower()
+    assert "forbidden" not in resp.text.lower()
+    # And the way out is on the page, not in a status code.
+    assert errors.HOME_PATH in resp.text
