@@ -25,8 +25,23 @@ Task: **`docs/tasks/P0.0-navigability.md`**.
   does not file a bug, they lose confidence. And it is cheap.
 - **Cost, stated honestly:** any new route needs an entry in `test_authorization_matrix.py` (its
   completeness assertion fails otherwise, by design) and in the CSRF table if it changes state.
-  A full crawl inventory — every entry point and rendered link, authenticated and not — is being
-  attached to the task doc.
+  ⚠️ **One trap:** mounting `StaticFiles` for `favicon.ico` turns the matrix **red** — its walk
+  raises `UnwalkableRouteError` on a mount *by design*, so the walk must be extended first.
+- **✅ THE CRAWL IS DONE and its inventory is in the task doc** — 51 routes, unauthenticated and as
+  admin/reviewer/author, plus all 19 templates. **The worry that prompted it did not materialise:
+  zero broken template links**, no route shadowing, trailing slashes work, and four routes already
+  render a friendly HTML 404 — *that is the pattern to copy.*
+- **🔴 IT FOUND SOMETHING WORSE THAN THE FRONT DOOR.** `author` is `default_new_user_role`, and for
+  an author: the nav shows a **Review queue** link that answers **`403` raw JSON**, and **Submit
+  commits the draft, redirects to a reviewer-only page, and strands them on a JSON blob** with no
+  sign the work saved. **That is the first-run experience.** The organising defect behind all eight
+  classes: the authorization matrix distinguishes JSON from UI surfaces **for the status code**,
+  and nothing does so **for the body**.
+- **➡️ P1.1 (author submission status) IS ABSORBED INTO P0.0** — fixing the redirect target without
+  fixing the nav that offered the link just moves the dead end. Ship together: root redirect · HTML
+  error pages (404/403/401/405/500) · role-aware nav · author "my drafts" landing · empty-state
+  links · the crawl test.
+- **Order:** ~~P0.1a~~ ✅ → ~~P0.2~~ ✅ → ~~P0.1b-i~~ ✅ → **P0.0 ⟵ NEXT** → P0.1b-ii → P1.2 → P1.3.
 
 ---
 

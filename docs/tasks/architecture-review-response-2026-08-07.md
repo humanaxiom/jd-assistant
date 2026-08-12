@@ -222,7 +222,12 @@ Tier-A reviewer on anything touching auth, the rulebook, or a decision parameter
 orchestrator re-runs the gate rather than trusting the report. **CI is live again — use a normal
 PR, not a local merge.**
 
-### P0.1a — Authenticate the JSON API and derive the actor server-side  ⟵ **START HERE**
+> **ORDER AS OF 2026-08-11:** ~~P0.1a~~ ✅ (#82) → ~~P0.2~~ ✅ (#83) → ~~P0.1b-i CSRF~~ ✅ (#85) →
+> **P0.0 NAVIGABILITY ⟵ NEXT** (`docs/tasks/P0.0-navigability.md`, absorbs P1.1) → P0.1b-ii →
+> P1.2 → P1.3. P0.0 jumped the queue because it is what an unsupervised pilot user hits first, and
+> it is a day's work.
+
+### P0.1a — Authenticate the JSON API and derive the actor server-side  ✅ **DONE (#82)**
 The breach. Split from CSRF so it can ship in hours, not days.
 - Gate `jd_bank_router` and the legacy harness routes; decide per route whether the correct answer
   is a gate or **deletion** (the harness `POST /tasks` / `POST /gates/run` may simply not belong in
@@ -254,7 +259,13 @@ Follows P0.1a directly; separate because it touches every form template.
 - **DoD:** a production-mode boot with CAS off exits non-zero with an actionable message; the dev
   path still works with one obvious flag; readiness reports Postgres/Neo4j/Redis honestly.
 
-### P1.1 — Author submission status
+### P1.1 — Author submission status  ⟵ **MOVED INTO P0.0**
+> **Reprioritised 2026-08-11.** A 51-route crawl showed this is not a P1 polish item: `author` is
+> `default_new_user_role`, so a stranded submit is the **first-run experience**, and it is one of
+> eight symptoms of a single class — the app answers a browser with JSON. Ship it inside
+> **`docs/tasks/P0.0-navigability.md`** alongside the root redirect, the HTML error pages and the
+> role-aware nav, because fixing the redirect target without fixing the nav that offered the link
+> just moves the dead end. Kept here so the numbering does not drift.
 - Author-visible confirmation + a `My drafts` route filtered to the signed-in author; remove the
   reviewer-page redirect.
 - **DoD:** a user holding only `author` can submit and then see their draft and its status, with no
