@@ -23,12 +23,21 @@ table below, we wire it in (one small PR: `grades.yaml` + register entries, `sta
 
 | Group | In the JD document? | Observed grade values in the archive |
 |---|---|---|
-| **CUPE** | **Yes** (~64% print it) | numeric: **6, 7, 8, 10, 11** seen (a "Grade N" / "Gr. N" line) |
-| **APSA** | **Rarely** (field usually blank) | assigned post-authoring by committee; held in the HRIS |
-| **APEX** | Rarely | — |
-| **Polytechnic** | Rarely | — |
+| **CUPE** | **Yes** — **2,322** parsed | numeric: **6, 7, 8, 10, 11** seen (a "Grade N" / "Gr. N" line) |
+| **APSA** | **Yes** — **687** parsed | stated in the modern template's identification header |
+| **APEX** | **Yes** — **34** parsed | same header field |
+| **Polytechnic** | None found | — |
 
-Source: `extract_classification` over the archive; see the data-state review.
+**3,049 of 14,522 (21%) state a grade we can read; 11,473 state none at all.**
+Source: `extract_classification` over the archive at parser `v3`, re-counted 2026-08-11.
+
+> ⚠️ **This table was wrong until parser v3 and has been corrected.** It previously said APSA
+> "rarely" prints a grade, and that the real value lived in a separate HR system. Both were
+> false. The modern
+> SFU template keeps its whole identification block — grade included — in the **docx header**,
+> which extraction used to skip; v3 reads it. And there is **no live system of record to hold a
+> grade in**: the system this JD subsystem was ported from is itself still in development and
+> contains no usable data. Nothing here should be planned around an import from it.
 
 ## What HR must provide (fill this in)
 
@@ -43,8 +52,16 @@ For **each** group, the ordered list of valid grade values (and any label):
 
 Also decide:
 - Is grade ever a **publish gate**, or purely advisory metadata? *(recommended: advisory)*
-- Is an **HRIS `position_number → grade` import** in scope? *(compensation data → FIPPA
-  review; see Phase C.)*
+- **Where does grade come from for the 11,473 JDs that state none?** There is no live system to
+  import from, so this is a method question. *(Recommended: HR supplies the valid values above,
+  which turns grade entry into a checked dropdown on the authoring form and the reviewer's
+  screen — both fields already exist — and the reviewer sets it at approval, where the authority
+  already sits. Separately, HR spot-checks a sample of the 3,049 we already read; if the sample
+  is right we accept them and 21% of the archive arrives graded for an afternoon of HR time and
+  no engineering.)*
+- If a system of record ever does hold grades, a bulk import would be a small addition — but it
+  would move compensation data and needs a **FIPPA review first**. Reviewer-entered grades on an
+  internal system raise no new privacy question.
 
 ## The config we will ship once ratified (template)
 
