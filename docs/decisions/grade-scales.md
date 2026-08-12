@@ -76,17 +76,17 @@ schemes:
   cupe:
     label: "CUPE 3338 pay grade"
     kind: numeric
-    parse_from_document: true      # the JD prints "Grade N" (~64% recoverable)
+    parse_from_document: true      # the JD prints "Grade N" (2,322 found)
     values: [ ]                    # HR: the full ordered list (observed: 6,7,8,10,11)
   apsa:
     label: "APSA salary grade"
     kind: unknown                  # HR: confirm the scale
-    parse_from_document: false     # assigned post-authoring; not in the JD
+    parse_from_document: true      # v3 reads it from the docx header (687 found)
     values: [ ]
   apex:
     label: "APEX classification"
     kind: unknown
-    parse_from_document: false
+    parse_from_document: true      # same header field (34 found)
     values: [ ]
   poly:
     label: "Polytechnic classification"
@@ -95,5 +95,6 @@ schemes:
     values: [ ]
 ```
 
-Until then the grade is captured (parsed for CUPE; entered in the Builder/review for the
-rest) and shown **with its provenance**, but never validated against a scale.
+Until then the grade is captured (parsed wherever the document states one — 3,049 so far;
+entered in the Builder/review for the rest) and shown **with its provenance**, but never
+validated against a scale.
