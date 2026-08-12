@@ -232,17 +232,18 @@
     </div>
 
     <div class="deck">
-      <span class="tag t-warn">Blocks grades</span>
-      <h3>The pay-grade scales, per employee group</h3>
-      <p>We can read CUPE grades out of the documents. APSA and APEX grades mostly live in the HRIS, not the JD — so the system has nowhere to check them against.</p>
-      <p class="ask"><b>Ask:</b> the valid grade values for each group. This is a fifteen-minute answer that unblocks a whole feature.</p>
+      <span class="tag t-warn">Blocks validation</span>
+      <h3>The valid grade values, per employee group</h3>
+      <p>We read the grade straight out of the document wherever one is stated — <strong>3,049 so far</strong>: 2,322 CUPE, 687 APSA, 34 APEX. What we don't have is the authoritative list of what a valid grade <em>is</em>, so we can't tell a correct value from a typo, and grade entry is a free-text box rather than a dropdown.</p>
+      <p class="ask"><b>Ask:</b> the valid grade values for each employee group. A fifteen-minute answer, and the only thing between us and a validated grade field.</p>
     </div>
 
     <div class="deck">
-      <span class="tag t-warn">Blocks import</span>
-      <h3>HRIS export &amp; a privacy review</h3>
-      <p>Pulling grades from the HRIS means moving compensation data. That needs a FIPPA look before we write a line of it.</p>
-      <p class="ask"><b>Ask:</b> who owns the export, and who signs the privacy review.</p>
+      <span class="tag t-warn">Needs a method</span>
+      <h3>Where grade comes from for the rest</h3>
+      <p><strong>11,473 job descriptions state no grade at all.</strong> There is no live system of record to pull them from, so this is a question about method, not integration.</p>
+      <p class="ask"><b>Ask:</b> confirm the approach — or tell us the right one.<br>
+      <span style="display:block;margin-top:.5rem">① HR supplies the valid values, and grade entry becomes a checked dropdown on both the authoring form and the reviewer's screen — both fields already exist. ② The reviewer sets the grade when they approve, which is where the authority already sits. ③ <b>HR spot-checks a sample of the 3,049 we already read</b> — if the sample is right, 21% of the archive arrives already graded. That one needs an afternoon of HR's time and no engineering.</span></p>
     </div>
 
     <div class="deck">
