@@ -39,5 +39,10 @@
   {% else %}
   <p class="empty">No drafts awaiting review.</p>
   {% endif %}
+  {# Outside the "has items" branch — an empty queue must still lead somewhere. #}
+  <p class="meta">
+    <a href="/jd-bank/ui/library">🏦 Browse the harmonized roles</a> ·
+    <a href="/jd-bank/ui/dashboard">📊 Dashboards</a>
+  </p>
 </div>
 {% endblock %}

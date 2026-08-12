@@ -174,34 +174,42 @@ def _dashboard_context(summary: BaselineSummary) -> dict[str, Any]:
 # --- routes ------------------------------------------------------------------------
 
 
+#: The dashboards the index links to. A MODULE CONSTANT rather than a literal inside the
+#: handler because ``dashboard_index.html`` renders ``{{ page.href }}`` — the one link
+#: in the whole UI whose target the template cannot show — so the link crawl
+#: (``tests/unit/test_template_links.py``) has to be able to reach these values to check
+#: that they resolve. A link a test cannot see is a link that can rot silently.
+DASHBOARD_PAGES: list[dict[str, str]] = [
+    {
+        "href": "/jd-bank/ui/dashboard/baseline",
+        "title": "Archive baseline",
+        "blurb": "The Phase-2.5 quality baseline over all 14,565 archived JDs — "
+        "scores, grades, approval rates and provenance, straight from "
+        "docs/baseline/summary.json.",
+    },
+    {
+        "href": "/jd-bank/ui/dashboard/dedup",
+        "title": "Deduplication (Tier 1/2/3)",
+        "blurb": "Exact, near-duplicate and role-equivalence findings over the "
+        "archive — redundancy, edges, thresholds and provenance, from "
+        "docs/dedup/{summary,near-dup-summary,role-equiv-summary}.json.",
+    },
+    {
+        "href": "/jd-bank/ui/dashboard/clusters",
+        "title": "Role clusters",
+        "blurb": "The Phase-3.5 role-clustering report — cluster count, coverage, "
+        "size distribution, tier contribution and cross-department reach, from "
+        "docs/cluster/cluster-summary.json.",
+    },
+]
+
+
 @router.get("", response_class=HTMLResponse)
 async def dashboard_index(request: Request) -> HTMLResponse:
-    """The read-only dashboard index. A static list today (baseline only); dedup and
-    cluster dashboards slot in beside it as later slices land."""
-    pages = [
-        {
-            "href": "/jd-bank/ui/dashboard/baseline",
-            "title": "Archive baseline",
-            "blurb": "The Phase-2.5 quality baseline over all 14,565 archived JDs — "
-            "scores, grades, approval rates and provenance, straight from "
-            "docs/baseline/summary.json.",
-        },
-        {
-            "href": "/jd-bank/ui/dashboard/dedup",
-            "title": "Deduplication (Tier 1/2/3)",
-            "blurb": "Exact, near-duplicate and role-equivalence findings over the "
-            "archive — redundancy, edges, thresholds and provenance, from "
-            "docs/dedup/{summary,near-dup-summary,role-equiv-summary}.json.",
-        },
-        {
-            "href": "/jd-bank/ui/dashboard/clusters",
-            "title": "Role clusters",
-            "blurb": "The Phase-3.5 role-clustering report — cluster count, coverage, "
-            "size distribution, tier contribution and cross-department reach, from "
-            "docs/cluster/cluster-summary.json.",
-        },
-    ]
-    return templates.TemplateResponse(request, "dashboard_index.html", {"pages": pages})
+    """The read-only dashboard index."""
+    return templates.TemplateResponse(
+        request, "dashboard_index.html", {"pages": DASHBOARD_PAGES}
+    )
 
 
 @router.get("/baseline", response_class=HTMLResponse)

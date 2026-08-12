@@ -3,6 +3,10 @@
 <head>
   <meta charset="utf-8">
   <title>{% block title %}JD Bank — Review{% endblock %}</title>
+  {# Declared inline so a browser never has to ASK for /favicon.ico — the request it
+     makes unprompted on every page load, which was a 404 on every page load. The route
+     at /favicon.ico serves the same icon for anything that asks anyway. #}
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E%F0%9F%8F%A6%3C/text%3E%3C/svg%3E">
   <style>
     :root {
       --bg:#0d1117; --panel:#161b22; --fg:#e6edf3; --accent:#2f81f7;
@@ -39,24 +43,49 @@
 </head>
 <body>
   <h1>{% block header %}🧰 JD Bank — Review{% endblock %}</h1>
+  {#
+    THE NAV IS ROLE-AWARE (P0.0), and that is an availability decision, never a security
+    one: the gate on each route is what refuses a request (see main.py and
+    tests/unit/test_authorization_matrix.py). What is fixed here is AFFORDANCE — the nav
+    offered every visitor a "Review queue" link, and `author` is `default_new_user_role`,
+    so the very first thing a new user could click answered `403` at them. Hiding a link
+    nobody may follow is not hiding a capability; it is not advertising a locked door.
+
+    Signed out, the whole menu used to render anyway — five links that all bounced back
+    to the login page. Now a signed-out reader gets one link, to the place that helps.
+
+    `request.state.user` is set by resolve_user on any request that resolved an identity;
+    on an error page src.api.errors tries to resolve it too, so a signed-in reader keeps
+    their own chrome even on a 404. Jinja renders a missing attribute as undefined, so
+    the `if` is safe on a request where nothing ran.
+  #}
+  {% block nav %}
+  {% set nav_user = request.state.user %}
+  {% set nav_roles = nav_user.role_names if nav_user else [] %}
   <nav class="nav">
+    {% if nav_user %}
     <a href="/jd-bank/ui/library">🏦 JD Bank</a>
     <a href="/jd-bank/ui/compose/new">🧱 Builder</a>
+    <a href="/jd-bank/ui/my-drafts">📝 My drafts</a>
+    {% if "reviewer" in nav_roles or "admin" in nav_roles %}
     <a href="/jd-bank/ui/queue">📋 Review queue</a>
+    {% endif %}
     <a href="/jd-bank/ui/dashboard">📊 Dashboards</a>
     <a href="/jd-bank/ui/guide" target="_blank" rel="noopener">📖 Guide</a>
-    {% if request.state.user and "admin" in request.state.user.role_names %}
+    {% if "admin" in nav_roles %}
     <a href="/jd-bank/ui/admin/users">👤 Users</a>
     {% endif %}
-    {% if request.state.user %}
     <span style="margin-left:auto"></span>
-    <span class="meta" style="align-self:center">{{ request.state.user.display_name }}</span>
+    <span class="meta" style="align-self:center">{{ nav_user.display_name }}</span>
     <form method="post" action="/jd-bank/ui/logout" style="display:inline">
       {{ csrf_token_field(request) }}
       <button type="submit">Sign out</button>
     </form>
+    {% else %}
+    <a href="/jd-bank/ui/login">🔐 Sign in</a>
     {% endif %}
   </nav>
+  {% endblock %}
   {% block content %}{% endblock %}
 </body>
 </html>
