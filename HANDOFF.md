@@ -98,10 +98,12 @@ was always the real critical path — and the first item is not a commit.
 
 **Deliberately still open, recorded so their absence is not mistaken for completion:**
 ~~the missing timeout on `/compose/search` and `/assist`~~ ✅ **CLOSED (#97)** ·
-`embed_stamp` parity is never verified at query time ·
+~~`embed_stamp` parity is never verified at query time~~ ✅ **CLOSED (#99)** ·
 ~~`cloned_from_cluster_id` is dropped by `assemble_jd`, so clone lineage is lost at
 submit~~ ✅ **CLOSED (#98)** ·
-`docs/rulebook/rulebook/` is a byte-identical duplicate directory tracked since Phase 0 ·
+~~`docs/rulebook/rulebook/` is a byte-identical duplicate directory tracked since
+Phase 0~~ ✅ **CLOSED (#100**, which also removed the last `jd_core → jd_bank` import
+edge — the layering ratchet is now empty**)** ·
 `docs/status/*` stops at 2026-07-24.
 
 ### 2026-08-13, later still — the interactive timeouts are closed (#97)
