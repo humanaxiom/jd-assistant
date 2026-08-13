@@ -51,6 +51,24 @@ router: APIRouter = APIRouter()
 #: probes cannot outlast an orchestrator's own probe timeout.
 PROBE_TIMEOUT_SECONDS = 2.0
 
+#: How long one probe run answers for (P0.1b-ii — amplification).
+#:
+#: **The defect, measured:** 200 concurrent requests to ``/ready`` took **3.00s** to
+#: ``/health``'s 0.43s, and drove Postgres backends from **1 to 13** — because every
+#: request opened its own connection to every dependency. So an unauthenticated caller
+#: could make this endpoint expensive, and worse, make it **report `degraded`**: pile on
+#: enough load and the probes start timing out, at which point a load balancer pulls
+#: healthy pods out of rotation. A readiness endpoint that a stranger can turn into an
+#: outage is not reporting health, it is causing it.
+#:
+#: Short on purpose. It is not a cache for performance; it is a bound on how often
+#: strangers can make us talk to Postgres. Two seconds is far below any orchestrator's
+#: probe interval (5–30s), so a real prober still gets a fresh answer every time, while
+#: a flood gets one probe run per two seconds however hard it pushes. The staleness it
+#: can introduce — a dependency that recovered within the last two seconds still reading
+#: ``down`` — is smaller than the interval between probes either way.
+READINESS_TTL_SECONDS = 2.0
+
 #: ``async () -> None`` — returns if the dependency answered, raises if it did not.
 Probe = Callable[[], Awaitable[None]]
 
@@ -98,19 +116,83 @@ async def _probe_succeeded(name: str, probe: Probe) -> bool:
     return True
 
 
-@router.get("/ready")
-async def ready(
-    probes: Annotated[dict[str, Probe], Depends(get_probes)],
-) -> JSONResponse:
-    """Report every dependency's state — all of them, not only the first failure."""
+async def _run_probes(probes: dict[str, Probe]) -> dict[str, str]:
+    """One round: every dependency, concurrently, each inside its own budget."""
     names = list(probes)
     results = await asyncio.gather(
         *(_probe_succeeded(name, probes[name]) for name in names)
     )
-    checks = {
+    return {
         name: ("ok" if ok else "down") for name, ok in zip(names, results, strict=True)
     }
-    healthy = all(results)
+
+
+class _LatestResult:
+    """The last probe round, and a lock that makes concurrent callers share one.
+
+    **Two mechanisms, and both are needed** — this is the part worth reading before
+    changing it. The TTL bounds how *often* we probe; the lock bounds how *many* probe
+    at once. A TTL alone does nothing against the measured attack, because 200 requests
+    arriving together all find the cache empty, all miss, and all probe — which is
+    precisely the 3.00s / 13-backends result. The lock is what turns a thundering herd
+    into one round of work.
+
+    The second check inside the lock is not redundant: by the time a waiter acquires it,
+    the holder has usually just refreshed, and re-probing then would defeat the point.
+    """
+
+    def __init__(self) -> None:
+        self._lock = asyncio.Lock()
+        self._checks: dict[str, str] | None = None
+        self._at = 0.0
+
+    def _fresh(self, now: float, ttl: float) -> dict[str, str] | None:
+        if self._checks is not None and (now - self._at) < ttl:
+            return dict(self._checks)
+        return None
+
+    async def get(self, probes: dict[str, Probe], ttl: float) -> dict[str, str]:
+        loop = asyncio.get_running_loop()
+        cached = self._fresh(loop.time(), ttl)
+        if cached is not None:
+            return cached
+        async with self._lock:
+            cached = self._fresh(loop.time(), ttl)
+            if cached is not None:
+                return cached
+            checks = await _run_probes(probes)
+            self._checks, self._at = checks, loop.time()
+            return dict(checks)
+
+    def clear(self) -> None:
+        """Forget the last round. For tests — a cache that survives between them would
+        let one test's dependencies answer another's."""
+        self._checks = None
+        self._at = 0.0
+
+
+#: Module-level, like the endpoint it protects: the point is that ALL callers share one
+#: probe round, so a per-request or per-app-instance cache would not be the control.
+_latest = _LatestResult()
+
+
+def reset_readiness_cache() -> None:
+    """Drop the cached round (tests; see :meth:`_LatestResult.clear`)."""
+    _latest.clear()
+
+
+@router.get("/ready")
+async def ready(
+    probes: Annotated[dict[str, Probe], Depends(get_probes)],
+) -> JSONResponse:
+    """Report every dependency's state — all of them, not only the first failure.
+
+    Answers from the last probe round when it is younger than
+    :data:`READINESS_TTL_SECONDS`, and never runs more than one round at a time; see
+    :class:`_LatestResult` for why both halves are required.
+    """
+    checks = await _latest.get(probes, READINESS_TTL_SECONDS)
+    healthy = all(state == "ok" for state in checks.values())
     return JSONResponse(
         status_code=200 if healthy else 503,
         content={"status": "ok" if healthy else "degraded", "checks": checks},

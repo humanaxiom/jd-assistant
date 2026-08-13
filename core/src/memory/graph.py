@@ -17,6 +17,7 @@ from typing import Any
 from neo4j import AsyncDriver, AsyncGraphDatabase
 from openai import AsyncOpenAI
 
+from src.jd_bank.security.egress import assert_inference_host_allowed
 from src.settings import get_settings
 
 
@@ -26,6 +27,16 @@ class GraphMemory:
         self._driver = driver or AsyncGraphDatabase.driver(
             s.neo4j_uri, auth=(s.neo4j_user, s.neo4j_password)
         )
+        # NN #5, at the point of construction (P0.1b-ii). The two JD-content sinks
+        # (`jd_bank.llm.client`, `jd_bank.embeddings.client`) have been guarded since
+        # Phase 4.6a; this one was not, and it builds the same kind of client from the
+        # same setting. It embeds AGENT ARTIFACTS rather than JD text, which is why it
+        # was missed and is not why it is safe: an artifact is a diff, a spec or a
+        # reviewer's note about the JD pipeline, `ollama_base_url` is one value shared
+        # with the guarded clients, and "this particular egress carries slightly less
+        # sensitive content" is not a boundary anyone can maintain. One setting, one
+        # rule, checked everywhere it is read.
+        assert_inference_host_allowed(s.ollama_base_url)
         self._embed_client = AsyncOpenAI(
             base_url=s.ollama_base_url, api_key="ollama"  # Ollama ignores key
         )
