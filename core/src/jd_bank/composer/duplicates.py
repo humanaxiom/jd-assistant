@@ -311,7 +311,12 @@ async def _related_by_vector(
 
     vector = (await embed_client.embed_batch([text]))[0]
     neighbours = await search._nearest_role_ids(
-        neo4j_driver, vector, guard.max_matches * _OVERFETCH
+        neo4j_driver,
+        vector,
+        guard.max_matches * _OVERFETCH,
+        # Only vectors embedded under the configuration now in force are comparable
+        # to this query vector — see `search._comparable`.
+        live_stamp=rules.embeddings.stamp,
     )
 
     # Rank the WHOLE over-fetched candidate list. Deliberately NOT capped here: the

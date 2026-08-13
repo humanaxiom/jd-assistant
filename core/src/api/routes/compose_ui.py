@@ -1008,7 +1008,13 @@ async def submit_draft(
             ),
         )
     canonical = await submit_composed_draft(
-        session, assemble_jd(answers), author_id=author_id
+        session,
+        assemble_jd(answers),
+        author_id=author_id,
+        # `assemble_jd` produces a JD document, which has no lineage field — so this
+        # is the LAST point the clone's parent still exists. Read it off the answers,
+        # not the draft (NN #6).
+        cloned_from_cluster_id=answers.cloned_from_cluster_id,
     )
     await session.commit()
     return RedirectResponse(

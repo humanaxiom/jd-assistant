@@ -41,8 +41,9 @@ still builds and submits through the review queue (NN #1).
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Literal
+import logging
+from collections.abc import Mapping, Sequence
+from typing import Any, Literal
 from uuid import UUID
 
 from neo4j import AsyncDriver
@@ -55,6 +56,8 @@ from src.jd_bank.db.models import CanonicalJD, Cluster, ParsedJDRow
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.rules import Rules, get_rules
+
+logger = logging.getLogger(__name__)
 
 #: The Neo4j vector index built in ``core/db/migrations/002_jd_vectors.cypher``.
 _DOCUMENT_INDEX = "jd_document_embeddings"
@@ -75,7 +78,7 @@ _ROLE_INDEX = "jd_role_embeddings"
 _NEAREST = """
 CALL db.index.vector.queryNodes($index, $k, $vector)
 YIELD node, score
-RETURN node.id AS id, score
+RETURN node.id AS id, node.embed_stamp AS embed_stamp, score
 ORDER BY score DESC
 """
 
@@ -83,9 +86,47 @@ _NEAREST_ROLES = """
 CALL db.index.vector.queryNodes($index, $k, $vector)
 YIELD node, score
 RETURN node.id AS id, node.title AS title,
-       node.employee_group AS employee_group, score
+       node.employee_group AS employee_group,
+       node.embed_stamp AS embed_stamp, score
 ORDER BY score DESC
 """
+
+
+def _comparable(
+    records: Sequence[Mapping[str, Any]], *, live_stamp: str, what: str
+) -> list[Mapping[str, Any]]:
+    """The records whose vector was produced by the CONFIGURATION NOW IN FORCE.
+
+    ⚠ **Why this filter exists at all.** ``embed_stamp`` is written onto every node
+    (``make embed`` / ``make embed-roles``) and, until now, was never read back at
+    query time. Retune an embedding knob — ``model``, ``max_chars``,
+    ``include_title_in_document`` — and the query vector is produced by the new
+    configuration while the stored vectors are still the old one. The cosines between
+    them are not *worse*, they are **meaningless**, and nothing said so: the page
+    rendered an arbitrary ordering as a similarity ranking.
+
+    Both runners are idempotent and skip-first, so PARTIAL staleness is the realistic
+    state — mid re-embed, some nodes are new and some are old. Dropping the stale ones
+    keeps every hit that IS shown genuinely comparable to the query, which is the
+    property a ranking needs; the shortfall is logged so an operator learns the index
+    needs `make embed` rather than silently seeing thinner results.
+
+    This is the Phase-5.9 rule applied to retrieval: never present a number the data
+    cannot support.
+    """
+    comparable = [r for r in records if r["embed_stamp"] == live_stamp]
+    dropped = len(records) - len(comparable)
+    if dropped:
+        logger.warning(
+            "%d of %d %s vectors were embedded under a different configuration than "
+            "the one in force (%s) and were excluded from the ranking — re-run the "
+            "embedding pass to restore full coverage",
+            dropped,
+            len(records),
+            what,
+            live_stamp,
+        )
+    return comparable
 
 
 class SearchHit(BaseModel):
@@ -166,24 +207,27 @@ def jd_to_answers(jd: SFUJobDescription) -> ComposerAnswers:
 
 
 async def _nearest_source_ids(
-    driver: AsyncDriver, vector: Sequence[float], k: int
+    driver: AsyncDriver, vector: Sequence[float], k: int, *, live_stamp: str
 ) -> list[tuple[UUID, float]]:
     """Top-``k`` archive documents by cosine similarity to ``vector`` — the Neo4j
-    vector-index read. Returns ``(source_document_id, score)`` best-first."""
+    vector-index read. Returns ``(source_document_id, score)`` best-first, and only
+    for vectors embedded under the configuration now in force (see
+    :func:`_comparable`)."""
     async with driver.session() as session:
         result = await session.run(
             _NEAREST, index=_DOCUMENT_INDEX, k=k, vector=list(vector)
         )
         records = [record async for record in result]
+    usable = _comparable(records, live_stamp=live_stamp, what="archive document")
     return [
         (UUID(record["id"]), float(record["score"]))
-        for record in records
+        for record in usable
         if record["id"] is not None
     ]
 
 
 async def _nearest_role_ids(
-    driver: AsyncDriver, vector: Sequence[float], k: int
+    driver: AsyncDriver, vector: Sequence[float], k: int, *, live_stamp: str
 ) -> list[tuple[UUID, str, str | None, float]]:
     """Top-``k`` harmonized ROLES by cosine similarity — ``(cluster_id, title,
     employee_group, score)`` best-first.
@@ -200,6 +244,7 @@ async def _nearest_role_ids(
             records = [record async for record in result]
     except Exception:  # noqa: BLE001 — no index yet: degrade, never break search
         return []
+    usable = _comparable(records, live_stamp=live_stamp, what="harmonized role")
     return [
         (
             UUID(record["id"]),
@@ -207,7 +252,7 @@ async def _nearest_role_ids(
             record["employee_group"],
             float(record["score"]),
         )
-        for record in records
+        for record in usable
         if record["id"] is not None
     ]
 
@@ -447,7 +492,7 @@ async def search_similar_jds(
     neighbour is listed once, as the title match. Capped at ``limit``. Injected
     ``embed_client`` / ``neo4j_driver`` / ``session`` (all mockable).
     """
-    _ = rules if rules is not None else get_rules()
+    rulebook = rules if rules is not None else get_rules()
     if not query_text.strip():
         return []
 
@@ -512,7 +557,7 @@ async def search_similar_jds(
     #    output. Ranked above archive neighbours at equal footing because a reviewed
     #    role is a better seed for a clone than a raw archive parse.
     for cluster_id, role_title, group, score in await _nearest_role_ids(
-        neo4j_driver, vector, limit * _OVERFETCH
+        neo4j_driver, vector, limit * _OVERFETCH, live_stamp=rulebook.embeddings.stamp
     ):
         if group == _NON_JDFN_GROUP or cluster_id in seen_clusters:
             continue
@@ -531,7 +576,9 @@ async def search_similar_jds(
 
     # 4. Semantic neighbours in the ARCHIVE — collapsed by role the same way, so one
     #    role cannot fill the page with its own members.
-    nearest = await _nearest_source_ids(neo4j_driver, vector, limit * _OVERFETCH)
+    nearest = await _nearest_source_ids(
+        neo4j_driver, vector, limit * _OVERFETCH, live_stamp=rulebook.embeddings.stamp
+    )
     parsed = await _load_latest_parsed(session, [sid for sid, _ in nearest])
     near_clusters = await _clusters_for_sources(session, [sid for sid, _ in nearest])
 

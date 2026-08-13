@@ -22,6 +22,7 @@ flushes but does not commit.
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,6 +48,7 @@ async def submit_composed_draft(
     jd: SFUJobDescription,
     *,
     author_id: str,
+    cloned_from_cluster_id: UUID | None = None,
     rules: Rules | None = None,
 ) -> CanonicalJD:
     """Persist a composed ``SFUJobDescription`` as a DRAFT ``canonical_jds`` row in the
@@ -55,6 +57,13 @@ async def submit_composed_draft(
     Validator-as-oracle (NN #3): the stored roll-up is computed with the SAME flatten +
     validate + score + gate path the review service re-runs on approve, so the queue's
     triage display matches the decision the service will act on.
+
+    ``cloned_from_cluster_id`` is the role the author pressed **"Start from this role"**
+    on. It has to be passed in rather than read off the draft, because
+    :func:`~src.jd_bank.composer.assemble_jd` produces an ``SFUJobDescription`` — a JD
+    *document*, which rightly has no lineage field — so this is the last point at which
+    the fact still exists. **After submit there is nothing left to recompute it from**,
+    which is why it is written here in all three places or not at all (NN #6).
     """
     rulebook = rules if rules is not None else get_rules()
     author = author_id.strip() or "composer"
@@ -63,13 +72,26 @@ async def submit_composed_draft(
     score, grade = score_issues(issues, scoring=rulebook.scoring)
     decision = evaluate_gates(issues, score, grade, gates=rulebook.gates)
 
+    # Recorded ONLY when there is a parent. A `"cloned_from_cluster_id": null` key on
+    # an original draft would be a provenance falsehood dressed as completeness — the
+    # absence of the key IS the statement "nobody cloned this".
+    lineage: dict[str, Any] = (
+        {"cloned_from_cluster_id": str(cloned_from_cluster_id)}
+        if cloned_from_cluster_id is not None
+        else {}
+    )
+
     group = jd.employee_group
     cluster = Cluster(
         label=(jd.title or "Composed role")[:255],
         employee_group=str(group) if group is not None else None,
         level_band=None,
         members=[],
-        constraint_metadata={"origin": COMPOSED_ORIGIN, "author": author},
+        constraint_metadata={
+            "origin": COMPOSED_ORIGIN,
+            "author": author,
+            **lineage,
+        },
     )
     session.add(cluster)
     await session.flush()  # assign cluster.id
@@ -77,6 +99,7 @@ async def submit_composed_draft(
     change_log: dict[str, Any] = {
         "origin": COMPOSED_ORIGIN,
         "author": author,
+        **lineage,
         # Display-only human rendering for the review detail page (the review UI reads
         # change_log["harmonization_diff"]["rendered_draft"]); the AUTHORITY is the
         # service's fresh re-validation of `content`, never this roll-up.
@@ -115,6 +138,7 @@ async def submit_composed_draft(
             payload={
                 "origin": COMPOSED_ORIGIN,
                 "cluster_id": str(cluster.id),
+                **lineage,
                 "version": _COMPOSED_VERSION,
                 "status": CanonicalStatus.DRAFT.value,
                 "score": score,

@@ -151,7 +151,8 @@ class ParsedJDRow(Base):
     source document, with the parser version and per-parse confidence.
 
     **ONE ROW PER (source document, parser version)** (Phase 3.2a, migration ``0003``).
-    ``jd_core.parser.store.parse_and_store`` is idempotent on this key — re-parsing the
+    ``jd_bank.ingest.parse_store.parse_and_store`` is idempotent on this key —
+    re-parsing the
     same document at the same parser version returns the existing row rather than
     inserting a second one."""
 

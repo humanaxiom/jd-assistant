@@ -379,7 +379,9 @@ async def test_cupe_roles_are_excluded_from_related(
     the panel to show those."""
     apsa_role, cupe_role = uuid.uuid4(), uuid.uuid4()
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return [
             (apsa_role, "Academic Advisor", "apsa", 0.93),
             (cupe_role, "Clerk", "cupe", 0.95),
@@ -424,7 +426,9 @@ async def test_a_hit_with_no_current_canonical_is_shown_but_not_clonable(
     no "Start from this role" link, because ``clone_role`` would 404 on it."""
     orphan = uuid.uuid4()
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return [(orphan, "Advising Coordinator", "apsa", 0.94)]
 
     monkeypatch.setattr(
@@ -454,7 +458,9 @@ async def test_archived_roles_are_never_offered(
     dropped from ``related``, and from the title pass's count and list."""
     archived, live = uuid.uuid4(), uuid.uuid4()
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return [
             (archived, "Academic Advisor", "apsa", 0.95),
             (live, "Advising Coordinator", "apsa", 0.94),
@@ -492,7 +498,9 @@ async def test_archived_hits_do_not_cost_the_panel_its_rows(
     """
     ids = [uuid.uuid4() for _ in range(6)]
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return [
             (cid, f"Academic Advisor {n}", "apsa", 0.95) for n, cid in enumerate(ids)
         ]
@@ -541,7 +549,9 @@ async def test_exclude_cluster_id_is_never_offered_back(
             (other_collision, "Academic Advisor", "Faculty of Science", "published"),
         ]
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return [
             (cloned_from, "Academic Advisor", "apsa", 0.95),
             (other_related, "Advising Coordinator", "apsa", 0.93),
@@ -615,7 +625,9 @@ async def test_a_role_in_title_collisions_is_not_repeated_in_related(
     async def fake_collisions(session: Any, title: str) -> list[Any]:
         return [(shared, "Academic Advisor", "Student Advising", "published")]
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return [
             (shared, "Academic Advisor", "apsa", 0.95),
             (only_related, "Advising Coordinator", "apsa", 0.90),
@@ -645,7 +657,9 @@ async def test_max_matches_caps_the_related_list_and_comes_from_rules(
 ) -> None:
     neighbours = [(uuid.uuid4(), f"Role {i}", "apsa", 0.9 - i * 0.01) for i in range(6)]
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return neighbours
 
     monkeypatch.setattr(
