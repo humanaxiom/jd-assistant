@@ -33,8 +33,9 @@ from testcontainers.postgres import PostgresContainer
 
 from src.jd_bank.db.models import ParsedJDRow, SourceDocument
 from src.jd_bank.ingest.ingest import ingest_document
+from src.jd_bank.ingest.parse_store import parse_and_store
 from src.jd_core.models.parsed_jd import SFUJobDescription
-from src.jd_core.parser import parse_and_store, parse_jd
+from src.jd_core.parser import parse_jd
 
 CORE_DIR = Path(__file__).resolve().parents[2]
 ALEMBIC_INI = CORE_DIR / "alembic.ini"
@@ -257,7 +258,7 @@ async def test_a_racing_parse_of_the_same_document_does_not_poison_the_session(
         await winner.commit()
         winner_row_id = won.id
 
-    import src.jd_core.parser.store as store
+    import src.jd_bank.ingest.parse_store as store
 
     real_existing = store._existing
     calls = {"n": 0}

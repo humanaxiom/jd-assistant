@@ -11,7 +11,8 @@ byte-identical (modulo ``generated_at``).
 **JDFN-only.** WJQ (CUPE) members are excluded — they over-cluster until boilerplate
 redaction lands and their ``.doc`` titles are lost, and the nine knobs are being
 calibrated for the APSA/APEX/POLY (JDFN) bar. ``ParseResult.template`` is NOT persisted
-(``jd_core.parser.store`` drops it), so the runner identifies WJQ by the field the JD
+(``jd_bank.ingest.parse_store`` drops it), so the runner identifies WJQ by the
+field the JD
 model itself designates as the JDFN/WJQ separator — ``employee_group == "cupe"``, which
 the WJQ segmenter sets UNCONDITIONALLY (so recall is complete). Every exclusion is
 COUNTED, never silent (HANDOFF standing rule).

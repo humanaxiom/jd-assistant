@@ -5,7 +5,7 @@ Pins the two landmines the driver exists to close:
 
 1. **Idempotency** (LANDMINE 1) — running the driver twice over the same archive must
    not double ``parsed_jds``. This was RED before migration ``0003`` +
-   ``jd_core.parser.store``'s idempotent rewrite: ``parse_and_store`` did an
+   ``jd_bank.ingest.parse_store``'s idempotent rewrite: ``parse_and_store`` did an
    unconditional insert and the table carried no unique constraint at all.
 2. **No incumbent names cross into ``parsed_jds``** (LANDMINE 2) — the obvious driver
    (parse the raw extracted text) would have handed the parser text `ingest_document`
