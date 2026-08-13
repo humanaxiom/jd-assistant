@@ -181,3 +181,40 @@ def test_an_injected_client_is_not_re_guarded(
     )
 
     ChatClient(client=fake)  # must not raise
+
+
+def test_graph_memory_rejects_a_cloud_base_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The **third** construction path, wired in P0.1b-ii after the 2026-08-07 review
+    found it unguarded.
+
+    ``GraphMemory.__init__`` builds an ``AsyncOpenAI`` from the same
+    ``ollama_base_url`` the two clients above read, and did so without asking. It embeds
+    **agent artifacts** rather than JD text, which is why it was missed and is *not* why
+    it would be safe: an artifact is a diff, a spec, or a reviewer's note about the JD
+    pipeline, and "this egress carries slightly less sensitive content" is not a
+    boundary anyone can maintain. One setting, one rule, checked everywhere it is read.
+
+    The Neo4j driver is injected so this test never opens a socket — the guard must fire
+    on construction regardless, and before the embedding client exists.
+    """
+    from unittest.mock import MagicMock
+
+    from src.memory.graph import GraphMemory
+
+    cloud = get_settings().model_copy(
+        update={"ollama_base_url": "https://api.openai.com/v1"}
+    )
+    monkeypatch.setattr("src.memory.graph.get_settings", lambda: cloud)
+
+    with pytest.raises(DisallowedInferenceHostError):
+        GraphMemory(driver=MagicMock())
+
+
+def test_graph_memory_builds_under_default_settings() -> None:
+    """The other direction: the internal host is allowed, so the guard has not simply
+    broken agent memory."""
+    from unittest.mock import MagicMock
+
+    from src.memory.graph import GraphMemory
+
+    GraphMemory(driver=MagicMock())

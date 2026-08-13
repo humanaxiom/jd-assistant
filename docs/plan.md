@@ -673,14 +673,41 @@ would be 4 roles; see 8.2.)*
 **Exit:** recruiter/hiring-manager can find, compose, validate live, and export a JD; drafts land
 in review.
 
-### Phase 6 — Hardening & handover
+### Phase 6 — Hardening & handover — **substantially delivered out of order, by Phase 9**
 Auth, rate/size limits, backup + reindex runbooks, ops docs, and the
 **territorial-acknowledgement wording verification** sign-off before any external distribution.
+
+> **Most of this arrived early and under different names** (see Phase 9): auth is ADR-008 +
+> P0.1a; the production posture, secrets and deployment file are P0.2/P0.4; the one "rate
+> limit" the review actually found necessary is `/ready`'s single-flight bound (P0.1b-ii).
+> **Still owed from this phase:** backup + reindex runbooks, and the territorial-
+> acknowledgement sign-off, which blocks external distribution and is HR's, not ours.
 
 ### Phase 7 — Optional / later
 Neo4j **domain** role-duty overlap graph (org-design queries — the only deferred Neo4j piece);
 Hay-readiness summaries (port `bank/hay_signals.py`, #9, is cheap); transposer-as-a-service for
 old-template uploads; M365/SharePoint surfacing.
+
+**Hay-readiness summaries are the ceiling here, and that is deliberate.** A summary says *which
+factors a JD gives an evaluator something to read on*. It does **not** produce a factor-by-factor
+point breakdown or a grade: the point charts are proprietary Hay/WTW material, SFU publishes none,
+and classification is a human Compensation decision — which is why `HayGrade` and
+`HaySignals.{grade, grade_mapped}` are **unrepresentable** in `models/bank.py` rather than merely
+unused (ADR-007). Proposals to add "clearly labelled advisory" Hay scoring recur; a label is not a
+control, and the answer is recorded in ROADMAP §Explicitly OUT.
+
+**Re-evaluation request lifecycle (JDQ/JAQ) — scoped 2026-08-13.** SFU's published process is a
+lifecycle, not a form: intake → reason/evidence → review → decision record → resolution. **Three
+of those five stages already exist** — `review.edit()` demands a written reason and mints a new
+version, `/jd-bank/ui/review/{id}/diff` renders before-vs-after, and `audit_log` is append-only and
+hash-chained. What is missing is a **request object with a status** hanging off the existing review
+queue; a second decision store beside the audit chain would be the defect, not the feature. JDFN
+only until HR-194. Detail in ROADMAP §3 and
+[`docs/decisions/copilot-sfu-gap-triage-2026-08-13.md`](decisions/copilot-sfu-gap-triage-2026-08-13.md).
+
+**A compensation requisition / pay-transaction workflow is OUT of remit** — the HRIS is the system
+of record for a pay transaction and JD Bank sits upstream of it. The seam is the planned HRIS
+export of an approved canonical (HR-blocked on grade scales + FIPPA), not a requisition store here.
 
 **CUPE / WJQ authoring — the biggest deferred scope question (HR-194, `open`).** The Builder and
 approval bar are JDFN-only (APSA/APEX/POLY). CUPE is ~29.5% of the archive (~4,300 WJQ-instrument
@@ -820,6 +847,49 @@ output. *No separate `docs/tasks/phase-8-published-bank.md` was written and none
 win (goal met, mechanism changed) and supplied the vector prerequisite for the *approved-position
 template library*; 8.3b is a lightweight review-time slice of Phase 7's org-design overlap graph;
 8.1's "propose an update" reuses the review queue's edit path (`802bff0`).
+
+---
+
+### Phase 9 — Security, deployment and navigability (2026-08-07 → 08-13) — ✅ **COMPLETE**
+
+**Not planned as a phase.** It came out of an **external architecture review** (2026-08-07)
+whose claims were each re-verified against the code before being planned around — 9 of 11
+confirmed, 2 partly true, none false — plus one defect found live minutes before an HR demo.
+It is recorded here because a phase-by-phase build record that stops at Phase 8 would say
+the last thing that happened was the published Bank, when the last week was spent making the
+thing safe to put in front of a person. Ordered plan + triage:
+`docs/tasks/architecture-review-response-2026-08-07.md` §6.
+
+| | What | Shipped |
+|---|---|---|
+| **P0.1a** | The JSON API and the legacy harness routes carried **no auth gate**; an unauthenticated `POST /jd-bank/review/{id}/approve` reached the review *service* and on a gate-clean draft would have **published** (NN #1), writing the body-supplied `reviewer_id` into the hash-chained audit log as the actor (NN #6) | #82 · every router gated, the actor derived server-side, and an **authorization matrix** that walks the live routing table so a new route cannot ship ungated |
+| **P0.2** | The production startup check `settings.py` claimed in a comment **did not exist**; the shipped default (`cas_enabled=False`) returned a transient **admin** to every cookieless request | #83 · `Settings` refuses to load an unsafe production posture. **Its own lesson:** the first implementation was correct and a complete no-op, because `ENVIRONMENT` reached zero of fourteen containers — found by *trying to deploy it* |
+| **P0.1b-i** | Every UI mutation was a cookie-authenticated form POST with **no CSRF defence**; measured, an approve reached the service and published | #85 · a per-session token on the session row, enforced by an **app-wide dependency** over a rule stated about the *request*, not the route |
+| **P0.0** | `http://localhost:25800` answered `{"detail":"Not Found"}` in a browser. Worse: `author` is `default_new_user_role`, and for an author **Submit committed the draft and stranded them on a raw 403** with no sign it saved | #88 · front door, HTML error pages negotiated on `Accept`, role-aware nav, **📝 My drafts**, and a **template link crawl** resolved against the live routing table |
+| **P0.3** | The CAS return origin was one static value, so the app could not be reached two ways at once; the alternative already in the code took it from `X-Forwarded-Host`, **unvalidated** | #89 · an **origin allowlist**: derive the origin, honour it only if listed, else the static fallback — never the header. Data ports bound to loopback |
+| **P0.4** | The deployment ran with `--reload` and the working tree mounted, so a settings refusal would have read `Up` while serving nothing | #90 · `docker-compose.prod.yml`, **verified by deploying it**; a standalone file because compose *merges* volume lists and an overlay cannot make the image be what runs |
+| **P0.1b-ii** | Login CSRF on `GET /cas/validate` (it provisions users, may grant ADMIN, mints a session) and an **open redirect** on `next` that survived the whole CAS round trip | #91 · `next` pinned to a local path; an HttpOnly login-state cookie binds the round trip to the browser that started it |
+| **P0.1b-ii** | `/ready` amplification (200 concurrent → 3.00s vs `/health` 0.43s; Postgres backends 1→13) and `GraphMemory` building an LLM client with no egress guard (NN #5) | #92 · single-flight + a 2s TTL (**peak backends under 300 concurrent: 2**), and the guard wired into the third construction path |
+
+**What this phase changed about how we work**, beyond the fixes:
+
+- **Enumerate from the live artifact, never a hand-maintained list.** The authorization
+  matrix walks the routing table; the compose-delivery pin derives its required set from a
+  real refusal message; the link crawl globs the template directory. Every one of those was
+  written *after* a control shipped green over a hole.
+- **Prove the net fails before trusting it.** Every safety net added here was mutated and
+  observed red first.
+- **Ask "is this offered?", not only "is this refused?"** The authorization matrix was
+  correct on all 51 routes while a new user's very first click was a link to a 403. A
+  correct gate on a link nobody should have been shown is still a defect.
+- **A control is not shipped until it is reachable from the documented deployment path.**
+  P0.2 and P0.4 were both found wanting by deploying them, not by reading them.
+
+**Exit:** the system enforces the invariant everything else assumes — nothing publishes
+without an authenticated, authorized human — and it can be deployed in a posture that
+refuses to run unsafely. **Not delivered, and not a repo deliverable: TLS at the edge.**
+The pilot host is internet-facing over plain http (P0.3 part 2), so sign-in cookies and CAS
+tickets cross the network in the clear until a terminator is put in front of the app.
 
 ---
 

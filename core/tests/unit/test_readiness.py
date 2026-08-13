@@ -102,7 +102,14 @@ def hangs() -> Probe:
 
 @pytest.fixture(autouse=True)
 def _clear_overrides() -> Iterator[None]:
+    """Also drops the cached probe round (P0.1b-ii). ``/ready`` now answers from the
+    last round for a couple of seconds, and a cache surviving between tests would let
+    one test's dependencies answer another's — a whole file passing on stale data."""
+    from src.api.readiness import reset_readiness_cache
+
+    reset_readiness_cache()
     yield
+    reset_readiness_cache()
     app.dependency_overrides.clear()
 
 
@@ -437,3 +444,100 @@ async def test_a_hanging_probe_is_logged_with_the_reason_it_failed(
         f"the timeout was logged as {caplog.text!r} — an operator reading the "
         "container log cannot tell a hang from a refusal. Log type(exc).__name__."
     )
+
+
+# ── Amplification: a stranger must not be able to make this expensive (P0.1b-ii) ─────
+
+
+def _counting_probe() -> tuple[Probe, list[int]]:
+    """A probe that records how many times it was actually run."""
+    calls: list[int] = []
+
+    async def _probe() -> None:
+        calls.append(1)
+        await asyncio.sleep(0.05)  # long enough for a herd to pile up behind it
+
+    return _probe, calls
+
+
+async def _burst(probes: dict[str, Probe], n: int) -> list[int]:
+    """``n`` requests genuinely in flight at once, **on one event loop** — which is how
+    uvicorn serves them, and the only way this property can be observed.
+
+    The first version of this test used ``ThreadPoolExecutor`` + ``TestClient`` and
+    **hung**: each thread drives its own event loop, and the single-flight lock cannot
+    span loops. That was a defect in the test rather than in the control (a server has
+    one loop per worker process), but a hanging test is worse than a wrong one, so the
+    concurrency model here is the real one.
+    """
+    import httpx
+
+    app.dependency_overrides[probes_dependency()] = lambda: probes
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
+        responses = await asyncio.gather(*(client.get("/ready") for _ in range(n)))
+    return [r.status_code for r in responses]
+
+
+def test_a_burst_of_requests_costs_one_probe_round() -> None:
+    """**The measured defect.** 200 concurrent requests took 3.00s against ``/health``'s
+    0.43s and drove Postgres backends from 1 to 13, because each request opened its own
+    connection to every dependency — so an unauthenticated caller could make this
+    endpoint expensive and, by pushing it into probe timeouts, make it report
+    ``degraded``, at which point a load balancer pulls healthy pods.
+
+    One round for the whole burst. A TTL alone would NOT do this — requests arriving
+    together all miss an empty cache and all probe, which is exactly the measurement
+    above; the single-flight lock is what collapses the herd.
+    """
+    probe, calls = _counting_probe()
+
+    statuses = asyncio.run(_burst({"postgres": probe}, 25))
+
+    assert statuses == [200] * 25
+    assert len(calls) == 1, (
+        f"25 concurrent requests ran the probe {len(calls)} times; they must share one "
+        "round, or an unauthenticated caller sets the load on our own database"
+    )
+
+
+def test_a_second_request_within_the_ttl_does_not_probe_again() -> None:
+    probe, calls = _counting_probe()
+    client = client_with({"postgres": probe})
+
+    client.get("/ready")
+    client.get("/ready")
+
+    assert len(calls) == 1
+
+
+def test_the_answer_is_refreshed_once_the_ttl_has_passed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The other direction, and the one that matters for correctness rather than cost:
+    this is a *bound on probing*, not a mute button. A cache that never expired would
+    report a dependency's state from whenever it last felt like asking."""
+    from src.api import readiness
+
+    monkeypatch.setattr(readiness, "READINESS_TTL_SECONDS", 0.0)
+    probe, calls = _counting_probe()
+    client = client_with({"postgres": probe})
+
+    client.get("/ready")
+    client.get("/ready")
+
+    assert len(calls) == 2
+
+
+def test_a_cached_round_still_reports_degraded_honestly() -> None:
+    """Caching must not launder a failure into an ``ok``: the 503 and the per-dependency
+    detail have to survive being served from the last round."""
+    client = client_with({"postgres": up(), "neo4j": down()})
+
+    first = client.get("/ready")
+    second = client.get("/ready")
+
+    for resp in (first, second):
+        assert resp.status_code == 503
+        assert resp.json()["status"] == "degraded"
+        assert resp.json()["checks"] == {"postgres": "ok", "neo4j": "down"}

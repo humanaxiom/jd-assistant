@@ -1,7 +1,11 @@
 # JD Bank — Roadmap & Backlog
 
 **Updated:** 2026-07-28; **revised 2026-08-05** against the seven commits from `650828b` to
-`46a9443` plus the Phase-5.9 authoring guard. Produced from a review of the repo backlog + main workflow and a
+`46a9443` plus the Phase-5.9 authoring guard; **revised 2026-08-13** to absorb the triaged
+findings of an external "SFU site coverage" gap analysis
+([triage record](decisions/copilot-sfu-gap-triage-2026-08-13.md) — two of its nine issues were
+factually wrong, and its two additions to this roadmap are both *subtractions*: entries in
+§Explicitly OUT). Produced from a review of the repo backlog + main workflow and a
 scan of peer-university JD/HR systems (UBC, Toronto, McGill; Workday, PageUp, Cornerstone,
 PeopleAdmin/Unified Talent, JDXpert, Interfolio). Every item respects the six hard
 invariants; conflicts are called out explicitly.
@@ -11,7 +15,7 @@ invariants; conflicts are called out explicitly.
 > → ~~P0.3 deployment origins~~ ✅ **DONE ([#89](https://github.com/humanaxiom/jd-assistant/pull/89))**
 > → ~~P0.4 the production posture~~ ✅ **BUILT ([#90](https://github.com/humanaxiom/jd-assistant/pull/90))** — available and verified, **not yet in force**
 > → **🔴 TLS at the edge** (not a repo deliverable; the last open exposure)
-> → ~~P0.1b-ii login CSRF + open redirect~~ ✅ **DONE ([#91](https://github.com/humanaxiom/jd-assistant/pull/91))** → **P0.1b-ii leftovers** (`/ready` amplification · `GraphMemory` egress) → **P1.3 tier the register** (worth promoting)
+> → ~~P0.1b-ii, ALL of it~~ ✅ **DONE** ([#91](https://github.com/humanaxiom/jd-assistant/pull/91) login CSRF + open redirect · [#92](https://github.com/humanaxiom/jd-assistant/pull/92) `/ready` amplification + `GraphMemory` egress) → **P1.3 tier the register** (worth promoting)
 > → **P1.2 harmonization provenance**. The HR docs behind all of this
 > merged first as [#86](https://github.com/humanaxiom/jd-assistant/pull/86).
 >
@@ -83,12 +87,13 @@ list omits the auth deferrals — captured here.)
 | Security | ~~🟠 **P0.1b-i — CSRF for cookie-authenticated state changes.** A cross-site form POST carrying a valid session cookie is still accepted~~ **CLOSED:** a per-session token on the session row (migration `0006`), enforced by an **app-wide dependency** (`src/api/csrf.py`) over the rule *"any state change authenticated by a session cookie must carry that session's token"* — so all **18** state-changing routes are covered, not the 10 browser ones. Scoping it to the UI would have left `POST /gates/run` open: it takes `branch` as a **query parameter with no body**, so an ordinary cross-site form with an admin's cookie enqueued an arq job. Also: an unauthenticated `/logout` now emits **no `Set-Cookie`** (forced logout without holding the cookie); `session_cookie_samesite` refuses `none` in production and an unrecognised value at load in every mode; `X-Frame-Options: DENY` + CSP `frame-ancestors 'none'`, because a framed review page carries its own valid token and clickjacking would defeat the control outright | done | — |
 | Ops/Security | ✅ **P0.3 — DEPLOYMENT ORIGINS: DONE (PR [#89](https://github.com/humanaxiom/jd-assistant/pull/89), 2026-08-13).** `ALLOWED_SERVICE_ORIGINS` ships: the origin a browser arrived on is honoured only if it is on the list, exactly — else the static fallback, **never** the header. `cas_service_from_request` retired and refused at load in every mode; data ports bound to loopback. **The exposure question is ANSWERED — internet-facing** — which promotes the production compose profile to **P0.4**. *What follows is the defect as raised.* Raised 2026-08-11 when the system was first reached from outside the dev box (`sfuai.ca:7000` → `25800`): CAS authenticated, then returned the browser to **`localhost:25800`**, because the return origin is a single static setting. Repointing it worked and is a **workaround, not a design** — one value cannot serve localhost, the forward, and a future hostname. The existing alternative (`cas_service_from_request`, from `X-Forwarded-Host`) is the header-injection vector P0.2 refuses in production, so the options today are *rigid* or *exploitable*. Build the third: **derive the origin, validate against an allowlist** (shape it like `allowed_inference_hosts`), force https in production, fall back to the static value — never to the header. **Part 2, still unanswered:** the app is now reachable at a public name over **plain http** in `development`, so P0.2's guard is inactive, DB/Neo4j creds are the committed defaults, and the data ports (`25432`/`25474`/`25687`/`25379`) publish on `0.0.0.0` — **a larger exposure than the CAS bug that surfaced it.** Task: `docs/tasks/P0.3-deployment-origins.md` | open | S/M |
 | Ops/Security | ✅ **P0.4 — THE PRODUCTION POSTURE: BUILT (PR [#90](https://github.com/humanaxiom/jd-assistant/pull/90), 2026-08-13).** `docker-compose.prod.yml` — no reloader, no source mount, healthcheck, restart policy, credentials with **no defaults** (compose refuses to render without them). **Verified by deploying it**, not by reading it: a safe posture serves `{"status":"ok"}`; an unsafe one reads `Restarting (3)` / `unhealthy` and never comes up. A standalone file rather than an overlay **because compose merges volume lists** — measured: an overlay declaring `volumes: []` still renders the base `./core:/app` bind, so an overlay cannot make the image be what runs. ⚠️ **Available, not in force:** the live demo still runs the dev stack, and **TLS at the edge remains open** — that is now the last exposure and it needs a person, not a commit. *What follows is the defect as raised.* Split out of P0.1b and **promoted to P0 by P0.3's answer**: `sfuai.ca:7000` is internet-facing, so the app is public over plain http in `environment=development` and P0.2's fail-closed guard is inactive on the one deployment that most needs it — session cookies and CAS tickets cross the open internet in the clear. Needs a **production compose profile**, TLS at the edge, real secrets, `SESSION_COOKIE_SECURE=true`, `ENVIRONMENT=production`. ⚠️ **The trap:** `api` runs `uvicorn --reload`, so a settings refusal inside the reloader presents as **"Up but serving nothing"** rather than a dead container — the P0.2 failure mode one layer down. Detail: `docs/tasks/P0.3-deployment-origins.md` §Part 2 | **open — next** | M |
-| Security | 🟠 **P0.1b — what is LEFT of the bundle.** ✅ **Login CSRF and the open redirect on `next` are DONE (PR [#91](https://github.com/humanaxiom/jd-assistant/pull/91), 2026-08-13)** — one code path, one fix: `next` pinned to a local path, and an HttpOnly login-state cookie binding the CAS round trip to the browser that started it (an attacker can get a state of their own, but cannot set a cookie in the victim's browser — that comparison is the control). The production compose profile is done too (P0.4/#90). **Still open: `/ready` amplification and the `GraphMemory` egress guard.** *What follows is the bundle as raised.* login CSRF (the `GET /cas/validate` leg mutates — provisions a user, may grant ADMIN, mints a session — and no token can exist before the session it belongs to), the open redirect on `next`, `/ready` amplification (200 concurrent → 3.00s vs `/health` 0.43s), a production compose profile, and `GraphMemory.__init__` building an `AsyncOpenAI` outside the egress guard. Plan: `docs/tasks/architecture-review-response-2026-08-07.md` §6 | open | M |
+| Security | ✅ **P0.1b — THE WHOLE BUNDLE IS CLOSED (2026-08-13).** Login CSRF + the open redirect on `next` ([#91](https://github.com/humanaxiom/jd-assistant/pull/91)) — one code path, one fix: `next` pinned to a local path, and an HttpOnly login-state cookie binding the CAS round trip to the browser that started it (an attacker can get a state of their own; they cannot set a cookie in the victim's browser — that comparison is the control). The production compose profile ([#90](https://github.com/humanaxiom/jd-assistant/pull/90)). `/ready` amplification + `GraphMemory` egress ([#92](https://github.com/humanaxiom/jd-assistant/pull/92)) — single-flight + 2s TTL, **peak Postgres backends under 300 concurrent: 2, was 13 at 200**. *What follows is the bundle as raised.* login CSRF (the `GET /cas/validate` leg mutates — provisions a user, may grant ADMIN, mints a session — and no token can exist before the session it belongs to), the open redirect on `next`, `/ready` amplification (200 concurrent → 3.00s vs `/health` 0.43s), a production compose profile, and `GraphMemory.__init__` building an `AsyncOpenAI` outside the egress guard. Plan: `docs/tasks/architecture-review-response-2026-08-07.md` §6 | open | M |
 | Security | 🔴 **P0 — the production startup guard `settings.py` claims does not exist**, and `cas_enabled=False` returns a transient **admin** before any cookie is read; `.env.example` has no auth keys | open | S/M |
 | Governance | **Tier the decision register before the HR workshop** — 57 of 197 entries sit in the `comparison`/`hay_signals` adapter ADR-007 disclaims as *not* classification, and 8 are embedding knobs; only ~55–60 touch the approval bar. Add `hr_policy`/`hr_informed`/`technical` so HR sees ~60 real calls, not 197 | open | S/M |
 | Pipeline | **31.9% of the archive (4,630 JDs) has no parsed `employee_group`** — the parser's residual — so "the Bank serves JDFN" is unfalsifiable for a third of the corpus. Close before the CUPE scope conversation; no HR dependency | open | M |
 | UX | **Submit → 403.** The draft commits, then redirects to a reviewer-only page; the default new-user role is `author`, so this is the default first experience. No author-scoped status route exists | open | S |
 | Review | **Harmonization provenance** — a reviewer sees a raised education/experience bar with no indication that most sources stated lower (`seniority_bar_policy: max`, HR-175; ~4.3% of clusters). The NN #1 control cannot rule on what it cannot see | open | M |
+| Governance | ~~**External "SFU site coverage" gap analysis (GitHub Copilot, 2026-08-13)**~~ **TRIAGED — [`docs/decisions/copilot-sfu-gap-triage-2026-08-13.md`](decisions/copilot-sfu-gap-triage-2026-08-13.md).** Nine issues: **both of its P0s are factually wrong** (the CUPE/WJQ boundary is explicit in five places including the HR matrix's Decision 8; the Hay authority question is decided and enforced *structurally* — `HayGrade` is made **unrepresentable** in `models/bank.py`), four are already tracked, two are invariant/remit conflicts now recorded as **Explicitly OUT**, and its issues 7–8 (change tracking, compensation audit trail) are **largely already built** — `edit()` requires a written reason, mints a new version, records `changed_sections`, and the audit log is hash-chained. Adopted: the re-evaluation **lifecycle** (§3), a scope statement on the Builder page (§2), two OUT entries. Its framing is worth keeping — *"not missing the core pipeline; missing the full SFU lifecycle"* — and its blind spot is worth naming: it plans new capability past an **unsigned approval bar**, and never mentions ratification at all | done (triage) | — |
 | Chore | `jd_core → jd_bank` import edge; `get_session` → `api/deps.py` shim | open | S |
 | Docs | Refresh HANDOFF.md for the auth/RBAC + operator-guide work | open | S |
 | Phase 7 | Role-duty overlap graph (Neo4j); Hay-readiness summaries; transposer service; M365/SharePoint | deferred | S–XL |
@@ -160,6 +165,15 @@ unblock the pilot** — do them first.
   current, and **the billing block is resolved** — CI is green on every commit including `main`,
   and PR #81 merged normally. **Older notes saying "Actions is billing-blocked, merge locally per
   ADR-006" are now WRONG; do not follow them.**
+- **State the JDFN scope on the Builder page itself.** The Bank authors JDFN (APSA/APEX/Poly)
+  only, and says so in the operator guide, on `compose_search.html` and on the baseline
+  dashboard — but **not on the Builder**, which is the one surface where an author would ask
+  "why can't I pick CUPE?". One sentence naming the instrument (WJQ), the reason (no ratified
+  CUPE bar) and the register entry (HR-194), rendered where the `employee_groups` select is.
+  Raised by the 2026-08-13 Copilot gap analysis — the only part of its CUPE P0 that survived
+  triage (`docs/decisions/copilot-sfu-gap-triage-2026-08-13.md`).
+  *Invariant:* the group list is already rulebook data; this surfaces the decision, it does not
+  add one.
 - **Footer / territorial-acknowledgement sign-off.** A single `boilerplate.yaml` constant that
   blocks any external `.docx`/posting export — a verification task, get it in front of the
   right person before the posting features can ship externally.
@@ -216,11 +230,21 @@ From peer research + backlog, each mapped to JD Bank's architecture, ordered rou
   batch-assign or flag. Remediating **1,798** drafts is a cohort job. *Fit:* **HARD FLAG — bulk
   _approve_ would violate "nothing auto-publishes."** Bulk stops at assign/flag/export; publish
   stays an individual human decision. **Effort M.**
-- **Manager reclassification questionnaire (JDQ/JAQ) intake.** A rules-as-data questionnaire for
-  "my duties materially changed" that red-lines a JD draft and routes it into classification
-  review — the highest-volume manager HR workflow at a Canadian university. Reuses the Phase-5
-  `assemble_jd(answers)` machinery. *Peers:* UBC JDQ → reclassification. *Fit:* questionnaire as
-  versioned YAML; output a DRAFT into the human queue. JDFN-scoped (CUPE waits on HR-194). **Effort M.**
+- **Manager reclassification questionnaire (JDQ/JAQ) intake — and the re-evaluation lifecycle
+  behind it.** A rules-as-data questionnaire for "my duties materially changed" that red-lines a
+  JD draft and routes it into classification review — the highest-volume manager HR workflow at a
+  Canadian university. Reuses the Phase-5 `assemble_jd(answers)` machinery. *Peers:* UBC JDQ →
+  reclassification. *Fit:* questionnaire as versioned YAML; output a DRAFT into the human queue.
+  JDFN-scoped (CUPE waits on HR-194).
+  **Scope sharpened 2026-08-13** after the Copilot gap analysis correctly observed that SFU's
+  published process is a *lifecycle*, not a form: **intake → reason/evidence capture → review →
+  decision record → resolution**, where today only the intake half is planned. The honest
+  framing is that **three of those five stages already exist and must be reused, not rebuilt** —
+  `review.edit()` already demands a written reason and mints a new version, `/review/{id}/diff`
+  already renders before-vs-after, and `audit_log` is already append-only and hash-chained. What
+  is genuinely missing is a **request object with a status** (who asked, when, on which role,
+  still open or resolved) that hangs off the existing review queue. Building a second decision
+  store beside the audit chain would be the defect, not the feature. **Effort M.**
 
 ### Explicitly OUT / blocked (invariant conflicts)
 - **Cloud skills extraction** (Lightcast / Workday Skills Cloud / Textkernel cloud endpoints) —
@@ -233,6 +257,23 @@ From peer research + backlog, each mapped to JD Bank's architecture, ordered rou
   advise, self-hosted. Proprietary Hay/WTW point charts must never be embedded (licensed).
 - **Hosting/crawling a `schema.org` JobPosting careers page** — ATS territory, out of remit.
   Fine only as a deterministic export artifact of *approved* postings.
+- **A Hay evaluation workflow that produces a factor-by-factor point breakdown** (proposed by the
+  2026-08-13 Copilot gap analysis) — **breaches invariants 3/4 and the licensing line.** The
+  factor charts are proprietary Hay/WTW material we may not embed, SFU publishes no point chart,
+  and classification is a human Compensation decision — which is why `HayGrade` and
+  `HaySignals.{grade, grade_mapped}` are made **unrepresentable** in `models/bank.py` rather than
+  merely unused, and why ADR-007 disclaims the comparison adapter as *not* formal classification.
+  A "clearly labelled advisory" version does not rescue it: the artifact would still be a
+  point-scored grade, and a label is not a control. **Hay-readiness *summaries* — which factors a
+  JD gives an evaluator something to read on — stay in scope** (plan.md Phase 7).
+- **Compensation requisition / pay-transaction workflow** (proposed by the same analysis) — **out
+  of remit, not out of reach.** A requisition moves money and headcount; the **HRIS is the system
+  of record** for that, and JD Bank sits upstream of it. Modelling a second requisition store here
+  would create two answers to "what is this position's approved pay" and put JD Bank in the path
+  of a payroll decision it cannot be the authority for. The correct seam is the one already
+  planned: an **HRIS export** of the approved canonical JD (HR-blocked on grade scales + FIPPA).
+  Job-*change* tracking on the JD itself is a different thing and already exists — new version,
+  mandatory reason, version diff, hash-chained audit.
 
 ---
 
