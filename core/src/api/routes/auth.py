@@ -31,6 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.db.models import Role, User
 from src.api.deps import NotAuthenticated, resolve_user
 from src.api.main import get_session
+from src.api.service_origin import resolve_service_origin
 from src.api.services import cas_service, session_service, user_service
 from src.settings import Settings, get_settings
 
@@ -81,24 +82,14 @@ def require_ui_roles(*roles: Role) -> Callable[..., Awaitable[User]]:
     return _dep
 
 
-def _service_base(settings: Settings, request: Request) -> str:
-    """The external base URL CAS redirects back to. With ``cas_service_from_request``,
-    derive it from ``X-Forwarded-Host``/-Proto (multi-host / proxied deploys) so login
-    works from whatever host the browser used; else the static ``cas_service_base_url``.
-    Login and validate derive it identically — CAS requires the service URL to match
-    byte-for-byte across the two legs."""
-    if settings.cas_service_from_request:
-        fwd_host = request.headers.get("x-forwarded-host")
-        if fwd_host:
-            host = fwd_host.split(",", 1)[0].strip()
-            proto = request.headers.get("x-forwarded-proto", "http")
-            proto = proto.split(",", 1)[0].strip()
-            return f"{proto}://{host}"
-    return settings.cas_service_base_url.rstrip("/")
-
-
 def _service_url(settings: Settings, request: Request, next_path: str) -> str:
-    base = _service_base(settings, request).rstrip("/")
+    """The service URL CAS is given — the origin the browser used, **if the deployment
+    allows it**, else the static one (P0.3; see :mod:`src.api.service_origin`).
+
+    Login and validate build it identically, because CAS requires the service string to
+    match byte-for-byte across the two legs.
+    """
+    base = resolve_service_origin(request, settings).rstrip("/")
     return f"{base}/jd-bank/ui/cas/validate?{urlencode({'next': next_path})}"
 
 

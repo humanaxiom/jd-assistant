@@ -14,7 +14,13 @@ services:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: app
       POSTGRES_DB: harness
-    ports: ["${JD_PG_PORT:-25432}:5432"]
+    # Bound to LOOPBACK (P0.3): the host is reachable from outside the dev box now, and
+    # this port answers with the committed `app`/`app` credential. Docker publishes to
+    # 0.0.0.0 by default and bypasses the host firewall doing it, so "nobody can reach
+    # it" was an assumption about the network, not a property of the deployment. Local
+    # tools (psql, the Neo4j browser) are unaffected; a remote client is a deliberate
+    # edit, which is the point.
+    ports: ["127.0.0.1:${JD_PG_PORT:-25432}:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U app -d harness"]
@@ -28,7 +34,9 @@ services:
       NEO4J_AUTH: neo4j/harnesspass
       NEO4J_PLUGINS: '["apoc"]'
       NEO4J_dbms_memory_heap_max__size: 1G
-    ports: ["${JD_NEO4J_HTTP_PORT:-25474}:7474", "${JD_NEO4J_BOLT_PORT:-25687}:7687"]
+    # Loopback (P0.3) — see the note on postgres. Neo4j here holds every JD vector and
+    # the graph, behind the committed `neo4j`/`harnesspass`.
+    ports: ["127.0.0.1:${JD_NEO4J_HTTP_PORT:-25474}:7474", "127.0.0.1:${JD_NEO4J_BOLT_PORT:-25687}:7687"]
     volumes: [neo4jdata:/data]
     healthcheck:
       test: ["CMD-SHELL", "cypher-shell -u neo4j -p harnesspass 'RETURN 1'"]
@@ -38,7 +46,8 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports: ["${JD_REDIS_PORT:-25379}:6379"]
+    # Loopback (P0.3) — see the note on postgres. Redis has no password at all.
+    ports: ["127.0.0.1:${JD_REDIS_PORT:-25379}:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -94,9 +103,23 @@ services:
       # chain rejects cas.sfu.ca. CAS_DEV_FAKE_USER exercises the session machinery
       # WITHOUT the SFU round-trip (useful when localhost isn't a whitelisted service).
       CAS_ENABLED: ${CAS_ENABLED:-false}
+      # The FALLBACK CAS return origin — used when the origin the browser actually used
+      # is not on the allowlist below (and it is the whole mechanism when that list is
+      # empty).
       CAS_SERVICE_BASE_URL: ${CAS_SERVICE_BASE_URL:-http://localhost:25800}
-      # Derive the CAS service origin from X-Forwarded-Host instead of the pinned one.
-      # A client-controllable header; production refuses to start with it on.
+      # P0.3 — the origins this deployment may return an authenticated browser to.
+      # Comma-separated, exact (scheme, host, port). ONE deployment can now serve the
+      # dev box and a forward at once without an .env edit between them:
+      #   ALLOWED_SERVICE_ORIGINS=http://localhost:25800,http://sfuai.ca:7000
+      # An origin not on this list falls back to CAS_SERVICE_BASE_URL and never to the
+      # client's header — that validation is what makes deriving the origin from a
+      # request safe at all. Production refuses any entry that is not https at a real
+      # hostname, so the dev default below cannot survive into one.
+      ALLOWED_SERVICE_ORIGINS: ${ALLOWED_SERVICE_ORIGINS:-http://localhost:25800}
+      # RETIRED (P0.3): it derived the CAS origin from X-Forwarded-Host with NO
+      # validation. Still delivered so that a deployment which sets it is REFUSED at
+      # load rather than silently ignored — a security change an operator believes they
+      # made and did not is worse than the flag ever was.
       CAS_SERVICE_FROM_REQUEST: ${CAS_SERVICE_FROM_REQUEST:-false}
       CAS_VERIFY_TLS: ${CAS_VERIFY_TLS:-true}
       CAS_DEV_FAKE_USER: ${CAS_DEV_FAKE_USER:-}
@@ -167,6 +190,14 @@ services:
       # construct Settings. The gate suite tests the production check; it does not run
       # under it. A literal here is correct — this block is the one place it is.
       ENVIRONMENT: "development"
+      # The CAS return origin, pinned for the SAME reason — and this one was found the
+      # hard way (P0.3): a test asserting "an unlisted origin falls back to the static
+      # setting" failed on the dev box and would have passed in CI, because the repo-root
+      # .env points CAS_SERVICE_BASE_URL at the demo forward and this service passed it
+      # straight through. The suite must see the committed default, not whichever host a
+      # developer is currently demoing through.
+      CAS_SERVICE_BASE_URL: http://localhost:25800
+      ALLOWED_SERVICE_ORIGINS: http://localhost:25800
       # The data stores, pinned for the SAME reason. These were anchor literals until
       # 2026-08-09; making them `${VAR:-…}` (so production can supply real credentials)
       # silently made the gate suite inherit whatever DSN the operator's shell or
