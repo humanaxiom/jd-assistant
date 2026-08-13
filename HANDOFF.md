@@ -53,7 +53,10 @@ nav · **📝 My drafts** · empty states with escapes · `/favicon.ico` + `/rob
    so it covers pages nobody thought about. That is what would have caught this on day one.
 3. **The scheme-blind `307` was fixed by NOT buying it with `--proxy-headers`.**
    `redirect_slashes` is off; the rescue is a **relative** `Location`, which cannot name a
-   scheme. Trusting a forwarded header is P0.2's refusal and **P0.3's** decision to make.
+   scheme. **P0.3 has since adjudicated the flag itself: not needed, stays off** — the
+   origin allowlist reads `X-Forwarded-Proto` for the one decision that needs it and
+   validates the result, where the flag would rewrite `request.url.scheme` globally from a
+   header nothing checks.
 
 ### ⚠️ Things about the RUNNING system you must know before touching it
 
