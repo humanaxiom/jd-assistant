@@ -14,8 +14,9 @@
     This is a <strong>harmonized role</strong> distilled from
     <strong>{{ role.source_count }}</strong> source JD{{ "s" if role.source_count != 1 else "" }} in the archive
     (listed below). It is a
-    {% if role.status == "published" %}published{% else %}draft awaiting HR review{% endif %} —
-    <a href="/jd-bank/ui/review/{{ role.canonical_id }}">{% if role.status == "published" %}update it (creates a new draft for review) →{% else %}open in the review queue →{% endif %}</a>
+    {% if role.status == "published" %}published JD{% else %}draft awaiting HR review{% endif %}{#
+      #}{% if may_review %} —
+    <a href="/jd-bank/ui/review/{{ role.canonical_id }}">{% if role.status == "published" %}update it (creates a new draft for review) →{% else %}open in the review queue →{% endif %}</a>{% endif %}.
   </p>
   <p>
     <a href="/jd-bank/ui/compose/clone-role/{{ role.cluster_id }}">🧱 Start a new JD from this harmonized role →</a>

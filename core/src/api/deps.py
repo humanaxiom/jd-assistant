@@ -103,6 +103,26 @@ async def current_user(
 CurrentUser = Annotated[User, Depends(current_user)]
 
 
+#: The roles the review surfaces are gated to. Defined once so a *link* to a review page
+#: and the *gate* on that page cannot drift apart — offering a link that answers 403 is
+#: the P0.0 defect, and it came from a template deciding this for itself.
+REVIEW_ROLES: frozenset[Role] = frozenset({Role.REVIEWER, Role.ADMIN})
+
+
+def may_review(request: Request) -> bool:
+    """May the current reader follow a link into the review queue?
+
+    **An affordance question, never an authorization one** — the gate on the review
+    routes is what refuses a request (``main.py`` + ``test_authorization_matrix.py``).
+    This only decides whether to show a door that is locked for them.
+
+    Reads the user :func:`resolve_user` stashed on ``request.state``; a request that
+    resolved no identity simply gets ``False``.
+    """
+    user = getattr(request.state, "user", None)
+    return bool(user is not None and (REVIEW_ROLES & user.role_names))
+
+
 def require_roles(*roles: Role) -> Callable[..., Awaitable[User]]:
     """Dependency factory: pass the user through iff they hold any of ``roles``, else
     403. Usage: ``dependencies=[Depends(require_roles(Role.ADMIN))]`` or as a value

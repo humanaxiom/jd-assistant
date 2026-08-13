@@ -891,8 +891,13 @@ async def clone_role(
 ) -> HTMLResponse:
     """Pre-fill the Builder from a role's HARMONIZED canonical — the preferred clone
     source now that the archive is transitional (start from the reviewed, cleaned-up
-    role, not a raw archive member that may fail the current template). 404 (HTML) if
-    the cluster has no canonical."""
+    role, not a raw archive member that may fail the current template).
+
+    404 if the cluster has no canonical — an HTML page for a browser, which this
+    docstring already claimed while the route raised a bare ``HTTPException`` and its
+    reader got ``{"detail":"no harmonized JD for this role"}``. It is true now because
+    :mod:`src.api.errors` made it true for every route at once, rather than because this
+    one grew a template of its own."""
     answers = await load_role_clone_answers(session, cluster_id)
     if answers is None:
         raise HTTPException(status_code=404, detail="no harmonized JD for this role")
@@ -906,8 +911,9 @@ async def clone_draft(
     session: AsyncSession = Depends(get_session),
 ) -> HTMLResponse:
     """Pre-fill the Builder from a RAW archive JD (5.4) — the fallback for a singleton
-    with no harmonized role (prefer :func:`clone_role` when a role exists). 404 (HTML)
-    if the document has no parsed JD to clone. Read-only — nothing persists (NN #1)."""
+    with no harmonized role (prefer :func:`clone_role` when a role exists). 404 (an HTML
+    page for a browser — see :func:`clone_role`) if the document has no parsed JD to
+    clone. Read-only — nothing persists (NN #1)."""
     answers = await load_clone_answers(session, source_document_id)
     if answers is None:
         raise HTTPException(status_code=404, detail="no parsed JD to clone")
@@ -920,11 +926,21 @@ async def submit_draft(
     actor: Annotated[User, Depends(require_ui_user)],
     session: AsyncSession = Depends(get_session),
 ) -> Response:
-    """Submit the composed draft into the review queue and redirect to its review
-    page. The answers ride in one hidden ``answers_json`` field (written by the
-    check step); this rebuilds the identical draft, persists it as a DRAFT
-    ``canonical_jds`` row (:func:`~src.jd_bank.composer.submit_composed_draft`), and
-    commits. Nothing publishes (NN #1) — it enters the same queue as any draft."""
+    """Submit the composed draft into the review queue and land the author on **their
+    own** drafts page with a confirmation.
+
+    The answers ride in one hidden ``answers_json`` field (written by the check step);
+    this rebuilds the identical draft, persists it as a DRAFT ``canonical_jds`` row
+    (:func:`~src.jd_bank.composer.submit_composed_draft`), and commits. Nothing
+    publishes (NN #1) — it enters the same queue as any draft.
+
+    **The redirect target is the fix, not a preference** (P0.0). It used to be
+    ``/jd-bank/ui/review/{id}``, which is reviewer-or-admin only, while
+    ``default_new_user_role`` is ``author`` — so the ordinary case was: the draft
+    commits, and its author is bounced onto a raw ``403`` JSON blob with no sign their
+    work had saved. ``/my-drafts`` is reachable by whoever just submitted, by
+    construction.
+    """
     pairs = await read_form_pairs(request)
     values = _first_values(pairs)
     # The author is the AUTHENTICATED user, not a form field.
@@ -949,7 +965,9 @@ async def submit_draft(
         session, assemble_jd(answers), author_id=author_id
     )
     await session.commit()
-    return RedirectResponse(url=f"/jd-bank/ui/review/{canonical.id}", status_code=303)
+    return RedirectResponse(
+        url=f"/jd-bank/ui/my-drafts?submitted={canonical.id}", status_code=303
+    )
 
 
 @router.post("/export")

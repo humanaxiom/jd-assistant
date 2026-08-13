@@ -37,6 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from src.api.csrf import enforce_csrf
 from src.api.db.models import Role
 from src.api.deps import current_user, require_roles
+from src.api.errors import install_error_handlers
 from src.api.readiness import router as readiness_router
 from src.api.security_headers import SecurityHeadersMiddleware
 from src.memory.graph import GraphMemory
@@ -74,6 +75,10 @@ app = FastAPI(
 # so the headers that prevent framing ship with the CSRF feature. Raw ASGI, not
 # BaseHTTPMiddleware — nothing upstream of these handlers may re-wrap the request body.
 app.add_middleware(SecurityHeadersMiddleware)
+# P0.0: an error reaches its reader in the medium they asked for — a browser gets a page
+# in the app's own chrome, an API client keeps its JSON body — and Starlette's absolute,
+# scheme-blind slash redirect is replaced by a relative one. See src/api/errors.py.
+install_error_handlers(app)
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
@@ -199,11 +204,18 @@ from src.api.routes.auth import router as jd_bank_auth_router  # noqa: E402
 from src.api.routes.compose import router as jd_bank_compose_router  # noqa: E402
 from src.api.routes.compose_ui import router as jd_bank_compose_ui_router  # noqa: E402
 from src.api.routes.dashboard import router as jd_bank_dashboard_router  # noqa: E402
+from src.api.routes.drafts import router as jd_bank_drafts_router  # noqa: E402
+from src.api.routes.front_door import router as front_door_router  # noqa: E402
 from src.api.routes.guide import router as jd_bank_guide_router  # noqa: E402
 from src.api.routes.jd_bank import router as jd_bank_router  # noqa: E402
 from src.api.routes.library import router as jd_bank_library_router  # noqa: E402
 from src.api.routes.ui import router as jd_bank_ui_router  # noqa: E402
 
+# The front door (`/`, `/jd-bank`, `/jd-bank/ui`, the favicon, robots.txt) is ungated
+# for the same reason the login page is: it must answer BEFORE anyone can sign in, since
+# it is how a visitor reaches the login page at all. It discloses nothing — every route
+# here is a `Location` header pointing at a route that carries its own gate. (P0.0)
+app.include_router(front_door_router)
 # Auth routes (login/logout/CAS) are ungated — the login page and the CAS legs must be
 # reachable by a visitor who has no session yet, and logout must work for an expired
 # one (it revokes only the caller's own cookie-identified session).
@@ -225,6 +237,11 @@ app.include_router(
 # The content library (browse/read roles + source JDs) is read-only — any signed-in
 # user (redirect if not). It never publishes; approval stays on the reviewer queue.
 app.include_router(jd_bank_library_router, dependencies=[Depends(require_ui_user)])
+# "My drafts" — where an author lands after submitting. Any signed-in user, and it shows
+# each reader ONLY their own drafts (the filter is the authenticated username, never a
+# query parameter). P0.0: submit used to redirect to the reviewer-only review page, so
+# the default new-user role committed a draft and was stranded on a 403.
+app.include_router(jd_bank_drafts_router, dependencies=[Depends(require_ui_user)])
 # Dashboards, the guide + the Builder require any authenticated user (redirect if not).
 app.include_router(jd_bank_dashboard_router, dependencies=[Depends(require_ui_user)])
 app.include_router(jd_bank_guide_router, dependencies=[Depends(require_ui_user)])
