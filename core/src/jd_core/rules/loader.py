@@ -2623,6 +2623,30 @@ DecisionProvenance = Literal[
 #: `deferred` = HR consciously postponed it (a decision in its own right).
 DecisionStatus = Literal["open", "ratified", "deferred"]
 
+#: WHO IS ASKED. The register does two incompatible jobs: it is the list of policy
+#: calls SFU HR must sign, AND the completeness ledger that stops an engineer tuning
+#: a threshold silently. The second job requires registering embedding dimensions and
+#: MinHash band counts — parameters HR must never be handed. Undifferentiated, the
+#: workshop ask is unanswerable, which is exactly what happened.
+#:
+#: This tier splits the two WITHOUT dropping an entry: every parameter stays
+#: registered and every build-breaking check still covers all of them. Only the
+#: AUDIENCE changes.
+DecisionTier = Literal[
+    # The answer changes what PASSES, FAILS, BLOCKS or SCORES — or it is SFU's own
+    # published wording. HR is accountable; the bar is unsigned until they rule.
+    # This tier, and only this tier, is the workshop ask.
+    "hr_policy",
+    # The answer changes what a reviewer is SHOWN, or what a DRAFT contains before a
+    # human rules on it — never whether a JD passes. HR may object, and should be
+    # able to find it; the default is legitimate without a signature.
+    "hr_informed",
+    # Plumbing: model names, dimensions, timeouts, retries, extraction regexes, index
+    # parameters. A wrong value is an engineering bug, not a policy error. Registered
+    # so it cannot drift silently — never put in front of HR.
+    "technical",
+]
+
 #: The field a list-of-models is addressed by in a config path, in priority order
 #: — so a path names a gate/rule/title/grade by its stable id, never by a list
 #: index (which reordering the YAML would silently re-point).
@@ -2699,6 +2723,10 @@ class HRDecision(BaseModel):
     source_part: str | None = None
     why_it_matters: str = Field(min_length=1)
     impact_if_changed: str = Field(min_length=1)
+    #: Who is asked. REQUIRED and deliberately without a default: a new parameter
+    #: must not be filed into a tier by omission — that is precisely how 197
+    #: undifferentiated entries accumulated in the first place.
+    tier: DecisionTier
     status: DecisionStatus = "open"
     decided_by: str | None = None
     decided_on: dt.date | None = None
@@ -2826,6 +2854,11 @@ class DecisionRegister(_RuleFile):
     def by_status(self, status: DecisionStatus) -> tuple[HRDecision, ...]:
         in_status = (d for d in self.decisions if d.status == status)
         return tuple(sorted(in_status, key=lambda d: d.id))
+
+    def by_tier(self, tier: DecisionTier) -> tuple[HRDecision, ...]:
+        """Every decision in one audience tier — ``hr_policy`` is the workshop ask."""
+        in_tier = (d for d in self.decisions if d.tier == tier)
+        return tuple(sorted(in_tier, key=lambda d: d.id))
 
 
 # --- the rules' content identity (what a ValidationReport is stamped with) ----

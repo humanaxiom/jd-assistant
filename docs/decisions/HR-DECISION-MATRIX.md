@@ -32,6 +32,16 @@ the system's behaviour is provisional and unchanged.
 >   updated accordingly.
 > - **The settings count moved from 194 to 197.** No new rule was added to the approval bar; the
 >   three additions govern an advisory feature in the authoring tool.
+> - **The full settings register now says which settings are actually yours.** Feedback on the
+>   first circulation was that the companion register
+>   (`docs/decisions/HR-DECISION-REGISTER.md`) reads as an undifferentiated list of 197 items, so
+>   it is impossible to tell a question about the approval bar from a search-index timeout. Every
+>   entry now carries an audience, and the register leads with a section called **"Your
+>   decisions"**: **65 settings change whether a job description passes** and are yours to rule
+>   on; 49 shape what a reviewer *sees* without deciding anything; 83 are engineering settings you
+>   should never be asked about. **Nothing was removed** — the same build check still covers all
+>   197, so none of them can change quietly. **This does not change the ask in Part 4:** the eight
+>   settings below are still what we need from you now, and the 65 are the wider set behind them.
 
 **We are asking you for two things:**
 

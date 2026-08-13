@@ -91,8 +91,8 @@ was always the real critical path — and the first item is not a commit.
 | | Task | Why it is here |
 |---|---|---|
 | **1** | **🔴 TLS at the edge — the last open exposure, and NOT a repo deliverable** | The pilot host is internet-facing over **plain http**, so sign-in cookies and CAS tickets cross the open internet in the clear. P0.4 makes the app correct *behind* a terminator (P0.3's allowlist reads `X-Forwarded-Proto` and validates the result) and refuses to run pretending otherwise — **someone has to put one in front.** It is also what unblocks actually *using* `docker-compose.prod.yml`, which needs an https origin. |
-| **2** | **P1.3 — Tier the register** | **Worth promoting.** Two HR complaints traced to one cause: the register does two incompatible jobs. Tiering turns "197 decisions" into ~60 real policy calls — the difference between an ask HR can act on and one they bounce. **Ratification is the critical path, so the work that makes ratification possible outranks new capability.** |
-| **3** | **P1.2 — Harmonization provenance** | A reviewer sees a raised education bar with no sign that 9 of 10 sources said lower. The human is the NN #1 control and cannot rule on what they cannot see. |
+| ~~2~~ | ~~**P1.3 — Tier the register**~~ ✅ **DONE (PR [#94](https://github.com/humanaxiom/jd-assistant/pull/94))** | The ask is now **65 settings, not 197** (49 `hr_informed` · 83 `technical`), and the generated register leads with **"Your decisions"**. See the block below. |
+| **2** | **P1.2 — Harmonization provenance ⟵ NEXT** | A reviewer sees a raised education bar with no sign that 9 of 10 sources said lower. The human is the NN #1 control and cannot rule on what they cannot see. |
 | 4 | **Phase 8.3 — review-experience upgrades** (`docs/plan.md`) | Word-level diff · structural sidebar · gate→field jump links. No GPU, parallelizable. |
 | 5 | **Phase 6 leftovers** | Backup + reindex runbooks, and the **territorial-acknowledgement wording sign-off** — the latter blocks external distribution and is HR's call. |
 
@@ -103,7 +103,48 @@ by `assemble_jd`, so clone lineage is lost at submit (NN #6 opportunity) ·
 `docs/rulebook/rulebook/` is a byte-identical duplicate directory tracked since Phase 0 ·
 `docs/status/*` stops at 2026-07-24.
 
-### Also 2026-08-13, later — an external gap analysis was triaged, and mostly did not survive
+### 2026-08-13, later — P1.3 IS DONE: the HR ask is 65 settings, not 197
+
+PR [#94](https://github.com/humanaxiom/jd-assistant/pull/94). `make gates` **2,616 passing,
+93.90%** (was 2,606 / 93.89%). `rules_version` **unmoved** — `decision_register.yaml` is
+unhashed and **no default changed**; the tier records *who is asked*, not what we ship.
+
+- **The diagnosis was right, and the fix is one required field.** The register does **two
+  incompatible jobs**: it is the list of policy calls HR must sign, *and* the completeness
+  ledger that stops an engineer tuning a threshold silently. Job two forces embedding
+  dimensions, MinHash band counts and model temperatures into the same list HR is handed.
+  Every entry now carries `tier` — `hr_policy` / `hr_informed` / `technical`.
+- **Measured: 65 · 49 · 83.** The pre-work estimate was "~55–60 touch the approval bar" and it
+  held. The generated register leads with a section called **"Your decisions"**, each tier
+  carrying its own summary table, so HR's table is 65 rows rather than 197.
+- **⚠️ THE THREE PROPERTIES THAT MAKE IT MORE THAN A LABEL — a tier that is only a column is
+  worth nothing:**
+  1. **`tier` has NO DEFAULT.** A new parameter cannot be filed into a tier by omission —
+     which is *exactly* how 197 undifferentiated entries accumulated. A new entry must state
+     its audience or the rulebook does not load.
+  2. **Nothing became unregistered.** Every id survives, and every build-breaking check still
+     walks all 197 — tune a `technical` value without updating `current_default` and the build
+     fails as before. **The audience changed; the coverage did not.** Pinned by a test.
+  3. **`comparison.yaml` / `hay_signals.yaml` may NEVER be `hr_policy`.** ADR-007 disclaims
+     them as *not* formal classification and `models/bank.py` makes a Hay grade
+     unrepresentable — so asking HR to ratify a similarity weight would contradict both.
+- **Both new nets were proved by mutation, in both directions** (this repo's standing habit):
+  demoting the score floor out of `hr_policy` turns `test_the_approval_bar_is_hr_policy` red;
+  promoting one comparison weight into it turns the ADR-007 test red. Neither was trusted
+  until it had been watched failing.
+- **A trap worth recording: one of the new tests passed before the feature existed.**
+  `test_a_decision_with_an_unknown_tier_fails_to_load` was green against the *old* model —
+  because `extra="forbid"` rejects an unknown key. It was a **vacuous pass**, and only became
+  a real test of the `Literal` once the field shipped. **When a new test is green on the first
+  run, find out which property it is actually asserting.**
+- **`make gates` reported ✅ while black was failing.** The backgrounded `make gates | tail -25`
+  exited 0 because that is the *pipeline's* status, not make's — and the real output said
+  `1 file would be reformatted` / `Error 1`. **Read the output, never the exit code of a
+  pipeline.** Same lesson as the subagent rule, one layer down.
+- The HR-facing matrix carries the change (`HR-DECISION-MATRIX.md`), and says plainly that
+  **the Part 4 ask of eight settings is unchanged** — the 65 are the wider set behind them.
+
+### Also 2026-08-13 — an external gap analysis was triaged, and mostly did not survive
 
 `GH-Copilot/sfu-site-gap-analysis.md` (+ three companion files) compares the repo to the public
 SFU HR site and files nine issues. Verdict + evidence:

@@ -31,6 +31,7 @@ from typing import Any, Final, cast
 from src.jd_core.rules.loader import (
     DecisionProvenance,
     DecisionStatus,
+    DecisionTier,
     HRDecision,
     Rules,
     assert_register_in_step,
@@ -120,6 +121,43 @@ _STATUS_HEADING: Final[dict[DecisionStatus, str]] = {
     "deferred": "Deferred — consciously postponed",
 }
 
+#: Audience tiers, in the order HR should read them: what they must rule on first,
+#: plumbing last. Rendering `technical` above `hr_policy` would recreate the exact
+#: problem the tier was added to fix.
+_TIER_ORDER: Final[tuple[DecisionTier, ...]] = (
+    "hr_policy",
+    "hr_informed",
+    "technical",
+)
+
+_TIER_HEADING: Final[dict[DecisionTier, str]] = {
+    "hr_policy": "Your decisions — these set the bar a job description must meet",
+    "hr_informed": "For your information — these shape what a reviewer sees",
+    "technical": "Engineering settings — recorded here so they cannot drift",
+}
+
+_TIER_BLURB: Final[dict[DecisionTier, str]] = {
+    "hr_policy": (
+        "**This is the ask.** Every entry below changes whether a job description "
+        "passes, fails, is blocked or is scored — or it is SFU's own published "
+        "wording. Until you rule on these, the approval bar is unsigned. If you read "
+        "one section of this document, read this one."
+    ),
+    "hr_informed": (
+        "These change what a reviewer is *shown*, or what a draft *contains* before a "
+        "human rules on it. **None of them decides whether a job description passes.** "
+        "You do not have to sign them off, but you should be able to find them — say "
+        "so if any looks wrong and we will move it into your section."
+    ),
+    "technical": (
+        "Model names, dimensions, timeouts, retries, text-matching patterns and search "
+        "index settings. **These are not policy and you should not be asked to rule on "
+        "them** — a wrong value here is an engineering bug, not a decision. They are "
+        "listed only because the same build check covers every setting we ship, which "
+        "is what stops any of them changing quietly."
+    ),
+}
+
 
 def _code(value: str) -> str:
     return f"`{value}`"
@@ -160,7 +198,7 @@ def _format_value(value: Any, *, compact: bool = False) -> str:
 
 def _decision_block(decision: HRDecision) -> list[str]:
     lines = [
-        f"#### {decision.id} — {decision.question.strip()}",
+        f"##### {decision.id} — {decision.question.strip()}",
         "",
         f"- **We ship:** {_format_value(decision.current_default)}",
         f"- **Configured in:** `{decision.config.file}` → `{decision.config.path}`",
@@ -227,6 +265,7 @@ def render_register(rules: Rules) -> str:
     register = rules.decision_register
     decisions = tuple(sorted(register.decisions, key=lambda d: d.id))
     counts = {status: len(register.by_status(status)) for status in _STATUS_ORDER}
+    tiers = {tier: len(register.by_tier(tier)) for tier in _TIER_ORDER}
 
     out: list[str] = [
         "# SFU HR Decision Register",
@@ -241,6 +280,13 @@ def render_register(rules: Rules) -> str:
         f"explicitly exempted as trivial · "
         f"{len(decision_surface(rules))} parameters on the decision surface, all "
         "accounted for.",
+        "",
+        f"**Of those {len(decisions)}, {tiers['hr_policy']} need an HR ruling.** The "
+        f"other {tiers['hr_informed'] + tiers['technical']} are recorded for the same "
+        f"build check but are not yours to sign: {tiers['hr_informed']} shape what a "
+        f"reviewer sees without deciding whether a job description passes, and "
+        f"{tiers['technical']} are engineering settings. **Read *Your decisions* "
+        "below and you have read the ask.**",
         "",
         "## What this is",
         "",
@@ -270,19 +316,27 @@ def render_register(rules: Rules) -> str:
         if not in_status:
             continue
         out += [f"## {_STATUS_HEADING[status]}", ""]
-        out += _summary_table(in_status)
-        for provenance in _PROVENANCE_ORDER:
-            group = tuple(d for d in in_status if d.provenance == provenance)
-            if not group:
+        # Tier before provenance: the first question a reader has is "is this mine
+        # to decide?", not "who picked the number?". Each tier carries its own
+        # summary table, so HR's section is a table of ~65 rows and not of 197.
+        for tier in _TIER_ORDER:
+            in_tier = tuple(d for d in in_status if d.tier == tier)
+            if not in_tier:
                 continue
-            out += [
-                f"### {_PROVENANCE_HEADING[provenance]}",
-                "",
-                _PROVENANCE_BLURB[provenance],
-                "",
-            ]
-            for decision in group:
-                out += _decision_block(decision)
+            out += [f"### {_TIER_HEADING[tier]}", "", _TIER_BLURB[tier], ""]
+            out += _summary_table(in_tier)
+            for provenance in _PROVENANCE_ORDER:
+                group = tuple(d for d in in_tier if d.provenance == provenance)
+                if not group:
+                    continue
+                out += [
+                    f"#### {_PROVENANCE_HEADING[provenance]}",
+                    "",
+                    _PROVENANCE_BLURB[provenance],
+                    "",
+                ]
+                for decision in group:
+                    out += _decision_block(decision)
 
     out += [
         "## Trivial — on the decision surface, deliberately not a decision",
