@@ -14,6 +14,7 @@ What only a real database + the real service prove:
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import AsyncIterator, Iterator
 
 import pytest
@@ -162,3 +163,74 @@ async def test_a_non_approvable_composed_draft_stays_draft(
         row = await session.get(CanonicalJD, canonical_id)
         assert row is not None
         assert row.status is CanonicalStatus.DRAFT
+
+
+async def test_clone_lineage_survives_submit(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """ "Start from this role" carries `cloned_from_cluster_id` all the way through the
+    Builder — and `assemble_jd` then dropped it on the floor, because it assembles an
+    `SFUJobDescription`, which is a JD document and rightly has no lineage field. So
+    the one fact that says "this role was cloned from that one" died at the last step.
+
+    Provenance is non-negotiable #6 and the audit log is append-only: the lineage has
+    to be written where it cannot be recomputed later, because after submit there is
+    nothing left to recompute it FROM.
+    """
+    source_cluster_id = uuid.uuid4()
+
+    async with session_maker() as session:
+        canonical = await submit_composed_draft(
+            session,
+            _clean_jd(),
+            author_id=AUTHOR,
+            cloned_from_cluster_id=source_cluster_id,
+        )
+        await session.commit()
+        canonical_id = canonical.id
+        cluster_id = canonical.cluster_id
+
+    async with session_maker() as session:
+        row = await session.get(CanonicalJD, canonical_id)
+        assert row is not None
+        assert row.change_log["cloned_from_cluster_id"] == str(source_cluster_id)
+
+        # ...on the synthetic cluster too, so the lineage is answerable from either end.
+        cluster = await session.get(Cluster, cluster_id)
+        assert cluster is not None
+        assert cluster.constraint_metadata["cloned_from_cluster_id"] == str(
+            source_cluster_id
+        )
+
+        # ...and in the append-only audit row, which is the copy that cannot be edited.
+        audit = (
+            (
+                await session.execute(
+                    select(AuditLog).where(AuditLog.entity_id == canonical_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(audit) == 1
+        assert audit[0].payload["cloned_from_cluster_id"] == str(source_cluster_id)
+
+
+async def test_an_original_draft_records_no_false_lineage(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """A draft written from scratch must not claim a parent. Recording `None` as a
+    key would be a provenance falsehood dressed as completeness."""
+    async with session_maker() as session:
+        canonical = await submit_composed_draft(session, _clean_jd(), author_id=AUTHOR)
+        await session.commit()
+        canonical_id = canonical.id
+        cluster_id = canonical.cluster_id
+
+    async with session_maker() as session:
+        row = await session.get(CanonicalJD, canonical_id)
+        assert row is not None
+        assert "cloned_from_cluster_id" not in row.change_log
+        cluster = await session.get(Cluster, cluster_id)
+        assert cluster is not None
+        assert "cloned_from_cluster_id" not in cluster.constraint_metadata
