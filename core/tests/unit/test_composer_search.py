@@ -11,6 +11,7 @@ injected/monkeypatched, so no live infra):
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from typing import Any
@@ -162,7 +163,9 @@ async def test_search_embeds_once_filters_and_caps(
     a, b_cupe, c_missing, d = (uuid.uuid4() for _ in range(4))
     nearest = [(a, 0.99), (b_cupe, 0.98), (c_missing, 0.97), (d, 0.96)]
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return nearest
 
     parsed = {a: _jd("A", "apsa"), b_cupe: _jd("B", "cupe"), d: _jd("D", "poly")}
@@ -210,7 +213,9 @@ async def test_an_exact_title_query_returns_that_title_first(
         assert query == "AV Systems Analyst"
         return {titled: _jd("AV Systems Analyst", "apsa")}
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return [(semantic, 0.8176)]
 
     async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
@@ -265,7 +270,9 @@ async def test_a_harmonized_role_is_found_by_its_own_title(
     async def fake_titles(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
         return {}
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return [(source, 0.81)]
 
     async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
@@ -306,7 +313,9 @@ async def test_role_title_matches_stay_jdfn_only(
     async def fake_titles(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
         return {}
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return []
 
     async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
@@ -358,7 +367,9 @@ async def test_documents_collapse_into_the_role_they_were_harmonized_into(
         # The two members belong to the role above; `other` is unclustered.
         return {member_a: cluster, member_b: cluster}
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return []
 
     async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
@@ -404,10 +415,14 @@ async def test_semantic_pass_searches_harmonized_roles_not_just_the_archive(
     async def fake_titles(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
         return {}
 
-    async def fake_near_roles(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_near_roles(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return [(role_cluster, "AV Systems Analyst", "apsa", 0.91)]
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return [(archive_doc, 0.88)]
 
     async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
@@ -457,6 +472,7 @@ async def test_role_index_lookup_degrades_instead_of_breaking_search() -> None:
             _ExplodingDriver(),  # type: ignore[arg-type]
             [0.1] * 768,
             10,
+            live_stamp="any",
         )
         == []
     )
@@ -488,10 +504,14 @@ async def test_same_titled_roles_are_disambiguated_by_department(
         assert set(ids) == {advising, science}
         return {advising: "Student Advising", science: "Faculty of Science"}
 
-    async def fake_near_roles(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_near_roles(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return []
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return []
 
     async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
@@ -536,7 +556,9 @@ async def test_a_role_with_no_department_anywhere_still_lists(
     async def fake_facets(session: Any, ids: Any) -> dict[Any, Any]:
         return {}  # nothing known
 
-    async def empty_roles(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def empty_roles(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return []
 
     async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
@@ -573,7 +595,9 @@ async def test_a_title_match_is_not_duplicated_by_the_semantic_pass(
     async def fake_titles(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
         return {both: _jd("AV Systems Analyst", "apsa")}
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return [(both, 0.93)]
 
     async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
@@ -609,7 +633,9 @@ async def test_title_matches_stay_jdfn_only(monkeypatch: pytest.MonkeyPatch) -> 
     async def fake_titles(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
         return {cupe: _jd("AV Systems Analyst", "cupe")}
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return []
 
     async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
@@ -640,7 +666,9 @@ async def test_search_respects_the_limit(monkeypatch: pytest.MonkeyPatch) -> Non
     ids = [(uuid.uuid4(), 0.9 - i * 0.01) for i in range(5)]
     parsed = {sid: _jd(f"role-{i}", "apsa") for i, (sid, _) in enumerate(ids)}
 
-    async def fake_nearest(driver: Any, vector: Any, k: int) -> list[Any]:
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
         return ids
 
     async def fake_load(session: Any, sids: Any) -> dict[Any, Any]:
@@ -745,3 +773,144 @@ def test_search_route_transports_hits_and_closes_clients(
     assert body[0]["title"] == "Financial Analyst"
     assert embed.closed is True
     assert neo.closed is True
+
+
+# --- embed_stamp parity: never rank vectors the query cannot be compared to -------
+#
+# `embed_stamp` is written onto every node by `make embed` / `make embed-roles` and,
+# until now, was never read back at query time. Retune an embedding knob and the
+# QUERY vector comes from the new configuration while the STORED vectors are still
+# the old one — the cosines between them are not worse, they are meaningless, and the
+# page rendered an arbitrary ordering as a similarity ranking. Both runners are
+# idempotent and skip-first, so partial staleness is the realistic state.
+
+
+class _StampedDriver:
+    """A driver returning records with the stamps the test asks for."""
+
+    def __init__(self, records: list[dict[str, Any]]) -> None:
+        self._records = records
+
+    def session(self) -> Any:
+        records = self._records
+
+        class _Session:
+            async def __aenter__(self) -> Any:
+                return self
+
+            async def __aexit__(self, *exc: object) -> None:
+                return None
+
+            async def run(self, *args: object, **kwargs: object) -> Any:
+                class _Result:
+                    def __aiter__(self) -> Any:
+                        async def gen() -> Any:
+                            for record in records:
+                                yield record
+
+                        return gen()
+
+                return _Result()
+
+        return _Session()
+
+
+async def test_documents_embedded_under_another_config_are_not_ranked() -> None:
+    live = "jd_rules_sfu_v4+aaaaaaaaaaaa"
+    fresh, stale = uuid.uuid4(), uuid.uuid4()
+    driver = _StampedDriver(
+        [
+            {
+                "id": str(stale),
+                "embed_stamp": "jd_rules_sfu_v4+oldoldoldold",
+                "score": 0.99,
+            },
+            {"id": str(fresh), "embed_stamp": live, "score": 0.80},
+        ]
+    )
+
+    hits = await search_mod._nearest_source_ids(
+        driver,  # type: ignore[arg-type]
+        [0.1] * 768,
+        10,
+        live_stamp=live,
+    )
+
+    # The stale vector scored HIGHER and is still excluded — that is the point. Its
+    # 0.99 is not a better match, it is a number produced by a different embedding.
+    assert [sid for sid, _ in hits] == [fresh]
+
+
+async def test_roles_embedded_under_another_config_are_not_ranked() -> None:
+    live = "jd_rules_sfu_v4+aaaaaaaaaaaa"
+    fresh = uuid.uuid4()
+    driver = _StampedDriver(
+        [
+            {
+                "id": str(uuid.uuid4()),
+                "title": "Stale Role",
+                "employee_group": "apsa",
+                "embed_stamp": "jd_rules_sfu_v4+oldoldoldold",
+                "score": 0.99,
+            },
+            {
+                "id": str(fresh),
+                "title": "Current Role",
+                "employee_group": "apsa",
+                "embed_stamp": live,
+                "score": 0.70,
+            },
+        ]
+    )
+
+    hits = await search_mod._nearest_role_ids(
+        driver,  # type: ignore[arg-type]
+        [0.1] * 768,
+        10,
+        live_stamp=live,
+    )
+
+    assert [title for _, title, _, _ in hits] == ["Current Role"]
+
+
+async def test_a_fully_current_index_loses_nothing() -> None:
+    """The other half: parity must not quietly shrink a healthy index."""
+    live = "jd_rules_sfu_v4+aaaaaaaaaaaa"
+    ids = [uuid.uuid4(), uuid.uuid4()]
+    driver = _StampedDriver(
+        [{"id": str(i), "embed_stamp": live, "score": 0.9} for i in ids]
+    )
+
+    hits = await search_mod._nearest_source_ids(
+        driver,  # type: ignore[arg-type]
+        [0.1] * 768,
+        10,
+        live_stamp=live,
+    )
+
+    assert [sid for sid, _ in hits] == ids
+
+
+async def test_the_operator_is_told_which_vectors_were_excluded(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Silently returning fewer results is the failure this fix exists to end. The
+    shortfall has to reach a human, with the instruction that resolves it."""
+    live = "jd_rules_sfu_v4+aaaaaaaaaaaa"
+    driver = _StampedDriver(
+        [
+            {"id": str(uuid.uuid4()), "embed_stamp": "old", "score": 0.9},
+            {"id": str(uuid.uuid4()), "embed_stamp": live, "score": 0.8},
+        ]
+    )
+
+    with caplog.at_level(logging.WARNING):
+        await search_mod._nearest_source_ids(
+            driver,  # type: ignore[arg-type]
+            [0.1] * 768,
+            10,
+            live_stamp=live,
+        )
+
+    assert "1 of 2" in caplog.text
+    assert "re-run the embedding pass" in caplog.text
