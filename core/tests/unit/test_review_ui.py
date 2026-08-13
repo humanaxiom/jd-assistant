@@ -1151,3 +1151,134 @@ def test_a_malformed_provenance_packet_does_not_break_the_page(
 
     assert "How this draft was assembled" not in body
     assert "Software Developer" in body
+
+
+# --- Phase 8.3a: word-level diff on the diff page -------------------------------------
+
+
+def _inline_diff_packet(
+    monkeypatch: pytest.MonkeyPatch, canonical_id: uuid.UUID, before: str, after: str
+) -> None:
+    """Point the diff route at a REAL (not faked) word-level diff of the two texts."""
+    from src.jd_core.bank.version_diff import SectionChange, VersionDiff
+    from src.jd_core.bank.word_diff import build_inline_diff
+
+    monkeypatch.setattr(
+        ui.service,
+        "get_review_packet",
+        AsyncMock(return_value=_packet(canonical_id=canonical_id)),
+    )
+    diff = VersionDiff(
+        sections=(
+            SectionChange(
+                section="Position Summary",
+                before=before,
+                after=after,
+                changed=True,
+                inline=build_inline_diff(before, after),
+            ),
+        ),
+        any_changes=True,
+    )
+    monkeypatch.setattr(ui.service, "get_version_diff", AsyncMock(return_value=diff))
+
+
+def test_diff_view_marks_changed_words_inline(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The changed word is wrapped, the unchanged words are not — that is the whole
+    point of 8.3a over the section-level before/after."""
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    _inline_diff_packet(
+        monkeypatch,
+        canonical_id,
+        "Develops and maintains apps",
+        "Develops and supports apps",
+    )
+
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}/diff").text
+
+    assert "<del>maintains</del>" in body
+    assert "<ins>supports</ins>" in body
+    assert "<del>Develops" not in body and "<ins>Develops" not in body
+
+
+def test_diff_view_never_renders_jd_text_as_markup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """🔴 The one that matters. Spans are DATA; JD content is authored by people and
+    must reach the page escaped. A `|safe` added to the span loop turns this red."""
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    _inline_diff_packet(
+        monkeypatch,
+        canonical_id,
+        "Writes reports",
+        "Writes <script>alert('xss')</script> reports",
+    )
+
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}/diff").text
+
+    assert "<script>alert" not in body
+    assert "&lt;script&gt;" in body
+
+
+def test_diff_view_unified_toggle_renders_one_stream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """?view=unified shows removal and replacement in one flow, not two columns."""
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    _inline_diff_packet(
+        monkeypatch, canonical_id, "Develops apps daily", "Develops systems daily"
+    )
+
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}/diff?view=unified").text
+
+    assert "<del>apps</del>" in body and "<ins>systems</ins>" in body
+    assert "Last approved" not in body  # the split-view column headings are gone
+
+
+def test_diff_view_unknown_view_falls_back_and_never_422s(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A UI surface must not answer a raw 422 JSON blob (the P0.0 defect class), so
+    `view` is normalized rather than declared a Literal."""
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    _inline_diff_packet(monkeypatch, canonical_id, "before text", "after text")
+
+    resp = client.get(f"/jd-bank/ui/review/{canonical_id}/diff?view=nonsense")
+
+    assert resp.status_code == 200
+    assert "Last approved" in resp.text  # fell back to the split view
+
+
+def test_diff_view_degrades_to_plain_text_without_an_inline_diff(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A changed section carrying no word-level refinement still renders its before and
+    after. The page's job is the approve/reject decision; it is never lost to a missing
+    highlight."""
+    from src.jd_core.bank.version_diff import SectionChange, VersionDiff
+
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    monkeypatch.setattr(
+        ui.service,
+        "get_review_packet",
+        AsyncMock(return_value=_packet(canonical_id=canonical_id)),
+    )
+    diff = VersionDiff(
+        sections=(
+            SectionChange(
+                section="Title", before="Old Title", after="New Title", changed=True
+            ),
+        ),
+        any_changes=True,
+    )
+    monkeypatch.setattr(ui.service, "get_version_diff", AsyncMock(return_value=diff))
+
+    resp = client.get(f"/jd-bank/ui/review/{canonical_id}/diff")
+
+    assert resp.status_code == 200
+    assert "Old Title" in resp.text and "New Title" in resp.text

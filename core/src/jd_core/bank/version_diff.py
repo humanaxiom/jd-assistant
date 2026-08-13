@@ -24,11 +24,17 @@ from collections.abc import Callable
 
 from pydantic import BaseModel, ConfigDict
 
+from src.jd_core.bank.word_diff import InlineDiff, build_inline_diff
 from src.jd_core.models.parsed_jd import SFUJobDescription
 
 
 class SectionChange(BaseModel):
-    """One template section's before/after text and whether it differs."""
+    """One template section's before/after text and whether it differs.
+
+    ``inline`` is the word-level refinement of that before/after (Phase 8.3a), present
+    only where there is something to show — ``None`` for an unchanged section, so the
+    collapsed "unchanged" list costs nothing to build.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -36,6 +42,7 @@ class SectionChange(BaseModel):
     before: str
     after: str
     changed: bool
+    inline: InlineDiff | None = None
 
 
 class VersionDiff(BaseModel):
@@ -149,7 +156,8 @@ def build_version_diff(
             section=label,
             before=(before := serialize(previous)),
             after=(after := serialize(current)),
-            changed=before != after,
+            changed=(changed := before != after),
+            inline=build_inline_diff(before, after) if changed else None,
         )
         for label, serialize in _SECTIONS
     ]
