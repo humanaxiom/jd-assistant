@@ -4,16 +4,22 @@ Read this first every session. Single source of truth for current state + how we
 
 ## ▶ START HERE (2026-08-13) — the state of the world in one screen
 
-**Everything is committed and pushed. Nothing is stranded.**
+> **⚠️ A NOTE ON THE PREVIOUS VERSION OF THIS BLOCK, because the failure will recur.**
+> It said *"Open PRs: none"* and marked `embed_stamp` parity **✅ CLOSED (#99)** while **#99 and
+> #101 were both still OPEN**, and #101 did not even merge cleanly. The block was written when
+> the PRs were *filed*, describing the intended end state as the actual one. **A handoff that
+> records intent as outcome is worse than one that is merely out of date** — the next session
+> reads "closed" and never checks. `gh pr list` costs seconds; this block is now written only
+> from its output.
 
 | | |
 |---|---|
-| `main` | `e695563` — **nine PRs merged this session**: P0.0 navigability (#88) · P0.3 deployment origins (#89) · P0.4 production posture (#90) · P0.1b-ii login round trip (#91) + leftovers (#92) · Copilot-triage inputs (#93) · **P1.3 tier the register (#94)** · **P1.2 harmonization provenance (#95)**, on top of #86's HR docs |
-| **Open PRs** | **none** — verified with `gh pr list`, and `main` verified from `git log origin/main`, not a badge |
-| Gates | **2,627 passing, 93.91%** (from 2,436 / 93.63% at the start of the session) — **re-run on merged `main`, not merely on each PR**; `register-check` + `guide-check` exit 0 |
+| `main` | `dc27981` — **#99** (embed_stamp parity at query time) and **#101** (the employee_group residual, measured) landed after the previous block was written |
+| **Open PRs** | **none** — verified with `gh pr list` *after* the merges, not from the note that predicted them |
+| Gates | **2,638 passing** on the merged state (`make gates` exit 0, coverage 93.32% ≥ 80%); `register-check` + `guide-check` exit 0 |
 | `rules_version` | `jd_rules_sfu_v4+90af5e27dc83` — **unmoved through all nine PRs**. None of this work touched a rulebook metric, so none of it earned a register entry |
 | Register | **197** decisions, **0 ratified** ← *still the critical path, and still external* — but **the ask is now 65, not 197** (P1.3), which is what makes it answerable |
-| Live data | 14,565 files · 14,522 parsed (v3) · 1,802 roles · **4 published** · `review_actions` 6 |
+| Live data | 14,565 files · 14,522 parsed (v3) · **1,803 roles** (was 1,802) · **4 published** · `review_actions` 6 · **every cluster has exactly ONE version** — 1,803 rows across 1,803 clusters, which is why the 8.3a diff has no live surface yet |
 
 ### What changed this session, in one paragraph
 
@@ -93,7 +99,7 @@ was always the real critical path — and the first item is not a commit.
 | **1** | **🔴 TLS at the edge — the last open exposure, and NOT a repo deliverable** | The pilot host is internet-facing over **plain http**, so sign-in cookies and CAS tickets cross the open internet in the clear. P0.4 makes the app correct *behind* a terminator (P0.3's allowlist reads `X-Forwarded-Proto` and validates the result) and refuses to run pretending otherwise — **someone has to put one in front.** It is also what unblocks actually *using* `docker-compose.prod.yml`, which needs an https origin. |
 | ~~2~~ | ~~**P1.3 — Tier the register**~~ ✅ **DONE (PR [#94](https://github.com/humanaxiom/jd-assistant/pull/94))** | The ask is now **65 settings, not 197** (49 `hr_informed` · 83 `technical`), and the generated register leads with **"Your decisions"**. See the block below. |
 | ~~2~~ | ~~**P1.2 — Harmonization provenance**~~ ✅ **DONE (PR [#95](https://github.com/humanaxiom/jd-assistant/pull/95))** | The review page now says how the draft was assembled — and the item **understated** the defect: the whole provenance packet had been computed since 4.1 and rendered nowhere. See the block below. |
-| **2** | **Phase 8.3 — review-experience upgrades ⟵ NEXT** (`docs/plan.md`) | Word-level diff · structural sidebar · gate→field jump links. No GPU, parallelizable. |
+| **2** | **Phase 8.3 — review-experience upgrades** (`docs/plan.md`) | ~~Word-level diff~~ ✅ **8.3a DONE** (see the block below) · **8.3b structural sidebar ⟵ NEXT** · 8.3c gate→field jump links. No GPU, parallelizable. |
 | 3 | **Phase 6 leftovers** | Backup + reindex runbooks, and the **territorial-acknowledgement wording sign-off** — the latter blocks external distribution and is HR's call. |
 
 **Deliberately still open, recorded so their absence is not mistaken for completion:**
@@ -105,6 +111,39 @@ submit~~ ✅ **CLOSED (#98)** ·
 Phase 0~~ ✅ **CLOSED (#100**, which also removed the last `jd_core → jd_bank` import
 edge — the layering ratchet is now empty**)** ·
 `docs/status/*` stops at 2026-07-24.
+
+### 2026-08-13, last — 8.3a: the review diff is word-level, and difflib's default was a trap
+
+`src/jd_core/bank/word_diff.py` + the `?view=unified` toggle on the diff page. Pure and
+deterministic, **no rulebook knob, so no register entry and `rules_version` unmoved**.
+
+- **⚠️ THE FINDING: `difflib`'s default `autojunk=True` is catastrophically wrong for JD
+  text, and it is on by default.** It treats any element appearing in >1% of a sequence of
+  ≥200 elements as junk and refuses to match on it — **the exact shape of a duties list**,
+  where every line opens `- Reviews …`. Measured on a 150-line repetitive block with **one**
+  duty added: the default reports **897 tokens deleted and 913 inserted**; the truth is
+  **0 and 16**. It would have told every reviewer that every duty changed. **A diff that
+  cries "everything changed" is one a reviewer learns to ignore** — the same failure as a
+  stamp that cries wolf (#97). `autojunk=False`, pinned by two tests, mutation-proved.
+- **This was found by measuring, not by reading the docs.** The first hypothesis — that a
+  near-identical long text would degrade — was wrong and produced identical output under
+  both settings. The trap only appears with **repetition plus an edit**, which is what the
+  corpus actually looks like. Same lesson as 5.9 and the coded-language spike: *run it over
+  realistic data before designing around what the library says it does.*
+- **Two properties pinned because a diff is where a human decides to publish.** It is
+  **lossless** — the spans reassemble each side byte for byte across newlines, tabs and
+  unicode, so a dropped word can never show a JD that does not exist — and **spans are data,
+  never markup**: adding `|safe` to the span loop turns the XSS test red. That test passed on
+  the first run, so it was mutated before being trusted.
+- **`?view=` is a normalized `str`, deliberately NOT a `Literal`.** A `Literal` answers a raw
+  `422` JSON blob on a **UI** surface, which is precisely the P0.0 defect class. Unknown
+  values fall back to the split view. The page also degrades to plain text if the word-level
+  refinement is missing — the page's job is the approve/reject decision.
+- **⚠️ REACHABILITY, STATED PLAINLY: it renders on ZERO live JDs today.** The diff needs a
+  prior PUBLISHED version, and **no cluster has more than one version** (1,799 DRAFT · 4
+  PUBLISHED, each the only version of its cluster). The first edit of a published role is
+  what creates the condition. Correct, gated, and **waiting** — recorded here rather than
+  claimed as exercised, per habit #4.
 
 ### 2026-08-13, later still — the interactive timeouts are closed (#97)
 

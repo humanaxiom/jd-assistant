@@ -462,11 +462,19 @@ async def detail_view(
 async def diff_view(
     request: Request,
     canonical_id: UUID,
+    view: str = "split",
     session: AsyncSession = Depends(get_session),
 ) -> HTMLResponse:
-    """Side-by-side "what changed since last approved" for one draft. 404 if the id is
+    """Side-by-side "what changed since last approved" for one draft, with word-level
+    highlighting (Phase 8.3a) and a ``?view=unified`` whole-JD toggle. 404 if the id is
     unknown; a friendly empty-state (not an error) when the cluster has no earlier
-    PUBLISHED version to diff against (``get_version_diff`` returns ``None``)."""
+    PUBLISHED version to diff against (``get_version_diff`` returns ``None``).
+
+    ``view`` is a plain ``str`` normalized here, deliberately NOT a ``Literal``: on a UI
+    surface a validation failure would answer a raw ``422`` JSON blob, which is the
+    P0.0 defect class — a human handed a machine error. An unrecognised value falls back
+    to the split view instead.
+    """
     packet = await service.get_review_packet(session, canonical_id)
     if packet is None:
         return templates.TemplateResponse(
@@ -479,7 +487,12 @@ async def diff_view(
     return templates.TemplateResponse(
         request,
         "review_diff.html",
-        {"request": request, "packet": packet, "diff": diff},
+        {
+            "request": request,
+            "packet": packet,
+            "diff": diff,
+            "unified": view == "unified",
+        },
     )
 
 

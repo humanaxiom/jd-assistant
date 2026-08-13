@@ -868,10 +868,26 @@ The `clone-from-canonical` path exists (library "Start from harmonized role").
 own (HR-195/196/197, see 5.9).
 
 **8.3 — Review-experience upgrades.** *No GPU; parallelizable.*
-- **8.3a Better diff — word/inline level.** The 2026-07-29 version diff is section before/after;
-  upgrade to inline **word-level** highlighting of adds/removals within a changed section
-  (`difflib.SequenceMatcher`, pure/deterministic), with a whole-JD unified view toggle. Pure module +
-  unit tests; no rule/knob change.
+- ✅ **8.3a Better diff — word/inline level. DONE (2026-08-13).** `src/jd_core/bank/word_diff.py`
+  refines each changed section's before/after into `equal`/`insert`/`delete` **spans**, rendered
+  side-by-side or as a `?view=unified` single stream. Pure, deterministic, no rulebook knob, so
+  **no register entry and `rules_version` unmoved**.
+  **⚠ THE FINDING, and it is why this needed measuring rather than writing: `difflib`'s default
+  `autojunk=True` is catastrophically wrong for JD text.** It treats any element appearing in >1%
+  of a sequence of ≥200 elements as junk — the exact shape of a duties list. Measured on a
+  150-line repetitive block with ONE duty added, the default reports **897 tokens deleted and 913
+  inserted**; the truth is **0 and 16**. It would have told every reviewer that every duty
+  changed. `autojunk=False` is pinned by two tests, **mutation-proved** in both directions.
+  Two more properties are pinned because a diff sits where a human decides to publish: it is
+  **lossless** (the spans reassemble each side byte for byte, over newlines/tabs/unicode — a
+  dropped word would show a JD that does not exist), and **spans are data, never markup** (a
+  `|safe` on the span loop turns the XSS test red). The page **degrades to plain text** if the
+  refinement is absent, and `?view=` is normalized rather than a `Literal` so a bad value cannot
+  answer a raw `422` on a UI surface.
+  **⚠ Reachability, stated honestly: it renders on ZERO live JDs today.** The diff needs a prior
+  PUBLISHED version, and no cluster has more than one version (1,799 DRAFT · 4 PUBLISHED, each
+  the only version of its cluster). The first edit of a published role is what creates the
+  condition — so this is correct, gated and *waiting*, not yet exercised in production.
 - **8.3b Structural sidebar (tree + related roles).** A navigation sidebar on the review detail (and
   library) showing this role's place in the corpus: a **cluster → versions tree** (v1→v2→…, current
   highlighted) and a short ranked **"related roles"** list from the Tier-2/Tier-3 dedup edges
@@ -883,7 +899,9 @@ own (HR-195/196/197, see 5.9).
   data). Extends the coarse whole-Edit `#edit` jump shipped 2026-07-31.
 
 **Sequencing:** ~~**8.1** (library) → **8.2** (embed + search) →~~ both landed 2026-08-01…04, out of
-the order planned and partly ahead of it. **8.3** (review UX, no GPU) is what remains. 8.1 turned
+the order planned and partly ahead of it. **8.3** (review UX, no GPU) is what remains —
+~~**8.3a**~~ ✅ landed 2026-08-13; **8.3b** (structural sidebar) and **8.3c** (gate→field
+jump-links) are open. 8.1 turned
 the **1,798** latent drafts into a readable resource; 8.2 made them findable.
 
 **Exit:** an approved JD has a permanent, browsable, searchable home; a reviewer navigates

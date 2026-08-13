@@ -105,3 +105,25 @@ def test_multiple_section_changes_are_all_reported() -> None:
         ),
     )
     assert _changed(diff) == {"Position Summary", "Impact of Decision Making"}
+
+
+def test_a_changed_section_carries_a_word_level_inline_diff() -> None:
+    """Phase 8.3a: the reviewer reads WHICH WORDS changed, not two walls of text."""
+    diff = build_version_diff(_jd(), _jd(title="Senior Software Developer"))
+    title = next(s for s in diff.sections if s.section == "Title")
+
+    assert title.inline is not None
+    inserted = "".join(s.text for s in title.inline.after if s.kind == "insert")
+    assert inserted.strip() == "Senior"
+    # Lossless on both sides — the page shows the stored text, never a reconstruction.
+    assert "".join(s.text for s in title.inline.before) == title.before
+    assert "".join(s.text for s in title.inline.after) == title.after
+
+
+def test_an_unchanged_section_carries_no_inline_diff() -> None:
+    """Computed only where there is something to show, so the collapsed
+    "unchanged sections" list costs nothing."""
+    diff = build_version_diff(_jd(), _jd(title="Senior Software Developer"))
+    for section in diff.sections:
+        if section.section != "Title":
+            assert section.inline is None

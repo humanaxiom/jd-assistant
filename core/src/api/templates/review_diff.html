@@ -1,11 +1,38 @@
 {% extends "_base.html" %}
 {% block title %}JD Bank — Changes {{ packet.canonical_id }}{% endblock %}
 {% block content %}
+{#
+  Word-level diff (Phase 8.3a). Spans are DATA — every `span.text` goes through Jinja's
+  autoescape like any other untrusted string. Never add `|safe` here: JD text is authored
+  by people and must not reach the page as markup.
+#}
+<style>
+  .diffbody { white-space:pre-wrap; word-break:break-word; background:#0d1117;
+              border:1px solid var(--border); border-radius:6px; padding:.75rem;
+              max-height:400px; overflow:auto; }
+  .diffbody ins { background:rgba(63,185,80,.18); color:var(--green); text-decoration:none; }
+  .diffbody del { background:rgba(248,81,73,.18); color:var(--red); }
+  .viewtoggle a { font-size:.85rem; }
+  .viewtoggle .current { color:var(--muted); text-decoration:none; }
+</style>
 
 <div class="panel">
   <h2>{{ packet.content.get("title", "(untitled)") }}</h2>
   <p class="meta">Cluster {{ packet.cluster_id }} · version {{ packet.version }} · status {{ packet.status.value }}</p>
-  <p class="meta">Changes since the last approved version of this role.</p>
+  <p class="meta">Changes since the last approved version of this role.
+  <span class="badge blocked">removed</span> was in the last approved version;
+  <span class="badge ok">added</span> is new in this draft.</p>
+  {% if diff is not none and diff.any_changes %}
+  <p class="viewtoggle">
+    {% if unified %}
+    <a href="/jd-bank/ui/review/{{ packet.canonical_id }}/diff">Side-by-side</a> ·
+    <span class="current">Unified</span>
+    {% else %}
+    <span class="current">Side-by-side</span> ·
+    <a href="/jd-bank/ui/review/{{ packet.canonical_id }}/diff?view=unified">Unified</a>
+    {% endif %}
+  </p>
+  {% endif %}
 </div>
 
 {% if diff is none %}
@@ -17,6 +44,20 @@
 <div class="panel">
   <p>Identical to the last approved version — no section changed.</p>
 </div>
+{% elif unified %}
+{% for section in diff.sections %}
+{% if section.changed %}
+<div class="panel">
+  <h3>{{ section.section }} <span class="badge blocked">changed</span></h3>
+  {# Degrade to plain text if the word-level refinement is absent: the page's job is
+     the approve/reject decision, and it must never be lost to a missing highlight. #}
+  <div class="diffbody">{% if section.inline %}{% for span in section.inline.unified -%}
+{%- if span.kind == "insert" %}<ins>{{ span.text }}</ins>{% elif span.kind == "delete" %}<del>{{ span.text }}</del>{% else %}{{ span.text }}{% endif %}
+{%- endfor %}{% else %}Last approved: {{ section.before or "(empty)" }}
+This draft: {{ section.after or "(empty)" }}{% endif %}</div>
+</div>
+{% endif %}
+{% endfor %}
 {% else %}
 {% for section in diff.sections %}
 {% if section.changed %}
@@ -25,17 +66,24 @@
   <div style="display:flex;gap:1rem;flex-wrap:wrap">
     <div style="flex:1 1 20rem;min-width:0">
       <div class="meta">Last approved</div>
-      <pre style="white-space:pre-wrap">{{ section.before or "(empty)" }}</pre>
+      {# Same degrade rule as the unified view: no spans -> the plain stored text. #}
+      <div class="diffbody">{% if section.inline %}{% for span in section.inline.before -%}
+{%- if span.kind == "delete" %}<del>{{ span.text }}</del>{% else %}{{ span.text }}{% endif %}
+{%- endfor %}{% else %}{{ section.before or "(empty)" }}{% endif %}</div>
     </div>
     <div style="flex:1 1 20rem;min-width:0">
       <div class="meta">This draft</div>
-      <pre style="white-space:pre-wrap">{{ section.after or "(empty)" }}</pre>
+      <div class="diffbody">{% if section.inline %}{% for span in section.inline.after -%}
+{%- if span.kind == "insert" %}<ins>{{ span.text }}</ins>{% else %}{{ span.text }}{% endif %}
+{%- endfor %}{% else %}{{ section.after or "(empty)" }}{% endif %}</div>
     </div>
   </div>
 </div>
 {% endif %}
 {% endfor %}
+{% endif %}
 
+{% if diff is not none and diff.any_changes %}
 <div class="panel">
   <h3>Unchanged sections</h3>
   <ul class="meta">
