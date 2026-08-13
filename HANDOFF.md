@@ -8,10 +8,9 @@ Read this first every session. Single source of truth for current state + how we
 
 | | |
 |---|---|
-| `main` | `cf262b1` — #86 (HR docs) squashed in. Four security/docs PRs before it (#82 · #83 · #85 · #84). |
-| **Open PR 1** | **[#88](https://github.com/humanaxiom/jd-assistant/pull/88)** — **P0.0 navigability**, targeted at `main`, CI green. |
-| **Open PR 2** | **[#89](https://github.com/humanaxiom/jd-assistant/pull/89)** — **P0.3 deployment origins**, stacked on #88. |
-| Gates | **2,548 passing, 93.76%** (P0.0: 2,508 / 93.71%; before: 2,436 / 93.63%); `register-check` + `guide-check` green; `rules_version` `jd_rules_sfu_v4+90af5e27dc83` **still unmoved** |
+| `main` | `c46cc89` — **P0.0 (#88) and P0.3 (#89) are both merged**, on top of #86's HR docs. |
+| **Open PR** | **[#90](https://github.com/humanaxiom/jd-assistant/pull/90)** — **P0.4 the production posture**, targeted at `main`. |
+| Gates | **2,567 passing, 93.76%** (P0.3: 2,548; P0.0: 2,508 / 93.71%; before: 2,436 / 93.63%); `register-check` + `guide-check` green; `rules_version` `jd_rules_sfu_v4+90af5e27dc83` **still unmoved** |
 | Register | **197** decisions, **0 ratified** |
 | Live data | 14,565 files · 14,522 parsed (v3) · 1,802 roles · **4 published** · `review_actions` 6 |
 
@@ -73,6 +72,9 @@ nav · **📝 My drafts** · empty states with escapes · `/favicon.ico` + `/rob
    The data stores were on `0.0.0.0` with the committed `app`/`harnesspass` credentials;
    **they are now bound to `127.0.0.1`**, in compose and in the running containers.
    TLS at the edge is a deployment decision nothing in this repo can make.
+   **P0.4 (#90) builds the production posture and proves it works — but the live demo is
+   still the DEV stack.** Deploying `docker-compose.prod.yml` is a person's decision: it
+   needs a certificate, real secrets, and a call on `JD_API_BIND`.
 3. **`docker compose exec api pytest` is NOT a valid gate on this box.** The repo-root `.env` sets
    `CAS_ENABLED=true`, the `api` service inherits it, and 9 unit tests fail spuriously. The
    hermetic `gates` service pins the posture. **Always `make gates`.**
@@ -88,7 +90,8 @@ nav · **📝 My drafts** · empty states with escapes · `/favicon.ico` + `/rob
 |---|---|---|
 | ~~—~~ | ~~**P0.0 — Navigability**~~ | ✅ **DONE** — PR #88. All 8 defect classes closed; deferrals stated in the task doc. **Absorbed the old P1.1.** |
 | ~~—~~ | ~~**P0.3 — Deployment origins**~~ | ✅ **DONE** — PR #89. Origin allowlist shipped and verified live (both origins sign in at once); data ports on loopback; the exposure question **answered: internet-facing**, which is why the row below moved. |
-| **1** | **🔴 P0.4 — The production posture, actually in force** (was P0.1b-ii's "production compose profile") | **PROMOTED TO P0 by P0.3's answer.** The deployment is public, over plain http, in `environment=development` — so P0.2's fail-closed guard is inactive exactly where it matters. Needs: a production compose profile, TLS at the edge, real secrets, `SESSION_COOKIE_SECURE=true`, `ENVIRONMENT=production`. ⚠️ **The trap it exists to avoid:** `api` runs `uvicorn --reload`, so a settings refusal inside the reloader presents as **"Up but serving nothing"**, not as a dead container — the P0.2 failure mode one layer down. |
+| ~~—~~ | ~~**P0.4 — The production posture**~~ | ✅ **BUILT — PR #90.** `docker-compose.prod.yml` ships and was **verified by deploying it** (own project, own ports, torn down after): a safe posture serves `{"status":"ok"}` with no reloader and no source mount; an unsafe one reads `Restarting (3)` / `unhealthy` and never comes up. ⚠️ **It is available, NOT in force** — the live demo still runs the dev stack. Switching it over is an operator action needing a certificate, real secrets, and a `JD_API_BIND` decision. |
+| **1** | **🔴 TLS at the edge — the last open exposure** | Not a repo deliverable, which is exactly why it needs a person: the app is public over **plain http**, so session cookies and CAS tickets are in the clear on the open internet. P0.4 makes the app correct *behind* a terminator and refuses to pretend otherwise; someone has to put one in front. |
 | 2 | **P0.1b-ii, the rest** (`architecture-review-response-2026-08-07.md` §6) | login CSRF · **open redirect on `next`** (P0.0's crawl declares that link as one whose target it cannot read — the validation is still owed) · `/ready` amplification · `GraphMemory` egress |
 | 3 | **P1.3 — Tier the register** | **Consider promoting.** Two HR complaints traced to one cause: the register does two incompatible jobs. Tiering turns "197 decisions" into ~60 real policy calls — the difference between an ask HR can act on and one they bounce. |
 | 4 | **P1.2 — Harmonization provenance** | A reviewer sees a raised education bar with no sign that most sources said lower. |

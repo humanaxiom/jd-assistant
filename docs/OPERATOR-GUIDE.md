@@ -209,6 +209,40 @@ exception is Ollama, which runs on `aria-gb10-2`.
 | Apply DB migrations | `make migrate` | **Run before ingest.** Postgres (alembic): the auth tables (users/roles/sessions) and the audit hash-chain. Also runs the Neo4j cypher migrations, including **`003`**, which creates the `jd_role_embeddings` vector index — `make embed-roles` cannot run before it. |
 | Open a shell in the app | `make shell` | |
 
+### Deploying for real — the production file  **[operator]** 🖥️
+
+`docker-compose.yml` is the **development** stack: it runs the API with a reloader, mounts
+your working tree into the container, and carries credentials that are committed to this
+repo. Do not deploy it.
+
+```bash
+docker compose -f docker-compose.prod.yml up -d
+```
+
+| It differs from the dev stack in exactly these ways | Why |
+|---|---|
+| No reloader | Measured: under `--reload` a refused start leaves the container reporting `Up` while serving nothing. Without it the process exits `3` and you can see it. |
+| No source mount | The built image is what runs, not whatever is checked out on the box. |
+| `restart: unless-stopped` + a healthcheck on the API | So `Up` means *answering*, and a crash comes back. |
+| `ENVIRONMENT=production` pinned | Turns on the startup check that refuses an unsafe posture. |
+| Credentials have **no defaults** | `docker compose` refuses to start until you set them, instead of quietly using the ones in git. |
+| The API binds to **loopback** | TLS terminates in front of it. Set `JD_API_BIND=0.0.0.0` only if your TLS terminator is on another machine — that publishes the application itself. |
+
+**You must supply**, or compose will not start (it names each one):
+`DATABASE_URL` · `JD_PG_USER` · `JD_PG_PASSWORD` · `NEO4J_PASSWORD` ·
+`CAS_SERVICE_BASE_URL` · `ALLOWED_SERVICE_ORIGINS`.
+
+> **What this does NOT give you: TLS.** The production file will not serve https itself,
+> and the startup check requires https origins — so you need a terminating proxy (or an
+> external one) in front. Until that exists, sign-in cookies and CAS tickets travel in the
+> clear. If a refusal message names a setting, it is telling you the truth about the
+> deployment; fix the setting rather than the check.
+
+> **A refused start looks like this** — the message names every unmet condition at once,
+> and never prints a value, so it is safe to paste into a ticket:
+> `refusing to load settings: 5 unsafe setting(s) for environment='production'.`
+> The container will then read `Restarting (3)` and its health will stay `unhealthy`.
+
 ### The archive pipeline (run in order)
 | Task | Command | Notes |
 |---|---|---|

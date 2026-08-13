@@ -224,6 +224,10 @@ services:
       # `ENVIRONMENT` appeared in `.env.example` and nowhere in compose. The container
       # binds only ./core, so the file has to be mounted to be checked.
       - ./docker-compose.yml:/docker-compose.yml:ro
+      # …and the PRODUCTION file, for the same reason one file over (P0.4).
+      # `tests/unit/test_production_compose.py` derives what it must contain from the
+      # anchor above, so the two cannot drift; it can only do that if it can read both.
+      - ./docker-compose.prod.yml:/docker-compose.prod.yml:ro
     command: ["pytest", "-q"]
 
   # ─── Archive baseline (Phase 2.5) ────────────────────────────────────────
