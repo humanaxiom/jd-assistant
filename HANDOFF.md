@@ -8,11 +8,11 @@ Read this first every session. Single source of truth for current state + how we
 
 | | |
 |---|---|
-| `main` | `d3d91b4` — **five P0 items merged this session**: P0.0 navigability (#88) · P0.3 deployment origins (#89) · P0.4 production posture (#90) · P0.1b-ii login round trip (#91), on top of #86's HR docs |
-| **Open PR** | **[#92](https://github.com/humanaxiom/jd-assistant/pull/92)** — the P0.1b-ii leftovers (`/ready` amplification + `GraphMemory` egress). **With it the entire P0.1b bundle is closed** and no security item from the 2026-08-07 review remains open |
-| Gates | **2,606 passing, 93.89%** (up from 2,436 / 93.63% at the start of the session); `register-check` + `guide-check` green |
-| `rules_version` | `jd_rules_sfu_v4+90af5e27dc83` — **unmoved through all five PRs**. None of this work touched a rulebook metric, so none of it earned a register entry |
-| Register | **197** decisions, **0 ratified** ← *still the critical path, and still external* |
+| `main` | `e695563` — **nine PRs merged this session**: P0.0 navigability (#88) · P0.3 deployment origins (#89) · P0.4 production posture (#90) · P0.1b-ii login round trip (#91) + leftovers (#92) · Copilot-triage inputs (#93) · **P1.3 tier the register (#94)** · **P1.2 harmonization provenance (#95)**, on top of #86's HR docs |
+| **Open PRs** | **none** — verified with `gh pr list`, and `main` verified from `git log origin/main`, not a badge |
+| Gates | **2,627 passing, 93.91%** (from 2,436 / 93.63% at the start of the session) — **re-run on merged `main`, not merely on each PR**; `register-check` + `guide-check` exit 0 |
+| `rules_version` | `jd_rules_sfu_v4+90af5e27dc83` — **unmoved through all nine PRs**. None of this work touched a rulebook metric, so none of it earned a register entry |
+| Register | **197** decisions, **0 ratified** ← *still the critical path, and still external* — but **the ask is now 65, not 197** (P1.3), which is what makes it answerable |
 | Live data | 14,565 files · 14,522 parsed (v3) · 1,802 roles · **4 published** · `review_actions` 6 |
 
 ### What changed this session, in one paragraph
