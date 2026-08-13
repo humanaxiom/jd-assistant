@@ -54,7 +54,12 @@ from src.jd_core.rules import (
     normalize_config_value,
     resolve_config_path,
 )
-from src.jd_core.rules.render import check_markdown, main, render_register
+from src.jd_core.rules.render import (
+    _PROVENANCE_HEADING,
+    check_markdown,
+    main,
+    render_register,
+)
 
 # --- fixtures / helpers -------------------------------------------------------
 
@@ -1672,11 +1677,17 @@ def test_the_rendered_register_names_every_decision(rules: Rules) -> None:
 
 
 def test_the_rendered_register_leads_with_what_nobody_ratified(rules: Rules) -> None:
-    """Our-invention entries are what HR most needs to see, so they come first."""
+    """Our-invention entries are what HR most needs to see, so they come first.
+
+    Pinned against the heading *constants* rather than literal prose: the property
+    is the ordering, and rewording a heading for readability should not have to
+    touch this test. (It did once — the headings were rewritten after an HR reader
+    could not decode "prior calibration".)
+    """
     markdown = render_register(rules)
-    ours = markdown.index("Our invention")
-    inherited = markdown.index("Prior calibration")
-    rulebook = markdown.index("From SFU's published rulebook")
+    ours = markdown.index(_PROVENANCE_HEADING["our_invention"])
+    inherited = markdown.index(_PROVENANCE_HEADING["prior_calibration"])
+    rulebook = markdown.index(_PROVENANCE_HEADING["sfu_rulebook"])
     assert ours < inherited < rulebook
 
 
@@ -1757,3 +1768,77 @@ def test_main_rejects_an_unknown_argument(
 ) -> None:
     assert main(["--wat"]) == 2
     assert "usage" in capsys.readouterr().err
+
+
+# --- readability: the register is read by HR, not only by engineers ------------------
+#
+# Two complaints from an HR reader, both about the SUMMARY TABLE (the part anyone
+# actually reads; the detail blocks below it are for us):
+#
+#   1. "prior calibration" appeared as a bare label with nothing nearby saying what
+#      it means. The phrase is not self-evident, and the sentence that defines it
+#      sits in a section heading far below the table.
+#   2. A regex was printed as a decision's value -- e.g. HR-117's
+#      `JDFN_[A-Z]+_((?:19|20)\d{2})(\d{2})(\d{2})`. That is unreadable to the
+#      audience the document names in its title, and it tells them nothing about
+#      the decision they are being asked to make.
+#
+# The raw pattern is still shown in the entry's own detail block, where the
+# engineer who needs it looks and where `why_it_matters` explains it.
+
+
+def test_the_summary_table_explains_where_a_default_came_from(rules: Rules) -> None:
+    """Every provenance label the table uses is defined right next to the table."""
+    document = render_register(rules)
+    legend = document.split("## Open —", 1)[0]
+    for label in (
+        "we chose it",
+        "an earlier version of this tool",
+        "SFU's published standard",
+    ):
+        assert label in legend, f"{label!r} is used in the table but never explained"
+
+    # The reader must not have to guess, and must not be misled into thinking an
+    # inherited value carries outside authority. It does not: nothing in the
+    # register claims an industry basis, and the values were tuned to agree with
+    # our own approval floor. Saying "industry standard" here would make an
+    # unratified guess sound externally sanctioned — the exact failure this
+    # register exists to prevent.
+    assert "**not** an industry standard" in legend
+    assert "nobody at SFU has agreed to this yet" in legend
+
+
+def test_no_raw_regex_reaches_the_summary_table(rules: Rules) -> None:
+    """A pattern is summarised in the table and shown in full in its detail block.
+
+    The detail blocks are ``####`` sections inside the same status section, not a
+    separate ``## Details`` heading — so "the table" is precisely the lines that
+    are table rows, and nothing else.
+    """
+    document = render_register(rules)
+    rows = [line for line in document.splitlines() if line.startswith("| [HR-")]
+    assert rows, "no summary-table rows found — the table's shape must have changed"
+
+    for row in rows:
+        assert "(?:" not in row, f"a raw regex is shown to HR in the table: {row[:90]}"
+        assert "[A-Z]" not in row, f"a raw regex is shown to HR: {row[:90]}"
+
+    # HR-117 is the entry the complaint named: summarised in the table…
+    hr117 = next(row for row in rows if row.startswith("| [HR-117]"))
+    assert "a text pattern" in hr117
+    # …and still recorded in full in its own detail block.
+    assert r"JDFN_[A-Z]+_((?:19|20)\d{2})(\d{2})(\d{2})" in document
+
+
+def test_a_pattern_valued_decision_is_still_fully_recorded(rules: Rules) -> None:
+    """Summarising in the table must not lose the value anywhere in the document."""
+    document = render_register(rules)
+    for decision in rules.decision_register.decisions:
+        if isinstance(decision.current_default, str) and (
+            decision.config.path.endswith("_pattern")
+            or decision.config.file == "patterns.yaml"
+        ):
+            assert decision.current_default in document, (
+                f"{decision.id}'s pattern is summarised in the table but missing "
+                "from its detail block"
+            )

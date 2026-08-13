@@ -48,34 +48,68 @@ _PROVENANCE_ORDER: Final[tuple[DecisionProvenance, ...]] = (
     "sfu_rulebook",
 )
 
+#: Section headings and blurbs use the SAME words as the table labels below. Two
+#: vocabularies for one idea is how a reader stops trusting a document.
 _PROVENANCE_HEADING: Final[dict[DecisionProvenance, str]] = {
-    "our_invention": "Our invention — nobody has ratified these",
-    "prior_calibration": "Prior calibration — not an SFU-published number",
-    "sfu_rulebook": "From SFU's published rulebook — but read the caveats",
+    "our_invention": "We chose it — nobody has ratified these",
+    "prior_calibration": "An earlier version of this tool chose it — also unratified",
+    "sfu_rulebook": "SFU's published standard — but read the caveats",
 }
 
 _PROVENANCE_BLURB: Final[dict[DecisionProvenance, str]] = {
     "our_invention": (
-        "JD Bank made these up because the system needed *a* value. There is no SFU "
+        "We picked these because the system needed *a* value. There is no SFU "
         "precedent behind any of them. **Start here.**"
     ),
     "prior_calibration": (
-        "Carried over from an earlier internal implementation's calibration. SFU "
-        "publishes no scoring model at all, so these numbers were our own earlier "
-        "judgement, not SFU policy."
+        "Numbers an earlier version of this software already used, which we kept. "
+        "SFU has never published a scoring model, so these are **not** SFU rules and "
+        "**not** industry standards — they are engineering guesses that happen to be "
+        "older than the rest. They need your ruling exactly as much as the group "
+        "above."
     ),
     "sfu_rulebook": (
-        "The value is transcribed from SFU's own rulebook — but *how we act on it* "
-        "(whether it merely costs score or actually blocks approval, and how widely "
-        "we search for it) is still ours. Each entry says which part is SFU's."
+        "The value is SFU's own, from the JD Toolkit or the official template — but "
+        "*what we do about a breach* (whether it merely costs points or actually "
+        "blocks approval, and how widely we search for it) is still ours. Each entry "
+        "says which part is which."
     ),
 }
 
+#: The label shown in the SUMMARY TABLE. It must be self-explaining: an HR reader
+#: asked "prior calibration — what is this??", and they were right to. A term of
+#: art in a column, with its definition in a section heading hundreds of lines
+#: below, is not a label — it is a lookup the reader will not perform.
 _PROVENANCE_LABEL: Final[dict[DecisionProvenance, str]] = {
-    "our_invention": "our invention",
-    "prior_calibration": "prior calibration",
-    "sfu_rulebook": "SFU rulebook",
+    "our_invention": "we chose it",
+    "prior_calibration": "an earlier version of this tool",
+    "sfu_rulebook": "SFU's published standard",
 }
+
+#: Printed immediately above the summary table, so the fourth column can be read
+#: without leaving it.
+_PROVENANCE_LEGEND: Final[tuple[str, ...]] = (
+    "**Reading the last column.** Where each value came from is the whole point of "
+    "this register — so it is written out plainly here, and no term of art is used "
+    "anywhere in it:",
+    "",
+    "| Where it came from | What that means for you |",
+    "|---|---|",
+    "| **SFU's published standard** | The number is SFU's own, taken from the JD "
+    "Toolkit or the official template. *What we do about a breach* — whether it "
+    "merely costs points or actually blocks approval — is still ours, and each entry "
+    "says which part is which. |",
+    "| **an earlier version of this tool** | A number an earlier version of this "
+    "software already used, which we kept. SFU has never published a scoring model, "
+    "so this is **not** an SFU rule and it is **not** an industry standard — it is an "
+    "engineering guess that happens to be older than the others. Treat it exactly as "
+    'you would *"we chose it"*. |',
+    "| **we chose it** | We picked a value because the system needed one. There is no "
+    "SFU precedent behind it, and nobody outside this project has approved it. |",
+    "",
+    "Two of the three mean *nobody at SFU has agreed to this yet.* That is the "
+    "honest position, and it is why this document exists.",
+)
 
 #: Status sections, in the order they are rendered: what is still open first.
 _STATUS_ORDER: Final[tuple[DecisionStatus, ...]] = ("open", "ratified", "deferred")
@@ -151,6 +185,19 @@ def _decision_block(decision: HRDecision) -> list[str]:
     return lines
 
 
+def _is_pattern_valued(decision: HRDecision) -> bool:
+    """Is this decision's value a regular expression?
+
+    Detected from the config path rather than by sniffing the string, so a value
+    that merely *looks* regex-ish is never mangled and a real pattern is never
+    missed. Every pattern in the rulebook lives either at a ``*_pattern`` key or
+    in ``patterns.yaml``.
+    """
+    return decision.config.path.endswith("_pattern") or (
+        decision.config.file == "patterns.yaml"
+    )
+
+
 def _summary_table(decisions: tuple[HRDecision, ...]) -> list[str]:
     lines = [
         "| ID | Decision | Default | Where the default came from |",
@@ -158,10 +205,17 @@ def _summary_table(decisions: tuple[HRDecision, ...]) -> list[str]:
     ]
     for d in decisions:
         question = " ".join(d.question.split())
+        # A regex in a table cell tells this document's stated audience nothing —
+        # it is not a decision they can weigh. The full pattern is in the detail
+        # block below, next to the `why_it_matters` that explains what it does.
+        value = (
+            "*a text pattern — see below*"
+            if _is_pattern_valued(d)
+            else _format_value(d.current_default, compact=True)
+        )
         lines.append(
             f"| [{d.id}](#{d.id.lower()}) | {question} | "
-            f"{_format_value(d.current_default, compact=True)} | "
-            f"{_PROVENANCE_LABEL[d.provenance]} |"
+            f"{value} | {_PROVENANCE_LABEL[d.provenance]} |"
         )
     lines.append("")
     return lines
@@ -208,6 +262,8 @@ def render_register(rules: Rules) -> str:
         " fails.",
         "",
     ]
+
+    out += [*_PROVENANCE_LEGEND, ""]
 
     for status in _STATUS_ORDER:
         in_status = register.by_status(status)

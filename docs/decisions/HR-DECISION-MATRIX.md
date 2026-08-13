@@ -8,9 +8,30 @@ code**, and every decision below is a setting we change in minutes and re-measur
 
 **Status:** *awaiting HR review — nothing in this system has been ratified by SFU.* Until you rule,
 the system's behaviour is provisional and unchanged.
+**Last verified against the live system: 11 August 2026.**
+
+> ⚠️ **`docs/HR-DECISION-MATRIX.pdf` is a manual export dated 31 July 2026 and is now out of
+> date** — it predates the corrections below. Re-export it from this file before sending anything
+> to HR, or delete it. **This Markdown file is the source of truth.**
 
 **Evidence base:** every number here is measured against the **entire SFU job-description archive —
 14,565 files.** It is not a sample.
+
+> **What has changed since this document was first circulated (30 July 2026)**
+>
+> - **The headline numbers below are unchanged, and that was worth checking.** We fixed a
+>   significant reading defect in August — the tool had been missing the identification block
+>   (title, department, employee group, grade) on about half of all modern job descriptions,
+>   because the SFU template keeps it in the document *header*, which our reader skipped. We
+>   re-measured the entire archive afterwards. **The 874-JD result did not move** — because that
+>   defect affected the identification fields, not the written content the quality bar actually
+>   scores. Your ratification is being asked for on the same numbers as before.
+> - **We can now read pay grades out of the documents** — 3,049 of them. That opens a new question
+>   which is *not* one of the eight below; it is tracked separately (see the end of Part 4).
+> - **Sign-in is now SFU single sign-on with proper roles**, and the pilot in Part 5 has been
+>   updated accordingly.
+> - **The settings count moved from 194 to 197.** No new rule was added to the approval bar; the
+>   three additions govern an advisory feature in the authoring tool.
 
 **We are asking you for two things:**
 
@@ -49,18 +70,24 @@ It supports two ways of producing a job description, both ending at the same hum
 
 ### Where the numbers in the rulebook come from
 
-To evaluate a job description the system uses **194 settings** — numbers, word lists and rules.
+To evaluate a job description the system uses **197 settings** — numbers, word lists and rules.
 
 | Source | Count | What it means |
 |---|---:|---|
 | **SFU's own JD Toolkit** | **19** | Published SFU standards (e.g. the 100–150-word Position Summary range). |
-| **Our choices** | **175** | Settings we had to pick because the Toolkit does not specify them. |
+| **Our choices** | **178** | Settings we had to pick because the Toolkit does not specify them. |
 
-Most of the 175 govern the machinery (how duplicates are detected, how roles are clustered) and
-change nothing about whether a JD is acceptable. **A small core of them silently decide which of your
-job descriptions pass — and those are what this document puts in front of you.** The remaining ~185
-are recorded internally and, the archive shows, change almost nothing; they can be ratified in bulk
-or reviewed at your leisure.
+**That 197 overstates what is actually yours to decide, and we would rather say so than let the
+number do the arguing.** Most of it governs machinery — how duplicates are detected, how roles are
+clustered, how the search index is tuned. Nearly a third sits in one comparison component that the
+system itself labels as *not* a classification decision. Asking HR to ratify a search setting would
+waste your time and dilute the decisions that matter.
+
+**Roughly 60 of the 197 genuinely touch whether a job description passes.** The eight in Part 4 are
+the ones that decide it today, on the evidence of the archive; the rest of that ~60 change almost
+nothing measurable and can be ratified in bulk or at your leisure. We are separating the register
+into *policy* and *engineering* tiers so that a future version of this document asks you about ~60
+things and never about the other ~137.
 
 ### How to read a result
 
@@ -341,8 +368,18 @@ case we make it non-appealable. A small policy call, bundled here so it isn't de
 
 **The finding:** everything above is measured on job descriptions written on SFU's **APSA/APEX/Poly
 template.** **CUPE roles use a different form — the Weighted Job Questionnaire (WJQ)** — and they are
-**4,300 of your 14,565 files (~30%).** The tool *reads* them, but does **not** score them and will
+**4,440 of your 14,565 files (30.6%).** The tool *reads* them, but does **not** score them and will
 **not** author them.
+
+> **One caveat we owe you, because it changes how precisely we can state this boundary.** Of the
+> whole archive, we can currently identify the employee group for about two thirds:
+> **37% APSA/APEX/Poly · 31% CUPE · 32% we cannot yet classify.** That last third is **our gap, not
+> a question for you** — those documents simply do not state their group in a way our reader has
+> recovered yet, and we are fixing it. It does not affect the measured results above, which are
+> drawn from job descriptions whose group *is* known. But it does mean that when we say "the Bank
+> serves roughly 70% of the archive", the honest version is "the Bank serves everything on the
+> APSA/APEX/Poly template, and we are still improving our ability to tell you exactly how many
+> documents that is."
 
 This is deliberate, not an oversight:
 
@@ -366,11 +403,40 @@ accident of which template we started with.
 
 ---
 
+### Also open, and tracked separately — pay grade
+
+**Not one of the eight**, because it is newer than this document and does not affect whether a job
+description can be approved. Raised here so it is not a surprise.
+
+The tool now reads the pay grade straight out of the document wherever one is stated — **3,049 job
+descriptions: 2,322 CUPE, 687 APSA, 34 APEX.** *(An earlier version of our analysis said APSA
+grades were essentially never recorded in the JD. That was wrong — it was the same header-reading
+defect described at the top of this document, and it is corrected.)*
+
+Two things we need, in `grade-scales-hr-ask.md`:
+
+1. **The valid grade values for each employee group.** We can read grades but cannot tell a correct
+   value from a typo, so grade entry is an unchecked free-text box. This is a fifteen-minute answer.
+2. **Where grade comes from for the 11,473 job descriptions that state none.** There is no separate
+   system holding them, so this is a question of method. Our suggestion: you supply the valid
+   values, the reviewer sets the grade when they approve, and you spot-check a sample of the 3,049
+   we already read — an afternoon of your time, and a fifth of the archive arrives already graded.
+
+---
+
 ## 5 · Walk the system (the hands-on pilot)
 
-Your JD Bank operator will send you the link and confirm your sign-in (your SFU account) and that you
-have the **reviewer** role. Once in, use the navigation bar at the top. The goal is to exercise a real
-reviewer's judgement on a handful of drafts and flag anything the tool gets wrong.
+**Where to go:** your JD Bank operator will confirm the address. Type it in full and bookmark it —
+the system does not have a front page yet, so the bare hostname will show you an error rather than
+the tool. **Sign in with your SFU account** (single sign-on); your operator will confirm you have
+the **reviewer** role. Once in, use the navigation bar at the top.
+
+**Start by reading, not reviewing.** Open **🏦 JD Bank** first and spend five minutes in the
+library — search for a role you know, open it, and look at the source job descriptions it was
+distilled from. If the harmonised version of a role you know well is wrong, that is worth more to
+us than any number in Part 3.
+
+Then exercise a reviewer's judgement on a handful of drafts:
 
 1. **Open 📋 Review queue.** You'll see the drafts awaiting review, most-blocked first, each with its
    score and how many gates block it. Pick one to open.
@@ -387,11 +453,23 @@ reviewer's judgement on a handful of drafts and flag anything the tool gets wron
    - **Edit** — change any field (title, summary, duties, qualifications, the footer flags…) and Save.
      This is a structured, field-by-field editor — no raw data. Saving creates a **new draft version**
      for review; it does **not** publish.
-5. **(Optional) Try 🧱 Builder.** Author a brand-new JD from the guided questions (or search an
+5. **Try editing an already-approved job description.** Open a published one and use *Propose an
+   update.* This mints a **new draft** while **the approved version stays live** — a role is never
+   left without an approved JD during the review window, and the old version retires only when its
+   replacement is approved. Worth confirming that matches how you expect revisions to work.
+6. **(Optional) Try 🧱 Builder.** Author a brand-new JD from the guided questions (or search an
    existing one and clone it), press **Check compliance**, and watch the live panel score it as you
-   go. Submit it and it lands in the same review queue.
-6. **Keep a short list as you go:** any JD where you *disagreed* with the tool — it blocked something
+   go. Once you've written a summary, a **"Roles SFU already has"** panel appears — the existing
+   roles that look like the one you're writing, so nobody creates a tenth near-copy of a role that
+   exists. It is advisory and never blocks you. Submit and it lands in the same review queue.
+7. **Keep a short list as you go:** any JD where you *disagreed* with the tool — it blocked something
    fine, or passed something you'd reject. **That list is the most valuable thing you produce.**
+
+> **Two things you may hit, neither of which is a fault in your work.** If a page you left open for
+> a while says **"Forbidden"** when you submit, reload it and redo the action — a security control
+> added in August expires idle pages. And a small number of roles still show a **whole sentence as
+> their title** instead of a job title; that is a known reading defect on older documents, about
+> one role in twenty-five, and it is on our list.
 
 *(📊 Dashboards and 📖 Guide are there for context — the dashboards summarise the archive; the guide
 is the full operator manual. Neither is required for this review.)*
@@ -418,7 +496,12 @@ is the full operator manual. Neither is required for this review.)*
    mistake again.
 
 **A decision is recorded even when you keep a setting unchanged.** "HR reviewed this and kept it" is a
-different, stronger fact than "nobody has looked yet" — and every one of the 194 settings currently
+different, stronger fact than "nobody has looked yet" — and every one of the 197 settings currently
 sits at the second.
+
+**Where we actually are:** **four** job descriptions have been approved through this system, by us,
+as a test that the machinery works end to end. **No experienced reviewer has yet driven it.** That
+is precisely what Part 5 is for, and it is the single thing most worth your time — the engineering
+is built and measured; what it has never had is a professional's judgement applied to it.
 
 **Until you rule, we change nothing.**

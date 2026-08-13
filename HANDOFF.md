@@ -2,10 +2,130 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-**NEWEST (2026-08-11): P0.1b-i — CSRF FOR COOKIE-AUTHENTICATED STATE CHANGES IS DONE (branch
-`fix/csrf-cookie-authenticated-state-changes`, NOT yet merged).** `make gates` **2,431 passing,
-93.6%**; `register-check` in step; `rules_version` **unmoved** (`jd_rules_sfu_v4+90af5e27dc83`)
-— transport security, not a rulebook metric, so **no register entry**.
+## ▶ START HERE (2026-08-12) — the state of the world in one screen
+
+**Everything is committed and pushed. Nothing is stranded.**
+
+| | |
+|---|---|
+| `main` | `591a3f3` — three security PRs merged (#82 JSON-API auth · #83 fail-closed posture · #85 CSRF) |
+| **Open PR** | **[#86](https://github.com/humanaxiom/jd-assistant/pull/86)** — `chore/hr-docs-and-backlog`, 12 commits, **docs + one renderer change, no behaviour change.** Merge it first; everything below assumes it. |
+| Gates | **2,436 passing, 93.63%**; `register-check` + `guide-check` green; `rules_version` `jd_rules_sfu_v4+90af5e27dc83` **unmoved all session** |
+| Register | **197** decisions, **0 ratified** |
+| Live data | 14,565 files · 14,522 parsed (v3) · 1,802 roles · **4 published** · `review_actions` 6 |
+
+### ⚠️ Two things about the RUNNING system you must know before touching it
+
+1. **`CAS_SERVICE_BASE_URL` is pointed at `http://sfuai.ca:7000`, so LOCALHOST SIGN-IN IS
+   BROKEN.** That is deliberate — the system was demoed through a port forward. CAS returns the
+   browser to whatever this single value says, and it can only say one thing. To work on
+   localhost, set it back to `http://localhost:25800` and `docker compose up -d api`. **This is
+   exactly what P0.3 exists to fix.** A copy of the pre-demo `.env` is at
+   `/tmp/.env.before-sfuai` (host temp — may not survive a reboot; the only line that differs is
+   that one).
+2. **`docker compose exec api pytest` is NOT a valid gate on this box.** The repo-root `.env` sets
+   `CAS_ENABLED=true`, the `api` service inherits it, and 9 unit tests fail spuriously. The
+   hermetic `gates` service pins the posture. **Always `make gates`.**
+
+### The queue, in order
+
+| | Task | Why it is here |
+|---|---|---|
+| 1 | **P0.0 — Navigability** (`docs/tasks/P0.0-navigability.md`) | `localhost:25800` returns raw JSON. A 51-route crawl found **8 defect classes**; the inventory is in the task. **Absorbs the old P1.1.** |
+| 2 | **P0.3 — Deployment origins** (`docs/tasks/P0.3-deployment-origins.md`) | CAS origin allowlist + the unanswered exposure question. Item 1 above is the live symptom. |
+| 3 | **P0.1b-ii** (`architecture-review-response-2026-08-07.md` §6) | login CSRF · open redirect on `next` · `/ready` amplification · production compose profile · `GraphMemory` egress |
+| 4 | **P1.3 — Tier the register** | **Consider promoting.** Two HR complaints this session traced to one cause: the register does two incompatible jobs. Tiering turns "197 decisions" into ~60 real policy calls — the difference between an ask HR can act on and one they bounce. |
+| 5 | **P1.2 — Harmonization provenance** | A reviewer sees a raised education bar with no sign that most sources said lower. |
+
+### How this session worked, and what it kept catching
+
+**Three controls shipped green while a hole existed** — the authorization matrix (green while an
+open route was served), the compose-delivery pin (protected 1 of 12 services), and the CSRF
+guard's three untested branches. **Every one was found by mutation, not by reading.** So: build
+safety nets that **enumerate from the live artifact** (the routing table, a real refusal message,
+rendered HTML), and **prove the net fails before trusting it.**
+
+**And the one that no test could have caught:** P0.2's implementation was correct on the first
+pass — nine conditions, no bypass, 2,218 tests green — and it was a **complete no-op**, because
+`ENVIRONMENT` reached zero of fourteen containers. Both reviewers found it by *trying to deploy*.
+**When you build a control, prove it is reachable from the documented path, not merely that its
+logic is right.**
+
+---
+
+**PRIOR (2026-08-11, later): 🔴 P0.0 NAVIGABILITY filed.**
+Task: **`docs/tasks/P0.0-navigability.md`**.
+
+- **Found live, minutes before an HR demo: `http://localhost:25800` answers
+  `{"detail":"Not Found"}`.** So does `/jd-bank/ui`. The shallowest working path is
+  `/jd-bank/ui/library`, so anyone who types or bookmarks the bare host lands on a raw JSON
+  error.
+- **It is not a missing redirect — it is three gaps meeting at the front door.** (1) No landing
+  route. (2) **Errors are written for machines, not people**: every UI 404/403/500 is a JSON blob
+  in the browser, *including the stale-tab CSRF 403* that now fires after P0.1b-i. (3) **Nothing
+  anywhere tests that a rendered link resolves** — every `href` in every template is unverified,
+  so a Jinja-built path with one wrong segment ships silently.
+- **Fix the class, not the instances:** a landing route, HTML error pages in the app's own chrome
+  (with copy for the stale-tab case that says *reload and try again*, not "Forbidden"), and a
+  **crawl test that extracts every `href`/`form action` from every rendered page and fails when
+  one 404s**. Build it the way the other nets in this repo had to be rebuilt — **enumerate from
+  the live artifact**, as the authorization matrix walks the real routing table and the
+  compose-delivery pin derives its set from a real refusal message — and **prove it fails** before
+  trusting it.
+- **Why P0:** the pilot is a person clicking around unsupervised. A reviewer who hits a JSON blob
+  does not file a bug, they lose confidence. And it is cheap.
+- **Cost, stated honestly:** any new route needs an entry in `test_authorization_matrix.py` (its
+  completeness assertion fails otherwise, by design) and in the CSRF table if it changes state.
+  ⚠️ **One trap:** mounting `StaticFiles` for `favicon.ico` turns the matrix **red** — its walk
+  raises `UnwalkableRouteError` on a mount *by design*, so the walk must be extended first.
+- **✅ THE CRAWL IS DONE and its inventory is in the task doc** — 51 routes, unauthenticated and as
+  admin/reviewer/author, plus all 19 templates. **The worry that prompted it did not materialise:
+  zero broken template links**, no route shadowing, trailing slashes work, and four routes already
+  render a friendly HTML 404 — *that is the pattern to copy.*
+- **🔴 IT FOUND SOMETHING WORSE THAN THE FRONT DOOR.** `author` is `default_new_user_role`, and for
+  an author: the nav shows a **Review queue** link that answers **`403` raw JSON**, and **Submit
+  commits the draft, redirects to a reviewer-only page, and strands them on a JSON blob** with no
+  sign the work saved. **That is the first-run experience.** The organising defect behind all eight
+  classes: the authorization matrix distinguishes JSON from UI surfaces **for the status code**,
+  and nothing does so **for the body**.
+- **➡️ P1.1 (author submission status) IS ABSORBED INTO P0.0** — fixing the redirect target without
+  fixing the nav that offered the link just moves the dead end. Ship together: root redirect · HTML
+  error pages (404/403/401/405/500) · role-aware nav · author "my drafts" landing · empty-state
+  links · the crawl test.
+- **Order:** ~~P0.1a~~ ✅ → ~~P0.2~~ ✅ → ~~P0.1b-i~~ ✅ → **P0.0 ⟵ NEXT** → **P0.3** → P0.1b-ii →
+  P1.2 → P1.3.
+
+- **🟠 NEW — P0.3 DEPLOYMENT ORIGINS (`docs/tasks/P0.3-deployment-origins.md`).** The system was
+  reached from outside the dev box for the first time (`sfuai.ca:7000` → `25800`) and **sign-in
+  broke**: CAS authenticated, issued a ticket, then returned the browser to
+  **`http://localhost:25800/...`**, because the CAS return origin is a **single static setting**.
+  Repointing `CAS_SERVICE_BASE_URL` fixed it live — **a workaround, not a design.** One value
+  cannot serve localhost, the forward and a future hostname; while it points at the forward,
+  **localhost sign-in does not work.** The existing alternative (`cas_service_from_request`, taken
+  from `X-Forwarded-Host`) is the **header-injection vector P0.2 deliberately refuses in
+  production**, so today's options are *rigid* or *exploitable*. Build the third: derive the
+  origin, **validate it against an allowlist** (shape it like `allowed_inference_hosts`), force
+  https in production, and fall back to the static value — **never** to the header. Note P0.2's
+  refusal of that flag must be updated in the same change or it will refuse the new mechanism too.
+  *Useful fact: SFU CAS accepted `http://localhost:25800` as a service and issued a ticket, so CAS
+  is **not** validating service URLs for us.*
+- **⚠️ P0.3 PART 2 — AN UNANSWERED QUESTION, AND IT IS THE BIGGER ONE.** The app is now reachable
+  at a **public DNS name over plain http** while running `environment=development` — so **P0.2's
+  fail-closed guard is inactive**, session cookies and CAS tickets cross the network in the clear,
+  DB/Neo4j creds are the committed `app`/`harnesspass`, and the data stores publish on `0.0.0.0`
+  (**25432 / 25474 / 25687 / 25379**). **If port 7000 reaches this host from outside, check whether
+  those do too — that is a larger exposure than the CAS redirect that surfaced it.** Ask whether
+  the forward is internet-facing or campus/VPN-only; bind the data ports to loopback either way.
+  If internet-facing, the missing **production compose profile** (P0.1b-ii) stops being optional —
+  `api` still runs `--reload`, so a refuse-to-boot would present as "Up but serving nothing".
+
+---
+
+**PRIOR (2026-08-11): P0.1b-i — CSRF FOR COOKIE-AUTHENTICATED STATE CHANGES — MERGED**
+(PR [#85](https://github.com/humanaxiom/jd-assistant/pull/85), `591a3f3`, CI green).
+`make gates` **2,433 passing, 93.63%**; `register-check` in step; `rules_version` **unmoved**
+(`jd_rules_sfu_v4+90af5e27dc83`) — transport security, not a rulebook metric, so **no register
+entry**.
 
 - **What was open.** Every UI mutation was a cookie-authenticated form POST with no CSRF
   defence. P0.1a made the actor server-derived and P0.2 made the posture enforceable; neither
