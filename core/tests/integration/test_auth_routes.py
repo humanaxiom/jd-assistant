@@ -108,11 +108,15 @@ def test_logout_revokes_the_session(
     # SYNC test: TestClient must be driven from a sync context. DB checks run via
     # asyncio.run (a fresh loop each time) so no asyncpg connection crosses loops.
     tc, _ = client
-    tc.get(
-        "/jd-bank/ui/cas/validate",
-        params={"ticket": "DEV-FAKE-CAS-TICKET", "next": "/jd-bank/ui/queue"},
+    # Through the FRONT of the CAS dance, not straight to the callback: P0.1b-ii binds
+    # the round trip to the browser with a login-state cookie that `/cas/login` sets,
+    # and a callback without it is a login this browser never started.
+    start = tc.get(
+        "/jd-bank/ui/cas/login",
+        params={"next": "/jd-bank/ui/queue"},
         follow_redirects=False,
     )
+    tc.get(start.headers["location"], follow_redirects=False)
     token = tc.cookies.get("jdbank_session")
     assert token is not None  # login minted an active session (see the test above)
 

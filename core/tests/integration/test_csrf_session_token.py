@@ -99,11 +99,17 @@ def client(maker: async_sessionmaker[AsyncSession]) -> Iterator[TestClient]:
 
 
 def _log_in(tc: TestClient) -> str:
-    """Complete the dev-fake CAS dance and return the session cookie value."""
-    tc.get(
-        "/jd-bank/ui/cas/validate",
-        params={"ticket": "DEV-FAKE-CAS-TICKET", "next": "/jd-bank/ui/queue"},
-    )
+    """Complete the dev-fake CAS dance and return the session cookie value.
+
+    **Started at ``/cas/login``, not at ``/cas/validate``.** This used to jump straight
+    to the callback, which P0.1b-ii now refuses: a callback with no login-state cookie
+    is a login the browser did not start, and that refusal is the login-CSRF control.
+    Going through the front of the dance is both what a browser does and what keeps this
+    helper honest — it now exercises the real flow rather than a shortcut around it.
+    """
+    start = tc.get("/jd-bank/ui/cas/login", params={"next": "/jd-bank/ui/queue"})
+    assert start.status_code == 302, f"cas/login did not redirect: {start.status_code}"
+    tc.get(start.headers["location"])
     token = tc.cookies.get("jdbank_session")
     assert token is not None, "the dev-fake login did not mint a session cookie"
     return token
