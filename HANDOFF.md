@@ -517,11 +517,20 @@ Every claim was re-verified against the code before being planned around; 9 of 1
   14,522 current-parser JDs: **JDFN served 5,416 (37.3%)** · **cupe excluded 4,440 (30.6%)**
   (HR-194, `open`) · **`employee_group` not parsed at all: 4,630 (31.9%)**. The exclusion is
   defensible — the validator only scores the JDFN template, so scoring CUPE guarantees a
-  category-error mis-score. **But the third bucket is OURS, not HR's:** it is exactly the parser's
+  category-error mis-score. ~~**But the third bucket is OURS, not HR's:** it is exactly the parser's
   residual (v3 recovers `employee_group` for 68.1%), so for a third of the archive "the Bank serves
-  JDFN" is **unfalsifiable**. Close that BEFORE the CUPE scope conversation — otherwise HR is asked
-  to rule on a boundary we cannot measure. **One sentence for HR: the Bank serves roughly a third of
-  SFU's archive, deliberately excludes another third, and cannot classify the rest.**
+  JDFN" is **unfalsifiable**. Close that BEFORE the CUPE scope conversation.~~
+  **⚠️ CORRECTED 2026-08-13 — THE THIRD BUCKET IS NOT OURS AND NOT CLOSEABLE BY PARSING.** Measured
+  over a 300-file random sample of the 4,630: **91.3% contain no group token anywhere in the text**,
+  and **1 in 300** carries a label the parser missed. The documents do not state the fact. The
+  filename recovers **193 of 4,630** and that is the ceiling. The 8.7% that mention a token are
+  *"Supervises one full-time CUPE support staff person"* — JDFN roles supervising CUPE, so matching
+  on them would manufacture the very category error the exclusion avoids. Closing it properly means
+  the **HRIS**, i.e. the HR-blocked export/FIPPA thread. Evidence:
+  `docs/decisions/employee-group-residual-2026-08-13.md`.
+  **The one sentence for HR is unchanged and now fully earned: the Bank serves roughly a third of
+  SFU's archive, deliberately excludes another third, and for the last third the documents
+  themselves do not say.**
 - **Where the review is off the mark** (detail in the plan doc): live-model tests were never
   claimed to be canaries and are deselected from gates twice over — the real residual is that the
   opt-in golden targets **exit 0 when everything skipped**; the DB→queue outbox is
