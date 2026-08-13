@@ -164,11 +164,22 @@ they reach the address another way. **Admin required:** no (reviewer suffices).
 | Task | How | Notes |
 |---|---|---|
 | See what's awaiting review | Open the **Review queue** | Lists draft canonical JDs. |
-| Inspect a draft | Click a row → the review detail page | Shows the rendered draft, the harmonization change-log (what each source fed, what was dropped and why), and the live gate decision. |
+| Inspect a draft | Click a row → the review detail page | Shows the rendered draft, the harmonization change-log (what each source fed, what was dropped and why), **how the draft was assembled** (see below), and the live gate decision. |
+| **See how the draft was assembled** | The **"How this draft was assembled"** panel | How many source JDs were harmonized into this draft; how many of them required each skill and stated each duty; anything flagged for your eye; and **how the education and experience bars were chosen**. |
 | See what changed | **Changes since last approved version →** | A side-by-side, section-by-section diff of the draft against the last approved version of the same role. Says "no prior approved version" the first time a role is reviewed. |
 | **Approve** | **Approve** (fill an override reason for any overridable blocking gate) | Publishes **only if** the validator's gates permit it, re-checked at approve time. A blocked draft cannot be approved without a valid override + written reason. Approving a draft also **supersedes** (archives) any other live published version of the same role, so a cluster never carries two published rows at once. |
 | **Reject** | **Reject** + a reason | Only offered on a live **DRAFT**. |
 | **Edit** | **Edit** the fields + a reason | A structured, field-by-field editor (title, summary, duties, qualifications, footer flags, …) — no raw JSON. Editing a **DRAFT** archives the prior version, as before. Editing a **PUBLISHED** JD instead mints a new **DRAFT** and the prior version **stays published** — archiving it immediately would leave the role with no live approved JD for the whole review window; it retires only when its replacement is **approved**. **ARCHIVED** is refused: rejected or superseded is settled, and editing one would fork a new version off dead history. |
+
+> **Why the "how this draft was assembled" panel matters, and what to do with it.** When a
+> role's source JDs disagree about the required education or experience, the draft takes the
+> **highest** bar any one of them stated — so a single source asking for a master's raises the
+> whole role to a master's. That is a setting SFU HR has not yet ratified (HR-175), and the
+> panel now says so explicitly: *"the sources disagreed — 1 of 10 stated the bar this draft
+> uses, and 9 stated a different one."* **When you see that, check the bar suits the role
+> rather than just the strictest source** — lowering it is an ordinary Edit. A source that
+> stated no bar at all is not counted as disagreeing. The panel is background for your
+> decision: it never changes the draft, the score or the gates.
 
 > A **published** JD's review page shows **no Approve/Reject buttons** (the service could
 > only refuse them) and its Edit panel is reframed **"Propose an update"**. An

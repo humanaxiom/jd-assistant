@@ -63,6 +63,77 @@
   <pre>{{ rendered_draft }}</pre>
 </div>
 
+{# How the draft was assembled. The merge provenance has been computed and stored
+   since Phase 4.1 and was shown NOWHERE until P1.2 — so a reviewer was asked to
+   approve a merged draft without being able to see what the sources actually said.
+   Advisory and read-only: nothing here changes the draft or the verdict. #}
+{% if provenance %}
+<div class="panel">
+  <h2>How this draft was assembled</h2>
+  <p class="meta">
+    Harmonized from <strong>{{ provenance.member_count }}</strong>
+    source job description{{ '' if provenance.member_count == 1 else 's' }}.
+    This is background for your decision — it does not change the draft or the gates.
+  </p>
+
+  {% for bar in provenance.seniority_bars %}
+  <p>
+    <strong>{{ bar.kind | capitalize }} bar:</strong>
+    {% if bar.disagreed %}
+      the sources <strong>disagreed</strong> — {{ bar.agreeing }} of
+      {{ bar.agreeing + bar.overruled }} stated the bar this draft uses, and
+      {{ bar.overruled }} stated a different one.
+      {% if bar.policy == 'max' %}
+        The draft takes the <em>highest</em> bar any source stated
+      {% else %}
+        The draft takes the <em>most common</em> bar the sources stated
+      {% endif %}
+      (a setting SFU HR has not yet ratified — HR-175).
+      <span class="meta">Check that the bar suits the role, not just the strictest source.</span>
+    {% else %}
+      every source that stated one agreed ({{ bar.agreeing }} of
+      {{ provenance.member_count }}).
+    {% endif %}
+  </p>
+  {% endfor %}
+
+  {% if provenance.flags %}
+  <p>
+    <strong>Flagged for your eye:</strong>
+    {{ provenance.flags | join(', ') | replace('_', ' ') }}
+  </p>
+  {% endif %}
+
+  {% if provenance.skill_frequency %}
+  <p><strong>How many sources required each skill</strong></p>
+  <ul>
+    {% for skill, count in provenance.skill_frequency[:provenance_rows] %}
+    <li>{{ skill }} — {{ count }} of {{ provenance.member_count }}</li>
+    {% endfor %}
+  </ul>
+  {% if provenance.skill_frequency | length > provenance_rows %}
+  <p class="meta">
+    …and {{ provenance.skill_frequency | length - provenance_rows }} more.
+  </p>
+  {% endif %}
+  {% endif %}
+
+  {% if provenance.duty_coverage %}
+  <p><strong>How many sources stated each duty</strong></p>
+  <ul>
+    {% for duty, count in provenance.duty_coverage[:provenance_rows] %}
+    <li>{{ duty }} — {{ count }} of {{ provenance.member_count }}</li>
+    {% endfor %}
+  </ul>
+  {% if provenance.duty_coverage | length > provenance_rows %}
+  <p class="meta">
+    …and {{ provenance.duty_coverage | length - provenance_rows }} more.
+  </p>
+  {% endif %}
+  {% endif %}
+</div>
+{% endif %}
+
 {% if removed %}
 <div class="panel">
   <h2>Removed content (harmonization diff)</h2>

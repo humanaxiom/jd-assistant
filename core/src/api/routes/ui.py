@@ -56,6 +56,7 @@ from src.jd_bank.review import (
     ReviewPacket,
     service,
 )
+from src.jd_core.models.bank import MergeProvenance
 from src.jd_core.models.parsed_jd import QualificationKind, SFUEmployeeGroup
 from src.jd_core.models.quality import GateOverride
 from src.jd_core.rules import get_rules
@@ -317,6 +318,37 @@ def _edit_view(content: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+#: How many rows of skill/duty provenance the panel shows before it stops. A reading
+#: limit on a display list — not a decision parameter, and it changes no verdict, so
+#: it is deliberately not a rulebook knob (contrast HR-195, which bounds what the
+#: Builder *retrieves*).
+_PROVENANCE_ROWS: int = 8
+
+
+def _provenance_view(change_log: dict[str, Any] | None) -> MergeProvenance | None:
+    """The 4.1 merge provenance for the reviewer, or ``None`` if this draft has none.
+
+    ⚠ **This packet has been computed and persisted since Phase 4.1 and was read by
+    NOTHING until P1.2** — not this page, not the library. So a reviewer approving a
+    harmonized draft could not see which sources fed it, how many members required a
+    skill, or that the education bar came from one member out of ten
+    (``seniority_bar_policy: max``, HR-175). The human is the NN #1 control and
+    cannot rule on what they cannot see.
+
+    Returns ``None`` for a composed (Builder-authored) draft, which has no merge
+    behind it, and for a packet written before a field existed — the model's own
+    defaults absorb that, and a malformed packet degrades to "no panel" rather than
+    500ing a page whose real job is the approve/reject decision.
+    """
+    raw = (change_log or {}).get("merge_provenance")
+    if not isinstance(raw, dict):
+        return None
+    try:
+        return MergeProvenance.model_validate(raw)
+    except ValidationError:
+        return None
+
+
 def _detail_context(
     packet: ReviewPacket, *, error: str | None = None
 ) -> dict[str, Any]:
@@ -327,6 +359,8 @@ def _detail_context(
         "error": error,
         "rendered_draft": diff.get("rendered_draft", ""),
         "removed": diff.get("removed", []),
+        "provenance": _provenance_view(packet.change_log),
+        "provenance_rows": _PROVENANCE_ROWS,
         "edit": _edit_view(packet.content or {}),
     }
 

@@ -1036,3 +1036,118 @@ def test_edit_invalid_content_validation_error_does_not_commit(
     assert resp.status_code == 200
     edit_mock.assert_awaited_once()
     session.commit.assert_not_awaited()
+
+
+# --- P1.2: the reviewer can see how the draft was assembled --------------------
+#
+# The merge provenance has been computed and persisted in `change_log` since Phase
+# 4.1 and was rendered NOWHERE until P1.2. The consequence that matters: under
+# `seniority_bar_policy: max` (HR-175) a draft's education bar can come from one
+# source out of ten, and the page said nothing at all.
+
+
+def _bar(**overrides: object) -> dict[str, object]:
+    return {
+        "kind": "education",
+        "policy": "max",
+        "chosen": 3,
+        # Nine sources said bachelor's (2); one said master's (3), and won.
+        "member_bars": [2] * 9 + [3],
+        **overrides,
+    }
+
+
+def _packet_with_provenance(**provenance: object) -> ReviewPacket:
+    packet = _packet()
+    change_log = dict(packet.change_log or {})
+    change_log["merge_provenance"] = {
+        "member_count": 10,
+        "skill_frequency": [["python", 9], ["sql", 4]],
+        "duty_coverage": [["Maintain the service", 7]],
+        "section_contributors": [],
+        "flags": [],
+        **provenance,
+    }
+    return packet.model_copy(update={"change_log": change_log})
+
+
+def _detail_body(monkeypatch: pytest.MonkeyPatch, packet: ReviewPacket) -> str:
+    client = make_client(FakeSession())
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+    response = client.get(f"/jd-bank/ui/review/{packet.canonical_id}")
+    assert response.status_code == 200
+    return response.text
+
+
+def test_the_review_page_shows_a_disagreed_seniority_bar(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The defect in one sentence: a reviewer saw a master's requirement with no
+    indication that nine of ten sources said bachelor's."""
+    body = _detail_body(monkeypatch, _packet_with_provenance(seniority_bars=[_bar()]))
+
+    assert "How this draft was assembled" in body
+    assert "disagreed" in body
+    assert "9 stated a different one" in body
+    assert "HR-175" in body
+
+
+def test_an_agreed_bar_is_not_reported_as_a_disagreement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No dissent, no warning — a panel that cries wolf on every draft is one a
+    reviewer learns to scroll past, which costs exactly the case above."""
+    packet = _packet_with_provenance(seniority_bars=[_bar(member_bars=[3] * 10)])
+    body = _detail_body(monkeypatch, packet)
+
+    assert "How this draft was assembled" in body
+    assert "disagreed" not in body
+
+
+def test_the_modal_policy_is_described_as_itself(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The panel must describe the policy actually applied. Hardcoding "highest"
+    would make the page lie the day HR rules for `modal`."""
+    packet = _packet_with_provenance(
+        seniority_bars=[_bar(policy="modal", chosen=2, member_bars=[2] * 9 + [3])]
+    )
+    body = _detail_body(monkeypatch, packet)
+
+    assert "most common" in body
+    assert "highest" not in body
+
+
+def test_the_panel_reports_source_counts_for_skills_and_duties(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    body = _detail_body(monkeypatch, _packet_with_provenance())
+
+    assert "python — 9 of 10" in body
+    assert "Maintain the service — 7 of 10" in body
+
+
+def test_a_composed_draft_shows_no_assembly_panel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A Builder-authored draft has no merge behind it. Rendering an empty
+    "assembled from 0 sources" panel would be a claim that is not true."""
+    body = _detail_body(monkeypatch, _packet())
+
+    assert "How this draft was assembled" not in body
+
+
+def test_a_malformed_provenance_packet_does_not_break_the_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The page's real job is the approve/reject decision. A provenance packet that
+    cannot be parsed must cost the panel, never the page."""
+    packet = _packet()
+    change_log = dict(packet.change_log or {})
+    change_log["merge_provenance"] = {"member_count": "not a number"}
+    packet = packet.model_copy(update={"change_log": change_log})
+
+    body = _detail_body(monkeypatch, packet)
+
+    assert "How this draft was assembled" not in body
+    assert "Software Developer" in body
