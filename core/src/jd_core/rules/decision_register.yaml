@@ -6003,6 +6003,67 @@ decisions:
       the compliance panel intact and the duplicate panel absent).
     status: open
 
+
+  - id: HR-198
+    question: >-
+      How long should the archive search wait for the search index before it gives up
+      and tells the author to try again?
+    config:
+      file: embeddings.yaml
+      path: embeddings.interactive_timeout_seconds
+    current_default: 10.0
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The same failure the authoring guard's budget exists for (HR-197), on the page
+      where it costs more. The ordinary "if it breaks, carry on" handling catches an
+      error, and a switched-off inference host does produce one quickly — the connection
+      is refused in about five seconds. What it cannot catch is a host that ACCEPTS the
+      request and then never answers: a graphics card wedged by another job, or a
+      network rule that silently drops traffic after the connection is made. The
+      underlying client would then keep waiting, with retries, for the better part of an
+      hour — holding both the author's page and one of a small pool of database
+      connections. A handful of searches in that state would stop the Builder serving
+      anyone at all. Ten seconds is deliberately longer than the guard's five: the guard
+      is advisory, so giving up costs a suggestion panel, whereas this IS the search
+      page, and giving up costs the author their result. A working search takes well
+      under a second.
+    impact_if_changed: >-
+      Longer means a stalled search host holds a page and a database connection for
+      longer before the author is told anything, and fewer simultaneous searches are
+      needed to exhaust the connection pool. Shorter risks abandoning a search that
+      would have succeeded — most likely the first search after a quiet period, when the
+      model is still loading. Nothing about a job description's score, grade or
+      approvability changes either way.
+  - id: HR-199
+    question: >-
+      How long should the Builder's "improve my summary" assistant wait for the writing
+      model before it gives the author their page back?
+    config:
+      file: rewrite.yaml
+      path: rewrite.interactive_timeout_seconds
+    current_default: 60.0
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      Same protection as HR-198, for the one place the Builder waits on the WRITING
+      model rather than the search index, and set higher for an honest reason: writing a
+      new summary legitimately takes tens of seconds, where looking something up does
+      not. Without a limit, a model that accepts the request and then stalls would hold
+      the author's page for the better part of an hour and, worse, the author would have
+      no way back to the words they had already typed. When the limit is reached the
+      draft is returned to them intact with an explanation — losing half-written work to
+      a wedged graphics card is a far worse outcome than not getting a suggestion. This
+      is the INTERACTIVE limit only; the offline harmonization rewrite, which works
+      through clusters in the background, is deliberately left unbounded by it.
+    impact_if_changed: >-
+      Longer means an author waits longer, staring at a loading page, before being told
+      the assistant is unavailable. Shorter risks cutting off a suggestion that was
+      about to arrive — most likely on a large model's first request after a quiet
+      period. The suggestion is advisory in either case: it is applied to the summary
+      box for the author to review, never published, and the validator scores the result
+      regardless.
+
 # ═════════════════════════════════════════════════════════════════════════════
 # TRIVIAL — on the decision surface, deliberately NOT a decision for HR.
 #

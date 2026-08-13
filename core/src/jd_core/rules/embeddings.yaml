@@ -113,3 +113,16 @@ section_vectors:
   - position_summary
   - duties
   - qualifications
+
+# How long ONE INTERACTIVE request may wait on the embedding host before it gives up
+# and renders without results. This is NOT the batch budget: `make embed` legitimately
+# wants a long read while it works through thousands of documents, and EmbedClient's
+# own default is left alone for exactly that reason. It bounds the case a try/except
+# cannot catch — a host that ACCEPTS the connection and then STALLS (a wedged GPU, a
+# firewall DROP after accept). `connect=5.0` already makes a REFUSED host fail fast,
+# so "Ollama is down" was never the risk; "Ollama answers the handshake and nothing
+# else" is, and it holds a checked-out AsyncSession out of a small pool for as long as
+# it lasts. Larger than the authoring guard's 5.0s (HR-197) on purpose: the guard is
+# advisory, so timing out costs a panel, while this IS the search page — timing out
+# costs the feature. HR-198.
+interactive_timeout_seconds: 10.0

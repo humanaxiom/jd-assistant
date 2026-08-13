@@ -23,6 +23,7 @@ from src.jd_core.rules import (
     load_rules,
     loader,
 )
+from src.jd_core.rules.loader import _NON_VECTOR_EMBEDDING_FIELDS
 
 _PKG_DIR = Path(__file__).resolve().parents[2] / "src" / "jd_core" / "rules"
 
@@ -158,7 +159,38 @@ def test_every_embedding_knob_is_in_the_stamp_parametrize_list() -> None:
         "section_vectors",
     }
     declared = set(Embeddings.model_fields) - {"version"}
-    assert declared == covered, sorted(declared.symmetric_difference(covered))
+    # A knob that provably cannot change a vector is excluded from the stamp ON
+    # PURPOSE (see `_NON_VECTOR_EMBEDDING_FIELDS`) — but it must still be accounted
+    # for HERE, so the exclusion is an argued decision and never an omission.
+    assert declared == covered | _NON_VECTOR_EMBEDDING_FIELDS, sorted(
+        declared.symmetric_difference(covered | _NON_VECTOR_EMBEDDING_FIELDS)
+    )
+    assert not (
+        covered & _NON_VECTOR_EMBEDDING_FIELDS
+    ), "a field cannot be both stamped and excluded from the stamp"
+
+
+def test_the_request_budget_does_not_move_the_embed_stamp(
+    tmp_path: Path, rules: Rules
+) -> None:
+    """The invariant the exclusion exists for, stated as a test.
+
+    ``embed_stamp`` answers exactly one question: must the archive be re-embedded?
+    Retuning how long ONE interactive request may wait produces the identical vector
+    for every JD, so a stamp that moved would order a needless re-embed of ~14,500
+    documents — and, worse, would train whoever runs it to ignore the signal.
+    """
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "embeddings.yaml",
+        lambda d: d.__setitem__("interactive_timeout_seconds", 30.0),
+    )
+    retuned = load_rules(tmp_path)
+
+    assert retuned.embeddings.interactive_timeout_seconds == 30.0, "the knob is live"
+    assert retuned.embeddings.stamp == rules.embeddings.stamp
+    assert retuned.version == rules.version
 
 
 # --- registered, and drift-checked -----------------------------------------------
@@ -281,7 +313,7 @@ def test_the_embeddings_defaults_are_registered_as_nobodys_standard(
         for d in rules.decision_register.decisions
         if d.config.file == "embeddings.yaml"
     ]
-    assert len(entries) == 8, "embeddings.yaml should have exactly 8 registered fields"
+    assert len(entries) == 9, "embeddings.yaml should have exactly 9 registered fields"
     for decision in entries:
         assert decision.provenance == "our_invention", decision.id
         assert decision.source_part is None, decision.id

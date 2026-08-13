@@ -780,8 +780,36 @@ async def assist_draft(
                 structured_rows=rows,
             ),
         )
+    # Bound the wait (HR-199). The failure this covers is the one a try/except cannot:
+    # a model host that ACCEPTS the request and then stalls, holding this page for the
+    # better part of an hour. On giving up the author gets their OWN draft back — the
+    # values they typed, not a blank form — because losing half-written work to a
+    # wedged GPU is a worse outcome than not getting a suggestion.
+    budget = get_rules().rewrite.interactive_timeout_seconds
     try:
-        suggestion = await suggest_summary(assemble_jd(answers), client=client)
+        suggestion = await asyncio.wait_for(
+            suggest_summary(assemble_jd(answers), client=client), timeout=budget
+        )
+    except TimeoutError:
+        logger.warning(
+            "the summary assist exceeded its %.1fs budget; returning the draft", budget
+        )
+        return templates.TemplateResponse(
+            request,
+            "compose_new.html",
+            _context(
+                request,
+                values=values,
+                assessment=None,
+                error=(
+                    "The writing assistant took too long to answer, so your draft is "
+                    "unchanged. Your work is safe — try Suggest again, or carry on "
+                    "and Check compliance without it."
+                ),
+                boilerplate_checked=checked,
+                structured_rows=rows,
+            ),
+        )
     finally:
         await client.close()
     # Apply the suggestion to the summary the author sees, and carry it in the answers
@@ -821,13 +849,31 @@ async def search_page(
     injected embed + Neo4j clients are closed after use."""
     query = q.strip()
     hits: list[SearchHit] = []
+    message: str | None = None
     if query:
+        # Bound the wait (HR-198). This route holds a checked-out AsyncSession out of a
+        # small pool for the whole call, so an embedding host that ACCEPTS and stalls
+        # takes the Builder down with it after only a handful of searches — the failure
+        # `connect=5.0` does NOT cover, because the connection succeeds.
+        budget = get_rules().embeddings.interactive_timeout_seconds
         try:
-            hits = await search_similar_jds(
-                query,
-                embed_client=embed_client,
-                neo4j_driver=neo4j_driver,
-                session=session,
+            hits = await asyncio.wait_for(
+                search_similar_jds(
+                    query,
+                    embed_client=embed_client,
+                    neo4j_driver=neo4j_driver,
+                    session=session,
+                ),
+                timeout=budget,
+            )
+        except TimeoutError:
+            logger.warning(
+                "archive search exceeded its %.1fs budget; rendering without hits",
+                budget,
+            )
+            message = (
+                "The search took too long to answer, so no results are shown. "
+                "Try again in a moment — your search term has been kept."
             )
         finally:
             await embed_client.close()
@@ -852,7 +898,7 @@ async def search_page(
             "query": query,
             "hits": hits,
             "role_clusters": role_clusters,
-            "message": None,
+            "message": message,
         },
     )
 

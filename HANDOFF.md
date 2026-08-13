@@ -96,12 +96,41 @@ was always the real critical path — and the first item is not a commit.
 | **2** | **Phase 8.3 — review-experience upgrades ⟵ NEXT** (`docs/plan.md`) | Word-level diff · structural sidebar · gate→field jump links. No GPU, parallelizable. |
 | 3 | **Phase 6 leftovers** | Backup + reindex runbooks, and the **territorial-acknowledgement wording sign-off** — the latter blocks external distribution and is HR's call. |
 
-**Deliberately still open, recorded so their absence is not mistaken for completion:** the
-missing timeout on `/compose/search` and `/assist` (same root cause as the 5.9 guard's) ·
+**Deliberately still open, recorded so their absence is not mistaken for completion:**
+~~the missing timeout on `/compose/search` and `/assist`~~ ✅ **CLOSED (#97)** ·
 `embed_stamp` parity is never verified at query time · `cloned_from_cluster_id` is dropped
 by `assemble_jd`, so clone lineage is lost at submit (NN #6 opportunity) ·
 `docs/rulebook/rulebook/` is a byte-identical duplicate directory tracked since Phase 0 ·
 `docs/status/*` stops at 2026-07-24.
+
+### 2026-08-13, later still — the interactive timeouts are closed (#97)
+
+`/compose/search` and `/assist` had the **same defect the 5.9 guard was fixed for** and it
+had been recorded as open ever since: `connect=5.0` makes a *refused* host fail fast, so
+"Ollama is down" was never the risk — a host that **accepts and then stalls** is, and read
+600s × 2 SDK retries × 3 attempts is ~90 minutes of a held request. `/compose/search` holds
+a checked-out `AsyncSession` out of a small pool for all of it, so a handful of searches
+take the Builder down. Both now bounded, both mutation-proved, and **`/assist` returns the
+author's own draft** — losing half-written work to a wedged GPU is worse than not getting a
+suggestion.
+
+- **Two new registered knobs, HR-198 / HR-199 — and BOTH landed `technical`, so HR never
+  sees them.** That is P1.3 paying for itself within a day: before the tiering, two
+  embedding timeouts would have gone into the same undifferentiated list HR was refusing to
+  sign.
+- **⚠️ THE TRAP, AND IT WAS NEARLY SHIPPED: `Embeddings.digest` hashes the WHOLE file, and
+  it is what `embed_stamp` is built from.** Adding *any* key to `embeddings.yaml` therefore
+  moves the stamp — which means "the archive is stale, re-embed ~14,500 documents" — for a
+  wait budget that provably cannot change a single vector. `_NON_VECTOR_EMBEDDING_FIELDS`
+  now excludes it, the digest is documented as covering *vector-affecting* content only, and
+  the stamp was **verified byte-identical before and after** (`jd_rules_sfu_v4+b760ce00210a`)
+  rather than reasoned about. **A stamp that cries wolf trains people to ignore it.**
+- The existing "every knob is in the stamp list" guard still holds: the exclusion must be
+  *declared*, so it is an argued decision and never an omission.
+- **A process note worth keeping:** an unanchored `sed` mid-session corrupted three
+  unrelated `current_default` values in the register. It was caught by reverting the file
+  and re-applying the saved block — **on a 6,000-line generated-adjacent artifact, revert
+  and re-apply beats patching a bad patch.**
 
 ### 2026-08-13, later — P1.2 IS DONE, and the defect was BIGGER than the backlog said
 

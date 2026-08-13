@@ -77,3 +77,12 @@ skill_grounding_threshold: 0.5
 # duty is FLAGGED (recorded, never dropped — a duty may legitimately rephrase, so a
 # low-overlap duty is an HR eyeball, not a scrub). PROVISIONAL. HR-184.
 duty_flag_threshold: 0.2
+
+# How long ONE INTERACTIVE assist request (the Builder's "improve my summary") may wait
+# on the chat model before it gives up and returns the author's page with an
+# explanation. NOT the batch budget: the 4.2a harmonization rewrite works through
+# clusters offline and may legitimately take far longer, so ChatClient's own default is
+# unchanged. Bounds the same accept-then-stall failure the embedding budget does
+# (HR-198), and is larger because a generated completion legitimately takes tens of
+# seconds where an embedding round trip does not. HR-199.
+interactive_timeout_seconds: 60.0
