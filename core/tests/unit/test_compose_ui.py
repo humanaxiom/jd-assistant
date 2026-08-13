@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import html as html_lib
+import json
 import re
 import uuid
 from collections.abc import AsyncIterator, Iterator
@@ -1429,3 +1430,48 @@ def test_search_gives_up_on_a_stalled_embedding_host(
     assert "took too long" in resp.text
     assert "analyst" in resp.text, "the author's query was thrown away"
     assert embed.closed is True and neo.closed is True, "a client leaked on timeout"
+
+
+def test_submit_carries_the_clone_lineage_into_the_persist_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The ROUTE's half of the lineage fix, pinned separately from the persist layer's.
+
+    This repo has been bitten by exactly this gap before: `exclude_cluster_id` was the
+    headline behaviour of the 5.9 guard and went unasserted, because every route-level
+    fake took `**kwargs` and quietly discarded them. So assert the KEYWORD, not just
+    that the call happened — deleting the argument from the route must turn this red.
+    """
+    session = _FakeSession()
+    parent = uuid.uuid4()
+    submit_mock = AsyncMock(return_value=type("C", (), {"id": uuid.uuid4()})())
+    monkeypatch.setattr(compose_ui, "submit_composed_draft", submit_mock)
+
+    answers = json.dumps({"title": "Role", "cloned_from_cluster_id": str(parent)})
+    resp = _client_with_session(session).post(
+        "/jd-bank/ui/compose/submit",
+        data={"answers_json": answers},
+        follow_redirects=False,
+    )
+
+    assert resp.status_code == 303
+    assert submit_mock.await_args is not None
+    assert submit_mock.await_args.kwargs["cloned_from_cluster_id"] == parent
+
+
+def test_submit_of_an_original_draft_passes_no_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The other half: a draft written from scratch must not acquire a parent."""
+    session = _FakeSession()
+    submit_mock = AsyncMock(return_value=type("C", (), {"id": uuid.uuid4()})())
+    monkeypatch.setattr(compose_ui, "submit_composed_draft", submit_mock)
+
+    _client_with_session(session).post(
+        "/jd-bank/ui/compose/submit",
+        data={"answers_json": '{"title": "Role"}'},
+        follow_redirects=False,
+    )
+
+    assert submit_mock.await_args is not None
+    assert submit_mock.await_args.kwargs["cloned_from_cluster_id"] is None
