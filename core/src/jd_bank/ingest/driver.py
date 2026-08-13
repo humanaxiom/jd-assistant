@@ -70,9 +70,10 @@ from src.jd_bank.ingest.ingest import (
     walk_archive,
 )
 from src.jd_bank.ingest.models import IngestResult, SkipEntry
+from src.jd_bank.ingest.parse_store import parse_and_store
 from src.jd_bank.ingest.scrub import normalize_incumbent_names
 from src.jd_bank.stable_reason import stable_reason
-from src.jd_core.parser import PARSER_VERSION, parse_and_store
+from src.jd_core.parser import PARSER_VERSION
 
 #: A source document's ``ingest_metadata["status"]`` that means "extracted cleanly and
 #: is eligible to be parsed". The other two statuses (``unsupported``, ``failed``) are

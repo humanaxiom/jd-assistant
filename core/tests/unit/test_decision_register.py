@@ -646,7 +646,7 @@ def test_the_segmentation_defaults_are_registered_as_nobodys_standard(
 #: parsed JD into ``jd_bank``'s ORM rows. It is a real layering smell, it predates 2.5,
 #: and it is a leaf that nothing in the rulebook imports — so it cannot form the cycle
 #: below. Not fixed here (it is not this task's diff); pinned so it cannot grow.
-_KNOWN_CORE_TO_BANK_IMPORTS: Final[frozenset[str]] = frozenset({"parser/store.py"})
+_KNOWN_CORE_TO_BANK_IMPORTS: Final[frozenset[str]] = frozenset()
 
 
 def test_the_rulebook_never_imports_jd_bank() -> None:

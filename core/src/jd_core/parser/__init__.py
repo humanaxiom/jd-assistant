@@ -15,7 +15,6 @@ from src.jd_core.parser.segmenter import (
     Template,
     parse_jd,
 )
-from src.jd_core.parser.store import parse_and_store
 
 __all__ = [
     "PARSER_VERSION",
@@ -23,6 +22,5 @@ __all__ = [
     "ParseResult",
     "SectionKey",
     "Template",
-    "parse_and_store",
     "parse_jd",
 ]
