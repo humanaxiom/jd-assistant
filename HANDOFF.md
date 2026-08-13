@@ -9,8 +9,9 @@ Read this first every session. Single source of truth for current state + how we
 | | |
 |---|---|
 | `main` | `c46cc89` — **P0.0 (#88) and P0.3 (#89) are both merged**, on top of #86's HR docs. |
-| **Open PR** | **[#91](https://github.com/humanaxiom/jd-assistant/pull/91)** — **P0.1b-ii login round trip**, targeted at `main`. |
-| Gates | **2,600 passing, 93.87%** (P0.4: 2,567 / 93.76%) (P0.3: 2,548; P0.0: 2,508 / 93.71%; before: 2,436 / 93.63%); `register-check` + `guide-check` green; `rules_version` `jd_rules_sfu_v4+90af5e27dc83` **still unmoved** |
+| `main` also has | **P0.1b-ii login round trip** (#91, `d3d91b4`) — login CSRF + the open redirect on `next`. |
+| **Open PR** | **[#92](https://github.com/humanaxiom/jd-assistant/pull/92)** — **P0.1b-ii leftovers** (`/ready` amplification + `GraphMemory` egress), targeted at `main`. **With it, the whole P0.1b bundle is closed.** |
+| Gates | **2,606 passing, 93.89%** (#91: 2,600 / 93.87%) (P0.4: 2,567 / 93.76%) (P0.3: 2,548; P0.0: 2,508 / 93.71%; before: 2,436 / 93.63%); `register-check` + `guide-check` green; `rules_version` `jd_rules_sfu_v4+90af5e27dc83` **still unmoved** |
 | Register | **197** decisions, **0 ratified** |
 | Live data | 14,565 files · 14,522 parsed (v3) · 1,802 roles · **4 published** · `review_actions` 6 |
 
@@ -93,7 +94,7 @@ nav · **📝 My drafts** · empty states with escapes · `/favicon.ico` + `/rob
 | ~~—~~ | ~~**P0.4 — The production posture**~~ | ✅ **BUILT — PR #90.** `docker-compose.prod.yml` ships and was **verified by deploying it** (own project, own ports, torn down after): a safe posture serves `{"status":"ok"}` with no reloader and no source mount; an unsafe one reads `Restarting (3)` / `unhealthy` and never comes up. ⚠️ **It is available, NOT in force** — the live demo still runs the dev stack. Switching it over is an operator action needing a certificate, real secrets, and a `JD_API_BIND` decision. |
 | **1** | **🔴 TLS at the edge — the last open exposure** | Not a repo deliverable, which is exactly why it needs a person: the app is public over **plain http**, so session cookies and CAS tickets are in the clear on the open internet. P0.4 makes the app correct *behind* a terminator and refuses to pretend otherwise; someone has to put one in front. |
 | ~~—~~ | ~~**P0.1b-ii — login CSRF + the open redirect**~~ | ✅ **DONE — PR [#91](https://github.com/humanaxiom/jd-assistant/pull/91).** Both were one code path — the CAS round trip — so they are one fix: `next` is pinned to a local path, and an HttpOnly login-state cookie binds the round trip to the browser that started it. Mutation-proved (23 tests red when either control is reverted) and verified live. **This also settles the `next` validation P0.0's crawl left owed.** |
-| 2 | **P0.1b-ii, what is left of it** (`architecture-review-response-2026-08-07.md` §6) | `/ready` amplification (measured: 200 concurrent → 3.00s vs `/health` 0.43s; needs a rate-limit/memoize decision) · `GraphMemory.__init__` building an `AsyncOpenAI` without the egress guard (NN #5) |
+| ~~—~~ | ~~**P0.1b-ii, the leftovers**~~ | ✅ **DONE — PR [#92](https://github.com/humanaxiom/jd-assistant/pull/92).** `/ready` is single-flight + 2s TTL (**peak Postgres backends under 300 concurrent: 2, was 13 at 200**), and `GraphMemory` is egress-guarded. **The P0.1b bundle is now entirely closed.** |
 | 3 | **P1.3 — Tier the register** | **Consider promoting.** Two HR complaints traced to one cause: the register does two incompatible jobs. Tiering turns "197 decisions" into ~60 real policy calls — the difference between an ask HR can act on and one they bounce. |
 | 4 | **P1.2 — Harmonization provenance** | A reviewer sees a raised education bar with no sign that most sources said lower. |
 
