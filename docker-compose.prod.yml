@@ -1,0 +1,192 @@
+# The production deployment (P0.4). Used ALONE, not layered:
+#
+#     docker compose -f docker-compose.prod.yml up -d
+#
+# ─── Why this is a separate file and not an overlay ──────────────────────────────
+#
+# An overlay (`-f docker-compose.yml -f docker-compose.prod.yml`) is the obvious shape
+# and it CANNOT do the one thing that matters. Compose *merges* volume lists rather than
+# replacing them, so the base file's `./core:/app` bind survives any overlay — measured:
+# an overlay declaring `volumes: []` still renders the bind mount. A deployment whose
+# working tree is what runs is not a deployment, so the merge had to be avoided entirely.
+#
+# The cost is duplication, and it is paid with a test rather than with discipline:
+# `tests/unit/test_production_compose.py` DERIVES what this file must contain from
+# `docker-compose.yml` — every settings-bearing service, every environment key — so a key
+# added to the dev anchor tomorrow fails the suite until it is carried here too.
+#
+# ─── What "production" changes, and why each one ─────────────────────────────────
+#
+# 1. NO `command:` override. The image's own CMD has no `--reload`, so simply not
+#    overriding it is the fix. Measured, with `ENVIRONMENT=production` unmet:
+#      uvicorn --reload  -> prints "Application startup failed. Exiting." and STAYS ALIVE
+#                           (still running at 45s). The container reads `Up`, serving
+#                           nothing — P0.2's failure mode one layer down.
+#      uvicorn           -> exits 3, promptly. The container dies and can be seen to.
+# 2. NO source bind mount. The image is what runs.
+# 3. `restart: unless-stopped` — the dev file has no restart policy at all.
+# 4. A healthcheck on the api, so "Up" means "answering" rather than "the process exists".
+# 5. Secrets have NO default. `${VAR:?…}` makes compose REFUSE TO RENDER without them,
+#    instead of quietly supplying the credential committed to this repo.
+# 6. `ENVIRONMENT: production` is pinned here, because this file IS the opt-in.
+#
+# ─── What this file does NOT do, so its absence is not mistaken for cover ────────
+#
+# **It does not terminate TLS.** The public name is a forward we do not control; a
+# certificate and a terminator are a deployment decision, not a repo one. What is owed
+# from here is an app that is correct behind one — P0.3's origin allowlist reads
+# `X-Forwarded-Proto` and validates the result — and a posture that refuses to run while
+# pretending otherwise, which `ENVIRONMENT=production` now enforces.
+#
+# **The profile-gated pipeline jobs are not repeated here.** They are one-shot batch runs
+# with no reloader and no long-lived process, and they inherit the production posture the
+# way everything else does: from the operator's `.env`. Set `ENVIRONMENT=production`
+# there and `make embed` refuses just as loudly as the api would.
+
+name: jd-bank-prod
+
+x-app-env: &app_env
+  # This file is the opt-in to the P0.2 fail-closed guard. Pinned, not interpolated: an
+  # operator who deploys with this file has asked for production, and being able to set
+  # ENVIRONMENT=development back through the environment would make that meaningless.
+  ENVIRONMENT: production
+  # ── Secrets: no defaults, on purpose ────────────────────────────────────────────
+  # `${VAR:?message}` aborts `docker compose` with that message when VAR is unset. The
+  # dev file's `${VAR:-committed-default}` is right there and wrong here: it is what let
+  # a deployment run on credentials that are published in git.
+  DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL to a database with a real password — the dev default is committed to git, so it is not a secret}
+  NEO4J_URI: ${NEO4J_URI:-bolt://neo4j:7687}
+  NEO4J_USER: ${NEO4J_USER:-neo4j}
+  NEO4J_PASSWORD: ${NEO4J_PASSWORD:?set NEO4J_PASSWORD to a real one — the default in the dev file is committed to git}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  # ── Inference (NN #5) ───────────────────────────────────────────────────────────
+  OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://aria-gb10-2:11434/v1}
+  ALLOWED_INFERENCE_HOSTS: ${ALLOWED_INFERENCE_HOSTS:-aria-gb10-2}
+  AGENT_MODEL: ${AGENT_MODEL:-qwen2.5-coder:14b}
+  EMBED_MODEL: ${EMBED_MODEL:-nomic-embed-text}
+  MAX_REVIEW_ITERATIONS: ${MAX_REVIEW_ITERATIONS:-5}
+  COVERAGE_THRESHOLD: ${COVERAGE_THRESHOLD:-80}
+  # ── Auth (ADR-008) ──────────────────────────────────────────────────────────────
+  # CAS on is a production condition; pinned so it cannot be turned off by an env var on
+  # the deployment that most needs it.
+  CAS_ENABLED: "true"
+  CAS_SERVICE_BASE_URL: ${CAS_SERVICE_BASE_URL:?set CAS_SERVICE_BASE_URL to this service's real https origin}
+  ALLOWED_SERVICE_ORIGINS: ${ALLOWED_SERVICE_ORIGINS:?set ALLOWED_SERVICE_ORIGINS to the https origins users reach this service on (P0.3)}
+  # Retired (P0.3) and still delivered, so a deployment that sets it is refused at load
+  # rather than silently ignored.
+  CAS_SERVICE_FROM_REQUEST: ${CAS_SERVICE_FROM_REQUEST:-false}
+  CAS_VERIFY_TLS: ${CAS_VERIFY_TLS:-true}
+  # Unauthenticated impersonation in production; pinned empty rather than interpolated.
+  CAS_DEV_FAKE_USER: ""
+  BOOTSTRAP_ADMINS: ${BOOTSTRAP_ADMINS:-}
+  CAS_ANONYMOUS_USER: ${CAS_ANONYMOUS_USER:-dev-anonymous}
+  CAS_DEV_DEFAULT_ROLE: ${CAS_DEV_DEFAULT_ROLE:-author}
+  SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+  SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-lax}
+
+services:
+  # ─── Data Tier ───────────────────────────────────────────────────────────
+  # Loopback only, as in the dev file (P0.3) — and here the credentials are real, so the
+  # binding is the second line of defence rather than the only one.
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${JD_PG_USER:?set JD_PG_USER}
+      POSTGRES_PASSWORD: ${JD_PG_PASSWORD:?set JD_PG_PASSWORD — it must match the password in DATABASE_URL}
+      POSTGRES_DB: ${JD_PG_DB:-harness}
+    ports: ["127.0.0.1:${JD_PG_PORT:-25432}:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  neo4j:
+    image: neo4j:5-community
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD}
+      NEO4J_PLUGINS: '["apoc"]'
+      # The key is spelled EXACTLY as in the dev file. Neo4j maps `_`->`.` and `__`->`_`,
+      # so a stray underscore silently becomes a different setting: this said
+      # `heap__max__size` for one deploy, which Neo4j 5 rejected outright with
+      # "Unrecognized setting: dbms.memory.heap_max_size" and the container never became
+      # healthy. Found by running it, not by reading it.
+      NEO4J_dbms_memory_heap_max__size: ${JD_NEO4J_HEAP:-2G}
+    ports:
+      - "127.0.0.1:${JD_NEO4J_HTTP_PORT:-25474}:7474"
+      - "127.0.0.1:${JD_NEO4J_BOLT_PORT:-25687}:7687"
+    volumes: [neo4jdata:/data]
+    healthcheck:
+      # The password comes out of NEO4J_AUTH (`neo4j/<password>`) rather than from a
+      # second variable, so this file carries the secret in exactly one place. It said
+      # `$${NEO4J_PASSWORD}` for one deploy — a variable that exists in the COMPOSE
+      # environment and not inside this container, so it expanded to empty and the
+      # healthcheck failed authentication forever while Neo4j itself was fine. The
+      # container never became healthy, and `api` never started. Found by running it.
+      test:
+        ["CMD-SHELL", "cypher-shell -u neo4j -p \"$${NEO4J_AUTH#neo4j/}\" 'RETURN 1'"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports: ["127.0.0.1:${JD_REDIS_PORT:-25379}:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ─── App Tier ────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    # NO `command:` — the image's CMD has no `--reload`, and that is the whole point.
+    # NO `volumes: [./core:/app]` — the image is what runs.
+    restart: unless-stopped
+    # LOOPBACK BY DEFAULT: production terminates TLS in front of the app, so the app
+    # itself should not be the thing on the network. Set JD_API_BIND=0.0.0.0 only when
+    # the terminator is on ANOTHER host — and understand that this then publishes the
+    # application directly, which is the exposure P0.3 part 2 is about.
+    ports: ["${JD_API_BIND:-127.0.0.1}:${JD_API_PORT:-25800}:8000"]
+    environment: *app_env
+    volumes:
+      # The committed pipeline artifacts the read-only dashboards render. Read-only, and
+      # the ONLY bind mount in this file.
+      - ./docs:/docs:ro
+    healthcheck:
+      # "Up" must mean "answering". Without this, a container whose app failed to start
+      # still reports Up — which is the same class of lie as the reloader trap above.
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      postgres: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  worker:
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    command: arq src.worker.main.WorkerSettings
+    restart: unless-stopped
+    environment: *app_env
+    volumes:
+      - ./docs:/docs:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+      neo4j: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  neo4jdata:
