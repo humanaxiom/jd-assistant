@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+90af5e27dc83` · **197 decisions** (197 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 258 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+90af5e27dc83` · **199 decisions** (199 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 260 parameters on the decision surface, all accounted for.
 
-**Of those 197, 65 need an HR ruling.** The other 132 are recorded for the same build check but are not yours to sign: 49 shape what a reviewer sees without deciding whether a job description passes, and 83 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 199, 65 need an HR ruling.** The other 134 are recorded for the same build check but are not yours to sign: 49 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -1220,6 +1220,8 @@ Model names, dimensions, timeouts, retries, text-matching patterns and search in
 | [HR-193](#hr-193) | When a JD's serialized text is still too long for the embedding model AFTER `max_chars` truncation, what shorter lengths do we retry before giving up? | `8000`, `6000`, `4000` | we chose it |
 | [HR-196](#hr-196) | How much must an author have written before the Builder goes looking for existing roles that resemble their draft? | `500` | we chose it |
 | [HR-197](#hr-197) | How long should the Builder wait for the "roles SFU already has" panel before giving up on it and showing the compliance result without it? | `5.0` | we chose it |
+| [HR-198](#hr-198) | How long should the archive search wait for the search index before it gives up and tells the author to try again? | `10.0` | we chose it |
+| [HR-199](#hr-199) | How long should the Builder's "improve my summary" assistant wait for the writing model before it gives the author their page back? | `60.0` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -1679,6 +1681,22 @@ We picked these because the system needed *a* value. There is no SFU precedent b
 - **Where the default came from:** we chose it
 - **Why it matters:** This is a trade between an author's time and the university's. The panel is ADVISORY — it never blocks a submission and never changes a compliance verdict — so it is worth a couple of seconds of waiting, and it is NOT worth a held connection. It exists because the ordinary "if it breaks, carry on without it" handling cannot cover every failure: it catches an error, and an inference host that is switched off does produce an error quickly (the connection is refused in about 5 seconds). What it cannot catch is a host that ACCEPTS the request and then never answers — a graphics card wedged by another job, or a network rule that silently drops traffic after the connection is made. In that case the underlying client would keep waiting, with retries, for the better part of an hour, holding both the author's page and one of a small pool of database connections. A handful of authors clicking "Check compliance" would then stop the Builder serving anyone. 5 seconds is chosen as roughly a page load: a working lookup takes well under a second, so it is far above normal operation and far below the point where an author concludes the Builder is broken.
 - **If it changes:** Does NOT move `rules_version` (dedup.yaml is unhashed); it does move `Dedup.stamp`. It bounds ONE call — the near-duplicate panel on the Builder's Check — and nothing else: raising it makes an author wait longer before the panel is silently omitted; lowering it may drop the panel on a slow-but-healthy day. When the budget is spent the panel is ABSENT, never rendered as "no duplicates found" (an unverified all clear is exactly the wrong thing to show). Deliberately NOT the embedding client's global timeout, which the archive embedding runs share and may legitimately want long. Pinned by mutation in `test_compose_ui.py` (a guard that never returns leaves the compliance panel intact and the duplicate panel absent).
+
+##### HR-198 — How long should the archive search wait for the search index before it gives up and tells the author to try again?
+
+- **We ship:** `10.0`
+- **Configured in:** `embeddings.yaml` → `embeddings.interactive_timeout_seconds`
+- **Where the default came from:** we chose it
+- **Why it matters:** The same failure the authoring guard's budget exists for (HR-197), on the page where it costs more. The ordinary "if it breaks, carry on" handling catches an error, and a switched-off inference host does produce one quickly — the connection is refused in about five seconds. What it cannot catch is a host that ACCEPTS the request and then never answers: a graphics card wedged by another job, or a network rule that silently drops traffic after the connection is made. The underlying client would then keep waiting, with retries, for the better part of an hour — holding both the author's page and one of a small pool of database connections. A handful of searches in that state would stop the Builder serving anyone at all. Ten seconds is deliberately longer than the guard's five: the guard is advisory, so giving up costs a suggestion panel, whereas this IS the search page, and giving up costs the author their result. A working search takes well under a second.
+- **If it changes:** Longer means a stalled search host holds a page and a database connection for longer before the author is told anything, and fewer simultaneous searches are needed to exhaust the connection pool. Shorter risks abandoning a search that would have succeeded — most likely the first search after a quiet period, when the model is still loading. Nothing about a job description's score, grade or approvability changes either way.
+
+##### HR-199 — How long should the Builder's "improve my summary" assistant wait for the writing model before it gives the author their page back?
+
+- **We ship:** `60.0`
+- **Configured in:** `rewrite.yaml` → `rewrite.interactive_timeout_seconds`
+- **Where the default came from:** we chose it
+- **Why it matters:** Same protection as HR-198, for the one place the Builder waits on the WRITING model rather than the search index, and set higher for an honest reason: writing a new summary legitimately takes tens of seconds, where looking something up does not. Without a limit, a model that accepts the request and then stalls would hold the author's page for the better part of an hour and, worse, the author would have no way back to the words they had already typed. When the limit is reached the draft is returned to them intact with an explanation — losing half-written work to a wedged graphics card is a far worse outcome than not getting a suggestion. This is the INTERACTIVE limit only; the offline harmonization rewrite, which works through clusters in the background, is deliberately left unbounded by it.
+- **If it changes:** Longer means an author waits longer, staring at a loading page, before being told the assistant is unavailable. Shorter risks cutting off a suggestion that was about to arrive — most likely on a large model's first request after a quiet period. The suggestion is advisory in either case: it is applied to the summary box for the author to review, never published, and the validator scores the result regardless.
 
 #### An earlier version of this tool chose it — also unratified
 

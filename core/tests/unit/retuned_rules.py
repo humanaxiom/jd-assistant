@@ -21,11 +21,13 @@ from typing import Any
 
 import yaml
 
-from src.jd_core.rules import Comparison, Dedup, Rules
+from src.jd_core.rules import Comparison, Dedup, Embeddings, Rewrite, Rules
 
 _PKG_DIR = Path(__file__).resolve().parents[2] / "src" / "jd_core" / "rules"
 _COMPARISON = _PKG_DIR / "comparison.yaml"
 _DEDUP = _PKG_DIR / "dedup.yaml"
+_EMBEDDINGS = _PKG_DIR / "embeddings.yaml"
+_REWRITE = _PKG_DIR / "rewrite.yaml"
 
 
 def raw_comparison() -> dict[str, Any]:
@@ -51,3 +53,27 @@ def retuned_dedup(rules: Rules, **fields: Any) -> Rules:
     "what if HR moved it" fixture as :func:`retuned`, for Tier-2's rulebook."""
     dedup = Dedup.model_validate({**raw_dedup(), **fields})
     return rules.model_copy(update={"dedup": dedup})
+
+
+def raw_embeddings() -> dict[str, Any]:
+    """The shipped ``embeddings.yaml``, as the loader sees it before validation."""
+    data: dict[str, Any] = yaml.safe_load(_EMBEDDINGS.read_text(encoding="utf-8"))
+    return data
+
+
+def raw_rewrite() -> dict[str, Any]:
+    """The shipped ``rewrite.yaml``, as the loader sees it before validation."""
+    data: dict[str, Any] = yaml.safe_load(_REWRITE.read_text(encoding="utf-8"))
+    return data
+
+
+def retuned_embeddings(rules: Rules, **fields: Any) -> Rules:
+    """``rules`` with ``embeddings.yaml`` re-validated, ``fields`` overridden."""
+    embeddings = Embeddings.model_validate({**raw_embeddings(), **fields})
+    return rules.model_copy(update={"embeddings": embeddings})
+
+
+def retuned_rewrite(rules: Rules, **fields: Any) -> Rules:
+    """``rules`` with ``rewrite.yaml`` re-validated, ``fields`` overridden."""
+    rewrite = Rewrite.model_validate({**raw_rewrite(), **fields})
+    return rules.model_copy(update={"rewrite": rewrite})

@@ -25,7 +25,11 @@ from src.api.routes import compose, compose_ui
 from src.jd_bank.composer import DuplicateGuard, RelatedRole
 from src.jd_bank.embeddings import client as embed_client_mod
 from src.jd_core.rules import get_rules
-from tests.unit.retuned_rules import retuned_dedup
+from tests.unit.retuned_rules import (
+    retuned_dedup,
+    retuned_embeddings,
+    retuned_rewrite,
+)
 
 
 def _post_form(client: TestClient, url: str, pairs: list[tuple[str, str]]):
@@ -1340,3 +1344,88 @@ def test_cloned_from_cluster_id_round_trips_through_answers_json(
         _answers_json_from(resp.text)
     )
     assert answers.cloned_from_cluster_id == cluster_id
+
+
+# --- a stalled inference host must not pin an interactive request ---------------
+#
+# The 5.9 guard was fixed for this in `cadfc30`'s review: `connect=5.0` means a
+# REFUSED connection fails fast, so "Ollama is down" was never the risk — a host
+# that ACCEPTS and then stalls is. Read 600s x 2 SDK retries x 3 attempts is ~90
+# minutes of a held request, and `/compose/search` holds a checked-out AsyncSession
+# for all of it. The guard got `asyncio.wait_for`; `/compose/search` and `/assist`
+# were left with the same defect, recorded as open ever since. This closes them.
+
+
+class _Stalls:
+    """An inference client that ACCEPTS and never answers — the real failure mode.
+    Sleeps far past any sane budget rather than raising, which is exactly what a
+    `try`/`except` cannot catch."""
+
+    def __init__(self) -> None:
+        self.closed = False
+
+    async def chat_json(self, *args: object, **kwargs: object) -> object:
+        await asyncio.sleep(3600)
+        raise AssertionError("unreachable")  # pragma: no cover
+
+    async def embed(self, *args: object, **kwargs: object) -> object:
+        await asyncio.sleep(3600)
+        raise AssertionError("unreachable")  # pragma: no cover
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+def test_assist_gives_up_on_a_stalled_model_and_keeps_the_authors_draft(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The author gets their page back with an explanation — and, critically, with
+    the words they had already typed. Losing a half-written JD to a wedged GPU is a
+    worse outcome than not getting a suggestion."""
+    monkeypatch.setattr(
+        compose_ui,
+        "get_rules",
+        lambda: retuned_rewrite(get_rules(), interactive_timeout_seconds=0.05),
+    )
+    stalled = _Stalls()
+    app.dependency_overrides[compose.get_chat_client] = lambda: stalled
+
+    resp = _client().post(
+        "/jd-bank/ui/compose/assist",
+        data={"title": "Financial Analyst", "position_summary": "My own words here."},
+    )
+
+    assert resp.status_code == 200, "a stalled model must not 500 the Builder"
+    assert "My own words here." in resp.text, "the author's draft was lost"
+    assert "took too long" in resp.text
+    assert stalled.closed is True, "the client leaked when the call timed out"
+
+
+def test_search_gives_up_on_a_stalled_embedding_host(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Same defect, and worse consequence: this route holds a checked-out
+    AsyncSession out of a small pool, so a few stalled searches take the whole
+    Builder down with them."""
+
+    async def stalls(query: str, **kwargs: object) -> list[object]:
+        await asyncio.sleep(3600)
+        raise AssertionError("unreachable")  # pragma: no cover
+
+    monkeypatch.setattr(compose_ui, "search_similar_jds", stalls)
+    monkeypatch.setattr(
+        compose_ui,
+        "get_rules",
+        lambda: retuned_embeddings(get_rules(), interactive_timeout_seconds=0.05),
+    )
+    embed, neo = _FakeClose(), _FakeClose()
+    app.dependency_overrides[compose.get_embed_client] = lambda: embed
+    app.dependency_overrides[compose.get_neo4j_driver] = lambda: neo
+    _override_session_object()
+
+    resp = _client().get("/jd-bank/ui/compose/search?q=analyst")
+
+    assert resp.status_code == 200, "a stalled embedding host must not 500 the page"
+    assert "took too long" in resp.text
+    assert "analyst" in resp.text, "the author's query was thrown away"
+    assert embed.closed is True and neo.closed is True, "a client leaked on timeout"

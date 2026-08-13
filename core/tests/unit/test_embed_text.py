@@ -331,6 +331,7 @@ def test_the_loader_rejects_a_section_with_no_producer() -> None:
             include_title_in_document=False,
             document_sections=("about_sfu",),  # not a content-bearing section
             section_vectors=("position_summary",),
+            interactive_timeout_seconds=10.0,
         )
 
 
@@ -345,4 +346,5 @@ def test_section_vectors_must_be_a_subset_of_document_sections() -> None:
             include_title_in_document=False,
             document_sections=("position_summary",),
             section_vectors=("duties",),  # not in document_sections
+            interactive_timeout_seconds=10.0,
         )

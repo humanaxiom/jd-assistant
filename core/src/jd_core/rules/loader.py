@@ -738,6 +738,18 @@ class Segmentation(_RuleFile):
         return f"{self.version}{VERSION_SEPARATOR}{self.digest[:CONTENT_HASH_LENGTH]}"
 
 
+#: Fields of ``embeddings.yaml`` that provably cannot change a stored vector, and are
+#: therefore EXCLUDED from :attr:`Embeddings.digest` (and so from ``embed_stamp``).
+#: The stamp's only job is to answer "must the archive be re-embedded?"; a per-request
+#: wait budget produces the identical vector whether it is granted 10 seconds or 30, so
+#: including it would demand a full re-embed of ~14,500 documents for a change no
+#: vector can observe. **Adding to this set is a claim that needs proving** — anything
+#: touching WHAT is sent to the model, or WHICH model sees it, does not belong here.
+_NON_VECTOR_EMBEDDING_FIELDS: Final[frozenset[str]] = frozenset(
+    {"interactive_timeout_seconds"}
+)
+
+
 class Embeddings(_RuleFile):
     """How a parsed JD becomes something an embedding model sees (``embeddings.yaml``,
     Phase 3.2b).
@@ -817,6 +829,10 @@ class Embeddings(_RuleFile):
     #: the document text itself does not include would embed something the document
     #: vector cannot be compared against.
     section_vectors: tuple[SFUSection, ...] = Field(min_length=1)
+    #: How long ONE INTERACTIVE request may wait on the embedding host before giving
+    #: up. Bounds the accept-then-stall failure a ``try``/``except`` cannot catch —
+    #: NOT the batch budget, which is deliberately left long. HR-198.
+    interactive_timeout_seconds: float = Field(gt=0.0)
 
     @field_validator("document_sections", "section_vectors")
     @classmethod
@@ -871,14 +887,27 @@ class Embeddings(_RuleFile):
 
     @property
     def digest(self) -> str:
-        """SHA-256 over this file's canonicalised content — its own identity.
+        """SHA-256 over the VECTOR-AFFECTING content of this file — its own identity.
 
         Same contract as :meth:`Segmentation.digest`: recomputed on access so a
         ``model_copy`` that retunes a knob (how every mutation test in
         ``test_embed_text.py`` proves a knob is pinned) cannot carry a stale
         identity into a node it stamps.
+
+        ⚠ **Not every field counts, and the exclusion is the point.** This digest is
+        what ``embed_stamp`` is built from, and ``embed_stamp`` answers exactly one
+        question: *would this configuration produce a DIFFERENT vector for the same
+        JD?* If it moves, ~14,500 stored vectors are stale and the archive must be
+        re-embedded. :data:`_NON_VECTOR_EMBEDDING_FIELDS` names the fields that
+        provably cannot change a vector — a per-request wait budget is the same
+        embedding whether it is granted 10 seconds or 30 — so including them would
+        demand a full re-embed for a change no vector can observe. Anything that
+        touches WHAT is sent to the model, or WHICH model sees it, must stay in.
         """
-        return _content_hash({"embeddings": self})
+        canonical = _canonical(self)
+        for field in _NON_VECTOR_EMBEDDING_FIELDS:
+            canonical.pop(field, None)
+        return _hash_payload({"embeddings": canonical})
 
     @property
     def stamp(self) -> str:
@@ -1310,6 +1339,10 @@ class Rewrite(_RuleFile):
     #: Below it the duty is FLAGGED (recorded, never dropped — a duty may legitimately
     #: rephrase, so a low-overlap duty is an HR eyeball, not a scrub).
     duty_flag_threshold: float = Field(ge=0.0, le=1.0)
+    #: How long ONE INTERACTIVE assist request may wait on the chat model before giving
+    #: up and returning the author's page. NOT the batch rewrite budget, which may
+    #: legitimately take far longer. HR-199.
+    interactive_timeout_seconds: float = Field(gt=0.0)
 
 
 class QualityAuditRules(_RuleFile):
@@ -2902,16 +2935,23 @@ def _canonical(value: Any) -> Any:
     )
 
 
-def _content_hash(rule_files: Mapping[str, _RuleFile]) -> str:
-    """SHA-256 over the canonicalised rule files. Pure, portable, deterministic."""
+def _hash_payload(canonicalised: Mapping[str, Any]) -> str:
+    """SHA-256 over already-canonicalised data. The one place the bytes are decided,
+    so a digest taken over a SUBSET of a file's fields is byte-comparable with one
+    taken over all of them."""
     payload = json.dumps(
-        {name: _canonical(rule_files[name]) for name in sorted(rule_files)},
+        {name: canonicalised[name] for name in sorted(canonicalised)},
         sort_keys=True,
         ensure_ascii=False,
         separators=(",", ":"),
         allow_nan=False,
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _content_hash(rule_files: Mapping[str, _RuleFile]) -> str:
+    """SHA-256 over the canonicalised rule files. Pure, portable, deterministic."""
+    return _hash_payload({name: _canonical(rule_files[name]) for name in rule_files})
 
 
 class Rules(BaseModel):
