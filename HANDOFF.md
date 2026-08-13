@@ -103,6 +103,40 @@ by `assemble_jd`, so clone lineage is lost at submit (NN #6 opportunity) ·
 `docs/rulebook/rulebook/` is a byte-identical duplicate directory tracked since Phase 0 ·
 `docs/status/*` stops at 2026-07-24.
 
+### Also 2026-08-13, later — an external gap analysis was triaged, and mostly did not survive
+
+`GH-Copilot/sfu-site-gap-analysis.md` (+ three companion files) compares the repo to the public
+SFU HR site and files nine issues. Verdict + evidence:
+**`docs/decisions/copilot-sfu-gap-triage-2026-08-13.md`**. No code changed; ROADMAP and plan.md
+absorbed what survived.
+
+- **Both of its P0s assert a decision "has not been made" — and both decisions are made, written
+  down and enforced.** CUPE/WJQ scope is explicit in **five** places, one of which is the HR ask
+  it says is missing (HR-DECISION-MATRIX **Decision 8**), plus HR-194/HR-143 and the fact that the
+  Builder's group list is rulebook data on purpose. Hay authority is enforced **structurally**:
+  `HayGrade` / `HaySignals.{grade, grade_mapped}` are made **unrepresentable** in `models/bank.py`
+  — and that file is the evidence the analysis itself cites.
+- **Its issues 7–8 (change tracking, compensation audit trail) are largely already built.** Its
+  acceptance criteria are, item for item, shipped behaviour: `review.edit()` requires a non-blank
+  reason and records `changed_sections`, an edit mints `version = max+1`, `/review/{id}/diff`
+  renders before-vs-after, `audit_log` is hash-chained. **The lesson is the familiar one:** an
+  analysis that reads *docs* rather than *code* reports missing features that exist.
+- **Two proposals are now recorded as Explicitly OUT rather than left as gaps** — a Hay
+  factor-by-factor point breakdown (proprietary charts; a label is not a control) and a
+  compensation requisition workflow (the HRIS is the system of record; the seam is the planned
+  HRIS export). **Their absence should read as a decision, which is what that section is for.**
+- **What genuinely survived:** the **re-evaluation lifecycle** — SFU's process is intake →
+  evidence → review → decision → resolution, and only the intake half was planned. Three of the
+  five stages already exist; the missing piece is **a request object with a status**, not a second
+  decision store. Plus one small residue: the JDFN scope sentence is on the search page and the
+  baseline dashboard but **not on the Builder**, the one place an author would ask.
+- **⚠️ And its blind spot is the one worth carrying: none of the four documents mentions
+  ratification.** It sequences CUPE authoring and Hay evaluation as "short term" while **every
+  register entry is still `open`** — planning capability past an unsigned approval bar. It also
+  lists "score and **grade** logic" as implemented; grade is missing/unreliable and HR-blocked.
+  **An external review's priorities are not calibrated to our critical path; check them against
+  it before adopting a sequence.**
+
 ### The evidence behind the four habits above
 
 Kept because each is a *specific* thing that shipped green over a hole, and the pattern is

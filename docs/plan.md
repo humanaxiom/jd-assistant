@@ -688,6 +688,27 @@ Neo4j **domain** role-duty overlap graph (org-design queries — the only deferr
 Hay-readiness summaries (port `bank/hay_signals.py`, #9, is cheap); transposer-as-a-service for
 old-template uploads; M365/SharePoint surfacing.
 
+**Hay-readiness summaries are the ceiling here, and that is deliberate.** A summary says *which
+factors a JD gives an evaluator something to read on*. It does **not** produce a factor-by-factor
+point breakdown or a grade: the point charts are proprietary Hay/WTW material, SFU publishes none,
+and classification is a human Compensation decision — which is why `HayGrade` and
+`HaySignals.{grade, grade_mapped}` are **unrepresentable** in `models/bank.py` rather than merely
+unused (ADR-007). Proposals to add "clearly labelled advisory" Hay scoring recur; a label is not a
+control, and the answer is recorded in ROADMAP §Explicitly OUT.
+
+**Re-evaluation request lifecycle (JDQ/JAQ) — scoped 2026-08-13.** SFU's published process is a
+lifecycle, not a form: intake → reason/evidence → review → decision record → resolution. **Three
+of those five stages already exist** — `review.edit()` demands a written reason and mints a new
+version, `/jd-bank/ui/review/{id}/diff` renders before-vs-after, and `audit_log` is append-only and
+hash-chained. What is missing is a **request object with a status** hanging off the existing review
+queue; a second decision store beside the audit chain would be the defect, not the feature. JDFN
+only until HR-194. Detail in ROADMAP §3 and
+[`docs/decisions/copilot-sfu-gap-triage-2026-08-13.md`](decisions/copilot-sfu-gap-triage-2026-08-13.md).
+
+**A compensation requisition / pay-transaction workflow is OUT of remit** — the HRIS is the system
+of record for a pay transaction and JD Bank sits upstream of it. The seam is the planned HRIS
+export of an approved canonical (HR-blocked on grade scales + FIPPA), not a requisition store here.
+
 **CUPE / WJQ authoring — the biggest deferred scope question (HR-194, `open`).** The Builder and
 approval bar are JDFN-only (APSA/APEX/POLY). CUPE is ~29.5% of the archive (~4,300 WJQ-instrument
 files) and is deliberately **not served** because there is no ratified CUPE quality bar — the

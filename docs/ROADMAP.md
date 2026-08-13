@@ -1,7 +1,11 @@
 # JD Bank — Roadmap & Backlog
 
 **Updated:** 2026-07-28; **revised 2026-08-05** against the seven commits from `650828b` to
-`46a9443` plus the Phase-5.9 authoring guard. Produced from a review of the repo backlog + main workflow and a
+`46a9443` plus the Phase-5.9 authoring guard; **revised 2026-08-13** to absorb the triaged
+findings of an external "SFU site coverage" gap analysis
+([triage record](decisions/copilot-sfu-gap-triage-2026-08-13.md) — two of its nine issues were
+factually wrong, and its two additions to this roadmap are both *subtractions*: entries in
+§Explicitly OUT). Produced from a review of the repo backlog + main workflow and a
 scan of peer-university JD/HR systems (UBC, Toronto, McGill; Workday, PageUp, Cornerstone,
 PeopleAdmin/Unified Talent, JDXpert, Interfolio). Every item respects the six hard
 invariants; conflicts are called out explicitly.
@@ -89,6 +93,7 @@ list omits the auth deferrals — captured here.)
 | Pipeline | **31.9% of the archive (4,630 JDs) has no parsed `employee_group`** — the parser's residual — so "the Bank serves JDFN" is unfalsifiable for a third of the corpus. Close before the CUPE scope conversation; no HR dependency | open | M |
 | UX | **Submit → 403.** The draft commits, then redirects to a reviewer-only page; the default new-user role is `author`, so this is the default first experience. No author-scoped status route exists | open | S |
 | Review | **Harmonization provenance** — a reviewer sees a raised education/experience bar with no indication that most sources stated lower (`seniority_bar_policy: max`, HR-175; ~4.3% of clusters). The NN #1 control cannot rule on what it cannot see | open | M |
+| Governance | ~~**External "SFU site coverage" gap analysis (GitHub Copilot, 2026-08-13)**~~ **TRIAGED — [`docs/decisions/copilot-sfu-gap-triage-2026-08-13.md`](decisions/copilot-sfu-gap-triage-2026-08-13.md).** Nine issues: **both of its P0s are factually wrong** (the CUPE/WJQ boundary is explicit in five places including the HR matrix's Decision 8; the Hay authority question is decided and enforced *structurally* — `HayGrade` is made **unrepresentable** in `models/bank.py`), four are already tracked, two are invariant/remit conflicts now recorded as **Explicitly OUT**, and its issues 7–8 (change tracking, compensation audit trail) are **largely already built** — `edit()` requires a written reason, mints a new version, records `changed_sections`, and the audit log is hash-chained. Adopted: the re-evaluation **lifecycle** (§3), a scope statement on the Builder page (§2), two OUT entries. Its framing is worth keeping — *"not missing the core pipeline; missing the full SFU lifecycle"* — and its blind spot is worth naming: it plans new capability past an **unsigned approval bar**, and never mentions ratification at all | done (triage) | — |
 | Chore | `jd_core → jd_bank` import edge; `get_session` → `api/deps.py` shim | open | S |
 | Docs | Refresh HANDOFF.md for the auth/RBAC + operator-guide work | open | S |
 | Phase 7 | Role-duty overlap graph (Neo4j); Hay-readiness summaries; transposer service; M365/SharePoint | deferred | S–XL |
@@ -160,6 +165,15 @@ unblock the pilot** — do them first.
   current, and **the billing block is resolved** — CI is green on every commit including `main`,
   and PR #81 merged normally. **Older notes saying "Actions is billing-blocked, merge locally per
   ADR-006" are now WRONG; do not follow them.**
+- **State the JDFN scope on the Builder page itself.** The Bank authors JDFN (APSA/APEX/Poly)
+  only, and says so in the operator guide, on `compose_search.html` and on the baseline
+  dashboard — but **not on the Builder**, which is the one surface where an author would ask
+  "why can't I pick CUPE?". One sentence naming the instrument (WJQ), the reason (no ratified
+  CUPE bar) and the register entry (HR-194), rendered where the `employee_groups` select is.
+  Raised by the 2026-08-13 Copilot gap analysis — the only part of its CUPE P0 that survived
+  triage (`docs/decisions/copilot-sfu-gap-triage-2026-08-13.md`).
+  *Invariant:* the group list is already rulebook data; this surfaces the decision, it does not
+  add one.
 - **Footer / territorial-acknowledgement sign-off.** A single `boilerplate.yaml` constant that
   blocks any external `.docx`/posting export — a verification task, get it in front of the
   right person before the posting features can ship externally.
@@ -216,11 +230,21 @@ From peer research + backlog, each mapped to JD Bank's architecture, ordered rou
   batch-assign or flag. Remediating **1,798** drafts is a cohort job. *Fit:* **HARD FLAG — bulk
   _approve_ would violate "nothing auto-publishes."** Bulk stops at assign/flag/export; publish
   stays an individual human decision. **Effort M.**
-- **Manager reclassification questionnaire (JDQ/JAQ) intake.** A rules-as-data questionnaire for
-  "my duties materially changed" that red-lines a JD draft and routes it into classification
-  review — the highest-volume manager HR workflow at a Canadian university. Reuses the Phase-5
-  `assemble_jd(answers)` machinery. *Peers:* UBC JDQ → reclassification. *Fit:* questionnaire as
-  versioned YAML; output a DRAFT into the human queue. JDFN-scoped (CUPE waits on HR-194). **Effort M.**
+- **Manager reclassification questionnaire (JDQ/JAQ) intake — and the re-evaluation lifecycle
+  behind it.** A rules-as-data questionnaire for "my duties materially changed" that red-lines a
+  JD draft and routes it into classification review — the highest-volume manager HR workflow at a
+  Canadian university. Reuses the Phase-5 `assemble_jd(answers)` machinery. *Peers:* UBC JDQ →
+  reclassification. *Fit:* questionnaire as versioned YAML; output a DRAFT into the human queue.
+  JDFN-scoped (CUPE waits on HR-194).
+  **Scope sharpened 2026-08-13** after the Copilot gap analysis correctly observed that SFU's
+  published process is a *lifecycle*, not a form: **intake → reason/evidence capture → review →
+  decision record → resolution**, where today only the intake half is planned. The honest
+  framing is that **three of those five stages already exist and must be reused, not rebuilt** —
+  `review.edit()` already demands a written reason and mints a new version, `/review/{id}/diff`
+  already renders before-vs-after, and `audit_log` is already append-only and hash-chained. What
+  is genuinely missing is a **request object with a status** (who asked, when, on which role,
+  still open or resolved) that hangs off the existing review queue. Building a second decision
+  store beside the audit chain would be the defect, not the feature. **Effort M.**
 
 ### Explicitly OUT / blocked (invariant conflicts)
 - **Cloud skills extraction** (Lightcast / Workday Skills Cloud / Textkernel cloud endpoints) —
@@ -233,6 +257,23 @@ From peer research + backlog, each mapped to JD Bank's architecture, ordered rou
   advise, self-hosted. Proprietary Hay/WTW point charts must never be embedded (licensed).
 - **Hosting/crawling a `schema.org` JobPosting careers page** — ATS territory, out of remit.
   Fine only as a deterministic export artifact of *approved* postings.
+- **A Hay evaluation workflow that produces a factor-by-factor point breakdown** (proposed by the
+  2026-08-13 Copilot gap analysis) — **breaches invariants 3/4 and the licensing line.** The
+  factor charts are proprietary Hay/WTW material we may not embed, SFU publishes no point chart,
+  and classification is a human Compensation decision — which is why `HayGrade` and
+  `HaySignals.{grade, grade_mapped}` are made **unrepresentable** in `models/bank.py` rather than
+  merely unused, and why ADR-007 disclaims the comparison adapter as *not* formal classification.
+  A "clearly labelled advisory" version does not rescue it: the artifact would still be a
+  point-scored grade, and a label is not a control. **Hay-readiness *summaries* — which factors a
+  JD gives an evaluator something to read on — stay in scope** (plan.md Phase 7).
+- **Compensation requisition / pay-transaction workflow** (proposed by the same analysis) — **out
+  of remit, not out of reach.** A requisition moves money and headcount; the **HRIS is the system
+  of record** for that, and JD Bank sits upstream of it. Modelling a second requisition store here
+  would create two answers to "what is this position's approved pay" and put JD Bank in the path
+  of a payroll decision it cannot be the authority for. The correct seam is the one already
+  planned: an **HRIS export** of the approved canonical JD (HR-blocked on grade scales + FIPPA).
+  Job-*change* tracking on the JD itself is a different thing and already exists — new version,
+  mandatory reason, version diff, hash-chained audit.
 
 ---
 
