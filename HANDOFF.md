@@ -8,55 +8,52 @@ Read this first every session. Single source of truth for current state + how we
 
 | | |
 |---|---|
-| `main` | `c46cc89` — **P0.0 (#88) and P0.3 (#89) are both merged**, on top of #86's HR docs. |
-| `main` also has | **P0.1b-ii login round trip** (#91, `d3d91b4`) — login CSRF + the open redirect on `next`. |
-| **Open PR** | **[#92](https://github.com/humanaxiom/jd-assistant/pull/92)** — **P0.1b-ii leftovers** (`/ready` amplification + `GraphMemory` egress), targeted at `main`. **With it, the whole P0.1b bundle is closed.** |
-| Gates | **2,606 passing, 93.89%** (#91: 2,600 / 93.87%) (P0.4: 2,567 / 93.76%) (P0.3: 2,548; P0.0: 2,508 / 93.71%; before: 2,436 / 93.63%); `register-check` + `guide-check` green; `rules_version` `jd_rules_sfu_v4+90af5e27dc83` **still unmoved** |
-| Register | **197** decisions, **0 ratified** |
+| `main` | `d3d91b4` — **five P0 items merged this session**: P0.0 navigability (#88) · P0.3 deployment origins (#89) · P0.4 production posture (#90) · P0.1b-ii login round trip (#91), on top of #86's HR docs |
+| **Open PR** | **[#92](https://github.com/humanaxiom/jd-assistant/pull/92)** — the P0.1b-ii leftovers (`/ready` amplification + `GraphMemory` egress). **With it the entire P0.1b bundle is closed** and no security item from the 2026-08-07 review remains open |
+| Gates | **2,606 passing, 93.89%** (up from 2,436 / 93.63% at the start of the session); `register-check` + `guide-check` green |
+| `rules_version` | `jd_rules_sfu_v4+90af5e27dc83` — **unmoved through all five PRs**. None of this work touched a rulebook metric, so none of it earned a register entry |
+| Register | **197** decisions, **0 ratified** ← *still the critical path, and still external* |
 | Live data | 14,565 files · 14,522 parsed (v3) · 1,802 roles · **4 published** · `review_actions` 6 |
 
-> ### ⚠️ A merge went somewhere nobody looked — check this before trusting a "merged"
+### What changed this session, in one paragraph
+
+The system now **enforces the invariant everything else assumes** — nothing publishes
+without an authenticated, authorized human — and it can be deployed in a posture that
+refuses to run unsafely. A person can also now use it without hitting a dead end. The
+phase record is `docs/plan.md` §Phase 9; the ordered triage it came from is
+`docs/tasks/architecture-review-response-2026-08-07.md` §6.
+
+### The four habits this session earned — they matter more than the fixes
+
+1. **Enumerate from the live artifact, never a hand-maintained list.** The authorization
+   matrix walks the real routing table; the compose-delivery pin derives its set from a real
+   refusal message; the link crawl globs the template directory. Every one of those was
+   written *after* a control shipped green over a hole.
+2. **Prove the net fails before trusting it.** Every safety net added here was mutated and
+   watched go red first. The link crawl, the loopback-port check, the CSRF stale-tab page,
+   the `/ready` bound, both login-round-trip controls.
+3. **Ask "is this *offered*?", not only "is this *refused*?"** The authorization matrix was
+   correct on all 51 routes while a new user's very first click was a link to a `403`. **A
+   correct gate on a link nobody should have been shown is still a defect, and no gate test
+   can see it.**
+4. **A control is not shipped until it is reachable from the documented deployment path.**
+   P0.2's guard was a complete no-op (`ENVIRONMENT` reached zero of fourteen containers) and
+   P0.4 had two defects — a mistyped Neo4j setting and a healthcheck reading a variable that
+   does not exist inside its container — and **all three were found by deploying, not by
+   reading.**
+
+> ### ⚠️ And one about git: a merge went somewhere nobody looked
 >
 > **PR #87 was merged into `chore/hr-docs-and-backlog`, not into `main`.** It was opened
 > against that branch deliberately (so its diff showed only P0.0 while #86 was still open),
-> on the expectation that GitHub would retarget it to `main` when #86 merged. **It did
-> not** — #86 was *squash*-merged, which leaves a dependent PR pointing at a branch that
-> still exists. Both PRs then reported `MERGED` and **`main` had none of P0.0**.
+> on the expectation that GitHub would retarget it when #86 merged. **It did not** — #86 was
+> *squash*-merged, which leaves a dependent PR pointing at a branch that still exists. Both
+> PRs then reported `MERGED` and **`main` had none of P0.0**. It was re-landed as #88
+> (cherry-picked; `git diff` against the CI-green commit was empty).
 >
-> #88 is the same five commits cherry-picked onto `main`; `git diff 41c2ce8 HEAD` was
-> **empty**, so the tree is byte-identical to what CI passed on. Nothing was rewritten.
->
-> **The rule this earns:** *`MERGED` names a base, not a destination.* CLAUDE.md already
-> says to verify state against the remote rather than trust a handoff note — extend it:
-> after a merge, check `git log origin/main`, not the PR's badge. **Do not stack a PR on a
-> branch that will be squash-merged.**
-
-### ✅ P0.0 NAVIGABILITY IS DONE — and the sting was not the front door
-
-`http://localhost:25800` reaching the app is the *small* half. The half that mattered:
-**`author` is `default_new_user_role`, and the first-run experience was — write a JD,
-press Submit, get a raw `403` JSON blob with no sign the work had saved**, while the nav
-offered that same user a Review queue link answering the same blob. Shipped as one change
-(you cannot fix a redirect that lands on a dead end by moving the dead end): the front
-door · **HTML error pages negotiated on `Accept`, never on a path prefix** · a role-aware
-nav · **📝 My drafts** · empty states with escapes · `/favicon.ico` + `/robots.txt`.
-
-**Three things from it worth carrying:**
-
-1. **The durable artifact is the crawl** (`tests/unit/test_template_links.py`): every
-   `href`/`form action` in every template, method-aware, resolved by asking the app's own
-   route objects the same `matches(scope)` question the router asks. Both ends enumerate
-   from the live artifact — templates globbed, routes walked. **And it was shown to fail**
-   — two tests mutate a *real* template and assert the crawl reports it. Six proofs total.
-2. **The rule that outlives the fix:** *no page an author reaches may link to a route the
-   **authorization matrix** says they cannot reach* — asserted against the matrix itself,
-   so it covers pages nobody thought about. That is what would have caught this on day one.
-3. **The scheme-blind `307` was fixed by NOT buying it with `--proxy-headers`.**
-   `redirect_slashes` is off; the rescue is a **relative** `Location`, which cannot name a
-   scheme. **P0.3 has since adjudicated the flag itself: not needed, stays off** — the
-   origin allowlist reads `X-Forwarded-Proto` for the one decision that needs it and
-   validates the result, where the flag would rewrite `request.url.scheme` globally from a
-   header nothing checks.
+> **The rule:** *`MERGED` names a base, not a destination.* After a merge, read
+> `git log origin/main` — not the badge. **Do not stack a PR on a branch that will be
+> squash-merged**; if you must, rebase onto `main` and retarget the base once it lands.
 
 ### ⚠️ Things about the RUNNING system you must know before touching it
 
@@ -87,43 +84,46 @@ nav · **📝 My drafts** · empty states with escapes · `/favicon.ico` + `/rob
 
 ### The queue, in order
 
+**Everything the 2026-08-07 review raised is now closed** (P0.1a #82 · P0.2 #83 ·
+P0.1b-i #85 · P0.0 #88 · P0.3 #89 · P0.4 #90 · P0.1b-ii #91 + #92). What is left is what
+was always the real critical path — and the first item is not a commit.
+
 | | Task | Why it is here |
 |---|---|---|
-| ~~—~~ | ~~**P0.0 — Navigability**~~ | ✅ **DONE** — PR #88. All 8 defect classes closed; deferrals stated in the task doc. **Absorbed the old P1.1.** |
-| ~~—~~ | ~~**P0.3 — Deployment origins**~~ | ✅ **DONE** — PR #89. Origin allowlist shipped and verified live (both origins sign in at once); data ports on loopback; the exposure question **answered: internet-facing**, which is why the row below moved. |
-| ~~—~~ | ~~**P0.4 — The production posture**~~ | ✅ **BUILT — PR #90.** `docker-compose.prod.yml` ships and was **verified by deploying it** (own project, own ports, torn down after): a safe posture serves `{"status":"ok"}` with no reloader and no source mount; an unsafe one reads `Restarting (3)` / `unhealthy` and never comes up. ⚠️ **It is available, NOT in force** — the live demo still runs the dev stack. Switching it over is an operator action needing a certificate, real secrets, and a `JD_API_BIND` decision. |
-| **1** | **🔴 TLS at the edge — the last open exposure** | Not a repo deliverable, which is exactly why it needs a person: the app is public over **plain http**, so session cookies and CAS tickets are in the clear on the open internet. P0.4 makes the app correct *behind* a terminator and refuses to pretend otherwise; someone has to put one in front. |
-| ~~—~~ | ~~**P0.1b-ii — login CSRF + the open redirect**~~ | ✅ **DONE — PR [#91](https://github.com/humanaxiom/jd-assistant/pull/91).** Both were one code path — the CAS round trip — so they are one fix: `next` is pinned to a local path, and an HttpOnly login-state cookie binds the round trip to the browser that started it. Mutation-proved (23 tests red when either control is reverted) and verified live. **This also settles the `next` validation P0.0's crawl left owed.** |
-| ~~—~~ | ~~**P0.1b-ii, the leftovers**~~ | ✅ **DONE — PR [#92](https://github.com/humanaxiom/jd-assistant/pull/92).** `/ready` is single-flight + 2s TTL (**peak Postgres backends under 300 concurrent: 2, was 13 at 200**), and `GraphMemory` is egress-guarded. **The P0.1b bundle is now entirely closed.** |
-| 3 | **P1.3 — Tier the register** | **Consider promoting.** Two HR complaints traced to one cause: the register does two incompatible jobs. Tiering turns "197 decisions" into ~60 real policy calls — the difference between an ask HR can act on and one they bounce. |
-| 4 | **P1.2 — Harmonization provenance** | A reviewer sees a raised education bar with no sign that most sources said lower. |
+| **1** | **🔴 TLS at the edge — the last open exposure, and NOT a repo deliverable** | The pilot host is internet-facing over **plain http**, so sign-in cookies and CAS tickets cross the open internet in the clear. P0.4 makes the app correct *behind* a terminator (P0.3's allowlist reads `X-Forwarded-Proto` and validates the result) and refuses to run pretending otherwise — **someone has to put one in front.** It is also what unblocks actually *using* `docker-compose.prod.yml`, which needs an https origin. |
+| **2** | **P1.3 — Tier the register** | **Worth promoting.** Two HR complaints traced to one cause: the register does two incompatible jobs. Tiering turns "197 decisions" into ~60 real policy calls — the difference between an ask HR can act on and one they bounce. **Ratification is the critical path, so the work that makes ratification possible outranks new capability.** |
+| **3** | **P1.2 — Harmonization provenance** | A reviewer sees a raised education bar with no sign that 9 of 10 sources said lower. The human is the NN #1 control and cannot rule on what they cannot see. |
+| 4 | **Phase 8.3 — review-experience upgrades** (`docs/plan.md`) | Word-level diff · structural sidebar · gate→field jump links. No GPU, parallelizable. |
+| 5 | **Phase 6 leftovers** | Backup + reindex runbooks, and the **territorial-acknowledgement wording sign-off** — the latter blocks external distribution and is HR's call. |
 
-### How this session worked, and what it kept catching
+**Deliberately still open, recorded so their absence is not mistaken for completion:** the
+missing timeout on `/compose/search` and `/assist` (same root cause as the 5.9 guard's) ·
+`embed_stamp` parity is never verified at query time · `cloned_from_cluster_id` is dropped
+by `assemble_jd`, so clone lineage is lost at submit (NN #6 opportunity) ·
+`docs/rulebook/rulebook/` is a byte-identical duplicate directory tracked since Phase 0 ·
+`docs/status/*` stops at 2026-07-24.
 
-**Three controls shipped green while a hole existed** — the authorization matrix (green while an
-open route was served), the compose-delivery pin (protected 1 of 12 services), and the CSRF
-guard's three untested branches. **Every one was found by mutation, not by reading.** So: build
-safety nets that **enumerate from the live artifact** (the routing table, a real refusal message,
-rendered HTML), and **prove the net fails before trusting it.**
+### The evidence behind the four habits above
 
-**And the one that no test could have caught:** P0.2's implementation was correct on the first
-pass — nine conditions, no bypass, 2,218 tests green — and it was a **complete no-op**, because
-`ENVIRONMENT` reached zero of fourteen containers. Both reviewers found it by *trying to deploy*.
-**When you build a control, prove it is reachable from the documented path, not merely that its
-logic is right.**
+Kept because each is a *specific* thing that shipped green over a hole, and the pattern is
+only convincing with the cases attached:
 
-**P0.0 added a fourth, and it is about the OTHER direction:** every one of those nets asked
-*"is this refused?"*. The navigability crawl asks **"is this offered?"** — and the defect it
-found lived exactly in the gap between them. The authorization matrix was right on all 51
-routes while an author's very first click was a link to a `403`. **A correct gate on a link
-nobody should have been shown is still a defect, and no gate test can see it.**
-
-**P0.3 added a fifth, about the harness rather than the app:** a test asserting the CAS
-fallback origin **failed on the dev box and would have passed in CI**, because the
-repo-root `.env` reached the `gates` container for that setting. The suite was reading the
-developer's machine. **Before trusting a test that reads a setting, check the setting is
-pinned in the `gates` service** — `GATES_HERMETIC_PINS` is the list, and it is asserted
-exactly so a new pin has to be argued for.
+- **Three controls were green while a hole existed** — the authorization matrix (green
+  while an open route was served), the compose-delivery pin (protected 1 of 12 services),
+  and the CSRF guard's three untested branches. **Every one was found by mutation.**
+- **P0.2 was a complete no-op while correct.** Nine conditions, no bypass, 2,218 tests
+  green — and `ENVIRONMENT` reached zero of fourteen containers. Both reviewers found it
+  by *trying to deploy*.
+- **P0.0's defect lived in the gap between "refused" and "offered."** The matrix was right
+  on all 51 routes while an author's first click was a link to a `403`.
+- **P0.3 caught the harness, not the app:** a test asserting the CAS fallback origin
+  **failed on the dev box and would have passed in CI**, because the repo-root `.env`
+  reached the `gates` container for that setting — the suite was reading the developer's
+  machine. `GATES_HERMETIC_PINS` is the list of what is pinned, asserted exactly so a new
+  pin has to be argued for.
+- **P0.4 had two defects invisible in review** — a stray underscore making a Neo4j setting
+  one the server rejects, and a healthcheck reading a variable that exists in the compose
+  environment but not inside that container. Both obvious on the first `up`.
 
 ---
 
