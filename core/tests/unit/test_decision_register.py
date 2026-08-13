@@ -41,6 +41,7 @@ from src.jd_core.rules import (
     RULE_FILES,
     DecisionProvenance,
     DecisionStatus,
+    DecisionTier,
     Rules,
     RulesError,
     SeverityFloorGate,
@@ -56,6 +57,7 @@ from src.jd_core.rules import (
 )
 from src.jd_core.rules.render import (
     _PROVENANCE_HEADING,
+    _TIER_HEADING,
     check_markdown,
     main,
     render_register,
@@ -1842,3 +1844,138 @@ def test_a_pattern_valued_decision_is_still_fully_recorded(rules: Rules) -> None
                 f"{decision.id}'s pattern is summarised in the table but missing "
                 "from its detail block"
             )
+
+
+# --- 5. tiering: HR is asked to rule on the approval bar, not on plumbing -------
+#
+# The register conflated two incompatible jobs. It is simultaneously (a) the list
+# of policy calls SFU HR must sign, and (b) the completeness ledger that stops an
+# engineer tuning a threshold silently — and (b) requires registering embedding
+# timeouts and MinHash band counts that HR must never be asked about. Handing an HR
+# workshop the undifferentiated list is what makes the ask bounce.
+#
+# `tier` splits the two WITHOUT dropping a single entry: every parameter stays
+# registered and every build-breaking check above still covers all of them. What
+# changes is who is asked.
+
+
+def test_every_decision_declares_a_tier(rules: Rules) -> None:
+    tiers = get_args(DecisionTier)
+    for decision in rules.decision_register.decisions:
+        assert decision.tier in tiers, f"{decision.id} has no valid tier"
+
+
+def test_a_decision_with_no_tier_fails_to_load(tmp_path: Path) -> None:
+    """`tier` is REQUIRED and has no default — so a new entry cannot be added
+    without someone deciding whether HR is asked about it. A default would silently
+    file every future parameter into whichever tier we picked."""
+    _write_valid_rules(tmp_path)
+    _patch_decision(tmp_path, "HR-001", lambda entry: entry.pop("tier"))
+    with pytest.raises(RulesError):
+        load_rules(tmp_path)
+
+
+def test_a_decision_with_an_unknown_tier_fails_to_load(tmp_path: Path) -> None:
+    _write_valid_rules(tmp_path)
+    _patch_decision(tmp_path, "HR-001", lambda entry: entry.update(tier="whenever"))
+    with pytest.raises(RulesError):
+        load_rules(tmp_path)
+
+
+def test_the_approval_bar_is_hr_policy(rules: Rules) -> None:
+    """Everything that decides whether a JD PASSES is HR's to rule on — the gates,
+    every point and grade band, and SFU's own published wording. If any of these
+    drifts out of `hr_policy`, the workshop ask has lost its subject."""
+    must_be_policy = {"gates.yaml", "scoring.yaml", "boilerplate.yaml"}
+    for decision in rules.decision_register.decisions:
+        if (
+            decision.config.file in must_be_policy
+            and not decision.config.path.endswith(
+                ".max_listed"  # a presentation limit, not the bar
+            )
+        ):
+            assert decision.tier == "hr_policy", (
+                f"{decision.id} ({decision.config}) decides whether a JD passes but "
+                f"is tiered {decision.tier!r}"
+            )
+
+
+def test_the_derived_signal_adapters_are_never_hr_policy(rules: Rules) -> None:
+    """ADR-007 disclaims comparison/hay_signals as NOT formal classification, and
+    `models/bank.py` makes a Hay grade unrepresentable. Asking HR to ratify a
+    similarity weight or a Know-How point value contradicts both — and these two
+    files alone are why the undifferentiated ask was unanswerable."""
+    for decision in rules.decision_register.decisions:
+        if decision.config.file in {"comparison.yaml", "hay_signals.yaml"}:
+            assert decision.tier != "hr_policy", (
+                f"{decision.id} is a derived signal ADR-007 disclaims, but it is "
+                "tiered hr_policy — HR would be asked to ratify a number that does "
+                "not classify anything"
+            )
+
+
+def test_the_inference_knobs_are_technical(rules: Rules) -> None:
+    """Model names, temperatures, token budgets, retries, embedding dimensions and
+    timeouts. A wrong value here is an engineering bug, not a policy error."""
+    for decision in rules.decision_register.decisions:
+        leaf = decision.config.path.rsplit(".", 1)[-1]
+        if leaf in {
+            "model",
+            "temperature",
+            "max_tokens",
+            "max_retries",
+            "dimensions",
+            "reasoning_effort",
+            "timeout_seconds",
+        }:
+            assert decision.tier == "technical", (
+                f"{decision.id} ({decision.config}) is an inference knob tiered "
+                f"{decision.tier!r} — HR should never be asked about it"
+            )
+
+
+def test_tiering_asks_hr_a_materially_smaller_question(rules: Rules) -> None:
+    """The whole point: the HR ask must be a fraction of the register, or nothing
+    was gained. Not a target to tune the tiers against — a floor that fails loudly
+    if a later batch of entries quietly lands in `hr_policy`."""
+    register = rules.decision_register
+    policy = register.by_tier("hr_policy")
+    assert len(policy) < len(register.decisions) / 2, (
+        f"{len(policy)} of {len(register.decisions)} entries are hr_policy — the "
+        "ask is no smaller than the undifferentiated register was"
+    )
+
+
+def test_every_entry_survives_the_tiering(rules: Rules) -> None:
+    """Nothing becomes unregistered. Tiering changes who is ASKED, never what is
+    COVERED — the coverage check above still walks every decision."""
+    register = rules.decision_register
+    tiered = sum(len(register.by_tier(tier)) for tier in get_args(DecisionTier))
+    assert tiered == len(register.decisions)
+
+
+def test_the_rendered_register_groups_the_open_decisions_by_tier(
+    rules: Rules,
+) -> None:
+    """HR opens the generated Markdown and must see their ~60 calls as a section,
+    not as a colour of row in a 197-row table."""
+    document = render_register(rules)
+    for tier in get_args(DecisionTier):
+        assert _TIER_HEADING[tier] in document, f"no section for the {tier} tier"
+
+    policy_at = document.index(_TIER_HEADING["hr_policy"])
+    technical_at = document.index(_TIER_HEADING["technical"])
+    assert (
+        policy_at < technical_at
+    ), "the technical tier is rendered above the decisions HR must actually make"
+
+
+def test_the_rendered_header_states_the_hr_policy_count(rules: Rules) -> None:
+    """The count of record. CLAUDE.md forbids restating it anywhere else, so the
+    generated header has to carry the tier breakdown or it is not stated at all."""
+    document = render_register(rules)
+    header = document.split("## What this is")[0]
+    policy = len(rules.decision_register.by_tier("hr_policy"))
+    assert (
+        f"{policy} need an HR ruling" in header
+    ), "the header does not state how many decisions HR is actually asked for"

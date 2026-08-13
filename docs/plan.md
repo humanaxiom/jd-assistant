@@ -364,6 +364,30 @@ date or the footer's presence.
 The register enforces the record: a `ratified` decision **must** carry `decided_by` / `decided_on` /
 `decision_note`, or the rulebook fails to load.
 
+**P1.3 — the register is TIERED (2026-08-13).** Two HR complaints traced to one cause: the register
+did **two incompatible jobs**. It is simultaneously the list of policy calls HR must sign *and* the
+completeness ledger that stops an engineer tuning a threshold silently — and the second job requires
+registering embedding dimensions, MinHash band counts and model temperatures, which HR must never be
+handed. Undifferentiated, the ask was unanswerable. Every entry now carries a required
+`tier` — `hr_policy` / `hr_informed` / `technical` — and the generated register leads with **"Your
+decisions"**. Measured: **65 hr_policy · 49 hr_informed · 83 technical**, so the ask is 65 settings
+rather than 197.
+
+Three properties make it more than a label:
+- **`tier` has no default.** A new parameter cannot be filed into a tier by omission — which is how
+  197 undifferentiated entries accumulated in the first place.
+- **Nothing became unregistered.** Every id survives and every build-breaking check still walks all
+  197; tune a `technical` value without updating `current_default` and the build fails exactly as
+  before. The tier changes the *audience*, never the coverage. Pinned by a test.
+- **`comparison.yaml` and `hay_signals.yaml` may never be `hr_policy`** — ADR-007 disclaims them as
+  *not* formal classification and `models/bank.py` makes a Hay grade unrepresentable, so asking HR to
+  ratify a similarity weight would contradict both. Pinned by a test, and **proved by mutation**:
+  promoting one comparison weight into `hr_policy` turns it red, as does demoting the score floor out
+  of it.
+
+`rules_version` **unmoved** — `decision_register.yaml` is unhashed and no default changed. The count
+of record stays the generated register's own header; per CLAUDE.md it is **not** restated in code.
+
 ### Phase 3 — Dedup & clustering — ✅ COMPLETE (3.1–3.5 all MERGED and RUN)
 
 - **3.1** ✅ **MERGED** (PR #21) — Tier-1 exact dedup, and a **schema correction that had to come

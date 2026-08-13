@@ -42,9 +42,42 @@
 #   provenance       sfu_rulebook  (transcribed; MUST cite source_part)
 #                    prior_calibration (inherited from the earlier build; NOT SFU-published)
 #                    our_invention (JD Bank's own default; nobody ratified it)
+#   tier             WHO IS ASKED — required, no default (see below)
 #   status           open | ratified | deferred
 #                    ratified REQUIRES decided_by + decided_on + decision_note;
 #                    open FORBIDS them (an open decision with a decider is a lie).
+#
+# THE TIER, AND WHY IT EXISTS
+# This register does two incompatible jobs. It is (a) the list of policy calls SFU
+# HR must sign, and (b) the completeness ledger that stops an engineer tuning a
+# threshold silently. Job (b) requires registering embedding dimensions, MinHash
+# band counts and model temperatures — parameters HR must NEVER be handed. Job (a)
+# is unanswerable while they are mixed in: handed all of them at once, an HR
+# workshop bounces the ask, and that is exactly what happened.
+#
+#   hr_policy    The answer changes what PASSES, FAILS, BLOCKS or SCORES — or it is
+#                SFU's own published wording. HR is accountable and the bar is
+#                unsigned until they rule. THIS TIER, AND ONLY THIS TIER, IS THE ASK.
+#   hr_informed  The answer changes what a reviewer is SHOWN, or what a DRAFT
+#                contains before a human rules on it — never whether a JD passes.
+#                HR may object and must be able to find it; the default does not
+#                need a signature to be legitimate.
+#   technical    Plumbing: model names, dimensions, timeouts, retries, extraction
+#                regexes, index parameters. A wrong value here is an engineering
+#                bug, not a policy error.
+#
+# NOTHING BECOMES UNREGISTERED. Every entry keeps its id and every build-breaking
+# check above still walks all of them — tune a `technical` threshold without
+# updating its `current_default` and the build fails exactly as before. The tier
+# changes the AUDIENCE, never the coverage.
+#
+# Two consequences worth stating, because both are load-bearing:
+#   * `tier` has NO DEFAULT. A new parameter cannot be filed into a tier by
+#     omission — which is how 197 undifferentiated entries accumulated.
+#   * comparison.yaml and hay_signals.yaml may never be `hr_policy`. ADR-007
+#     disclaims them as NOT formal classification and `models/bank.py` makes a Hay
+#     grade unrepresentable; asking HR to ratify a similarity weight would
+#     contradict both. A test enforces it.
 #
 # COMPARISON CONTRACT (what `current_default` is written as)
 #   scalar -> itself · set -> its sorted members · mapping -> the WHOLE mapping,
@@ -74,6 +107,7 @@ decisions:
       path: gates.SFU-APPROVE-SCORE-FLOOR.min_score
     current_default: 60.0
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       This is the single number that decides how much of the archive is even
       presentable for review. It is OUR roll-up of the rulebook, not a number SFU
@@ -121,6 +155,7 @@ decisions:
       path: gates.SFU-APPROVE-GRADE-FLOOR.min_grade
     current_default: C
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       A second, independent floor next to the score floor (HR-001). The grade
       letter is what a reviewer actually sees, so this is the bar in the language
@@ -152,6 +187,7 @@ decisions:
       path: gates.SFU-APPROVE-SEVERITY-FLOOR.min_severity
     current_default: high
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       The backstop: any finding at this severity or worse blocks approval even if
       the JD scores well. It is also the only gate that catches findings with no
@@ -195,6 +231,7 @@ decisions:
       - SFU-STRUCT-PLACEHOLDER
       - SFU-STRUCT-SUMMARY-TOO-LONG
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       THE master list, and the most reviewable line in the whole system: it is the
       complete set of rule failures that disable the approve button. The selection
@@ -246,6 +283,7 @@ decisions:
       - SFU-APPROVE-MANDATORY-SECTIONS
       - SFU-APPROVE-NO-PLACEHOLDERS
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       Every other gate is overridable: a reviewer who judges a block to be a false
       positive waives it WITH A WRITTEN REASON, which is exactly the audit trail
@@ -281,6 +319,7 @@ decisions:
       - SFU-COMP-DUTIES
       - SFU-COMP-QUALS
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       This is the un-waivable gate (HR-005), so its membership is the strongest
       claim in the policy. SFU's Part 2 template makes ALL its sections mandatory;
@@ -303,6 +342,7 @@ decisions:
     current_default:
       - SFU-STRUCT-PLACEHOLDER
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       The second un-waivable gate (HR-005). It fires on the literal placeholder
       markers in markers.yaml — and one of those markers is the phrase "action
@@ -327,6 +367,7 @@ decisions:
       path: scoring.severity_penalty.high
     current_default: 20.0
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       Sets what "high" means numerically. Three high-severity findings (missing
       summary + duties + qualifications) take a JD from 100 to ~59 — just under the
@@ -343,6 +384,7 @@ decisions:
       path: scoring.severity_penalty.medium
     current_default: 10.0
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       The tier most SFU never-approve conditions sit in (duty percentages, banned
       qualification phrases, leftover placeholders, most coded terms).
@@ -359,6 +401,7 @@ decisions:
       path: scoring.severity_penalty.low
     current_default: 5.0
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       The drafting-nudge tier: action verbs, "how and why" detail, proficiency
       modifiers, a thin summary. These are the findings the archive fires most.
@@ -374,6 +417,7 @@ decisions:
       path: scoring.severity_penalty.info
     current_default: 0.0
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       Zero, today: `info` findings appear on the reviewer's checklist but are
       free. That is what makes the two unverifiable restricted-title checks
@@ -392,6 +436,7 @@ decisions:
       path: scoring.severity_decay
     current_default: 0.7
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       Diminishing returns: the k-th finding in a tier costs penalty × 0.7^k, so a
       tier can never cost more than penalty ÷ (1 − 0.7). A wall of minor nudges
@@ -410,6 +455,7 @@ decisions:
       path: scoring.grade_bands.A.min_score
     current_default: 90.0
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: The grade letters are what HR sees on the dashboard and in reports.
     impact_if_changed: Re-labels the archive; does not by itself change what is approvable.
     status: open
@@ -421,6 +467,7 @@ decisions:
       path: scoring.grade_bands.B.min_score
     current_default: 75.0
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: The grade letters are what HR sees on the dashboard and in reports.
     impact_if_changed: Re-labels the archive; does not by itself change what is approvable.
     status: open
@@ -432,6 +479,7 @@ decisions:
       path: scoring.grade_bands.C.min_score
     current_default: 60.0
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       This band is load-bearing: the grade floor (HR-002) is C and the score floor
       (HR-001) is 60.0, so this number is where the two floors meet. It is the de
@@ -448,6 +496,7 @@ decisions:
       path: scoring.grade_bands.D.min_score
     current_default: 40.0
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       Both D and F are below the approval floor, so this line only affects how a
       failing JD is *reported* — "needs work" vs "start over".
@@ -461,6 +510,7 @@ decisions:
       path: scoring.max_score
     current_default: 100.0
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       The perfect-JD baseline every penalty is subtracted from, and therefore the
       scale the approval floor (HR-001) and the grade bands are measured on. The earlier build
@@ -478,6 +528,7 @@ decisions:
       path: scoring.min_score
     current_default: 0.0
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       The floor a saturating pile of findings stops at. Keeps a badly-extracted
       legacy `.doc` from producing a meaningless −40.
@@ -495,6 +546,7 @@ decisions:
       path: thresholds.summary_min_words
     current_default: 100
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Part 2B
     why_it_matters: >-
       Note the asymmetry, which is the real question here. SFU states a MAXIMUM
@@ -523,6 +575,7 @@ decisions:
       path: thresholds.summary_max_words
     current_default: 150
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Part 2B
     why_it_matters: >-
       This one IS an SFU never-approve condition, and we gate it: a summary over
@@ -558,6 +611,7 @@ decisions:
       path: thresholds.duties_min
     current_default: 3
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Part 2C
     why_it_matters: >-
       Rulebook text, but the same asymmetry as HR-019: SFU names the over-run as
@@ -575,6 +629,7 @@ decisions:
       path: thresholds.duties_max
     current_default: 5
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Part 2C
     why_it_matters: >-
       Rulebook text. But see HR-036: exceeding it does NOT block approval today,
@@ -595,6 +650,7 @@ decisions:
       path: thresholds.duty_allocation_total_min
     current_default: 99
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       SFU says 100%, full stop (Part 11.6, an explicit never-approve condition).
       The 99–101 tolerance is a rounding window WE invented so that a JD whose
@@ -612,6 +668,7 @@ decisions:
       path: thresholds.duty_allocation_total_max
     current_default: 101
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: The upper half of the invented rounding window in HR-023.
     impact_if_changed: See HR-023 — ratify the window as a pair.
     status: open
@@ -625,6 +682,7 @@ decisions:
       path: thresholds.duty_allocation_min_count
     current_default: 2
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       It does not today. The check only runs when at least two parenthesized "(NN%)"
       allocations are present, so a JD with a single duty marked "(50%)" — an
@@ -646,6 +704,7 @@ decisions:
       path: thresholds.max_listed
     current_default: 5
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       Presentation, but not nothing: a JD with twelve non-approved action verbs
       shows the reviewer five of them. The reviewer sees a partial list and may not
@@ -665,6 +724,7 @@ decisions:
       path: gates.max_listed
     current_default: 5
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       FOUND WHILE BUILDING THIS REGISTER: `max_listed` exists TWICE — once in
       thresholds.yaml (used by the validators, HR-026) and once in gates.yaml (used
@@ -693,6 +753,7 @@ decisions:
       s/he: '"they" or "the incumbent"'
       trust: '"reliable"'
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       SFU's Part 6 lexicon lists these as terms to replace. We demoted them to
       `low` because they over-fire on ordinary JD prose ("the individual is
@@ -747,6 +808,7 @@ decisions:
       waitress: '"server"'
       workman: '"worker"'
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       DO NOT READ THIS LIST AS SFU POLICY. It is NOT a transcription of SFU's Part
       6 lexicon, and labelling it as one (which an earlier draft of this register
@@ -801,6 +863,7 @@ decisions:
       path: titles.executive_director.severity
     current_default: low
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       Two problems, one entry. (a) The finding is only `low` and does not block
       approval (HR-004), so a mis-titled Executive Director can be approved. (b)
@@ -821,6 +884,7 @@ decisions:
       path: titles.executive_director.reserved_for_employee_group
     current_default: apex
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Part 3.5
     why_it_matters: >-
       The only restricted title whose restriction is checkable from the JD alone
@@ -841,6 +905,7 @@ decisions:
       path: titles.registrar.severity
     current_default: info
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       `info` means: shown on the reviewer's checklist, costs zero score (HR-011),
       blocks nothing. We chose to surface it as a prompt to a human rather than
@@ -859,6 +924,7 @@ decisions:
       path: titles.human_resources.severity
     current_default: info
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       As HR-032. Note this rule fires on the SUBSTRING "human resources" in a
       title, so "Human Resources Advisor" inside SFU HR — a correct title — is
@@ -878,6 +944,7 @@ decisions:
       path: rule_catalog.SFU-COMP-DECISION.default_severity
     current_default: medium
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       It is NOT blocked today (absent from HR-004): `medium` costs 10 points and
       appears on the checklist, but the JD is still approvable. The section is a
@@ -899,6 +966,7 @@ decisions:
       path: rule_catalog.SFU-COMP-PROBLEM.default_severity
     current_default: medium
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       As HR-034: the other Hay input, also `medium`, also non-blocking today.
       Decide the pair together.
@@ -913,6 +981,7 @@ decisions:
       path: rule_catalog.SFU-STRUCT-DUTIES-TOO-MANY.default_severity
     current_default: medium
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       This is the side of the duty-count rule that SFU actually names as the defect
       ("more than 3-5 main responsibilities"), and we do NOT gate it (HR-004). We
@@ -931,6 +1000,7 @@ decisions:
       path: rule_catalog.SFU-STRUCT-DUTIES-TOO-FEW.default_severity
     current_default: medium
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       SFU names the over-run, not the under-run (HR-021). Firing at `medium` — the
       same cost as a genuine SFU never-approve condition — on a JD that consolidated
@@ -949,6 +1019,7 @@ decisions:
       path: rule_catalog.SFU-STRUCT-SUMMARY-TOO-SHORT.default_severity
     current_default: low
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       The summary-length rule is split in two precisely so this question can be
       answered separately (HR-019/HR-020): the over-run blocks approval, the
@@ -968,6 +1039,7 @@ decisions:
       path: rule_catalog.SFU-COMP-TERRITORIAL.default_severity
     current_default: low
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       CLAUDE.md's standing open flag, and the one entry here that blocks PUBLICATION
       rather than development. TWO distinct gaps. (a) SEVERITY: a missing
@@ -1007,6 +1079,7 @@ decisions:
       - none
       - working
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       "[NO MODIFIER]" in the rulebook means *the absence of a modifier*. We model it
       as a sentinel value `none`, which means a JD that literally writes "None
@@ -1031,6 +1104,7 @@ decisions:
       - assets
       - preferences
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Part 2H
     why_it_matters: >-
       The phrases are SFU's (they signal *desired* rather than the *minimum*
@@ -1086,6 +1160,7 @@ decisions:
       path: qualifications.equivalent_combination
     current_default: equivalent combination
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Part 2H
     why_it_matters: >-
       SFU requires an equivalency path so the bar does not exclude
@@ -1127,6 +1202,7 @@ decisions:
       path: action_verbs.approved.accountable
     current_default: true
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Glossary
     why_it_matters: >-
       It is in SFU's published glossary, so we kept it (fidelity over tidiness). The
@@ -1149,6 +1225,7 @@ decisions:
       path: action_verbs.approved.responsible
     current_default: true
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Glossary
     why_it_matters: >-
       As HR-043. "Responsible for…" is the single most common opening in the legacy
@@ -1170,6 +1247,7 @@ decisions:
       path: patterns.duty_allocation
     current_default: \((\d{1,3})\s*%\)
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       Our pattern, not SFU's. A JD that writes "40% of time" or "40 percent"
       without brackets contributes NOTHING to the total, so its allocations can
@@ -1201,6 +1279,7 @@ decisions:
       - parking
       - relocation
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       SFU's rule (Part 2B) is that the summary states the role's PURPOSE, not its
       working conditions. This specific word list is ours, and it BLOCKS approval
@@ -1229,6 +1308,7 @@ decisions:
       - "____"
       - "[insert"
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       These are the fragments of the template's own instructional text that a writer
       is supposed to delete. Finding one means the draft is unfinished — and that
@@ -1271,6 +1351,7 @@ decisions:
       path: patterns.incumbent
     current_default: \bmy\b|\bmyself\b|\bi am\b
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       SFU's Part 2B rule ("describe the position, not the person") is real; this
       three-word regex is our entire implementation of it, and it BLOCKS approval
@@ -1291,6 +1372,7 @@ decisions:
       path: patterns.senior_title
     current_default: \bsenior\b
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       Blocking (SFU-APPROVE-SENIOR-TITLE). SFU Part 3.5 reserves "Senior" for roles
       supervising junior peers — but the pattern matches the word ANYWHERE in the
@@ -1309,6 +1391,7 @@ decisions:
       path: patterns.degree_mention
     current_default: \b(bachelor|master|phd|doctorate|degree)\b
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       Triggers the check that a stated degree names a discipline and allows related
       fields (SFU-QUAL-DEGREE-DISCIPLINE, `low`, non-blocking). Matching the bare
@@ -1325,6 +1408,7 @@ decisions:
       path: patterns.related_discipline
     current_default: (related|relevant)\s+(discipline|field)|or\s+other\s+relevant
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       The other half of HR-050. A JD that says "…or a closely allied field" or
       "…in a comparable area" satisfies the rulebook in substance but not this
@@ -1345,6 +1429,7 @@ decisions:
       skill: 1
       ability: 2
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Part 5.4
     why_it_matters: >-
       The order is SFU's (Part 5.4) and it BLOCKS approval (SFU-APPROVE-KSA-ORDER).
@@ -1368,6 +1453,7 @@ decisions:
       - expert
       - intermediate
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Part 5.2
     why_it_matters: >-
       SFU's Toolkit vocabulary, transcribed. A skill tagged "proficient" or
@@ -1389,6 +1475,7 @@ decisions:
       - ability to
       - able to
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       SFU Part 5.3 gives the FORMAT 'Ability to [observable behavior]'. Our check is
       a literal prefix test, so "Demonstrated ability to lead teams" — which is the
@@ -1522,6 +1609,7 @@ decisions:
       - troubleshoots
       - verifies
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Glossary
     why_it_matters: >-
       The glossary is a CLOSED list: a duty beginning with any verb outside it is
@@ -1548,6 +1636,7 @@ decisions:
       path: markers.relationships_header
     current_default: establishes and maintains relationships and alliances
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Part 2F
     why_it_matters: >-
       A literal case-folded substring test. SFU's boilerplate, transcribed — but a
@@ -1571,6 +1660,7 @@ decisions:
       - SFU-COMP-QUALS
       - SFU-COMP-SUMMARY
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       THERE ARE TWO ROUTES TO BLOCKING, NOT ONE. A rule blocks if it is named in a
       gate's rule_ids (pinned by HR-004) — OR if its severity reaches the severity
@@ -1598,6 +1688,7 @@ decisions:
       path: coded_terms.medium.compassionate
     current_default: '"caring"'
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       ⚠ THE FALSE POSITIVE IS FIXED (Phase 2.5-prep) — the QUESTION IS STILL OPEN.
       Read the history, then what is left to decide.
@@ -1657,6 +1748,7 @@ decisions:
       - associate
       - assistant
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       the earlier build shipped this ladder claiming it as "SFU's official title ladder (Toolkit
       p18-19)". IT IS NOT IN THE RULEBOOK. docs/rulebook/sfu-jd-standards.txt has no
@@ -1696,6 +1788,7 @@ decisions:
       - assistant
       - associate
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       The classifier tries the families in THIS order and the first keyword that
       matches wins. That makes the order a policy statement, not an implementation
@@ -1728,6 +1821,7 @@ decisions:
       assistant: ["assistant"]
       associate: ["associate", "representative"]
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       This is the ladder of HR-059 made operational: a rung with no keyword can never
       be matched, and a word missing from a rung sends every title carrying it to
@@ -1753,6 +1847,7 @@ decisions:
       path: titles.comma_supervisory_families
     current_default: [chief, director, lead, manager, vp]
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       The comma FORMAT rule is SFU's (Part 3.4). The set of families it applies to is
       not: The earlier build chose these five. It is the guard that stops "Software Developer,
@@ -1785,6 +1880,7 @@ decisions:
       - director
       - executive
     provenance: sfu_rulebook
+    tier: hr_informed
     source_part: Part 3.3
     why_it_matters: >-
       The SECOND, independent title dimension: what the title *word* means, as
@@ -1819,6 +1915,7 @@ decisions:
       - coordinator
       - assistant
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       The Application Table (HR-063) is SFU's; the ORDER its rows are tried in is not
       — the earlier build chose it, and it is what resolves the overlaps. `executive` is tried
@@ -1849,6 +1946,7 @@ decisions:
       coordinator: ["coordinator"]
       assistant: ["assistant"]
     provenance: sfu_rulebook
+    tier: hr_informed
     source_part: Part 3.3
     why_it_matters: >-
       Each function is matched by its own name, so the keywords are a direct
@@ -1885,6 +1983,7 @@ decisions:
       path: hay_signals.edu_high
     current_default: [phd, doctora, master]
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       The single biggest contributor to the Know-How signal (HR-073 gives it 3.0
       points, more than any other). Matched as substrings of the `education`
@@ -1903,6 +2002,7 @@ decisions:
       path: hay_signals.edu_mid
     current_default: [bachelor, undergraduate, degree]
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       The fallback when no graduate cue is found (2.0 points, HR-073). Note `degree`
       is deliberately broad and will also match "Master's degree" — harmless only
@@ -1935,6 +2035,7 @@ decisions:
       - non-routine
       - creative
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       Each distinct phrase found adds a full point (HR-076) — more than the entire
       section is worth for existing — so a JD's Problem-Solving signal is close to a
@@ -1964,6 +2065,7 @@ decisions:
       - prescribed
       - clearly defined
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       These are the only NEGATIVE cues in the whole estimator (HR-076 weights each hit
       -1.0). A JD that accurately describes a junior role — "handles routine issues
@@ -2002,6 +2104,7 @@ decisions:
       - final decision
       - discretion
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       The whole Accountability signal, one point per distinct phrase (HR-079). Known
       quirks HR should see rather than have hidden: `sign` is a substring, so it also
@@ -2023,6 +2126,7 @@ decisions:
       path: hay_signals.advanced_skill_modifiers
     current_default: [advanced, expert]
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       SFU's Toolkit defines the skill modifier scale (basic / intermediate / advanced
       / expert). Which END of it counts as depth is the earlier build's call: `intermediate` scores
@@ -2040,6 +2144,7 @@ decisions:
       path: hay_signals.excellent_knowledge_modifiers
     current_default: [excellent]
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       The knowledge scale is excellent / working / none. Only `excellent` scores
       (1.0, HR-073) — `working` knowledge contributes nothing at all.
@@ -2062,6 +2167,7 @@ decisions:
       supervisory_scope: 1.0
       broad_qualifications: 1.0
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       The weights that turn a JD into a Know-How score, which HR-075 then turns into
       low/moderate/high. Education dominates: a graduate degree alone (3.0) is worth
@@ -2084,6 +2190,7 @@ decisions:
       advanced_skills_for_many: 3
       qualification_kinds_for_broad: 4
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       The two counting cliffs inside Know-How. 3 advanced/expert skills scores 2.0;
       2 scores 1.0 — a one-skill difference halves the contribution. 4 distinct
@@ -2104,6 +2211,7 @@ decisions:
       moderate: 3.0
       high: 5.0
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       The cutoffs that turn the score into the only thing a human sees. With HR-073's
       weights, `moderate` (3.0) is reached by a graduate degree ALONE, and `high`
@@ -2128,6 +2236,7 @@ decisions:
       challenge_hit: 1.0
       routine_hit: -1.0
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       A single challenge word (HR-068) is worth twice as much as an entire written
       Problem Solving entry, and a single routine word (HR-069) cancels a challenge
@@ -2149,6 +2258,7 @@ decisions:
     current_default:
       section_items_scored: 3
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       Credit for merely HAVING a section, capped at 3 entries (1.5 points) so a JD
       cannot inflate its signal by padding the list. Length is not depth — but the
@@ -2169,6 +2279,7 @@ decisions:
       moderate: 1.5
       high: 3.0
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       With HR-076's weights, a JD with three Problem Solving entries and no challenge
       vocabulary at all scores exactly 1.5 and reads `moderate` — the signal can be
@@ -2190,6 +2301,7 @@ decisions:
       supervisory_scope: 2.0
       external_breadth: 1.0
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       Supervising staff is worth 2.0 — twice any single autonomy phrase, and twice
       what supervision is worth to Know-How (HR-073 gives it 1.0). Whether "freedom to
@@ -2212,6 +2324,7 @@ decisions:
       section_items_scored: 3
       external_for_breadth: 3
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       `external_for_breadth: 3` says a role dealing with three external parties has
       institution-scale impact and one dealing with two does not. It counts LIST
@@ -2233,6 +2346,7 @@ decisions:
       moderate: 2.0
       high: 4.0
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       With HR-079's weights, supervising staff alone (2.0) reaches `moderate` with no
       decision-making language whatsoever, and `high` (4.0) is two autonomy phrases
@@ -2272,6 +2386,7 @@ decisions:
       path: comparison.education_ladder
     current_default: [high_school, associate, bachelors, masters, phd]
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       This is the ONE education ladder in the rulebook, and it is an ordinal scale, not
       a list: a rung's position IS its value. Drift reads an education change off it
@@ -2303,6 +2418,7 @@ decisions:
       masters: [master, msc, m.sc, mba]
       phd: [phd, ph.d, doctora, dphil]
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       These substrings are how a written requirement ("Master's degree in a related
       discipline") becomes a rung. The cues are tried MOST-SENIOR FIRST — derived from
@@ -2325,6 +2441,7 @@ decisions:
       path: comparison.weight_vector
     current_default: 0.45
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       `sim = 0.45*vector + 0.45*skills + 0.10*seniority`. The earlier build rebalanced the embedding
       DOWN to parity with skills because on real JDs the summary embedding mostly
@@ -2345,6 +2462,7 @@ decisions:
       path: comparison.weight_skill
     current_default: 0.45
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       Skills carry EQUAL weight to the embedding — the deliberate anti-over-merge
       choice (see HR-084). In JD Bank this weight currently multiplies a number nothing
@@ -2365,6 +2483,7 @@ decisions:
       path: comparison.weight_seniority
     current_default: 0.1
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       The tie-break term: 10% of the score. It is what stops a Coordinator and a
       Director with identical skill vocabulary scoring as the same role — and at 0.10
@@ -2386,6 +2505,7 @@ decisions:
       path: comparison.family_weight
     current_default: 0.5
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       Half credit. It decides how generously the scorer treats "similar but not the
       same" expertise, which for JDs is precisely the interesting case (a JD asking for
@@ -2405,6 +2525,7 @@ decisions:
       path: comparison.non_matchable_families
     current_default: [domain, other]
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       The catch-all families. Without this exclusion every skill pair that fell into
       the ontology's junk drawer would earn HR-087's partial credit, and the skill
@@ -2445,6 +2566,7 @@ decisions:
       - trainee
       - v
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       Yes, today: every one of these tokens is DISCARDED before titles are compared, so
       "Senior Developer II" and "Developer" are one title, and a cluster of them reports
@@ -2469,6 +2591,7 @@ decisions:
       path: comparison.unknown_signal_closeness
     current_default: 0.7
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       A pure guess, and it fires constantly: a JD Bank JD has NO structured education
       level or years bar at all, so on today's data every seniority comparison would
@@ -2490,6 +2613,7 @@ decisions:
       path: comparison.experience_span_years
     current_default: 10.0
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       the earlier build divided the year gap by a hardcoded 10.0, so a 2-year role and a 12-year role
       score ZERO on experience closeness, while 2 and 7 score 0.5. Ten years is a whole
@@ -2509,6 +2633,7 @@ decisions:
       path: comparison.sim_threshold
     current_default: 0.6
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       Two jobs: it is the floor below which a neighbour is not surfaced to a human, AND
       it is one of the two inputs to the derived cluster threshold (HR-096) — raise it
@@ -2530,6 +2655,7 @@ decisions:
       path: comparison.clone_threshold
     current_default: 0.92
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       The most consequential number in this file, because its verdict goes to
       Compensation: "clone" means no Hay re-evaluation. SFU's actual cloning rule
@@ -2572,6 +2698,7 @@ decisions:
       path: comparison.min_cluster_skill_overlap
     current_default: 0.3
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       The gate that stops JDs merging on generic tone alone: sharing only ubiquitous
       skills (communication, MS Office — low idf) falls below it; sharing distinctive
@@ -2592,6 +2719,7 @@ decisions:
       path: comparison.cluster_threshold_floor
     current_default: 0.8
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       A precision call: cluster only on STRONG edges, well above the per-JD "show me
       similar" floor of 0.60, because clustering merges roles and a false merge produces
@@ -2617,6 +2745,7 @@ decisions:
       path: comparison.cluster_threshold
     current_default: 0.8
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       the earlier build wrote `CLUSTER_THRESHOLD = max(SIM_THRESHOLD, 0.80)`: the cluster threshold is
       never allowed below the noise floor. Shipping the ANSWER (0.80) as a third YAML key
@@ -2641,6 +2770,7 @@ decisions:
       path: comparison.min_cluster_size
     current_default: 2
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       A singleton has nothing to be redundant WITH, so it is not a cluster — that much is
       definitional. Whether a mere PAIR is worth harmonizing into a canonical JD is not:
@@ -2661,6 +2791,7 @@ decisions:
       path: comparison.drift_minor_at
     current_default: 0.25
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       A Jaccard distance of 0.25 — one skill added to a set of three. The earlier build tuned this
       conservatively (prefer calling a borderline case "minor" over crying "major"). SFU's
@@ -2680,6 +2811,7 @@ decisions:
       path: comparison.drift_major_at
     current_default: 0.5
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       Half the skill set changed. It is the number that decides which postings appear on
       a reviewer's "these have drifted" list, so it sets the review workload. The loader
@@ -2697,6 +2829,7 @@ decisions:
       path: comparison.material_years_delta
     current_default: 2
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       SFU's re-evaluation criteria (as the earlier build recorded them from Toolkit p26 — NOT in the
       rulebook this repo ships) make "qualifications that change the technical knowledge
@@ -2716,6 +2849,7 @@ decisions:
       path: comparison.material_reports_delta
     current_default: 5
     provenance: prior_calibration
+    tier: hr_informed
     why_it_matters: >-
       This is the entry most likely to be mistaken for an SFU standard, so: The earlier build cited it
       to "SFU's explicit supervisory-scope threshold (Toolkit p23-24)", and the rulebook
@@ -2738,6 +2872,7 @@ decisions:
       path: comparison.experience_years_pattern
     current_default: '(\d{1,2})\s*\+?\s*year'
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       The regex takes the FIRST year-count it finds, so "3 to 5 years" reads as 3 (the
       minimum — defensible) and "5 years in a role requiring 2 years of supervision" reads
@@ -2760,6 +2895,7 @@ decisions:
       path: comparison.supervisory_reports_pattern
     current_default: \b(\d{1,3})\b
     provenance: prior_calibration
+    tier: technical
     why_it_matters: >-
       The first small integer ANYWHERE in the supervisory statement. "Supervises 4
       coordinators" -> 4; "manages a team of 8" -> 8; "supervises 2 FTE across 3
@@ -2792,6 +2928,7 @@ decisions:
       - We are unconventional, fearless, compassionate, approachable and ready.
       - We celebrate the diversity of people, ideas and cultures.
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Part 1.5
     why_it_matters: >-
       This text is now load-bearing, not decoration: the coded-term scan (Part 6)
@@ -2828,6 +2965,7 @@ decisions:
         and Tsawwassen peoples on whose unceded traditional territories our three
         campuses reside.
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Part 1.6
     why_it_matters: >-
       CLAUDE.md's standing open flag, and HR-039's missing half. HR-039 records that
@@ -2861,6 +2999,7 @@ decisions:
     current_default:
       - Simon Fraser University is committed to the principle of Employment Equity.
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Part 1.6
     why_it_matters: >-
       The second of the two statements Part 1.6 says MUST appear on every SFU JD. Same
@@ -2885,6 +3024,7 @@ decisions:
       - territorial_acknowledgement
       - employment_equity
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       WE SAY NO, AND THIS IS US SAYING IT — not SFU. It is the fix for HR-058, and the
       only entry in this group that is a judgement rather than a transcription. Before
@@ -2923,6 +3063,7 @@ decisions:
       path: textnorm.collapse_across_paragraph_break
     current_default: false
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       SFU's rulebook was written for people reading Word documents; our scanners read an
       `antiword` dump. `antiword` HARD-WRAPS the legacy `.doc` corpus, so a JD that
@@ -3010,6 +3151,7 @@ decisions:
       path: segmentation.era_template_token
     current_default: JDFN
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       This is the most consequential line in the file, because era is what the archive
       actually fails on. The Phase-0 census (§4b) found body headings unusable as an era
@@ -3080,6 +3222,7 @@ decisions:
       path: segmentation.era_old_max_year
     current_default: 2009
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       The census (§4a) puts the OLD band at 1967-2009 — paper-derived, `.doc`-dominated,
       lettered section headings, an incumbent NAME field. Re-measured on the leading
@@ -3115,6 +3258,7 @@ decisions:
       path: segmentation.era_transition_max_year
     current_default: 2018
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       The bar is FOR the current-template population, so this line decides who the bar is
       actually being tried on. The census (§4a) puts TRANSITION at 2010-2018 and NEW at
@@ -3164,6 +3308,7 @@ decisions:
       path: segmentation.prefer_revision_date_for_version
     current_default: true
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       The archive is a revision history, not a set of current JDs: the census (§7b) counts
       ~8,160 files that are a non-first version of an already-seen position. The
@@ -3191,6 +3336,7 @@ decisions:
       path: segmentation.keep_files_without_position_id
     current_default: true
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       ~7% of the archive (993 of 14,565 files by our own pattern — see HR-114) carries no
       zero-padded position ID at all, so it cannot be de-versioned: there is no position to
@@ -3211,6 +3357,7 @@ decisions:
       path: segmentation.position_id_pattern
     current_default: '(?<![0-9])(0[0-9]{7})(?![0-9])'
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       The position ID is what turns 14,565 FILES into POSITIONS, and therefore what the
       entire `latest_per_position` population rests on. We claim only the ZERO-PADDED
@@ -3243,6 +3390,7 @@ decisions:
       path: segmentation.file_date_pattern
     current_default: '^((?:19|20)\d{2})(\d{2})(\d{2})'
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       Era (HR-110 / HR-111) is a function of this date, so a JD whose date cannot be read
       cannot be placed in an era band. The archive's naming convention (census §3) is
@@ -3266,6 +3414,7 @@ decisions:
       path: segmentation.position_id_grouping
     current_default: first
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       Real filenames bundle positions —
       `20220201_00114560,_00114369,_00132130_JDFN_APSA_20220201.docx` is one document
@@ -3295,6 +3444,7 @@ decisions:
       path: segmentation.revision_date_pattern
     current_default: 'JDFN_[A-Z]+_((?:19|20)\d{2})(\d{2})(\d{2})'
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       This is the date HR-112 chooses to trust, so the two stand or fall together: if this
       pattern stops matching, `prefer_revision_date_for_version` silently has nothing to
@@ -3314,6 +3464,7 @@ decisions:
       path: segmentation.employee_group_pattern
     current_default: 'JDFN_([A-Z]+)'
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       The employee group is recorded on every row so the baseline can be read by bargaining
       unit — which matters because the CUPE template line genuinely differs from APSA/APEX
@@ -3355,6 +3506,7 @@ decisions:
       path: rule_catalog.SFU-STRUCT-HOW-WHY.default_severity
     current_default: low
     provenance: prior_calibration
+    tier: hr_policy
     why_it_matters: >-
       SFU's Part 2C asks that a duty say what is done, HOW it is done and WHY. The rule
       fires once per duty that carries no "how/why" clause. It does NOT block approval —
@@ -3436,6 +3588,7 @@ decisions:
       path: qualifications.banned_phrase_scope
     current_default: qualifications
     provenance: sfu_rulebook
+    tier: hr_policy
     source_part: Part 2H
     why_it_matters: >-
       SFU bans these phrases FROM QUALIFICATIONS: they advertise *desired* extras where
@@ -3495,6 +3648,7 @@ decisions:
     current_default:
       - SFU-STRUCT-HOW-WHY
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       A rule that CANNOT NOT FIRE is not a quality signal. It is a constant subtracted
       from every score, and it tells a reviewer nothing about the JD in front of them.
@@ -3550,6 +3704,7 @@ decisions:
       path: segmentation.era_new_max_year
     current_default: 2023
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       This is the fourth era band the 2.5 baseline said we needed, and the fix to the
       modelling error registered as HR-109 / HR-110 / HR-111. SFU made TWO transitions,
@@ -3611,6 +3766,7 @@ decisions:
       path: comparison.exact_edge_topology
     current_default: star
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       This is the shape of the archive's duplication as JD Bank will store it, and it is
       the first thing Phase 3 writes. It exists as a knob at all because of what it sits
@@ -3692,6 +3848,7 @@ decisions:
       path: embeddings.model
     current_default: nomic-embed-text
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       ✅ VERIFIED live from inside the `gates` container (ADR-003, amended 2026-07-13):
       `aria-gb10-2` is reachable, `nomic-embed-text` is present, and it returns 768-dim
@@ -3719,6 +3876,7 @@ decisions:
       path: embeddings.dimensions
     current_default: 768
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       This number lives in THREE homes that cannot see each other: the model's own
       output, `core/db/migrations/002_jd_vectors.cypher`'s `vector.dimensions` on BOTH
@@ -3748,6 +3906,7 @@ decisions:
       path: embeddings.max_chars
     current_default: 10000
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       ⚠️ RE-MEASURED 2026-07-21 over the v2 (post-WJQ) corpus — the ORIGINAL basis for
       10,000 is now FALSIFIED. The original numbers (median 2,559 · p99 5,993 · p99.9
@@ -3796,6 +3955,7 @@ decisions:
       path: embeddings.min_section_chars
     current_default: 40
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       A near-empty section (one word, or a stray period the segmenter left behind)
       produces a vector cosine similarity treats unreliably, and an unhelpfully "close"
@@ -3819,6 +3979,7 @@ decisions:
       path: embeddings.include_title_in_document
     current_default: false
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       `jd_core.bank.similarity`'s module docstring promises the overall score is
       "title-agnostic BY CONSTRUCTION" — "Software Engineer", "Developer II" and
@@ -3851,6 +4012,7 @@ decisions:
       - qualifications
       - additional_context
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       This IS what "this JD's content" means for retrieval, dedup Tier-3 and search —
       the vector is only as good as what it was computed over. `identification` is
@@ -3878,6 +4040,7 @@ decisions:
       path: embeddings.section_vectors
     current_default: [position_summary, duties, qualifications]
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       These are the three sections with a NAMED downstream consumer TODAY:
       `comparison.yaml`'s own docstring calls the similarity term "the summary
@@ -3918,6 +4081,7 @@ decisions:
       path: dedup.text_source
     current_default: raw_clean
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       ✅ MEASURED: raw extracted text is available for 14,452 of 14,565 archive files;
       the PARSED/serialized text (`jd_core.bank.embed_text.serialize_document`) is
@@ -3949,6 +4113,7 @@ decisions:
       path: dedup.shingle_size
     current_default: 5
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       ✅ MEASURED all-pairs median Jaccard by word-gram width k: k=4 -> 0.0039, k=5 ->
       0.0022 (the widest separation from the nearest-neighbour median of 0.126), k=7 ->
@@ -3976,6 +4141,7 @@ decisions:
       path: dedup.redact_boilerplate
     current_default: true
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       SFU's mandated text (`boilerplate.yaml`) is byte-identical across thousands of
       JDs — reusing HR-058's exact mechanism (`jd_core.quality.boilerplate.
@@ -4003,6 +4169,7 @@ decisions:
       path: dedup.min_shingles
     current_default: 20
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       A document with almost no shingles produces a signature LSH will bucket almost
       randomly — not a genuine similarity signal, just noise that happens to collide.
@@ -4026,6 +4193,7 @@ decisions:
       path: dedup.num_perm
     current_default: 128
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       The MinHash estimator's standard error is sqrt(J(1-J)/num_perm) — at 128 that is
       sigma ~= 0.088 in the worst case (J=0.5), far too coarse to threshold a similarity
@@ -4052,6 +4220,7 @@ decisions:
       path: dedup.bands
     current_default: 16
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       Together with `rows` (HR-137), this decides the LSH "S-curve" — the probability
       that two documents become a CANDIDATE (worth an exact-Jaccard comparison) as a
@@ -4084,6 +4253,7 @@ decisions:
       path: dedup.rows
     current_default: 8
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       See HR-136 — `bands` and `rows` are a single decision (the LSH banding) split
       across two registered fields because both are independently meaningful numbers a
@@ -4106,6 +4276,7 @@ decisions:
       path: dedup.jaccard_min
     current_default: 0.85
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       THE most consequential number in this file — it is the line between "these two
       files are the same JD, lightly re-saved or reformatted" and "these two files
@@ -4144,6 +4315,7 @@ decisions:
       path: dedup.cosine_confirm_min
     current_default: null
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       ✅ MEASURED (HANDOFF 2026-07-13, and the basis of the amended HR-093): over 300
       random JDs excluding self and byte-identical content, nearest-neighbour document
@@ -4177,6 +4349,7 @@ decisions:
       path: dedup.edge_scope
     current_default: content
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       ✅ MEASURED consequence: two 11-member Tier-1 exact-duplicate groups that are
       near-duplicates of each other would emit 121 `DedupEdge` rows under `file` scope
@@ -4221,6 +4394,7 @@ decisions:
     current_default:
       - WEIGHTED JOB QUESTIONNAIRE
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       Detection is whole-document, case-insensitive, and MARKER-based, never
       filename-based (the `JDFN_CUPE` filename token covers only ~771 files, so trusting
@@ -4254,6 +4428,7 @@ decisions:
       M: monthly
       S: semester
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       SFU's WJQ MAJOR FUNCTIONS section tags each duty with how often it is performed.
       The user's decision (Phase 3.4) is to ADD a `frequency` field to `SFUDuty`
@@ -4277,6 +4452,7 @@ decisions:
       path: segmentation.wjq_excluded_from_current_practice
     current_default: true
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       The WJQ questionnaire is a DIFFERENT template with no About-SFU / territorial footer
       by design, so `SFU-APPROVE-EDI-FOOTER` fails it for a reason that has nothing to do
@@ -4315,6 +4491,7 @@ decisions:
       qualifications: [QUALIFICATIONS]
       approval_review: [APPROVAL AND REVIEW]
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       This vocabulary is how a WJQ document is cut into sections, so it directly decides
       which text becomes a JD's `position_summary` / `duties` / `qualifications` — which
@@ -4344,6 +4521,7 @@ decisions:
       - working_conditions
       - continuing_education
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       These seven checkbox/point-factor sections are stored VERBATIM in
       `additional_context` (lossless), NOT mapped to `decision_making` / `problem_solving`
@@ -4371,6 +4549,7 @@ decisions:
       skill: [occupational skill]
       ability: [occupational requirement]
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       The WJQ QUALIFICATIONS section is a sequence of instruction-led blocks; a cue line
       switches the `kind` of the qualifications that follow it (`SFUQualification.kind`).
@@ -4396,6 +4575,7 @@ decisions:
       position_number: [Position Number(s), Position Number]
       grade: [Classification & Grade Approved, Classification and Grade Approved]
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       These inline labels are read to populate `title` / `department` / `position_number`
       / `grade`. ✅ MEASURED: the `.docx` template carries `Department Position Title`;
@@ -4416,6 +4596,7 @@ decisions:
       path: wjq.employee_group
     current_default: cupe
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       CUPE 3338 is the WJQ bargaining unit (the JDFN template covers APSA/APEX/POLY, which
       are Hay-graded). Set on the parsed JD's `employee_group` so the two templates cannot
@@ -4444,6 +4625,7 @@ decisions:
       path: comparison.skill_source_kinds
     current_default: [ability, knowledge, skill]
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       The skill keyword-bag is built ONLY from these kinds. `skill`/`knowledge`/`ability`
       carry what a role needs to know and do; `experience` and `education` are
@@ -4488,6 +4670,7 @@ decisions:
       - work
       - years
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       MEASURED: these are the 20 most frequent tokens across the archive's 5,584-token
       skill vocabulary, and they dominate it — `ability, excellent, knowledge, skills,
@@ -4512,6 +4695,7 @@ decisions:
       path: comparison.skill_min_token_len
     current_default: 3
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       Tokens shorter than this are dropped before they reach the bag, removing 1-2 char
       noise (`a`, `of`, stray list-numbering). 3 keeps `hr`, `it`, `qa`? — no, those are
@@ -4551,6 +4735,7 @@ decisions:
       twenty: 20
       two: 2
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       A real, MEASURED bug in the digit-only `experience_years_pattern` (HR-102): SFU's
       JDFN template WRITES YEARS OUT — "five years of related experience", "(one|two|…|ten)
@@ -4576,6 +4761,7 @@ decisions:
       path: comparison.education_source_kinds
     current_default: [education, knowledge]
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       Two facts pull in opposite directions and `[education, knowledge]` is the balance
       point. (1) SFU's JDFN template files the degree inside the `knowledge` blob —
@@ -4608,6 +4794,7 @@ decisions:
       path: comparison.experience_source_kinds
     current_default: [experience, knowledge]
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       The adapter reads the years bar from these kinds IN ORDER — the first that yields any
       count wins. `experience` quals are authoritative; `knowledge` is the JDFN fallback,
@@ -4645,6 +4832,7 @@ decisions:
       manager: 3
       vp: 6
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       This is the HARD constraint on role-equivalence: a pair whose title families sit
       more than `max_band_gap` (HR-156) bands apart is NEVER role-equivalent, whatever the
@@ -4673,6 +4861,7 @@ decisions:
       path: comparison.max_band_gap
     current_default: 1
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       The conflict veto (HR-155) fires when the two families' bands differ by MORE than
       this. 1 keeps adjacent rungs admissible (a Manager and a Lead can still be scored as
@@ -4694,6 +4883,7 @@ decisions:
       path: comparison.group_conflict_veto
     current_default: true
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       A SOFT veto: when `true`, a pair whose two `employee_group`s are BOTH known and
       DIFFER is dropped before scoring — an APSA role and a CUPE role are governed by
@@ -4716,6 +4906,7 @@ decisions:
       path: comparison.role_equiv_threshold
     current_default: 0.5
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       The threshold on the blended `score_job_similarity` (vector + idf-weighted skill
       overlap + seniority). MEASURED: on real pairs, Tier-2 near-dup weak-positives vs
@@ -4743,6 +4934,7 @@ decisions:
       path: comparison.candidate_k
     current_default: 25
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       Candidate generation buckets JDs by their functional title `function` and, within a
       bucket, takes each JD's top-`candidate_k` cosine neighbours as candidate pairs (plus
@@ -4772,6 +4964,7 @@ decisions:
       path: comparison.seed_from_near_dup
     current_default: true
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       When `true`, every existing `DedupEdge(tier=NEAR_DUPLICATE)` pair is admitted as a
       candidate in addition to the cosine k-NN — a near-dup IS role-equivalent, so it must
@@ -4795,6 +4988,7 @@ decisions:
       path: comparison.cluster_tiers
     current_default: [exact, near_duplicate, role_equivalent]
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       Clustering runs connected-components over the `dedup_edges` graph. EXACT (byte-
       identical, score 1.0) and NEAR (MinHash/Jaccard >= 0.85) are always-in: they are
@@ -4818,6 +5012,7 @@ decisions:
       path: comparison.cluster_role_equiv_min
     current_default: 0.75
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       THE load-bearing clustering decision, and it is ABOVE the Tier-3 `role_equiv_threshold`
       (0.5, HR-158) BY DESIGN: Tier-3 records a same-role PAIR, clustering takes the
@@ -4847,6 +5042,7 @@ decisions:
       path: comparison.cluster_max_band_spread
     current_default: 1
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       The cohesion cap on seniority: a cluster whose MAPPED members (the ~30% on the HR-059
       family band ladder) span more than this many bands is FLAGGED (never split) as
@@ -4870,6 +5066,7 @@ decisions:
       path: comparison.cluster_group_homogeneous
     current_default: true
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       The cohesion cap on employee group: when `true`, a cluster spanning more than one
       KNOWN `employee_group` is FLAGGED (never split). An unknown group is never a mix (a
@@ -4892,6 +5089,7 @@ decisions:
       path: comparison.cluster_max_size
     current_default: 50
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       The cohesion cap on size: a cluster with more than this many members is FLAGGED (never
       split). MEASURED at gate 0.75 the clusters with >50 members are [132, 108, 74, 57, 52]
@@ -4913,6 +5111,7 @@ decisions:
       path: comparison.cluster_representative_policy
     current_default: max_parse_confidence
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       The cluster's drift/report anchor. `max_parse_confidence` picks the best-parsed
       member (tie-break: the `order_key` archive order, deterministic), so the within-cluster
@@ -4942,6 +5141,7 @@ decisions:
       path: harmonization.title_policy
     current_default: modal_normalized
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       The draft's title is descriptive, not authoritative (a human approves it later).
       `modal_normalized` groups members by their `normalize_title` stem, takes the
@@ -4969,6 +5169,7 @@ decisions:
       path: harmonization.summary_policy
     current_default: within_target_then_central
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       4.1 is deterministic and LLM-free, so it SELECTS an existing member summary verbatim
       rather than composing one (rewrite is 4.2). `within_target_then_central` prefers a
@@ -4998,6 +5199,7 @@ decisions:
       path: harmonization.additional_context_policy
     current_default: drop
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       Additional context is free-text and often position-specific (one incumbent's parking,
       one office's hours), so a union across members is noisy. `drop` omits it from the
@@ -5021,6 +5223,7 @@ decisions:
       path: harmonization.boilerplate_presence_policy
     current_default: or_across_members
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       The model carries these as presence BOOLEANS, not boilerplate TEXT (bank/render.py),
       so a draft asserting "present" still cannot render the mandated paragraphs — a
@@ -5049,6 +5252,7 @@ decisions:
       path: harmonization.duty_dedup_jaccard_min
     current_default: 0.7
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       Duties are unioned across members and near-identical statements deduped so the draft
       carries each real duty once (coverage-ordered). Also reused for near-identical
@@ -5078,6 +5282,7 @@ decisions:
       path: harmonization.max_duties
     current_default: 12
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       Above this many deduped duties, the top-by-member-coverage duties are kept and the
       draft is FLAGGED `duties_over_max` (never a silent drop — HR eyeballs it). CALIBRATED
@@ -5106,6 +5311,7 @@ decisions:
       path: harmonization.core_skill_min_fraction
     current_default: 0.5
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       The KSA rebuild keeps a skill token's representative qualification iff at least this
       fraction of members require it (at/above, `>=`), and drops one-offs — SFU is
@@ -5133,6 +5339,7 @@ decisions:
       path: harmonization.security_policy
     current_default: union
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       A security requirement is a hard legal/role constraint, so `union` keeps every
       distinct security qualification ANY member states (deduped near-identical) — a
@@ -5159,6 +5366,7 @@ decisions:
       path: harmonization.seniority_bar_policy
     current_default: max
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       `max` takes the highest bar any member states (a masters over a bachelors, 5 years
       over 3) and emits the representative qualification whose parsed bar matches — the
@@ -5193,6 +5401,7 @@ decisions:
       path: rewrite.model
     current_default: gpt-oss:120b
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       The rewrite pass asks the model to reword the grounded 4.1 draft and return the
       SFUJobDescription schema as JSON, so JSON-schema adherence matters most. `gpt-oss:120b`
@@ -5217,6 +5426,7 @@ decisions:
       path: rewrite.temperature
     current_default: 0.0
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       A rewrite is a TRANSFORM of a grounded draft, not a brainstorm, so determinism is
       what makes a re-run reproducible and an audit trail meaningful. `0.0` picks the
@@ -5236,6 +5446,7 @@ decisions:
       path: rewrite.max_tokens
     current_default: 2048
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       The whole SFUJobDescription JSON must fit in one completion; too small truncates the
       JSON (which then fails to parse and burns a retry). 2048 mirrors the earlier build's harmonize call.
@@ -5255,6 +5466,7 @@ decisions:
       path: rewrite.max_retries
     current_default: 1
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       When the model returns JSON that does not parse or does not match the schema, the
       client re-asks once with a terse repair nudge before raising LLMOutputInvalidError.
@@ -5275,6 +5487,7 @@ decisions:
       path: rewrite.prompt_version
     current_default: jd_harmonize_v1
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       Names the versioned template pair under `jd_bank/llm/templates/`
       (`jd_harmonize_v1.system.j2` + `.user.j2`, ported from the earlier build and kept faithful save
@@ -5296,6 +5509,7 @@ decisions:
       path: rewrite.anti_fabrication_enabled
     current_default: true
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       THE core safety of 4.2a. The rewrite may rephrase the grounded draft but must not
       INTRODUCE skills/duties/qualifications the merge draft did not contain. With the guard
@@ -5322,6 +5536,7 @@ decisions:
       path: rewrite.skill_grounding_policy
     current_default: token_overlap
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       `token_overlap` keeps a qualification iff the fraction of its content tokens present in
       the draft's vocabulary (built from the draft's own text + its member-derived
@@ -5345,6 +5560,7 @@ decisions:
       path: rewrite.skill_grounding_threshold
     current_default: 0.5
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       Under `token_overlap`, a qualification is KEPT iff at least this fraction of its content
       tokens (stopword/short-token filtered, the same filter the skill signals use) appear in
@@ -5366,6 +5582,7 @@ decisions:
       path: rewrite.duty_flag_threshold
     current_default: 0.2
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       A rewritten duty is FLAGGED (recorded in the anti-fabrication record, never dropped)
       when its best token-Jaccard against any draft duty falls below this — the signal that
@@ -5394,6 +5611,7 @@ decisions:
       path: quality.model
     current_default: gpt-oss:120b
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       The audit pass asks the model to return the JDQualityFindings schema as JSON, each
       finding backed by a verbatim JD quote, so JSON-schema adherence and quote fidelity
@@ -5420,6 +5638,7 @@ decisions:
       path: quality.temperature
     current_default: 0.0
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       An audit should be REPRODUCIBLE — the same JD yields the same findings on a re-run, so
       an audit trail is meaningful — not a brainstorm. `0.0` picks the greedy decode. Raising
@@ -5439,6 +5658,7 @@ decisions:
       path: quality.max_tokens
     current_default: 1024
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       The nuanced findings list must fit in one completion; too small truncates the JSON
       (which then fails to parse and burns a retry). 1024 mirrors the earlier build's value for THIS pass
@@ -5459,6 +5679,7 @@ decisions:
       path: quality.max_retries
     current_default: 1
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       When the model returns JSON that does not parse or does not match the JDQualityFindings
       schema, the client re-asks once with a terse repair nudge before raising
@@ -5479,6 +5700,7 @@ decisions:
       path: quality.anti_fabrication_enabled
     current_default: true
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       THE core safety of 4.2b. Every audit finding must cite a VERBATIM quote from the JD;
       with the guard ON, any finding whose `evidence` is not a casefold substring of the
@@ -5504,6 +5726,7 @@ decisions:
       path: quality.prompt_version
     current_default: jd_quality_v1
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       Names the versioned template pair under `jd_bank/llm/templates/`
       (`jd_quality_v1.system.j2` + `.user.j2`, ported faithfully from the earlier build). Its only variable
@@ -5537,6 +5760,7 @@ decisions:
       path: rewrite.reasoning_effort
     current_default: null
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       gpt-oss is a reasoning model: it produces a reasoning stream (separate from the JSON
       content) whose length dominates latency — measured ~6x the output tokens, and
@@ -5562,6 +5786,7 @@ decisions:
       path: quality.reasoning_effort
     current_default: low
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       The audit reports nuanced findings, each quoted VERBATIM from the JD — it does not need
       deep chain-of-thought. But gpt-oss's reasoning stream dominates latency: MEASURED
@@ -5589,6 +5814,7 @@ decisions:
       path: segmentation.jdfn_employee_groups
     current_default: [apsa, apex, poly]
     provenance: our_invention
+    tier: hr_policy
     why_it_matters: >-
       This is the scope boundary of the whole product, made explicit. CUPE is ~29.5% of
       the archive (~4,300 WJQ-instrument files, `parser/wjq.py`) — a major bargaining unit,
@@ -5622,6 +5848,7 @@ decisions:
       path: embeddings.max_chars_fallback
     current_default: [8000, 6000, 4000]
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       This is the resolution of HR-126's open design decision (see
       `docs/embeddings/max-chars-decision.md`). Re-measured over the v2 corpus, ~11 dense
@@ -5672,6 +5899,7 @@ decisions:
       path: dedup.authoring_guard.max_matches
     current_default: 5
     provenance: our_invention
+    tier: hr_informed
     why_it_matters: >-
       This is how much advice the panel gives while someone is typing, and it is a
       judgement about attention, not a measurement. It is set to 5 because the useful
@@ -5701,6 +5929,7 @@ decisions:
       path: dedup.authoring_guard.min_draft_chars
     current_default: 500
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       Below this length the guard does not run at all — no advice, and no embedding round
       trip. 500 characters is roughly one Position Summary, and MEASURED against the live
@@ -5745,6 +5974,7 @@ decisions:
       path: dedup.authoring_guard.timeout_seconds
     current_default: 5.0
     provenance: our_invention
+    tier: technical
     why_it_matters: >-
       This is a trade between an author's time and the university's. The panel is
       ADVISORY — it never blocks a submission and never changes a compliance verdict —
