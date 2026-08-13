@@ -1,6 +1,9 @@
 {% extends "_base.html" %}
 {% block title %}JD Bank — Sign in{% endblock %}
 {% block header %}🔐 JD Bank — Sign in{% endblock %}
+{# No menu on the one page you reach without a menu: every link on it would come
+   straight back here. The sign-in button below is the only thing to do. #}
+{% block nav %}{% endblock %}
 {% block content %}
 
 <div class="panel">

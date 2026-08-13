@@ -1,0 +1,27 @@
+{#
+  One page for every error a person can meet (P0.0). Rendered by src/api/errors.py
+  whenever the caller's Accept asked for HTML; an API client still gets the JSON body.
+
+  It extends _base.html on purpose: the nav is the way out of the dead end, and the
+  reader keeps their own chrome (including their sign-out button) even here.
+#}
+{% extends "_base.html" %}
+{% block title %}JD Bank — {{ headline }}{% endblock %}
+{% block header %}🏦 JD Bank{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <h2>{{ headline }}</h2>
+  <p>{{ message }}</p>
+  {# The address is attacker-controlled text; Jinja autoescape is what makes echoing
+     it back safe, so it is rendered as text and never marked |safe. #}
+  <p class="meta">You asked for <code>{{ path }}</code> — <span class="badge muted">{{ status_code }}</span></p>
+  <p>
+    <a href="{{ home_path }}">← Go to the JD Bank library</a>
+    {% if offer_sign_in %}
+    · <a href="{{ login_path }}">Sign in</a>
+    {% endif %}
+  </p>
+</div>
+
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — my drafts{% endblock %}
+{% block header %}📝 My drafts{% endblock %}
+{% block content %}
+
+{% if submitted %}
+<div class="panel" style="border-color:var(--green)">
+  <h2>✅ Submitted for review</h2>
+  <p>
+    Your job description has been saved and is now in the HR review queue. Nothing is
+    published until a reviewer approves it — you will find it below, and you can come
+    back to this page at any time from <strong>📝 My drafts</strong> in the menu.
+  </p>
+</div>
+{% endif %}
+
+<div class="panel">
+  <h2>Job descriptions you have submitted</h2>
+  {% if drafts %}
+  <table>
+    <thead>
+      <tr><th>Job description</th><th>Where it is</th><th>Score</th><th>Quality</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for draft in drafts %}
+      <tr>
+        <td>
+          <a href="/jd-bank/ui/role/{{ draft.cluster_id }}">{{ draft.title }}</a>
+          {% if submitted and draft.canonical_id == submitted %}<span class="badge ok">just submitted</span>{% endif %}
+        </td>
+        <td>
+          <span class="badge {{ status_badge.get(draft.status, 'muted') }}">{{ status_label.get(draft.status, draft.status) }}</span>
+          {% if draft.version > 1 %}<span class="meta">· version {{ draft.version }}</span>{% endif %}
+        </td>
+        <td>{{ "%.1f"|format(draft.score) if draft.score is not none else "—" }}</td>
+        <td>{{ draft.grade or "—" }}</td>
+        <td>
+          <a href="/jd-bank/ui/role/{{ draft.cluster_id }}">Read →</a>
+          {% if may_review %}
+          · <a href="/jd-bank/ui/review/{{ draft.canonical_id }}">Review →</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="meta">
+    Scores are the check the Builder ran when you submitted. HR re-runs it before
+    approving, so it is a guide, not a decision.
+  </p>
+  {% else %}
+  <p class="empty">You have not submitted a job description yet.</p>
+  {% endif %}
+  {# Outside the "has drafts" branch on purpose: an empty page that loses every link it
+     had is the same dead end in a different disguise. #}
+  <p>
+    <a href="/jd-bank/ui/compose/new">🧱 Write a new job description →</a> ·
+    <a href="/jd-bank/ui/library">🏦 Browse the roles SFU already has →</a>
+  </p>
+</div>
+
+{% endblock %}

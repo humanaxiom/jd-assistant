@@ -108,16 +108,16 @@
   <h2>Before you open the laptop</h2>
   <p class="sec-note">Checked ten minutes ago against the running system.</p>
   <dl class="status">
-    <div><dt>Address</dt><dd><code>localhost:25800/jd-bank/ui/library</code></dd></div>
+    <div><dt>Address</dt><dd><code>localhost:25800</code></dd></div>
     <div><dt>Sign-in</dt><dd class="live">SFU CAS &middot; working</dd></div>
     <div><dt>Postgres / Neo4j / Redis</dt><dd class="live">All healthy</dd></div>
     <div><dt>CSRF protection</dt><dd class="live">Live (migration applied)</dd></div>
   </dl>
   <div class="panel" style="margin-top:1rem">
-    <h3>Type the full address — bookmark it now</h3>
+    <h3>The bare address is enough</h3>
     <ul>
-      <li>Bare <code>localhost:25800</code> returns <code>{"detail":"Not Found"}</code>. So does <code>/jd-bank/ui</code>. There is no route at either.</li>
-      <li>The entry point is <code>localhost:25800/jd-bank/ui/library</code>.</li>
+      <li><code>localhost:25800</code>, <code>/jd-bank</code> and <code>/jd-bank/ui</code> all lead to the library.</li>
+      <li>Until P0.0 (PR #87) each of them answered <code>{"detail":"Not Found"}</code> in the browser — which is what this runsheet used to warn about. The warning is gone because the defect is.</li>
       <li>First visit redirects to <code>cas.sfu.ca</code> — sign in with your SFU credentials and it returns you to the library.</li>
     </ul>
   </div>

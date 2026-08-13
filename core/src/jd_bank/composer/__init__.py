@@ -18,6 +18,7 @@ from src.jd_bank.composer.answers import (
 )
 from src.jd_bank.composer.assemble import assemble_jd
 from src.jd_bank.composer.assist import SummarySuggestion, suggest_summary
+from src.jd_bank.composer.drafts import AuthoredDraft, list_authored_drafts
 from src.jd_bank.composer.duplicates import (
     DuplicateGuard,
     RelatedRole,
@@ -47,6 +48,7 @@ from src.jd_bank.composer.validate import assess_draft
 
 __all__ = [
     "COMPOSED_ORIGIN",
+    "AuthoredDraft",
     "ComposerAnswers",
     "DraftAssessment",
     "DraftSectionStatus",
@@ -65,6 +67,7 @@ __all__ = [
     "cluster_id_for_source",
     "find_related_roles",
     "jd_to_answers",
+    "list_authored_drafts",
     "load_clone_answers",
     "load_question_set",
     "load_role_clone_answers",

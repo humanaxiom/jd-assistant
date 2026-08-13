@@ -65,12 +65,20 @@ admin). Roles are assigned in the **User management** screen (§7, admin-only).
 
 ## 3. Access & sign-in
 
-- **URL:** http://localhost:25800 (dev). Every UI page lives under `/jd-bank/ui/…`.
+- **URL:** http://localhost:25800 (dev). Typing the bare address takes you to the JD Bank
+  library; every UI page lives under `/jd-bank/ui/…`.
 - **Sign-in:** SFU **CAS SSO**. Click **Sign in with SFU CAS** on the login page; you are
   redirected to `cas.sfu.ca` and back. Your identity is your SFU computing ID.
-- **The nav bar** shows who you are and your primary controls: **🧱 Builder ·
-  📋 Review queue · 📊 Dashboards · 👤 Users** *(admins only)* · *your name* ·
-  **Sign out**. The **👤 Users** link only appears if you hold the `admin` role.
+- **The nav bar** shows who you are and your primary controls: **🏦 JD Bank · 🧱 Builder ·
+  📝 My drafts · 📋 Review queue** *(reviewers and admins)* · **📊 Dashboards · 📖 Guide ·
+  👤 Users** *(admins only)* · *your name* · **Sign out**.
+- **The menu only shows what your role can open.** If you do not hold `reviewer` or
+  `admin`, the **📋 Review queue** link is not there — the page is not yours to open, and
+  offering the link would only produce a refusal. Ask an admin (§7) if you need the role.
+- **If something goes wrong**, the app says so in a page rather than a machine error: a
+  mistyped address, a page you do not have access to, or a form submitted from a tab that
+  has been open a long time (that last one says **reload the page and submit it again** —
+  nothing is lost, and nothing was changed).
 - **Dev / CI mode** **[operator]** 🖥️: when `CAS_ENABLED=false` (the default off-SFU),
   every request runs as a synthetic **admin** user with no login — so the app is usable
   and testable without reaching CAS. Turn this **off in production** (`CAS_ENABLED=true`).
@@ -113,7 +121,16 @@ default). **Admin required:** no.
 | See roles SFU already has | The **"Roles SFU already has"** panel, once enough of the draft is written | Existing harmonized roles that look like the one being written, each with **Start from this role →**, plus how many roles carry **exactly this title** and across how many **departments**. Advisory only — it never blocks submission and does not change the compliance verdict. |
 | Improve the summary with AI | **✨ Improve summary (assist)** | A self-hosted LLM suggests a better Position Summary; you review and edit it (nothing auto-applies). |
 | Download the official document | **Export .docx ↓** | Renders the SFU `.docx`. Rendering only — nothing is validated or published. |
-| Send for approval | **Submit for review →** | Persists a **draft** into the review queue, attributed to **you** (the signed-in user). It publishes nothing (guardrail #1). |
+| Send for approval | **Submit for review →** | Persists a **draft** into the review queue, attributed to **you** (the signed-in user). It publishes nothing (guardrail #1). You land on **📝 My drafts** with a confirmation. |
+| See what happened to what you sent | **📝 My drafts** → `/jd-bank/ui/my-drafts` | Every JD **you** have submitted, newest first, and where each one stands: *Waiting for HR review*, *Approved and published*, or *Closed*. Read any of them; you see only your own. |
+
+> **Where a draft goes after you submit it.** Into the same review queue as every other
+> draft — an HR reviewer approves, rejects or edits it (§6), and **nothing publishes
+> without that** (guardrail #1). The score on **My drafts** is the check the Builder ran
+> when you submitted; HR re-runs it before approving, so treat it as a guide rather than a
+> decision. A row marked **Closed** means the draft was either rejected or replaced by a
+> newer version of the same role — the record cannot tell those apart, so the page does
+> not guess.
 
 > **How search ranks.** An exact or near **title** is looked up in Postgres and ranked
 > **above** the semantic hits, because the document vectors deliberately exclude the title —
@@ -141,8 +158,8 @@ default). **Admin required:** no.
 ## 6. Reviewing & approving — the Review queue  ·  [reviewer] or [admin]
 
 **Where:** 📋 Review queue → `/jd-bank/ui/queue`. **Who:** **reviewer or admin only** — an
-author who is not a reviewer is redirected/forbidden here. **Admin required:** no (reviewer
-suffices).
+author who is not a reviewer does not see this link in the menu at all, and is refused if
+they reach the address another way. **Admin required:** no (reviewer suffices).
 
 | Task | How | Notes |
 |---|---|---|
@@ -234,6 +251,7 @@ exception is Ollama, which runs on `aria-gb10-2`.
 | Browse/search the content library & archive (read-only) | ✅ | ✅ | ✅ | ✅ | — |
 | Author / clone / assist / export a JD (Builder) | ✅¹ | ✅ | ✅ | ✅ | — |
 | Submit a draft for review | ✅¹ | ✅ | ✅ | ✅ | — |
+| See your own submitted drafts (**📝 My drafts**) | ✅¹ | ✅ | ✅ | ✅ | — |
 | Approve / reject / edit / override in the queue | — | — | ✅ | ✅ | — |
 | Manage users (roles, enable/disable) | — | — | — | ✅ | — |
 | Run pipelines / migrations / deploy / CAS config | — | — | — | —² | ✅ |
