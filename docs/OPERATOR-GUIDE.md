@@ -233,9 +233,29 @@ exception is Ollama, which runs on `aria-gb10-2`.
 | Setting | Purpose |
 |---|---|
 | `CAS_ENABLED` | `true` in production (require SFU sign-in); `false` for dev/CI. |
-| `CAS_SERVICE_BASE_URL` | The public origin CAS redirects back to. |
+| `ALLOWED_SERVICE_ORIGINS` | **The origins CAS may return a signed-in browser to** — comma-separated, exact (scheme, host, port). This is what lets one deployment be reached more than one way; see the note below. |
+| `CAS_SERVICE_BASE_URL` | The **fallback** origin, used when the origin a browser arrived on is not on the list above. |
 | `BOOTSTRAP_ADMINS` | Comma-separated CAS ids granted `admin` on login (first-admin bootstrap). |
 | `SESSION_COOKIE_SECURE` / `_SAMESITE` | `true` / `strict` in production (HTTPS). |
+
+> **Reaching the app by more than one address** **[operator]** 🖥️. CAS is told a single
+> "service" URL per sign-in, so a deployment reachable both on the box (`localhost:25800`)
+> and through a forward or proxy (`https://jdbank.sfu.ca`) needs both listed:
+>
+> ```
+> ALLOWED_SERVICE_ORIGINS=http://localhost:25800,https://jdbank.sfu.ca
+> ```
+>
+> The app then returns each user to the address **they** came in on, with no config change
+> to switch between them. An address that is **not** on the list falls back to
+> `CAS_SERVICE_BASE_URL` — never to whatever the request's headers claimed, which is the
+> whole point: without that check, anyone able to set a header could choose where a
+> signed-in user (and their CAS ticket) was sent. In production every entry must be
+> `https` at a real hostname, and the service refuses to start otherwise.
+>
+> `CAS_SERVICE_FROM_REQUEST` is **retired**. It did the same job without the check. The
+> service now refuses to start while it is `true` rather than ignoring it, so nobody is
+> left believing they enabled something they did not.
 
 > **Seeding users** (demo/data) is an operator task done directly against the DB; real
 > users appear automatically on first CAS login. Roles are then managed in the UI (§7).
