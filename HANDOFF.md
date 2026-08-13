@@ -8,12 +8,27 @@ Read this first every session. Single source of truth for current state + how we
 
 | | |
 |---|---|
-| `main` | `591a3f3` — three security PRs merged (#82 JSON-API auth · #83 fail-closed posture · #85 CSRF) |
-| **Open PR 1** | **[#86](https://github.com/humanaxiom/jd-assistant/pull/86)** — `chore/hr-docs-and-backlog`, 12 commits, **docs only.** CI green, mergeable. **Merge it first.** |
-| **Open PR 2** | **[#87](https://github.com/humanaxiom/jd-assistant/pull/87)** — `feat/p0.0-navigability`, **P0.0 DONE**. Stacked on #86 (its base retargets to `main` automatically when #86 merges). |
-| Gates | **2,507 passing, 93.71%** (was 2,436 / 93.63%); `register-check` + `guide-check` green; `rules_version` `jd_rules_sfu_v4+90af5e27dc83` **still unmoved** |
+| `main` | `cf262b1` — #86 (HR docs) squashed in. Four security/docs PRs before it (#82 · #83 · #85 · #84). |
+| **Open PR** | **[#88](https://github.com/humanaxiom/jd-assistant/pull/88)** — `feat/p0.0-navigability-v2`, **P0.0 DONE**, targeted at `main`. |
+| Gates | **2,508 passing, 93.71%** (was 2,436 / 93.63%); `register-check` + `guide-check` green; `rules_version` `jd_rules_sfu_v4+90af5e27dc83` **still unmoved** |
 | Register | **197** decisions, **0 ratified** |
 | Live data | 14,565 files · 14,522 parsed (v3) · 1,802 roles · **4 published** · `review_actions` 6 |
+
+> ### ⚠️ A merge went somewhere nobody looked — check this before trusting a "merged"
+>
+> **PR #87 was merged into `chore/hr-docs-and-backlog`, not into `main`.** It was opened
+> against that branch deliberately (so its diff showed only P0.0 while #86 was still open),
+> on the expectation that GitHub would retarget it to `main` when #86 merged. **It did
+> not** — #86 was *squash*-merged, which leaves a dependent PR pointing at a branch that
+> still exists. Both PRs then reported `MERGED` and **`main` had none of P0.0**.
+>
+> #88 is the same five commits cherry-picked onto `main`; `git diff 41c2ce8 HEAD` was
+> **empty**, so the tree is byte-identical to what CI passed on. Nothing was rewritten.
+>
+> **The rule this earns:** *`MERGED` names a base, not a destination.* CLAUDE.md already
+> says to verify state against the remote rather than trust a handoff note — extend it:
+> after a merge, check `git log origin/main`, not the PR's badge. **Do not stack a PR on a
+> branch that will be squash-merged.**
 
 ### ✅ P0.0 NAVIGABILITY IS DONE — and the sting was not the front door
 
@@ -56,7 +71,7 @@ nav · **📝 My drafts** · empty states with escapes · `/favicon.ico` + `/rob
 
 | | Task | Why it is here |
 |---|---|---|
-| ~~1~~ | ~~**P0.0 — Navigability**~~ | ✅ **DONE** — PR #87. All 8 defect classes closed; deferrals stated in the task doc. **Absorbed the old P1.1.** |
+| ~~1~~ | ~~**P0.0 — Navigability**~~ | ✅ **DONE** — PR #88. All 8 defect classes closed; deferrals stated in the task doc. **Absorbed the old P1.1.** |
 | 1 | **P0.3 — Deployment origins** (`docs/tasks/P0.3-deployment-origins.md`) | CAS origin allowlist + the unanswered exposure question. **It now also owns `--proxy-headers`**, which P0.0 deliberately did not turn on: it is a decision about trusting a forwarded header, and P0.0 fixed its own redirect without one. Localhost sign-in is still broken (see above) — that is this task's live symptom. |
 | 2 | **P0.1b-ii** (`architecture-review-response-2026-08-07.md` §6) | login CSRF · **open redirect on `next`** (P0.0's crawl declares that link as one whose target it cannot read — the validation is still owed) · `/ready` amplification · production compose profile · `GraphMemory` egress |
 | 3 | **P1.3 — Tier the register** | **Consider promoting.** Two HR complaints traced to one cause: the register does two incompatible jobs. Tiering turns "197 decisions" into ~60 real policy calls — the difference between an ask HR can act on and one they bounce. |

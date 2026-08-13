@@ -223,7 +223,7 @@ orchestrator re-runs the gate rather than trusting the report. **CI is live agai
 PR, not a local merge.**
 
 > **ORDER AS OF 2026-08-12:** ~~P0.1a~~ ✅ (#82) → ~~P0.2~~ ✅ (#83) → ~~P0.1b-i CSRF~~ ✅ (#85) →
-> ~~P0.0 NAVIGABILITY~~ ✅ (#87, and it absorbed P1.1) → **P0.3 DEPLOYMENT ORIGINS ⟵ NEXT**
+> ~~P0.0 NAVIGABILITY~~ ✅ (#88, and it absorbed P1.1) → **P0.3 DEPLOYMENT ORIGINS ⟵ NEXT**
 > (`docs/tasks/P0.3-deployment-origins.md` — it now also owns the `--proxy-headers` decision) →
 > P0.1b-ii → P1.2 → P1.3. P0.0 jumped the queue because it is what an unsupervised pilot user
 > hits first, and it was a day's work.
@@ -260,7 +260,7 @@ Follows P0.1a directly; separate because it touches every form template.
 - **DoD:** a production-mode boot with CAS off exits non-zero with an actionable message; the dev
   path still works with one obvious flag; readiness reports Postgres/Neo4j/Redis honestly.
 
-### P1.1 — Author submission status  ⟵ **MOVED INTO P0.0** · ✅ **DONE there (#87)**
+### P1.1 — Author submission status  ⟵ **MOVED INTO P0.0** · ✅ **DONE there (#88)**
 > **Reprioritised 2026-08-11.** A 51-route crawl showed this is not a P1 polish item: `author` is
 > `default_new_user_role`, so a stranded submit is the **first-run experience**, and it is one of
 > eight symptoms of a single class — the app answers a browser with JSON. Ship it inside

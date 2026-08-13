@@ -1,0 +1,106 @@
+---
+query: more diagrams
+references:
+  - "File: /.github/instructions/mermaid.instructions.md"
+  - "File: /.github/copilot-instructions.md"
+  - "File: /CLAUDE.md"
+  - |+
+    Reference: <instructions>
+    Here is a list of instruction files that contain rules for working with this codebase.
+    These files are important for understanding the codebase structure, conventions, and best practices.
+    When an instruction file applies to your task (based on its description or applyTo pattern), follow the rules specified in it.
+    If the file content is not already included in the context, use the #tool:read/readFile tool to read it before proceeding. Use the exact value from the <file> element as-is with the tool; do not add or remove prefixes or otherwise modify it.
+    Only load instruction files when they are relevant to the current task. Do not eagerly load all instructions upfront.
+    When modifying or creating files, check for instructions whose applyTo pattern matches the file path and follow them.
+    <instruction>
+    <file>c:\repos\JD-Assistant\.github\instructions\mermaid.instructions.md</file>
+    <applyTo>**</applyTo>
+    </instruction>
+    </instructions>
+
+
+    <skills>
+    Here is a list of skills that contain domain specific knowledge on a variety of topics.
+    Each skill comes with a description of the topic and a file path that contains the detailed instructions.
+    When a user asks you to perform a task that falls within the domain of a skill, use the #tool:read/readFile tool to acquire the full instructions from the file URI.
+    <skill>
+    <name>project-setup-info-local</name>
+    <description>Comprehensive setup steps to help the user create complete project structures in a VS Code workspace; this tool is designed for full project initialization and scaffolding, not for creating individual files. When to use this tool: user wants to create a new complete project from scratch; setting up entire project frameworks (TypeScript projects, React apps, Node.js servers, etc.); initializing Model Context Protocol (MCP) servers with full structure; creating VS Code extensions with proper scaffolding; setting up Next.js, Vite, or other framework-based projects; user asks for "new project", "create a workspace", "set up a [framework] project"; need to establish a complete development environment with dependencies, config files, and folder structure. When NOT to use this tool: creating single files or small code snippets; adding individual files to existing projects; making modifications to existing codebases; user asks to "create a file" or "add a component"; simple code examples or demonstrations; debugging </description>
+    <file>c:\Users\adam\AppData\Local\Programs\Microsoft VS Code\a5b5009513\resources\app\extensions\copilot\assets\prompts\skills\project-setup-info-local\SKILL.md</file>
+    </skill>
+    <skill>
+    <name>get-search-view-results</name>
+    <description>Get the current search results from the Search view in VS Code</description>
+    <file>c:\Users\adam\AppData\Local\Programs\Microsoft VS Code\a5b5009513\resources\app\extensions\copilot\assets\prompts\skills\get-search-view-results\SKILL.md</file>
+    </skill>
+    <skill>
+    <name>agent-customization</name>
+    <description>**WORKFLOW SKILL** — Create, update, review, fix, or debug VS Code agent customization files (.instructions.md, .prompt.md, .agent.md, SKILL.md, copilot-instructions.md, AGENTS.md). USE FOR: saving coding preferences; troubleshooting why instructions/skills/agents are ignored or not invoked; configuring applyTo patterns; defining tool restrictions; creating custom agent modes or specialized workflows; packaging domain knowledge; fixing YAML frontmatter syntax. DO NOT USE FOR: general coding questions (use default agent); runtime debugging or error diagnosis; MCP server configuration (use MCP docs directly); VS Code extension development. INVOKES: file system tools (read/write customization files), ask-questions tool (interview user for requirements), subagents for codebase exploration. FOR SINGLE OPERATIONS: For quick YAML frontmatter fixes or creating a single file from a known pattern, edit the file directly — no skill needed.</description>
+    <file>c:\Users\adam\AppData\Local\Programs\Microsoft VS Code\a5b5009513\resources\app\extensions\copilot\assets\prompts\skills\agent-customization\SKILL.md</file>
+    </skill>
+    <skill>
+    <name>chronicle</name>
+    <description>Analyze Copilot session history for standup reports, usage tips, session search, and session reindexing. Use when the user asks for a standup, daily summary, usage tips, workflow recommendations, wants to search or find past sessions by keyword/file/PR, wants to reindex their session store, or asks about deleting session data.</description>
+    <file>c:\Users\adam\AppData\Local\Programs\Microsoft VS Code\a5b5009513\resources\app\extensions\copilot\assets\prompts\skills\chronicle\SKILL.md</file>
+    </skill>
+    <skill>
+    <name>python-fact-grounded-coding</name>
+    <description>Use when the user explicitly asks for the Python fact-grounded coding skill, or when a Python coding, debugging, explanation, or bug-fix task should be grounded in verified Pylance facts, runtime values, diagnostics, selected interpreter state, tests, or debugger evidence before changing code or reporting a conclusion.</description>
+    <file>c:\Users\adam\.vscode\extensions\ms-python.vscode-pylance-2026.3.1\skills\python-fact-grounded-coding\SKILL.md</file>
+    </skill>
+    <skill>
+    <name>pylance-docs</name>
+    <description>Use when the user explicitly asks for the Pylance docs skill, or when an answer depends on current official Pylance documentation for settings, diagnostics, configuration, troubleshooting, feature behavior, or supported workflows.</description>
+    <file>c:\Users\adam\.vscode\extensions\ms-python.vscode-pylance-2026.3.1\skills\pylance-docs\SKILL.md</file>
+    </skill>
+    <skill>
+    <name>pylance-refactoring</name>
+    <description>Use when the user explicitly asks for the Pylance refactoring skill, or when they want named automated Python refactorings applied to one file, many files, a workspace, a folder subset, or a composed cleanup workflow such as workspace-wide unused-import cleanup, wildcard-import conversion followed by unused-import cleanup, inferred type annotations, or Pylance fix-all.</description>
+    <file>c:\Users\adam\.vscode\extensions\ms-python.vscode-pylance-2026.3.1\skills\pylance-refactoring\SKILL.md</file>
+    </skill>
+    <skill>
+    <name>pylance-python-profiling</name>
+    <description>Use when the user wants to profile Python code with Pylance: capture CPU time (Tachyon), trace calls (sys.monitoring), or memory (Memray); profile a whole run or a specific region between two source locations; add sub-region markers; and explore the resulting profile (hot functions, call trees, time slices). Also use for the 3.15+ interpreter requirement and related error guidance.</description>
+    <file>c:\Users\adam\.vscode\extensions\ms-python.vscode-pylance-2026.3.1\skills\pylance-python-profiling\SKILL.md</file>
+    </skill>
+    <skill>
+    <name>analyze-prompt</name>
+    <description>Runs Chat Customizations Evaluations analysis for the active customization file and summarizes the findings from the Problems panel.</description>
+    <file>c:\Users\adam\.vscode\extensions\ms-vscode.vscode-chat-customizations-evaluations-1.0.8\skills\analyze-prompt\SKILL.md</file>
+    </skill>
+    <skill>
+    <name>fix-customization-evaluation-diagnostics</name>
+    <description>Fixes diagnostics reported by the Chat Customizations Evaluations extension on the active prompt file. Reads the current diagnostics from the editor and applies suggested improvements.</description>
+    <file>c:\Users\adam\.vscode\extensions\ms-vscode.vscode-chat-customizations-evaluations-1.0.8\skills\fix-customization-evaluation-diagnostics\SKILL.md</file>
+    </skill>
+    </skills>
+
+
+    <agents>
+    Here is a list of agents that can be used when running a subagent.
+    Each agent has optionally a description with the agent's purpose and expertise. When asked to run a subagent, choose the most appropriate agent from this list.
+    Use the #tool:agent/runSubagent tool with the agent name to run the subagent.
+    </agents>
+
+generationTime: 2026-08-13T14:30:36.496Z
+---
+sequenceDiagram
+    participant U as User
+    participant UI as compose_ui.py
+    participant D as deps.py
+    participant C as composer
+    participant G as DuplicateGuard
+    participant P as Postgres / Neo4j
+
+    U->>UI: Open compose or clone role
+    UI->>D: require signed-in + role access
+    D-->>UI: Auth OK
+    UI->>C: submit draft / build JD
+    C->>G: check related roles and near-duplicate status
+    G->>P: search role vectors and existing drafts
+    P-->>G: candidate matches and status
+    G-->>C: allow / warn / reject
+    C->>P: store authored draft and sections
+    P-->>C: saved record
+    C-->>UI: validation result + composed draft
+    UI-->>U: render result
