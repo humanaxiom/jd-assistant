@@ -2,15 +2,16 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-12, later) — the state of the world in one screen
+## ▶ START HERE (2026-08-13) — the state of the world in one screen
 
 **Everything is committed and pushed. Nothing is stranded.**
 
 | | |
 |---|---|
 | `main` | `cf262b1` — #86 (HR docs) squashed in. Four security/docs PRs before it (#82 · #83 · #85 · #84). |
-| **Open PR** | **[#88](https://github.com/humanaxiom/jd-assistant/pull/88)** — `feat/p0.0-navigability-v2`, **P0.0 DONE**, targeted at `main`. |
-| Gates | **2,508 passing, 93.71%** (was 2,436 / 93.63%); `register-check` + `guide-check` green; `rules_version` `jd_rules_sfu_v4+90af5e27dc83` **still unmoved** |
+| **Open PR 1** | **[#88](https://github.com/humanaxiom/jd-assistant/pull/88)** — **P0.0 navigability**, targeted at `main`, CI green. |
+| **Open PR 2** | **[#89](https://github.com/humanaxiom/jd-assistant/pull/89)** — **P0.3 deployment origins**, stacked on #88. |
+| Gates | **2,548 passing, 93.76%** (P0.0: 2,508 / 93.71%; before: 2,436 / 93.63%); `register-check` + `guide-check` green; `rules_version` `jd_rules_sfu_v4+90af5e27dc83` **still unmoved** |
 | Register | **197** decisions, **0 ratified** |
 | Live data | 14,565 files · 14,522 parsed (v3) · 1,802 roles · **4 published** · `review_actions` 6 |
 
@@ -52,28 +53,43 @@ nav · **📝 My drafts** · empty states with escapes · `/favicon.ico` + `/rob
    so it covers pages nobody thought about. That is what would have caught this on day one.
 3. **The scheme-blind `307` was fixed by NOT buying it with `--proxy-headers`.**
    `redirect_slashes` is off; the rescue is a **relative** `Location`, which cannot name a
-   scheme. Trusting a forwarded header is P0.2's refusal and **P0.3's** decision to make.
+   scheme. **P0.3 has since adjudicated the flag itself: not needed, stays off** — the
+   origin allowlist reads `X-Forwarded-Proto` for the one decision that needs it and
+   validates the result, where the flag would rewrite `request.url.scheme` globally from a
+   header nothing checks.
 
-### ⚠️ Two things about the RUNNING system you must know before touching it
+### ⚠️ Things about the RUNNING system you must know before touching it
 
-1. **`CAS_SERVICE_BASE_URL` is pointed at `http://sfuai.ca:7000`, so LOCALHOST SIGN-IN IS
-   BROKEN.** That is deliberate — the system was demoed through a port forward. CAS returns the
-   browser to whatever this single value says, and it can only say one thing. To work on
-   localhost, set it back to `http://localhost:25800` and `docker compose up -d api`. **This is
-   exactly what P0.3 exists to fix.** A copy of the pre-demo `.env` is at
-   `/tmp/.env.before-sfuai` (host temp — may not survive a reboot; the only line that differs is
-   that one).
-2. **`docker compose exec api pytest` is NOT a valid gate on this box.** The repo-root `.env` sets
+1. ~~**`CAS_SERVICE_BASE_URL` points at `sfuai.ca:7000`, so localhost sign-in is broken.**~~
+   ✅ **FIXED by P0.3.** The repo-root `.env` now carries
+   `ALLOWED_SERVICE_ORIGINS=http://localhost:25800,http://sfuai.ca:7000` and **both origins
+   sign in at once** — verified live against the running api. `CAS_SERVICE_BASE_URL` is
+   untouched (still the forward) and is now only the *fallback*. A copy of the `.env` as
+   it was before this line was added is at `/tmp/env.before-p03`.
+2. **🔴 `sfuai.ca:7000` IS INTERNET-FACING — confirmed 2026-08-13.** So the app is served
+   over **plain http at a public name**, and session cookies and CAS tickets — live
+   credentials — cross the open internet in the clear. `environment=development`, so
+   **P0.2's fail-closed guard is inactive on the one deployment that most needs it.**
+   The data stores were on `0.0.0.0` with the committed `app`/`harnesspass` credentials;
+   **they are now bound to `127.0.0.1`**, in compose and in the running containers.
+   TLS at the edge is a deployment decision nothing in this repo can make.
+3. **`docker compose exec api pytest` is NOT a valid gate on this box.** The repo-root `.env` sets
    `CAS_ENABLED=true`, the `api` service inherits it, and 9 unit tests fail spuriously. The
    hermetic `gates` service pins the posture. **Always `make gates`.**
+4. **The repo-root `.env` leaks into `gates` for anything not pinned.** P0.3 found this the
+   hard way: a test asserting the CAS fallback origin failed on the dev box and would have
+   passed in CI, because `.env` points `CAS_SERVICE_BASE_URL` at the live forward. Those two
+   keys are pinned now; **if you write a test that reads a setting, check it is pinned in the
+   `gates` service before trusting either colour.**
 
 ### The queue, in order
 
 | | Task | Why it is here |
 |---|---|---|
-| ~~1~~ | ~~**P0.0 — Navigability**~~ | ✅ **DONE** — PR #88. All 8 defect classes closed; deferrals stated in the task doc. **Absorbed the old P1.1.** |
-| 1 | **P0.3 — Deployment origins** (`docs/tasks/P0.3-deployment-origins.md`) | CAS origin allowlist + the unanswered exposure question. **It now also owns `--proxy-headers`**, which P0.0 deliberately did not turn on: it is a decision about trusting a forwarded header, and P0.0 fixed its own redirect without one. Localhost sign-in is still broken (see above) — that is this task's live symptom. |
-| 2 | **P0.1b-ii** (`architecture-review-response-2026-08-07.md` §6) | login CSRF · **open redirect on `next`** (P0.0's crawl declares that link as one whose target it cannot read — the validation is still owed) · `/ready` amplification · production compose profile · `GraphMemory` egress |
+| ~~—~~ | ~~**P0.0 — Navigability**~~ | ✅ **DONE** — PR #88. All 8 defect classes closed; deferrals stated in the task doc. **Absorbed the old P1.1.** |
+| ~~—~~ | ~~**P0.3 — Deployment origins**~~ | ✅ **DONE** — PR #89. Origin allowlist shipped and verified live (both origins sign in at once); data ports on loopback; the exposure question **answered: internet-facing**, which is why the row below moved. |
+| **1** | **🔴 P0.4 — The production posture, actually in force** (was P0.1b-ii's "production compose profile") | **PROMOTED TO P0 by P0.3's answer.** The deployment is public, over plain http, in `environment=development` — so P0.2's fail-closed guard is inactive exactly where it matters. Needs: a production compose profile, TLS at the edge, real secrets, `SESSION_COOKIE_SECURE=true`, `ENVIRONMENT=production`. ⚠️ **The trap it exists to avoid:** `api` runs `uvicorn --reload`, so a settings refusal inside the reloader presents as **"Up but serving nothing"**, not as a dead container — the P0.2 failure mode one layer down. |
+| 2 | **P0.1b-ii, the rest** (`architecture-review-response-2026-08-07.md` §6) | login CSRF · **open redirect on `next`** (P0.0's crawl declares that link as one whose target it cannot read — the validation is still owed) · `/ready` amplification · `GraphMemory` egress |
 | 3 | **P1.3 — Tier the register** | **Consider promoting.** Two HR complaints traced to one cause: the register does two incompatible jobs. Tiering turns "197 decisions" into ~60 real policy calls — the difference between an ask HR can act on and one they bounce. |
 | 4 | **P1.2 — Harmonization provenance** | A reviewer sees a raised education bar with no sign that most sources said lower. |
 
@@ -96,6 +112,13 @@ logic is right.**
 found lived exactly in the gap between them. The authorization matrix was right on all 51
 routes while an author's very first click was a link to a `403`. **A correct gate on a link
 nobody should have been shown is still a defect, and no gate test can see it.**
+
+**P0.3 added a fifth, about the harness rather than the app:** a test asserting the CAS
+fallback origin **failed on the dev box and would have passed in CI**, because the
+repo-root `.env` reached the `gates` container for that setting. The suite was reading the
+developer's machine. **Before trusting a test that reads a setting, check the setting is
+pinned in the `gates` service** — `GATES_HERMETIC_PINS` is the list, and it is asserted
+exactly so a new pin has to be argued for.
 
 ---
 

@@ -70,6 +70,14 @@ GATES_HERMETIC_PINS = frozenset(
         "CAS_ENABLED",
         "CAS_DEV_FAKE_USER",
         "BOOTSTRAP_ADMINS",
+        # The CAS return origin and its allowlist (P0.3), pinned for the same reason and
+        # added because the gap BIT: a test asserting "an unlisted origin falls back to
+        # the static setting" failed on a dev box and would have passed in CI, because
+        # the repo-root .env points CAS_SERVICE_BASE_URL at a live demo forward and this
+        # service passed it through. Any test that reads the fallback was reading the
+        # developer's machine.
+        "CAS_SERVICE_BASE_URL",
+        "ALLOWED_SERVICE_ORIGINS",
         # Data stores: pinned to the dev stack so no gate run can reach an ambient
         # production DSN (`alembic/env.py` falls back to `settings.database_url`).
         "DATABASE_URL",
@@ -89,6 +97,7 @@ KNOWN_REFUSABLE_SETTINGS = frozenset(
         "cas_dev_fake_user",
         "cas_verify_tls",
         "cas_service_base_url",
+        "allowed_service_origins",
         "cas_service_from_request",
         "session_cookie_secure",
         "database_url",
@@ -143,9 +152,10 @@ def _refusal_naming_everything() -> str:
     posture: dict[str, Any] = dict(SAFE_PRODUCTION)
     for override, _ in VIOLATIONS.values():
         posture.update(override)
-    # The two conditions that are not in the tester's VIOLATIONS table: the ninth
-    # production condition (added by the P0.2 security review) and the always-checked
-    # blank synthetic actor.
+    # The two conditions that are not in the tester's VIOLATIONS table, both of which
+    # are checked in EVERY mode rather than only in production: the retired
+    # header-derived origin flag (P0.2's ninth condition, retired by P0.3) and the blank
+    # synthetic actor.
     posture["cas_service_from_request"] = True
     posture["cas_anonymous_user"] = ""
 
@@ -360,4 +370,70 @@ def test_the_allowlist_default_is_not_empty() -> None:
         "the compose default for ALLOWED_INFERENCE_HOSTS must repeat "
         "settings.allowed_inference_hosts, not be empty — an empty allowlist refuses "
         "the very host ADR-003 puts inference on."
+    )
+
+
+# ── The data stores are not published to the network (P0.3) ────────────────────────
+
+
+#: Services holding data, and what an unauthenticated caller who reaches the port gets.
+#: Named individually so a new data service has to be classified rather than inherited.
+DATA_SERVICES: dict[str, str] = {
+    "postgres": "the whole relational ledger, behind the committed app/app credential",
+    "neo4j": "every JD vector and the graph, behind the committed neo4j/harnesspass",
+    "redis": "the arq queue, with no password at all",
+}
+
+#: The one service that is *meant* to face a network: the app. Whether the host it runs
+#: on should expose it, and over what, is the open question in P0.3 part 2 — but it is a
+#: question about the deployment, not about this file.
+NETWORK_FACING_SERVICES = frozenset({"api"})
+
+
+def _published(service: str) -> list[str]:
+    return [str(spec) for spec in _services()[service].get("ports") or []]
+
+
+@pytest.mark.parametrize("service", sorted(DATA_SERVICES), ids=lambda s: s)
+def test_a_data_store_is_published_only_to_loopback(service: str) -> None:
+    """``ports: ["25432:5432"]`` publishes on **0.0.0.0**, and Docker writes that rule
+    straight into the host's forward chain — so it is reachable from anywhere that can
+    route to the box **whether or not the host firewall says so**. "Nobody can reach it"
+    was an assumption about the network, not a property of the deployment, and P0.3 part
+    2 is the discovery that the assumption had stopped holding: the host is now
+    reachable at a public DNS name.
+
+    Every one of these answers with a credential that is committed to this repo, so the
+    exposure is not "an attacker must guess a password"; it is published in git.
+    """
+    exposures = [
+        spec for spec in _published(service) if not spec.startswith("127.0.0.1")
+    ]
+
+    assert not exposures, (
+        f"{service} publishes {exposures} on all interfaces, and it holds "
+        f"{DATA_SERVICES[service]}. Bind it to loopback — `127.0.0.1:${{PORT}}:…` — "
+        "which costs a local developer nothing and makes remote access a deliberate "
+        "edit rather than the default."
+    )
+
+
+def test_the_data_stores_are_still_reachable_from_the_dev_box() -> None:
+    """The other direction: loopback must not mean *unpublished*. `psql`, the Neo4j
+    browser and `redis-cli` on the dev box are how anyone inspects a pipeline run, and
+    silently taking them away would be a worse fix than the exposure."""
+    for service in DATA_SERVICES:
+        assert _published(service), f"{service} publishes no host port at all"
+
+
+def test_every_service_publishing_a_port_is_classified() -> None:
+    """Enumerated from the compose file, not from a list someone remembers to update: a
+    new service that publishes a port is either a data store (loopback) or deliberately
+    network-facing, and it must be said which."""
+    publishing = {name for name in _services() if _services()[name].get("ports")}
+
+    unclassified = publishing - set(DATA_SERVICES) - NETWORK_FACING_SERVICES
+    assert not unclassified, (
+        f"these services publish host ports and are classified as neither a data store "
+        f"nor network-facing: {sorted(unclassified)}. Decide which, and say so here."
     )

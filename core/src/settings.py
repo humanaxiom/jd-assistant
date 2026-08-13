@@ -106,6 +106,45 @@ if not _COMMITTED_DB_PASSWORD:  # pragma: no cover - a typo in the constant abov
     )
 
 
+def normalise_origin(raw: str) -> str | None:
+    """``scheme://host[:port]`` in one canonical spelling, or ``None`` if it is not one.
+
+    Used for **both** ends of the CAS origin allowlist (P0.3) — the entries an operator
+    configures, and the origin derived from a request — so a match is a comparison
+    between two values normalised by the same code. Two normalisers is how a check ends
+    up passing on a value it was meant to refuse.
+
+    Canonical means: lowercase scheme and host, no trailing slash, and the port kept.
+    **The port is part of the origin**: ``sfuai.ca:7000`` and ``sfuai.ca:7001`` are
+    different origins to a browser, to CAS and to us. Anything carrying a path, query,
+    fragment, or userinfo is *not* an origin and is rejected rather than trimmed into
+    one — ``https://jdbank.sfu.ca@attacker.example`` is a URL whose host is the
+    attacker, and silently repairing it is how that becomes a match.
+    """
+    candidate = raw.strip()
+    if not candidate:
+        return None
+    try:
+        parts = urlsplit(candidate)
+    except ValueError:
+        return None
+    if parts.scheme not in ("http", "https"):
+        return None
+    if parts.path.rstrip("/") or parts.query or parts.fragment:
+        return None
+    if parts.username is not None or parts.password is not None:
+        return None
+    try:  # a non-numeric or out-of-range port raises here, not at urlsplit
+        port = parts.port
+    except ValueError:
+        return None
+    host = parts.hostname
+    if not host:
+        return None
+    origin = f"{parts.scheme.lower()}://{host.lower()}"
+    return f"{origin}:{port}" if port is not None else origin
+
+
 def _is_loopback_host(host: str) -> bool:
     """True for ``localhost`` / ``*.localhost`` / any loopback IP literal.
 
@@ -176,7 +215,12 @@ class Settings(BaseSettings):
     ]
     agent_model: str = "qwen2.5-coder:14b"
 
-    @field_validator("allowed_inference_hosts", "bootstrap_admins", mode="before")
+    @field_validator(
+        "allowed_inference_hosts",
+        "allowed_service_origins",
+        "bootstrap_admins",
+        mode="before",
+    )
     @classmethod
     def _split_csv(cls, value: object) -> object:
         """Accept a comma-separated string (the natural env form) as a list."""
@@ -234,8 +278,33 @@ class Settings(BaseSettings):
     # localhost/loopback origin (the ticket would travel in clear, the `secure` cookie
     # would never be sent, and every user would be bounced to their own machine).
     cas_service_base_url: str = _COMMITTED_CAS_SERVICE_BASE_URL
-    # Derive the service base from the X-Forwarded-Host header when set (multi-host /
-    # reverse-proxy deploys); default off — prod pins `cas_service_base_url`.
+    # P0.3 — the origins this deployment may return a browser to, and the reason one
+    # static value above is no longer enough: the app is reachable both on the dev box
+    # (`localhost:25800`) and through a forward (`sfuai.ca:7000`), and CAS is told the
+    # return origin as a single string per login. Repointing the static setting fixes
+    # one and breaks the other.
+    #
+    # THE DERIVATION IS NOT THE CONTROL; THIS LIST IS. `src.api.service_origin` reads
+    # the origin the browser used (`X-Forwarded-Host`, else `Host`) and returns it
+    # ONLY if it appears here, exactly — scheme, host and port. Anything else falls back
+    # to `cas_service_base_url` and NEVER to the header, which is what makes reading a
+    # client-supplied header safe at all: without the list this is the header-injection
+    # vector P0.2 refuses (an attacker sets the header, the authenticated user goes
+    # to them WITH their CAS ticket). Shaped after `allowed_inference_hosts`, which
+    # solves the same problem for the NN #5 egress boundary.
+    #
+    # The default is the committed dev origin, so a fresh checkout signs in with no
+    # configuration — and production REFUSES TO LOAD while that default is in place, for
+    # the same reasons `cas_service_base_url` does. Env: ALLOWED_SERVICE_ORIGINS
+    # (comma-separated).
+    allowed_service_origins: Annotated[list[str], NoDecode] = [
+        _COMMITTED_CAS_SERVICE_BASE_URL
+    ]
+    # RETIRED (P0.3) — kept as a field ONLY so that a deployment still setting it is
+    # REFUSED rather than silently ignored. It derived the service origin from
+    # `X-Forwarded-Host` with no validation; `allowed_service_origins` is the mechanism
+    # now. Delete the field and an operator's `true` becomes a no-op they never learn
+    # about — a security change they believe they made and did not.
     cas_service_from_request: bool = False
     # SFU's CAS cert chain has historically failed strict TLS from inside containers
     # without a fresh ca-certificates bundle. Flip false ONLY with a documented reason.
@@ -403,6 +472,20 @@ class Settings(BaseSettings):
                 "actor while the same approval WITH gate overrides was rejected by "
                 "the domain model - set CAS_ANONYMOUS_USER to a non-empty name"
             )
+        if self.cas_service_from_request:
+            # Refused in EVERY mode, not just production (P0.3). The flag is retired;
+            # ignoring it would leave an operator believing they had enabled multi-
+            # origin login when they had not, and the failure — CAS returning users
+            # to the wrong host — looks nothing like a config error.
+            problems.append(
+                "cas_service_from_request is set, and it no longer does anything: it "
+                "derived the CAS return origin from the client-supplied "
+                "X-Forwarded-Host header with no validation, which let a caller choose "
+                "where an authenticated user was sent with their ticket. Set "
+                "CAS_SERVICE_FROM_REQUEST=false and list the origins this deployment "
+                "may return to in ALLOWED_SERVICE_ORIGINS instead"
+            )
+        problems += self._unparseable_service_origins()
         return problems
 
     def _unsafe_for_production(self) -> list[str]:
@@ -445,16 +528,8 @@ class Settings(BaseSettings):
                 "iframe and no separate front-end origin that could need it - set "
                 "SESSION_COOKIE_SAMESITE=lax (the default) or strict"
             )
-        if self.cas_service_from_request:
-            problems.append(
-                "cas_service_from_request is true, so the CAS service origin is taken "
-                "from the client-supplied X-Forwarded-Host header and the validated "
-                "cas_service_base_url is never read - a caller chooses the origin, and "
-                "x-forwarded-proto defaults to http, so the derived origin can be "
-                "plaintext even with a secure cookie. Set "
-                "CAS_SERVICE_FROM_REQUEST=false and pin the origin"
-            )
         problems += self._unsafe_service_origin()
+        problems += self._unsafe_allowed_service_origins()
         problems += self._unsafe_database_url()
         if self.neo4j_password == _COMMITTED_NEO4J_PASSWORD:
             problems.append(
@@ -510,6 +585,64 @@ class Settings(BaseSettings):
             "complete; pointed at localhost, every user is bounced to their own "
             "machine after login - set CAS_SERVICE_BASE_URL"
         ]
+
+    def normalised_service_origins(self) -> tuple[str, ...]:
+        """The allowlist in the one spelling :func:`normalise_origin` produces.
+
+        Unparseable entries are dropped here and **refused at load**
+        (:meth:`_unparseable_service_origins`), so this can never quietly return a
+        shorter list than the operator wrote.
+        """
+        normalised = (normalise_origin(entry) for entry in self.allowed_service_origins)
+        return tuple(origin for origin in normalised if origin is not None)
+
+    def _unparseable_service_origins(self) -> list[str]:
+        """An allowlist entry that is not an origin is refused **in every mode**.
+
+        It cannot match anything, so keeping it would silently reduce the deployment to
+        the static fallback — which presents as "login sends people to the wrong host",
+        a symptom nobody traces back to a typo in a list.
+        """
+        bad = [
+            entry
+            for entry in self.allowed_service_origins
+            if normalise_origin(entry) is None
+        ]
+        if not bad:
+            return []
+        return [
+            f"allowed_service_origins contains {len(bad)} entry/entries that are not "
+            "an origin. Each must be exactly scheme://host[:port] - http or https, no "
+            "path, query, fragment or user info (a URL like "
+            "https://good.example@attacker.example has the ATTACKER as its host, which "
+            "is why these are refused rather than trimmed). Fix ALLOWED_SERVICE_ORIGINS"
+        ]
+
+    def _unsafe_allowed_service_origins(self) -> list[str]:
+        """In production every listed origin must be https and not loopback.
+
+        The same test :meth:`_unsafe_service_origin` applies to the static fallback, for
+        the same reasons — over http the CAS ticket travels in clear and the secure
+        cookie is never sent; pointed at loopback, every user is returned to their own
+        machine. An allowlist is a list of origins users are *sent to*, so a weak entry
+        is not a weaker default, it is a live one.
+        """
+        problems: list[str] = []
+        for origin in self.normalised_service_origins():
+            parts = urlsplit(origin)
+            host = parts.hostname
+            if parts.scheme == "https" and host and not _is_loopback_host(host):
+                continue
+            problems.append(
+                "allowed_service_origins contains an origin that is not a production "
+                "one: every entry must be https at a real hostname, not plain http and "
+                "not localhost/loopback. The shipped default is the committed dev "
+                "origin, so a production deployment that has not set this is refused "
+                "here - set ALLOWED_SERVICE_ORIGINS (or clear it to pin the single "
+                "cas_service_base_url)"
+            )
+            break  # one message names the setting; listing each bad entry echoes values
+        return problems
 
     def _unsafe_inference_host(self) -> list[str]:
         """NN #5, decided by the SAME code the egress guard enforces at build time.

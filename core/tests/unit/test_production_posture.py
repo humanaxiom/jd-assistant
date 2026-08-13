@@ -121,6 +121,10 @@ SAFE_PRODUCTION: dict[str, Any] = {
     "cas_dev_fake_user": "",
     "cas_verify_tls": True,
     "cas_service_base_url": "https://jdbank.sfu.ca",
+    # P0.3 — the origins a browser may be returned to. The shipped default is the
+    # committed dev origin, so a production posture that has not set this is refused;
+    # every entry takes the same https/real-host test as the static value above.
+    "allowed_service_origins": ["https://jdbank.sfu.ca"],
     "session_cookie_secure": True,
     "database_url": "postgresql+asyncpg://jdbank:UYm-not-the-committed-one@pg:5432/jd",
     "neo4j_password": "nor-is-this-one-Xq7",
@@ -145,6 +149,13 @@ VIOLATIONS: dict[str, tuple[dict[str, Any], str]] = {
     "committed_service_base_url": (
         {"cas_service_base_url": COMMITTED_SERVICE_BASE_URL},
         "cas_service_base_url",
+    ),
+    # P0.3 — the same condition for the multi-origin allowlist. It is a list of origins
+    # users are actually SENT to, so a weak entry is not a weaker default, it is a live
+    # one; the shipped default is the committed dev origin, which is what this is.
+    "committed_service_origin_allowlist": (
+        {"allowed_service_origins": [COMMITTED_SERVICE_BASE_URL]},
+        "allowed_service_origins",
     ),
     "cookie_not_secure": ({"session_cookie_secure": False}, "session_cookie_secure"),
     "committed_db_password": (
@@ -640,31 +651,120 @@ def test_a_private_intranet_origin_is_accepted() -> None:
 
 
 def test_deriving_the_cas_service_origin_from_a_request_header_is_refused() -> None:
-    """The ninth condition, found by the security review.
+    """The ninth condition, found by the P0.2 security review.
 
-    With ``cas_service_from_request``, ``routes/auth.py`` builds the CAS service origin
-    from ``X-Forwarded-Host`` and never reads the validated ``cas_service_base_url`` —
-    so a *caller* picks the origin CAS is told to redirect to, and ``x-forwarded-proto``
-    falls back to ``http``, making the derived origin plaintext even with a secure
-    cookie. Refused outright in production rather than allowlisted: an allowlist is a
-    second, untested definition of the same origin, and the deployment that needs this
-    is a multi-host one we do not have.
+    With ``cas_service_from_request``, ``routes/auth.py`` built the CAS service origin
+    from ``X-Forwarded-Host`` and never read the validated ``cas_service_base_url`` —
+    so a *caller* picked the origin CAS was told to redirect to, and
+    ``x-forwarded-proto`` fell back to ``http``, making the derived origin plaintext
+    even with a secure cookie.
+
+    P0.2 refused it in production and said an allowlist would be "a second, untested
+    definition of the same origin". **P0.3 built that allowlist**, because the
+    deployment that needs multi-origin turned out to exist — the app is reached both on
+    the dev box and through a forward — and *tested* is a property you can supply
+    (``tests/unit/test_service_origin.py``). The flag is now retired rather than
+    production-refused; see the test below for why the field still exists at all.
     """
     message = refusal_message(cas_service_from_request=True).lower()
 
     assert "cas_service_from_request" in message
+    assert "allowed_service_origins" in message, (
+        "the refusal must name the mechanism that replaced it, or an operator reads "
+        "'this flag is retired' and has nowhere to go"
+    )
 
 
-def test_deriving_the_origin_from_a_request_header_is_fine_in_development() -> None:
+def test_the_retired_header_flag_is_refused_in_development_too() -> None:
+    """**Every mode, not just production** — and that is the deliberate part.
+
+    The flag no longer does anything. Ignoring it silently would leave an operator
+    believing they had enabled multi-origin login when they had not, and the symptom —
+    CAS returning users to the wrong host — looks nothing like a configuration error.
+    Deleting the field would be worse still: their ``true`` becomes a no-op they are
+    never told about, which is a security change they believe they made and did not.
+    """
+    with pytest.raises(Exception) as excinfo:  # noqa: B017 - type is not the contract
+        Settings(environment="development", cas_service_from_request=True)
+
+    assert "cas_service_from_request" in str(excinfo.value)
+
+
+# ── C2. allowed_service_origins — the mechanism that replaced it (P0.3) ─────────────
+
+
+def test_the_shipped_allowlist_default_is_refused_in_production() -> None:
+    """The default is the committed dev origin, so a fresh checkout signs in with no
+    configuration — and a production deployment that never set it is refused here, for
+    exactly the reasons ``cas_service_base_url``'s own committed default is."""
+    message = refusal_message(
+        allowed_service_origins=[COMMITTED_SERVICE_BASE_URL]
+    ).lower()
+
+    assert "allowed_service_origins" in message
+
+
+@pytest.mark.parametrize(
+    "origin",
+    ["http://jdbank.sfu.ca", "https://localhost:8443", "https://127.0.0.1"],
+    ids=["plain-http", "loopback-name", "loopback-ip"],
+)
+def test_an_allowlisted_origin_gets_the_same_production_test_as_the_static_one(
+    origin: str,
+) -> None:
+    """An allowlist entry is not a weaker default — it is an origin a real user is
+    **sent to**, so it takes the identical test: https, at a real host. Over http the
+    CAS ticket travels in clear and the secure cookie is never sent; at loopback every
+    user is returned to their own machine."""
+    message = refusal_message(allowed_service_origins=[origin]).lower()
+
+    assert "allowed_service_origins" in message
+
+
+def test_a_real_https_allowlist_loads_in_production() -> None:
     settings = Settings(
         **{
             **SAFE_PRODUCTION,
-            "environment": "development",
-            "cas_service_from_request": True,
+            "allowed_service_origins": [
+                "https://jdbank.sfu.ca",
+                "https://jd.sfu.ca:8443",
+            ],
         }
     )
 
-    assert settings.cas_service_from_request is True
+    assert settings.normalised_service_origins() == (
+        "https://jdbank.sfu.ca",
+        "https://jd.sfu.ca:8443",
+    )
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        "jdbank.sfu.ca",  # no scheme
+        "https://jdbank.sfu.ca/login",  # a path is not an origin
+        "https://good.example@attacker.example",  # host is the ATTACKER
+        "ftp://jdbank.sfu.ca",
+        "https://jdbank.sfu.ca:notaport",
+    ],
+)
+def test_an_allowlist_entry_that_is_not_an_origin_is_refused_in_every_mode(
+    entry: str,
+) -> None:
+    """It could never match, so keeping it would silently reduce the deployment to the
+    static fallback — which presents as "login sends people to the wrong host", a
+    symptom nobody traces to a typo in a list. Refused in development too, because that
+    is where the typo is made.
+
+    The userinfo case is the one worth reading twice:
+    ``https://good.example@attacker.example`` has ``attacker.example`` as its host.
+    Trimming such a URL into an origin is how a lookalike becomes a match, so these are
+    refused rather than repaired.
+    """
+    with pytest.raises(Exception) as excinfo:  # noqa: B017 - type is not the contract
+        Settings(environment="development", allowed_service_origins=[entry])
+
+    assert "allowed_service_origins" in str(excinfo.value)
 
 
 # ── D. session_cookie_samesite — the P0.1b-i ruling (see the module docstring) ───────
