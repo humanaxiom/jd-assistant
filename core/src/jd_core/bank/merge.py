@@ -43,7 +43,12 @@ from src.jd_core.bank.drift import (
 )
 from src.jd_core.bank.provenance import skill_frequency
 from src.jd_core.bank.signals import build_job_signals
-from src.jd_core.models.bank import JobSignals, MergedRole, MergeProvenance
+from src.jd_core.models.bank import (
+    JobSignals,
+    MergedRole,
+    MergeProvenance,
+    SeniorityBarChoice,
+)
 from src.jd_core.models.parsed_jd import (
     QualificationKind,
     SFUDuty,
@@ -445,7 +450,7 @@ def _seniority_qual(
     parse: Callable[[str], int | None],
     out_kind: QualificationKind,
     harmon: Harmonization,
-) -> SFUQualification | None:
+) -> tuple[SFUQualification | None, SeniorityBarChoice | None]:
     """The representative education/experience qualification at the cluster's chosen
     bar.
 
@@ -467,12 +472,23 @@ def _seniority_qual(
     """
     bars = [bar for bar in member_bars if bar is not None]
     if not bars:
-        return None
+        return None, None
     if harmon.seniority_bar_policy == "max":
         target = max(bars)
     else:
         counts: Counter[int] = Counter(bars)
         target = min(counts, key=lambda b: (-counts[b], b))
+
+    # The record of the choice (P1.2). Built from the same `target` the draft is
+    # assembled from and the same `member_bars` it was chosen out of, so it cannot
+    # describe a decision other than the one actually made — and it echoes the live
+    # policy rather than assuming `max`.
+    choice = SeniorityBarChoice(
+        kind=out_kind,
+        policy=harmon.seniority_bar_policy,
+        chosen=target,
+        member_bars=tuple(member_bars),
+    )
 
     for kind in kinds_by_priority:
         matching = [
@@ -481,7 +497,10 @@ def _seniority_qual(
             if bar == target
         ]
         if matching:
-            return _group_representative(_group_quals(matching, harmon)[0], out_kind)
+            return (
+                _group_representative(_group_quals(matching, harmon)[0], out_kind),
+                choice,
+            )
     # No single qual reproduces the (possibly concatenated) target — emit the strongest
     # single qual we can, in kind-priority order, rather than drop a stated bar.
     for kind in kinds_by_priority:
@@ -489,8 +508,11 @@ def _seniority_qual(
         if parsed:
             best = max(bar for _, _, bar in parsed)
             matching = [(i, qual) for i, qual, bar in parsed if bar == best]
-            return _group_representative(_group_quals(matching, harmon)[0], out_kind)
-    return None
+            return (
+                _group_representative(_group_quals(matching, harmon)[0], out_kind),
+                choice,
+            )
+    return None, choice
 
 
 def _security_quals(
@@ -525,9 +547,10 @@ def _rebuild_ksa(
     sigs: Sequence[JobSignals],
     rules: Rules,
     harmon: Harmonization,
-) -> tuple[list[SFUQualification], bool]:
+) -> tuple[list[SFUQualification], bool, tuple[SeniorityBarChoice, ...]]:
     """Rebuild Qualifications from the cluster's evidence. Returns
-    ``(qualifications, no_core_skills)``.
+    ``(qualifications, no_core_skills, seniority_bars)`` — the third being the
+    record of HOW each bar was chosen, for the 4.4 reviewer (P1.2).
 
     Core skills (required by >= ``core_skill_min_fraction`` of members) keep their
     representative qualification; incidental one-offs are dropped (SFU is
@@ -568,7 +591,7 @@ def _rebuild_ksa(
     edu_priority = sorted(
         comparison.education_source_kinds, key=lambda k: (k != "education", k)
     )
-    edu = _seniority_qual(
+    edu, edu_choice = _seniority_qual(
         ordered,
         [s.education_ordinal for s in sigs],
         edu_priority,
@@ -580,7 +603,7 @@ def _rebuild_ksa(
     # ([experience, knowledge]) — `experience` is authoritative, `knowledge` the
     # fallback. The per-member bar (`sigs[i].experience_years`) already honours that
     # order, so a bigger number in a member's `knowledge` blob cannot inflate its bar.
-    exp = _seniority_qual(
+    exp, exp_choice = _seniority_qual(
         ordered,
         [s.experience_years for s in sigs],
         comparison.experience_source_kinds,
@@ -588,6 +611,7 @@ def _rebuild_ksa(
         "experience",
         harmon,
     )
+    seniority_bars = tuple(c for c in (edu_choice, exp_choice) if c is not None)
     security = _security_quals(ordered, n, harmon)
 
     ordered_quals = [q for q in (edu, exp) if q is not None] + skill_quals + security
@@ -601,7 +625,7 @@ def _rebuild_ksa(
             continue
         seen.add(key)
         deduped.append(qual)
-    return deduped[:40], not core
+    return deduped[:40], not core, seniority_bars
 
 
 # --- the entry point ---------------------------------------------------------------
@@ -672,7 +696,9 @@ def merge_cluster(
     if over_max:
         flags.add("duties_over_max")
 
-    qualifications, no_core = _rebuild_ksa(ordered, sigs, active, harmon)
+    qualifications, no_core, seniority_bars = _rebuild_ksa(
+        ordered, sigs, active, harmon
+    )
     if no_core:
         flags.add("no_core_skills")
 
@@ -710,6 +736,7 @@ def merge_cluster(
             (name, contributors[name]) for name in sorted(contributors)
         ),
         flags=tuple(sorted(flags)),
+        seniority_bars=seniority_bars,
     )
     return MergedRole(draft=draft, provenance=provenance)
 

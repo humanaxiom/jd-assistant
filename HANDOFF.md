@@ -92,9 +92,9 @@ was always the real critical path — and the first item is not a commit.
 |---|---|---|
 | **1** | **🔴 TLS at the edge — the last open exposure, and NOT a repo deliverable** | The pilot host is internet-facing over **plain http**, so sign-in cookies and CAS tickets cross the open internet in the clear. P0.4 makes the app correct *behind* a terminator (P0.3's allowlist reads `X-Forwarded-Proto` and validates the result) and refuses to run pretending otherwise — **someone has to put one in front.** It is also what unblocks actually *using* `docker-compose.prod.yml`, which needs an https origin. |
 | ~~2~~ | ~~**P1.3 — Tier the register**~~ ✅ **DONE (PR [#94](https://github.com/humanaxiom/jd-assistant/pull/94))** | The ask is now **65 settings, not 197** (49 `hr_informed` · 83 `technical`), and the generated register leads with **"Your decisions"**. See the block below. |
-| **2** | **P1.2 — Harmonization provenance ⟵ NEXT** | A reviewer sees a raised education bar with no sign that 9 of 10 sources said lower. The human is the NN #1 control and cannot rule on what they cannot see. |
-| 4 | **Phase 8.3 — review-experience upgrades** (`docs/plan.md`) | Word-level diff · structural sidebar · gate→field jump links. No GPU, parallelizable. |
-| 5 | **Phase 6 leftovers** | Backup + reindex runbooks, and the **territorial-acknowledgement wording sign-off** — the latter blocks external distribution and is HR's call. |
+| ~~2~~ | ~~**P1.2 — Harmonization provenance**~~ ✅ **DONE (PR [#95](https://github.com/humanaxiom/jd-assistant/pull/95))** | The review page now says how the draft was assembled — and the item **understated** the defect: the whole provenance packet had been computed since 4.1 and rendered nowhere. See the block below. |
+| **2** | **Phase 8.3 — review-experience upgrades ⟵ NEXT** (`docs/plan.md`) | Word-level diff · structural sidebar · gate→field jump links. No GPU, parallelizable. |
+| 3 | **Phase 6 leftovers** | Backup + reindex runbooks, and the **territorial-acknowledgement wording sign-off** — the latter blocks external distribution and is HR's call. |
 
 **Deliberately still open, recorded so their absence is not mistaken for completion:** the
 missing timeout on `/compose/search` and `/assist` (same root cause as the 5.9 guard's) ·
@@ -103,7 +103,38 @@ by `assemble_jd`, so clone lineage is lost at submit (NN #6 opportunity) ·
 `docs/rulebook/rulebook/` is a byte-identical duplicate directory tracked since Phase 0 ·
 `docs/status/*` stops at 2026-07-24.
 
-### 2026-08-13, later — P1.3 IS DONE: the HR ask is 65 settings, not 197
+### 2026-08-13, later — P1.2 IS DONE, and the defect was BIGGER than the backlog said
+
+PR [#95](https://github.com/humanaxiom/jd-assistant/pull/95). `make gates` **2,627 passing,
+93.91%**. `rules_version` **unmoved**; **no register entry earned** — see below, that is the
+design, not an omission.
+
+- **🔴 THE FINDING: `merge_provenance` has been computed and persisted in `change_log` since
+  Phase 4.1, and was read by NOTHING.** Not the review page, not the library — `grep` returns
+  the producer and no consumer. So the reviewer could not see which sources fed the draft, how
+  many members required a skill, how many stated a duty, or the HR-eyeball flags. **The backlog
+  item named one symptom (the education bar); the disease was the whole packet.**
+- **The bar record did not exist at all** and is the new part: `SeniorityBarChoice` records the
+  policy *actually applied*, the chosen bar, and **what every member stated** — so the page can
+  say *"the sources disagreed — 1 of 10 stated the bar this draft uses, and 9 stated a
+  different one."*
+- **⚠️ A SILENT MEMBER IS NOT AN OVERRULED ONE.** `None` means the member stated **no bar at
+  all**, which is categorically different from stating a lower one. Counting silence as dissent
+  would overstate the disagreement the reviewer is being asked to weigh — and on this corpus,
+  where a third of JDs do not even parse an `employee_group`, silence is common. Pinned by its
+  own test.
+- **No threshold, therefore no register entry — and that is deliberate.** `disagreed` is a
+  property of the members' own statements, not a tunable. The standing rule ("any non-trivial
+  metric must be YAML-configurable and registered") **bites on a cutoff**; inventing a
+  "show it when ≥N disagree" knob would have manufactured a decision HR then has to rule on.
+  The only number in the feature is how many rows the panel prints before it stops.
+- **The policy is described as itself.** The panel says *highest* or *most common* from the
+  recorded `policy`, never hardcoded — pinned by a test, because hardcoding "highest" would
+  make the page lie the day HR rules for `modal`.
+- **Proved by mutation**, and it degrades safely: a malformed provenance packet costs the
+  panel, never the page — the page's job is the approve/reject decision.
+
+### 2026-08-13 — P1.3 IS DONE: the HR ask is 65 settings, not 197
 
 PR [#94](https://github.com/humanaxiom/jd-assistant/pull/94). `make gates` **2,616 passing,
 93.90%** (was 2,606 / 93.89%). `rules_version` **unmoved** — `decision_register.yaml` is

@@ -745,6 +745,30 @@ not one made by omission.
 
 ### Phase 8 — The Published JD Bank (the final canonical library) + review-experience upgrades — 8.1 SHIPPED EARLY (2026-08-01), adapted; 8.2 GOAL MET by a different mechanism (2026-08-04); 8.3 open
 
+> **P1.2 — HARMONIZATION PROVENANCE SHIPPED (2026-08-13).** The review page gains a **"How this
+> draft was assembled"** panel: how many sources fed the draft, how each seniority bar was chosen
+> and what the members actually stated, how many sources required each skill and stated each duty,
+> and the HR-eyeball flags.
+>
+> **🔴 The backlog item understated the defect.** It named the education bar; the real finding is
+> that **`merge_provenance` has been computed and persisted in `change_log` since Phase 4.1 and
+> was read by NOTHING** — `grep` returned the producer and no consumer — so skill frequency, duty
+> coverage, contributors and flags were *all* invisible. What genuinely did not exist is the bar
+> record: `SeniorityBarChoice` (`models/bank.py`) now captures the policy actually applied, the
+> chosen bar, and every member's stated bar.
+>
+> Three design points worth keeping:
+> - **A silent member is not an overruled one.** `None` = stated no bar at all, which is not the
+>   same as stating a lower one; counting silence as dissent would overstate the disagreement.
+> - **No threshold anywhere, so no register entry is earned.** `disagreed` is a property of the
+>   members' own statements. Inventing a "warn when ≥N disagree" knob would have manufactured a
+>   decision HR then has to rule on — the standing rule bites on a *cutoff*, and there is none.
+> - **The policy is described as itself** (*highest* / *most common*) from the recorded value,
+>   never hardcoded, so the page cannot lie the day HR rules for `modal`.
+>
+> Advisory and read-only — it changes no verdict (NN #1/#3) — and a malformed packet costs the
+> panel, never the page.
+
 > **STATUS UPDATE (2026-08-05).** **8.1 was brought forward and shipped** in response to HR pilot
 > feedback ("where are the actual JD files?"), but **adapted**: the browsable library
 > (`jd_bank/library/` + `api/routes/library.py`, 🏦 JD Bank nav) covers the **DRAFT roles + their

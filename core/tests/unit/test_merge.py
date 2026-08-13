@@ -585,3 +585,99 @@ def test_provenance_records_frequencies_coverage_and_contributors(rules: Rules) 
     # every contributor index is a real member position.
     for _, indices in prov.section_contributors:
         assert all(0 <= i < prov.member_count for i in indices)
+
+
+# --- P1.2: the reviewer can see WHY the bar is what it is ----------------------
+#
+# `seniority_bar_policy: max` (HR-175) raises a cluster's education bar to the
+# highest any single member stated. That is defensible, and it is invisible: a
+# reviewer reading the draft sees "a master's degree" with nothing to say that two
+# of the three sources said bachelor's. The human is the NN #1 control and cannot
+# rule on what they cannot see — so the merge must RECORD the choice, not just make
+# it.
+
+
+def test_the_seniority_bar_choice_is_recorded_in_provenance(rules: Rules) -> None:
+    merged = merge_cluster(_education_cluster(), rules=rules)
+    bars = {choice.kind: choice for choice in merged.provenance.seniority_bars}
+    assert "education" in bars, "the education bar was chosen but not recorded"
+
+    education = bars["education"]
+    assert education.policy == "max"
+    # Two members said bachelor's, one said master's; `max` took the master's.
+    assert education.member_bars.count(education.chosen) == 1
+    assert len(education.member_bars) == 3
+    assert education.disagreed, "a 2-vs-1 split must read as a disagreement"
+    assert education.agreeing == 1
+    assert education.overruled == 2
+
+
+def test_an_agreed_bar_is_recorded_but_not_flagged_as_disagreement(
+    rules: Rules,
+) -> None:
+    """No disagreement, nothing for the reviewer to weigh — the record still exists
+    (so the panel can state the bar's basis) but must not cry wolf."""
+    cluster = [
+        _member(
+            qualifications=[
+                SFUQualification(text="a bachelor's degree", kind="education")
+            ]
+        )
+        for _ in range(3)
+    ]
+    merged = merge_cluster(cluster, rules=rules)
+    bars = {choice.kind: choice for choice in merged.provenance.seniority_bars}
+    assert bars["education"].agreeing == 3
+    assert bars["education"].overruled == 0
+    assert not bars["education"].disagreed
+
+
+def test_a_member_stating_no_bar_is_not_counted_as_disagreeing(
+    rules: Rules,
+) -> None:
+    """`None` means the member stated no education bar AT ALL, which is different
+    from stating a lower one. Counting silence as dissent would overstate the
+    disagreement the reviewer is being asked to weigh."""
+    cluster = [
+        _member(
+            qualifications=[
+                SFUQualification(text="a master's degree", kind="education")
+            ]
+        ),
+        _member(qualifications=[SFUQualification(text="be organised", kind="skill")]),
+    ]
+    merged = merge_cluster(cluster, rules=rules)
+    education = {c.kind: c for c in merged.provenance.seniority_bars}["education"]
+    # One member stated a bar, the other stated nothing — asserted by shape rather
+    # than by the ladder's ordinal, which is `education_ladder`'s to define (HR-082).
+    assert sorted(education.member_bars, key=lambda b: b is not None) == [
+        None,
+        education.chosen,
+    ]
+    assert education.agreeing == 1
+    assert education.overruled == 0, "a silent member is not an overruled one"
+    assert not education.disagreed
+
+
+def test_the_recorded_bar_matches_the_policy_actually_applied(rules: Rules) -> None:
+    """Mutation pin: flip the policy and the RECORD must follow the draft. A
+    provenance record that keeps saying `max` while `modal` was applied is worse
+    than none — it is a confident lie in the audit packet."""
+    mutated = _with(rules, seniority_bar_policy="modal")
+    merged = merge_cluster(_education_cluster(), rules=mutated)
+    education = {c.kind: c for c in merged.provenance.seniority_bars}["education"]
+    assert education.policy == "modal"
+    assert education.agreeing == 2  # the modal bachelor's
+    assert education.overruled == 1
+
+
+def test_the_experience_bar_is_recorded_too(rules: Rules) -> None:
+    cluster = [
+        _member(qualifications=[_exp("three years of experience")]),
+        _member(qualifications=[_exp("three years of experience")]),
+        _member(qualifications=[_exp("five years of experience")]),
+    ]
+    merged = merge_cluster(cluster, rules=rules)
+    bars = {choice.kind: choice for choice in merged.provenance.seniority_bars}
+    assert bars["experience"].chosen == 5
+    assert bars["experience"].overruled == 2

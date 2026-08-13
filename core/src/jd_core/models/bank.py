@@ -140,6 +140,61 @@ class CanonicalRole(BaseModel):
 # ---------- harmonization: the deterministic merge engine (Phase 4.1) ----------
 
 
+class SeniorityBarChoice(BaseModel):
+    """How ONE seniority bar — education or experience — was chosen for a cluster.
+
+    **The reviewer problem this exists for.** ``seniority_bar_policy`` (HR-175,
+    ``max`` today) raises a draft's education bar to the highest any single member
+    stated. That is defensible and it is *invisible*: a reviewer reads "a master's
+    degree" with nothing to say that nine of ten sources said bachelor's. The human
+    is the NN #1 control and cannot rule on what they cannot see, so the merge
+    records the choice rather than only making it.
+
+    Advisory and descriptive: nothing here changes the draft, and no threshold is
+    involved — ``disagreed`` is a property of the members' own statements, not a
+    tunable. It therefore earns no register entry.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: Literal["education", "experience"]
+    #: The live ``seniority_bar_policy`` this choice was made under, echoed so the
+    #: record cannot drift from the policy actually applied.
+    policy: str
+    #: The chosen bar — an education ordinal, or a count of years.
+    chosen: int
+    #: What each member stated, in the engine's own canonical member order. ``None``
+    #: means the member stated **no bar at all**, which is deliberately distinct from
+    #: stating a lower one: silence is not dissent.
+    member_bars: tuple[int | None, ...] = ()
+
+    @property
+    def agreeing(self) -> int:
+        """How many members stated exactly the bar that was chosen."""
+        return sum(1 for bar in self.member_bars if bar == self.chosen)
+
+    @property
+    def overruled(self) -> int:
+        """How many members stated a DIFFERENT bar and were overruled by the policy.
+
+        Members that stated nothing are excluded — they were not overruled, they
+        simply said nothing, and counting them would overstate the disagreement the
+        reviewer is being asked to weigh.
+        """
+        return sum(
+            1 for bar in self.member_bars if bar is not None and bar != self.chosen
+        )
+
+    @property
+    def disagreed(self) -> bool:
+        """Did any member state a bar other than the one that was chosen?
+
+        This is what decides whether the reviewer is shown a "sources disagreed"
+        note. A count, not a threshold — there is nothing here to tune.
+        """
+        return self.overruled > 0
+
+
 class MergeProvenance(BaseModel):
     """Verifiable provenance for one harmonized draft — computed BEFORE any model
     touches the text (Phase 4.1). Frozen: it is an audit record, not a scratchpad.
@@ -168,6 +223,10 @@ class MergeProvenance(BaseModel):
     #: position_number — so the draft dropped it; the 4.4 reviewer is told, not
     #: surprised). Kept as an open, extensible tuple.
     flags: tuple[str, ...] = ()
+    #: How the education / experience bars were chosen, and what the members actually
+    #: stated (P1.2). Defaults to empty so a ``change_log`` packet written before this
+    #: field existed still round-trips through this model.
+    seniority_bars: tuple[SeniorityBarChoice, ...] = ()
 
 
 class MergedRole(BaseModel):
