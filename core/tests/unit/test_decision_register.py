@@ -34,7 +34,7 @@ from typing import Any, Final, get_args
 
 import pytest
 import yaml
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from src.jd_core.rules import (
     REGISTER_FILE,
@@ -720,12 +720,32 @@ def test_every_field_of_a_flat_rule_file_is_on_the_surface(
 ) -> None:
     """These files are flat tables of matchers, limits and weights — every key
     changes what the validators fire on or what the estimators score, so every key
-    is a decision-surface parameter."""
+    is a decision-surface parameter.
+
+    A field holding a NESTED BLOCK contributes its **leaves** rather than itself
+    (`thresholds.wjq.duties_max`, not `thresholds.wjq`) — the `dedup.authoring_guard`
+    shape, and the same rule `_flat_file_paths` applies. A register entry must name the
+    parameter that is actually decided, and `normalize_config_value` refuses a whole
+    model outright, so the block's own path is one nothing could ever pin.
+
+    ⚠ **The nested case is asserted, not skipped.** The obvious way to make this test
+    pass when `thresholds` grew its per-template block (Phase C) was to drop
+    `thresholds` from the list above, the way `dedup` is absent — which would have
+    retired the guarantee for the whole file to accommodate one field. Requiring at
+    least one leaf keeps every other key of `thresholds` pinned, and still fails if a
+    nested block is added that contributes nothing.
+    """
     surface = decision_surface(rules)
     rule_file = getattr(rules, file_field)
     for field in type(rule_file).model_fields:
-        if field != "version":
-            assert f"{file_field}.{field}" in surface
+        if field == "version":
+            continue
+        path = f"{file_field}.{field}"
+        if isinstance(getattr(rule_file, field), BaseModel):
+            leaves = {p for p in surface if p.startswith(f"{path}.")}
+            assert leaves, f"nested block {path} puts no leaf on the decision surface"
+        else:
+            assert path in surface
 
 
 #: Rule-file fields that are deliberately NOT decision-surface parameters *at their
@@ -1312,9 +1332,19 @@ def test_the_decision_surface_enumerates_every_family_completely(
         }[gate.type]
         assert f"gates.{gate.gate_id}.{measured}" in surface
 
-    # every threshold
+    # every threshold — of every template profile. A per-template block
+    # (`thresholds.wjq`, Phase C) is on the surface through its LEAVES, so each of its
+    # fields is pinned individually: a form's numbers are as much a decision as the
+    # shared ones, and giving a second form a bar nobody registered is exactly the
+    # silent-calibration failure `applies_to` and this block exist to end.
     for field in type(rules.thresholds).model_fields:
-        if field != "version":
+        if field == "version":
+            continue
+        block = getattr(rules.thresholds, field)
+        if isinstance(block, BaseModel):
+            for sub in type(block).model_fields:
+                assert f"thresholds.{field}.{sub}" in surface
+        else:
             assert f"thresholds.{field}" in surface
 
     # the scoring calibration: penalties, decay, bands, scale

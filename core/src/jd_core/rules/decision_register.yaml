@@ -5917,6 +5917,117 @@ decisions:
       by `test_wjq_context_not_truncated.py`.
     status: open
 
+  # ── The CUPE/WJQ numeric profile (CUPE Phase C) ──────────────────────────────
+  # The JDFN counterparts are HR-019 … HR-022, and these four are deliberately the
+  # same questions asked about the other form. They exist because a number calibrated
+  # on one SFU form was being applied to both; whether each WJQ value is RIGHT is HR's
+  # call, and changing one is a YAML edit with no code change.
+  - id: HR-202
+    question: >-
+      How many major responsibilities may a CUPE (WJQ) job description list before it
+      is marked down? The JDFN form asks for 3-5 (HR-022); the WJQ questionnaire has
+      TWELVE duty slots.
+    config:
+      file: thresholds.yaml
+      path: thresholds.wjq.duties_max
+    current_default: 12
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      MEASURED over all 4,440 CUPE documents at `jd_segmenter_v4`: `SFU-STRUCT-DUTIES
+      -TOO-MANY` fired on 82.3% of them against the JDFN's `duties_max: 5`, and the
+      distribution says why — CUPE duty counts are BIMODAL, not averaging anything.
+      77.4% of CUPE JDs carry EXACTLY twelve duties and 16.2% carry zero; almost
+      nothing sits in between, so the "9.7 average" an earlier version of this work
+      quoted describes no actual document. Twelve is the number of duty slots the WJQ
+      instrument provides, which makes this a property of the FORM rather than a
+      judgement about CUPE job descriptions — the same category as `applies_to`.
+      `SFUJobDescription.duties` is independently capped at 12, which is the identical
+      fact recorded a third time. Marking a JD down for filling in the form it was
+      given is the category error this whole phase exists to remove. ⚠ WHAT THIS DOES
+      NOT SETTLE: whether twelve duties is *good practice* is a real question, and SFU
+      may well hold that a role described in twelve separate duties needs consolidating
+      — but that is an argument to put to CUPE about the WJQ FORM, not a defect to
+      charge 3,436 existing job descriptions with.
+    impact_if_changed: >-
+      Moves `rules_version` (thresholds.yaml is hashed). Lowering it toward the JDFN's 5
+      re-applies the finding to ~82% of the CUPE cohort; raising it above 12 has no
+      effect, because the parsed model cannot represent a thirteenth duty. Advisory
+      either way — `SFU-STRUCT-DUTIES-TOO-MANY` is in no blocking set
+      (`gates.yaml` omission (d)), so this costs score, never approval.
+    status: open
+
+  - id: HR-203
+    question: >-
+      What is the minimum number of major responsibilities for a CUPE (WJQ) job
+      description? Held at the JDFN's 3 (HR-021).
+    config:
+      file: thresholds.yaml
+      path: thresholds.wjq.duties_min
+    current_default: 3
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      Kept at the JDFN value because nothing measured argues against it: the WJQ's
+      under-run is rare (`SFU-STRUCT-DUTIES-TOO-FEW` fires on 0.6% of CUPE against
+      40.6% of JDFN). Registered rather than silently inherited because a value that is
+      the same by DECISION and a value that is the same by OMISSION look identical in
+      the YAML and are not the same thing — the omission is what this phase is fixing.
+    impact_if_changed: >-
+      Moves `rules_version`. Advisory; the rule is in no blocking set.
+    status: open
+
+  - id: HR-204
+    question: >-
+      How long may a CUPE (WJQ) Position Summary be? Held at the JDFN's 150-word
+      maximum (HR-020).
+    config:
+      file: thresholds.yaml
+      path: thresholds.wjq.summary_max_words
+    current_default: 150
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      ⚠ THIS ONE CORRECTS A FRAMING THIS PROJECT CARRIED FOR SEVERAL DAYS. The plan
+      said "CUPE averages 168 words against a 100-150 band", which reads as an argument
+      to RAISE the ceiling. Measured over all 4,440 CUPE documents, the distribution
+      says the opposite: 39.9% of CUPE summaries fall UNDER 100 words and only 15.1%
+      exceed 300 (maximum 671). The 168 mean is a thin heavy tail pulling, not a
+      typical document — the median is 108, essentially the JDFN's 102. Raising the
+      ceiling would therefore help ~15% of the cohort and abandon the ~40% whose real
+      defect is under-run. Held at 150 pending HR, with the finding recorded rather
+      than acted on unilaterally.
+    impact_if_changed: >-
+      Moves `rules_version`. `SFU-STRUCT-SUMMARY-TOO-LONG` currently fires on 27.1% of
+      CUPE. It IS gated for the JDFN form (SFU's Part 11.6 names the over-run), so
+      unlike the duty count this one can affect approval.
+    status: open
+
+  - id: HR-205
+    question: >-
+      What is the minimum length of a CUPE (WJQ) Position Summary? Held at the JDFN's
+      100 words (HR-019).
+    config:
+      file: thresholds.yaml
+      path: thresholds.wjq.summary_min_words
+    current_default: 100
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      The knob with the largest measured population behind it and the least evidence
+      for a value: 39.9% of CUPE summaries are under 100 words, so this is the CUPE
+      cohort's single commonest summary finding — and `SFU-STRUCT-SUMMARY-TOO-SHORT` is
+      deliberately in NO blocking set (`gates.yaml` tension #1: the under-run is our
+      drafting nudge, not an SFU condition), so today it costs score and blocks nothing.
+      Whether the WJQ's shorter summaries are a defect at all, or simply what that form
+      elicits, is exactly the sort of question this register exists to put to HR rather
+      than answer with a number we picked.
+    impact_if_changed: >-
+      Moves `rules_version`. Lowering it would silence the CUPE cohort's most frequent
+      summary finding; raising it would penalise ~40% of CUPE JDs further. Advisory —
+      the rule is in no blocking set.
+    status: open
+
   # ── Do SFU's boilerplate requirements apply to a CUPE/WJQ JD? (CUPE Phase B) ──
   - id: HR-201
     question: >-

@@ -11,6 +11,15 @@
 #     `len(allocations) >= 2 and not (99 <= sum <= 101)` duty-% gate.
 version: jd_rules_sfu_v4
 
+# ─────────────────────────────────────────────────────────────────────────────
+# THE TOP-LEVEL VALUES ARE THE **JDFN** PROFILE (APSA/APEX/POLY).
+#
+# They are left at the top level on purpose rather than moved under a `jdfn:` key:
+# the register entries SFU HR already holds name these paths (`thresholds.duties_max`),
+# and renaming a path HR has been asked to rule on would silently re-point the ask.
+# A second form declares only what differs, under its own block below.
+# ─────────────────────────────────────────────────────────────────────────────
+
 # Duties & Responsibilities: 3-5 major responsibilities.
 duties_min: 3
 duties_max: 5
@@ -18,6 +27,34 @@ duties_max: 5
 # Position Summary length, in words.
 summary_min_words: 100
 summary_max_words: 150
+
+# ── The CUPE 3338 WJQ profile (Phase C) ──────────────────────────────────────
+# A DIFFERENT FORM, not a variant — so it is judged against the shape of its own
+# instrument. Required with no default (the `applies_to` / `tier` move): a form's
+# numbers must not be filed by omission, which is exactly how one form's calibration
+# came to be applied to two. Resolve with `Rules.thresholds_for(template)`.
+#
+# Only FORM-DEPENDENT knobs live here. `max_listed` and `evidence_context_window` are
+# presentation, and the duty-allocation trio is already withheld from the WJQ by
+# `applies_to` — none is a property of the form, so none is duplicated.
+#
+# Every value is registered `open` (HR-202 … HR-205). HR swaps a value here; no code
+# changes. Measured once over all 4,440 CUPE documents at `jd_segmenter_v4` —
+# `docs/decisions/cupe-phase-b-measured-2026-08-14.md`.
+wjq:
+  # The WJQ has TWELVE duty slots and 77.4% of CUPE JDs fill exactly twelve — a
+  # property of the form, not a writing defect. `SFU-STRUCT-DUTIES-TOO-MANY` fired on
+  # 82.3% of the cohort against the JDFN's 5. `SFUJobDescription.duties` is itself
+  # capped at 12, which is the same fact recorded independently.
+  duties_min: 3
+  duties_max: 12
+  # Held at the JDFN band for now, and that is a MEASURED choice rather than an
+  # unconsidered inherit: 39.9% of CUPE summaries fall UNDER 100 words while only
+  # 15.1% exceed 300, so the cohort's real summary defect is under-run, not over-run —
+  # the opposite of the "CUPE averages 168 words" framing this phase started from.
+  # Widening the ceiling would address 15% and abandon 40%. Registered so HR decides.
+  summary_min_words: 100
+  summary_max_words: 150
 
 # Cap on how many offending items a single finding names.
 max_listed: 5

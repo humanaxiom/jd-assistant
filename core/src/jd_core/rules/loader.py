@@ -70,6 +70,7 @@ from src.jd_core.models.bank import (
 )
 from src.jd_core.models.parsed_jd import QualificationKind, SFUEmployeeGroup
 from src.jd_core.models.quality import (
+    DEFAULT_TEMPLATE,
     JDGrade,
     JDIssueCategory,
     JDIssueSeverity,
@@ -358,8 +359,50 @@ class _RuleFile(BaseModel):
     version: str = Field(min_length=1)
 
 
+class TemplateThresholds(BaseModel):
+    """The FORM-DEPENDENT thresholds, for one document template (CUPE Phase C).
+
+    Only the knobs a form can actually change live here. ``max_listed`` and
+    ``evidence_context_window`` are presentation, and the duty-allocation trio is
+    already withheld from the WJQ by ``applies_to`` — none of them is a property of the
+    form, so none is duplicated per template.
+
+    **Required, with no default**, and a nested block on purpose: every field lands on
+    the decision surface as ``thresholds.wjq.<field>`` via :func:`_flat_file_paths`
+    (the ``dedup.authoring_guard`` shape), so a knob added here breaks the build until
+    someone says whether HR must ratify it.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    duties_min: int = Field(gt=0)
+    duties_max: int = Field(gt=0)
+    summary_min_words: int = Field(gt=0)
+    summary_max_words: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def _ranges_are_ordered(self) -> TemplateThresholds:
+        # The shared block refuses an inverted range; a per-template profile that did
+        # not would hold the invariant in one form and not the other.
+        if self.duties_min > self.duties_max:
+            raise ValueError("duties_min must not exceed duties_max")
+        if self.summary_min_words > self.summary_max_words:
+            raise ValueError("summary_min_words must not exceed summary_max_words")
+        return self
+
+
 class Thresholds(_RuleFile):
-    """Numeric gate thresholds (``thresholds.yaml``)."""
+    """Numeric gate thresholds (``thresholds.yaml``).
+
+    The top-level values ARE the JDFN profile — deliberately, so that the register
+    entries HR already holds keep pointing at the paths they name
+    (``thresholds.duties_max``). A second form declares only what differs, under its
+    own block (:attr:`wjq`); resolve with :meth:`Rules.thresholds_for`.
+    """
+
+    #: The CUPE 3338 WJQ profile. Required: a form's numbers must not be filed by
+    #: omission, which is exactly how one form's calibration came to be applied to two.
+    wjq: TemplateThresholds
 
     duties_min: int = Field(gt=0)
     duties_max: int = Field(gt=0)
@@ -3025,6 +3068,24 @@ class Rules(BaseModel):
     #: (Phase 4.2b).
     quality: QualityAuditRules
     decision_register: DecisionRegister
+
+    def thresholds_for(self, template: JDTemplate) -> Thresholds:
+        """The numeric profile that judges a document of ``template`` (CUPE Phase C).
+
+        ``jdfn`` is the top-level block itself — the shared values ARE the JDFN
+        profile, which is why introducing a second form moved none of the paths HR's
+        register entries already name. Any other template overlays its own block.
+
+        **Re-validated, not patched.** The overlay is re-run through ``Thresholds``
+        rather than assigned with ``model_copy(update=…)``, so a profile that resolves
+        to an inverted range (``duties_min`` above the shared ``duties_max``, say)
+        raises here instead of silently producing a validator that can never fire.
+        """
+        if template == DEFAULT_TEMPLATE:
+            return self.thresholds
+        data = self.thresholds.model_dump()
+        data.update(self.thresholds.wjq.model_dump())
+        return Thresholds(**data)
 
     @property
     def content_hash(self) -> str:
