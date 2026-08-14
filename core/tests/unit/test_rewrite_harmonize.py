@@ -150,8 +150,18 @@ async def test_a_coded_term_in_relationships_is_scanned_by_the_oracle(
     relative to the draft's real content (the baseline scans the full document text).
     Pinned by mutation: drop the relationships branch from ``_flatten_jd`` and this goes
     red (the finding vanishes)."""
+    # The merged draft must ALREADY have a Relationships section, or the Phase-D
+    # empty-section guard correctly empties the model's — a section the grounded draft
+    # does not have cannot be invented. Here the section exists and the rewrite rewords
+    # it, which is the case this test is about.
+    grounded = MergedRole(
+        draft=_draft().model_copy(
+            update={"relationships": SFURelationships(supervisory="Leads a team")}
+        ),
+        provenance=_merged().provenance,
+    )
     result = await rewrite_merged_role(
-        _merged(),
+        grounded,
         client=_FakeChat(_with_coded_term_only_in_relationships()),
         rules=rules,
     )
@@ -182,8 +192,120 @@ async def test_the_draft_is_stamped_with_model_prompt_and_rules_version(
         _merged(), client=_FakeChat(_draft()), rules=rules
     )
     assert result.model == rules.rewrite.model
-    assert result.prompt_version == "jd_harmonize_v1"
+    assert result.prompt_version == rules.rewrite.prompt_version
     assert result.rules_version == rules.version
+
+
+# --- CUPE Phase D: the prompt, the sections, and the boilerplate claim ---------------
+
+
+def _cupe_merged() -> MergedRole:
+    """The same role as a CUPE (WJQ) draft. ``employee_group`` is the separator the
+    whole system reads — Phase B for rules, Phase C for numbers, Phase D for both."""
+    return MergedRole(
+        draft=_draft().model_copy(update={"employee_group": "cupe"}),
+        provenance=_merged().provenance,
+    )
+
+
+@pytest.mark.asyncio
+async def test_the_prompt_states_the_drafted_forms_own_duty_count(
+    rules: Rules,
+) -> None:
+    """🔴 THE DEFECT: the duty count was prompt TEXT, so every rewrite asked for JDFN's
+    3–5 duties. On a CUPE draft that DELETES the role — the WJQ has twelve duty slots
+    and 77.4% of CUPE JDs fill all twelve — and nothing downstream objects: the guard
+    exists to stop the model ADDING content, and the WJQ profile's `duties_min` is 3, so
+    the mutilated draft passes its own bar.
+
+    Asserted over BOTH forms in one test: a WJQ-only assertion would also pass if the
+    resolution were inverted, and a JDFN-only one passed against the hardcoded text.
+    """
+    jdfn_chat = _FakeChat(_draft())
+    await rewrite_merged_role(_merged(), client=jdfn_chat, rules=rules)
+    cupe_chat = _FakeChat(_draft().model_copy(update={"employee_group": "cupe"}))
+    await rewrite_merged_role(_cupe_merged(), client=cupe_chat, rules=rules)
+
+    jdfn_system = jdfn_chat.calls[0][0][0]
+    cupe_system = cupe_chat.calls[0][0][0]
+    assert f"{rules.thresholds.duties_max} major duties" in jdfn_system
+    wjq = rules.thresholds_for("wjq")
+    assert f"{wjq.duties_max} major duties" in cupe_system
+    # And the two genuinely differ, so neither assertion can be passing by coincidence.
+    assert rules.thresholds.duties_max != wjq.duties_max
+
+
+@pytest.mark.asyncio
+async def test_a_section_the_grounded_draft_lacks_cannot_be_invented(
+    rules: Rules,
+) -> None:
+    """The guard above polices a section's CONTENT; this polices its EXISTENCE, which is
+    the coarser fabrication and the one CUPE drafting makes likely. 0.0% of CUPE JDs
+    have a Problem Solving section and 3.1% an Impact of Decision Making one — the form
+    does not ask — so a model handed a schema listing both will fill them in, and the
+    token-overlap guard cannot object because it reads only duties and qualifications.
+    """
+    invented = _draft().model_copy(
+        update={
+            "employee_group": "cupe",
+            "problem_solving": ["Resolves escalated budgeting discrepancies"],
+            "decision_making": ["Approves departmental expenditures"],
+        }
+    )
+    result = await rewrite_merged_role(
+        _cupe_merged(), client=_FakeChat(invented), rules=rules
+    )
+
+    assert result.draft.problem_solving == []
+    assert result.draft.decision_making == []
+    assert result.anti_fabrication.scrubbed_sections == (
+        "decision_making",
+        "problem_solving",
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_section_the_grounded_draft_has_is_left_to_the_rewrite(
+    rules: Rules,
+) -> None:
+    """EMPTY-TO-EMPTY only. Rewording a section the draft HAS is the pass's whole job,
+    so the guard must not touch it — else it would drop content the sources stated."""
+    grounded = MergedRole(
+        draft=_draft().model_copy(update={"problem_solving": ["Original wording"]}),
+        provenance=_merged().provenance,
+    )
+    result = await rewrite_merged_role(
+        grounded,
+        client=_FakeChat(_draft().model_copy(update={"problem_solving": ["Reworded"]})),
+        rules=rules,
+    )
+
+    assert result.draft.problem_solving == ["Reworded"]
+    assert result.anti_fabrication.scrubbed_sections == ()
+
+
+@pytest.mark.asyncio
+async def test_a_cupe_draft_does_not_claim_boilerplate_its_form_never_carries(
+    rules: Rules,
+) -> None:
+    """ "Template-provided" is a claim about a TEMPLATE, so it holds only for the
+    template that provides them. The WJQ form has no About SFU block, no territorial
+    acknowledgement and no EDI statement — the fact behind HR-201 — so asserting
+    all three on a CUPE draft states something untrue about the document, in the three
+    fields a reviewer is likeliest to take at face value.
+
+    It costs no score either way: `applies_to` already withholds the three rules that
+    read these fields from the WJQ, so the assertion was never buying the CUPE cohort
+    anything. It was only making the draft lie.
+    """
+    result = await rewrite_merged_role(
+        _cupe_merged(),
+        client=_FakeChat(_draft().model_copy(update={"employee_group": "cupe"})),
+        rules=rules,
+    )
+    assert result.draft.about_sfu_present is False
+    assert result.draft.territorial_acknowledgement_present is False
+    assert result.draft.employment_equity_present is False
 
 
 # --- acceptance #2: anti-fabrication, pinned by mutation ------------------------

@@ -54,7 +54,12 @@ max_retries: 1
 # Which prompt template the rewrite loads (the versioned pair under jd_bank/llm/templates/:
 # `<name>.system.j2` + `.user.j2`). The loaded template's own version stamps
 # RewrittenDraft.prompt_version. HR-180.
-prompt_version: jd_harmonize_v1
+#
+# v2 (CUPE Phase D) takes the duty count and the summary band as VARIABLES resolved from
+# the drafted form's own profile, instead of inlining SFU's JDFN guidance ("3–5 major
+# duties", "100–150 words"). v1 is kept on disk, unedited, because a stamped
+# `prompt_version` has to be readable back — every draft in the archive today carries it.
+prompt_version: jd_harmonize_v2
 
 # --- anti-fabrication guard (the heart of 4.2a) ------------------------------------
 # Whether the guard runs at all. `true` scrubs ungrounded qualifications and flags

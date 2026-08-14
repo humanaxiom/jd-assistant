@@ -351,6 +351,14 @@ class AntiFabricationRecord(BaseModel):
     #: The statement of every rewritten duty FLAGGED (no token overlap to a draft duty),
     #: kept in the draft, surfaced for the 4.4 human reviewer.
     flagged_duties: tuple[str, ...] = ()
+    #: The name of every SECTION emptied because the grounded draft did not have one —
+    #: ``decision_making`` / ``problem_solving`` / ``relationships`` (CUPE Phase D).
+    #: A whole section is a coarser unit than a skill, and the coarsest fabrication:
+    #: the WJQ form has no Problem Solving section at all, so a rewrite that writes one
+    #: is not embellishing a role, it is answering a question the source document was
+    #: never asked. Recorded rather than silently dropped — like the other two lists,
+    #: this is evidence a reviewer can see.
+    scrubbed_sections: tuple[str, ...] = ()
 
 
 class RewrittenDraft(BaseModel):

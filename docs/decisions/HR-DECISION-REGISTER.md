@@ -1270,7 +1270,7 @@ Model names, dimensions, timeouts, retries, text-matching patterns and search in
 | [HR-177](#hr-177) | At what sampling temperature should the rewrite model run? | `0.0` | we chose it |
 | [HR-178](#hr-178) | What token budget should one rewrite completion get? | `2048` | we chose it |
 | [HR-179](#hr-179) | How many times should an invalid-JSON rewrite response be re-requested before the pass gives up? | `1` | we chose it |
-| [HR-180](#hr-180) | Which prompt template should the rewrite pass use? | `jd_harmonize_v1` | we chose it |
+| [HR-180](#hr-180) | Which prompt template should the rewrite pass use? | `jd_harmonize_v2` | we chose it |
 | [HR-182](#hr-182) | How should the guard decide a rewritten qualification is grounded in the merge draft's vocabulary? | `token_overlap` | we chose it |
 | [HR-183](#hr-183) | What fraction of a rewritten qualification's content tokens must be grounded in the merge draft for it to be kept? | `0.5` | we chose it |
 | [HR-185](#hr-185) | Which self-hosted chat model should run the nuanced quality audit of a JD? | `gpt-oss:120b` | we chose it |
@@ -1643,11 +1643,11 @@ We picked these because the system needed *a* value. There is no SFU precedent b
 
 ##### HR-180 — Which prompt template should the rewrite pass use?
 
-- **We ship:** `jd_harmonize_v1`
+- **We ship:** `jd_harmonize_v2`
 - **Configured in:** `rewrite.yaml` → `rewrite.prompt_version`
 - **Where the default came from:** we chose it
-- **Why it matters:** Names the versioned template pair under `jd_bank/llm/templates/` (`jd_harmonize_v1.system.j2` + `.user.j2`, ported from the earlier build and kept faithful save the grounding instruction). The loaded template's own version is what stamps `RewrittenDraft.prompt_version`, so provenance traces to the exact wording. Swapping this selects a different template version. PROVISIONAL — the prompt is refined at the 4.5 pilot, and each refinement is a new versioned template, not an in-place edit.
-- **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the prompt-loader test (the loaded prompt's `.version` is stamped onto `RewrittenDraft.prompt_version`; a missing template variable RAISES rather than shipping a `{{ x }}` in the prompt).
+- **Why it matters:** Names the versioned template pair under `jd_bank/llm/templates/` (`jd_harmonize_v2.system.j2` + `.user.j2`). The loaded template's own version is what stamps `RewrittenDraft.prompt_version`, so provenance traces to the exact wording. Swapping this selects a different template version. PROVISIONAL — the prompt is refined at the 4.5 pilot, and each refinement is a new versioned template, not an in-place edit (v1 stays on disk unedited: every draft in the archive today carries its stamp, and a stamp you cannot read back is not provenance). 🔴 WHY v2 EXISTS, and it is a defect rather than a refinement: v1 INLINED SFU's JDFN guidance as prompt text — "Write 3–5 major duties", "Position Summary: 100–150 words". Those are rulebook numbers (HR-020…HR-022) hardcoded in a prompt, which was harmless only while JDFN was the one form the producer ever drafted. On a CUPE draft it is destructive: the WJQ form has twelve duty slots and 77.4% of CUPE JDs fill all twelve, so a rewrite asked for three-to-five duties DELETES most of the role — and the anti-fabrication guard cannot catch it, because that guard exists to stop the model ADDING content. Nothing downstream would have flagged the loss either, since the WJQ profile's `duties_min` is 3 (HR-203): a five-duty CUPE draft passes its own bar while missing seven duties its sources stated. v2 takes both numbers as variables resolved from `thresholds_for(template_of(draft))` — one rulebook fact, one home — and adds the instruction not to write a section the input does not have.
+- **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the prompt-loader test (the loaded prompt's `.version` is stamped onto `RewrittenDraft.prompt_version`; a missing template variable RAISES rather than shipping a `{{ x }}` in the prompt), and by a test asserting the rendered prompt carries the DRAFTED FORM's numbers — 12 duties for a CUPE draft, 5 for a JDFN one. Reverting to `jd_harmonize_v1` still loads and still runs; it silently reinstates the JDFN numbers for both forms, which is exactly the failure mode above and is why the test reads the rendered text rather than the knob.
 
 ##### HR-182 — How should the guard decide a rewritten qualification is grounded in the merge draft's vocabulary?
 
