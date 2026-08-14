@@ -103,8 +103,8 @@ was always the real critical path — and the first item is not a commit.
 | ~~2~~ | ~~**Phase 6 leftovers**~~ ✅ **RUNBOOKS DONE** | `docs/runbooks/backup-and-restore.md` + `reindex.md`, both **executed against the live stack before being written**, linked from the operator guide. |
 | ~~2~~ | ~~**CUPE Phase A — the `additional_context` truncation**~~ ✅ **DONE (#109)** | 81.4% of CUPE JDs were stored truncated; now 0%. `PARSER_VERSION` → `jd_segmenter_v4`, whole archive re-parsed, HR-200 registered. See the CUPE block below. |
 | ~~2~~ | ~~**CUPE Phase B — `applies_to`**~~ ✅ **BUILT** ([#110](https://github.com/humanaxiom/jd-assistant/pull/110)) | **Seven** rules are withheld from the WJQ because that form does not carry what they read — *not* "the four that fire on 100%", which is a different set (see the block below). JDFN is byte-identical; CUPE mean 51.4 → **62.9**. |
-| **2** | **CUPE Phase C — calibrate the WJQ bar ⟵ NEXT, and it no longer waits for HR** | The JDFN bar is itself unratified `our_invention`, so the honest standard is to build the WJQ one the same way: **measured over the corpus, every value registered `open`**. Concretely: summary length (CUPE averages **168** words vs a JDFN-derived 100–150 band), duty count (**9.7** vs `duties_max: 5`), and the qualification/KSA conventions. Nothing auto-publishes; HR can change any value. |
-| 3 | **🔴 What is genuinely external** | **TLS at the edge** (row 1) · **HR ratification** — 201 decisions, 0 signed, **including the JDFN bar that gates publishing today** · **HR-194**, which decides *scope* (may the Builder author CUPE — Phase E), not whether a measured bar may exist · **HR-201**, whether SFU's boilerplate applies to a CUPE JD. |
+| **2** | **CUPE Phase C — RE-SCOPED: "is a 25-rule bar still a bar?" ⟵ NEXT** | **The old framing (recalibrate thresholds because CUPE cannot clear the bar) is dead — CUPE clears it 9× more often than APSA.** WJQ is judged by 25 of 32 rules and is approvable at **59.0%** against JDFN's **6.7%**, because JDFN documents fail mostly on *boilerplate presence* (`-TERRITORIAL` 90.1%, `-REL-HEADER` 82.9%, `-PROBLEM` 74.6%) and Phase B exempted WJQ from exactly those. No WJQ document earns an **A**. The real question is what the WJQ form should be held to. Secondary threshold work, with the two traps recorded: `duties_max: 5` vs a form with **12 duty slots** (77.4% have exactly 12 — bimodal, the 9.7 mean describes nothing), and the summary band skewed **the opposite way to the old framing** (39.9% below 100 words, only 15.1% over 300). Genuine WJQ gaps: `SFU-QUAL-SKILL-MODIFIER` 76.1% vs 5.1%, `SFU-AUTH-ABILITIES-OBSERVABLE` 32.2% vs 0.4%. Every value registered `open`. See `docs/decisions/cupe-phase-b-measured-2026-08-14.md`. |
+| 3 | **🔴 What is genuinely external** | **TLS at the edge** (row 1) · **HR ratification** — 201 decisions, 0 signed, **including the JDFN bar that gates publishing today** · **HR-194**, which decides *scope* (may the Builder author CUPE — Phase E), not whether a measured bar may exist · **HR-201**, and it is now measured to be **much bigger than a score adjustment**: the boilerplate ruling decides whether CUPE JDs are approvable **at all** (59.0% vs 0.0%). |
 | 4 | **Territorial-acknowledgement wording sign-off** | The last of Phase 6, and **HR's call, not ours** — it blocks external distribution, not development. *(This row used to also list the backup + reindex runbooks; they are done, and a backlog that lists closed work as open costs a re-investigation every time it is read.)* |
 
 **Deliberately still open, recorded so their absence is not mistaken for completion:**
@@ -191,9 +191,14 @@ finding present on every approvable JD is not a quality signal, it is a constant
 - **JDFN being untouched is the important half.** A filter that silenced rules everywhere
   would have looked like success on the CUPE number alone. CUPE gains **+11.5 points**
   purely by no longer being penalised for sections its own form never asks for.
-- **Still ~0% approvable, and that is expected** — the *thresholds* are JDFN-calibrated
-  (summary 100–150 words against CUPE's **168**-word average; `duties_max: 5` against
-  **9.7**). That is Phase C.
+- ~~**Still ~0% approvable, and that is expected**~~ **🔴 FALSE — MEASURED OVER THE WHOLE
+  ARCHIVE, CUPE IS APPROVABLE AT 59.0%.** The 0.2% came from a 600-row spike over
+  `parsed_jds`; `make baseline` over all 14,565 files says **0.0% → 59.0%** for the 4,300
+  WJQ documents (mean 51.8 → 63.2) while **JDFN holds at exactly 6.7%** — the control, and
+  the half that matters. The spike was wrong by ~300×, and Phase C had been planned on top
+  of it. Evidence + the confound: `docs/decisions/cupe-phase-b-measured-2026-08-14.md`.
+  **Fourth time in one day that a claim about the archive did not survive being checked
+  against the archive.**
 - **⚠ A METHODOLOGY CATCH: my first before/after compared DIFFERENT DOCUMENTS** and appeared
   to show JDFN improving too. `ORDER BY id` over v4 rows selects a different 600 than over
   v3 rows, because each parse row carries its own UUID. Sampling noise, not effect. The

@@ -860,8 +860,15 @@ person builds on.**
 
 **JDFN being untouched is the important half** — a filter that silenced rules everywhere
 would have looked like success on the CUPE number alone. CUPE gains **+11.5 points** purely
-by no longer being marked down for sections its form never asks for. It is still ~0%
-approvable because the *thresholds* remain JDFN-calibrated, which is exactly Phase C.
+by no longer being marked down for sections its form never asks for.
+
+> **🔴 AND THE SENTENCE THAT USED TO END THIS PARAGRAPH WAS FALSE.** It read *"It is still
+> ~0% approvable because the thresholds remain JDFN-calibrated, which is exactly Phase C."*
+> That came from a 600-row spike over `parsed_jds` reporting 0.2%. **Measured over all
+> 14,565 archive files via `make baseline`: WJQ went 0.0% → 59.0% approvable** (mean 51.8 →
+> 63.2) while **JDFN held at exactly 6.7%**. The spike was wrong by ~300×, and Phase C had
+> been scoped on top of it. Full evidence, including the Phase A confound this does not
+> claim to have isolated: `docs/decisions/cupe-phase-b-measured-2026-08-14.md`.
 
 **⚠ A methodology catch worth keeping:** the first before/after compared *different
 documents* — `ORDER BY id` over v4 rows selects a different 600 than over v3 rows, because
@@ -891,12 +898,36 @@ indicate a mis-parsed `employee_group`. Recorded on **HR-031** rather than fixed
 head-noun check changes what the rule catches. **A defect that is not template-shaped must
 not be hidden behind a template scope.**
 
-**Phase C, now that B has landed:** calibrate the WJQ thresholds against the CUPE corpus the
-way the JDFN ones were calibrated against theirs — summary length (CUPE averages **168**
-words against a JDFN-derived 100–150 band), duty count (**9.7** against `duties_max: 5`),
-and the KSA/qualification conventions. Every value registered `open`. Until HR rules on
-HR-194, "the Bank does not *author* CUPE" remains an explicit decision on the register, not
-one made by omission.
+**Phase C, RE-SCOPED once B was measured properly.** The old framing — *calibrate the WJQ
+thresholds because CUPE cannot clear the bar* — is dead: **CUPE clears it nine times more
+often than APSA** (59.0% vs 6.7%). The live question is the inverse.
+
+**The real question: is a 25-rule bar still a bar?** WJQ is judged by 25 of the 32
+catalogue rules and carries 7.2 findings per document against JDFN's 8.9 — so it is not
+unjudged. But the *blocking* comes from boilerplate presence, which JDFN fails on heavily
+(`-TERRITORIAL` 90.1%, `-REL-HEADER` 82.9%, `-PROBLEM` 74.6%, `-ABOUT` 73.8%, `-EDI` 72.0%)
+and WJQ is now exempt from. **No WJQ document earns an A.** What the WJQ form *should* be
+held to is the question, not which number to move.
+
+**Threshold work is secondary, and two of its items are form facts rather than
+calibration:**
+
+- `SFU-STRUCT-DUTIES-TOO-MANY` fires on **82.3%** of WJQ against `duties_max: 5` — but CUPE
+  duty counts are **bimodal, not averaging 9.7**: **77.4% have exactly 12** (the WJQ's
+  duty-slot count) and 16.2% have **0**. The mean describes no document. The 16.2% parsing
+  to zero is a *parser* question and must not become a quality bar before it is understood.
+- The summary band is skewed **opposite to the old framing**: **39.9% of CUPE summaries are
+  under 100 words**, only **15.1%** exceed 300. The 168-word mean is that tail pulling, and
+  `SUMMARY-TOO-SHORT` is already ungated — so the cohort's commonest summary defect blocks
+  nothing today.
+- Genuine WJQ-specific gaps worth registering: `SFU-QUAL-SKILL-MODIFIER` (**76.1%** vs
+  5.1%) and `SFU-AUTH-ABILITIES-OBSERVABLE` (**32.2%** vs 0.4%).
+- **Distrust before use:** JDFN parses a *median of 1* qualification against WJQ's 21 —
+  the JDFN block landing as one blob, so a qualification-count threshold calibrated on
+  JDFN would be calibrated on a parser artifact.
+
+Every value registered `open`. Until HR rules on HR-194, "the Bank does not *author* CUPE"
+remains an explicit decision on the register, not one made by omission.
 
 **✅ PHASE A — SHIPPED AND VERIFIED OVER ALL 14,522 DOCUMENTS (2026-08-14).**
 `additional_context` had inherited `position_summary`'s 4,000-character ceiling through a
