@@ -229,8 +229,9 @@ finding present on every approvable JD is not a quality signal, it is a constant
   bound rather than re-measured, and said so.
 - **⚠ AND THE "FIRES ON 100%" JUSTIFICATION DID NOT SURVIVE BEING CHECKED PER RULE.** The
   test set was labelled *"fires on 100% of CUPE"* for all four members. **It is not.**
-  Measured: `SFU-COMP-PROBLEM` **100.0%** · `SFU-GATE-REL-HEADER` **100.0%** ·
-  `SFU-COMP-DECISION` **96.0%** · **`SFU-GATE-DUTY-PCT` 0.0%** — that last one *cannot*
+  Measured over **all 4,440 CUPE documents at v4** (not the 600-doc v3 sample):
+  `SFU-COMP-PROBLEM` **100.0%** · `SFU-GATE-REL-HEADER` **100.0%** ·
+  `SFU-COMP-DECISION` **96.9%** · **`SFU-GATE-DUTY-PCT` 0.0%** — that last one *cannot*
   fire, because it needs ≥2 `(NN%)` allocations before it evaluates and **exactly 1 of
   4,440** CUPE documents carries them (0 would trip it). Worse, the four rules that *do*
   fire on 100% are a **different four** — `-TERRITORIAL` · `-REL-HEADER` · `-EDI` ·

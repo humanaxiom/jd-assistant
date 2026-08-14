@@ -5,7 +5,7 @@ and the archive holds **two** templates: the JDFN form (APSA/APEX/POLY) and the 
 3338 **WJQ**, a 14-section point-factor questionnaire. Measured live, four rules fired
 on **100%** of CUPE documents — not because those JDs are poor, but because the WJQ
 form does not contain the sections they check (**0.0%** have a Problem Solving section;
-**4.0%** an Impact of Decision Making one).
+**3.1%** an Impact of Decision Making one).
 
 ⚠ **"Fires on 100%" is the motivating case, NOT the test for withholding a rule** — see
 `_JDFN_ONLY_BY_MEASUREMENT`, where the per-rule rates run from 100.0% down to **0.0%**.
@@ -42,10 +42,15 @@ from src.jd_core.rules import get_rules
 #:
 #: ⚠ THE RATES ARE PER-RULE AND ARE **NOT** ALL 100% — an earlier version of this file
 #: said they were, and the archive does not agree. The four rules that genuinely fire on
-#: 100% of CUPE (`docs/decisions/cupe-scope-measured-2026-08-14.md` §4) are
-#: `SFU-COMP-TERRITORIAL` · `SFU-GATE-REL-HEADER` · `SFU-COMP-EDI` · `SFU-COMP-PROBLEM`
-#: — and two of those are the boilerplate rules that sit under HR-201 instead, so that
-#: set and this one are NOT the same four. Measured rates below.
+#: 100% of CUPE are `SFU-COMP-TERRITORIAL` · `SFU-GATE-REL-HEADER` · `SFU-COMP-EDI` ·
+#: `SFU-COMP-PROBLEM` — and two of those are the boilerplate rules that sit under HR-201
+#: instead, so that set and this one are NOT the same four.
+#:
+#: Rates below are measured over **all 4,440 CUPE documents at `jd_segmenter_v4`**, not
+#: over the 600-document sample in `docs/decisions/cupe-scope-measured-2026-08-14.md`
+#: (which is `jd_segmenter_v3`). They differ in the first decimal — the sample put
+#: `SFU-COMP-DECISION` at 96.0% against the corpus's 96.9% — which is the standing
+#: baseline rule again: a sample estimates the middle well and the edges poorly.
 #:
 #: The justification for withholding is the FORM, and it does not require a high firing
 #: rate: `SFU-GATE-DUTY-PCT` fires on **0.0%** of CUPE and is still correctly JDFN-only,
@@ -57,7 +62,7 @@ _JDFN_ONLY_BY_MEASUREMENT = (
     "SFU-COMP-PROBLEM",
     # fires on 100.0% — the JDFN Relationships header; the WJQ names it differently
     "SFU-GATE-REL-HEADER",
-    # fires on 96.0%, NOT 100% — 4.0% do have an Impact of Decision Making section
+    # fires on 96.9%, NOT 100% — 3.1% do have an Impact of Decision Making section
     "SFU-COMP-DECISION",
     # fires on 0.0% — measured 2026-08-14 over all 4,440 CUPE docs at
     # `jd_segmenter_v4`: exactly 1 carries the >=2 `(NN%)` allocations the rule needs
@@ -130,7 +135,7 @@ def test_a_rule_cannot_declare_an_unknown_template() -> None:
 def test_the_measured_jdfn_only_rules_are_declared_jdfn_only() -> None:
     """Pins the four whose scope is a fact about the form. Add `wjq` to any of them and
     this goes red — which is the point: three would resume marking CUPE down for
-    sections the WJQ never asks for (at 100.0%, 100.0% and 96.0%), and the fourth would
+    sections the WJQ never asks for (at 100.0%, 100.0% and 96.9%), and the fourth would
     be reading an allocation format the form does not use."""
     catalog = get_rules().rule_catalog
 
