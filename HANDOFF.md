@@ -99,7 +99,7 @@ was always the real critical path — and the first item is not a commit.
 | **1** | **🔴 TLS at the edge — the last open exposure, and NOT a repo deliverable** | The pilot host is internet-facing over **plain http**, so sign-in cookies and CAS tickets cross the open internet in the clear. P0.4 makes the app correct *behind* a terminator (P0.3's allowlist reads `X-Forwarded-Proto` and validates the result) and refuses to run pretending otherwise — **someone has to put one in front.** It is also what unblocks actually *using* `docker-compose.prod.yml`, which needs an https origin. |
 | ~~2~~ | ~~**P1.3 — Tier the register**~~ ✅ **DONE (PR [#94](https://github.com/humanaxiom/jd-assistant/pull/94))** | The ask is now **65 settings, not 197** (49 `hr_informed` · 83 `technical`), and the generated register leads with **"Your decisions"**. See the block below. |
 | ~~2~~ | ~~**P1.2 — Harmonization provenance**~~ ✅ **DONE (PR [#95](https://github.com/humanaxiom/jd-assistant/pull/95))** | The review page now says how the draft was assembled — and the item **understated** the defect: the whole provenance packet had been computed since 4.1 and rendered nowhere. See the block below. |
-| **2** | **Phase 8.3 — review-experience upgrades** (`docs/plan.md`) | ~~Word-level diff~~ ✅ **8.3a DONE (#102)** · **8.3b structural sidebar ⟵ NEXT — already scoped and measured, see the block below; build it on `ROLE_EQUIVALENT` only** · 8.3c gate→field jump links. No GPU, parallelizable. |
+| **2** | **Phase 8.3 — review-experience upgrades** (`docs/plan.md`) | ~~Word-level diff~~ ✅ **8.3a DONE (#102)** · ~~structural sidebar~~ ✅ **8.3b DONE** · **8.3c gate→field jump-links ⟵ NEXT** — per-blocking-gate "fix this ↓" links via the rule catalog's `section`, surfaced as rulebook data. No GPU. |
 | 3 | **Phase 6 leftovers** | Backup + reindex runbooks, and the **territorial-acknowledgement wording sign-off** — the latter blocks external distribution and is HR's call. |
 
 **Deliberately still open, recorded so their absence is not mistaken for completion:**
@@ -139,13 +139,61 @@ deterministic, **no rulebook knob, so no register entry and `rules_version` unmo
   `422` JSON blob on a **UI** surface, which is precisely the P0.0 defect class. Unknown
   values fall back to the split view. The page also degrades to plain text if the word-level
   refinement is missing — the page's job is the approve/reject decision.
-- **⚠️ REACHABILITY, STATED PLAINLY: it renders on ZERO live JDs today.** The diff needs a
-  prior PUBLISHED version, and **no cluster has more than one version** (1,799 DRAFT · 4
-  PUBLISHED, each the only version of its cluster). The first edit of a published role is
-  what creates the condition. Correct, gated, and **waiting** — recorded here rather than
-  claimed as exercised, per habit #4.
+- ~~**⚠️ REACHABILITY: it renders on ZERO live JDs today.**~~ **✅ NO LONGER TRUE — and the
+  way it stopped being true is the point.** It was accurate when written: the diff needs a
+  prior PUBLISHED version and no cluster had more than one. **Then someone edited a
+  published JD in the live app during this session** (2026-08-13 23:39 UTC), minting the
+  archive's first `version = 2`, and the feature was **verified against that real pair**:
+  2 changed sections, Title `-24 words / +0`, Identification `+4 / -0`.
+  **The `-24 / +0` is worth understanding rather than glossing:** the published v1's title
+  was a boilerplate *paragraph* (a parse defect — see below), and the corrected v2 title
+  *"Multimedia Coordinator"* appears **inside** it, so the word diff holds that phrase as
+  `equal` and marks only the surrounding prose deleted. That is the feature working, not
+  a miscount.
+- **🟠 A DATA DEFECT THE FEATURE SURFACED, recorded not fixed: 51 canonical JDs have a
+  title longer than 80 characters** — boilerplate marketing prose parsed as the job title
+  (*"We are Canada's engaged university, defined by…"*). Invisible until a list of related
+  roles put several titles side by side. Not fixed here: a parser change needs a
+  `parser_version` bump plus an immediate re-parse of all 14,565 files, which is the same
+  ship-together constraint recorded for the `employee_group` residual (#101).
 
-### 8.3b IS SCOPED AND MEASURED — and the plan's premise is half wrong (not yet built)
+### 8.3b IS BUILT — the sidebar shows the roles clustering REFUSED to merge
+
+The review detail page gains **"Where this role sits"**: a versions tree (v1 → v2 …, current
+marked) and a ranked list of the roles Tier-3 dedup paired this one with. Read-only and
+advisory; it changes no verdict (NN #1). **Live-verified: 1,251 of 1,804 canonical JDs
+(69.3%) show a non-empty list.**
+
+- **⚠️ "Related" understates it — these are the near-misses the clustering step RULED ON.**
+  A cross-cluster `ROLE_EQUIVALENT` edge exists exactly when a pair scored at or above the
+  Tier-3 **pair** bar (0.5) but **below the merge bar** (`cluster_role_equiv_min` = 0.75,
+  HR-162). **Zero** of the 32,816 cross-cluster edges reach 0.75. The rulebook states the
+  design — *"Tier-3 edges are pairwise, clustering is transitive, so the bar to MERGE must
+  be higher than the bar to record a single same-role pair"* — so the page says plainly
+  that these were scored *below the bar to merge*, and asks the reviewer the useful
+  question: **if one of them IS this role, that is a finding.**
+- **It reads well on real data:** a *Business Systems Analyst* surfaces four separate
+  *Business Analyst* clusters plus an *Organizational Change Consultant* — exactly the
+  "should these be one role?" question a reviewer should see.
+- **RANK, NEVER SCORE — pinned as a model SHAPE, not a template detail.** `RelatedRole` has
+  no `score`/`similarity` field at all, and a test fails if one is added. The list is
+  ordered by **how many source documents connect the two roles** — a count, a fact about
+  the archive — because role similarity here has unrelated roles outscoring true twins.
+  **The only number in the feature is the display cap (8), so no register entry is earned.**
+- **⚠️ THE BUG I SHIPPED INTO MY OWN TESTS, and how it was caught.** Adding the service call
+  to the detail route turned **13 unrelated review tests red** — the page now had a second
+  way to fail. That was not a test problem, it was a **production** one: *a navigation aid
+  could 500 the page where a human approves a JD.* `_structure_or_none` now degrades to
+  absent and logs; removing it turns 14 tests red. **A new call on a decision surface is a
+  new failure mode for that decision.**
+- **Both DB guards mutation-proved against a real Postgres** (a fake session proves nothing
+  here): restricting the edge lookup to one endpoint orientation turns the orientation test
+  red — Tier-3 edges are stored **oriented** while undirected in intent, so a one-sided
+  query **silently halves** the list, which looks exactly like a correct shorter one — and
+  widening the tier filter to `NEAR_DUPLICATE` turns the tier test red.
+- **`NEAR_DUPLICATE` is deliberately NOT consulted**, per the measurement below.
+
+### The 8.3b measurements — and the plan's premise was half wrong
 
 `docs/plan.md` says the related-roles list comes from "the **Tier-2/Tier-3** dedup edges
 (near-duplicates / role-equivalents)". **Only one of those two tiers can work**, and the

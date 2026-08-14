@@ -33,6 +33,7 @@ the normal ``{{ }}`` escaping. Nothing here uses ``|safe`` on draft text (untrus
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Annotated, Any, get_args
 from uuid import UUID
@@ -54,12 +55,15 @@ from src.jd_bank.review import (
     MissingReasonError,
     NotApprovableError,
     ReviewPacket,
+    StructuralContext,
     service,
 )
 from src.jd_core.models.bank import MergeProvenance
 from src.jd_core.models.parsed_jd import QualificationKind, SFUEmployeeGroup
 from src.jd_core.models.quality import GateOverride
 from src.jd_core.rules import get_rules
+
+logger = logging.getLogger(__name__)
 
 router: APIRouter = APIRouter(prefix="/jd-bank/ui")
 
@@ -350,9 +354,17 @@ def _provenance_view(change_log: dict[str, Any] | None) -> MergeProvenance | Non
 
 
 def _detail_context(
-    packet: ReviewPacket, *, error: str | None = None
+    packet: ReviewPacket,
+    *,
+    error: str | None = None,
+    structure: StructuralContext | None = None,
 ) -> dict[str, Any]:
-    """The template context shared by the GET detail page and every POST re-render."""
+    """The template context shared by the GET detail page and every POST re-render.
+
+    ``structure`` (Phase 8.3b) is optional and defaults to ``None``: a POST re-render
+    is answering a reviewer's action and must not be delayed or *failed* by a
+    navigation aid. The sidebar is simply absent there.
+    """
     diff = (packet.change_log or {}).get("harmonization_diff") or {}
     return {
         "packet": packet,
@@ -362,6 +374,7 @@ def _detail_context(
         "provenance": _provenance_view(packet.change_log),
         "provenance_rows": _PROVENANCE_ROWS,
         "edit": _edit_view(packet.content or {}),
+        "structure": structure,
     }
 
 
@@ -454,8 +467,36 @@ async def detail_view(
             status_code=404,
         )
     return templates.TemplateResponse(
-        request, "review_detail.html", _detail_context(packet)
+        request,
+        "review_detail.html",
+        _detail_context(
+            packet, structure=await _structure_or_none(session, canonical_id)
+        ),
     )
+
+
+async def _structure_or_none(
+    session: AsyncSession, canonical_id: UUID
+) -> StructuralContext | None:
+    """The 8.3b sidebar, or ``None`` if it could not be built.
+
+    ⚠ **The sidebar must never cost the page.** This route is where a human approves or
+    rejects a JD; a *navigation aid* that raises would take that decision surface down
+    with it. Found the honest way — adding the call turned 13 unrelated review tests red
+    because the page now had a second reason to fail. Degrading to absent (and saying so
+    in the log) keeps the failure visible to an operator without hiding the Approve
+    button from a reviewer. Same rule as P1.2's assembly panel.
+    """
+    try:
+        return await service.get_structural_context(session, canonical_id)
+    except Exception:  # noqa: BLE001 — a navigation aid never breaks the decision page
+        logger.warning(
+            "could not build the structural context for %s; the review page renders "
+            "without the sidebar",
+            canonical_id,
+            exc_info=True,
+        )
+        return None
 
 
 @router.get("/review/{canonical_id}/diff", response_class=HTMLResponse)
