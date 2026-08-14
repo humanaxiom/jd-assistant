@@ -661,6 +661,24 @@ def evaluate_jd_rules(
     batch job. Deliberately not optimised.
     """
     rules = rules if rules is not None else get_rules()
+
+    # Judge this document against ITS OWN FORM's numbers (CUPE Phase C).
+    #
+    # Resolved ONCE, here, by swapping the numeric profile into a local copy of the
+    # rules — so every downstream `rules.thresholds` and every `_base_context` call
+    # gets the right bar with no change at any call site. That last part is the point
+    # rather than a convenience: `_base_context` feeds `{duties_max}` into the finding's
+    # COPY, so resolving the trigger without resolving the message would make a WJQ
+    # finding say "the template allows a maximum of 5" about a bar of 12. **A finding
+    # that misquotes its own threshold is worse than one that never fired**, and this
+    # is the cheapest way to make the two impossible to separate.
+    #
+    # Local rebind only: the caller's `rules` — and therefore `rules_version` on the
+    # report — is untouched. The profile is not a different rulebook, it is the same
+    # rulebook read for the right form.
+    template = template_of(sfu)
+    rules = rules.model_copy(update={"thresholds": rules.thresholds_for(template)})
+
     text = _fold_jd(raw_text, rules)
     summary = _fold_jd(sfu.position_summary or "", rules)
     title = _fold_jd(sfu.title, rules)
@@ -699,7 +717,6 @@ def evaluate_jd_rules(
     # A finding with no `rule_id` (an LLM finding) has no catalogue entry to consult and
     # passes through: it was raised against this document, not inherited from a form.
     catalog = rules.rule_catalog
-    template = template_of(sfu)
     return [
         issue
         for issue in issues

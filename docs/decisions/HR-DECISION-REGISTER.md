@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+a4c5e2d0f0f3` · **201 decisions** (201 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 261 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+76baba29cfeb` · **205 decisions** (205 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 265 parameters on the decision surface, all accounted for.
 
-**Of those 201, 66 need an HR ruling.** The other 135 are recorded for the same build check but are not yours to sign: 50 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 205, 70 need an HR ruling.** The other 135 are recorded for the same build check but are not yours to sign: 50 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -98,6 +98,10 @@ Two of the three mean *nobody at SFU has agreed to this yet.* That is the honest
 | [HR-175](#hr-175) | How should the required EDUCATION and EXPERIENCE bars be chosen when a cluster's members disagree? | `max` | we chose it |
 | [HR-194](#hr-194) | Which bargaining units does the JD Bank serve under the JDFN approval bar — and therefore which may the Phase-5 Builder author? Specifically: should CUPE (and exempt/`excluded`) roles remain OUT until HR defines a quality bar for them? | `apsa`, `apex`, `poly` | we chose it |
 | [HR-201](#hr-201) | Must a CUPE job description carry SFU's boilerplate — the About SFU block, the territorial acknowledgement and the employment-equity statement — the way a JDFN one must? The WJQ form does not contain them, so today the three rules that check for them are declared JDFN-only and a CUPE JD is not marked down for their absence. | `jdfn` | we chose it |
+| [HR-202](#hr-202) | How many major responsibilities may a CUPE (WJQ) job description list before it is marked down? The JDFN form asks for 3-5 (HR-022); the WJQ questionnaire has TWELVE duty slots. | `12` | we chose it |
+| [HR-203](#hr-203) | What is the minimum number of major responsibilities for a CUPE (WJQ) job description? Held at the JDFN's 3 (HR-021). | `3` | we chose it |
+| [HR-204](#hr-204) | How long may a CUPE (WJQ) Position Summary be? Held at the JDFN's 150-word maximum (HR-020). | `150` | we chose it |
+| [HR-205](#hr-205) | What is the minimum length of a CUPE (WJQ) Position Summary? Held at the JDFN's 100 words (HR-019). | `100` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -310,6 +314,38 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 - **Where the default came from:** we chose it
 - **Why it matters:** This is the one genuinely POLICY-shaped question inside an otherwise factual field. `applies_to` normally states a fact about the form — the WJQ has no Problem Solving section, so a rule checking for one cannot judge it. The boilerplate is different: the territorial acknowledgement and the EDI statement are SFU-WIDE commitments, not JDFN-template furniture, and one could argue every SFU job description should carry them regardless of which form it was written on. MEASURED, all three currently fire on ~100% of CUPE documents because the WJQ form simply has no such block — so applying them would mark down all 4,440 CUPE JDs for a property of the FORM rather than of the job description, while NOT applying them means the Bank holds CUPE JDs to a weaker inclusion standard than JDFN ones. The default keeps them JDFN-only because scoring a document for lacking a section its official form never provides is the category error this whole phase exists to remove — but that is an engineering judgement standing in for a policy call, which is exactly what this register is for. If HR rules that the boilerplate is universal, the honest fix is the FORM (ask SFU to add the block to the WJQ), not a rule that every CUPE JD fails by construction. The same question covers `SFU-COMP-ABOUT` and `SFU-COMP-EDI`, which move together.
 - **If it changes:** 🔴 THIS RULING DECIDES WHETHER CUPE JDs CAN BE APPROVED AT ALL — it is not a score adjustment, and an earlier version of this entry said it was ("restoring roughly a third of the score gap"). MEASURED over the whole archive 2026-08-14 (`docs/decisions/cupe-phase-b-measured-2026-08-14.md`): `SFU-COMP-TERRITORIAL` and `SFU-COMP-EDI` feed the EDI-footer BLOCKING gate, so with them withheld the WJQ cohort is approvable at **59.0%** (4,300 documents) and with them applied it was **0.0%**. Adding `wjq` to these three rules therefore returns all 4,440 CUPE JDs to un-approvable, because the WJQ form contains no such block for them to find — which is precisely why the recorded view is that if HR rules the boilerplate universal, the honest fix is the FORM. Also moves `rules_version` (rule_catalog.yaml is hashed). Pinned by `test_rule_applies_to_template.py`, which fails if the JDFN-only set moves.
+
+##### HR-202 — How many major responsibilities may a CUPE (WJQ) job description list before it is marked down? The JDFN form asks for 3-5 (HR-022); the WJQ questionnaire has TWELVE duty slots.
+
+- **We ship:** `12`
+- **Configured in:** `thresholds.yaml` → `thresholds.wjq.duties_max`
+- **Where the default came from:** we chose it
+- **Why it matters:** MEASURED over all 4,440 CUPE documents at `jd_segmenter_v4`: `SFU-STRUCT-DUTIES -TOO-MANY` fired on 82.3% of them against the JDFN's `duties_max: 5`, and the distribution says why — CUPE duty counts are BIMODAL, not averaging anything. 77.4% of CUPE JDs carry EXACTLY twelve duties and 16.2% carry zero; almost nothing sits in between, so the "9.7 average" an earlier version of this work quoted describes no actual document. Twelve is the number of duty slots the WJQ instrument provides, which makes this a property of the FORM rather than a judgement about CUPE job descriptions — the same category as `applies_to`. `SFUJobDescription.duties` is independently capped at 12, which is the identical fact recorded a third time. Marking a JD down for filling in the form it was given is the category error this whole phase exists to remove. ⚠ WHAT THIS DOES NOT SETTLE: whether twelve duties is *good practice* is a real question, and SFU may well hold that a role described in twelve separate duties needs consolidating — but that is an argument to put to CUPE about the WJQ FORM, not a defect to charge 3,436 existing job descriptions with.
+- **If it changes:** Moves `rules_version` (thresholds.yaml is hashed). Lowering it toward the JDFN's 5 re-applies the finding to ~82% of the CUPE cohort; raising it above 12 has no effect, because the parsed model cannot represent a thirteenth duty. Advisory either way — `SFU-STRUCT-DUTIES-TOO-MANY` is in no blocking set (`gates.yaml` omission (d)), so this costs score, never approval.
+
+##### HR-203 — What is the minimum number of major responsibilities for a CUPE (WJQ) job description? Held at the JDFN's 3 (HR-021).
+
+- **We ship:** `3`
+- **Configured in:** `thresholds.yaml` → `thresholds.wjq.duties_min`
+- **Where the default came from:** we chose it
+- **Why it matters:** Kept at the JDFN value because nothing measured argues against it: the WJQ's under-run is rare (`SFU-STRUCT-DUTIES-TOO-FEW` fires on 0.6% of CUPE against 40.6% of JDFN). Registered rather than silently inherited because a value that is the same by DECISION and a value that is the same by OMISSION look identical in the YAML and are not the same thing — the omission is what this phase is fixing.
+- **If it changes:** Moves `rules_version`. Advisory; the rule is in no blocking set.
+
+##### HR-204 — How long may a CUPE (WJQ) Position Summary be? Held at the JDFN's 150-word maximum (HR-020).
+
+- **We ship:** `150`
+- **Configured in:** `thresholds.yaml` → `thresholds.wjq.summary_max_words`
+- **Where the default came from:** we chose it
+- **Why it matters:** ⚠ THIS ONE CORRECTS A FRAMING THIS PROJECT CARRIED FOR SEVERAL DAYS. The plan said "CUPE averages 168 words against a 100-150 band", which reads as an argument to RAISE the ceiling. Measured over all 4,440 CUPE documents, the distribution says the opposite: 39.9% of CUPE summaries fall UNDER 100 words and only 15.1% exceed 300 (maximum 671). The 168 mean is a thin heavy tail pulling, not a typical document — the median is 108, essentially the JDFN's 102. Raising the ceiling would therefore help ~15% of the cohort and abandon the ~40% whose real defect is under-run. Held at 150 pending HR, with the finding recorded rather than acted on unilaterally.
+- **If it changes:** Moves `rules_version`. `SFU-STRUCT-SUMMARY-TOO-LONG` currently fires on 27.1% of CUPE. It IS gated for the JDFN form (SFU's Part 11.6 names the over-run), so unlike the duty count this one can affect approval.
+
+##### HR-205 — What is the minimum length of a CUPE (WJQ) Position Summary? Held at the JDFN's 100 words (HR-019).
+
+- **We ship:** `100`
+- **Configured in:** `thresholds.yaml` → `thresholds.wjq.summary_min_words`
+- **Where the default came from:** we chose it
+- **Why it matters:** The knob with the largest measured population behind it and the least evidence for a value: 39.9% of CUPE summaries are under 100 words, so this is the CUPE cohort's single commonest summary finding — and `SFU-STRUCT-SUMMARY-TOO-SHORT` is deliberately in NO blocking set (`gates.yaml` tension #1: the under-run is our drafting nudge, not an SFU condition), so today it costs score and blocks nothing. Whether the WJQ's shorter summaries are a defect at all, or simply what that form elicits, is exactly the sort of question this register exists to put to HR rather than answer with a number we picked.
+- **If it changes:** Moves `rules_version`. Lowering it would silence the CUPE cohort's most frequent summary finding; raising it would penalise ~40% of CUPE JDs further. Advisory — the rule is in no blocking set.
 
 #### An earlier version of this tool chose it — also unratified
 
