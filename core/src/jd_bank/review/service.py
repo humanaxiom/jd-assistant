@@ -43,7 +43,7 @@ from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.jd_bank.db.models import (
@@ -59,8 +59,11 @@ from src.jd_bank.review.models import (
     IllegalTransitionError,
     MissingReasonError,
     NotApprovableError,
+    RelatedRole,
     ReviewPacket,
     ReviewQueueItem,
+    StructuralContext,
+    VersionRef,
 )
 from src.jd_core.bank.version_diff import VersionDiff, build_version_diff
 from src.jd_core.models.parsed_jd import SFUJobDescription
@@ -79,6 +82,7 @@ __all__ = [
     "approve",
     "edit",
     "get_review_packet",
+    "get_structural_context",
     "get_version_diff",
     "list_review_queue",
     "reject",
@@ -285,6 +289,149 @@ async def get_version_diff(
         SFUJobDescription.model_validate(prior.content),
         SFUJobDescription.model_validate(current.content),
     )
+
+
+# --- structural context (Phase 8.3b) --------------------------------------------------
+
+#: How many related roles the sidebar lists. The ONLY number in the feature — a display
+#: cap, not a similarity cutoff, which is why it earns no register entry. A threshold on
+#: the edge score WOULD earn one (and would be a false precision besides: role
+#: similarity on this corpus has unrelated roles outscoring true twins).
+_RELATED_ROLE_LIMIT = 8
+
+#: The related-roles lookup, as SQL rather than ORM constructs.
+#:
+#: ``clusters.members`` is a JSONB array of ``{"source_id": …, "filename": …}`` objects,
+#: so every membership test needs ``jsonb_array_elements``, and a Tier-3 edge is stored
+#: **oriented** while being undirected in intent — so both endpoint pairings must be
+#: considered or the list silently halves depending on which side the writer's total
+#: order happened to put this cluster on. Expressing that through the ORM needs casts
+#: and two self-joins on a table-valued function; this is the same statement, verified
+#: against the live archive before it was written into the code (it returns the 4,602
+#: directed cluster pairs the 8.3b measurements are quoted from).
+#:
+#: An edge with BOTH endpoints in this cluster is an intra-cluster edge; the join to
+#: ``theirs`` (which excludes this cluster) drops it, which is the intended behaviour —
+#: those edges are what built the cluster, not a relationship to something else.
+_RELATED_ROLES_SQL = text("""
+    WITH mine AS (
+        SELECT (jsonb_array_elements(members) ->> 'source_id')::uuid AS src
+        FROM clusters WHERE id = :cluster_id
+    ),
+    theirs AS (
+        SELECT c.id AS cluster_id,
+               (jsonb_array_elements(c.members) ->> 'source_id')::uuid AS src
+        FROM clusters c WHERE c.id <> :cluster_id
+    ),
+    neighbours AS (
+        SELECT DISTINCT CASE
+                   WHEN e.source_a_id IN (SELECT src FROM mine) THEN e.source_b_id
+                   ELSE e.source_a_id
+               END AS other_src
+        FROM dedup_edges e
+        WHERE e.tier = 'ROLE_EQUIVALENT'
+          AND (e.source_a_id IN (SELECT src FROM mine)
+               OR e.source_b_id IN (SELECT src FROM mine))
+    )
+    SELECT t.cluster_id, count(DISTINCT n.other_src) AS connecting_documents
+    FROM neighbours n JOIN theirs t ON t.src = n.other_src
+    GROUP BY t.cluster_id
+    ORDER BY connecting_documents DESC, t.cluster_id
+    LIMIT :limit
+    """)
+
+
+async def get_structural_context(
+    session: AsyncSession, canonical_id: UUID
+) -> StructuralContext | None:
+    """Where one canonical sits in the corpus: its cluster's version history, and the
+    roles Tier-3 dedup paired it with that clustering did **not** merge in.
+
+    Returns ``None`` for an unknown id. Read-only and advisory — it changes no verdict
+    (NN #1) and carries no similarity score (see :class:`RelatedRole`).
+
+    ⚠ **What "related" means here, precisely.** A cross-cluster ``ROLE_EQUIVALENT`` edge
+    is a pair at or above the Tier-3 pair bar but **below the clustering merge bar**
+    (``cluster_role_equiv_min``, HR-162) — measured live, **zero** of the 32,816
+    cross-cluster edges reach it. So this list is the set of near-misses the clustering
+    step ruled on, which is exactly what makes it worth a reviewer's attention.
+    ``NEAR_DUPLICATE`` is deliberately NOT consulted: near-duplicates are clustered
+    together by construction, and the whole archive yields **16** cross-cluster ones.
+    """
+    current = await session.get(CanonicalJD, canonical_id)
+    if current is None:
+        return None
+
+    versions = [
+        VersionRef(
+            canonical_id=row.id,
+            version=row.version,
+            status=row.status,
+            is_current=row.id == canonical_id,
+        )
+        for row in (
+            await session.scalars(
+                select(CanonicalJD)
+                .where(CanonicalJD.cluster_id == current.cluster_id)
+                .order_by(CanonicalJD.version)
+            )
+        ).all()
+    ]
+
+    return StructuralContext(
+        cluster_id=current.cluster_id,
+        versions=tuple(versions),
+        related=await _related_roles(session, current.cluster_id),
+    )
+
+
+async def _related_roles(
+    session: AsyncSession, cluster_id: UUID
+) -> tuple[RelatedRole, ...]:
+    """The other clusters joined to this one by a Tier-3 edge, most-connected first.
+
+    Ranked by how many source documents connect the two roles, then by title so the
+    order is total and the page is stable across reloads. **Never ranked by, and never
+    showing, the edge score** — a similarity number the corpus cannot support.
+    """
+    rows = await session.execute(
+        _RELATED_ROLES_SQL,
+        {"cluster_id": str(cluster_id), "limit": _RELATED_ROLE_LIMIT},
+    )
+    counts: dict[UUID, int] = {row.cluster_id: row.connecting_documents for row in rows}
+    if not counts:
+        return ()
+
+    # The CURRENT canonical of each related cluster — the link target. A cluster with no
+    # canonical at all is still listed, unlinked, rather than dropped: its absence from
+    # the list would be indistinguishable from "no relationship exists".
+    latest: dict[UUID, CanonicalJD] = {}
+    for row in (
+        await session.scalars(
+            select(CanonicalJD)
+            .where(CanonicalJD.cluster_id.in_(counts))
+            .order_by(CanonicalJD.cluster_id, CanonicalJD.version)
+        )
+    ).all():
+        latest[row.cluster_id] = row
+
+    related = [
+        RelatedRole(
+            cluster_id=other_id,
+            canonical_id=canonical.id if canonical else None,
+            title=(
+                str(canonical.content.get("title") or "(untitled)")
+                if canonical
+                else "(no canonical JD yet)"
+            ),
+            status=canonical.status if canonical else None,
+            connecting_documents=count,
+        )
+        for other_id, count in counts.items()
+        for canonical in (latest.get(other_id),)
+    ]
+    related.sort(key=lambda r: (-r.connecting_documents, r.title))
+    return tuple(related)
 
 
 # --- approve (the ONLY publish path) --------------------------------------------------

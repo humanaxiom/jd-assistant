@@ -1282,3 +1282,181 @@ def test_diff_view_degrades_to_plain_text_without_an_inline_diff(
 
     assert resp.status_code == 200
     assert "Old Title" in resp.text and "New Title" in resp.text
+
+
+# --- Phase 8.3b: the structural sidebar on the review detail -------------------------
+
+
+def _structure(*, versions: int = 1, related: tuple[object, ...] = ()) -> object:
+    from src.jd_bank.review import StructuralContext, VersionRef
+
+    cluster_id = uuid.uuid4()
+    refs = tuple(
+        VersionRef(
+            canonical_id=uuid.uuid4(),
+            version=n,
+            status=CanonicalStatus.DRAFT,
+            is_current=n == versions,
+        )
+        for n in range(1, versions + 1)
+    )
+    return StructuralContext(cluster_id=cluster_id, versions=refs, related=related)
+
+
+def _related(title: str, *, documents: int = 1, linked: bool = True) -> object:
+    from src.jd_bank.review import RelatedRole
+
+    return RelatedRole(
+        cluster_id=uuid.uuid4(),
+        canonical_id=uuid.uuid4() if linked else None,
+        title=title,
+        status=CanonicalStatus.DRAFT if linked else None,
+        connecting_documents=documents,
+    )
+
+
+def test_detail_renders_the_structural_sidebar(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The versions tree and the near-miss list, both linked."""
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    monkeypatch.setattr(
+        ui.service,
+        "get_review_packet",
+        AsyncMock(return_value=_packet(canonical_id=canonical_id)),
+    )
+    monkeypatch.setattr(
+        ui.service,
+        "get_structural_context",
+        AsyncMock(return_value=_structure(related=(_related("Research Coordinator"),))),
+    )
+
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}").text
+
+    assert "Where this role sits" in body
+    assert "Research Coordinator" in body
+    assert "you are here" in body
+
+
+def test_the_sidebar_shows_a_count_and_never_a_similarity_score(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """🔴 Role similarity on this corpus has unrelated roles outscoring true twins, so
+    the page states a COUNT of connecting documents and no number that could be read as
+    a similarity. Ranked, never scored."""
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    monkeypatch.setattr(
+        ui.service,
+        "get_review_packet",
+        AsyncMock(return_value=_packet(canonical_id=canonical_id)),
+    )
+    monkeypatch.setattr(
+        ui.service,
+        "get_structural_context",
+        AsyncMock(
+            return_value=_structure(related=(_related("Twin Role", documents=3),))
+        ),
+    )
+
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}").text
+
+    assert "3 connecting source documents" in body
+    assert "%" not in body.split("Where this role sits")[1].split("</div>")[0]
+    assert "below the bar to merge" in body  # says WHY they are separate
+
+
+def test_the_sidebar_states_the_empty_case_rather_than_looking_broken(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """About a third of roles have no near-miss at all. An empty list with no words is
+    indistinguishable from a page that failed to load one."""
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    monkeypatch.setattr(
+        ui.service,
+        "get_review_packet",
+        AsyncMock(return_value=_packet(canonical_id=canonical_id)),
+    )
+    monkeypatch.setattr(
+        ui.service, "get_structural_context", AsyncMock(return_value=_structure())
+    )
+
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}").text
+
+    assert "No other role was paired with this one" in body
+    assert "only ever had one version" in body
+
+
+def test_a_related_role_without_a_canonical_is_named_but_not_linked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Listed unlinked rather than dropped — and never linked to a page that 404s."""
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    unlinked = _related("No Canonical Yet", linked=False)
+    monkeypatch.setattr(
+        ui.service,
+        "get_review_packet",
+        AsyncMock(return_value=_packet(canonical_id=canonical_id)),
+    )
+    monkeypatch.setattr(
+        ui.service,
+        "get_structural_context",
+        AsyncMock(return_value=_structure(related=(unlinked,))),
+    )
+
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}").text
+
+    assert "No Canonical Yet" in body
+    assert f'href="/jd-bank/ui/review/{unlinked.cluster_id}"' not in body
+
+
+def test_the_detail_page_survives_a_missing_structural_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The sidebar is a navigation aid; the page's job is the approve/reject decision
+    and is never lost to it. A POST re-render omits it entirely."""
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    monkeypatch.setattr(
+        ui.service,
+        "get_review_packet",
+        AsyncMock(return_value=_packet(canonical_id=canonical_id)),
+    )
+    monkeypatch.setattr(
+        ui.service, "get_structural_context", AsyncMock(return_value=None)
+    )
+
+    resp = client.get(f"/jd-bank/ui/review/{canonical_id}")
+
+    assert resp.status_code == 200
+    assert "Where this role sits" not in resp.text
+    assert "Approve" in resp.text
+
+
+def test_a_failing_structural_context_never_takes_down_the_review_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """🔴 The sidebar is a navigation aid on the page where a human approves a JD. If
+    it raises, the reviewer still gets their decision surface. Remove the try/except in
+    `_structure_or_none` and this returns a 500."""
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    monkeypatch.setattr(
+        ui.service,
+        "get_review_packet",
+        AsyncMock(return_value=_packet(canonical_id=canonical_id)),
+    )
+    monkeypatch.setattr(
+        ui.service,
+        "get_structural_context",
+        AsyncMock(side_effect=RuntimeError("the corpus query blew up")),
+    )
+
+    resp = client.get(f"/jd-bank/ui/review/{canonical_id}")
+
+    assert resp.status_code == 200
+    assert "Where this role sits" not in resp.text
+    assert "Approve" in resp.text

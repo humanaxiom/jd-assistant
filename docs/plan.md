@@ -888,20 +888,35 @@ own (HR-195/196/197, see 5.9).
   PUBLISHED version, and no cluster has more than one version (1,799 DRAFT · 4 PUBLISHED, each
   the only version of its cluster). The first edit of a published role is what creates the
   condition — so this is correct, gated and *waiting*, not yet exercised in production.
-- **8.3b Structural sidebar (tree + related roles).** A navigation sidebar on the review detail (and
-  library) showing this role's place in the corpus: a **cluster → versions tree** (v1→v2→…, current
-  highlighted) and a short ranked **"related roles"** list from the Tier-2/Tier-3 dedup edges
-  (near-duplicates / role-equivalents), each linkable. Reuses the dedup-edge + cluster data already in
-  Postgres/Neo4j; **read-only, server-rendered** — a heavyweight interactive graph viz is explicitly
-  out of scope (that is Phase 7's domain overlap graph; this is a lightweight review-time slice of it).
+- ✅ **8.3b Structural sidebar (tree + related roles). DONE (2026-08-13).** The review detail page
+  gains **"Where this role sits"**: a cluster → versions tree (current marked) and a ranked list of
+  related roles. Read-only, server-rendered, no register entry. **Live-verified: 1,251 of 1,804
+  canonical JDs (69.3%) show a non-empty list.**
+  **⚠ THE PREMISE ABOVE WAS HALF WRONG, and measuring caught it.** This item said the list comes
+  from "the **Tier-2/Tier-3** dedup edges". Only Tier-3 can work: `dedup_edges` joins **source
+  documents** and those edges are what **formed the clusters**, so most are intra-cluster by
+  construction. Measured — `NEAR_DUPLICATE`: 11,581 intra vs **16** cross-cluster (nothing, and by
+  definition, since near-duplicates are clustered *together*); `ROLE_EQUIVALENT`: 29,034 intra vs
+  **32,816** cross, giving 4,602 directed cluster pairs over 1,251 of 1,803 clusters.
+  **⚠ AND "RELATED" UNDERSTATES WHAT THESE ARE.** A cross-cluster Tier-3 edge is a pair at or above
+  the **pair** bar (0.5) but **below the merge bar** (`cluster_role_equiv_min` 0.75, HR-162) — **zero**
+  of the 32,816 reach it. They are the near-misses clustering ruled on, so the page says exactly
+  that and asks whether one of them *is* this role.
+  **Ranked by a COUNT of connecting source documents, never by a score** — `RelatedRole` has no
+  score field and a test fails if one is added (role similarity here has unrelated roles outscoring
+  true twins). The only number is the display cap of 8, which is why no register entry is earned.
+  Both DB guards are **mutation-proved against a real Postgres**: a one-sided edge lookup silently
+  halves the list (Tier-3 edges are stored oriented, undirected in intent), and widening the tier
+  filter re-admits near-duplicates. A heavyweight interactive graph viz remains out of scope (that
+  is Phase 7's domain overlap graph; this is a lightweight review-time slice of it).
 - **8.3c Gate → field jump-links.** Per-blocking-gate "fix this ↓" links that jump to the *specific*
   Edit field, via a **rulebook-driven** gate→section map (the rule catalog's `section`, surfaced as
   data). Extends the coarse whole-Edit `#edit` jump shipped 2026-07-31.
 
 **Sequencing:** ~~**8.1** (library) → **8.2** (embed + search) →~~ both landed 2026-08-01…04, out of
 the order planned and partly ahead of it. **8.3** (review UX, no GPU) is what remains —
-~~**8.3a**~~ ✅ landed 2026-08-13; **8.3b** (structural sidebar) and **8.3c** (gate→field
-jump-links) are open. 8.1 turned
+~~**8.3a**~~ ✅ and ~~**8.3b**~~ ✅ landed 2026-08-13; **8.3c** (gate→field jump-links) is
+what is left of Phase 8. 8.1 turned
 the **1,798** latent drafts into a readable resource; 8.2 made them findable.
 
 **Exit:** an approved JD has a permanent, browsable, searchable home; a reviewer navigates

@@ -26,6 +26,62 @@
   </p>
 </div>
 
+{#
+  Phase 8.3b — where this role sits in the corpus. Read-only and advisory: it changes no
+  verdict (NN #1). Absent entirely on a POST re-render, which is answering a reviewer's
+  action and must not be delayed by a navigation aid.
+#}
+{% if structure %}
+<div class="panel">
+  <h2>Where this role sits</h2>
+
+  <h3>Versions of this role</h3>
+  <ul class="meta">
+    {% for version in structure.versions %}
+    <li>
+      {% if version.is_current %}
+      <strong>v{{ version.version }} — {{ version.status.value }} (you are here)</strong>
+      {% else %}
+      <a href="/jd-bank/ui/review/{{ version.canonical_id }}">v{{ version.version }}</a> — {{ version.status.value }}
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% if structure.versions | length == 1 %}
+  <p class="meta">This role has only ever had one version. A second appears when a
+  published JD is edited — editing mints a new draft and leaves the published one live.</p>
+  {% endif %}
+
+  <h3>Roles considered but not merged into this one</h3>
+  {% if structure.related %}
+  <p class="meta">
+    Dedup recorded each of these as a <em>same-role pair</em> with one of this role's
+    source documents, but scored the pair <strong>below the bar to merge</strong> — so
+    they were kept separate. They are the near-misses, which is what makes them worth a
+    look: if one of them <em>is</em> this role, that is a finding.
+    <strong>Ordered by how many source documents connect them, not by a similarity
+    score</strong> — on this archive a similarity number cannot tell a true twin from an
+    unrelated role, so none is shown.
+  </p>
+  <ul>
+    {% for role in structure.related %}
+    <li>
+      {% if role.canonical_id %}
+      <a href="/jd-bank/ui/review/{{ role.canonical_id }}">{{ role.title }}</a>
+      {% else %}
+      {{ role.title }}
+      {% endif %}
+      <span class="meta">— {{ role.connecting_documents }} connecting source document{{ "" if role.connecting_documents == 1 else "s" }}{% if role.status %} · {{ role.status.value }}{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="meta">No other role was paired with this one — dedup found nothing close
+  enough to consider merging. That is the normal case for about a third of roles.</p>
+  {% endif %}
+</div>
+{% endif %}
+
 {% if packet.decision.blocking %}
 <div class="panel">
   <h2>Blocking gates</h2>
