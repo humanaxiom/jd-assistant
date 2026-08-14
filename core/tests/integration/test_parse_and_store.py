@@ -78,7 +78,7 @@ async def test_parse_and_store_persists_parsed_jd(migrated_pg_url: str) -> None:
         assert stored is not None
         # FK lineage back to the source document.
         assert stored.source_document_id == source_id
-        assert stored.parser_version == "jd_segmenter_v3"
+        assert stored.parser_version == "jd_segmenter_v4"
         assert 0.0 < stored.parse_confidence <= 1.0
         assert stored.parse_confidence == pytest.approx(expected.parse_confidence)
 

@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+90af5e27dc83` · **199 decisions** (199 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 260 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+90af5e27dc83` · **200 decisions** (200 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 261 parameters on the decision surface, all accounted for.
 
-**Of those 199, 65 need an HR ruling.** The other 134 are recorded for the same build check but are not yours to sign: 49 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 200, 65 need an HR ruling.** The other 135 are recorded for the same build check but are not yours to sign: 50 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -720,6 +720,7 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-184](#hr-184) | Below what token-Jaccard with any draft duty should a rewritten duty be flagged for HR review? | `0.2` | we chose it |
 | [HR-189](#hr-189) | Should the anti-fabrication (verbatim-evidence) guard run at all on the audit findings? | `true` | we chose it |
 | [HR-195](#hr-195) | When the Builder warns an author that their new job description looks like roles SFU already has, how many of those existing roles should it list? | `5` | we chose it |
+| [HR-200](#hr-200) | How many characters of a JD's Additional Contextual Information does the parser keep? For a CUPE/WJQ document this field holds the seven point-factor sections verbatim, so the answer decides how much of a CUPE job description the Bank retains at all. | `12000` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -946,6 +947,14 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** we chose it
 - **Why it matters:** This is how much advice the panel gives while someone is typing, and it is a judgement about attention, not a measurement. It is set to 5 because the useful signal is concentrated at the very top of the ranking: MEASURED over the live `jd_role_embeddings` index (1,797 role vectors), for the 790 roles that have a same-title sibling the sibling is in the top 5 for 76% of them and in the top 10 for 84% — so rows 6-10 add 8 points of recall and double the reading. A shorter list (3) is a stronger nudge and misses more real duplicates; a longer one (10) turns an advisory panel into a search results page the author will scroll past. The panel ALSO states one non-vector fact that carries no cutoff at all — how many existing roles already hold the exact same title, and across how many departments — and that sentence is unaffected by this number.
 - **If it changes:** Does NOT move `rules_version` (dedup.yaml is unhashed); it does move `Dedup.stamp`. Purely how many rows the Builder's advisory panel shows — it cannot change a score, a grade, a gate, a dedup edge or a cluster, and nothing downstream reads it. Pinned by mutation (`test_composer_duplicates.py`: retune it to 2 and the guard returns 2 matches from a 6-neighbour result).
+
+##### HR-200 — How many characters of a JD's Additional Contextual Information does the parser keep? For a CUPE/WJQ document this field holds the seven point-factor sections verbatim, so the answer decides how much of a CUPE job description the Bank retains at all.
+
+- **We ship:** `12000`
+- **Configured in:** `segmentation.yaml` → `segmentation.additional_context_max_chars`
+- **Where the default came from:** we chose it
+- **Why it matters:** It was 4,000, and not by decision — the parser reused `_MAX_SUMMARY`, the ceiling belonging to `position_summary`, a field with entirely different semantics. MEASURED consequence over the live archive: 81.4% of CUPE JDs (3,613 of 4,440) sat exactly at the cap, against 0% of APSA. Because the cut falls in document order it removed the TAIL of the WJQ instrument, so `continuing_education` — the last of the seven point-factor sections — survived in only 17.0% of documents. The code called this storage "verbatim — lossless" while doing it. 12,000 is chosen against the measured distribution rather than by feel: over a 500-file random sample of the archive (149 WJQ documents carrying context) the true lengths are min 2,677, p50 5,500, p90 6,614, p99 8,931, max 9,916 — so 10,000 already truncates 0.0% of that sample and 12,000 leaves ~21% headroom, because 149 documents cannot bound 4,440. It is filed `hr_informed` and not `hr_policy` deliberately: there is no policy choice here, only a question of fidelity — bigger is simply more faithful up to the point where a bound stops being a bound — but HR should know that CUPE job descriptions were previously being stored incomplete. It remains a real bound: an unbounded field is how one malformed document becomes a database problem.
+- **If it changes:** Does NOT move `rules_version` (segmentation.yaml is unhashed) but moves `Segmentation.stamp`. Raising or lowering it changes what a parsed JD CONTAINS, so it requires a `parser_version` bump and a full re-parse of all 14,565 files shipped together — bumping without re-parsing leaves every layer querying a version with no rows, i.e. an apparently empty Bank (#101 precedent). It must also stay at or below `SFUJobDescription.additional_context`'s `max_length` ceiling (20,000): a configured cap above it turns a lossy parse into a ValidationError, i.e. a parse failure. Pinned by `test_wjq_context_not_truncated.py`.
 
 #### An earlier version of this tool chose it — also unratified
 

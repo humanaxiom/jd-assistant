@@ -67,7 +67,12 @@ from src.jd_core.parser.headings import Era, SectionKey
 #: not identification); the only score-side movement is title-keyed gates finally seeing
 #: a title. Same reasoning as v1 -> v2: the stored parse genuinely differs, so the
 #: version moves to force the re-parse.
-PARSER_VERSION = "jd_segmenter_v3"
+#: ⚠ Bumping this forces an archive re-parse, and the bump and the re-parse MUST ship
+#: together: every layer filters `parsed_jds` on this literal, so a bump without a
+#: re-parse leaves them querying a version with no rows — an apparently empty Bank.
+#: v4 = `additional_context` keeps the whole WJQ point-factor block (HR-200); at v3's
+#: borrowed 4,000-char cap, 81.4% of CUPE JDs were stored truncated.
+PARSER_VERSION = "jd_segmenter_v4"
 
 #: Which SFU document template ``parse_jd`` read: the APSA/APEX/POLY "JDFN" form (the
 #: original segmenter), the CUPE/WJQ questionnaire, or neither recognisably.
@@ -413,8 +418,17 @@ def parse_jd(text: str) -> ParseResult:
     problem_solving = _structure_bullets(sections.get(SectionKey.PROBLEM_SOLVING, ""))
     relationships = _structure_relationships(sections.get(SectionKey.RELATIONSHIPS, ""))
     qualifications = _structure_quals(sections.get(SectionKey.QUALIFICATIONS, ""))
+    # `additional_context` has its own registered cap (HR-200), not the summary's.
+    # Sharing `_MAX_SUMMARY` between the two is what truncated 81.4% of CUPE JDs; no
+    # JDFN document in the archive reaches even the old 4,000, so this path is
+    # unaffected in practice — but one field having one cap is the point.
+    # Imported lazily for the same reason the router does it (see `parse_jd`): this
+    # module must stay import-cycle-free with `jd_core.rules`.
+    from src.jd_core.rules import get_rules  # noqa: PLC0415
+
     context_block = sections.get(SectionKey.ADDITIONAL_CONTEXT)
-    additional_context = _clean(context_block)[:_MAX_SUMMARY] if context_block else None
+    _context_cap = get_rules().segmentation.additional_context_max_chars
+    additional_context = _clean(context_block)[:_context_cap] if context_block else None
 
     # Presence booleans (footer + About SFU) from the whole document.
     about_sfu = hd.has_about_sfu(collapsed)

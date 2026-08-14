@@ -5853,6 +5853,47 @@ decisions:
       the dropdown equals this list and excludes `cupe`).
     status: open
 
+  # ── How much of `additional_context` the parser keeps (CUPE support, Phase A). ──
+  - id: HR-200
+    question: >-
+      How many characters of a JD's Additional Contextual Information does the parser
+      keep? For a CUPE/WJQ document this field holds the seven point-factor sections
+      verbatim, so the answer decides how much of a CUPE job description the Bank
+      retains at all.
+    config:
+      file: segmentation.yaml
+      path: segmentation.additional_context_max_chars
+    current_default: 12000
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      It was 4,000, and not by decision — the parser reused `_MAX_SUMMARY`, the ceiling
+      belonging to `position_summary`, a field with entirely different semantics. MEASURED
+      consequence over the live archive: 81.4% of CUPE JDs (3,613 of 4,440) sat exactly at
+      the cap, against 0% of APSA. Because the cut falls in document order it removed the
+      TAIL of the WJQ instrument, so `continuing_education` — the last of the seven
+      point-factor sections — survived in only 17.0% of documents. The code called this
+      storage "verbatim — lossless" while doing it. 12,000 is chosen against the measured
+      distribution rather than by feel: over a 500-file random sample of the archive (149
+      WJQ documents carrying context) the true lengths are min 2,677, p50 5,500, p90 6,614,
+      p99 8,931, max 9,916 — so 10,000 already truncates 0.0% of that sample and 12,000
+      leaves ~21% headroom, because 149 documents cannot bound 4,440. It is filed
+      `hr_informed` and not `hr_policy` deliberately: there is no policy choice here, only a
+      question of fidelity — bigger is simply more faithful up to the point where a bound
+      stops being a bound — but HR should know that CUPE job descriptions were previously
+      being stored incomplete. It remains a real bound: an unbounded field is how one
+      malformed document becomes a database problem.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (segmentation.yaml is unhashed) but moves
+      `Segmentation.stamp`. Raising or lowering it changes what a parsed JD CONTAINS, so it
+      requires a `parser_version` bump and a full re-parse of all 14,565 files shipped
+      together — bumping without re-parsing leaves every layer querying a version with no
+      rows, i.e. an apparently empty Bank (#101 precedent). It must also stay at or below
+      `SFUJobDescription.additional_context`'s `max_length` ceiling (20,000): a configured
+      cap above it turns a lossy parse into a ValidationError, i.e. a parse failure. Pinned
+      by `test_wjq_context_not_truncated.py`.
+    status: open
+
   # ── Embedding over-length fallback ladder (HR-126 follow-up). ──
   - id: HR-193
     question: >-

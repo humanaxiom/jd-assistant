@@ -77,7 +77,7 @@ from src.jd_core.parser.segmenter import (
     _detect_modifier,
     _leading_verb,
 )
-from src.jd_core.rules import Wjq, WjqSection
+from src.jd_core.rules import Wjq, WjqSection, get_rules
 
 # ── Line / heading normalisation ─────────────────────────────────────────────
 
@@ -429,7 +429,21 @@ def _structure_relationships(text: str, wjq: Wjq) -> SFURelationships | None:
 
 
 def _structure_context(sections: dict[WjqSection, str], wjq: Wjq) -> str | None:
-    """The Hay-factor sections stored verbatim under their heading — lossless."""
+    """The Hay-factor sections stored verbatim under their heading.
+
+    ⚠ **This said "lossless" while cutting at 4,000 characters.** The cap was
+    ``_MAX_SUMMARY``, inherited from ``position_summary`` — a field with entirely
+    different semantics — and the cost was measured over the live archive: **81.4% of
+    CUPE JDs (3,613 of 4,440) sat exactly at it**, against **0%** of APSA. Because the
+    cut falls in document order it removed the *tail* of the instrument, so
+    ``continuing_education`` — the last of the seven sections — survived in only
+    **17.0%** of documents. The point-factor half of the WJQ form was being discarded
+    for four CUPE JDs in five, and the docstring said otherwise.
+
+    The cap is now its own registered rulebook value
+    (``segmentation.additional_context_max_chars``, HR-200), chosen against the measured
+    distribution of real WJQ documents rather than borrowed. It is still a bound.
+    """
     blocks: list[str] = []
     for section in wjq.context_sections:
         content = sections.get(section)
@@ -439,7 +453,8 @@ def _structure_context(sections: dict[WjqSection, str], wjq: Wjq) -> str | None:
         blocks.append(f"{heading}\n{_clean(content.replace('|', ' '))}")
     if not blocks:
         return None
-    return "\n\n".join(blocks)[:_MAX_SUMMARY]
+    cap = get_rules().segmentation.additional_context_max_chars
+    return "\n\n".join(blocks)[:cap]
 
 
 # ── Public entry point ───────────────────────────────────────────────────────
