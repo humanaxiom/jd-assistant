@@ -2,7 +2,7 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+71f6e4d7d9de` · **201 decisions** (201 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 261 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+a4c5e2d0f0f3` · **201 decisions** (201 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 261 parameters on the decision surface, all accounted for.
 
 **Of those 201, 66 need an HR ruling.** The other 135 are recorded for the same build check but are not yours to sign: 50 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
@@ -565,7 +565,7 @@ The value is SFU's own, from the JD Toolkit or the official template — but *wh
 - **We ship:** `apex`
 - **Configured in:** `titles.yaml` → `titles.executive_director.reserved_for_employee_group`
 - **Where the default came from:** SFU's published standard (Part 3.5)
-- **Why it matters:** The only restricted title whose restriction is checkable from the JD alone (the other two need organisational context — HR-032, HR-033). If the APEX claim is wrong or out of date, the one title check that CAN fire is firing on the wrong condition.
+- **Why it matters:** The only restricted title whose restriction is checkable from the JD alone (the other two need organisational context — HR-032, HR-033). If the APEX claim is wrong or out of date, the one title check that CAN fire is firing on the wrong condition. ⚠ AND A MATCHER DEFECT MEASURED 2026-08-14, recorded here rather than fixed, because fixing it changes what the rule finds and that is this entry's subject. `titles.restricted.executive_director.phrase` is matched as a SUBSTRING of the title, so it also fires on roles that merely REPORT TO an Executive Director. Over the live archive at `jd_segmenter_v4`, 5 CUPE documents carry the phrase and 3 of them are that near-miss ("Assistant to the Executive Director", "Secretary to the Executive Director, Student Affairs …" ×2); the other 2 ("Executive Director of Development", "Executive Director, Business Career Management") are genuine hits which most likely indicate a mis-parsed `employee_group` rather than a real CUPE executive — itself worth seeing. THE DEFECT IS NOT TEMPLATE-SHAPED and must not be papered over with one: CUPE Phase B briefly declared this rule JDFN-only, which would have suppressed all five. It judges both templates. The fix is a head-noun check (the title must START with the phrase, or the phrase must not be preceded by "to the"), which is a change to what the rule catches and therefore HR's to weigh here. It is advisory either way — `gates.yaml` omission (b) keeps all three restricted titles out of every blocking set.
 - **If it changes:** Confirm against the current Job Titling Guide. Setting it to null would turn this into a third unverifiable advisory.
 
 ##### HR-041 — Should the banned-phrase check ("may include", "assets", "preferences") search the WHOLE document, or only the Qualifications section?

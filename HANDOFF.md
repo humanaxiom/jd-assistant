@@ -17,7 +17,7 @@ Read this first every session. Single source of truth for current state + how we
 | `main` | `d353500` — Phase 8 complete (#102 · #105 · #106), Phase 6 runbooks (#108), and **#109** (CUPE evidence + design + Phase A) |
 | **Open PRs** | **CUPE Phase B** (`feat/cupe-phase-b-applies-to`) — `applies_to` on every rule; branch green locally, PR to open |
 | Gates | **2,712 / 94.05%** was the last full run on the merged state; Phase B's own run is in the block below. `register-check` + `guide-check` exit 0 |
-| `rules_version` | 🔔 **MOVED — `jd_rules_sfu_v4+90af5e27dc83` → `+71f6e4d7d9de`** (verified, not assumed). `rule_catalog.yaml` is hashed and every rule gained `applies_to`. It had held still through **every** PR since P0.1b-i; Phase B is the first change that genuinely alters what the rulebook says, so the bump is correct rather than incidental |
+| `rules_version` | 🔔 **MOVED — `jd_rules_sfu_v4+90af5e27dc83` → `+a4c5e2d0f0f3`** (verified, not assumed). `rule_catalog.yaml` is hashed and every rule gained `applies_to`. It had held still through **every** PR since P0.1b-i; Phase B is the first change that genuinely alters what the rulebook says, so the bump is correct rather than incidental. *(It passed through `+71f6e4d7d9de` at commit `5a494ea`, before the EXEC-DIR correction below.)* |
 | Register | **201** decisions (HR-200 the context cap, HR-201 the CUPE boilerplate call), **0 ratified**. ⚠ **And the JDFN bar is among the unratified** — see the Phase B block: that is what corrects the HR-194 framing |
 | Live data | 14,565 files · **14,522 parsed at `jd_segmenter_v4`** (v1–v3 rows retained) · 1,803 roles · **4 published** · `review_actions` 6 · one cluster now has TWO versions (someone edited a published JD on 2026-08-13), which is what finally gave 8.3a live surface |
 
@@ -102,7 +102,7 @@ was always the real critical path — and the first item is not a commit.
 | ~~2~~ | ~~**Phase 8.3 — review-experience upgrades**~~ ✅ **PHASE 8 IS COMPLETE** | 8.3a word-level diff (#102) · 8.3b structural sidebar (#105) · 8.3c gate→field jump-links. All three landed 2026-08-13; none earned a register entry. |
 | ~~2~~ | ~~**Phase 6 leftovers**~~ ✅ **RUNBOOKS DONE** | `docs/runbooks/backup-and-restore.md` + `reindex.md`, both **executed against the live stack before being written**, linked from the operator guide. |
 | ~~2~~ | ~~**CUPE Phase A — the `additional_context` truncation**~~ ✅ **DONE (#109)** | 81.4% of CUPE JDs were stored truncated; now 0%. `PARSER_VERSION` → `jd_segmenter_v4`, whole archive re-parsed, HR-200 registered. See the CUPE block below. |
-| ~~2~~ | ~~**CUPE Phase B — `applies_to`**~~ ✅ **BUILT** (branch `feat/cupe-phase-b-applies-to`) | The four rules that fired on **100%** of CUPE are now **structurally** unable to, and JDFN is byte-identical. CUPE mean 51.4 → **62.9**. See the block below. |
+| ~~2~~ | ~~**CUPE Phase B — `applies_to`**~~ ✅ **BUILT** ([#110](https://github.com/humanaxiom/jd-assistant/pull/110)) | **Seven** rules are withheld from the WJQ because that form does not carry what they read — *not* "the four that fire on 100%", which is a different set (see the block below). JDFN is byte-identical; CUPE mean 51.4 → **62.9**. |
 | **2** | **CUPE Phase C — calibrate the WJQ bar ⟵ NEXT, and it no longer waits for HR** | The JDFN bar is itself unratified `our_invention`, so the honest standard is to build the WJQ one the same way: **measured over the corpus, every value registered `open`**. Concretely: summary length (CUPE averages **168** words vs a JDFN-derived 100–150 band), duty count (**9.7** vs `duties_max: 5`), and the qualification/KSA conventions. Nothing auto-publishes; HR can change any value. |
 | 3 | **🔴 What is genuinely external** | **TLS at the edge** (row 1) · **HR ratification** — 201 decisions, 0 signed, **including the JDFN bar that gates publishing today** · **HR-194**, which decides *scope* (may the Builder author CUPE — Phase E), not whether a measured bar may exist · **HR-201**, whether SFU's boilerplate applies to a CUPE JD. |
 | 4 | **Territorial-acknowledgement wording sign-off** | The last of Phase 6, and **HR's call, not ours** — it blocks external distribution, not development. *(This row used to also list the backup + reindex runbooks; they are done, and a backlog that lists closed work as open costs a re-investigation every time it is read.)* |
@@ -198,13 +198,50 @@ finding present on every approvable JD is not a quality signal, it is a constant
   to show JDFN improving too. `ORDER BY id` over v4 rows selects a different 600 than over
   v3 rows, because each parse row carries its own UUID. Sampling noise, not effect. The
   table above toggles only `template_of` over one document set.
-- **🔴 ONE OF THE EIGHT JDFN-ONLY RULES IS A POLICY CALL, NOT A FACT — HR-201, `hr_policy`,
-  `open`.** `SFU-COMP-ABOUT` / `-TERRITORIAL` / `-EDI` check **SFU-wide commitments**, not
-  JDFN furniture. Applying them marks down all 4,440 CUPE JDs for a property of the *form*;
-  not applying them holds CUPE to a weaker inclusion standard than APSA. Defaulted to
-  JDFN-only and registered — **with the view recorded that if HR rules the boilerplate is
-  universal, the honest fix is the FORM** (ask SFU to add the block to the WJQ), not a rule
-  every CUPE JD fails by construction.
+- **🔴 THREE OF THE SEVEN JDFN-ONLY RULES ARE A POLICY CALL, NOT A FACT — HR-201,
+  `hr_policy`, `open`.** `SFU-COMP-ABOUT` / `-TERRITORIAL` / `-EDI` check **SFU-wide
+  commitments**, not JDFN furniture. Applying them marks down all 4,440 CUPE JDs for a
+  property of the *form*; not applying them holds CUPE to a weaker inclusion standard than
+  APSA. Defaulted to JDFN-only and registered — **with the view recorded that if HR rules
+  the boilerplate is universal, the honest fix is the FORM** (ask SFU to add the block to
+  the WJQ), not a rule every CUPE JD fails by construction.
+- **🔴 IT WAS EIGHT, AND THE EIGHTH WAS WRONG — `SFU-AUTH-TITLE-EXEC-DIR`, corrected after
+  `5a494ea`.** It was the one JDFN-only rule that was neither measured nor registered, and
+  it does not survive the phase's own test. **`applies_to` states a fact about the FORM**
+  — the WJQ has no Problem Solving section, so a rule reading one cannot judge it — **and
+  the WJQ plainly has a job title.** Scoping this rule by template is also a *second*
+  employee-group filter on a rule that already carries its own
+  (`reserved_for_employee_group: apex`), and it disabled the one restricted-title check
+  that **can** fire on exactly the group it would catch. Its two siblings were already
+  `[jdfn, wjq]`. Now all three are, mutation-proved in both directions.
+- **⚠ AND MEASURING IT FOUND A REAL MATCHER DEFECT — recorded on HR-031, deliberately not
+  fixed here.** JDFN-only would have suppressed **5** live CUPE findings, not zero:
+  `titles.restricted.executive_director.phrase` is matched as a **substring**, so **3** are
+  roles that merely *report to* an Executive Director (*"Assistant to the Executive
+  Director"*, *"Secretary to the Executive Director, Student Affairs …"* ×2). The other **2**
+  (*"Executive Director of Development"*, *"…, Business Career Management"*) are genuine and
+  most likely flag a **mis-parsed `employee_group`** — worth seeing either way. **The defect
+  is not template-shaped, so it must not be papered over with a template scope**; the fix is
+  a head-noun check, which changes what the rule catches and is therefore HR's to weigh.
+  Advisory throughout — `gates.yaml` omission (b) keeps all three restricted titles out of
+  every blocking set. **The cohort table above is unmoved and was not re-run:** 5 of 4,440
+  CUPE documents (0.11%) at `low` (5 points) bounds the mean shift at ~0.006. Stated as a
+  bound rather than re-measured, and said so.
+- **⚠ AND THE "FIRES ON 100%" JUSTIFICATION DID NOT SURVIVE BEING CHECKED PER RULE.** The
+  test set was labelled *"fires on 100% of CUPE"* for all four members. **It is not.**
+  Measured: `SFU-COMP-PROBLEM` **100.0%** · `SFU-GATE-REL-HEADER` **100.0%** ·
+  `SFU-COMP-DECISION` **96.0%** · **`SFU-GATE-DUTY-PCT` 0.0%** — that last one *cannot*
+  fire, because it needs ≥2 `(NN%)` allocations before it evaluates and **exactly 1 of
+  4,440** CUPE documents carries them (0 would trip it). Worse, the four rules that *do*
+  fire on 100% are a **different four** — `-TERRITORIAL` · `-REL-HEADER` · `-EDI` ·
+  `-PROBLEM` — two of which sit under HR-201, not here. **No scope changed:** every one is
+  still correctly withheld, because the real test is *does the form carry what the rule
+  reads*, not *was the rule noisy*. Only the stated reason was wrong, and a wrong reason on
+  a rulebook pin is what the next person builds on.
+- **The JDFN-only set is now pinned as an exact set, enumerated from the live catalogue.**
+  Narrowing any rule to one template turns `test_the_jdfn_only_set_is_exactly_the_seven_that_earned_it`
+  red, so it has to be argued in the diff — withholding a rule silently removes a finding
+  from 4,440 documents. Same shape as 8.3c's `_SECTION_ANCHORS` pin.
 
 ### CUPE (#109) — and FIRST, the question every reader asks
 
@@ -252,11 +289,12 @@ finding present on every approvable JD is not a quality signal, it is a constant
   regardless of version). Found by checking, not by breakage. The re-parse closes it, and it
   is **additive** — v4 rows sit alongside v1–v3, so it is reversible and the versions can be
   compared, which is how the numbers above were produced. Now in DEVELOPER_GUIDE_1.md §9a.
-- **NEXT, AND IT NEEDS NO HR: Phase B — `applies_to` on the rule catalog.** Required, no
-  default (the P1.3 `tier` move), making those four rules **structurally unable** to fire on
-  CUPE rather than conventionally excluded. **Worth landing even if HR rules against serving
-  CUPE.** Phase C (define the bar) is HR-194 and blocks D and E. Design:
-  `docs/tasks/cupe-support-design.md`.
+- ~~**NEXT: Phase B — `applies_to` on the rule catalog.**~~ ✅ **DONE
+  ([#110](https://github.com/humanaxiom/jd-assistant/pull/110))** — required, no default (the
+  P1.3 `tier` move), so a withheld rule is **structurally unable** to fire on CUPE rather
+  than conventionally excluded. ⚠ **It withholds SEVEN rules, not "those four"** — the
+  justification is *does the form carry what the rule reads*, which is not the same question
+  as *did the rule fire on 100%*. See the Phase B block at the top.
 
 ### Both technical guides were corrected in the same PR
 

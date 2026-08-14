@@ -504,8 +504,20 @@ rules:
 
   # The three restricted titles below are matched from titles.yaml, which names
   # the rule_id it raises. Keep the two files in step — the loader cross-checks.
+  #
+  # ALL THREE judge BOTH templates, and that is deliberate. `applies_to` states a
+  # fact about the FORM — the WJQ has no Problem Solving section, so a rule checking
+  # for one cannot judge it — and the WJQ plainly HAS a job title. Scoping these by
+  # template would also be a SECOND employee-group filter on a rule that already
+  # carries its own (`reserved_for_employee_group` in titles.yaml), and would make
+  # the one restricted-title check that CAN fire structurally unable to fire on the
+  # group it would most often catch. MEASURED over the live archive at
+  # `jd_segmenter_v4`: 5 CUPE documents carry "executive director" in the title.
+  # Three are the substring near-miss recorded under HR-031 ("Assistant/Secretary to
+  # the Executive Director") — a matcher defect that is NOT template-shaped and must
+  # be fixed in the matcher, not hidden behind a template scope.
   - rule_id: SFU-AUTH-TITLE-EXEC-DIR
-    applies_to: [jdfn]
+    applies_to: [jdfn, wjq]
     category: structure
     section: identification
     source_part: Part 3.5
