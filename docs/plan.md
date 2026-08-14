@@ -860,8 +860,15 @@ person builds on.**
 
 **JDFN being untouched is the important half** — a filter that silenced rules everywhere
 would have looked like success on the CUPE number alone. CUPE gains **+11.5 points** purely
-by no longer being marked down for sections its form never asks for. It is still ~0%
-approvable because the *thresholds* remain JDFN-calibrated, which is exactly Phase C.
+by no longer being marked down for sections its form never asks for.
+
+> **🔴 AND THE SENTENCE THAT USED TO END THIS PARAGRAPH WAS FALSE.** It read *"It is still
+> ~0% approvable because the thresholds remain JDFN-calibrated, which is exactly Phase C."*
+> That came from a 600-row spike over `parsed_jds` reporting 0.2%. **Measured over all
+> 14,565 archive files via `make baseline`: WJQ went 0.0% → 59.0% approvable** (mean 51.8 →
+> 63.2) while **JDFN held at exactly 6.7%**. The spike was wrong by ~300×, and Phase C had
+> been scoped on top of it. Full evidence, including the Phase A confound this does not
+> claim to have isolated: `docs/decisions/cupe-phase-b-measured-2026-08-14.md`.
 
 **⚠ A methodology catch worth keeping:** the first before/after compared *different
 documents* — `ORDER BY id` over v4 rows selects a different 600 than over v3 rows, because
@@ -891,12 +898,78 @@ indicate a mis-parsed `employee_group`. Recorded on **HR-031** rather than fixed
 head-noun check changes what the rule catches. **A defect that is not template-shaped must
 not be hidden behind a template scope.**
 
-**Phase C, now that B has landed:** calibrate the WJQ thresholds against the CUPE corpus the
-way the JDFN ones were calibrated against theirs — summary length (CUPE averages **168**
-words against a JDFN-derived 100–150 band), duty count (**9.7** against `duties_max: 5`),
-and the KSA/qualification conventions. Every value registered `open`. Until HR rules on
-HR-194, "the Bank does not *author* CUPE" remains an explicit decision on the register, not
-one made by omission.
+---
+
+## ⚠️ 2026-08-14 — STEP BACK. The measuring is done. Build.
+
+**The last six days found real defects, and then kept looking.** Phase B alone ran three
+rounds of *check the claim behind the claim* — each found something true, none of it shipped
+a capability. Name the failure mode and stop: **we began arguing about whether a bar was
+philosophically correct instead of making the bar data and moving on.**
+
+**The rule from here: measure ONCE to set a default, register it `open`, build.** If a
+number is wrong, HR changes a YAML value — that is what the register has been for since
+Phase 0. A default swappable in one line does not deserve a week of argument.
+
+**Corollary: do not re-open a settled decision to re-justify it.** The 59%-vs-6.7%
+inversion is recorded (`docs/decisions/cupe-phase-b-measured-2026-08-14.md`) and HR-201
+carries its consequence. That is sufficient. **It does not block C, D or E.**
+
+### The direction, in one sentence
+
+**Two groups, two straightforward rule profiles, every measure configuration-driven so HR
+can swap it — then build JDs for both groups and evaluate each against its own profile.**
+
+### Phase C — per-template rule PROFILES (the `applies_to` move, one level down)
+
+`applies_to` made *which rules apply* per-template data. Do exactly the same for *the
+numbers*, adding **no new concepts**:
+
+- `thresholds.yaml` and `gates.yaml` gain a per-template block (`jdfn:` / `wjq:`), resolved
+  by the **`template_of` that already exists** — no new detection, no new plumbing.
+- Defaults measured **once** per cohort, every value registered `open` with its `tier`.
+- A template with no override inherits the shared default, so **nothing silently changes
+  for JDFN** — the same property that made Phase B safe.
+
+That is the whole of Phase C: a loader change, a YAML block, and a table of measured
+defaults. Not a research project.
+
+**Use the numbers already in hand — do not re-derive them.** All measured over the full
+archive at `jd_segmenter_v4`; each becomes a `wjq:` default, registered `open`:
+
+| knob | JDFN today | WJQ default to ship | why |
+|---|---|---|---|
+| `duties_max` | 5 | **12** | the WJQ form has 12 duty slots; 77.4% of CUPE JDs use exactly 12 (bimodal — the 9.7 mean describes no document) |
+| `summary_min_words` | 100 | measure once | 39.9% of CUPE summaries are under 100 words; the band is skewed **opposite** to the old "168-word average" framing |
+| `summary_max_words` | 150 | measure once | only 15.1% exceed 300 (max 671); the 168 mean is that tail pulling |
+| qualification conventions | JDFN | WJQ-specific | `SFU-QUAL-SKILL-MODIFIER` 76.1% vs 5.1%; `SFU-AUTH-ABILITIES-OBSERVABLE` 32.2% vs 0.4% |
+
+⚠ **Two traps, recorded so they are not walked into again:** the 16.2% of CUPE JDs parsing
+to **zero** duties is a *parser* question and must not become a quality bar before it is
+understood; and JDFN parses a **median of 1** qualification against WJQ's 21 — the JDFN
+block landing as one blob — so any qualification-count threshold taken from JDFN would be
+calibrated on a parser artifact.
+
+### Phase D — harmonize + cluster CUPE, then evaluate per group
+
+The pipeline is **already done** for CUPE: 49,448 role-equivalent edges, *more* than APSA's
+49,008 (Phase 3 measured). Turn it on, produce CUPE drafts, and evaluate each group against
+its own profile. **Evaluation is per group from here — never blended**; a blended approval
+rate over two forms is the category error this whole phase removed.
+
+### Phase E — two builders, if that is the simpler thing (it probably is)
+
+A CUPE JD is a **different form**, not a variant: 14 WJQ sections against the JDFN's. Making
+one builder emit both means every template, prompt, gate and export grows a conditional, and
+every future change pays that tax twice.
+
+**A separate WJQ builder over the same services** (search, assemble, validate, review,
+export) is likely *less* code and makes "which form am I authoring?" a **routing** decision
+made once, rather than a per-field one made everywhere. The shared half is already built and
+template-agnostic. Decide it by trying the routing seam first, not by debating it.
+
+Until HR rules on HR-194, "the Bank does not *author* CUPE" remains an explicit decision on
+the register, not one made by omission — but **C and D need no HR ruling at all.**
 
 **✅ PHASE A — SHIPPED AND VERIFIED OVER ALL 14,522 DOCUMENTS (2026-08-14).**
 `additional_context` had inherited `position_summary`'s 4,000-character ceiling through a

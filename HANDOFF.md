@@ -94,6 +94,24 @@ phase record is `docs/plan.md` §Phase 9; the ordered triage it came from is
 P0.1b-i #85 · P0.0 #88 · P0.3 #89 · P0.4 #90 · P0.1b-ii #91 + #92). What is left is what
 was always the real critical path — and the first item is not a commit.
 
+> ### ⚠️ 2026-08-14 — STEP BACK, and read this before picking up a CUPE task
+>
+> **The last six days found real defects, and then kept looking.** Phase B alone ran three
+> rounds of *check the claim behind the claim*. Each found something true; none shipped a
+> capability. **We started arguing whether a bar was philosophically correct instead of
+> making the bar data and moving on.**
+>
+> **The rule from here: measure ONCE to set a default, register it `open`, build.** If a
+> number is wrong HR changes a YAML value — that is what the register has been for since
+> Phase 0. A default swappable in one line does not deserve a week of argument.
+>
+> **Do not re-open a settled decision to re-justify it.** The 59%-vs-6.7% inversion is
+> recorded and HR-201 carries its consequence. **It does not block C, D or E.**
+>
+> **The direction:** two groups, two straightforward rule profiles, every measure
+> configuration-driven so HR can swap it — then build JDs for both groups and evaluate each
+> against its own profile. `docs/plan.md` §STEP BACK has the shape.
+
 | | Task | Why it is here |
 |---|---|---|
 | **1** | **🔴 TLS at the edge — the last open exposure, and NOT a repo deliverable** | The pilot host is internet-facing over **plain http**, so sign-in cookies and CAS tickets cross the open internet in the clear. P0.4 makes the app correct *behind* a terminator (P0.3's allowlist reads `X-Forwarded-Proto` and validates the result) and refuses to run pretending otherwise — **someone has to put one in front.** It is also what unblocks actually *using* `docker-compose.prod.yml`, which needs an https origin. |
@@ -103,9 +121,11 @@ was always the real critical path — and the first item is not a commit.
 | ~~2~~ | ~~**Phase 6 leftovers**~~ ✅ **RUNBOOKS DONE** | `docs/runbooks/backup-and-restore.md` + `reindex.md`, both **executed against the live stack before being written**, linked from the operator guide. |
 | ~~2~~ | ~~**CUPE Phase A — the `additional_context` truncation**~~ ✅ **DONE (#109)** | 81.4% of CUPE JDs were stored truncated; now 0%. `PARSER_VERSION` → `jd_segmenter_v4`, whole archive re-parsed, HR-200 registered. See the CUPE block below. |
 | ~~2~~ | ~~**CUPE Phase B — `applies_to`**~~ ✅ **BUILT** ([#110](https://github.com/humanaxiom/jd-assistant/pull/110)) | **Seven** rules are withheld from the WJQ because that form does not carry what they read — *not* "the four that fire on 100%", which is a different set (see the block below). JDFN is byte-identical; CUPE mean 51.4 → **62.9**. |
-| **2** | **CUPE Phase C — calibrate the WJQ bar ⟵ NEXT, and it no longer waits for HR** | The JDFN bar is itself unratified `our_invention`, so the honest standard is to build the WJQ one the same way: **measured over the corpus, every value registered `open`**. Concretely: summary length (CUPE averages **168** words vs a JDFN-derived 100–150 band), duty count (**9.7** vs `duties_max: 5`), and the qualification/KSA conventions. Nothing auto-publishes; HR can change any value. |
-| 3 | **🔴 What is genuinely external** | **TLS at the edge** (row 1) · **HR ratification** — 201 decisions, 0 signed, **including the JDFN bar that gates publishing today** · **HR-194**, which decides *scope* (may the Builder author CUPE — Phase E), not whether a measured bar may exist · **HR-201**, whether SFU's boilerplate applies to a CUPE JD. |
-| 4 | **Territorial-acknowledgement wording sign-off** | The last of Phase 6, and **HR's call, not ours** — it blocks external distribution, not development. *(This row used to also list the backup + reindex runbooks; they are done, and a backlog that lists closed work as open costs a re-investigation every time it is read.)* |
+| **2** | **CUPE Phase C — per-template rule PROFILES ⟵ NEXT, needs no HR** | **The `applies_to` move, one level down.** `thresholds.yaml` + `gates.yaml` gain a `jdfn:` / `wjq:` block, resolved by the **`template_of` that already exists**. Defaults measured **once**, registered `open`; no override = inherit, so JDFN cannot silently change. Ship `duties_max: 12` for WJQ (the form has 12 slots; 77.4% use exactly 12). A loader change and a YAML block — **not a research project**. See `docs/plan.md` §STEP BACK. |
+| **3** | **Phase D — turn CUPE harmonize/cluster on, evaluate per group** | The pipeline is already done: **49,448** role-equivalent edges, more than APSA's 49,008. Produce CUPE drafts and score each group against its own profile. **Never blend the two cohorts into one number.** |
+| **4** | **Phase E — two builders, if simpler (probably)** | A CUPE JD is a different **form**, not a variant. One builder emitting both grows a conditional in every template, prompt, gate and export. A separate WJQ builder over the same services makes it a **routing** decision made once. Try the seam before debating it. Needs HR-194 for scope. |
+| 5 | **🔴 What is genuinely external** | **TLS at the edge** (row 1) · **HR ratification** — 201 decisions, 0 signed, **including the JDFN bar that gates publishing today** · **HR-194**, which decides *scope* (may the Builder author CUPE — Phase E), not whether a measured bar may exist · **HR-201**, and it is now measured to be **much bigger than a score adjustment**: the boilerplate ruling decides whether CUPE JDs are approvable **at all** (59.0% vs 0.0%). |
+| 6 | **Territorial-acknowledgement wording sign-off** | The last of Phase 6, and **HR's call, not ours** — it blocks external distribution, not development. *(This row used to also list the backup + reindex runbooks; they are done, and a backlog that lists closed work as open costs a re-investigation every time it is read.)* |
 
 **Deliberately still open, recorded so their absence is not mistaken for completion:**
 ~~the missing timeout on `/compose/search` and `/assist`~~ ✅ **CLOSED (#97)** ·
@@ -191,9 +211,14 @@ finding present on every approvable JD is not a quality signal, it is a constant
 - **JDFN being untouched is the important half.** A filter that silenced rules everywhere
   would have looked like success on the CUPE number alone. CUPE gains **+11.5 points**
   purely by no longer being penalised for sections its own form never asks for.
-- **Still ~0% approvable, and that is expected** — the *thresholds* are JDFN-calibrated
-  (summary 100–150 words against CUPE's **168**-word average; `duties_max: 5` against
-  **9.7**). That is Phase C.
+- ~~**Still ~0% approvable, and that is expected**~~ **🔴 FALSE — MEASURED OVER THE WHOLE
+  ARCHIVE, CUPE IS APPROVABLE AT 59.0%.** The 0.2% came from a 600-row spike over
+  `parsed_jds`; `make baseline` over all 14,565 files says **0.0% → 59.0%** for the 4,300
+  WJQ documents (mean 51.8 → 63.2) while **JDFN holds at exactly 6.7%** — the control, and
+  the half that matters. The spike was wrong by ~300×, and Phase C had been planned on top
+  of it. Evidence + the confound: `docs/decisions/cupe-phase-b-measured-2026-08-14.md`.
+  **Fourth time in one day that a claim about the archive did not survive being checked
+  against the archive.**
 - **⚠ A METHODOLOGY CATCH: my first before/after compared DIFFERENT DOCUMENTS** and appeared
   to show JDFN improving too. `ORDER BY id` over v4 rows selects a different 600 than over
   v3 rows, because each parse row carries its own UUID. Sampling noise, not effect. The
