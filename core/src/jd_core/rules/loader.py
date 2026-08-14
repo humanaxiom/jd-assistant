@@ -1303,6 +1303,12 @@ class Harmonization(_RuleFile):
     it is declared, and :func:`check_register` breaks the build until it is registered.
     """
 
+    #: The document templates the canonical-draft producer authors, in PRIORITY order:
+    #: a cluster's draft is built on the FIRST listed template present in it, and
+    #: members on any other template are dropped + counted (HR-206). Required with no
+    #: default (the `tier` / `applies_to` move) — which forms the Bank drafts is too
+    #: consequential to arrive by omission.
+    templates_harmonized: tuple[JDTemplate, ...] = Field(min_length=1)
     #: How the canonical title is chosen (HR-167).
     title_policy: TitlePolicy
     #: How the position-summary representative is picked (HR-168).
@@ -1323,6 +1329,26 @@ class Harmonization(_RuleFile):
     security_policy: SecurityPolicy
     #: How the education / experience bar is chosen across members (HR-175).
     seniority_bar_policy: SeniorityBarPolicy
+
+    @model_validator(mode="after")
+    def _each_template_is_listed_once(self) -> Harmonization:
+        """A repeated template is an authoring error, not a stronger preference.
+
+        ``templates_harmonized`` is read as a priority order, so a duplicate is
+        unreachable by construction — and an unreachable entry in a policy list reads
+        like a decision that was made when it was not.
+        """
+        seen = sorted(
+            t
+            for t in set(self.templates_harmonized)
+            if self.templates_harmonized.count(t) > 1
+        )
+        if seen:
+            raise ValueError(
+                "harmonization.templates_harmonized is a priority order; "
+                f"template(s) {seen} are listed more than once"
+            )
+        return self
 
 
 class Rewrite(_RuleFile):

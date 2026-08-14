@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from typing import Any, Final
 
 from src.jd_bank.jd_text import flatten_jd as _flatten_jd
 from src.jd_bank.llm.client import ChatClient
@@ -32,14 +33,26 @@ from src.jd_core.models.bank import (
     RewrittenDraft,
 )
 from src.jd_core.models.parsed_jd import SFUJobDescription, SFUQualification
+from src.jd_core.models.quality import DEFAULT_TEMPLATE
 from src.jd_core.quality.scoring import score_issues
-from src.jd_core.quality.validators import evaluate_jd_rules
+from src.jd_core.quality.validators import evaluate_jd_rules, template_of
 from src.jd_core.rules import Comparison, Rewrite, Rules, get_rules
 
 #: A content token: a maximal run of lowercase letters/digits — the same alphabet the
 #: signals / similarity / merge modules tokenize with. Kept local (as those do) so
 #: retuning one cannot silently move the grounding check.
 _TOKEN = re.compile(r"[a-z0-9]+")
+
+#: The sections the guard will not let the rewrite CREATE from nothing. Each is a whole
+#: SFU-template section that a JDFN document has and a WJQ one structurally does not, so
+#: on a CUPE draft an invented one is not embellishment — it is an answer to a question
+#: the source document was never asked. Duties and qualifications are deliberately NOT
+#: here: those are policed per item, by grounding, above.
+_SECTIONS_NEVER_INVENTED: Final[tuple[str, ...]] = (
+    "decision_making",
+    "problem_solving",
+    "relationships",
+)
 
 #: The qualification kinds the anti-fabrication guard scrubs when ungrounded. Education,
 #: experience and security are structural BARS derived by the 4.1 merge from member
@@ -143,11 +156,27 @@ def _apply_anti_fabrication(
         if best < rewrite.duty_flag_threshold:
             flagged.append(duty.statement)
 
-    scrubbed_jd = llm_jd.model_copy(update={"qualifications": kept})
+    # A SECTION the grounded draft does not have cannot be written by the rewrite
+    # (CUPE Phase D). The guard above polices the CONTENT of a section; this polices
+    # its existence, which is the coarser and — since the producer began drafting CUPE
+    # roles — the likelier fabrication: 0.0% of CUPE JDs have a Problem Solving section
+    # and 3.1% an Impact of Decision Making one, because the WJQ form does not ask. A
+    # model handed a schema listing both will fill them in, and the token-overlap guard
+    # cannot object, because it only reads qualifications and duties.
+    #
+    # ⚠ EMPTY-TO-EMPTY only. A section the draft HAS is left entirely to the rewrite —
+    # rewording is the pass's whole job. This drops nothing a source document stated.
+    emptied: dict[str, Any] = {}
+    for section in _SECTIONS_NEVER_INVENTED:
+        if not getattr(merged.draft, section) and getattr(llm_jd, section):
+            emptied[section] = None if section == "relationships" else []
+
+    scrubbed_jd = llm_jd.model_copy(update={"qualifications": kept, **emptied})
     return scrubbed_jd, AntiFabricationRecord(
         enabled=True,
         scrubbed_skills=tuple(scrubbed),
         flagged_duties=tuple(flagged),
+        scrubbed_sections=tuple(sorted(emptied)),
     )
 
 
@@ -163,12 +192,30 @@ async def rewrite_merged_role(
     active = rules if rules is not None else get_rules()
     rewrite = active.rewrite
 
+    # The prompt states the DRAFT'S OWN FORM's numbers (CUPE Phase D). They used to be
+    # inlined in the template as SFU's JDFN guidance — "3–5 major duties", "100–150
+    # words" — which was a rulebook fact hardcoded in a prompt, and harmless only for
+    # as long as JDFN was the one form the producer ever drafted.
+    #
+    # 🔴 On a CUPE draft that inlined "3–5" is DESTRUCTIVE, not merely wrong. The WJQ
+    # form has twelve duty slots and 77.4% of CUPE JDs fill all twelve, so a rewrite
+    # asked for three-to-five duties deletes most of the role — and the anti-fabrication
+    # guard cannot catch it, because the guard exists to stop the model ADDING content.
+    # Nothing downstream would have flagged the loss: the WJQ profile's `duties_min` is
+    # 3, so a five-duty CUPE draft passes its own bar while missing seven duties the
+    # source documents actually stated.
+    thresholds = active.thresholds_for(template_of(merged.draft))
+
     # We feed the GROUNDED 4.1 draft into the `member_jds` slot, not the raw members.
     prompt = load_prompt(
         rewrite.prompt_version,
         member_count=merged.provenance.member_count,
         skill_frequency=_skill_frequency_lines(merged.provenance.skill_frequency),
         member_jds=_flatten_jd(merged.draft),
+        duties_min=thresholds.duties_min,
+        duties_max=thresholds.duties_max,
+        summary_min_words=thresholds.summary_min_words,
+        summary_max_words=thresholds.summary_max_words,
     )
     # Loose JSON mode + repair retry (the default; NOT constrained decoding). Handing
     # Ollama's structured-output builder the large nested SFUJobDescription grammar 500s
@@ -190,13 +237,27 @@ async def rewrite_merged_role(
     # grade reflects role CONTENT, as hris `jd_bank_task.harmonize_cluster` does. (This
     # differs on purpose from the 4.1 merge draft, which keeps them honest-OR because it
     # is not asserting authored compliance; the rewrite is graded on the wording made.)
-    final_jd = scrubbed_jd.model_copy(
-        update={
-            "about_sfu_present": True,
-            "territorial_acknowledgement_present": True,
-            "employment_equity_present": True,
-        }
-    )
+    #
+    # ⚠ "TEMPLATE-PROVIDED" IS A CLAIM ABOUT A TEMPLATE, so it is only true of the
+    # template that provides them (CUPE Phase D). The WJQ form contains no About SFU
+    # block, no territorial acknowledgement and no EDI statement — that is the measured
+    # fact behind HR-201 — so asserting all three on a CUPE draft would state something
+    # about the document that is not so, in the three fields a reviewer is likeliest to
+    # take at face value. On a WJQ draft the merge's honest OR stands.
+    #
+    # It costs no score either way: `applies_to` (Phase B) already withholds the three
+    # rules that read these fields from the WJQ, so the assertion was never buying the
+    # CUPE cohort anything — it was only making the draft say something untrue.
+    if template_of(scrubbed_jd) == DEFAULT_TEMPLATE:
+        final_jd = scrubbed_jd.model_copy(
+            update={
+                "about_sfu_present": True,
+                "territorial_acknowledgement_present": True,
+                "employment_equity_present": True,
+            }
+        )
+    else:
+        final_jd = scrubbed_jd
 
     issues = evaluate_jd_rules(final_jd, _flatten_jd(final_jd), rules=active)
     score, grade = score_issues(issues, scoring=active.scoring)

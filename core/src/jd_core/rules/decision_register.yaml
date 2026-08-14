@@ -5502,20 +5502,37 @@ decisions:
     config:
       file: rewrite.yaml
       path: rewrite.prompt_version
-    current_default: jd_harmonize_v1
+    current_default: jd_harmonize_v2
     provenance: our_invention
     tier: technical
     why_it_matters: >-
       Names the versioned template pair under `jd_bank/llm/templates/`
-      (`jd_harmonize_v1.system.j2` + `.user.j2`, ported from the earlier build and kept faithful save
-      the grounding instruction). The loaded template's own version is what stamps
-      `RewrittenDraft.prompt_version`, so provenance traces to the exact wording. Swapping
-      this selects a different template version. PROVISIONAL — the prompt is refined at the
-      4.5 pilot, and each refinement is a new versioned template, not an in-place edit.
+      (`jd_harmonize_v2.system.j2` + `.user.j2`). The loaded template's own version is what
+      stamps `RewrittenDraft.prompt_version`, so provenance traces to the exact wording.
+      Swapping this selects a different template version. PROVISIONAL — the prompt is
+      refined at the 4.5 pilot, and each refinement is a new versioned template, not an
+      in-place edit (v1 stays on disk unedited: every draft in the archive today carries
+      its stamp, and a stamp you cannot read back is not provenance).
+      🔴 WHY v2 EXISTS, and it is a defect rather than a refinement: v1 INLINED SFU's JDFN
+      guidance as prompt text — "Write 3–5 major duties", "Position Summary: 100–150
+      words". Those are rulebook numbers (HR-020…HR-022) hardcoded in a prompt, which was
+      harmless only while JDFN was the one form the producer ever drafted. On a CUPE draft
+      it is destructive: the WJQ form has twelve duty slots and 77.4% of CUPE JDs fill all
+      twelve, so a rewrite asked for three-to-five duties DELETES most of the role — and
+      the anti-fabrication guard cannot catch it, because that guard exists to stop the
+      model ADDING content. Nothing downstream would have flagged the loss either, since
+      the WJQ profile's `duties_min` is 3 (HR-203): a five-duty CUPE draft passes its own
+      bar while missing seven duties its sources stated. v2 takes both numbers as
+      variables resolved from `thresholds_for(template_of(draft))` — one rulebook fact,
+      one home — and adds the instruction not to write a section the input does not have.
     impact_if_changed: >-
       Does NOT move `rules_version`. Pinned by mutation in the prompt-loader test (the
       loaded prompt's `.version` is stamped onto `RewrittenDraft.prompt_version`; a missing
-      template variable RAISES rather than shipping a `{{ x }}` in the prompt).
+      template variable RAISES rather than shipping a `{{ x }}` in the prompt), and by a
+      test asserting the rendered prompt carries the DRAFTED FORM's numbers — 12 duties for
+      a CUPE draft, 5 for a JDFN one. Reverting to `jd_harmonize_v1` still loads and still
+      runs; it silently reinstates the JDFN numbers for both forms, which is exactly the
+      failure mode above and is why the test reads the rendered text rather than the knob.
     status: open
 
   - id: HR-181
@@ -6070,6 +6087,50 @@ decisions:
       is precisely why the recorded view is that if HR rules the boilerplate universal,
       the honest fix is the FORM. Also moves `rules_version` (rule_catalog.yaml is hashed).
       Pinned by `test_rule_applies_to_template.py`, which fails if the JDFN-only set moves.
+    status: open
+
+  # ── Which FORMS does the Bank harmonize into drafts? (CUPE Phase D) ──
+  - id: HR-206
+    question: >-
+      Which SFU job-description FORMS should the Bank harmonize into canonical drafts —
+      the JDFN template only, as it has since Phase 4.4, or the CUPE (WJQ) questionnaire
+      too? And when one cluster holds members of both forms, which form wins?
+    config:
+      file: harmonization.yaml
+      path: harmonization.templates_harmonized
+    current_default: [jdfn, wjq]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      Until Phase D the producer dropped every WJQ member and skipped a cluster that held
+      nothing else — 657 of 2,458 recomputed clusters (26.7%) and 3,511 member documents,
+      counted but never drafted. That was never a considered policy; it was the same
+      category error the rest of this phase removed, in the last place it still lived. The
+      dedup + clustering pipeline has been ready for CUPE since Phase 3 (49,448
+      role-equivalent edges, MORE than APSA's 49,008), and Phases B and C gave the WJQ its
+      own applicable rules and its own numbers — so a CUPE draft is now judged against its
+      own form rather than against a form it was never written on. ⚠ WHAT THIS IS NOT: it
+      does not decide whether the BUILDER may author a new CUPE JD from scratch — that is
+      HR-194, a separate scope question. This knob decides only whether the roles CUPE
+      already has get a harmonized draft for a human to read. Nothing here publishes
+      anything (non-negotiable #1); every draft is a DRAFT. The list is a PRIORITY order
+      because `canonical_jds` is UNIQUE on (cluster_id, version) — a cluster can hold one
+      draft, so a mixed cluster needs a rule for which form wins, and `jdfn` first means
+      every mixed cluster (10 of 2,458 measured — 0.4%) authors exactly what it authored
+      before this knob existed. That is deliberate: JDFN is the untouched control, as it
+      was in Phases B and C.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (harmonization.yaml is unhashed) — this decides how a
+      draft is ASSEMBLED, never how one is scored. Removing `wjq` restores the exact
+      pre-Phase-D behaviour: 657 clusters produce no draft and their members are counted
+      as excluded. Removing `jdfn` would stop refreshing the 1,801 existing JDFN drafts
+      and is almost certainly not what anyone wants — the loader accepts it (the list is a
+      policy, not a safety rail) but the producer's counters would show it immediately.
+      Re-ordering to `[wjq, jdfn]` re-authors the 10 mixed clusters on the CUPE form,
+      which would rewrite drafts a reviewer may already be reading; the no-clobber rule
+      still protects any draft a reviewer has touched. Pinned by an integration test that
+      turns red in BOTH directions — a fully-WJQ cluster persists a `wjq` draft with the
+      list as shipped, and persists nothing with `wjq` removed.
     status: open
 
   # ── Embedding over-length fallback ladder (HR-126 follow-up). ──

@@ -72,7 +72,10 @@ def test_the_provisional_defaults_are_what_the_yaml_ships(rules: Rules) -> None:
     assert r.temperature == 0.0
     assert r.max_tokens == 2048
     assert r.max_retries == 1
-    assert r.prompt_version == "jd_harmonize_v1"
+    # v2 since CUPE Phase D: v1 inlined SFU's JDFN duty count and summary band as prompt
+    # TEXT, which on a CUPE draft asks for 3–5 duties against a twelve-slot form. v1 is
+    # kept on disk unedited — every draft in the archive carries its stamp.
+    assert r.prompt_version == "jd_harmonize_v2"
     assert r.anti_fabrication_enabled is True
     assert r.skill_grounding_policy == "token_overlap"
     assert r.skill_grounding_threshold == 0.5

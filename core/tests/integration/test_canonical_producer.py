@@ -62,7 +62,7 @@ from src.jd_core.models.quality import (
     JDQualityFindings,
 )
 from src.jd_core.parser import PARSER_VERSION
-from src.jd_core.rules import Rules, get_rules
+from src.jd_core.rules import Harmonization, Rules, get_rules
 from tests.integration.test_dedup_tier1 import ALEMBIC_INI
 
 
@@ -149,6 +149,16 @@ class _FakeChat:
 @pytest.fixture(scope="module")
 def rules() -> Rules:
     return get_rules()
+
+
+def _jdfn_only(rules: Rules) -> Rules:
+    """The pre-Phase-D scope: the Bank drafts the JDFN form only (HR-206). Rebuilt
+    through ``Harmonization`` rather than ``model_copy(update=…)`` so the fixture cannot
+    hand the producer a config the loader would refuse."""
+    harmonization = Harmonization(
+        **{**rules.harmonization.model_dump(), "templates_harmonized": ("jdfn",)}
+    )
+    return rules.model_copy(update={"harmonization": harmonization})
 
 
 def _no_group_veto(rules: Rules) -> Rules:
@@ -695,19 +705,32 @@ async def test_wjq_members_are_excluded_and_counted(
         assert result.wjq_members_excluded == 1
         assert result.clusters_mixed_jdfn_wjq == 1
         assert result.drafts_persisted == 1
+        # ⚠ THE CONTROL FOR PHASE D. `templates_harmonized` ships `[jdfn, wjq]` as a
+        # PRIORITY order, so a mixed cluster still authors JDFN and still drops its WJQ
+        # member — byte-identical to the pre-Phase-D behaviour. Making CUPE drafts must
+        # not quietly re-author a cluster a reviewer is already reading.
+        assert result.clusters_by_template == {"jdfn": 1}
+        assert result.wjq_members_authored == 0
 
         canonical = await session.scalar(select(CanonicalJD))
         assert canonical is not None
         # Only the two JDFN members fed the canonical — the WJQ member is not a source.
         assert len(canonical.source_document_ids) == 2
+        assert canonical.content["employee_group"] == "apsa"
 
 
 @pytest.mark.asyncio
-async def test_a_fully_wjq_cluster_is_excluded_and_persists_nothing(
+async def test_an_all_cupe_cluster_gets_a_wjq_draft(
     session_maker: async_sessionmaker[AsyncSession],
 ) -> None:
-    """An all-CUPE cluster has no JDFN member — it is excluded WHOLE and counted, and no
-    canonical is written (the producer is JDFN-only)."""
+    """CUPE Phase D (HR-206): an all-CUPE cluster is DRAFTED, on the WJQ form.
+
+    Before Phase D this cluster produced nothing — 657 of 2,458 real clusters (26.7%)
+    and 3,511 member documents, counted as excluded but never given a draft a human
+    could read. The draft carries the members' own ``employee_group``, which is what
+    makes ``evaluate_jd_rules`` judge it against the WJQ profile (Phases B + C) rather
+    than against a form it was never written on.
+    """
     async with session_maker() as session:
         a = await _seed_jd(
             session, storage_ref="a", sha256=_sha("a"), parsed=_analyst(group="cupe")
@@ -721,10 +744,51 @@ async def test_a_fully_wjq_cluster_is_excluded_and_persists_nothing(
         result = await run_canonical_producer(session, rewrite_client=None)
         await session.commit()
 
+        assert result.clusters_fully_wjq_excluded == 0
+        assert result.clusters_seen == 1
+        assert result.clusters_by_template == {"wjq": 1}
+        assert result.drafts_persisted == 1
+        # The two halves of the WJQ population, and they must not both count it.
+        assert result.wjq_members_authored == 2
+        assert result.wjq_members_excluded == 0
+
+        canonical = await session.scalar(select(CanonicalJD))
+        assert canonical is not None
+        assert canonical.status is CanonicalStatus.DRAFT  # NN #1 — still just a draft
+        assert canonical.content["employee_group"] == "cupe"
+        assert len(canonical.source_document_ids) == 2
+
+
+@pytest.mark.asyncio
+async def test_a_fully_wjq_cluster_persists_nothing_with_wjq_off_the_list(
+    session_maker: async_sessionmaker[AsyncSession], rules: Rules
+) -> None:
+    """The MUTATION that proves HR-206 is read at all, in the other direction: remove
+    ``wjq`` from ``templates_harmonized`` and the same cluster produces no draft and is
+    counted as excluded — the exact pre-Phase-D behaviour, reachable by a one-line YAML
+    edit rather than by a code change. That is the whole point of the knob: if HR rules
+    the Bank should not draft CUPE roles, nothing has to be rewritten to comply."""
+    async with session_maker() as session:
+        a = await _seed_jd(
+            session, storage_ref="a", sha256=_sha("a"), parsed=_analyst(group="cupe")
+        )
+        b = await _seed_jd(
+            session, storage_ref="b", sha256=_sha("b"), parsed=_analyst(group="cupe")
+        )
+        await _role_edge(session, a.id, b.id)
+        await session.commit()
+
+        result = await run_canonical_producer(
+            session, rewrite_client=None, rules=_jdfn_only(rules)
+        )
+        await session.commit()
+
         assert result.clusters_fully_wjq_excluded == 1
         assert result.clusters_seen == 0
+        assert result.clusters_by_template == {}
         assert result.drafts_persisted == 0
         assert result.wjq_members_excluded == 2
+        assert result.wjq_members_authored == 0
         assert await session.scalar(select(func.count()).select_from(CanonicalJD)) == 0
 
 

@@ -160,9 +160,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(list(sys.argv[1:] if argv is None else argv))
     result = asyncio.run(_run(args))
 
+    # Per FORM, never one blended number (CUPE Phase D) — a single "clusters seen"
+    # across two different SFU forms is the category error the phase exists to remove.
+    by_template = ", ".join(
+        f"{template}={count}" for template, count in result.clusters_by_template.items()
+    )
     print(
         f"clusters: {result.clusters_recomputed} recomputed -> "
-        f"{result.clusters_seen} JDFN seen "
+        f"{result.clusters_seen} seen [{by_template or 'none'}] "
         f"({result.multi_member_clusters} multi, "
         f"{result.single_member_clusters} single)\n"
         f"drafts: {result.drafts_persisted} persisted, "
@@ -172,10 +177,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"LLM: enabled={result.llm_enabled}, "
         f"{result.rewrite_failures} rewrite failures, "
         f"{result.audit_failures} audit failures\n"
-        f"WJQ excluded: {result.wjq_members_excluded} members "
+        f"WJQ members: {result.wjq_members_authored} authored, "
+        f"{result.wjq_members_excluded} excluded "
         f"({result.wjq_members_frequency_confirmed} frequency-confirmed), "
-        f"{result.clusters_fully_wjq_excluded} clusters fully-WJQ, "
+        f"{result.clusters_fully_wjq_excluded} clusters fully-WJQ with no draft, "
         f"{result.clusters_mixed_jdfn_wjq} mixed\n"
+        f"forms drafted: {list(result.clusters_by_template)}  "
         f"rules_version={result.rules_version}  llm_enabled={result.llm_enabled}",
         file=sys.stderr,
     )
@@ -184,7 +191,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         written = _write_summary(
             result,
             path=Path(args.summary_out),
-            source="parsed_jds + dedup_edges (recomputed clusters; JDFN only)",
+            source=(
+                "parsed_jds + dedup_edges (recomputed clusters; forms per "
+                "harmonization.templates_harmonized — HR-206)"
+            ),
         )
         print(f"wrote {written}", file=sys.stderr)
 

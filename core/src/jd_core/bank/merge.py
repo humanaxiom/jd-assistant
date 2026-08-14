@@ -56,6 +56,8 @@ from src.jd_core.models.parsed_jd import (
     SFUJobDescription,
     SFUQualification,
 )
+from src.jd_core.models.quality import WJQ_TEMPLATE
+from src.jd_core.quality.validators import template_of
 from src.jd_core.rules import Comparison, Harmonization, Rules, get_rules
 
 #: A skill/statement token: a maximal run of lowercase letters/digits — the same
@@ -646,6 +648,28 @@ def merge_cluster(
     active = rules if rules is not None else get_rules()
     if not members:
         raise ValueError("cannot merge an empty cluster: there is no title to draft")
+
+    # Merge against the members' OWN form's numbers (CUPE Phase D), by the same one-line
+    # profile swap `evaluate_jd_rules` makes for the same reason: `_select_summary`
+    # prefers a member summary inside `thresholds.summary_min_words/_max_words`, and
+    # picking a WJQ cluster's representative summary by the JDFN band would judge a CUPE
+    # document against a form it was not written on — the category error Phases B and C
+    # removed from the validator, in the last place it still lived.
+    #
+    # The two profiles agree on both summary bounds TODAY (100/150 — HR-204/205 held at
+    # their JDFN twins and registered rather than inherited), so this changes no output
+    # as shipped. It is wired anyway: the alternative is a correctness hole that opens
+    # silently the day HR moves one value, which is precisely the failure mode a
+    # registered-but-equal default exists to prevent.
+    # UNANIMITY, not the first member: `merge_cluster` is documented order-invariant, so
+    # reading the form off `members[0]` would make the same set in a different order
+    # merge differently. A mixed set falls back to JDFN — the same tie-break
+    # `templates_harmonized` ships (HR-206), and the conservative direction, since JDFN
+    # is the profile every existing draft was built against.
+    if all(template_of(jd) == WJQ_TEMPLATE for jd in members):
+        active = active.model_copy(
+            update={"thresholds": active.thresholds_for(WJQ_TEMPLATE)}
+        )
 
     harmon = active.harmonization
     ordered = canonical_member_order(members)

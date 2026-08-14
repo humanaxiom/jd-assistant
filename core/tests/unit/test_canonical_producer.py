@@ -9,6 +9,8 @@ from the harmonize runner, never forked).
 
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from pydantic import ValidationError
 
@@ -21,7 +23,9 @@ from src.jd_bank.canonical.runner import (
     reviewer_touched,
 )
 from src.jd_bank.db.models import CanonicalStatus
+from src.jd_bank.harmonize import models as harmonize_models
 from src.jd_bank.harmonize import runner as harmonize_runner
+from src.jd_core.models import quality as quality_models
 from src.jd_core.models.bank import (
     HarmonizationDiff,
     MergedRole,
@@ -29,7 +33,8 @@ from src.jd_core.models.bank import (
 )
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.models.quality import GateDecision, GateReason
-from src.jd_core.rules import get_rules
+from src.jd_core.quality import validators
+from src.jd_core.rules import Harmonization, get_rules
 
 # --- the no-clobber predicate (all four combinations) ---------------------------------
 
@@ -138,11 +143,101 @@ def test_the_change_log_packet_round_trips_to_the_reviewer_artifacts() -> None:
 
 
 def test_the_wjq_proxy_is_imported_from_the_harmonize_runner_not_forked() -> None:
-    """Acceptance #7: the producer reuses the harmonize runner's ``is_wjq_member`` /
-    ``member_has_frequency`` (one home). Same function OBJECT — not a second copy that
-    could silently disagree on which members are WJQ."""
-    assert canon_runner.is_wjq_member is harmonize_runner.is_wjq_member
+    """Acceptance #7: the producer reuses the harmonize runner's helpers (one home).
+    Same function OBJECT — not a second copy that could silently disagree on which
+    members are WJQ."""
     assert canon_runner.member_has_frequency is harmonize_runner.member_has_frequency
+    # The producer partitions by `template_of` rather than by `is_wjq_member` (a
+    # partition needs the FORM, not a boolean), so the anti-fork property is now that
+    # the two answer identically — pinned below over both values.
+    assert canon_runner.template_of is validators.template_of
+
+
+def test_there_is_exactly_one_definition_of_which_documents_are_cupe() -> None:
+    """🔴 THE FORK THIS TEST DID NOT USED TO CATCH.
+
+    ``jd_bank.harmonize.models`` defined ``WJQ_EMPLOYEE_GROUP = "cupe"`` and Phase B
+    gave ``jd_core.models.quality`` a second literal ``"cupe"`` for ``template_of`` /
+    ``applies_to``. Two independent definitions of *which documents are CUPE*: the
+    producer's member filter and the validator's rule selection could have drifted
+    apart, and a member dropped from a merge as WJQ would still have been JUDGED as
+    JDFN. The old assertion pinned ``jd_bank``'s two runners to each other — one layer
+    below where the fork actually was.
+
+    Pinned two ways, because the constant being shared is not the same claim as the two
+    predicates agreeing: the value is one object, and ``is_wjq_member`` is expressed in
+    terms of ``template_of`` rather than re-deriving it.
+    """
+    assert harmonize_models.WJQ_EMPLOYEE_GROUP is quality_models.WJQ_EMPLOYEE_GROUP
+
+    cupe = SFUJobDescription(title="Clerk", employee_group="cupe")
+    apsa = SFUJobDescription(title="Analyst", employee_group="apsa")
+    none = SFUJobDescription(title="Analyst")
+    for jd in (cupe, apsa, none):
+        assert harmonize_runner.is_wjq_member(jd) is (
+            validators.template_of(jd) == quality_models.WJQ_TEMPLATE
+        )
+
+
+# --- which FORM authors a cluster (HR-206, CUPE Phase D) -----------------------------
+
+
+def _pair(group: str | None) -> tuple[uuid.UUID, SFUJobDescription]:
+    return uuid.uuid4(), SFUJobDescription(title="Analyst", employee_group=group)
+
+
+def _harmonization(*templates: str) -> Harmonization:
+    """A variant of the shipped harmonization block, RE-CONSTRUCTED rather than
+    ``model_copy(update=…)``-ed — the same reason ``Rules.thresholds_for`` re-runs its
+    model: ``model_copy`` skips validation, so a fixture built that way can hand the
+    code under test a config the loader would have refused."""
+    data = {
+        **get_rules().harmonization.model_dump(),
+        "templates_harmonized": tuple(templates),
+    }
+    return Harmonization(**data)
+
+
+def test_a_cluster_is_authored_on_the_first_listed_form_present_in_it() -> None:
+    """``templates_harmonized`` is a PRIORITY order: a MIXED cluster authors on the
+    first listed form it actually holds, so shipping ``[jdfn, wjq]`` leaves every mixed
+    cluster doing exactly what it did before Phase D. Reversing the list moves it —
+    which is the mutation that proves the order is read at all, not just the membership.
+    """
+    by_form = canon_runner.partition_by_template([_pair("apsa"), _pair("cupe")])
+    assert sorted(by_form) == ["jdfn", "wjq"]
+
+    assert canon_runner.authoring_template(by_form, _harmonization("jdfn", "wjq")) == (
+        "jdfn"
+    )
+    assert canon_runner.authoring_template(by_form, _harmonization("wjq", "jdfn")) == (
+        "wjq"
+    )
+
+
+def test_a_cluster_with_no_listed_form_authors_nothing() -> None:
+    """The pre-Phase-D behaviour, reachable by configuration alone: with ``wjq`` off the
+    list an all-CUPE cluster has no authoring form and produces no draft. ``None`` is
+    the honest answer — not a fallback to JDFN, which would author a CUPE role's draft
+    against a form it was never written on."""
+    by_form = canon_runner.partition_by_template([_pair("cupe"), _pair("cupe")])
+    assert canon_runner.authoring_template(by_form, _harmonization("jdfn")) is None
+    assert canon_runner.authoring_template(by_form, _harmonization("jdfn", "wjq")) == (
+        "wjq"
+    )
+
+
+def test_a_form_may_not_be_listed_twice() -> None:
+    """A repeated template is unreachable in a priority order, and an unreachable entry
+    in a policy list reads like a decision that was never made."""
+    with pytest.raises(ValidationError):
+        _harmonization("jdfn", "wjq", "jdfn")
+
+
+def test_the_shipped_rulebook_harmonizes_both_forms() -> None:
+    """The shipped default is HR-206's ``[jdfn, wjq]`` — pinned here so removing CUPE
+    from the Bank's drafting scope has to be an argued diff, not a quiet YAML edit."""
+    assert get_rules().harmonization.templates_harmonized == ("jdfn", "wjq")
 
 
 # --- draft-only + counts-only frozen result ------------------------------------------
@@ -160,11 +255,13 @@ def _result() -> CanonicalProducerResult:
         documents_unsignable=1,
         clusters_recomputed=3,
         wjq_members_excluded=2,
+        wjq_members_authored=0,
         wjq_members_frequency_confirmed=2,
         clusters_fully_wjq_excluded=1,
         clusters_mixed_jdfn_wjq=0,
         member_rows_dropped_unvalidatable=0,
         clusters_seen=2,
+        clusters_by_template={"jdfn": 2},
         multi_member_clusters=2,
         single_member_clusters=0,
         drafts_persisted=2,

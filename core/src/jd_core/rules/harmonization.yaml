@@ -26,6 +26,20 @@
 
 version: jd_rules_sfu_v4
 
+# --- which FORMS the producer authors a draft for (CUPE Phase D) --------------------
+# The document templates the canonical-draft producer harmonizes, in PRIORITY order. A
+# cluster's canonical is authored on the FIRST listed template that has members in that
+# cluster; members on any other template are dropped from the merge and COUNTED (never
+# silently). `jd_core.quality.validators.template_of` decides a member's template — the
+# same separator `applies_to` (Phase B) and `thresholds_for` (Phase C) already use.
+#
+# It is a priority list rather than a set because `canonical_jds` is UNIQUE on
+# (cluster_id, version): a cluster can hold exactly one draft, so a MIXED cluster needs
+# a rule for which form wins. `jdfn` first keeps every mixed cluster authoring exactly
+# what it authored before this knob existed — JDFN is the control, as it was in B and C.
+# Dropping `wjq` from the list restores the pre-Phase-D behaviour exactly. HR-206.
+templates_harmonized: [jdfn, wjq]
+
 # --- section selection (scalars / text) --------------------------------------------
 # How the canonical TITLE is chosen. `modal_normalized`: group members by their
 # `normalize_title` stem, take the most-populous group (the modal role), and within it
