@@ -39,13 +39,14 @@ from src.jd_bank.harmonize.models import (
     DUTY_JACCARD_CANDIDATES,
     HARMONIZE_VERSION,
     PAIRWISE_STATEMENT_CAP,
-    WJQ_EMPLOYEE_GROUP,
     ClusterHarmonization,
     HarmonizationResult,
 )
 from src.jd_core.bank.merge import _jaccard, _tokens, merge_cluster
 from src.jd_core.bank.signals import build_job_signals
 from src.jd_core.models.parsed_jd import SFUJobDescription
+from src.jd_core.models.quality import WJQ_TEMPLATE
+from src.jd_core.quality.validators import template_of
 from src.jd_core.rules import Harmonization, Rules, get_rules
 
 # --- pure: the WJQ proxy (template is not persisted) --------------------------------
@@ -56,8 +57,13 @@ def is_wjq_member(jd: SFUJobDescription) -> bool:
     the JDFN/WJQ separator. ``ParseResult.template`` is not persisted, and the WJQ
     segmenter sets ``employee_group == "cupe"`` unconditionally, so this has complete
     WJQ recall (its only risk is over-excluding a JDFN doc that names CUPE in its
-    identification block — the safe direction for measuring the JDFN bar)."""
-    return jd.employee_group == WJQ_EMPLOYEE_GROUP
+    identification block — the safe direction for measuring the JDFN bar).
+
+    Expressed as ``template_of(jd) == "wjq"`` rather than as its own comparison, so
+    "which documents are CUPE?" has exactly ONE answer in this codebase. It used to
+    have two — see the note on :data:`~src.jd_bank.harmonize.models.WJQ_EMPLOYEE_GROUP`.
+    """
+    return template_of(jd) == WJQ_TEMPLATE
 
 
 def member_has_frequency(jd: SFUJobDescription) -> bool:

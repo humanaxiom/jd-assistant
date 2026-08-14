@@ -26,6 +26,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.jd_core.models.quality import WJQ_EMPLOYEE_GROUP as _WJQ_EMPLOYEE_GROUP
+
 #: Bump when this module's pure MEASUREMENT maths changes for the same knobs (a code
 #: change, not data). Rides in the summary's ``harmonize_stamp``.
 HARMONIZE_VERSION: Final[str] = "harmonize_v1"
@@ -33,7 +35,16 @@ HARMONIZE_VERSION: Final[str] = "harmonize_v1"
 #: The ``employee_group`` value the WJQ segmenter stamps on every CUPE questionnaire —
 #: the JDFN/WJQ separator (the JD model's own documented mechanism). Since
 #: ``ParseResult.template`` is not persisted, this is the WJQ proxy the runner filters.
-WJQ_EMPLOYEE_GROUP: Final[str] = "cupe"
+#:
+#: ⚠ RE-EXPORTED from ``jd_core``, not defined here — it used to be a second literal
+#: ``"cupe"``. Phase B gave ``jd_core`` its own copy for ``template_of``/``applies_to``,
+#: which meant the archive had **two independent definitions of which documents are
+#: CUPE**: the producer's filter and the validator's rule selection could have drifted
+#: apart, and a member excluded from a merge as WJQ would still have been *judged* as
+#: JDFN. Found while wiring Phase D, which needs the two to be the same fact. The
+#: existing anti-fork test only pinned ``jd_bank``'s two runners to each other — one
+#: layer below where the fork actually was.
+WJQ_EMPLOYEE_GROUP: Final[str] = _WJQ_EMPLOYEE_GROUP
 
 #: Candidate duty-dedup thresholds swept to expose the knee (the 3.3 pattern) for
 #: ``duty_dedup_jaccard_min`` (HR-171, shipped 0.7).

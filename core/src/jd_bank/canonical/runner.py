@@ -4,7 +4,7 @@ Per run::
 
     run_clustering(session)                      # REUSE 3.5 — the JDFN+WJQ partition
         -> load_member_jds(clustered source_ids) # reconstruct each member JD
-        -> per cluster: drop WJQ (COUNT it), JDFN-only
+        -> per cluster: pick the authoring FORM (HR-206), drop + COUNT the rest
            -> merge_cluster (4.1)                # the deterministic grounded draft
            -> rewrite_merged_role (4.2a, best-effort)   # cleaner prose, anti-fab guard
            -> audit_quality (4.2b, best-effort/advisory)
@@ -43,6 +43,15 @@ idempotent re-run cheaply refreshes/skips what already landed. ``commit_every=No
 the single final commit. An optional ``progress_every=N`` prints a counts-only progress
 line to STDERR at the same cadence so the run is watchable via the container logs.
 
+**Which FORMS get drafted** is ``harmonization.templates_harmonized`` (HR-206, CUPE
+Phase D), a PRIORITY order: a cluster's draft is authored on the first listed template
+with members in it, and members on any other form are dropped and counted. Before Phase
+D this was hardcoded JDFN-only, which left 657 all-CUPE clusters (26.7%) with no draft
+at all. Nothing downstream branches on the form — the merge carries the members' own
+``employee_group`` into the draft and ``evaluate_jd_rules`` reads it back to pick that
+form's rules (Phase B) and numbers (Phase C), so a CUPE draft is judged against the WJQ
+profile without a single ``if template ==`` in the persistence path.
+
 ``jd_core`` is never imported the other way round — the producer is ``jd_bank`` and it
 drives ``jd_core`` (merge / diff / validator / gates) freely.
 """
@@ -51,7 +60,7 @@ from __future__ import annotations
 
 import sys
 import time
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -72,7 +81,7 @@ from src.jd_bank.db.models import (
 from src.jd_bank.dedup.signals_load import load_member_jds
 
 # Import — do NOT fork — the WJQ proxy the harmonize runner already established.
-from src.jd_bank.harmonize.runner import is_wjq_member, member_has_frequency
+from src.jd_bank.harmonize.runner import member_has_frequency
 from src.jd_bank.jd_text import flatten_jd
 from src.jd_bank.llm.client import ChatClient
 from src.jd_bank.quality.audit import audit_quality
@@ -86,11 +95,17 @@ from src.jd_core.models.bank import (
     RewrittenDraft,
 )
 from src.jd_core.models.parsed_jd import SFUJobDescription
-from src.jd_core.models.quality import GateDecision, JDGrade, JDQualityIssue
+from src.jd_core.models.quality import (
+    WJQ_TEMPLATE,
+    GateDecision,
+    JDGrade,
+    JDQualityIssue,
+    JDTemplate,
+)
 from src.jd_core.quality.gates import evaluate_gates
 from src.jd_core.quality.scoring import score_issues
-from src.jd_core.quality.validators import evaluate_jd_rules
-from src.jd_core.rules import Rules, get_rules
+from src.jd_core.quality.validators import evaluate_jd_rules, template_of
+from src.jd_core.rules import Harmonization, Rules, get_rules
 
 #: The ONLY status the producer ever writes — a draft a human still has to approve.
 DRAFT: CanonicalStatus = CanonicalStatus.DRAFT
@@ -98,6 +113,42 @@ DRAFT: CanonicalStatus = CanonicalStatus.DRAFT
 #: The single canonical version the producer maintains per cluster. A reviewer edit /
 #: approval (4.4b) is what mints later versions; the producer only refreshes v1.
 _PRODUCER_VERSION = 1
+
+
+# --- pure: which FORM authors a cluster's draft (HR-206, CUPE Phase D) ---------------
+
+
+def partition_by_template(
+    present: Sequence[tuple[UUID, SFUJobDescription]],
+) -> dict[JDTemplate, list[tuple[UUID, SFUJobDescription]]]:
+    """Split a cluster's members by the form each was written on, order preserved.
+
+    ``template_of`` is the SAME separator ``applies_to`` (Phase B) and
+    ``thresholds_for`` (Phase C) read, imported rather than re-derived — three places
+    deciding "is this a WJQ document?" is three places that can disagree.
+    """
+    by_form: dict[JDTemplate, list[tuple[UUID, SFUJobDescription]]] = {}
+    for mid, jd in present:
+        by_form.setdefault(template_of(jd), []).append((mid, jd))
+    return by_form
+
+
+def authoring_template(
+    by_form: Mapping[JDTemplate, Sequence[object]], harmonization: Harmonization
+) -> JDTemplate | None:
+    """The form this cluster's single draft is authored on — ``None`` if no member is
+    on a form the Bank drafts at all.
+
+    ``templates_harmonized`` is a PRIORITY order, not a set, because ``canonical_jds``
+    is UNIQUE on ``(cluster_id, version)``: a cluster can hold exactly one draft, so a
+    cluster holding both forms needs a rule for which one wins rather than a coin toss.
+    Shipped ``[jdfn, wjq]``, so a mixed cluster authors JDFN — precisely what it did
+    before this knob existed.
+    """
+    for template in harmonization.templates_harmonized:
+        if by_form.get(template):
+            return template
+    return None
 
 
 # --- pure: the no-clobber predicate --------------------------------------------------
@@ -239,13 +290,15 @@ async def _run_llm_passes(
 def _cluster_snapshot(
     record: ClusterRecord,
     *,
-    jdfn_ids: Sequence[UUID],
+    member_ids: Sequence[UUID],
     merged: MergedRole,
-    wjq_excluded: int,
+    template: JDTemplate,
+    members_excluded: int,
 ) -> dict[str, Any]:
-    """The auditable ``clusters`` snapshot for a first insert: the JDFN members that fed
-    the canonical, the harmonized employee group, and the cohesion metadata — counts /
-    labels / filenames only (the class ``docs/cluster/`` commits), never JD prose.
+    """The auditable ``clusters`` snapshot for a first insert: the members that fed the
+    canonical, the form they were authored on, the harmonized employee group, and the
+    cohesion metadata — counts / labels / filenames only (the class ``docs/cluster/``
+    commits), never JD prose.
     """
     filenames = {m.source_id: m.filename for m in record.members}
     group = merged.draft.employee_group
@@ -253,7 +306,8 @@ def _cluster_snapshot(
         "label": record.label,
         "employee_group": str(group) if group is not None else None,
         "members": [
-            {"source_id": str(mid), "filename": filenames.get(mid)} for mid in jdfn_ids
+            {"source_id": str(mid), "filename": filenames.get(mid)}
+            for mid in member_ids
         ],
         "constraint_metadata": {
             "constraint_violations": list(record.constraint_violations),
@@ -261,7 +315,13 @@ def _cluster_snapshot(
             "cross_group": record.cross_group,
             "family_band_spread": record.family_band_spread,
             "bands": list(record.bands),
-            "wjq_members_excluded": wjq_excluded,
+            # The FORM this cluster's draft was authored on, and how many members were
+            # dropped because they were on another one (HR-206). `members_excluded`
+            # kept the old key's meaning but not its name: it read
+            # `wjq_members_excluded` when WJQ was the only thing ever dropped, and a
+            # count that can now hold JDFN members must not still say "wjq".
+            "authored_template": template,
+            "members_excluded": members_excluded,
         },
     }
 
@@ -272,20 +332,27 @@ def _cluster_snapshot(
 async def _process_cluster(
     session: AsyncSession,
     record: ClusterRecord,
-    jdfn_pairs: Sequence[tuple[UUID, SFUJobDescription]],
+    member_pairs: Sequence[tuple[UUID, SFUJobDescription]],
     *,
-    wjq_excluded: int,
+    template: JDTemplate,
+    members_excluded: int,
     rewrite_client: ChatClient | None,
     audit_client: ChatClient | None,
     rules: Rules,
 ) -> _Outcome:
     """Merge -> (best-effort LLM) -> validate -> upsert cluster + persist/refresh DRAFT
-    + append audit_log, for ONE JDFN cluster. Runs inside the caller's SAVEPOINT.
+    + append audit_log, for ONE cluster on ONE form. Runs in the caller's SAVEPOINT.
+
+    Template-agnostic end to end, and deliberately so: the merge carries the members'
+    own ``employee_group`` into the draft, and ``evaluate_jd_rules`` reads it back to
+    pick the rules (Phase B) and the numbers (Phase C) for that form. ``template`` is
+    passed in for the RECORD — the audit row and the cluster snapshot — never to
+    branch on.
     """
     outcome = _Outcome()
     cluster_id = record.cluster_id
-    jdfn_ids = [mid for mid, _ in jdfn_pairs]
-    jdfn_members = [jd for _, jd in jdfn_pairs]
+    member_ids = [mid for mid, _ in member_pairs]
+    members = [jd for _, jd in member_pairs]
 
     # 1. NO-CLOBBER — look up the LATEST existing canonical for this cluster FIRST.
     # `order_by(version desc)` so a cluster that a reviewer edit (4.4b) has grown a v2
@@ -325,7 +392,7 @@ async def _process_cluster(
             return outcome
 
     # 2. The deterministic merge draft + the best-effort LLM passes.
-    merged = merge_cluster(jdfn_members, rules=rules)
+    merged = merge_cluster(members, rules=rules)
     final_draft, rewritten, quality_audit = await _run_llm_passes(
         merged,
         rewrite_client=rewrite_client,
@@ -342,9 +409,7 @@ async def _process_cluster(
     gate_decision = evaluate_gates(issues, score, grade, gates=rules.gates)
 
     # 4. The 4.3 change-log + the reviewer packet.
-    diff = build_harmonization_diff(
-        merged, jdfn_members, rewrite=rewritten, rules=rules
-    )
+    diff = build_harmonization_diff(merged, members, rewrite=rewritten, rules=rules)
     change_log = build_change_log_packet(
         merged=merged,
         diff=diff,
@@ -361,14 +426,18 @@ async def _process_cluster(
     )
     content: dict[str, Any] = final_draft.model_dump(mode="json")
     source_document_ids: list[dict[str, Any]] = [
-        {"source_id": str(mid)} for mid in jdfn_ids
+        {"source_id": str(mid)} for mid in member_ids
     ]
 
     # 5. UPSERT the clusters row (select-or-insert on the STABLE content-derived id).
     cluster = await session.get(Cluster, cluster_id)
     if cluster is None:
         snapshot = _cluster_snapshot(
-            record, jdfn_ids=jdfn_ids, merged=merged, wjq_excluded=wjq_excluded
+            record,
+            member_ids=member_ids,
+            merged=merged,
+            template=template,
+            members_excluded=members_excluded,
         )
         cluster = Cluster(
             id=cluster_id,  # NOT the table's uuid4 default — the idempotency key.
@@ -423,8 +492,13 @@ async def _process_cluster(
                 "action": action,
                 "version": _PRODUCER_VERSION,
                 "status": DRAFT.value,
-                "jdfn_member_count": len(jdfn_ids),
-                "wjq_members_excluded": wjq_excluded,
+                # The FORM this draft was authored on rides in the audit row so a score
+                # can never be read out of the log without the bar it was scored
+                # against — the per-group rule (never blend the two cohorts) applies to
+                # the audit trail too, not just to the reports.
+                "template": template,
+                "member_count": len(member_ids),
+                "members_excluded": members_excluded,
                 "score": score,
                 "grade": grade,
                 "approvable": gate_decision.approved,
@@ -516,10 +590,12 @@ async def run_canonical_producer(
     jds_by_id, dropped_unvalidatable = await load_member_jds(session, member_ids)
 
     wjq_excluded_total = 0
+    wjq_authored_total = 0
     wjq_freq_confirmed = 0
     fully_wjq = 0
     mixed = 0
     clusters_seen = 0
+    by_template: dict[str, int] = {}
     multi = 0
     single = 0
     persisted = 0
@@ -542,20 +618,35 @@ async def run_canonical_producer(
         present = [
             (mid, jds_by_id[mid]) for mid in member_ids_sorted if mid in jds_by_id
         ]
-        jdfn_pairs = [(mid, jd) for mid, jd in present if not is_wjq_member(jd)]
-        wjq = [jd for _, jd in present if is_wjq_member(jd)]
+        # Which FORM authors this cluster's draft, and which members are therefore
+        # dropped (HR-206). `templates_harmonized` is a PRIORITY order, so a mixed
+        # cluster authors on the first listed form present in it — `jdfn` first means a
+        # mixed cluster does exactly what it did before Phase D.
+        by_form = partition_by_template(present)
+        template = authoring_template(by_form, rulebook.harmonization)
+        wjq_members = [jd for _, jd in by_form.get(WJQ_TEMPLATE, ())]
 
-        wjq_excluded_total += len(wjq)
-        wjq_freq_confirmed += sum(1 for jd in wjq if member_has_frequency(jd))
+        wjq_freq_confirmed += sum(1 for jd in wjq_members if member_has_frequency(jd))
+        if template == WJQ_TEMPLATE:
+            wjq_authored_total += len(wjq_members)
+        else:
+            wjq_excluded_total += len(wjq_members)
 
-        if not jdfn_pairs:
-            fully_wjq += 1
+        if template is None:
+            # No member is on a form the Bank drafts. Today that can only be an all-WJQ
+            # cluster with `wjq` removed from the list — the pre-Phase-D behaviour.
+            if wjq_members:
+                fully_wjq += 1
             continue
-        if wjq:
+
+        member_pairs = by_form[template]
+        excluded_count = len(present) - len(member_pairs)
+        if excluded_count and WJQ_TEMPLATE in by_form and template != WJQ_TEMPLATE:
             mixed += 1
 
         clusters_seen += 1
-        if len(jdfn_pairs) >= 2:
+        by_template[template] = by_template.get(template, 0) + 1
+        if len(member_pairs) >= 2:
             multi += 1
         else:
             single += 1
@@ -565,8 +656,9 @@ async def run_canonical_producer(
                 outcome = await _process_cluster(
                     session,
                     record,
-                    jdfn_pairs,
-                    wjq_excluded=len(wjq),
+                    member_pairs,
+                    template=template,
+                    members_excluded=excluded_count,
                     rewrite_client=rewrite_client,
                     audit_client=audit_client,
                     rules=rulebook,
@@ -603,7 +695,9 @@ async def run_canonical_producer(
         documents_unsignable=clustering.documents_unsignable,
         clusters_recomputed=clustering.cluster_count,
         wjq_members_excluded=wjq_excluded_total,
+        wjq_members_authored=wjq_authored_total,
         wjq_members_frequency_confirmed=wjq_freq_confirmed,
+        clusters_by_template=dict(sorted(by_template.items())),
         clusters_fully_wjq_excluded=fully_wjq,
         clusters_mixed_jdfn_wjq=mixed,
         member_rows_dropped_unvalidatable=dropped_unvalidatable,

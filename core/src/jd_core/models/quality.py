@@ -61,6 +61,10 @@ WJQ_EMPLOYEE_GROUP = "cupe"
 #: larger form and the one the shipped bar was calibrated on.
 DEFAULT_TEMPLATE: JDTemplate = "jdfn"
 
+#: The CUPE point-factor questionnaire, named so that "is this the WJQ?" is a constant
+#: rather than a bare ``"wjq"`` repeated across the producer, the loader and the rules.
+WJQ_TEMPLATE: JDTemplate = "wjq"
+
 # The SFU JD template's sections, in template order, plus a cross-cutting
 # "general" bucket for whole-document findings (inclusive language, placeholders,
 # LLM findings that don't map to one section). Drives the section-grouped

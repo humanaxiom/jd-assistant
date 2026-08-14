@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+76baba29cfeb` · **205 decisions** (205 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 265 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+76baba29cfeb` · **206 decisions** (206 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 266 parameters on the decision surface, all accounted for.
 
-**Of those 205, 70 need an HR ruling.** The other 135 are recorded for the same build check but are not yours to sign: 50 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 206, 71 need an HR ruling.** The other 135 are recorded for the same build check but are not yours to sign: 50 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -102,6 +102,7 @@ Two of the three mean *nobody at SFU has agreed to this yet.* That is the honest
 | [HR-203](#hr-203) | What is the minimum number of major responsibilities for a CUPE (WJQ) job description? Held at the JDFN's 3 (HR-021). | `3` | we chose it |
 | [HR-204](#hr-204) | How long may a CUPE (WJQ) Position Summary be? Held at the JDFN's 150-word maximum (HR-020). | `150` | we chose it |
 | [HR-205](#hr-205) | What is the minimum length of a CUPE (WJQ) Position Summary? Held at the JDFN's 100 words (HR-019). | `100` | we chose it |
+| [HR-206](#hr-206) | Which SFU job-description FORMS should the Bank harmonize into canonical drafts — the JDFN template only, as it has since Phase 4.4, or the CUPE (WJQ) questionnaire too? And when one cluster holds members of both forms, which form wins? | `jdfn`, `wjq` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -346,6 +347,14 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 - **Where the default came from:** we chose it
 - **Why it matters:** The knob with the largest measured population behind it and the least evidence for a value: 39.9% of CUPE summaries are under 100 words, so this is the CUPE cohort's single commonest summary finding — and `SFU-STRUCT-SUMMARY-TOO-SHORT` is deliberately in NO blocking set (`gates.yaml` tension #1: the under-run is our drafting nudge, not an SFU condition), so today it costs score and blocks nothing. Whether the WJQ's shorter summaries are a defect at all, or simply what that form elicits, is exactly the sort of question this register exists to put to HR rather than answer with a number we picked.
 - **If it changes:** Moves `rules_version`. Lowering it would silence the CUPE cohort's most frequent summary finding; raising it would penalise ~40% of CUPE JDs further. Advisory — the rule is in no blocking set.
+
+##### HR-206 — Which SFU job-description FORMS should the Bank harmonize into canonical drafts — the JDFN template only, as it has since Phase 4.4, or the CUPE (WJQ) questionnaire too? And when one cluster holds members of both forms, which form wins?
+
+- **We ship:** `jdfn`, `wjq`
+- **Configured in:** `harmonization.yaml` → `harmonization.templates_harmonized`
+- **Where the default came from:** we chose it
+- **Why it matters:** Until Phase D the producer dropped every WJQ member and skipped a cluster that held nothing else — 657 of 2,458 recomputed clusters (26.7%) and 3,511 member documents, counted but never drafted. That was never a considered policy; it was the same category error the rest of this phase removed, in the last place it still lived. The dedup + clustering pipeline has been ready for CUPE since Phase 3 (49,448 role-equivalent edges, MORE than APSA's 49,008), and Phases B and C gave the WJQ its own applicable rules and its own numbers — so a CUPE draft is now judged against its own form rather than against a form it was never written on. ⚠ WHAT THIS IS NOT: it does not decide whether the BUILDER may author a new CUPE JD from scratch — that is HR-194, a separate scope question. This knob decides only whether the roles CUPE already has get a harmonized draft for a human to read. Nothing here publishes anything (non-negotiable #1); every draft is a DRAFT. The list is a PRIORITY order because `canonical_jds` is UNIQUE on (cluster_id, version) — a cluster can hold one draft, so a mixed cluster needs a rule for which form wins, and `jdfn` first means every mixed cluster (10 of 2,458 measured — 0.4%) authors exactly what it authored before this knob existed. That is deliberate: JDFN is the untouched control, as it was in Phases B and C.
+- **If it changes:** Does NOT move `rules_version` (harmonization.yaml is unhashed) — this decides how a draft is ASSEMBLED, never how one is scored. Removing `wjq` restores the exact pre-Phase-D behaviour: 657 clusters produce no draft and their members are counted as excluded. Removing `jdfn` would stop refreshing the 1,801 existing JDFN drafts and is almost certainly not what anyone wants — the loader accepts it (the list is a policy, not a safety rail) but the producer's counters would show it immediately. Re-ordering to `[wjq, jdfn]` re-authors the 10 mixed clusters on the CUPE form, which would rewrite drafts a reviewer may already be reading; the no-clobber rule still protects any draft a reviewer has touched. Pinned by an integration test that turns red in BOTH directions — a fully-WJQ cluster persists a `wjq` draft with the list as shipped, and persists nothing with `wjq` removed.
 
 #### An earlier version of this tool chose it — also unratified
 
