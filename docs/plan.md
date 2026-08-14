@@ -813,10 +813,63 @@ prose above understated:
    `applies_to` on each catalog rule with no default (the P1.3 `tier` move), which is worth
    landing **even if HR rules against serving CUPE**.
 
-**Phases: ~~A (fix the truncation)~~ ✅ DONE 2026-08-14 · B (`applies_to`) needs no HR and is
-next · C (define the bar) is HR-194 and blocks D (turn on harmonize/cluster for CUPE) and E
-(Builder token).** Until HR rules on HR-194, "the Bank does not serve CUPE" is an explicit
-decision on the register, not one made by omission.
+**Phases: ~~A (fix the truncation)~~ ✅ · ~~B (`applies_to`)~~ ✅ both DONE 2026-08-14 ·
+C (calibrate the WJQ bar) ⟵ NEXT · D (turn on harmonize/cluster for CUPE) · E (Builder
+token).**
+
+> **⚠️ AND THE HR-194 FRAMING WAS WRONG — CORRECTED 2026-08-14, because it changes the
+> sequencing.** This plan said a CUPE bar must wait for HR to define one. **Measured: the
+> JDFN bar is itself entirely unratified.** All **201** register entries are `open`; the
+> approval bar that gates real publishes today is `our_invention` — `HR-001` score floor
+> 60.0, `HR-002` grade floor `C`, `HR-004`'s 14 blocking rules, none of them signed by SFU.
+>
+> **So holding CUPE to "wait for HR" while shipping an unratified JDFN bar was never a
+> consistent position.** The correct standard is the one APSA already got: **build the WJQ
+> bar the same way — measured over the corpus, every value registered `open`, nothing
+> auto-publishing, HR free to change any of it.** That is not going past the approval bar;
+> it is applying the same discipline twice.
+>
+> What HR-194 still genuinely decides is **scope** — whether the Builder should *author*
+> CUPE (Phase E) — not whether a measured bar may exist.
+
+**✅ PHASE B — `applies_to`, SHIPPED 2026-08-14.** Every rule in `rule_catalog.yaml` now
+declares which template it can judge, **required with no default** (the P1.3 `tier` move),
+and `evaluate_jd_rules` filters on it — inside the *existing* central filter, whose comment
+already stated the principle: *a finding present on every approvable JD is not a quality
+signal, it is a constant.* `applies_to` is that principle one axis over.
+
+**Measured same-document, toggling only the filter:**
+
+| cohort | before | after |
+|---|---|---|
+| **JDFN** | mean 73.0 · 14.8% approvable | **73.0 · 14.8% — identical** |
+| **CUPE** | mean 51.4 · 0.0% | **62.9 · 0.2%** |
+
+**JDFN being untouched is the important half** — a filter that silenced rules everywhere
+would have looked like success on the CUPE number alone. CUPE gains **+11.5 points** purely
+by no longer being marked down for sections its form never asks for. It is still ~0%
+approvable because the *thresholds* remain JDFN-calibrated, which is exactly Phase C.
+
+**⚠ A methodology catch worth keeping:** the first before/after compared *different
+documents* — `ORDER BY id` over v4 rows selects a different 600 than over v3 rows, because
+each parse row carries its own UUID — and appeared to show JDFN improving too. That was
+sampling noise. The table above toggles only `template_of`.
+
+**🔴 One of the eight JDFN-only rules is a POLICY call, not a fact — HR-201, `hr_policy`,
+`open`.** `SFU-COMP-ABOUT` / `-TERRITORIAL` / `-EDI` check SFU-wide commitments, not JDFN
+furniture; one could argue every SFU JD should carry them whatever form it was written on.
+But the WJQ contains no such block, so applying them marks down all 4,440 CUPE JDs for a
+property of the *form*, while not applying them holds CUPE to a weaker inclusion standard
+than APSA. Defaulted to JDFN-only and registered, with the view recorded that **if HR rules
+the boilerplate is universal the honest fix is the FORM** — ask SFU to add the block to the
+WJQ — not a rule every CUPE JD fails by construction.
+
+**Phase C, now that B has landed:** calibrate the WJQ thresholds against the CUPE corpus the
+way the JDFN ones were calibrated against theirs — summary length (CUPE averages **168**
+words against a JDFN-derived 100–150 band), duty count (**9.7** against `duties_max: 5`),
+and the KSA/qualification conventions. Every value registered `open`. Until HR rules on
+HR-194, "the Bank does not *author* CUPE" remains an explicit decision on the register, not
+one made by omission.
 
 **✅ PHASE A — SHIPPED AND VERIFIED OVER ALL 14,522 DOCUMENTS (2026-08-14).**
 `additional_context` had inherited `position_summary`'s 4,000-character ceiling through a

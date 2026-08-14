@@ -370,6 +370,11 @@ def test_a_new_catalogued_rule_with_no_registered_severity_fails_coverage(
                 "rule_id": "SFU-INVENTED-RULE",
                 "category": "structure",
                 "section": "duties",
+                # Required with no default (CUPE Phase B) — a rule cannot be filed
+                # against a template by omission, so even a throwaway fixture must
+                # state one. This test is about SEVERITY registration; the value here
+                # is incidental.
+                "applies_to": ["jdfn"],
                 "source_part": "Part 2C",
                 "default_severity": "high",
                 "title": "An invented rule nobody registered",

@@ -14,11 +14,11 @@ Read this first every session. Single source of truth for current state + how we
 
 | | |
 |---|---|
-| `main` | `4b44d53` — **#99** · **#101** · **#102** (8.3a) · **#103** · **#104** · **#105** (8.3b) · **#106** (8.3c — **Phase 8 complete**) · **#108** (Phase 6 runbooks) |
-| **Open PRs** | **#109 — CUPE: evidence + design + Phase A.** CI green, `MERGEABLE`, awaiting review |
-| Gates | **2,712 passing, 94.05%** on the #109 branch; **2,671 / 94.02%** was the last `make gates` on merged `main`. `register-check` + `guide-check` exit 0 |
-| `rules_version` | `jd_rules_sfu_v4+90af5e27dc83` — **still unmoved**, including through #109: `segmentation.yaml` is unhashed (`Segmentation.stamp` moves instead) |
-| Register | **198** decisions (HR-200 is new), **0 ratified** ← *still the critical path, and still external*. The HR ask is **65**, not 198 (P1.3) |
+| `main` | `d353500` — Phase 8 complete (#102 · #105 · #106), Phase 6 runbooks (#108), and **#109** (CUPE evidence + design + Phase A) |
+| **Open PRs** | **CUPE Phase B** (`feat/cupe-phase-b-applies-to`) — `applies_to` on every rule; branch green locally, PR to open |
+| Gates | **2,712 / 94.05%** was the last full run on the merged state; Phase B's own run is in the block below. `register-check` + `guide-check` exit 0 |
+| `rules_version` | 🔔 **MOVED — `jd_rules_sfu_v4+90af5e27dc83` → `+71f6e4d7d9de`** (verified, not assumed). `rule_catalog.yaml` is hashed and every rule gained `applies_to`. It had held still through **every** PR since P0.1b-i; Phase B is the first change that genuinely alters what the rulebook says, so the bump is correct rather than incidental |
+| Register | **201** decisions (HR-200 the context cap, HR-201 the CUPE boilerplate call), **0 ratified**. ⚠ **And the JDFN bar is among the unratified** — see the Phase B block: that is what corrects the HR-194 framing |
 | Live data | 14,565 files · **14,522 parsed at `jd_segmenter_v4`** (v1–v3 rows retained) · 1,803 roles · **4 published** · `review_actions` 6 · one cluster now has TWO versions (someone edited a published JD on 2026-08-13), which is what finally gave 8.3a live surface |
 
 ### What changed this session, in one paragraph
@@ -102,8 +102,9 @@ was always the real critical path — and the first item is not a commit.
 | ~~2~~ | ~~**Phase 8.3 — review-experience upgrades**~~ ✅ **PHASE 8 IS COMPLETE** | 8.3a word-level diff (#102) · 8.3b structural sidebar (#105) · 8.3c gate→field jump-links. All three landed 2026-08-13; none earned a register entry. |
 | ~~2~~ | ~~**Phase 6 leftovers**~~ ✅ **RUNBOOKS DONE** | `docs/runbooks/backup-and-restore.md` + `reindex.md`, both **executed against the live stack before being written**, linked from the operator guide. |
 | ~~2~~ | ~~**CUPE Phase A — the `additional_context` truncation**~~ ✅ **DONE (#109)** | 81.4% of CUPE JDs were stored truncated; now 0%. `PARSER_VERSION` → `jd_segmenter_v4`, whole archive re-parsed, HR-200 registered. See the CUPE block below. |
-| **2** | **CUPE Phase B — `applies_to` on the rule catalog ⟵ NEXT, and it needs no HR** | Required with no default (the P1.3 `tier` move), so the four rules that fire on **100%** of CUPE become **structurally** unable to, rather than conventionally excluded. **Worth landing even if HR rules against serving CUPE**, because it turns "we know not to score CUPE" from an `if` in a runner into a property of the rulebook. Design: `docs/tasks/cupe-support-design.md`. |
-| 3 | **🔴 Everything else engineering-side is done. The rest is external** | **TLS at the edge** (row 1) · **HR ratification** — 198 decisions, 0 signed · **HR-194**, whether a CUPE quality bar should exist at all, which blocks CUPE phases C–E. No amount of code moves any of them. |
+| ~~2~~ | ~~**CUPE Phase B — `applies_to`**~~ ✅ **BUILT** (branch `feat/cupe-phase-b-applies-to`) | The four rules that fired on **100%** of CUPE are now **structurally** unable to, and JDFN is byte-identical. CUPE mean 51.4 → **62.9**. See the block below. |
+| **2** | **CUPE Phase C — calibrate the WJQ bar ⟵ NEXT, and it no longer waits for HR** | The JDFN bar is itself unratified `our_invention`, so the honest standard is to build the WJQ one the same way: **measured over the corpus, every value registered `open`**. Concretely: summary length (CUPE averages **168** words vs a JDFN-derived 100–150 band), duty count (**9.7** vs `duties_max: 5`), and the qualification/KSA conventions. Nothing auto-publishes; HR can change any value. |
+| 3 | **🔴 What is genuinely external** | **TLS at the edge** (row 1) · **HR ratification** — 201 decisions, 0 signed, **including the JDFN bar that gates publishing today** · **HR-194**, which decides *scope* (may the Builder author CUPE — Phase E), not whether a measured bar may exist · **HR-201**, whether SFU's boilerplate applies to a CUPE JD. |
 | 4 | **Territorial-acknowledgement wording sign-off** | The last of Phase 6, and **HR's call, not ours** — it blocks external distribution, not development. *(This row used to also list the backup + reindex runbooks; they are done, and a backlog that lists closed work as open costs a re-investigation every time it is read.)* |
 
 **Deliberately still open, recorded so their absence is not mistaken for completion:**
@@ -160,6 +161,50 @@ deterministic, **no rulebook knob, so no register entry and `rules_version` unmo
   roles put several titles side by side. Not fixed here: a parser change needs a
   `parser_version` bump plus an immediate re-parse of all 14,565 files, which is the same
   ship-together constraint recorded for the `employee_group` residual (#101).
+
+### CUPE PHASE B IS BUILT — and the HR-194 framing was wrong
+
+> **⚠️ THE CORRECTION THAT CHANGES THE SEQUENCING, and it came from checking rather than
+> arguing.** Everything written before this said a CUPE quality bar must wait for HR.
+> **Measured: the JDFN bar is itself entirely unratified.** All **201** register entries
+> are `open`, and the bar that gates real publishes today is `our_invention` — `HR-001`
+> score floor **60.0**, `HR-002` grade floor **C**, `HR-004`'s 14 blocking rules. **None
+> signed by SFU.**
+>
+> **So "CUPE waits for HR" while shipping an unratified JDFN bar was never a consistent
+> position.** The right standard is the one APSA already got: build the WJQ bar the same
+> way — **measured over the corpus, every value registered `open`, nothing auto-publishing,
+> HR free to change any of it.** What HR-194 genuinely decides is **scope** (should the
+> Builder *author* CUPE — Phase E), not whether a measured bar may exist.
+
+**Phase B: every rule now declares which template it can judge.** `applies_to` on all 32
+catalogue rules, **required with no default** (the P1.3 `tier` move), filtered inside the
+*existing* central filter in `evaluate_jd_rules` — the one whose comment already said *a
+finding present on every approvable JD is not a quality signal, it is a constant*.
+`applies_to` is that principle one axis over.
+
+| cohort | before | after |
+|---|---|---|
+| **JDFN** | mean 73.0 · 14.8% approvable | **73.0 · 14.8% — identical** |
+| **CUPE** | mean 51.4 · 0.0% | **62.9 · 0.2%** |
+
+- **JDFN being untouched is the important half.** A filter that silenced rules everywhere
+  would have looked like success on the CUPE number alone. CUPE gains **+11.5 points**
+  purely by no longer being penalised for sections its own form never asks for.
+- **Still ~0% approvable, and that is expected** — the *thresholds* are JDFN-calibrated
+  (summary 100–150 words against CUPE's **168**-word average; `duties_max: 5` against
+  **9.7**). That is Phase C.
+- **⚠ A METHODOLOGY CATCH: my first before/after compared DIFFERENT DOCUMENTS** and appeared
+  to show JDFN improving too. `ORDER BY id` over v4 rows selects a different 600 than over
+  v3 rows, because each parse row carries its own UUID. Sampling noise, not effect. The
+  table above toggles only `template_of` over one document set.
+- **🔴 ONE OF THE EIGHT JDFN-ONLY RULES IS A POLICY CALL, NOT A FACT — HR-201, `hr_policy`,
+  `open`.** `SFU-COMP-ABOUT` / `-TERRITORIAL` / `-EDI` check **SFU-wide commitments**, not
+  JDFN furniture. Applying them marks down all 4,440 CUPE JDs for a property of the *form*;
+  not applying them holds CUPE to a weaker inclusion standard than APSA. Defaulted to
+  JDFN-only and registered — **with the view recorded that if HR rules the boilerplate is
+  universal, the honest fix is the FORM** (ask SFU to add the block to the WJQ), not a rule
+  every CUPE JD fails by construction.
 
 ### CUPE (#109) — and FIRST, the question every reader asks
 

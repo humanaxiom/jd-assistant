@@ -5900,6 +5900,43 @@ decisions:
       by `test_wjq_context_not_truncated.py`.
     status: open
 
+  # ── Do SFU's boilerplate requirements apply to a CUPE/WJQ JD? (CUPE Phase B) ──
+  - id: HR-201
+    question: >-
+      Must a CUPE job description carry SFU's boilerplate — the About SFU block, the
+      territorial acknowledgement and the employment-equity statement — the way a JDFN
+      one must? The WJQ form does not contain them, so today the three rules that check
+      for them are declared JDFN-only and a CUPE JD is not marked down for their absence.
+    config:
+      file: rule_catalog.yaml
+      path: rule_catalog.SFU-COMP-TERRITORIAL.applies_to
+    current_default: [jdfn]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      This is the one genuinely POLICY-shaped question inside an otherwise factual field.
+      `applies_to` normally states a fact about the form — the WJQ has no Problem Solving
+      section, so a rule checking for one cannot judge it. The boilerplate is different:
+      the territorial acknowledgement and the EDI statement are SFU-WIDE commitments, not
+      JDFN-template furniture, and one could argue every SFU job description should carry
+      them regardless of which form it was written on. MEASURED, all three currently fire
+      on ~100% of CUPE documents because the WJQ form simply has no such block — so
+      applying them would mark down all 4,440 CUPE JDs for a property of the FORM rather
+      than of the job description, while NOT applying them means the Bank holds CUPE JDs
+      to a weaker inclusion standard than JDFN ones. The default keeps them JDFN-only
+      because scoring a document for lacking a section its official form never provides is
+      the category error this whole phase exists to remove — but that is an engineering
+      judgement standing in for a policy call, which is exactly what this register is for.
+      If HR rules that the boilerplate is universal, the honest fix is the FORM (ask SFU to
+      add the block to the WJQ), not a rule that every CUPE JD fails by construction.
+      The same question covers `SFU-COMP-ABOUT` and `SFU-COMP-EDI`, which move together.
+    impact_if_changed: >-
+      Moves `rules_version` (rule_catalog.yaml is hashed). Adding `wjq` to these three
+      rules re-applies them to all 4,440 CUPE JDs, where they currently fire on ~100% —
+      restoring roughly a third of the score gap Phase B closed. Pinned by
+      `test_rule_applies_to_template.py`, which fails if the measured JDFN-only set moves.
+    status: open
+
   # ── Embedding over-length fallback ladder (HR-126 follow-up). ──
   - id: HR-193
     question: >-

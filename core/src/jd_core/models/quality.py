@@ -41,6 +41,26 @@ JDIssueSeverity = Literal["info", "low", "medium", "high"]
 JDIssueSource = Literal["rule", "llm"]
 JDGrade = Literal["A", "B", "C", "D", "F"]
 
+# The two document templates in the SFU archive. They are different FORMS, not
+# variants: `jdfn` is the APSA/APEX/POLY job-description form the validator was built
+# against; `wjq` is the CUPE 3338 Weighted Job Questionnaire, a 14-section point-factor
+# instrument with sections the other does not have (and lacking sections the other
+# requires). A rule declares which of them it can judge — see `RuleSpec.applies_to`.
+#
+# ⚠ Measured over the live archive: four rules fired on 100% of CUPE documents purely
+# because the WJQ form does not contain the sections they check. A rule that cannot NOT
+# fire is a constant subtracted from every score, not a quality signal.
+JDTemplate = Literal["jdfn", "wjq"]
+
+#: The value of ``employee_group`` that designates a WJQ document. The WJQ segmenter
+#: sets it unconditionally and ``ParseResult.template`` is not persisted, so this is the
+#: JDFN/WJQ separator of record — with complete WJQ recall.
+WJQ_EMPLOYEE_GROUP = "cupe"
+
+#: The template a document is judged as when its group says nothing. JDFN is the older,
+#: larger form and the one the shipped bar was calibrated on.
+DEFAULT_TEMPLATE: JDTemplate = "jdfn"
+
 # The SFU JD template's sections, in template order, plus a cross-cutting
 # "general" bucket for whole-document findings (inclusive language, placeholders,
 # LLM findings that don't map to one section). Drives the section-grouped

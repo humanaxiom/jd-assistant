@@ -29,6 +29,7 @@ version: jd_rules_sfu_v4
 rules:
   # --- completeness: the mandatory template sections (Part 2) ----------------
   - rule_id: SFU-COMP-SUMMARY
+    applies_to: [jdfn, wjq]
     category: completeness
     section: position_summary
     source_part: Part 2B
@@ -43,6 +44,7 @@ rules:
         purpose and primary duties.
 
   - rule_id: SFU-COMP-DUTIES
+    applies_to: [jdfn, wjq]
     category: completeness
     section: duties
     source_part: Part 2C
@@ -57,6 +59,7 @@ rules:
         an action verb.
 
   - rule_id: SFU-COMP-DECISION
+    applies_to: [jdfn]
     category: completeness
     section: decision_making
     source_part: Part 2D
@@ -70,6 +73,7 @@ rules:
         Give examples of decisions the role makes without supervisor approval.
 
   - rule_id: SFU-COMP-PROBLEM
+    applies_to: [jdfn]
     category: completeness
     section: problem_solving
     source_part: Part 2E
@@ -85,6 +89,7 @@ rules:
         Describe typical problems and the level of guidance the role receives.
 
   - rule_id: SFU-COMP-RELATIONSHIPS
+    applies_to: [jdfn, wjq]
     category: completeness
     section: relationships
     source_part: Part 2F
@@ -97,6 +102,7 @@ rules:
       default: State supervisory scope and key internal/external connections.
 
   - rule_id: SFU-COMP-QUALS
+    applies_to: [jdfn, wjq]
     category: completeness
     section: qualifications
     source_part: Part 2H
@@ -110,6 +116,7 @@ rules:
         List minimum education, experience, knowledge, skills, and abilities.
 
   - rule_id: SFU-COMP-ABOUT
+    applies_to: [jdfn]
     category: completeness
     section: about_sfu
     source_part: Part 2
@@ -122,6 +129,7 @@ rules:
       default: Add the current About SFU block from the template.
 
   - rule_id: SFU-COMP-TERRITORIAL
+    applies_to: [jdfn]
     category: completeness
     section: edi_footer
     source_part: Part 2
@@ -135,6 +143,7 @@ rules:
         Add the territorial acknowledgement boilerplate from the template.
 
   - rule_id: SFU-COMP-EDI
+    applies_to: [jdfn]
     category: completeness
     section: edi_footer
     source_part: Part 2
@@ -158,6 +167,7 @@ rules:
   # express without a code change. Trigger conditions and severities are unchanged
   # from the single two-sided rules they replace.
   - rule_id: SFU-STRUCT-SUMMARY-TOO-SHORT
+    applies_to: [jdfn, wjq]
     category: structure
     section: position_summary
     source_part: Part 2B
@@ -175,6 +185,7 @@ rules:
         range.
 
   - rule_id: SFU-STRUCT-SUMMARY-TOO-LONG
+    applies_to: [jdfn, wjq]
     category: structure
     section: position_summary
     source_part: Part 2B
@@ -192,6 +203,7 @@ rules:
         range.
 
   - rule_id: SFU-STRUCT-DUTIES-TOO-FEW
+    applies_to: [jdfn, wjq]
     category: structure
     section: duties
     source_part: Part 2C
@@ -207,6 +219,7 @@ rules:
       default: Add the missing major responsibilities (each action-verb led).
 
   - rule_id: SFU-STRUCT-DUTIES-TOO-MANY
+    applies_to: [jdfn, wjq]
     category: structure
     section: duties
     source_part: Part 2C
@@ -223,6 +236,7 @@ rules:
         Group related duties under a smaller set of major responsibilities.
 
   - rule_id: SFU-STRUCT-ACTION-VERB
+    applies_to: [jdfn, wjq]
     category: structure
     section: duties
     source_part: Glossary
@@ -257,6 +271,7 @@ rules:
   # LLM pass is the one on the plan. Flip `evaluable: true`, re-baseline, and tell HR
   # what the finding rate on real JDs actually turns out to be.
   - rule_id: SFU-STRUCT-HOW-WHY
+    applies_to: [jdfn, wjq]
     category: structure
     section: duties
     source_part: Part 2C
@@ -272,6 +287,7 @@ rules:
         Add the supporting 'how and why' sub-points for each major duty.
 
   - rule_id: SFU-STRUCT-PLACEHOLDER
+    applies_to: [jdfn, wjq]
     category: structure
     section: general
     source_part: Part 2
@@ -286,6 +302,7 @@ rules:
 
   # --- qualification standards ----------------------------------------------
   - rule_id: SFU-QUAL-SKILL-MODIFIER
+    applies_to: [jdfn, wjq]
     category: qualification_standard
     section: qualifications
     source_part: Part 5
@@ -299,6 +316,7 @@ rules:
       default: Tag each skill basic / intermediate / advanced / expert.
 
   - rule_id: SFU-QUAL-MODIFIER-VOCAB
+    applies_to: [jdfn, wjq]
     category: qualification_standard
     section: qualifications
     source_part: Part 5
@@ -314,6 +332,7 @@ rules:
         basic…expert).
 
   - rule_id: SFU-QUAL-EQUIVALENT
+    applies_to: [jdfn, wjq]
     category: qualification_standard
     section: qualifications
     source_part: Part 2H
@@ -327,6 +346,7 @@ rules:
         Add 'or an equivalent combination of education, training and experience'.
 
   - rule_id: SFU-QUAL-BANNED-PHRASE
+    applies_to: [jdfn, wjq]
     category: qualification_standard
     section: qualifications
     source_part: Part 2H
@@ -344,6 +364,7 @@ rules:
         requirements.
 
   - rule_id: SFU-QUAL-DEGREE-DISCIPLINE
+    applies_to: [jdfn, wjq]
     category: qualification_standard
     section: qualifications
     source_part: Part 2H
@@ -358,6 +379,7 @@ rules:
 
   # --- inclusive language (whole document) ----------------------------------
   - rule_id: SFU-LANG-CODED
+    applies_to: [jdfn, wjq]
     category: inclusive_language
     section: general
     source_part: Part 6
@@ -374,6 +396,7 @@ rules:
 
   # --- quality gates: SFU "never approve" (Part 11.6) -----------------------
   - rule_id: SFU-GATE-DUTY-PCT
+    applies_to: [jdfn]
     category: structure
     section: duties
     source_part: Part 11.6
@@ -387,6 +410,7 @@ rules:
       default: "Adjust the per-duty (%) allocations so they sum to 100%."
 
   - rule_id: SFU-GATE-KSA-ORDER
+    applies_to: [jdfn, wjq]
     category: qualification_standard
     section: qualifications
     source_part: Part 5.4
@@ -400,6 +424,7 @@ rules:
         Order qualifications Knowledge, then Skills, then Abilities (K -> S -> A).
 
   - rule_id: SFU-GATE-SENIOR-TITLE
+    applies_to: [jdfn, wjq]
     category: structure
     section: identification
     source_part: Part 3.5
@@ -416,6 +441,7 @@ rules:
         state the supervisory scope.
 
   - rule_id: SFU-GATE-REL-HEADER
+    applies_to: [jdfn]
     category: completeness
     section: relationships
     source_part: Part 2F
@@ -431,6 +457,7 @@ rules:
 
   # --- authoring gates (Parts 2-3) ------------------------------------------
   - rule_id: SFU-AUTH-SUMMARY-CONDITIONS
+    applies_to: [jdfn, wjq]
     category: structure
     section: position_summary
     source_part: Part 2B
@@ -445,6 +472,7 @@ rules:
         role's purpose, not its conditions.
 
   - rule_id: SFU-AUTH-SUMMARY-INCUMBENT
+    applies_to: [jdfn, wjq]
     category: structure
     section: position_summary
     source_part: Part 2B
@@ -460,6 +488,7 @@ rules:
         "the incumbent".
 
   - rule_id: SFU-AUTH-ABILITIES-OBSERVABLE
+    applies_to: [jdfn, wjq]
     category: qualification_standard
     section: qualifications
     source_part: Part 5.3
@@ -476,6 +505,7 @@ rules:
   # The three restricted titles below are matched from titles.yaml, which names
   # the rule_id it raises. Keep the two files in step — the loader cross-checks.
   - rule_id: SFU-AUTH-TITLE-EXEC-DIR
+    applies_to: [jdfn]
     category: structure
     section: identification
     source_part: Part 3.5
@@ -492,6 +522,7 @@ rules:
         title.
 
   - rule_id: SFU-AUTH-TITLE-REGISTRAR
+    applies_to: [jdfn, wjq]
     category: structure
     section: identification
     source_part: Part 3.5
@@ -506,6 +537,7 @@ rules:
       default: Confirm the role sits within AVPSI Student Services, or retitle.
 
   - rule_id: SFU-AUTH-TITLE-HR
+    applies_to: [jdfn, wjq]
     category: structure
     section: identification
     source_part: Part 3.5

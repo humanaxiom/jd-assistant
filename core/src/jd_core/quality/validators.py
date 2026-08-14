@@ -50,9 +50,15 @@ from collections.abc import Sequence
 from typing import Any
 
 from src.jd_core.models.parsed_jd import SFUJobDescription
-from src.jd_core.models.quality import JDIssueSeverity, JDQualityIssue
+from src.jd_core.models.quality import (
+    DEFAULT_TEMPLATE,
+    WJQ_EMPLOYEE_GROUP,
+    JDIssueSeverity,
+    JDQualityIssue,
+    JDTemplate,
+)
 from src.jd_core.quality.boilerplate import redact_passages
-from src.jd_core.rules import Rules, get_rules
+from src.jd_core.rules import RuleCatalog, Rules, get_rules
 from src.jd_core.textnorm import FoldedText, fold, fold_text
 
 _DEFAULT_VARIANT = "default"
@@ -598,6 +604,34 @@ def _authoring_gates(
     return out
 
 
+def template_of(sfu: SFUJobDescription) -> JDTemplate:
+    """Which SFU form this document is, for rule selection.
+
+    ``employee_group == "cupe"`` is the separator the JD model designates:
+    ``ParseResult.template`` is not persisted, and the WJQ segmenter sets the group
+    unconditionally, so this has **complete WJQ recall**. Its only risk is over-calling
+    WJQ on a JDFN document that names CUPE in its identification block — the safe
+    direction, since it withholds JDFN-only rules rather than applying them wrongly.
+    """
+    return "wjq" if sfu.employee_group == WJQ_EMPLOYEE_GROUP else DEFAULT_TEMPLATE
+
+
+def applies_to_template(
+    rule_id: str | None, template: JDTemplate, catalog: RuleCatalog
+) -> bool:
+    """Whether a finding may be raised against a document of ``template``.
+
+    A finding with no ``rule_id`` (an LLM finding) always may: there is no catalogue
+    entry to consult, and it was raised against *this document* rather than inherited
+    from a form. An uncatalogued id also passes rather than raising — a navigation-level
+    filter must not turn an unknown rule into a crash.
+    """
+    if rule_id is None:
+        return True
+    spec = catalog.by_id.get(rule_id)
+    return spec is None or template in spec.applies_to
+
+
 def evaluate_jd_rules(
     sfu: SFUJobDescription, raw_text: str, *, rules: Rules | None = None
 ) -> list[JDQualityIssue]:
@@ -650,4 +684,24 @@ def evaluate_jd_rules(
     # _no_gate_blocks_on_a_rule_the_engine_never_raises`) — a gate that cannot fire is a
     # false safety guarantee.
     unevaluable = frozenset(rules.rule_catalog.unevaluable_rule_ids)
-    return [issue for issue in issues if issue.rule_id not in unevaluable]
+    issues = [issue for issue in issues if issue.rule_id not in unevaluable]
+
+    # ...and only the rules that can judge THIS DOCUMENT'S TEMPLATE (CUPE Phase B).
+    #
+    # The same argument as `unevaluable`, one axis over: the archive holds two different
+    # SFU forms, and a rule written for one of them fires unconditionally on the other.
+    # MEASURED — four rules fired on 100% of CUPE (WJQ) documents, because that form has
+    # no Problem Solving section (0.0% of them) and effectively no Impact of Decision
+    # Making section (3.1%). Scored on the JDFN bar, 0 of 600 CUPE JDs were approvable
+    # against 11.3% of JDFN ones. That is not a quality measurement, it is a template
+    # mismatch wearing one.
+    #
+    # A finding with no `rule_id` (an LLM finding) has no catalogue entry to consult and
+    # passes through: it was raised against this document, not inherited from a form.
+    catalog = rules.rule_catalog
+    template = template_of(sfu)
+    return [
+        issue
+        for issue in issues
+        if applies_to_template(issue.rule_id, template, catalog)
+    ]
