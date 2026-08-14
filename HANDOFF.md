@@ -14,12 +14,12 @@ Read this first every session. Single source of truth for current state + how we
 
 | | |
 |---|---|
-| `main` | `10682b0` — **#99** (embed_stamp parity) · **#101** (the employee_group residual, measured) · **#102** (8.3a word-level diff) · **#103** (the half-stale chore row, split) |
-| **Open PRs** | **none** — verified with `gh pr list` *after* the merges, and `main` read from `git log origin/main`, never a `MERGED` badge |
-| Gates | **2,671 passing, 94.02%** — `make gates` **re-run on merged `main`**, exit 0 read from the output and not from a pipeline's status; `register-check` + `guide-check` exit 0 |
-| `rules_version` | `jd_rules_sfu_v4+90af5e27dc83` — **still unmoved**. Nothing since has touched a rulebook metric, so nothing has earned a register entry |
-| Register | **197** decisions, **0 ratified** ← *still the critical path, and still external* — but **the ask is now 65, not 197** (P1.3), which is what makes it answerable |
-| Live data | 14,565 files · 14,522 parsed (v3) · **1,803 roles** (was 1,802) · **4 published** · `review_actions` 6 · **every cluster has exactly ONE version** — 1,803 rows across 1,803 clusters, which is why the 8.3a diff has no live surface yet |
+| `main` | `4b44d53` — **#99** · **#101** · **#102** (8.3a) · **#103** · **#104** · **#105** (8.3b) · **#106** (8.3c — **Phase 8 complete**) · **#108** (Phase 6 runbooks) |
+| **Open PRs** | **#109 — CUPE: evidence + design + Phase A.** CI green, `MERGEABLE`, awaiting review |
+| Gates | **2,712 passing, 94.05%** on the #109 branch; **2,671 / 94.02%** was the last `make gates` on merged `main`. `register-check` + `guide-check` exit 0 |
+| `rules_version` | `jd_rules_sfu_v4+90af5e27dc83` — **still unmoved**, including through #109: `segmentation.yaml` is unhashed (`Segmentation.stamp` moves instead) |
+| Register | **198** decisions (HR-200 is new), **0 ratified** ← *still the critical path, and still external*. The HR ask is **65**, not 198 (P1.3) |
+| Live data | 14,565 files · **14,522 parsed at `jd_segmenter_v4`** (v1–v3 rows retained) · 1,803 roles · **4 published** · `review_actions` 6 · one cluster now has TWO versions (someone edited a published JD on 2026-08-13), which is what finally gave 8.3a live surface |
 
 ### What changed this session, in one paragraph
 
@@ -101,8 +101,10 @@ was always the real critical path — and the first item is not a commit.
 | ~~2~~ | ~~**P1.2 — Harmonization provenance**~~ ✅ **DONE (PR [#95](https://github.com/humanaxiom/jd-assistant/pull/95))** | The review page now says how the draft was assembled — and the item **understated** the defect: the whole provenance packet had been computed since 4.1 and rendered nowhere. See the block below. |
 | ~~2~~ | ~~**Phase 8.3 — review-experience upgrades**~~ ✅ **PHASE 8 IS COMPLETE** | 8.3a word-level diff (#102) · 8.3b structural sidebar (#105) · 8.3c gate→field jump-links. All three landed 2026-08-13; none earned a register entry. |
 | ~~2~~ | ~~**Phase 6 leftovers**~~ ✅ **RUNBOOKS DONE** | `docs/runbooks/backup-and-restore.md` + `reindex.md`, both **executed against the live stack before being written**, linked from the operator guide. |
-| **2** | **🔴 Nothing engineering-side is blocking any more. Both open items are external** | **TLS at the edge** (row 1) and **HR ratification** — 197 decisions, 0 signed. No amount of code moves either. |
-| 3 | **Territorial-acknowledgement wording sign-off** | The last of Phase 6, and **HR's call, not ours** — it blocks external distribution, not development. *(This row used to also list the backup + reindex runbooks; they are done, and a backlog that lists closed work as open costs a re-investigation every time it is read.)* |
+| ~~2~~ | ~~**CUPE Phase A — the `additional_context` truncation**~~ ✅ **DONE (#109)** | 81.4% of CUPE JDs were stored truncated; now 0%. `PARSER_VERSION` → `jd_segmenter_v4`, whole archive re-parsed, HR-200 registered. See the CUPE block below. |
+| **2** | **CUPE Phase B — `applies_to` on the rule catalog ⟵ NEXT, and it needs no HR** | Required with no default (the P1.3 `tier` move), so the four rules that fire on **100%** of CUPE become **structurally** unable to, rather than conventionally excluded. **Worth landing even if HR rules against serving CUPE**, because it turns "we know not to score CUPE" from an `if` in a runner into a property of the rulebook. Design: `docs/tasks/cupe-support-design.md`. |
+| 3 | **🔴 Everything else engineering-side is done. The rest is external** | **TLS at the edge** (row 1) · **HR ratification** — 198 decisions, 0 signed · **HR-194**, whether a CUPE quality bar should exist at all, which blocks CUPE phases C–E. No amount of code moves any of them. |
+| 4 | **Territorial-acknowledgement wording sign-off** | The last of Phase 6, and **HR's call, not ours** — it blocks external distribution, not development. *(This row used to also list the backup + reindex runbooks; they are done, and a backlog that lists closed work as open costs a re-investigation every time it is read.)* |
 
 **Deliberately still open, recorded so their absence is not mistaken for completion:**
 ~~the missing timeout on `/compose/search` and `/assist`~~ ✅ **CLOSED (#97)** ·
@@ -158,6 +160,71 @@ deterministic, **no rulebook knob, so no register entry and `rules_version` unmo
   roles put several titles side by side. Not fixed here: a parser change needs a
   `parser_version` bump plus an immediate re-parse of all 14,565 files, which is the same
   ship-together constraint recorded for the `employee_group` residual (#101).
+
+### CUPE (#109) — and FIRST, the question every reader asks
+
+> **"Why is CUPE singled out when APSA is the same size?"** (4,946 APSA vs 4,440 CUPE.)
+> **It is not that CUPE is unusual. It is that CUPE uses a DIFFERENT FORM and we only ever
+> built for the other one.** APSA/APEX/POLY are the **JDFN** template — which the validator,
+> the 14 gates, the thresholds and the Builder were all written against. CUPE 3338 uses the
+> **WJQ**, a 14-section point-factor questionnaire. It got a parser in Phase 3.4 and nothing
+> since.
+>
+> **Every "CUPE problem" is a consequence of that one fact, not a property of CUPE.** The
+> truncation only bit CUPE because `additional_context` is where the WJQ's seven
+> point-factor sections land — for a JDFN JD that field is nearly empty, so a 4,000-char cap
+> never mattered. The four rules firing on 100% of CUPE fire because the WJQ form does not
+> contain the sections they check. **JDFN-shaped tooling meeting a non-JDFN document.**
+
+**#109 carries three things:** the measured evidence, the design, and Phase A shipped.
+
+- **THE CATEGORY ERROR, MEASURED.** Scored through the shipped validator: **0 of 600** CUPE
+  JDs are approvable (JDFN 11.3%), mean 51.7 vs 72.4, no CUPE JD reaching even a B. **Four
+  rules fire on 100% of CUPE** — and this rulebook already has the principle that condemns
+  them: `evaluable: false` exists because *a rule that cannot NOT fire is a constant
+  subtracted from every score, not a quality signal*. The mechanism is the form: **0.0%** of
+  CUPE JDs have a Problem Solving section, **3.1%** an Impact of Decision Making one.
+- **AND CUPE PARSES *RICHER*, WHICH FLIPS THE COST ESTIMATE.** 9.7 duties vs JDFN's 3.8;
+  19.5 qualifications vs 1.0. Tier-2/3 dedup is already **done** — 49,448 role-equivalent
+  edges, *more* than APSA's 49,008. **The blocker was never the pipeline; it is the bar.**
+  So a CUPE bar is a **rules** project, not a plumbing one.
+- **✅ PHASE A SHIPPED — the truncation defect, which was OURS and not HR's.**
+  `additional_context` had inherited `position_summary`'s 4,000-char ceiling and the WJQ
+  parser called the result *"verbatim — lossless"* while cutting it. Now HR-200,
+  `PARSER_VERSION` → **`jd_segmenter_v4`**, whole archive re-parsed:
+  **`continuing_education` 17.0% → 85.8%**, `working_conditions` 79.0% → 95.3%, **truncated
+  CUPE JDs 3,613 (81.4%) → 0**.
+- **⚠ THE CAP WAS STILL WRONG AFTER THE FIRST MEASUREMENT.** 12,000 came from a
+  149-document sample whose max was 9,916; the full re-parse put **two** documents at
+  exactly the cap, true length **13,379** — the sample **understated the corpus maximum by
+  35%** while predicting the **mean within 2%**. *A sample is a good estimator of the middle
+  and a poor one of the tail, and a cap lives entirely in the tail.* Now 16,000; zero
+  truncated.
+- **⚠ AND I PUT THE LIVE BOX IN A HALF-MIGRATED STATE BY EDITING A CONSTANT.** The dev `api`
+  bind-mounts the repo with `--reload`, so changing `PARSER_VERSION` made the *running*
+  service report v4 against a v3-only database. Batch consumers filter on that literal and
+  briefly read zero rows; user-facing pages were unaffected (they read the latest parse
+  regardless of version). Found by checking, not by breakage. The re-parse closes it, and it
+  is **additive** — v4 rows sit alongside v1–v3, so it is reversible and the versions can be
+  compared, which is how the numbers above were produced. Now in DEVELOPER_GUIDE_1.md §9a.
+- **NEXT, AND IT NEEDS NO HR: Phase B — `applies_to` on the rule catalog.** Required, no
+  default (the P1.3 `tier` move), making those four rules **structurally unable** to fire on
+  CUPE rather than conventionally excluded. **Worth landing even if HR rules against serving
+  CUPE.** Phase C (define the bar) is HR-194 and blocks D and E. Design:
+  `docs/tasks/cupe-support-design.md`.
+
+### Both technical guides were corrected in the same PR
+
+`DEVELOPER_GUIDE_1.md` §3 "First-run verification" **would have failed at every step**: every
+port was the upstream harness's default (`8000`/`7474`/`5000`) rather than this project's
+**25800/25474**, the Ollama check pointed at `localhost` instead of `aria-gb10-2` (ADR-003),
+and §9 was named after a Flask dashboard removed in `3e32103`. New **§9a** documents the JD
+data layer — the two templates, the template-blind validator, and the `parser_version` trap.
+`docs/OPERATOR-GUIDE.md` gains the parser-bump warning and the measured CUPE scope note,
+including that **"not authorable" is not "not in the Bank"** — CUPE JDs are ingested, parsed
+and searchable. **Still stale elsewhere:** HANDOFF records 8 live Flask references;
+`README.md`, `harness-claude-code/CLAUDE.md`, `docs/adr/002` and `.env.example` still carry
+some, deliberately out of scope for a two-guide pass.
 
 ### PHASE 6'S RUNBOOKS ARE DONE — and writing them found a silent data-destroying restore
 
