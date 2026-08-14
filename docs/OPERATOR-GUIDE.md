@@ -152,6 +152,18 @@ default). **Admin required:** no.
 > **Scope:** the Builder authors **JDFN** roles (APSA / APEX / Polytechnic) only. CUPE
 > roles use a different instrument (WJQ) with no ratified quality bar yet, so they are
 > deliberately not authorable — see the HR decision register (HR-143 / HR-194).
+>
+> **That exclusion is now measured, not assumed** (2026-08-14). Scored through the shipped
+> validator, **0 of 600** sampled CUPE JDs clear the JDFN approval bar, against 11.3% of
+> JDFN ones — and the reason is the *form*, not the quality: four rules fire on **100%** of
+> CUPE documents because the WJQ instrument does not contain the sections they check
+> (**0.0%** have a Problem Solving section; **3.1%** an Impact of Decision Making one).
+> Serving CUPE means building a WJQ quality bar first, which is HR's call.
+> Evidence: `docs/decisions/cupe-scope-measured-2026-08-14.md`; what it would take:
+> `docs/tasks/cupe-support-design.md`.
+>
+> **CUPE JDs are still ingested, parsed and searchable** — 4,440 of them, 30.6% of the
+> archive. "Not authorable" is not "not in the Bank".
 
 ---
 
@@ -257,7 +269,7 @@ docker compose -f docker-compose.prod.yml up -d
 ### The archive pipeline (run in order)
 | Task | Command | Notes |
 |---|---|---|
-| Ingest + parse the archive | `make ingest JD_ARCHIVE_PATH=<SFU JDs>` | Loads all files into Postgres. Incumbent names are scrubbed at ingest. |
+| Ingest + parse the archive | `make ingest JD_ARCHIVE_PATH=<SFU JDs>` | Loads all files into Postgres. Incumbent names are scrubbed at ingest. **Idempotent and skip-first** on `(document, parser_version)`, so a re-run only does what is missing — safe to re-run after a partial or failed pass. |
 | Embed | `make embed` | Section + document vectors into Neo4j. Uses self-hosted Ollama (local-only). |
 | Embed harmonized roles | `make embed-roles` | Embeds the **harmonized roles** (`canonical_jds`) as one `(:JDRole)` vector per cluster into the `jd_role_embeddings` index — a separate label and index from the archive's `JDDocument`, so the Bank can search its own output (§5's search row). Idempotent and skip-first: a re-run costs nothing, and an edited role re-embeds automatically. Deliberately **not** wired into `approve` — publishing never depends on the GPU being up. |
 | Near-duplicate dedup | `make near-dup` | Tier-2. |
@@ -265,6 +277,24 @@ docker compose -f docker-compose.prod.yml up -d
 | Cluster roles | `make cluster` | Phase-3.5 clustering report. |
 | Produce draft canonicals | `make canonical-drafts` | Phase-4.4a: one DRAFT per JDFN cluster into the review queue. Add the LLM rewrite/audit pass when Ollama is free; `--no-llm` for a deterministic run. |
 | Archive baseline (measurement) | `make baseline JD_ARCHIVE_PATH=<SFU JDs>` | Scores the whole archive; writes `docs/baseline/`. |
+
+> ### ⚠ If a release bumps `parser_version`, the re-parse is not optional
+>
+> `parsed_jds` is keyed on `(document, parser_version)` and every **batch** consumer
+> filters on the version the code declares. **Deploying a bump without re-parsing leaves
+> those consumers reading zero rows — a Bank that looks empty.** Run
+> `make ingest JD_ARCHIVE_PATH=<SFU JDs>` as part of the same change, not afterwards.
+>
+> It is **additive and reversible**: a re-parse inserts rows at the new version and leaves
+> the old ones, so you can compare versions and roll back by deleting the new rows. The
+> **user-facing pages are unaffected** either way — they read the most recent parse
+> regardless of version.
+>
+> Current version: **`jd_segmenter_v4`** (2026-08-14). It exists because
+> `additional_context` had inherited `position_summary`'s 4,000-character ceiling, which
+> silently truncated **81.4% of CUPE job descriptions** — that field holds the whole WJQ
+> point-factor block. After v4, **0%** are truncated and `continuing_education` is present
+> in **85.8%** of CUPE JDs, up from **17.0%**. The cap is now HR-200.
 
 ### Governance & health
 | Task | Command / where | Notes |

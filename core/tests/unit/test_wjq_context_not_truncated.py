@@ -46,14 +46,22 @@ def test_the_seven_point_factor_sections_survive_whole() -> None:
 
 
 def test_a_document_at_the_measured_maximum_is_not_cut() -> None:
-    """The largest real WJQ context measured over the archive is 9,916 characters. A cap
-    that cuts the biggest genuine document is the defect, not the guard."""
+    """The largest real WJQ context over the WHOLE archive is **13,379** characters
+    (two near-identical Technician JDs). A cap that cuts the biggest genuine document is
+    the defect, not the guard.
+
+    ⚠ That number is why this test says 13,379 and not 9,916. A 149-document sample said
+    9,916, the cap was set to 12,000 for headroom, and re-parsing all 14,522 files put
+    those two documents at exactly the cap — **the sample understated the corpus maximum
+    by 35%** while predicting the corpus mean within 2%. A sample is a good estimator of
+    the middle and a poor one of the tail, and a cap lives entirely in the tail.
+    """
     rules = get_rules()
-    per_section = 9916 // len(rules.wjq.context_sections) + 1
+    per_section = 13379 // len(rules.wjq.context_sections) + 1
     context = _structure_context(_context_sections(per_section), rules.wjq)  # type: ignore[arg-type]
 
     assert context is not None
-    assert len(context) >= 9916
+    assert len(context) >= 13379
 
 
 def test_the_cap_is_rulebook_data_not_a_code_constant() -> None:

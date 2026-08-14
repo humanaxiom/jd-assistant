@@ -193,11 +193,18 @@ evidence_max_chars: 160
 # cut falls in document order the tail vanished — `continuing_education`, the last
 # section, survived in only 17.0% of documents.
 #
-# 12,000 is chosen against the measured distribution, not by feel. Over a 500-file random
-# sample of the archive (149 WJQ documents carrying context) the TRUE lengths are:
-# min 2,677 · p50 5,500 · p90 6,614 · p99 8,931 · max 9,916. A cap of 10,000 truncates
-# 0.0% of that sample; 12,000 leaves ~21% headroom over the observed maximum, because 149
-# documents cannot bound 4,440. It stays a real bound — an unbounded field is how one
-# malformed document becomes a database problem — and it must remain <= the model's
-# `max_length` ceiling (pinned by test).
-additional_context_max_chars: 12000
+# 16,000 is chosen against a WHOLE-CORPUS measurement, and the history is worth keeping
+# because it is a lesson about sampling:
+#
+#   * A 500-file random sample (149 WJQ documents with context) gave min 2,677 · p50 5,500
+#     · p90 6,614 · p99 8,931 · max 9,916, and 12,000 was picked for ~21% headroom.
+#   * Re-parsing all 14,522 files then put TWO documents at exactly 12,000. Their true
+#     length is 13,379 — the sample had UNDERSTATED the corpus maximum by 35%.
+#
+# The sample was a good estimator of the middle (its mean, 5,379, predicted the corpus mean
+# of 5,271 within 2%) and a poor one of the tail, which is the part a cap has to clear.
+# 16,000 gives ~20% headroom over the measured corpus maximum of 13,379 and leaves room
+# under the model's 20,000 ceiling. It stays a real bound — an unbounded field is how one
+# malformed document becomes a database problem — and must remain <= that ceiling (pinned
+# by test).
+additional_context_max_chars: 16000

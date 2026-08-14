@@ -5863,7 +5863,7 @@ decisions:
     config:
       file: segmentation.yaml
       path: segmentation.additional_context_max_chars
-    current_default: 12000
+    current_default: 16000
     provenance: our_invention
     tier: hr_informed
     why_it_matters: >-
@@ -5873,11 +5873,17 @@ decisions:
       the cap, against 0% of APSA. Because the cut falls in document order it removed the
       TAIL of the WJQ instrument, so `continuing_education` — the last of the seven
       point-factor sections — survived in only 17.0% of documents. The code called this
-      storage "verbatim — lossless" while doing it. 12,000 is chosen against the measured
-      distribution rather than by feel: over a 500-file random sample of the archive (149
-      WJQ documents carrying context) the true lengths are min 2,677, p50 5,500, p90 6,614,
-      p99 8,931, max 9,916 — so 10,000 already truncates 0.0% of that sample and 12,000
-      leaves ~21% headroom, because 149 documents cannot bound 4,440. It is filed
+      storage "verbatim — lossless" while doing it. FIXING IT RECOVERED THE SECTION:
+      re-parsed at the new cap, `continuing_education` is present in 85.8% of CUPE JDs
+      (was 17.0%) and `working_conditions` in 95.3% (was 79.0%). 16,000 is chosen against
+      a WHOLE-CORPUS measurement, and the history is kept because it is a lesson about
+      sampling: a 500-file random sample (149 WJQ documents with context) gave max 9,916,
+      so 12,000 was picked for ~21% headroom — and re-parsing all 14,522 files then put TWO
+      documents at exactly 12,000, whose true length is 13,379. The sample had UNDERSTATED
+      the corpus maximum by 35%, while predicting the corpus MEAN within 2% (5,379 vs
+      5,271): a good estimator of the middle and a poor one of the tail, which is the part
+      a cap has to clear. 16,000 gives ~20% headroom over the measured corpus maximum. It is
+      filed
       `hr_informed` and not `hr_policy` deliberately: there is no policy choice here, only a
       question of fidelity — bigger is simply more faithful up to the point where a bound
       stops being a bound — but HR should know that CUPE job descriptions were previously
