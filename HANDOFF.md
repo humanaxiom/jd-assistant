@@ -14,10 +14,10 @@ Read this first every session. Single source of truth for current state + how we
 
 | | |
 |---|---|
-| `main` | `dc27981` — **#99** (embed_stamp parity at query time) and **#101** (the employee_group residual, measured) landed after the previous block was written |
-| **Open PRs** | **none** — verified with `gh pr list` *after* the merges, not from the note that predicted them |
-| Gates | **2,638 passing** on the merged state (`make gates` exit 0, coverage 93.32% ≥ 80%); `register-check` + `guide-check` exit 0 |
-| `rules_version` | `jd_rules_sfu_v4+90af5e27dc83` — **unmoved through all nine PRs**. None of this work touched a rulebook metric, so none of it earned a register entry |
+| `main` | `10682b0` — **#99** (embed_stamp parity) · **#101** (the employee_group residual, measured) · **#102** (8.3a word-level diff) · **#103** (the half-stale chore row, split) |
+| **Open PRs** | **none** — verified with `gh pr list` *after* the merges, and `main` read from `git log origin/main`, never a `MERGED` badge |
+| Gates | **2,671 passing, 94.02%** — `make gates` **re-run on merged `main`**, exit 0 read from the output and not from a pipeline's status; `register-check` + `guide-check` exit 0 |
+| `rules_version` | `jd_rules_sfu_v4+90af5e27dc83` — **still unmoved**. Nothing since has touched a rulebook metric, so nothing has earned a register entry |
 | Register | **197** decisions, **0 ratified** ← *still the critical path, and still external* — but **the ask is now 65, not 197** (P1.3), which is what makes it answerable |
 | Live data | 14,565 files · 14,522 parsed (v3) · **1,803 roles** (was 1,802) · **4 published** · `review_actions` 6 · **every cluster has exactly ONE version** — 1,803 rows across 1,803 clusters, which is why the 8.3a diff has no live surface yet |
 
@@ -99,7 +99,7 @@ was always the real critical path — and the first item is not a commit.
 | **1** | **🔴 TLS at the edge — the last open exposure, and NOT a repo deliverable** | The pilot host is internet-facing over **plain http**, so sign-in cookies and CAS tickets cross the open internet in the clear. P0.4 makes the app correct *behind* a terminator (P0.3's allowlist reads `X-Forwarded-Proto` and validates the result) and refuses to run pretending otherwise — **someone has to put one in front.** It is also what unblocks actually *using* `docker-compose.prod.yml`, which needs an https origin. |
 | ~~2~~ | ~~**P1.3 — Tier the register**~~ ✅ **DONE (PR [#94](https://github.com/humanaxiom/jd-assistant/pull/94))** | The ask is now **65 settings, not 197** (49 `hr_informed` · 83 `technical`), and the generated register leads with **"Your decisions"**. See the block below. |
 | ~~2~~ | ~~**P1.2 — Harmonization provenance**~~ ✅ **DONE (PR [#95](https://github.com/humanaxiom/jd-assistant/pull/95))** | The review page now says how the draft was assembled — and the item **understated** the defect: the whole provenance packet had been computed since 4.1 and rendered nowhere. See the block below. |
-| **2** | **Phase 8.3 — review-experience upgrades** (`docs/plan.md`) | ~~Word-level diff~~ ✅ **8.3a DONE** (see the block below) · **8.3b structural sidebar ⟵ NEXT** · 8.3c gate→field jump links. No GPU, parallelizable. |
+| **2** | **Phase 8.3 — review-experience upgrades** (`docs/plan.md`) | ~~Word-level diff~~ ✅ **8.3a DONE (#102)** · **8.3b structural sidebar ⟵ NEXT — already scoped and measured, see the block below; build it on `ROLE_EQUIVALENT` only** · 8.3c gate→field jump links. No GPU, parallelizable. |
 | 3 | **Phase 6 leftovers** | Backup + reindex runbooks, and the **territorial-acknowledgement wording sign-off** — the latter blocks external distribution and is HR's call. |
 
 **Deliberately still open, recorded so their absence is not mistaken for completion:**
@@ -144,6 +144,33 @@ deterministic, **no rulebook knob, so no register entry and `rules_version` unmo
   PUBLISHED, each the only version of its cluster). The first edit of a published role is
   what creates the condition. Correct, gated, and **waiting** — recorded here rather than
   claimed as exercised, per habit #4.
+
+### 8.3b IS SCOPED AND MEASURED — and the plan's premise is half wrong (not yet built)
+
+`docs/plan.md` says the related-roles list comes from "the **Tier-2/Tier-3** dedup edges
+(near-duplicates / role-equivalents)". **Only one of those two tiers can work**, and the
+reason is structural: `dedup_edges` joins **source documents**, and those edges are what
+**formed the clusters**, so most are intra-cluster by construction. Measured live:
+
+| Tier | Intra-cluster | **Cross-cluster** |
+|---|---|---|
+| `NEAR_DUPLICATE` | 11,581 | **16** |
+| `ROLE_EQUIVALENT` | 29,034 | **32,816** |
+
+- **`NEAR_DUPLICATE` gives 16 edges across 1,803 clusters — nothing.** That is not a defect,
+  it is the definition: near-duplicates get clustered *together*, so a cross-cluster one is
+  an **anomaly**. Those 16 are worth a look as anomalies; they are not a sidebar feature.
+  **Build 8.3b on `ROLE_EQUIVALENT` only, and say so in the code.**
+- **`ROLE_EQUIVALENT` has real surface: 4,602 directed cluster pairs covering 1,251 of 1,803
+  clusters (69.4%).** Unlike 8.3a this renders on day one — but **~31% of roles will
+  correctly show an empty related list**, which the page must state rather than look broken.
+- **The versions tree is a single node for every role today** (1,803 versions / 1,803
+  clusters), same caveat as 8.3a.
+- **⚠️ RANK, NEVER SCORE.** Role similarity on this corpus was already measured: unrelated
+  roles outscore true twins. The sidebar must **order** the list and never print a percentage
+  or apply a `cosine_min` — that applies to `dedup_edges.score` too. Keep it that way and the
+  only number in the feature is how many rows to list, so **no register entry is earned**
+  (same shape as P1.2). Inventing a "show it above 0.8" knob would manufacture an HR decision.
 
 ### 2026-08-13, later still — the interactive timeouts are closed (#97)
 
