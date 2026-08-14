@@ -920,7 +920,36 @@ carries its consequence. That is sufficient. **It does not block C, D or E.**
 **Two groups, two straightforward rule profiles, every measure configuration-driven so HR
 can swap it — then build JDs for both groups and evaluate each against its own profile.**
 
-### Phase C — per-template rule PROFILES (the `applies_to` move, one level down)
+### ✅ Phase C — SHIPPED 2026-08-14 ([#112](https://github.com/humanaxiom/jd-assistant/pull/112))
+
+`thresholds.yaml` carries a `wjq:` block; `Rules.thresholds_for(template)` resolves it;
+`evaluate_jd_rules` swaps the profile into a local copy of the rules so the trigger and
+the finding's **copy** cannot disagree. `make gates` **2,737 passed, 94.06%**;
+`rules_version` → **`+76baba29cfeb`**; register **205**, all `open`.
+
+| knob | JDFN | WJQ | |
+|---|---|---|---|
+| `duties_max` | 5 | **12** | HR-202 |
+| `duties_min` | 3 | 3 | HR-203 |
+| `summary_max_words` | 150 | 150 | HR-204 |
+| `summary_min_words` | 100 | 100 | HR-205 |
+
+**Two things this phase settled that the plan below had only guessed at:**
+
+1. **`gates.yaml` needed no per-template block.** Its gates key on `rule_ids`, and
+   `applies_to` already withholds those rules from the WJQ — a gate whose rules cannot
+   fire cannot block. Adding one would have been a second control on the same axis: the
+   `SFU-AUTH-TITLE-EXEC-DIR` mistake again. **The plan said "thresholds and gates"; only
+   thresholds was needed.**
+2. **The three WJQ values equal to their JDFN twins are registered, not inherited** — a
+   value that is the same by *decision* and one that is the same by *omission* look
+   identical in YAML, and the omission is what the phase exists to end.
+
+⚠ **HR-204 records a framing this plan itself carried and the corpus contradicts** — see
+the table below: the summary band is skewed toward **under**-run, so the "raise the
+ceiling" reading was backwards. Held at 150, registered for HR.
+
+### Phase C as designed — per-template rule PROFILES (the `applies_to` move, one level down)
 
 `applies_to` made *which rules apply* per-template data. Do exactly the same for *the
 numbers*, adding **no new concepts**:
@@ -950,7 +979,7 @@ understood; and JDFN parses a **median of 1** qualification against WJQ's 21 —
 block landing as one blob — so any qualification-count threshold taken from JDFN would be
 calibrated on a parser artifact.
 
-### Phase D — harmonize + cluster CUPE, then evaluate per group
+### Phase D — harmonize + cluster CUPE, then evaluate per group ⟵ **NEXT**
 
 The pipeline is **already done** for CUPE: 49,448 role-equivalent edges, *more* than APSA's
 49,008 (Phase 3 measured). Turn it on, produce CUPE drafts, and evaluate each group against

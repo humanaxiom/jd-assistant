@@ -14,11 +14,11 @@ Read this first every session. Single source of truth for current state + how we
 
 | | |
 |---|---|
-| `main` | `d353500` — Phase 8 complete (#102 · #105 · #106), Phase 6 runbooks (#108), and **#109** (CUPE evidence + design + Phase A) |
-| **Open PRs** | **CUPE Phase B** (`feat/cupe-phase-b-applies-to`) — `applies_to` on every rule; branch green locally, PR to open |
-| Gates | **2,712 / 94.05%** was the last full run on the merged state; Phase B's own run is in the block below. `register-check` + `guide-check` exit 0 |
-| `rules_version` | 🔔 **MOVED — `jd_rules_sfu_v4+90af5e27dc83` → `+a4c5e2d0f0f3`** (verified, not assumed). `rule_catalog.yaml` is hashed and every rule gained `applies_to`. It had held still through **every** PR since P0.1b-i; Phase B is the first change that genuinely alters what the rulebook says, so the bump is correct rather than incidental. *(It passed through `+71f6e4d7d9de` at commit `5a494ea`, before the EXEC-DIR correction below.)* |
-| Register | **201** decisions (HR-200 the context cap, HR-201 the CUPE boilerplate call), **0 ratified**. ⚠ **And the JDFN bar is among the unratified** — see the Phase B block: that is what corrects the HR-194 framing |
+| `main` | `c203ad5` — **#110** (CUPE Phase B, `applies_to`) and **#111** (the STEP BACK reset + the commit #110's merge dropped) |
+| **Open PRs** | **[#112](https://github.com/humanaxiom/jd-assistant/pull/112) — CUPE Phase C**, the per-template numeric profiles (HR-202…205). Gates green locally; merge before starting D so nothing stacks on an open branch |
+| Gates | **2,737 passing, 94.06%** on the #112 branch (`main` itself was 2,726). `register-check` + `guide-check` exit 0 — ⚠ `guide-check` needs **Git Bash**; PowerShell has no POSIX `diff` and it fails `Error 255` there |
+| `rules_version` | 🔔 **MOVED TWICE — `+90af5e27dc83` → `+a4c5e2d0f0f3` (B) → `+76baba29cfeb` (C)**, verified each time. `rule_catalog.yaml` and `thresholds.yaml` are both hashed. It had held still through **every** PR since P0.1b-i; B and C are the first changes that genuinely alter what the rulebook says |
+| Register | **205** decisions, **0 ratified** — HR-200 context cap · HR-201 the CUPE boilerplate call (**which decides CUPE approvability outright, not score**) · **HR-202…205 the WJQ numeric profile**. 265 surface parameters, all accounted for |
 | Live data | 14,565 files · **14,522 parsed at `jd_segmenter_v4`** (v1–v3 rows retained) · 1,803 roles · **4 published** · `review_actions` 6 · one cluster now has TWO versions (someone edited a published JD on 2026-08-13), which is what finally gave 8.3a live surface |
 
 ### What changed this session, in one paragraph
@@ -121,8 +121,8 @@ was always the real critical path — and the first item is not a commit.
 | ~~2~~ | ~~**Phase 6 leftovers**~~ ✅ **RUNBOOKS DONE** | `docs/runbooks/backup-and-restore.md` + `reindex.md`, both **executed against the live stack before being written**, linked from the operator guide. |
 | ~~2~~ | ~~**CUPE Phase A — the `additional_context` truncation**~~ ✅ **DONE (#109)** | 81.4% of CUPE JDs were stored truncated; now 0%. `PARSER_VERSION` → `jd_segmenter_v4`, whole archive re-parsed, HR-200 registered. See the CUPE block below. |
 | ~~2~~ | ~~**CUPE Phase B — `applies_to`**~~ ✅ **BUILT** ([#110](https://github.com/humanaxiom/jd-assistant/pull/110)) | **Seven** rules are withheld from the WJQ because that form does not carry what they read — *not* "the four that fire on 100%", which is a different set (see the block below). JDFN is byte-identical; CUPE mean 51.4 → **62.9**. |
-| **2** | **CUPE Phase C — per-template rule PROFILES ⟵ NEXT, needs no HR** | **The `applies_to` move, one level down.** `thresholds.yaml` + `gates.yaml` gain a `jdfn:` / `wjq:` block, resolved by the **`template_of` that already exists**. Defaults measured **once**, registered `open`; no override = inherit, so JDFN cannot silently change. Ship `duties_max: 12` for WJQ (the form has 12 slots; 77.4% use exactly 12). A loader change and a YAML block — **not a research project**. See `docs/plan.md` §STEP BACK. |
-| **3** | **Phase D — turn CUPE harmonize/cluster on, evaluate per group** | The pipeline is already done: **49,448** role-equivalent edges, more than APSA's 49,008. Produce CUPE drafts and score each group against its own profile. **Never blend the two cohorts into one number.** |
+| ~~2~~ | ~~**CUPE Phase C — per-template rule PROFILES**~~ ✅ **BUILT** ([#112](https://github.com/humanaxiom/jd-assistant/pull/112)) | `thresholds.wjq` — **`duties_max: 12`** (the form's slot count) plus three values held at their JDFN twins and **registered rather than inherited**. Resolved once into a local `rules` copy so the finding cannot misquote its own bar. `gates.yaml` needed **no** per-template block — `applies_to` already withholds the rules its gates key on. See the block below. |
+| **2** | **Phase D — turn CUPE harmonize/cluster on, evaluate per group ⟵ NEXT, needs no HR** | The pipeline is already done: **49,448** role-equivalent edges, more than APSA's 49,008. Produce CUPE drafts and score each group against its own profile. **Never blend the two cohorts into one number.** Merge #112 first. |
 | **4** | **Phase E — two builders, if simpler (probably)** | A CUPE JD is a different **form**, not a variant. One builder emitting both grows a conditional in every template, prompt, gate and export. A separate WJQ builder over the same services makes it a **routing** decision made once. Try the seam before debating it. Needs HR-194 for scope. |
 | 5 | **🔴 What is genuinely external** | **TLS at the edge** (row 1) · **HR ratification** — 201 decisions, 0 signed, **including the JDFN bar that gates publishing today** · **HR-194**, which decides *scope* (may the Builder author CUPE — Phase E), not whether a measured bar may exist · **HR-201**, and it is now measured to be **much bigger than a score adjustment**: the boilerplate ruling decides whether CUPE JDs are approvable **at all** (59.0% vs 0.0%). |
 | 6 | **Territorial-acknowledgement wording sign-off** | The last of Phase 6, and **HR's call, not ours** — it blocks external distribution, not development. *(This row used to also list the backup + reindex runbooks; they are done, and a backlog that lists closed work as open costs a re-investigation every time it is read.)* |
@@ -181,6 +181,64 @@ deterministic, **no rulebook knob, so no register entry and `rules_version` unmo
   roles put several titles side by side. Not fixed here: a parser change needs a
   `parser_version` bump plus an immediate re-parse of all 14,565 files, which is the same
   ship-together constraint recorded for the `employee_group` residual (#101).
+
+### CUPE PHASE C IS BUILT — the numbers are per-template too (#112)
+
+**The `applies_to` move, one level down, and deliberately no new concepts:** same
+`template_of`, same *required with no default*, same registration. `thresholds.yaml`
+gains a `wjq:` block; `Rules.thresholds_for(template)` resolves it.
+
+| knob | JDFN | WJQ | |
+|---|---|---|---|
+| `duties_max` | 5 | **12** | HR-202 |
+| `duties_min` | 3 | 3 | HR-203 |
+| `summary_max_words` | 150 | 150 | HR-204 |
+| `summary_min_words` | 100 | 100 | HR-205 |
+
+- **`duties_max: 12` is a FORM FACT, not a calibration.** `SFU-STRUCT-DUTIES-TOO-MANY`
+  fired on **82.3%** of WJQ documents against a bar of 5. The WJQ has twelve duty slots,
+  **77.4% of CUPE JDs fill exactly twelve**, and `SFUJobDescription.duties` is
+  independently capped at 12 — the same fact recorded three ways. CUPE duty counts are
+  **bimodal** (77.4% at twelve, 16.2% at zero), so **the "9.7 average" this project
+  quoted for days describes no actual document.**
+- **The three held at their JDFN twins are REGISTERED, not inherited.** A value that is
+  the same *by decision* and one that is the same *by omission* look identical in the
+  YAML — and the omission is exactly what this phase exists to end.
+- **The top-level values stay put as the JDFN profile on purpose.** HR's existing entries
+  name `thresholds.duties_max`; renaming a path HR has been asked to rule on would
+  silently re-point the ask.
+- **`gates.yaml` needed no per-template block, and that is worth knowing before someone
+  adds one.** Its gates key on `rule_ids`, and `applies_to` already withholds those rules
+  from the WJQ — so a gate whose rules cannot fire cannot block. Scoping the gates too
+  would have been a second control on the same axis, the `EXEC-DIR` mistake again.
+- **⚠ HR-204 RECORDS A FRAMING THE CORPUS CONTRADICTS.** *"CUPE averages 168 words against
+  a 100–150 band"* reads as an argument to **raise** the ceiling. Measured over all 4,440:
+  **39.9% fall UNDER 100 words**, only **15.1%** exceed 300, and the median is **108**
+  against JDFN's 102. The mean is a thin tail pulling. Raising the ceiling would help ~15%
+  and abandon ~40%. **Held at 150 and registered rather than acted on.**
+- **Resolved ONCE into a local `rules` copy**, so every downstream `rules.thresholds` *and*
+  every message context gets the right bar with no call-site change. That is the point:
+  `_base_context` feeds `{duties_max}` into the finding's **copy**, so resolving the
+  trigger without the message would make a WJQ finding announce *"maximum of 5"* about a
+  bar of 12. **A finding that misquotes its own threshold is worse than one that never
+  fired** — it sends the author to fix the wrong thing.
+- **🔴 A TEST I WROTE WAS VACUOUS.** The honesty pin above first asserted against
+  `summary_max_words` — **150 in both profiles** — so it passed regardless of what the
+  code did. Same trap as P1.3's tier test. Rewritten against values that genuinely differ
+  and mutation-proved: pointing `_base_context` at the unresolved globals now turns it
+  red, and the original stayed **green** under that same mutation. *When a new test passes
+  first time, find out which property it is actually asserting.*
+- **⚠ TWO BUILD GUARDS WERE TAUGHT ABOUT NESTING RATHER THAN EXCUSED FROM IT.**
+  `thresholds.wjq` reaches the decision surface through its **leaves** (the
+  `dedup.authoring_guard` shape), and two register tests asserting "every top-level field
+  is itself a surface path" went red. **The easy fix was to drop `thresholds` from the
+  flat-surface list — exactly as `dedup` already is, for exactly this reason — which
+  would have retired the guarantee for every key in the file to accommodate one field.**
+  Both now assert a nested block contributes leaves. Mutation-proved: breaking the
+  recursion stops the whole rulebook loading (76 errors).
+- **The governance machinery worked unprompted, twice:** the rulebook **refused to load**
+  until all four knobs were registered, and mutating `duties_max` without updating
+  `current_default` broke the build via register drift.
 
 ### CUPE PHASE B IS BUILT — and the HR-194 framing was wrong
 
