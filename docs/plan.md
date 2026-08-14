@@ -704,8 +704,43 @@ Auth, rate/size limits, backup + reindex runbooks, ops docs, and the
 > **Most of this arrived early and under different names** (see Phase 9): auth is ADR-008 +
 > P0.1a; the production posture, secrets and deployment file are P0.2/P0.4; the one "rate
 > limit" the review actually found necessary is `/ready`'s single-flight bound (P0.1b-ii).
-> **Still owed from this phase:** backup + reindex runbooks, and the territorial-
-> acknowledgement sign-off, which blocks external distribution and is HR's, not ours.
+> ~~**Still owed from this phase:** backup + reindex runbooks~~ ✅ **DONE (2026-08-13)** —
+> `docs/runbooks/backup-and-restore.md` + `docs/runbooks/reindex.md`, linked from the
+> operator guide. **Every step was executed against the live stack before it was written
+> down**, which is the only reason they are worth anything: an unrun runbook is a guess.
+> **The remaining Phase 6 item is the territorial-acknowledgement sign-off, which blocks
+> external distribution and is HR's, not ours.**
+
+**✅ 6.1 — Backup + reindex runbooks. DONE (2026-08-13).**
+
+- **The architectural finding that makes the backup small: only Postgres must be backed up.**
+  Neo4j is a **derived index** — `make embed` rebuilds documents + sections from
+  `parsed_jds`, `make embed-roles` rebuilds roles from `canonical_jds`. Measured: the
+  harness agent-memory labels (`Agent`/`Artifact`/`Task`/`Subtask`) that are *not* derivable
+  hold **0 nodes**, so nothing is at risk today — stated with the check that falsifies it if
+  that ever changes.
+- **🔴 THE TRAP, MEASURED ON A REAL DUMP: `pg_restore --data-only` into an already-migrated
+  database silently destroys the data and exits `0`.** 1,804 canonical JDs → **0**, 12 user
+  roles → **0**, 1,810 chained audit rows → **0**, `warning: errors ignored on restore: 7`,
+  **exit code 0**, and the resulting database starts and accepts logins. An operator
+  checking the exit code and signing in would conclude the restore worked. **Same class as
+  reading a pipeline's exit status instead of its output.** The blessed path (full
+  custom-format dump into an EMPTY database) was verified to restore the audit chain
+  **byte-identical** — 1,810 rows, same `d8899dc8…` fingerprint, same tail hash.
+- **Why the blessed path survives, because the mechanism is load-bearing:** the chain is
+  maintained by a `BEFORE INSERT` trigger that overwrites `prev_hash`/`row_hash`
+  unconditionally, and `pg_restore` loads table data **before** creating triggers. That
+  ordering is a property of the custom format — which is why the runbook insists on `-Fc`
+  rather than treating it as a preference.
+- **Reindex resume proven, not asserted:** skip-first on `(text_sha256, model, embed_stamp)`
+  makes an unchanged re-run cost **`embed calls: 0`** (measured), so an interrupted reindex
+  is resumed by running it again.
+- **A side effect found by running it: `make embed EMBED_ARGS="--limit N"` overwrites the
+  COMMITTED `docs/embeddings/summary.json`**, rewriting `documents_seen` from 14,522 to the
+  spot-check size. Recorded in the runbook with the `git checkout --` that undoes it.
+- **One gap stated rather than guessed:** the wall-clock of a full *cold* rebuild is not
+  measured, because every run available to measure was a skip-first no-op. The runbook says
+  so and asks for the number the first time a real rebuild happens.
 
 ### Phase 7 — Optional / later
 Neo4j **domain** role-duty overlap graph (org-design queries — the only deferred Neo4j piece);

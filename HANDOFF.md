@@ -100,8 +100,9 @@ was always the real critical path — and the first item is not a commit.
 | ~~2~~ | ~~**P1.3 — Tier the register**~~ ✅ **DONE (PR [#94](https://github.com/humanaxiom/jd-assistant/pull/94))** | The ask is now **65 settings, not 197** (49 `hr_informed` · 83 `technical`), and the generated register leads with **"Your decisions"**. See the block below. |
 | ~~2~~ | ~~**P1.2 — Harmonization provenance**~~ ✅ **DONE (PR [#95](https://github.com/humanaxiom/jd-assistant/pull/95))** | The review page now says how the draft was assembled — and the item **understated** the defect: the whole provenance packet had been computed since 4.1 and rendered nowhere. See the block below. |
 | ~~2~~ | ~~**Phase 8.3 — review-experience upgrades**~~ ✅ **PHASE 8 IS COMPLETE** | 8.3a word-level diff (#102) · 8.3b structural sidebar (#105) · 8.3c gate→field jump-links. All three landed 2026-08-13; none earned a register entry. |
-| **2** | **Phase 6 leftovers ⟵ NEXT of what is in the repo's gift** | Backup + reindex runbooks. The **territorial-acknowledgement wording sign-off** in the same row is HR's, not ours. |
-| 3 | **Phase 6 leftovers** | Backup + reindex runbooks, and the **territorial-acknowledgement wording sign-off** — the latter blocks external distribution and is HR's call. |
+| ~~2~~ | ~~**Phase 6 leftovers**~~ ✅ **RUNBOOKS DONE** | `docs/runbooks/backup-and-restore.md` + `reindex.md`, both **executed against the live stack before being written**, linked from the operator guide. |
+| **2** | **🔴 Nothing engineering-side is blocking any more. Both open items are external** | **TLS at the edge** (row 1) and **HR ratification** — 197 decisions, 0 signed. No amount of code moves either. |
+| 3 | **Territorial-acknowledgement wording sign-off** | The last of Phase 6, and **HR's call, not ours** — it blocks external distribution, not development. *(This row used to also list the backup + reindex runbooks; they are done, and a backlog that lists closed work as open costs a re-investigation every time it is read.)* |
 
 **Deliberately still open, recorded so their absence is not mistaken for completion:**
 ~~the missing timeout on `/compose/search` and `/assist`~~ ✅ **CLOSED (#97)** ·
@@ -157,6 +158,45 @@ deterministic, **no rulebook knob, so no register entry and `rules_version` unmo
   roles put several titles side by side. Not fixed here: a parser change needs a
   `parser_version` bump plus an immediate re-parse of all 14,565 files, which is the same
   ship-together constraint recorded for the `employee_group` residual (#101).
+
+### PHASE 6'S RUNBOOKS ARE DONE — and writing them found a silent data-destroying restore
+
+`docs/runbooks/backup-and-restore.md` + `docs/runbooks/reindex.md`, linked from the operator
+guide (§8). **Every step was executed against the live stack before it was written down.**
+An unrun runbook is a guess, and this one proved the point within the hour.
+
+- **Only Postgres needs backing up.** Neo4j is a **derived index** — `make embed` rebuilds
+  documents + sections from `parsed_jds`, `make embed-roles` rebuilds roles from
+  `canonical_jds`. The labels that are *not* derivable (harness agent memory:
+  `Agent`/`Artifact`/`Task`/`Subtask`) hold **0 nodes**, so nothing is at risk — recorded
+  with the query that falsifies it if that ever changes.
+- **🔴 `pg_restore --data-only` INTO AN ALREADY-MIGRATED DATABASE SILENTLY DESTROYS THE DATA
+  AND EXITS 0.** Measured on the real dump: **1,804 canonical JDs → 0**, **12 user roles →
+  0**, **1,810 chained audit rows → 0**. It printed `warning: errors ignored on restore: 7`
+  and returned **exit code 0**, and the restored database starts and accepts logins with all
+  6 users present. **An operator who checked the exit code and signed in would conclude the
+  restore worked and would have lost the entire Bank.** With `user_roles` empty, nobody can
+  approve anything either — the app would look healthy and be unable to publish.
+  **This is the `make gates | tail` lesson in a new place: a zero exit is not evidence.**
+- **The blessed path was verified byte-identical:** a full `-Fc` dump restored into an
+  **empty** database returns 1,810 chained rows, the same `d8899dc8…` audit fingerprint and
+  the same `audit_chain_tail`. **It survives for a reason worth knowing:** the chain is
+  written by a `BEFORE INSERT` trigger that overwrites `prev_hash`/`row_hash`
+  unconditionally, and `pg_restore` loads data **before** creating triggers — an ordering
+  guaranteed by the custom format, which is why `-Fc` is not a preference.
+  `--data-only --disable-triggers` also works (superuser only; the compose `app` role is
+  one — **that will stop being true when the production posture tightens the app role**).
+- **Reindex resume proven rather than asserted:** `make embed EMBED_ARGS="--limit 50"` →
+  *50 seen, 0 embedded, 49 unchanged, **embed calls: 0***. An interrupted reindex is resumed
+  by running it again; there is no resume flag and none is needed.
+- **⚠️ A side effect found by running it: `make embed` with `--limit` OVERWRITES the
+  committed `docs/embeddings/summary.json`**, rewriting `documents_seen` from **14,522** to
+  the spot-check size. Caught here and reverted; the runbook carries the
+  `git checkout --` that undoes it. **A partial run must not become the repo's record of the
+  last full pass.**
+- **One gap stated instead of guessed:** the wall-clock of a full *cold* rebuild is unknown,
+  because every run available to measure was a skip-first no-op. The runbook says so and
+  asks for the number the first time a real rebuild happens.
 
 ### 8.3c IS DONE — and with it PHASE 8 IS COMPLETE
 

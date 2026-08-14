@@ -274,6 +274,28 @@ docker compose -f docker-compose.prod.yml up -d
 | Re-render this guide | `make guide` (check: `make guide-check`) | Renders `docs/OPERATOR-GUIDE.md` → `docs/operator-guide.html`, the page served at 📖 Guide. `guide-check` byte-diffs the render against the committed HTML and fails if it is stale — run it, and commit both files together, after every edit to the Markdown. Never hand-edit the HTML. |
 | Verify the audit chain | `verify_audit_chain()` in `src.api.services.audit` | Recomputes the hash chain; detects any altered/deleted `audit_log` row. |
 
+### Backup, restore & reindex — the runbooks  **[operator]** 🖥️
+
+Two procedures, both executed against the live stack before they were written down, with
+the numbers they printed:
+
+| Runbook | Covers |
+|---|---|
+| [`docs/runbooks/backup-and-restore.md`](runbooks/backup-and-restore.md) | What must be backed up (**Postgres only** — Neo4j is a derived index), how to dump, how to restore, and how to verify the restore kept the audit chain intact. |
+| [`docs/runbooks/reindex.md`](runbooks/reindex.md) | Rebuilding the Neo4j vectors with `make embed` / `make embed-roles`, the skip-first resume behaviour, and what makes `embed_stamp` move. |
+
+**Two things from those runbooks are worth knowing before you need them:**
+
+- 🔴 **`pg_restore --data-only` into an already-migrated database silently destroys the
+  data and exits `0`.** Measured on a real dump: 1,804 canonical JDs → **0**, 12 user
+  roles → **0**, 1,810 chained audit rows → **0**, while the command reported success and
+  the app still accepted logins. Restore a full custom-format dump into an **empty**
+  database, and verify with the fingerprint query in the runbook. A zero exit is not
+  evidence.
+- **Re-running a reindex is free.** The runners are skip-first on
+  `(text_sha256, model, embed_stamp)`; an unchanged corpus re-run makes **zero** inference
+  calls (measured). So an interrupted reindex is resumed by running it again.
+
 ### Auth configuration (env)
 | Setting | Purpose |
 |---|---|
