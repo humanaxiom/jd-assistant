@@ -1460,3 +1460,92 @@ def test_a_failing_structural_context_never_takes_down_the_review_page(
     assert resp.status_code == 200
     assert "Where this role sits" not in resp.text
     assert "Approve" in resp.text
+
+
+# --- Phase 8.3c: gate -> field jump-links --------------------------------------------
+
+
+def _gate_with_rules(gate_id: str, rule_ids: tuple[str, ...]) -> GateReason:
+    return GateReason(
+        gate_id=gate_id,
+        source_part="Part 2",
+        reason="the mandatory sections are missing",
+        rule_ids=rule_ids,
+        overridable=False,
+    )
+
+
+def test_a_blocking_gate_links_to_the_field_that_fixes_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The link target must be an anchor that EXISTS on this page — otherwise it is a
+    control that looks right and goes nowhere."""
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    packet = _packet(
+        canonical_id=canonical_id,
+        blocking=(_gate_with_rules("SFU-APPROVE-MANDATORY", ("SFU-COMP-SUMMARY",)),),
+        approved=False,
+    )
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+    monkeypatch.setattr(
+        ui.service, "get_structural_context", AsyncMock(return_value=None)
+    )
+
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}").text
+
+    assert 'href="#edit-position_summary"' in body
+    assert 'id="edit-position_summary"' in body  # the anchor is really there
+    assert "Fix this in:" in body
+
+
+def test_a_rollup_gate_offers_no_jump_link(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A score floor is a roll-up over the whole document. Sending the reviewer to an
+    arbitrary field would misstate what is wrong."""
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    packet = _packet(
+        canonical_id=canonical_id,
+        blocking=(_gate_with_rules("SFU-APPROVE-SCORE-FLOOR", ()),),
+        approved=False,
+    )
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+    monkeypatch.setattr(
+        ui.service, "get_structural_context", AsyncMock(return_value=None)
+    )
+
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}").text
+
+    assert "Fix this in:" not in body
+
+
+def test_every_jump_link_on_the_page_resolves_to_a_real_anchor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """🔴 Enumerated from the RENDERED PAGE, not from the map — the same habit as the
+    template link crawl. Every `#edit-*` href must have a matching id in the HTML."""
+    import re
+
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    packet = _packet(
+        canonical_id=canonical_id,
+        blocking=(
+            _gate_with_rules(
+                "SFU-APPROVE-MANDATORY",
+                ("SFU-COMP-SUMMARY", "SFU-COMP-DUTIES", "SFU-COMP-QUALS"),
+            ),
+        ),
+        approved=False,
+    )
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+    monkeypatch.setattr(
+        ui.service, "get_structural_context", AsyncMock(return_value=None)
+    )
+
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}").text
+
+    hrefs = set(re.findall(r'href="#(edit-[a-z_]+)"', body))
+    ids = set(re.findall(r'id="(edit-[a-z_]+)"', body))
+    assert hrefs, "expected the gate to offer jump links"
+    assert hrefs <= ids, f"jump links with no anchor on the page: {sorted(hrefs - ids)}"

@@ -99,7 +99,8 @@ was always the real critical path — and the first item is not a commit.
 | **1** | **🔴 TLS at the edge — the last open exposure, and NOT a repo deliverable** | The pilot host is internet-facing over **plain http**, so sign-in cookies and CAS tickets cross the open internet in the clear. P0.4 makes the app correct *behind* a terminator (P0.3's allowlist reads `X-Forwarded-Proto` and validates the result) and refuses to run pretending otherwise — **someone has to put one in front.** It is also what unblocks actually *using* `docker-compose.prod.yml`, which needs an https origin. |
 | ~~2~~ | ~~**P1.3 — Tier the register**~~ ✅ **DONE (PR [#94](https://github.com/humanaxiom/jd-assistant/pull/94))** | The ask is now **65 settings, not 197** (49 `hr_informed` · 83 `technical`), and the generated register leads with **"Your decisions"**. See the block below. |
 | ~~2~~ | ~~**P1.2 — Harmonization provenance**~~ ✅ **DONE (PR [#95](https://github.com/humanaxiom/jd-assistant/pull/95))** | The review page now says how the draft was assembled — and the item **understated** the defect: the whole provenance packet had been computed since 4.1 and rendered nowhere. See the block below. |
-| **2** | **Phase 8.3 — review-experience upgrades** (`docs/plan.md`) | ~~Word-level diff~~ ✅ **8.3a DONE (#102)** · ~~structural sidebar~~ ✅ **8.3b DONE** · **8.3c gate→field jump-links ⟵ NEXT** — per-blocking-gate "fix this ↓" links via the rule catalog's `section`, surfaced as rulebook data. No GPU. |
+| ~~2~~ | ~~**Phase 8.3 — review-experience upgrades**~~ ✅ **PHASE 8 IS COMPLETE** | 8.3a word-level diff (#102) · 8.3b structural sidebar (#105) · 8.3c gate→field jump-links. All three landed 2026-08-13; none earned a register entry. |
+| **2** | **Phase 6 leftovers ⟵ NEXT of what is in the repo's gift** | Backup + reindex runbooks. The **territorial-acknowledgement wording sign-off** in the same row is HR's, not ours. |
 | 3 | **Phase 6 leftovers** | Backup + reindex runbooks, and the **territorial-acknowledgement wording sign-off** — the latter blocks external distribution and is HR's call. |
 
 **Deliberately still open, recorded so their absence is not mistaken for completion:**
@@ -156,6 +157,54 @@ deterministic, **no rulebook knob, so no register entry and `rules_version` unmo
   roles put several titles side by side. Not fixed here: a parser change needs a
   `parser_version` bump plus an immediate re-parse of all 14,565 files, which is the same
   ship-together constraint recorded for the `employee_group` residual (#101).
+
+### 8.3c IS DONE — and with it PHASE 8 IS COMPLETE
+
+Each blocking gate now says *"Fix this in: **Qualifications ↓**"* instead of offering the
+coarse whole-Edit jump. **Rulebook-driven end to end**, and nothing is re-stated: the gate
+carries the `rule_ids` that tripped it, the catalog owns each rule's `section`, and the
+catalog's own `section_order` / `section_labels` supply the order and the words. Only the
+section → HTML anchor is a UI concern. No register entry; `rules_version` unmoved.
+
+- **⚠️ THE COMPLETENESS PIN IS THE FEATURE.** `_SECTION_ANCHORS` is asserted equal to
+  `get_args(SFUSection)` — **enumerated from the live literal, not a hand-written list** —
+  so adding a template section without deciding where it lives on the page **fails the
+  build** instead of rendering a link that jumps nowhere. `general` is declared `None` (the
+  whole document has no field to jump to), never omitted, for the same reason P1.3 gave
+  `tier` no default. A second test walks the **rendered page** and asserts every `#edit-*`
+  href has a matching `id`; a one-character typo in an anchor turns it red.
+- **Coverage measured over the whole archive before it was claimed: 505 of 535
+  blocking-gate occurrences carry `rule_ids`**, so a link is the common case. The only two
+  that never do are `SCORE-FLOOR` and `GRADE-FLOOR` (15 each) — genuine roll-ups where a
+  link would misstate what is wrong.
+- **A comment I had to correct: `SEVERITY-FLOOR` reads like a roll-up and is not.** It
+  names the offending rules (12/12 live occurrences), so it *does* get links; it falls back
+  to none only when tripped by a rule-less LLM finding, which has no section to point at.
+  The first version of the docstring asserted it was a roll-up from its name alone.
+- **Live-verified on real blocked drafts:** `KSA-ORDER → Qualifications`,
+  `SUMMARY-CONDITIONS → Position Summary`.
+- **🔴 P0.0'S LINK CRAWL CAUGHT THIS FEATURE, AND IT WAS RIGHT TO.** The full gates went
+  **red** on `test_every_same_page_link_lands_on_an_anchor_that_exists`: the crawl reads
+  template *source*, and `href="#{{ target.anchor }}"` is **computed**, so unlike every
+  other fragment in this app it does not pair with a matching dynamic `id=` the scanner
+  can see — it targets a set of **literal** ids. **The temptation was to make the crawl
+  skip Jinja fragments. That would have blinded the net for every future template.**
+  Instead the link is declared in `OPAQUE_LINKS` — the mechanism P0.0 already built for
+  exactly this — and verified by walking `_SECTION_ANCHORS` against the ids in
+  `review_detail.html`, which is **stronger than the crawl could manage**: it proves
+  *every* value the link can take is a real anchor, not just the one a sample render
+  produced. Mutation-proved: mistyping the `relationships` anchor turns it red even
+  though no rendered-page test exercises that section.
+  **The lesson: when a safety net fires on new work, the first question is what it knows
+  that you do not — not how to quiet it.**
+- **⚠️ IT ALSO PROVED THE `get_session` CHORE IS A LIVE DEFECT, NOT A LATENT ONE.** The
+  ROADMAP row said an import cycle was *"waiting to be re-introduced"*; it **exists**, and
+  it bit three times here. `routes/ui.py` imports `get_session` from `src.api.main`, which
+  imports `routes.ui` to mount the router — so `import src.api.routes.ui` **first** raises
+  `ImportError: cannot import name 'router' from partially initialized module`. Every
+  existing suite hides it by importing `src.api.main` first, which is exactly why nobody
+  had noticed. `test_gate_jump_links.py` carries the explicit import **with a comment
+  saying why**, rather than papering over it. Row corrected.
 
 ### 8.3b IS BUILT — the sidebar shows the roles clustering REFUSED to merge
 

@@ -909,14 +909,36 @@ own (HR-195/196/197, see 5.9).
   halves the list (Tier-3 edges are stored oriented, undirected in intent), and widening the tier
   filter re-admits near-duplicates. A heavyweight interactive graph viz remains out of scope (that
   is Phase 7's domain overlap graph; this is a lightweight review-time slice of it).
-- **8.3c Gate → field jump-links.** Per-blocking-gate "fix this ↓" links that jump to the *specific*
-  Edit field, via a **rulebook-driven** gate→section map (the rule catalog's `section`, surfaced as
-  data). Extends the coarse whole-Edit `#edit` jump shipped 2026-07-31.
+- ✅ **8.3c Gate → field jump-links. DONE (2026-08-13).** Each blocking gate now says *"Fix this
+  in: Qualifications ↓"*, replacing the coarse whole-Edit `#edit` jump. **Rulebook-driven end to
+  end and nothing is re-stated:** the gate carries the `rule_ids` that tripped it, the catalog owns
+  each rule's `section`, and the catalog's own `section_order` and `section_labels` supply the order
+  and the words. Only the section → HTML anchor is a UI concern. No register entry; `rules_version`
+  unmoved.
+  **⚠ THE COMPLETENESS PIN IS THE POINT:** `_SECTION_ANCHORS` is asserted equal to
+  `get_args(SFUSection)` — enumerated from the live literal, not a hand-written list — so adding a
+  template section without deciding where it lives fails the build instead of rendering a link that
+  jumps nowhere. `general` is declared `None` (the whole document has no field), never omitted, for
+  the same reason P1.3 gave `tier` no default. A second test walks the **rendered page** and asserts
+  every `#edit-*` href has a matching `id`; a one-character typo in an anchor turns it red.
+  **Measured over the whole archive before claiming coverage: 505 of 535 blocking-gate occurrences
+  carry `rule_ids`**, so links are the common case. The only two that never do are
+  `SCORE-FLOOR` and `GRADE-FLOOR` (15 each) — genuine roll-ups, where a link would misstate what is
+  wrong. `SEVERITY-FLOOR` reads like a roll-up but names its rules (12/12 live), so it does get
+  links unless tripped by a rule-less LLM finding. Live-verified on real blocked drafts:
+  `KSA-ORDER → Qualifications`, `SUMMARY-CONDITIONS → Position Summary`.
+  **🔴 P0.0's link crawl went red on this feature and was right to:** it reads template *source*,
+  and a computed `href="#{{ target.anchor }}"` targets a set of *literal* ids rather than a
+  matching dynamic `id=`. The link is declared in `OPAQUE_LINKS` (the mechanism P0.0 built for
+  exactly this) and verified by walking `_SECTION_ANCHORS` against the template's ids —
+  **stronger than the crawl could manage**, since it proves every value the link can take is a
+  real anchor. **Blinding the crawl to Jinja fragments was the tempting fix and would have cost
+  the net for every future template.**
 
 **Sequencing:** ~~**8.1** (library) → **8.2** (embed + search) →~~ both landed 2026-08-01…04, out of
 the order planned and partly ahead of it. **8.3** (review UX, no GPU) is what remains —
-~~**8.3a**~~ ✅ and ~~**8.3b**~~ ✅ landed 2026-08-13; **8.3c** (gate→field jump-links) is
-what is left of Phase 8. 8.1 turned
+~~**8.3a**~~ ✅, ~~**8.3b**~~ ✅ and ~~**8.3c**~~ ✅ all landed 2026-08-13, so **Phase 8 is
+complete**. 8.1 turned
 the **1,798** latent drafts into a readable resource; 8.2 made them findable.
 
 **Exit:** an approved JD has a permanent, browsable, searchable home; a reviewer navigates

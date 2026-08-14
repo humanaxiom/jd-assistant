@@ -98,6 +98,18 @@
       {% if gate.overridable %}<span class="badge ok">overridable</span>{% else %}<span class="badge blocked">not overridable</span>{% endif %}
     </div>
     <p>{{ gate.reason }}</p>
+    {#
+      Phase 8.3c — per-gate "fix this" links. Rulebook-driven: the gate's tripped
+      rule_ids -> the catalog's section -> the catalog's label and order. A gate with
+      nothing honest to point at (the score/grade/severity roll-ups) shows no link
+      rather than sending the reviewer to an arbitrary field.
+    #}
+    {% set targets = gate_jump_targets(gate) %}
+    {% if targets %}
+    <p class="meta">Fix this in:
+      {% for target in targets %}<a href="#{{ target.anchor }}">{{ target.label }} ↓</a>{{ " · " if not loop.last }}{% endfor %}
+    </p>
+    {% endif %}
   </div>
   {% endfor %}
 </div>
@@ -307,7 +319,7 @@
     <label for="edit-reason">Reason for this edit</label>
     <textarea id="edit-reason" name="reason" required></textarea>
 
-    <h3>1 · Identification</h3>
+    <h3 id="edit-identification">1 · Identification</h3>
     <label for="e-title">Title</label>
     <input id="e-title" name="title" value="{{ edit.content.get('title', '') }}">
     <label for="e-position_number">Position number</label>
@@ -324,15 +336,15 @@
       {% endfor %}
     </select>
 
-    <h3>2 · SFU boilerplate</h3>
+    <h3 id="edit-boilerplate">2 · SFU boilerplate</h3>
     <label><input type="checkbox" name="about_sfu_present" value="on" style="width:auto"{% if edit.content.get('about_sfu_present') %} checked{% endif %}> About SFU present</label>
     <label><input type="checkbox" name="territorial_acknowledgement_present" value="on" style="width:auto"{% if edit.content.get('territorial_acknowledgement_present') %} checked{% endif %}> Territorial acknowledgement present</label>
     <label><input type="checkbox" name="employment_equity_present" value="on" style="width:auto"{% if edit.content.get('employment_equity_present') %} checked{% endif %}> Employment-equity footer present</label>
 
-    <h3>3 · Position Summary</h3>
+    <h3 id="edit-position_summary">3 · Position Summary</h3>
     <textarea name="position_summary" rows="4">{{ edit.content.get('position_summary') or '' }}</textarea>
 
-    <h3>4 · Duties &amp; Responsibilities</h3>
+    <h3 id="edit-duties">4 · Duties &amp; Responsibilities</h3>
     <p class="meta">Action verb · statement · frequency · how/why (one per line).</p>
     {% for row in edit.duty_rows %}
     <div style="border:1px solid var(--border);border-radius:6px;padding:.5rem;margin-bottom:.5rem">
@@ -345,13 +357,13 @@
     </div>
     {% endfor %}
 
-    <h3>5 · Impact of Decision Making</h3>
+    <h3 id="edit-decision_making">5 · Impact of Decision Making</h3>
     <textarea name="decision_making" placeholder="one per line" rows="3">{{ edit.decision_making }}</textarea>
 
-    <h3>6 · Problem Solving</h3>
+    <h3 id="edit-problem_solving">6 · Problem Solving</h3>
     <textarea name="problem_solving" placeholder="one per line" rows="3">{{ edit.problem_solving }}</textarea>
 
-    <h3>7 · Relationships</h3>
+    <h3 id="edit-relationships">7 · Relationships</h3>
     <label for="e-supervisory">Supervisory</label>
     <textarea id="e-supervisory" name="supervisory" rows="2">{{ edit.supervisory }}</textarea>
     <label for="e-rel_internal">Internal contacts (one per line)</label>
@@ -359,7 +371,7 @@
     <label for="e-rel_external">External contacts (one per line)</label>
     <textarea id="e-rel_external" name="rel_external" rows="2">{{ edit.rel_external }}</textarea>
 
-    <h3>8 · Qualifications</h3>
+    <h3 id="edit-qualifications">8 · Qualifications</h3>
     <p class="meta">Text · kind · proficiency modifier.</p>
     {% for row in edit.qual_rows %}
     <div style="display:flex;gap:.5rem;margin-bottom:.4rem">
@@ -378,7 +390,7 @@
     </div>
     {% endfor %}
 
-    <h3>10 · Additional context</h3>
+    <h3 id="edit-additional_context">10 · Additional context</h3>
     <textarea name="additional_context" rows="3">{{ edit.content.get('additional_context') or '' }}</textarea>
 
     <button type="submit">{% if is_published %}Save as a new draft version{% else %}Save edit{% endif %}</button>

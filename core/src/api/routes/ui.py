@@ -34,8 +34,9 @@ the normal ``{{ }}`` escaping. Nothing here uses ``|safe`` on draft text (untrus
 from __future__ import annotations
 
 import logging
+from functools import partial
 from pathlib import Path
-from typing import Annotated, Any, get_args
+from typing import Annotated, Any, NamedTuple, get_args
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
@@ -60,8 +61,8 @@ from src.jd_bank.review import (
 )
 from src.jd_core.models.bank import MergeProvenance
 from src.jd_core.models.parsed_jd import QualificationKind, SFUEmployeeGroup
-from src.jd_core.models.quality import GateOverride
-from src.jd_core.rules import get_rules
+from src.jd_core.models.quality import GateOverride, GateReason
+from src.jd_core.rules import Rules, get_rules
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +94,80 @@ _SERVICE_ERRORS: tuple[type[Exception], ...] = (
     MissingReasonError,
     ValidationError,
 )
+
+#: Phase 8.3c — where each SFU template section lives in the Edit form.
+#:
+#: ⚠ **This map is COMPLETE by test, walked from the ``SFUSection`` literal itself.**
+#: Add a section to the model without deciding where it lives here and the build fails —
+#: rather than rendering a "fix this ↓" link that jumps nowhere, which is the kind of
+#: silently dead control this repo has shipped before and now enumerates from the live
+#: artifact.
+#:
+#: ``general`` is declared ``None`` rather than omitted: it means *the whole document*,
+#: so there is no field to jump to. Declaring it makes that an argued decision instead
+#: of a gap (the same reason P1.3 gave ``tier`` no default).
+#:
+#: Only the ANCHOR is a UI concern. Which section a rule belongs to, what that section
+#: is called, and the order sections come in are all rulebook data
+#: (``rule_catalog.yaml``: ``section``, ``section_labels``, ``section_order``).
+_SECTION_ANCHORS: dict[str, str | None] = {
+    "about_sfu": "edit-boilerplate",
+    "identification": "edit-identification",
+    "position_summary": "edit-position_summary",
+    "duties": "edit-duties",
+    "decision_making": "edit-decision_making",
+    "problem_solving": "edit-problem_solving",
+    "relationships": "edit-relationships",
+    "qualifications": "edit-qualifications",
+    # The employment-equity footer is a checkbox in the boilerplate block.
+    "edi_footer": "edit-boilerplate",
+    "additional_context": "edit-additional_context",
+    "general": None,
+}
+
+
+class GateJumpTarget(NamedTuple):
+    """One "fix this ↓" link: the rulebook's label for a section, and where it is."""
+
+    label: str
+    anchor: str
+
+
+def gate_jump_targets(gate: GateReason, rules: Rules) -> tuple[GateJumpTarget, ...]:
+    """Where a reviewer goes to fix ``gate`` — one link per implicated template section.
+
+    Rulebook-driven end to end: the gate carries the ``rule_ids`` that tripped it, the
+    catalog owns each rule's ``section`` and its label, and ``section_order`` fixes the
+    order so the same gate never reshuffles its links between drafts.
+
+    Returns ``()`` when there is nothing honest to point at, and a link landing on an
+    arbitrary field would misstate what is wrong. Measured over the whole archive, that
+    is exactly the two roll-up gates: ``SFU-APPROVE-SCORE-FLOOR`` and
+    ``SFU-APPROVE-GRADE-FLOOR`` (15 occurrences each, **zero** carrying ``rule_ids``).
+    Every other blocking gate in the archive carries them — 505 of 535 occurrences, so
+    the links are the common case, not the exception.
+
+    ``SFU-APPROVE-SEVERITY-FLOOR`` is deliberately NOT in that list even though it reads
+    like a roll-up: it names the offending rules, and all 12 live occurrences carry
+    them. It exists to catch high-severity findings with **no** ``rule_id`` (the Phase-5
+    LLM pass), and in that case it falls out here with no link — which is correct: an
+    uncatalogued finding has no section to point at.
+
+    An uncatalogued rule id is skipped rather than raised: a navigation aid never takes
+    down the decision page.
+    """
+    catalog = rules.rule_catalog
+    sections = {
+        catalog.by_id[rule_id].section
+        for rule_id in gate.rule_ids
+        if rule_id in catalog.by_id
+    }
+    return tuple(
+        GateJumpTarget(label=catalog.label(section), anchor=anchor)
+        for section in catalog.section_order
+        if section in sections and (anchor := _SECTION_ANCHORS.get(section))
+    )
+
 
 #: The naming convention a filled override textarea uses on the approve form:
 #: ``override_reason__<gate_id>``. Only fields matching this prefix are read as
@@ -375,6 +450,9 @@ def _detail_context(
         "provenance_rows": _PROVENANCE_ROWS,
         "edit": _edit_view(packet.content or {}),
         "structure": structure,
+        # Bound to the loaded rulebook here so the template never reaches for rules
+        # itself — a template is a renderer, not a place decisions are looked up.
+        "gate_jump_targets": partial(gate_jump_targets, rules=get_rules()),
     }
 
 
