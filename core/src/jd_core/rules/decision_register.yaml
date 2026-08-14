@@ -5948,10 +5948,17 @@ decisions:
       add the block to the WJQ), not a rule that every CUPE JD fails by construction.
       The same question covers `SFU-COMP-ABOUT` and `SFU-COMP-EDI`, which move together.
     impact_if_changed: >-
-      Moves `rules_version` (rule_catalog.yaml is hashed). Adding `wjq` to these three
-      rules re-applies them to all 4,440 CUPE JDs, where they currently fire on ~100% —
-      restoring roughly a third of the score gap Phase B closed. Pinned by
-      `test_rule_applies_to_template.py`, which fails if the measured JDFN-only set moves.
+      🔴 THIS RULING DECIDES WHETHER CUPE JDs CAN BE APPROVED AT ALL — it is not a score
+      adjustment, and an earlier version of this entry said it was ("restoring roughly a
+      third of the score gap"). MEASURED over the whole archive 2026-08-14
+      (`docs/decisions/cupe-phase-b-measured-2026-08-14.md`): `SFU-COMP-TERRITORIAL` and
+      `SFU-COMP-EDI` feed the EDI-footer BLOCKING gate, so with them withheld the WJQ
+      cohort is approvable at **59.0%** (4,300 documents) and with them applied it was
+      **0.0%**. Adding `wjq` to these three rules therefore returns all 4,440 CUPE JDs to
+      un-approvable, because the WJQ form contains no such block for them to find — which
+      is precisely why the recorded view is that if HR rules the boilerplate universal,
+      the honest fix is the FORM. Also moves `rules_version` (rule_catalog.yaml is hashed).
+      Pinned by `test_rule_applies_to_template.py`, which fails if the JDFN-only set moves.
     status: open
 
   # ── Embedding over-length fallback ladder (HR-126 follow-up). ──
