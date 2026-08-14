@@ -775,6 +775,28 @@ validator can only score the JDFN template, so authoring a CUPE JD would categor
 it on the JDFN gates (HR-143). **Serving CUPE is a real project and it starts with HR, not code:**
 define a CUPE quality bar (a WJQ ruleset + oracle) FIRST; only then does `segmentation.yaml ::
 jdfn_employee_groups` gain a `cupe` token and the Builder support the WJQ 14-section instrument.
+
+**MEASURED + DESIGNED 2026-08-14** — evidence in
+[`docs/decisions/cupe-scope-measured-2026-08-14.md`](decisions/cupe-scope-measured-2026-08-14.md),
+design in [`docs/tasks/cupe-support-design.md`](tasks/cupe-support-design.md). Three things the
+prose above understated:
+1. **Far more is already built than "not served" implies.** Parsing works (all 14 WJQ sections,
+   since 3.4) and CUPE parses *richer* than JDFN — 9.7 duties vs 3.8, 19.5 quals vs 1.0 — and
+   Tier-2/3 dedup is **done**: **49,448** role-equivalent edges, *more* than APSA's 49,008. What
+   is missing is the bar, not the pipeline.
+2. **🔴 A blocking defect that is OURS, not HR's: `additional_context` is capped at 4,000 chars
+   and 81.4% of CUPE JDs sit at the cap** (0% of APSA). The seven WJQ point-factor sections are
+   stored there verbatim, so the tail is silently truncated — `continuing_education`, the last
+   one, survives in only **17.0%** of documents. **No bar can be designed over data that is
+   discarded for four in five documents.** Fixing it needs a `parser_version` bump + full
+   re-parse shipped together (#101 precedent).
+3. **The category error is architectural, not incidental:** `evaluate_jd_rules` is
+   **template-blind** — every rule runs over every JD. The fix is rulebook data, an
+   `applies_to` on each catalog rule with no default (the P1.3 `tier` move), which is worth
+   landing **even if HR rules against serving CUPE**.
+
+**Phases A (fix the truncation) and B (`applies_to`) need no HR and can start today; C (define
+the bar) is HR-194 and blocks D (turn on harmonize/cluster for CUPE) and E (Builder token).**
 Until HR rules on HR-194, "the Bank does not serve CUPE" is an explicit decision on the register,
 not one made by omission.
 
