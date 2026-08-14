@@ -891,6 +891,23 @@ decisions:
       (the other two need organisational context — HR-032, HR-033). If the APEX
       claim is wrong or out of date, the one title check that CAN fire is firing on
       the wrong condition.
+      ⚠ AND A MATCHER DEFECT MEASURED 2026-08-14, recorded here rather than fixed,
+      because fixing it changes what the rule finds and that is this entry's subject.
+      `titles.restricted.executive_director.phrase` is matched as a SUBSTRING of the
+      title, so it also fires on roles that merely REPORT TO an Executive Director.
+      Over the live archive at `jd_segmenter_v4`, 5 CUPE documents carry the phrase
+      and 3 of them are that near-miss ("Assistant to the Executive Director",
+      "Secretary to the Executive Director, Student Affairs …" ×2); the other 2
+      ("Executive Director of Development", "Executive Director, Business Career
+      Management") are genuine hits which most likely indicate a mis-parsed
+      `employee_group` rather than a real CUPE executive — itself worth seeing.
+      THE DEFECT IS NOT TEMPLATE-SHAPED and must not be papered over with one:
+      CUPE Phase B briefly declared this rule JDFN-only, which would have suppressed
+      all five. It judges both templates. The fix is a head-noun check (the title
+      must START with the phrase, or the phrase must not be preceded by "to the"),
+      which is a change to what the rule catches and therefore HR's to weigh here.
+      It is advisory either way — `gates.yaml` omission (b) keeps all three
+      restricted titles out of every blocking set.
     impact_if_changed: >-
       Confirm against the current Job Titling Guide. Setting it to null would turn
       this into a third unverifiable advisory.
@@ -5898,6 +5915,43 @@ decisions:
       `SFUJobDescription.additional_context`'s `max_length` ceiling (20,000): a configured
       cap above it turns a lossy parse into a ValidationError, i.e. a parse failure. Pinned
       by `test_wjq_context_not_truncated.py`.
+    status: open
+
+  # ── Do SFU's boilerplate requirements apply to a CUPE/WJQ JD? (CUPE Phase B) ──
+  - id: HR-201
+    question: >-
+      Must a CUPE job description carry SFU's boilerplate — the About SFU block, the
+      territorial acknowledgement and the employment-equity statement — the way a JDFN
+      one must? The WJQ form does not contain them, so today the three rules that check
+      for them are declared JDFN-only and a CUPE JD is not marked down for their absence.
+    config:
+      file: rule_catalog.yaml
+      path: rule_catalog.SFU-COMP-TERRITORIAL.applies_to
+    current_default: [jdfn]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      This is the one genuinely POLICY-shaped question inside an otherwise factual field.
+      `applies_to` normally states a fact about the form — the WJQ has no Problem Solving
+      section, so a rule checking for one cannot judge it. The boilerplate is different:
+      the territorial acknowledgement and the EDI statement are SFU-WIDE commitments, not
+      JDFN-template furniture, and one could argue every SFU job description should carry
+      them regardless of which form it was written on. MEASURED, all three currently fire
+      on ~100% of CUPE documents because the WJQ form simply has no such block — so
+      applying them would mark down all 4,440 CUPE JDs for a property of the FORM rather
+      than of the job description, while NOT applying them means the Bank holds CUPE JDs
+      to a weaker inclusion standard than JDFN ones. The default keeps them JDFN-only
+      because scoring a document for lacking a section its official form never provides is
+      the category error this whole phase exists to remove — but that is an engineering
+      judgement standing in for a policy call, which is exactly what this register is for.
+      If HR rules that the boilerplate is universal, the honest fix is the FORM (ask SFU to
+      add the block to the WJQ), not a rule that every CUPE JD fails by construction.
+      The same question covers `SFU-COMP-ABOUT` and `SFU-COMP-EDI`, which move together.
+    impact_if_changed: >-
+      Moves `rules_version` (rule_catalog.yaml is hashed). Adding `wjq` to these three
+      rules re-applies them to all 4,440 CUPE JDs, where they currently fire on ~100% —
+      restoring roughly a third of the score gap Phase B closed. Pinned by
+      `test_rule_applies_to_template.py`, which fails if the measured JDFN-only set moves.
     status: open
 
   # ── Embedding over-length fallback ladder (HR-126 follow-up). ──

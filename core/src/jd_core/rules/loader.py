@@ -73,6 +73,7 @@ from src.jd_core.models.quality import (
     JDGrade,
     JDIssueCategory,
     JDIssueSeverity,
+    JDTemplate,
     SFUSection,
 )
 from src.jd_core.textnorm import fold
@@ -2258,6 +2259,20 @@ class RuleSpec(BaseModel):
     rule_id: str = Field(min_length=1, max_length=64)
     category: JDIssueCategory
     section: SFUSection
+    #: Which document TEMPLATE this rule can judge. **Required, with no default** — the
+    #: same move P1.3 made with ``tier``: a rule must not be filed against a form by
+    #: omission, which is exactly how one undifferentiated ruleset came to be applied to
+    #: two different SFU forms.
+    #:
+    #: ⚠ A statement of FACT about the form, not a policy. Measured over the live
+    #: archive, four rules fired on **100%** of CUPE documents because the WJQ
+    #: questionnaire does not contain the sections they check (0.0% have a Problem
+    #: Solving section; 3.1% an Impact of Decision Making one) — and this rulebook
+    #: already holds that a rule which cannot NOT fire is a constant subtracted from
+    #: every score, not a quality signal (see ``evaluable``). Whether SFU's
+    #: *boilerplate* requirements ought to apply to a CUPE JD is a genuine policy
+    #: question, registered as one (HR-201) rather than settled by a value here.
+    applies_to: tuple[JDTemplate, ...] = Field(min_length=1)
     source_part: str = Field(min_length=1)  # the guide part, e.g. "Part 2B"
     default_severity: JDIssueSeverity
     title: str = Field(min_length=1)
