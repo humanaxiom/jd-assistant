@@ -165,6 +165,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     by_template = ", ".join(
         f"{template}={count}" for template, count in result.clusters_by_template.items()
     )
+    # …and the same rule for how they SCORED. Each line names the form and its own bar,
+    # because "62.9" means nothing without knowing which profile produced it. There is
+    # no total line on purpose: a mean over two forms is a mean over two different
+    # measurements, and printing one is how it gets quoted.
+    evaluation = "\n".join(
+        f"  {template}: {ev.drafts_scored} drafts scored on the {template} bar, "
+        f"mean {ev.mean_score}, {ev.approvable} approvable, grades {ev.grades}"
+        for template, ev in result.evaluation_by_template.items()
+    )
     print(
         f"clusters: {result.clusters_recomputed} recomputed -> "
         f"{result.clusters_seen} seen [{by_template or 'none'}] "
@@ -182,7 +191,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"({result.wjq_members_frequency_confirmed} frequency-confirmed), "
         f"{result.clusters_fully_wjq_excluded} clusters fully-WJQ with no draft, "
         f"{result.clusters_mixed_jdfn_wjq} mixed\n"
-        f"forms drafted: {list(result.clusters_by_template)}  "
+        f"evaluation, PER FORM (never blended — each is its own bar):\n"
+        f"{evaluation or '  (no drafts scored)'}\n"
         f"rules_version={result.rules_version}  llm_enabled={result.llm_enabled}",
         file=sys.stderr,
     )

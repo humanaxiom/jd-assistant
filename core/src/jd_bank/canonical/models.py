@@ -15,6 +15,39 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class TemplateEvaluation(BaseModel):
+    """How the drafts authored on ONE form scored — against THAT form's own bar.
+
+    **The rule this class exists to enforce is that there is no blended number.** A CUPE
+    draft is judged by the WJQ profile (Phases B + C) and a JDFN draft by the JDFN one,
+    so a single mean over both is a mean over two different measurements — the category
+    error the whole CUPE phase removed. Reporting per form makes the blended figure
+    unavailable rather than merely discouraged: the producer never computes one.
+
+    Counts only, like everything else the summary commits — the drafts themselves are
+    the persisted ``canonical_jds`` rows.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: Clusters entered on this form (persisted + refreshed + skipped + failed).
+    clusters: int = Field(ge=0)
+    #: Drafts this run actually WROTE on this form — the denominator for everything
+    #: below. A skipped (reviewer-touched) or failed cluster is scored by nobody here,
+    #: because the producer never built a draft for it, and quietly folding those into
+    #: the denominator would understate the cohort.
+    drafts_scored: int = Field(ge=0)
+    #: Mean validator score over ``drafts_scored`` (0 when none). Rounded to 2dp — the
+    #: summary is a report, and more precision than that implies a stability the
+    #: underlying bar (206 decisions, 0 ratified) does not have.
+    mean_score: float = Field(ge=0, le=100)
+    #: Drafts this form's OWN gates would approve. Never comparable across forms as a
+    #: quality statement — the two cohorts are scored by different rules.
+    approvable: int = Field(ge=0)
+    #: Grade -> count, over ``drafts_scored``.
+    grades: dict[str, int] = Field(default_factory=dict)
+
+
 class CanonicalProducerResult(BaseModel):
     """What one canonical-producer pass did — counts + stamps only, no JD text.
 
@@ -60,6 +93,11 @@ class CanonicalProducerResult(BaseModel):
     #: that must never be blended into one number (CUPE Phase D). Sums to
     #: ``clusters_seen``.
     clusters_by_template: dict[str, int] = Field(default_factory=dict)
+    #: How each form's drafts SCORED, against that form's own bar (CUPE Phase D). There
+    #: is deliberately no overall score field anywhere on this result: a mean across two
+    #: forms is a mean across two different measurements, so the producer does not
+    #: compute one and no consumer can quote one.
+    evaluation_by_template: dict[str, TemplateEvaluation] = Field(default_factory=dict)
     multi_member_clusters: int = Field(ge=0)
     single_member_clusters: int = Field(ge=0)
     #: A cluster's FIRST canonical DRAFT was written.

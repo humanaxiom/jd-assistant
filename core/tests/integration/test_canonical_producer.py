@@ -760,6 +760,57 @@ async def test_an_all_cupe_cluster_gets_a_wjq_draft(
 
 
 @pytest.mark.asyncio
+async def test_each_form_is_evaluated_against_its_own_bar_and_never_blended(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """CUPE Phase D's reporting rule, over a real run holding BOTH forms.
+
+    Two separate clusters — one JDFN, one CUPE — produce two drafts, and each form's
+    numbers are reported under its own key. The important assertion is the last one:
+    the JDFN entry's counts are exactly what a JDFN-only run would have produced, so
+    introducing the CUPE cohort cannot move the number HR has been reading.
+    """
+    async with session_maker() as session:
+        a = await _seed_jd(
+            session, storage_ref="a", sha256=_sha("a"), parsed=_analyst()
+        )
+        b = await _seed_jd(
+            session, storage_ref="b", sha256=_sha("b"), parsed=_analyst()
+        )
+        c = await _seed_jd(
+            session, storage_ref="c", sha256=_sha("c"), parsed=_analyst(group="cupe")
+        )
+        d = await _seed_jd(
+            session, storage_ref="d", sha256=_sha("d"), parsed=_analyst(group="cupe")
+        )
+        await _role_edge(session, a.id, b.id)
+        await _role_edge(session, c.id, d.id)
+        await session.commit()
+
+        result = await run_canonical_producer(session, rewrite_client=None)
+        await session.commit()
+
+        assert set(result.evaluation_by_template) == {"jdfn", "wjq"}
+        jdfn = result.evaluation_by_template["jdfn"]
+        wjq = result.evaluation_by_template["wjq"]
+        assert jdfn.drafts_scored == 1
+        assert wjq.drafts_scored == 1
+        # Each form's grades account for exactly its own drafts — nothing crosses over.
+        assert sum(jdfn.grades.values()) == jdfn.drafts_scored
+        assert sum(wjq.grades.values()) == wjq.drafts_scored
+        assert jdfn.clusters + wjq.clusters == result.clusters_seen
+
+        # ⚠ THE CONTROL: the same run with CUPE off the list reports an IDENTICAL jdfn
+        # block. If drafting CUPE could move the JDFN cohort's numbers, every figure HR
+        # has already been given would silently change under them.
+        jdfn_only = await run_canonical_producer(
+            session, rewrite_client=None, rules=_jdfn_only(get_rules())
+        )
+        await session.commit()
+        assert jdfn_only.evaluation_by_template["jdfn"] == jdfn
+
+
+@pytest.mark.asyncio
 async def test_a_fully_wjq_cluster_persists_nothing_with_wjq_off_the_list(
     session_maker: async_sessionmaker[AsyncSession], rules: Rules
 ) -> None:

@@ -60,15 +60,16 @@ from __future__ import annotations
 
 import sys
 import time
+from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.jd_bank.canonical.models import CanonicalProducerResult
+from src.jd_bank.canonical.models import CanonicalProducerResult, TemplateEvaluation
 from src.jd_bank.cluster.models import ClusterRecord
 from src.jd_bank.cluster.runner import run_clustering
 from src.jd_bank.db.models import (
@@ -223,7 +224,7 @@ def build_change_log_packet(
 
 @dataclass(slots=True)
 class _Outcome:
-    """What ONE JDFN cluster's processing did — accumulated by the caller only AFTER its
+    """What ONE cluster's processing did — accumulated by the caller only AFTER its
     SAVEPOINT releases, so an isolated failure never double-counts."""
 
     persisted: bool = False
@@ -231,6 +232,35 @@ class _Outcome:
     skipped: bool = False
     rewrite_failed: bool = False
     audit_failed: bool = False
+    #: The validator's verdict on the draft this cluster WROTE — ``None`` when no draft
+    #: was written (reviewer-touched, or the cluster failed). Kept ``None`` rather than
+    #: zeroed: a cluster the producer did not score must not enter the cohort's mean as
+    #: a zero, which would understate every form it touched.
+    score: float | None = None
+    grade: JDGrade | None = None
+    approvable: bool = False
+
+
+@dataclass(slots=True)
+class _TemplateAgg:
+    """Running per-form totals (CUPE Phase D). One of these per template, never one
+    shared — the whole point is that no number spans two forms."""
+
+    clusters: int = 0
+    drafts_scored: int = 0
+    score_total: float = 0.0
+    approvable: int = 0
+    grades: Counter[str] = field(default_factory=Counter)
+
+    def evaluation(self) -> TemplateEvaluation:
+        mean = self.score_total / self.drafts_scored if self.drafts_scored else 0.0
+        return TemplateEvaluation(
+            clusters=self.clusters,
+            drafts_scored=self.drafts_scored,
+            mean_score=round(mean, 2),
+            approvable=self.approvable,
+            grades=dict(sorted(self.grades.items())),
+        )
 
 
 # --- LLM passes (best-effort) --------------------------------------------------------
@@ -407,6 +437,14 @@ async def _process_cluster(
     )
     score, grade = score_issues(issues, scoring=rules.scoring)
     gate_decision = evaluate_gates(issues, score, grade, gates=rules.gates)
+
+    # The per-form evaluation (CUPE Phase D). Carried on the outcome rather than
+    # aggregated here, so a cluster whose SAVEPOINT rolls back contributes nothing —
+    # the caller folds it in only after the SAVEPOINT releases, exactly as it already
+    # does for the persist/refresh counts.
+    outcome.score = score
+    outcome.grade = grade
+    outcome.approvable = gate_decision.approved
 
     # 4. The 4.3 change-log + the reviewer packet.
     diff = build_harmonization_diff(merged, members, rewrite=rewritten, rules=rules)
@@ -596,6 +634,7 @@ async def run_canonical_producer(
     mixed = 0
     clusters_seen = 0
     by_template: dict[str, int] = {}
+    per_form: defaultdict[str, _TemplateAgg] = defaultdict(_TemplateAgg)
     multi = 0
     single = 0
     persisted = 0
@@ -646,6 +685,7 @@ async def run_canonical_producer(
 
         clusters_seen += 1
         by_template[template] = by_template.get(template, 0) + 1
+        per_form[template].clusters += 1
         if len(member_pairs) >= 2:
             multi += 1
         else:
@@ -671,6 +711,12 @@ async def run_canonical_producer(
             skipped += int(outcome.skipped)
             rewrite_failures += int(outcome.rewrite_failed)
             audit_failures += int(outcome.audit_failed)
+            if outcome.score is not None and outcome.grade is not None:
+                agg = per_form[template]
+                agg.drafts_scored += 1
+                agg.score_total += outcome.score
+                agg.approvable += int(outcome.approvable)
+                agg.grades[outcome.grade] += 1
 
         # BETWEEN clusters ONLY — the SAVEPOINT above has released (success or isolated
         # failure), so the checkpoint commit can never persist a partial cluster. The
@@ -698,6 +744,9 @@ async def run_canonical_producer(
         wjq_members_authored=wjq_authored_total,
         wjq_members_frequency_confirmed=wjq_freq_confirmed,
         clusters_by_template=dict(sorted(by_template.items())),
+        evaluation_by_template={
+            template: agg.evaluation() for template, agg in sorted(per_form.items())
+        },
         clusters_fully_wjq_excluded=fully_wjq,
         clusters_mixed_jdfn_wjq=mixed,
         member_rows_dropped_unvalidatable=dropped_unvalidatable,
