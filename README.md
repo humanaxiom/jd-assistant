@@ -1,7 +1,7 @@
 # JD Bank
 
 > Dedup + harmonization + composer over the SFU Job Description archive. Offline-first Python
-> stack (FastAPI · Neo4j · Postgres · Redis/arq · Flask) driven by AI subagents through
+> stack (FastAPI · Neo4j · Postgres · Redis/arq) driven by AI subagents through
 > **Claude Code**. Inference runs on **Ollama on bare metal**; **everything else runs in Docker**.
 
 Built on the v2 agent harness (upstream `C:\repos\agent-harnesses-v2`, vendored here — ADR-004).
@@ -16,32 +16,39 @@ Built on the v2 agent harness (upstream `C:\repos\agent-harnesses-v2`, vendored 
 
 ```mermaid
 graph TB
-    subgraph Metal["🔩 Bare Metal (Host)"]
+    subgraph Metal["🔩 Bare Metal (aria-gb10-2, ADR-003)"]
         OL[Ollama<br/>:11434]
     end
     subgraph Docker["🐳 Docker Compose"]
         subgraph AppTier["App Tier"]
-            API[FastAPI<br/>:8000]
-            FE[Flask Frontend<br/>:5000]
+            API[FastAPI + Jinja UI<br/>host :25800]
             WK[arq Worker]
         end
-        subgraph DataTier["Data Tier"]
-            PG[(PostgreSQL<br/>all SQL)]
-            NEO[(Neo4j<br/>graph + vectors)]
-            RD[(Redis<br/>arq queue)]
+        subgraph DataTier["Data Tier — bound to 127.0.0.1"]
+            PG[(PostgreSQL<br/>all SQL · :25432)]
+            NEO[(Neo4j<br/>graph + vectors · :25474/:25687)]
+            RD[(Redis<br/>arq queue · :25379)]
         end
     end
-    FE -->|REST| API
     API --> PG
     API --> NEO
     API -->|enqueue| RD
     WK -->|dequeue| RD
     WK --> PG & NEO
-    API & WK -->|host.docker.internal:11434| OL
+    API & WK -->|OLLAMA_BASE_URL| OL
     style Metal fill:#2D3436,color:#fff
     style AppTier fill:#1F6FEB,color:#fff
     style DataTier fill:#F59F00,color:#fff
 ```
+
+> **On the ports and the host, because both were wrong here until 2026-08-14.** This box runs
+> many Docker projects, so jd-bank publishes on **25xxx** — never the upstream harness's
+> `8000`/`7474`/`5000` defaults. Ollama runs on **`aria-gb10-2`**, a trusted internal host, not
+> on the dev box (ADR-003) — `host.docker.internal` has not been the inference target since
+> Phase 3.2. And there is **no Flask frontend**: the service, its dependency and its package
+> were removed in `3e32103`; the UI is FastAPI + Jinja templates served by `api`. The same
+> three errors were corrected in `DEVELOPER_GUIDE_1.md` §3 in an earlier pass, which is how
+> they were found here.
 
 **Storage (ADR-002):** PostgreSQL = all relational/transactional data; Neo4j = graph memory +
 vector index (768-dim cosine, `nomic-embed-text`) — JD embeddings live here, **not** pgvector;

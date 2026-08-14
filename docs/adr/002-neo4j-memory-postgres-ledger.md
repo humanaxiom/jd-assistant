@@ -11,7 +11,7 @@ Agents need two very different kinds of persistence: (a) an auditable, transacti
 
 Split by access pattern, not by "one database to rule them all":
 
-- **Postgres** — tasks, runs, gate results, audit rows. ACID, Alembic-migrated, queried by the API and Flask dashboard.
+- **Postgres** — tasks, runs, gate results, audit rows. ACID, Alembic-migrated, queried by the API. *(This line named a Flask dashboard as the second reader; that service was removed in `3e32103` and the UI is FastAPI + Jinja served by `api`. The split this ADR decides is unaffected — corrected 2026-08-14 rather than left to mislead.)*
 - **Neo4j** — lineage graph `(:Task)-[:DECOMPOSED_INTO]->(:Subtask)-[:EXECUTED_BY]->(:Agent)`, artifacts with a 768-dim vector index (`nomic-embed-text` via Ollama). Agents query it before implementing.
 - **Redis** — arq broker/results only; no domain data.
 

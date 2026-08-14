@@ -6,10 +6,15 @@ Read automatically by Claude Code every session. This governs ALL work in this r
 
 ## Stack (do not deviate)
 
-- **Python 3.11+**, FastAPI (API), Flask (frontend), arq + Redis (async queue)
+- **Python 3.11+**, FastAPI (API **and** the Jinja-templated UI), arq + Redis (async queue).
+  **There is no Flask** in jd-bank — the service, its dependency and its package were
+  removed in `3e32103`. (This is the vendored copy of the upstream harness; upstream may
+  still ship one, but nothing in this repo does.)
 - **Postgres** = transactional data (SQLAlchemy async + Alembic)
 - **Neo4j** = agent graph memory + vector indexes (768-dim, cosine, `nomic-embed-text`)
-- **Ollama on host metal** at `host.docker.internal:11434/v1` — NEVER add cloud API calls
+- **Ollama on host metal** — NEVER add cloud API calls. In jd-bank the host is
+  **`aria-gb10-2`** (`OLLAMA_BASE_URL`, ADR-003), a trusted internal machine, **not** the dev
+  box: `host.docker.internal` stopped being the inference target at Phase 3.2.
 - Everything except Ollama runs in Docker (`docker compose up -d`)
 
 ## Non-negotiable gates — run before EVERY commit
