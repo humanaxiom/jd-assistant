@@ -42,6 +42,7 @@ from starlette.routing import Match
 
 from src.api.main import app
 from src.api.routes.dashboard import DASHBOARD_PAGES
+from src.api.routes.ui import _SECTION_ANCHORS
 
 TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "src" / "api" / "templates"
 
@@ -69,6 +70,14 @@ OPAQUE_LINKS: frozenset[tuple[str, str]] = frozenset(
         # appear there is the open-redirect item recorded for P0.1b-ii, not this crawl's
         # job; its default is resolved below like any other link.
         ("login.html", "{{ next | urlencode }}"),
+        # The 8.3c gate jump-links. The anchor is COMPUTED per blocking gate
+        # (`gate_jump_targets` -> `_SECTION_ANCHORS`), so unlike every other fragment in
+        # this app it does not pair with a matching dynamic `id=` the scanner can see —
+        # it targets a set of LITERAL ids. Declared here rather than skipped, and
+        # verified below against the anchor map itself, which is a stronger check than
+        # the crawl could make: it proves EVERY value the link can take is a real id on
+        # the page, not just the one a sample render happened to produce.
+        ("review_detail.html", "#{{ target.anchor }}"),
     }
 )
 
@@ -205,6 +214,8 @@ def test_every_same_page_link_lands_on_an_anchor_that_exists() -> None:
         for link in extract_links(path.name, source):
             if not link.raw.startswith("#"):
                 continue
+            if (link.template, link.raw) in OPAQUE_LINKS:
+                continue  # declared unreadable, and verified separately below
             if _JINJA.sub("*", link.raw[1:]) not in ids:
                 missing.append(f"{path.name}: {link.raw}")
 
@@ -216,7 +227,11 @@ def test_the_one_link_the_template_cannot_show_is_declared_and_resolves() -> Non
     OPAQUE_LINKS rather than skipped, and the values it renders — imported from the
     module that builds them — are resolved here instead."""
     declared_templates = {template for template, _ in OPAQUE_LINKS}
-    assert declared_templates == {"dashboard_index.html", "login.html"}, (
+    assert declared_templates == {
+        "dashboard_index.html",
+        "login.html",
+        "review_detail.html",
+    }, (
         "the set of links this crawl cannot read changed. Each one is a link nobody "
         "checks until someone checks it here — argue for it, then verify it."
     )
@@ -229,6 +244,24 @@ def test_the_one_link_the_template_cannot_show_is_declared_and_resolves() -> Non
         "the login page's default destination is not a route, so signing in with no "
         "`next` would land on a 404."
     )
+
+    # The 8.3c jump-links: EVERY value the computed anchor can take must be a real id on
+    # the review page. Checked exhaustively from the map rather than from one render, so
+    # a section that only appears for a rare gate cannot be the one that is broken.
+    review_ids = {
+        value
+        for _, value in _ID.findall(
+            (TEMPLATES_DIR / "review_detail.html").read_text(encoding="utf-8")
+        )
+    }
+    for section, anchor in _SECTION_ANCHORS.items():
+        if anchor is None:
+            continue  # `general` means the whole document — declared to have no anchor
+        assert anchor in review_ids, (
+            f"the gate jump-link for section {section!r} targets #{anchor}, which is "
+            "not an id on review_detail.html — the link would leave the reader where "
+            "they were."
+        )
 
 
 # ── Prove it fails ───────────────────────────────────────────────────────────────
