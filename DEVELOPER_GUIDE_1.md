@@ -1,8 +1,13 @@
 # Developer Guide — JD Bank (on Agent Harness v2)
 
-> From `git clone` to your first agent-built feature merged to `main`. Offline-first Python
-> stack (FastAPI · **Neo4j** · Postgres · Redis · arq · Flask) driven by AI subagents through
+> From `git clone` to your first agent-built feature merged to `main`. Self-hosted Python
+> stack (FastAPI · **Neo4j** · Postgres · Redis · arq) driven by AI subagents through
 > Claude Code. **Everything runs in Docker — there is no host Python.**
+>
+> **Two corrections to what this guide used to say, both verified against the running
+> stack:** there is **no Flask** (the service, dependency and package went in `3e32103`;
+> the UI is the FastAPI app's own server-rendered pages), and **the ports are 25xxx, not
+> the harness defaults** — see §3.
 >
 > This guide is also the **golden-standard template** for new projects on this harness
 > (see §13). JD Bank is the reference implementation.
@@ -23,7 +28,8 @@ and **ADR-006** (Docker-only execution). This guide operationalizes them.
 6. [The subagent pipeline in practice](#6-the-subagent-pipeline-in-practice)
 7. [The gate suite — what actually blocks you](#7-the-gate-suite--what-actually-blocks-you)
 8. [Working with graph memory](#8-working-with-graph-memory)
-9. [Async jobs and the Flask dashboard](#9-async-jobs-and-the-flask-dashboard)
+9. [Async jobs (arq)](#9-async-jobs-arq)
+9a. [The JD data layer — parser versions and the two templates](#9a-the-jd-data-layer--parser-versions-and-the-two-templates)
 10. [Extending the harness](#10-extending-the-harness)
 11. [Troubleshooting](#11-troubleshooting)
 12. [Team conventions](#12-team-conventions)
@@ -60,7 +66,7 @@ OLLAMA_HOST=0.0.0.0 ollama serve &   # bind all interfaces so containers can rea
 
 Verify: `curl -s http://localhost:11434/v1/models | jq '.data[].id'` should list both.
 
-Neo4j Browser is at `http://localhost:7474` once the stack is up (creds `neo4j` / `harnesspass`).
+Neo4j Browser is at `http://localhost:25474` once the stack is up (creds `neo4j` / `harnesspass`).
 
 ---
 
@@ -97,32 +103,53 @@ Linux too, not just Docker Desktop.
 
 Run these in order — each proves one layer works. **Everything here is Docker-side.**
 
+> ⚠ **This project does NOT publish on the default ports.** The box runs many Docker
+> projects, so jd-bank publishes on **25xxx** and the data stores bind to **loopback
+> only**. Every command below uses the real ones; anything you read elsewhere quoting
+> `8000` / `7474` / `5000` is the upstream harness's numbering, not this repo's.
+>
+> | Service | Host port | Notes |
+> |---|---|---|
+> | API | **25800** | the only one published on all interfaces |
+> | Postgres | 25432 | `127.0.0.1` only |
+> | Neo4j HTTP / Bolt | 25474 / 25687 | `127.0.0.1` only |
+> | Redis | 25379 | `127.0.0.1` only |
+
 ```bash
 # 3.1 Services healthy
 docker compose ps
 # Every service should show "healthy" or "running"
 
 # 3.2 API responds
-curl -s http://localhost:8000/health          # {"status":"ok"}
+curl -s http://localhost:25800/health          # {"status":"ok"}
 
-# 3.3 Neo4j vector index exists (this is where JD vectors live — NOT pgvector)
-docker compose exec neo4j cypher-shell -u neo4j -p harnesspass \
-  "SHOW INDEXES YIELD name, type WHERE name='artifact_embeddings' RETURN name, type"
-# Should list artifact_embeddings | VECTOR
+# 3.3 Neo4j vector indexes exist (this is where JD vectors live — NOT pgvector)
+docker compose exec neo4j cypher-shell -u neo4j -p "$NEO4J_PASSWORD" \
+  "SHOW INDEXES YIELD name, type WHERE type='VECTOR' RETURN name"
+# Expect FOUR: jd_document_embeddings, jd_section_embeddings, jd_role_embeddings,
+# artifact_embeddings. The first three are the JD Bank's; the last is agent memory.
 
 # 3.4 Ollama reachable FROM INSIDE a container (the critical connectivity check)
-docker compose exec api curl -s http://host.docker.internal:11434/v1/models | jq -r '.data[].id'
-# Must list qwen2.5-coder:14b and nomic-embed-text. If this fails, agents cannot run (§11).
+docker compose exec api curl -s "$OLLAMA_BASE_URL/models" | jq -r '.data[].id'
+# Ollama runs on `aria-gb10-2`, NOT on this box and NOT on localhost (ADR-003), so
+# OLLAMA_BASE_URL is http://aria-gb10-2:11434/v1. Must list nomic-embed-text (the
+# embedding model). If this fails, embedding and the LLM-touching paths cannot run (§11).
 
 # 3.5 Gate suite — runs in the one-shot `gates` container (no host Python), incl. integration
 make gates          # = docker compose run --rm gates sh -c '...'  (self-contained)
 # Expect: ALL GATES GREEN — ruff, black, mypy, unit, integration, coverage ≥ 80%
 
-# 3.6 Dashboard
-#   open http://localhost:5000
+# 3.6 The application itself — a browser, not a dashboard
+#   open http://localhost:25800/            (redirects to a landing page)
+#   open http://localhost:25800/jd-bank/ui/library
 ```
 
 If any step fails, stop and fix it before continuing.
+
+> **There is no Flask dashboard.** The service, its dependency and its package were
+> removed in `3e32103`; references to `http://localhost:5000` elsewhere in this repo are
+> stale. The UI is the FastAPI app's own server-rendered pages under
+> `/jd-bank/ui/…`, and Neo4j Browser at `http://localhost:25474` is the graph view.
 
 ---
 
@@ -255,8 +282,9 @@ The whole run is the `run_pipeline` arq job and is recorded to the Neo4j lineage
   JD Bank, also: any code touching JD content must respect local-first (no cloud calls).
 - **Docs** — always last, after Reviewer approves. Updates ADRs + Mermaid + README.
 
-**Reading pipeline output** — the worker returns a structured per-subtask result; the Flask
-dashboard shows run lineage; Neo4j Browser (`:7474`) shows the graph:
+**Reading pipeline output** — the worker returns a structured per-subtask result;
+`GET /tasks/<id>/lineage` shows run lineage; Neo4j Browser
+(`http://localhost:25474`) shows the graph:
 
 ```cypher
 MATCH (t:Task)-[:DECOMPOSED_INTO]->(s:Subtask)-[:EXECUTED_BY]->(a:Agent)
@@ -308,17 +336,17 @@ Before implementing anything, check whether similar work already exists — the 
 `/memory-query` discipline. Vectors live in **Neo4j** (ADR-002), not pgvector.
 
 ```bash
-curl -s "http://localhost:8000/memory/similar?q=parsedjd%20schema&k=5" | jq
+curl -s "http://localhost:25800/memory/similar?q=parsedjd%20schema&k=5" | jq
 ```
 
 Subagents call this automatically via `_memory_context()` in `core/src/agents/base.py` before
 completion. Task lineage:
 
 ```bash
-curl -s "http://localhost:8000/tasks/<uuid>/lineage" | jq
+curl -s "http://localhost:25800/tasks/<uuid>/lineage" | jq
 ```
 
-Neo4j Browser (`:7474`, neo4j/harnesspass):
+Neo4j Browser (`http://localhost:25474`, neo4j / `$NEO4J_PASSWORD`):
 
 ```cypher
 MATCH (t:Task)-[:DECOMPOSED_INTO]->(s:Subtask)-[:EXECUTED_BY]->(a:Agent)
@@ -331,17 +359,18 @@ embeddings — Phase 3 — also live in Neo4j's vector index, distinct from this
 
 ---
 
-## 9. Async jobs and the Flask dashboard
+## 9. Async jobs (arq)
 
-Enqueue a task from the dashboard (`http://localhost:5000`) → it POSTs `/tasks`, which writes a
-`Task` row (Postgres), generates the `agent/<uuid8>-<slug>` branch, and enqueues `run_pipeline`
-on arq. Watch it:
+**There is no dashboard to enqueue from** — that Flask service was removed in `3e32103`.
+Post to the API directly. `POST /tasks` writes a `Task` row (Postgres), generates the
+`agent/<uuid8>-<slug>` branch, and enqueues `run_pipeline` on arq. Watch it:
 
 ```bash
 docker compose logs -f worker      # subagent transitions logged in order
 ```
 
-From code (run inside a container, e.g. `make shell`):
+From code (run inside a container, e.g. `make shell`) — note the **in-network** address is
+`api:8000`; the 25800 mapping is host-side only:
 
 ```python
 import httpx
@@ -349,7 +378,74 @@ r = httpx.post("http://api:8000/tasks", json={"title": "...", "spec": "...accept
 print(r.json())
 ```
 
-On-demand gates for a branch: `curl -s -X POST "http://localhost:8000/gates/run?branch=agent/T-42-slug" | jq`.
+On-demand gates for a branch:
+`curl -s -X POST "http://localhost:25800/gates/run?branch=agent/T-42-slug" | jq`.
+
+⚠ **These legacy harness routes are admin-gated** (P0.1a) and, like every other
+state-changing route, require a CSRF token when driven from a browser session (P0.1b-i).
+`POST /gates/run` takes `branch` as a **query parameter** and declares no body — which is
+exactly why the CSRF guard is mounted app-wide rather than only over the browser surface.
+
+---
+
+## 9a. The JD data layer — parser versions and the two templates
+
+The harness sections above are generic. This one is JD Bank's, and it is where the traps
+live.
+
+**Two document templates, one model.** The archive is not one form:
+
+| Template | Groups | Parser | Share of archive |
+|---|---|---|---|
+| **JDFN** | `apsa` · `apex` · `poly` | `parser/segmenter.py` | 5,416 (37.3%) |
+| **WJQ** (CUPE 3338) | `cupe` | `parser/wjq.py` — a 14-section point-factor questionnaire | 4,440 (30.6%) |
+| — | not stated in the document | — | 4,630 (31.9%) |
+
+Both land in the same `SFUJobDescription`. The WJQ segmenter maps the questionnaire onto
+the SFU 10-section model and stores the **seven point-factor sections verbatim** in
+`additional_context` — deliberately *not* mapped onto `decision_making` /
+`problem_solving`, because WJQ has no such prose and force-mapping would feed
+`hay_signals.py` a bogus signal. **Empty is honest.**
+
+**⚠ The validator is template-blind.** `evaluate_jd_rules` runs every rule over every JD.
+Measured, that means four rules fire on **100%** of CUPE documents — not because those JDs
+are poor, but because the CUPE form does not contain the sections they check. **CUPE is
+deliberately out of scope for the Builder and the approval bar** (`jdfn_employee_groups`,
+HR-194 — an *open* decision, not an oversight). See
+`docs/decisions/cupe-scope-measured-2026-08-14.md` and `docs/tasks/cupe-support-design.md`.
+
+### `parser_version` — the trap to know before you touch the parser
+
+`parsed_jds` is keyed on `(source_document_id, parser_version)`, and every **batch**
+consumer filters on the `PARSER_VERSION` literal:
+
+```python
+.where(ParsedJDRow.parser_version == PARSER_VERSION)
+```
+
+**So bumping the constant and not re-parsing leaves those consumers reading zero rows —
+an apparently empty Bank.** The bump and the re-parse must ship together.
+
+```bash
+make ingest JD_ARCHIVE_PATH=/path/to/SFU_JDs    # skip-first; re-parses only what is missing
+```
+
+Two things that make this less alarming than it sounds, both worth knowing:
+
+- **It is additive.** A re-parse *inserts* rows at the new version; v1/v2/v3 stay. So it is
+  reversible by deleting the new rows, and you can compare versions directly — which is
+  exactly how the v3→v4 fix was verified.
+- **User-facing surfaces are unaffected.** The Builder, library and review pages read
+  through `_load_latest_parsed`, which orders by `created_at` and is version-agnostic.
+
+⚠ **The dev `api` container bind-mounts the repo and runs `--reload`**, so editing
+`PARSER_VERSION` changes what the *running* service reports immediately — before you have
+re-parsed anything. Expect that window and close it.
+
+**Current version: `jd_segmenter_v4`** — `additional_context` keeps the whole WJQ
+point-factor block (HR-200). At v3's borrowed 4,000-char cap, **81.4% of CUPE JDs were
+stored truncated**; after v4, **0%** are, and `continuing_education` — the last of the
+seven sections, and so the first casualty of a cut — went from **17.0% → 85.8%** present.
 
 ---
 
@@ -468,11 +564,14 @@ so the golden standard converges.
 | Migrations | `make migrate` |
 | Install git hook | `make hook-install` |
 | Shell in container | `make shell` (`docker compose exec api bash`) |
-| Similar prior work | `curl "localhost:8000/memory/similar?q=..."` |
-| Task lineage | `curl "localhost:8000/tasks/<id>/lineage"` |
+| Similar prior work | `curl "localhost:25800/memory/similar?q=..."` |
+| Task lineage | `curl "localhost:25800/tasks/<id>/lineage"` |
 | Worker logs | `docker compose logs -f worker` |
-| Dashboard / Neo4j | `http://localhost:5000` / `http://localhost:7474` |
-| Ollama on host | `OLLAMA_HOST=0.0.0.0 ollama serve` |
+| The app / Neo4j Browser | `http://localhost:25800/jd-bank/ui/library` / `http://localhost:25474` |
+| Ollama | runs on **`aria-gb10-2`**, not this box (ADR-003) |
+| Re-parse the archive | `make ingest JD_ARCHIVE_PATH=/path/to/SFU_JDs` (skip-first on `parser_version`) |
+| Rebuild vectors | `make embed` + `make embed-roles` — see `docs/runbooks/reindex.md` |
+| Backup / restore | `docs/runbooks/backup-and-restore.md` (⚠ never `--data-only`) |
 
 First PR: run the ParsedJD-schema task from §5 through the pipeline, merge it. Second PR:
 Tier-1 exact-dup detection (Phase 3.1) — an early, quantified win over the archive.

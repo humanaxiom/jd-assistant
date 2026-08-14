@@ -246,8 +246,10 @@ def test_whitespace_only_input() -> None:
 def test_parser_version_constant() -> None:
     """``parsed_jds`` is keyed on ``(source_document_id, parser_version)``, so this
     literal is what forces (or fails to force) an archive re-parse. v3 = the
-    docx-header identification-block fix."""
-    assert parse_jd("anything").parser_version == "jd_segmenter_v3"
+    docx-header identification-block fix. **v4 = `additional_context` keeps the whole
+    WJQ point-factor block** (HR-200) — at v3's borrowed 4,000-char cap, 81.4% of CUPE
+    JDs were stored truncated and the last of the seven sections survived in 17.0%."""
+    assert parse_jd("anything").parser_version == "jd_segmenter_v4"
 
 
 # ── End-to-end on the real legacy .doc ───────────────────────────────────────

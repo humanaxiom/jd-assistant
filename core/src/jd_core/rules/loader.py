@@ -691,6 +691,14 @@ class Segmentation(_RuleFile):
     score_histogram_bin: float = Field(gt=0.0, le=100.0)
     evidence_max_chars: int = Field(gt=0)
 
+    #: How many characters of ``additional_context`` the parser keeps (HR-200).
+    #: **Not presentation** — for a WJQ/CUPE document this field holds the seven
+    #: point-factor sections verbatim, so the cap decides how much of a CUPE JD
+    #: survives parsing at all. Must stay ``<=`` the model's ``max_length`` ceiling, or
+    #: a document over the cap would raise a ValidationError instead of being trimmed
+    #: (pinned by ``test_wjq_context_not_truncated.py``).
+    additional_context_max_chars: int = Field(gt=0)
+
     @model_validator(mode="after")
     def _the_era_bands_are_ordered(self) -> Segmentation:
         """An unreachable segment is this rulebook's "a gate that can never fire"

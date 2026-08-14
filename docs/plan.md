@@ -768,15 +768,85 @@ only until HR-194. Detail in ROADMAP §3 and
 of record for a pay transaction and JD Bank sits upstream of it. The seam is the planned HRIS
 export of an approved canonical (HR-blocked on grade scales + FIPPA), not a requisition store here.
 
-**CUPE / WJQ authoring — the biggest deferred scope question (HR-194, `open`).** The Builder and
-approval bar are JDFN-only (APSA/APEX/POLY). CUPE is ~29.5% of the archive (~4,300 WJQ-instrument
+**CUPE / WJQ authoring — the biggest deferred scope question (HR-194, `open`).**
+
+> **⚠ FIRST, THE THING THAT CONFUSES EVERY READER: why is CUPE singled out at all, when
+> APSA is the same size?** (4,946 APSA vs 4,440 CUPE — comparable.) **It is not that CUPE is
+> unusual. It is that CUPE uses a DIFFERENT FORM and we only ever built for the other one.**
+>
+> | | Form | Built for it? |
+> |---|---|---|
+> | APSA · APEX · POLY | the **JDFN** template | ✅ validator, 14 gates, thresholds, Builder |
+> | CUPE 3338 | the **WJQ** — a 14-section point-factor questionnaire | ❌ a parser (Phase 3.4), and nothing since |
+>
+> Every "CUPE problem" is a consequence of that one fact, not a property of CUPE:
+> the `additional_context` truncation only bit CUPE because that field is where the WJQ's
+> seven point-factor sections land (for a JDFN JD it is nearly empty, so a 4,000-char cap
+> never mattered); the four rules firing on 100% of CUPE fire because the WJQ form does not
+> contain the sections they check. **JDFN-shaped tooling meeting a non-JDFN document.**
+> So the honest one-liner is not "CUPE is a special concern" but **"CUPE got a parser and
+> then stopped getting attention."**
+
+The Builder and approval bar are JDFN-only (APSA/APEX/POLY). CUPE is ~29.5% of the archive (~4,300 WJQ-instrument
 files) and is deliberately **not served** because there is no ratified CUPE quality bar — the
 validator can only score the JDFN template, so authoring a CUPE JD would category-error-mis-score
 it on the JDFN gates (HR-143). **Serving CUPE is a real project and it starts with HR, not code:**
 define a CUPE quality bar (a WJQ ruleset + oracle) FIRST; only then does `segmentation.yaml ::
 jdfn_employee_groups` gain a `cupe` token and the Builder support the WJQ 14-section instrument.
-Until HR rules on HR-194, "the Bank does not serve CUPE" is an explicit decision on the register,
-not one made by omission.
+
+**MEASURED + DESIGNED 2026-08-14** — evidence in
+[`docs/decisions/cupe-scope-measured-2026-08-14.md`](decisions/cupe-scope-measured-2026-08-14.md),
+design in [`docs/tasks/cupe-support-design.md`](tasks/cupe-support-design.md). Three things the
+prose above understated:
+1. **Far more is already built than "not served" implies.** Parsing works (all 14 WJQ sections,
+   since 3.4) and CUPE parses *richer* than JDFN — 9.7 duties vs 3.8, 19.5 quals vs 1.0 — and
+   Tier-2/3 dedup is **done**: **49,448** role-equivalent edges, *more* than APSA's 49,008. What
+   is missing is the bar, not the pipeline.
+2. **🔴 A blocking defect that is OURS, not HR's: `additional_context` is capped at 4,000 chars
+   and 81.4% of CUPE JDs sit at the cap** (0% of APSA). The seven WJQ point-factor sections are
+   stored there verbatim, so the tail is silently truncated — `continuing_education`, the last
+   one, survives in only **17.0%** of documents. **No bar can be designed over data that is
+   discarded for four in five documents.** Fixing it needs a `parser_version` bump + full
+   re-parse shipped together (#101 precedent).
+3. **The category error is architectural, not incidental:** `evaluate_jd_rules` is
+   **template-blind** — every rule runs over every JD. The fix is rulebook data, an
+   `applies_to` on each catalog rule with no default (the P1.3 `tier` move), which is worth
+   landing **even if HR rules against serving CUPE**.
+
+**Phases: ~~A (fix the truncation)~~ ✅ DONE 2026-08-14 · B (`applies_to`) needs no HR and is
+next · C (define the bar) is HR-194 and blocks D (turn on harmonize/cluster for CUPE) and E
+(Builder token).** Until HR rules on HR-194, "the Bank does not serve CUPE" is an explicit
+decision on the register, not one made by omission.
+
+**✅ PHASE A — SHIPPED AND VERIFIED OVER ALL 14,522 DOCUMENTS (2026-08-14).**
+`additional_context` had inherited `position_summary`'s 4,000-character ceiling through a
+shared `_MAX_SUMMARY` constant, and the WJQ parser's own docstring called the result
+"verbatim — lossless" while cutting it. Now `segmentation.additional_context_max_chars`
+(**HR-200**, `hr_informed`, `open`), `PARSER_VERSION` → **`jd_segmenter_v4`**, and the whole
+archive re-parsed:
+
+| | v3 | v4 |
+|---|---|---|
+| `continuing_education` present in CUPE JDs | **17.0%** | **85.8%** |
+| `working_conditions` present | 79.0% | 95.3% |
+| CUPE JDs truncated | **3,613 (81.4%)** | **0** |
+| avg context chars | 3,738 | 5,272 (corpus max 13,379 < cap 16,000) |
+
+**⚠ AND THE CAP WAS STILL WRONG AFTER THE FIRST MEASUREMENT — the lesson is about
+sampling, and it is the durable part.** 12,000 was chosen from a 149-document sample whose
+maximum was 9,916. Re-parsing all 14,522 files then put **two** documents at exactly the
+cap; their true length is **13,379**. The sample **understated the corpus maximum by 35%**
+while predicting the corpus **mean within 2%** (5,379 vs 5,272). *A sample is a good
+estimator of the middle and a poor one of the tail — and a cap lives entirely in the tail.*
+Raised to 16,000 against the whole-corpus maximum; zero documents truncated.
+
+**⚠ Operational note worth carrying: bumping `PARSER_VERSION` changed what the RUNNING api
+reported before anything had been re-parsed**, because the dev container bind-mounts the
+repo with `--reload`. Batch consumers filter on the literal, so they briefly read zero rows;
+user-facing pages were unaffected (they read the latest parse regardless of version). The
+re-parse closes the window, and it is additive — v4 rows are inserted alongside v1–v3, so it
+is reversible and the two versions can be compared, which is how the table above was
+produced. Documented in DEVELOPER_GUIDE_1.md §9a.
 
 ### Phase 8 — The Published JD Bank (the final canonical library) + review-experience upgrades — 8.1 SHIPPED EARLY (2026-08-01), adapted; 8.2 GOAL MET by a different mechanism (2026-08-04); 8.3 open
 

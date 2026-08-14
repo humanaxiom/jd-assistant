@@ -5829,6 +5829,21 @@ decisions:
       CUPE bar (a WJQ ruleset with an oracle) FIRST, THEN a token is added here. Adding one
       without a bar would surface the group in the Builder with nothing behind it. Whether
       that CUPE bar should be built at all is the real open question this entry raises.
+      MEASURED 2026-08-14 — the category error is no longer an argument, it is a number
+      (`docs/decisions/cupe-scope-measured-2026-08-14.md`). CUPE is 4,440 of 14,522 current
+      -parser JDs (30.6%); JDFN is 5,416 (37.3%). Scored through the SHIPPED validator path,
+      600 CUPE vs 600 JDFN: mean 51.7 vs 72.4, and **0 of 600 CUPE JDs are approvable**
+      (JDFN 11.3%) with no CUPE JD reaching even a B. FOUR rules fire on 100% of CUPE —
+      `SFU-COMP-TERRITORIAL`, `SFU-GATE-REL-HEADER`, `SFU-COMP-EDI`, `SFU-COMP-PROBLEM` —
+      and by this rulebook's own `evaluable` rationale a rule that cannot NOT fire is a
+      constant subtracted from every score, not a quality signal. The mechanism is the WJQ
+      form itself: 0.0% of CUPE JDs have a Problem Solving section and 3.1% an Impact of
+      Decision Making section, because the instrument never asks for them, while
+      `duties_max: 5` (calibrated on a JDFN cohort averaging 3.8 duties) fires on 78.8% of
+      a CUPE cohort averaging 9.7. AND THE COST ESTIMATE MOVES THE OTHER WAY: CUPE does not
+      parse badly, it parses RICHER — 9.7 duties vs 3.8 and 19.5 qualifications vs 1.0 — so
+      the WJQ parser is done and a CUPE bar is a RULES project (which WJQ sections carry a
+      quality expectation, and what it is), not a pipeline one.
     impact_if_changed: >-
       Does NOT move `rules_version` (segmentation.yaml is unhashed) but moves
       `Segmentation.stamp`. The list is the employee-group dropdown the Builder offers and
@@ -5836,6 +5851,53 @@ decisions:
       the Builder and let a user author a CUPE JD that the validator then mis-scores on the
       JDFN bar — do not, until a CUPE bar exists. Pinned by mutation (`test_compose_ui.py`:
       the dropdown equals this list and excludes `cupe`).
+    status: open
+
+  # ── How much of `additional_context` the parser keeps (CUPE support, Phase A). ──
+  - id: HR-200
+    question: >-
+      How many characters of a JD's Additional Contextual Information does the parser
+      keep? For a CUPE/WJQ document this field holds the seven point-factor sections
+      verbatim, so the answer decides how much of a CUPE job description the Bank
+      retains at all.
+    config:
+      file: segmentation.yaml
+      path: segmentation.additional_context_max_chars
+    current_default: 16000
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      It was 4,000, and not by decision — the parser reused `_MAX_SUMMARY`, the ceiling
+      belonging to `position_summary`, a field with entirely different semantics. MEASURED
+      consequence over the live archive: 81.4% of CUPE JDs (3,613 of 4,440) sat exactly at
+      the cap, against 0% of APSA. Because the cut falls in document order it removed the
+      TAIL of the WJQ instrument, so `continuing_education` — the last of the seven
+      point-factor sections — survived in only 17.0% of documents. The code called this
+      storage "verbatim — lossless" while doing it. FIXING IT RECOVERED THE SECTION:
+      re-parsed at the new cap, `continuing_education` is present in 85.8% of CUPE JDs
+      (was 17.0%) and `working_conditions` in 95.3% (was 79.0%). 16,000 is chosen against
+      a WHOLE-CORPUS measurement, and the history is kept because it is a lesson about
+      sampling: a 500-file random sample (149 WJQ documents with context) gave max 9,916,
+      so 12,000 was picked for ~21% headroom — and re-parsing all 14,522 files then put TWO
+      documents at exactly 12,000, whose true length is 13,379. The sample had UNDERSTATED
+      the corpus maximum by 35%, while predicting the corpus MEAN within 2% (5,379 vs
+      5,271): a good estimator of the middle and a poor one of the tail, which is the part
+      a cap has to clear. 16,000 gives ~20% headroom over the measured corpus maximum. It is
+      filed
+      `hr_informed` and not `hr_policy` deliberately: there is no policy choice here, only a
+      question of fidelity — bigger is simply more faithful up to the point where a bound
+      stops being a bound — but HR should know that CUPE job descriptions were previously
+      being stored incomplete. It remains a real bound: an unbounded field is how one
+      malformed document becomes a database problem.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (segmentation.yaml is unhashed) but moves
+      `Segmentation.stamp`. Raising or lowering it changes what a parsed JD CONTAINS, so it
+      requires a `parser_version` bump and a full re-parse of all 14,565 files shipped
+      together — bumping without re-parsing leaves every layer querying a version with no
+      rows, i.e. an apparently empty Bank (#101 precedent). It must also stay at or below
+      `SFUJobDescription.additional_context`'s `max_length` ceiling (20,000): a configured
+      cap above it turns a lossy parse into a ValidationError, i.e. a parse failure. Pinned
+      by `test_wjq_context_not_truncated.py`.
     status: open
 
   # ── Embedding over-length fallback ladder (HR-126 follow-up). ──

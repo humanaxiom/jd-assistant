@@ -143,7 +143,18 @@ class SFUJobDescription(BaseModel):
     territorial_acknowledgement_present: bool = False
     employment_equity_present: bool = False
     # 10. Additional Contextual Information
-    additional_context: str | None = Field(default=None, max_length=4000)
+    #
+    # ⚠ The ceiling is 20,000, NOT the 4,000 it shared with `position_summary`, because
+    # for a CUPE/WJQ document this field carries the seven point-factor sections
+    # verbatim — the whole point-factor half of that instrument. At 4,000, 81.4% of CUPE
+    # JDs were truncated (0% of APSA), and because the cut falls in document order the
+    # tail of the form disappeared.
+    #
+    # This is the CONTRACT ceiling — the outer bound of what the type permits. The
+    # OPERATIVE cap the parser trims to is rulebook data
+    # (`segmentation.additional_context_max_chars`, HR-200) and must stay under it; a
+    # configured cap above this ceiling would turn a lossy parse into a parse *failure*.
+    additional_context: str | None = Field(default=None, max_length=20000)
 
     _lists_null = field_validator(
         "duties", "decision_making", "problem_solving", "qualifications", mode="before"
