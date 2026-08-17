@@ -2,7 +2,114 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-13) — the state of the world in one screen
+## ▶ START HERE (2026-08-17) — CUPE Phases C, D and (half of) E
+
+| | |
+|---|---|
+| `main` | `5cef633` — **#112** (Phase C) · **#113** (D1+D2) · **#114** (docs scrub) · **#115** (D3 + the guard + D5 + `--resume`) |
+| **Open PRs** | **none merged-and-pending as of this write** — the Phase E branch `feat/cupe-phase-e-wjq-builder` is **pushed with 2 commits but its PR was NOT opened**: GitHub's API was 503ing. ⚠ **OPEN IT FIRST.** `git log origin/main` is the check, not a badge |
+| Gates | **2,784 passing, 94.13%** on the E branch (`main` is 2,772). `register-check` in step |
+| `rules_version` | `+76baba29cfeb` — **UNMOVED since Phase C.** D and E changed how drafts are *assembled* and *authored*, never how one is *scored*: `harmonization.yaml` and `rewrite.yaml` are unhashed, and the WJQ builder rides in `additional_context` rather than extending `SFUSection` |
+| Register | **206** decisions, **0 ratified** — HR-206 (which FORMS the Bank drafts) is the new one. HR-180's default moved to `jd_harmonize_v2` |
+| Live data | 14,565 files · 14,522 parsed at v4 · **2,494 canonical JDs** (was 1,804) · **4 published** · a **~12h LLM pass is RUNNING** — see below |
+
+### 🔴 READ THIS BEFORE TOUCHING THE LIVE BANK
+
+**A long LLM producer run may still be in flight.** It is resumable and crash-safe
+(`--resume`, commits every 25 clusters), so **stopping it is safe** — but starting a
+second producer against the same database is not. Check first:
+
+```bash
+docker ps --filter "name=canonical-run"
+docker compose exec -T postgres psql -U app -d harness -t -c \
+  "SELECT count(*) FROM canonical_jds WHERE status='DRAFT' AND COALESCE(change_log->'pipeline'->>'llm_enabled','false')<>'true';"
+```
+
+That count is **how much work is left**; it was 684 when the run started. When it reaches
+~0 the pass is done. Re-run with `make canonical-drafts CANONICAL_ARGS="--resume"` to
+continue after any interruption.
+
+### 🔴 THE MISTAKE OF THIS SESSION, because the lesson generalizes
+
+**`make canonical-drafts CANONICAL_ARGS="--no-llm"` was run against the populated live
+Bank.** It produced the 649 CUPE drafts it was meant to — and it also **refreshed 1,763
+untouched JDFN drafts**, discarding the 4.2a rewrite on every one. The cohort's mean score
+fell **73.0 → 52.73 in thirty-two seconds**, reported only as `drafts_refreshed`, a word
+that reads like an improvement.
+
+- **Recovered in full.** A `-Fc` dump taken immediately before the run restored 1,746 of
+  them exactly (the other 52 had already been re-upgraded); each carries a
+  `canonical_draft.restored_from_backup` audit row. Nothing published or reviewer-touched
+  was ever at risk — the no-clobber rule held throughout.
+- **The lesson: the no-clobber rule protected HUMAN work and said nothing about PIPELINE
+  work.** That was a fair place to stop while every run was a full run. It stopped being
+  fair the moment the producer had a cheap mode, and nobody noticed because until CUPE
+  there was no reason to run `--no-llm` on a full Bank.
+- **Now guarded.** A deterministic run refuses to overwrite an LLM-written draft
+  (`skipped_would_downgrade` + an audit row); `--allow-downgrade` does it deliberately.
+- **And the standing rule that earned its keep: take the `-Fc` dump before ANY producer
+  run against the live Bank** (`docs/runbooks/backup-and-restore.md` §2). It cost nothing
+  and made a mistake a choice rather than an incident.
+
+### What landed, in one screen
+
+| | |
+|---|---|
+| **C** (#112) | The numeric thresholds are per-template. `duties_max` **12** for the WJQ (HR-202…205) |
+| **D1** (#113) | **The Bank drafts CUPE roles** — HR-206, a PRIORITY list so a mixed cluster still authors JDFN. 657 clusters had been skipped entirely |
+| **D2** (#113) | 🔴 The rewrite prompt inlined *"3–5 major duties"* — on a twelve-slot form that **deletes most of a CUPE role**, and nothing downstream objects (the guard stops *additions*, and `duties_min` is 3). Now `jd_harmonize_v2` reads the drafted form's own profile |
+| **D3** (#115) | Per-form evaluation, and **no top-level score field exists at all** — the blended number is unavailable, not merely discouraged |
+| **D5** (#115) | The review queue and detail page name the FORM, because the score beside it is not the same measurement for both |
+| **E** (branch) | The `FormSpec` registry + the whole WJQ answer contract, assembler and question set. **UI wiring NOT done** — see below |
+
+### The measured result — per form, never blended
+
+| form | drafts | mean | approvable | grades |
+|---|---|---|---|---|
+| jdfn | 1,804 | 52.73 | 179 | C 848 · D 434 · F 522 |
+| wjq | **649** | **71.69** | 3 | **B 351** · C 155 · D 137 · F 6 |
+
+⚠ **Both cohorts were DETERMINISTIC when this was measured** (it is the `--no-llm` run's
+own output), so the two are comparable *to each other* but **not** to the 73.0 in older
+notes, which was LLM-rewritten. Re-measure after the LLM pass finishes; the producer
+prints the table.
+
+### Phase E — what is done and what is next
+
+**Done** (`feat/cupe-phase-e-wjq-builder`): the spike measurement, `FormSpec` + the
+registry, `WJQAnswers`, `assemble_wjq_jd`, the 14-section WJQ question set, and
+`render_kind`.
+
+**Next, in order:**
+
+1. **Open the PR for the branch** (the API was down).
+2. **Wire `compose_ui.py` through the registry** — `_context`, `_grouped_questions`,
+   `_answers_from_form`, `_values_from_answers` and the `/new` route all take a
+   `FormSpec`; the four `_*_TARGETS` sets and `_kind_for` are replaced by `render_kind`,
+   which is already written and proved behaviour-identical for JDFN.
+   ⚠ `_context`'s `padded_rows` hardcodes `duties`/`knowledge`/`skills`; the WJQ needs
+   `major_functions`/`minor_functions` too, so derive the structured targets from the
+   spec rather than adding a second literal.
+3. **`compose_new.html`** — a form picker, and group headings from `Question.group` (the
+   form's own section names) rather than the UI's `_SECTION_LABELS`.
+4. **`search._answers_from_jd`** — the clone mapping is JDFN-only; cloning a CUPE role
+   needs the WJQ counterpart, and the FormSpec is where it belongs.
+
+**Two things settled that the next session should not re-open:**
+
+- **The WJQ sections ride in `additional_context`, mirroring the parser** — that is what
+  makes an authored CUPE JD and a parsed one the same shape, and it is why `SFUSection`,
+  the rule catalog and 8.3c's `_SECTION_ANCHORS` pin are all untouched.
+- **`employee_group` is fixed by the assembler, never asked**, because it is what selects
+  the bar the draft is judged against.
+
+**Still HR's, not ours:** HR-194 (may the Builder *author* CUPE — this is scope, and the
+branch ships the capability the way Phase B established, registered and unratified) and
+HR-201 (does SFU's boilerplate apply to a form that has no such block).
+
+---
+
+## ▶ PREVIOUS (2026-08-13) — the state of the world in one screen
 
 > **⚠️ A NOTE ON THE PREVIOUS VERSION OF THIS BLOCK, because the failure will recur.**
 > It said *"Open PRs: none"* and marked `embed_stamp` parity **✅ CLOSED (#99)** while **#99 and
