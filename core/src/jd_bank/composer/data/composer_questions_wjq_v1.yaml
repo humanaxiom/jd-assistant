@@ -1,0 +1,236 @@
+# Guided-authoring question set for the CUPE (WJQ) Builder — Phase E.
+#
+# jd_bank-LOCAL authoring DATA — the UX content a manager is walked through, NOT the
+# scoring rulebook. Same class as `composer_questions_v1.yaml` (the JDFN set) and loaded
+# the same way: it changes no JD's score/grade/gate, so it is neither a hashed rule file
+# nor an HR-register decision.
+#
+# SOURCE: the CUPE 3338 Weighted Job Questionnaire's own 14 sections, as the parser
+# recognises them (`jd_core/rules/wjq.yaml` -> `section_headings`). The question ORDER is
+# the form's order, so an author filling this in can follow a paper WJQ down the page.
+#
+# ⚠ `section` is an `SFUSection` — the JDFN template's section vocabulary — because that
+# is what `Question.section` is typed as and what the live authoring panel groups by.
+# TEN of the WJQ's fourteen sections have no JDFN counterpart, and they are collected
+# under `additional_context`, which is EXACTLY where `parser/wjq.py` stores them
+# (`wjq.context_sections`). That is the deliberate choice recorded in
+# `docs/decisions/cupe-phase-e-routing-seam-2026-08-17.md`: mirroring the parser keeps an
+# authored CUPE JD and a parsed one the same shape, and costs no rulebook change. The
+# `group` field carries the WJQ's own section name so the UI can still show the form's
+# real structure — presentation, not scoring.
+#
+# NOT ASKED, on purpose:
+#   * `employee_group` — fixed to `cupe` by the assembler. It is what makes the draft a
+#     WJQ document to `template_of`, so letting an author change it would let them
+#     silently pick which bar their own draft is judged against.
+#   * SFU's About/territorial/EDI boilerplate — the WJQ form does not contain it
+#     (the measured fact behind HR-201), and the three rules that check for it are
+#     withheld from this template by `applies_to` (Phase B).
+#   * Section 14, APPROVAL AND REVIEW — signatures and dates, which are a workflow
+#     artifact of the paper form. The Bank's approval trail is `review_actions` +
+#     `audit_log`, and asking an author to type an approval into the content would put
+#     an unverifiable claim of sign-off inside the document (NN #1).
+version: composer_questions_wjq_v1
+
+questions:
+  # --- 1. POSITION IDENTIFICATION ---------------------------------------------------
+  - id: title
+    section: identification
+    group: 1 · Position Identification
+    prompt: What is the department position title?
+    hint: >-
+      The title as it appears on the form's "Department Position Title" line. Describe
+      the role, not the person.
+    target: title
+    required: true
+  - id: department
+    section: identification
+    group: 1 · Position Identification
+    prompt: Which department is this position in?
+    hint: ""
+    target: department
+    required: false
+  - id: position_number
+    section: identification
+    group: 1 · Position Identification
+    prompt: What is the position number?
+    hint: Leave blank if the position has not been numbered yet.
+    target: position_number
+    required: false
+  - id: grade
+    section: identification
+    group: 1 · Position Identification
+    prompt: What is the approved classification and grade?
+    hint: >-
+      The CUPE classification and grade, if one has been approved. A new or
+      not-yet-evaluated position can leave this blank.
+    target: grade
+    required: false
+
+  # --- 2. POSITION SUMMARY ----------------------------------------------------------
+  - id: position_summary
+    section: position_summary
+    group: 2 · Position Summary
+    prompt: Summarise the major functions of this position.
+    hint: >-
+      A short statement of what the position exists to do and how it fits its unit.
+      Purpose first, then scope.
+    target: position_summary
+    required: true
+
+  # --- 3/4. MAJOR + MINOR FUNCTIONS -------------------------------------------------
+  - id: major_functions
+    section: duties
+    group: 3 · Major Functions
+    prompt: What are the major functions of the position?
+    hint: >-
+      The WJQ provides twelve slots. Start each with an action verb, and give the
+      percentage of time where you can — the form asks how often each is performed.
+    target: major_functions
+    required: true
+  - id: minor_functions
+    section: duties
+    group: 4 · Minor Functions
+    prompt: What are the minor or occasional functions?
+    hint: >-
+      Work the position performs less often, or that is incidental to the major
+      functions. Leave blank if there are none.
+    target: minor_functions
+    required: false
+
+  # --- 5. LEVEL OF INDEPENDENCE -----------------------------------------------------
+  - id: level_of_independence
+    section: additional_context
+    group: 5 · Level of Independence
+    prompt: What level of independence does the position work at?
+    hint: >-
+      Who assigns and reviews the work, what decisions are made without checking
+      first, and what must be referred upward.
+    target: level_of_independence
+    required: false
+
+  # --- 6. TRAINING EXERCISED --------------------------------------------------------
+  - id: training_exercised
+    section: additional_context
+    group: 6 · Training Exercised
+    prompt: What training does the position give to others?
+    hint: >-
+      Instructing, orienting or coaching others in the work — including students and
+      temporary staff, not only direct reports.
+    target: training_exercised
+    required: false
+
+  # --- 7. DIRECTION EXERCISED -------------------------------------------------------
+  - id: direction_exercised
+    section: additional_context
+    group: 7 · Direction Exercised
+    prompt: What direction or supervision does the position exercise?
+    hint: >-
+      Assigning, scheduling or checking the work of others, and how many people that
+      covers. Leave blank if the position directs no one.
+    target: direction_exercised
+    required: false
+
+  # --- 8. INTERNAL AND EXTERNAL CONTACTS --------------------------------------------
+  - id: internal
+    section: relationships
+    group: 8 · Internal and External Contacts
+    prompt: Who does this position deal with INSIDE the university?
+    hint: One contact per line — the role or unit, and what the contact is for.
+    target: internal
+    required: false
+  - id: external
+    section: relationships
+    group: 8 · Internal and External Contacts
+    prompt: Who does this position deal with OUTSIDE the university?
+    hint: One contact per line — students, the public, vendors, other institutions.
+    target: external
+    required: false
+
+  # --- 9. IMPACT OF ERRORS ----------------------------------------------------------
+  - id: impact_of_errors
+    section: additional_context
+    group: 9 · Impact of Errors
+    prompt: What is the impact if an error is made in this work?
+    hint: >-
+      What goes wrong, who it affects, and how it is normally caught or corrected.
+    target: impact_of_errors
+    required: false
+
+  # --- 10. EFFORT -------------------------------------------------------------------
+  - id: effort
+    section: additional_context
+    group: 10 · Effort
+    prompt: What physical or mental effort does the work require?
+    hint: >-
+      Sustained concentration, repetitive work, lifting, standing, or periods of
+      competing demands — and roughly how often.
+    target: effort
+    required: false
+
+  # --- 11. WORKING CONDITIONS -------------------------------------------------------
+  - id: working_conditions
+    section: additional_context
+    group: 11 · Working Conditions
+    prompt: What are the working conditions?
+    hint: >-
+      Anything about the environment that is part of the job: noise, weather, hazards,
+      shift or on-call patterns, travel between sites.
+    target: working_conditions
+    required: false
+
+  # --- 12. CONTINUING EDUCATION -----------------------------------------------------
+  - id: continuing_education
+    section: additional_context
+    group: 12 · Continuing Education
+    prompt: What continuing education does the position require?
+    hint: >-
+      Certifications to maintain, training to keep current, or professional development
+      the work depends on.
+    target: continuing_education
+    required: false
+
+  # --- 13. QUALIFICATIONS -----------------------------------------------------------
+  - id: education
+    section: qualifications
+    group: 13 · Qualifications
+    prompt: What is the MINIMUM formal education required?
+    hint: >-
+      The highest level of formal schooling the work genuinely requires — the minimum,
+      not the ideal. One per line.
+    target: education
+    required: false
+  - id: experience
+    section: qualifications
+    group: 13 · Qualifications
+    prompt: How much relevant experience is required, at minimum?
+    hint: The minimum needed to perform the work satisfactorily. One per line.
+    target: experience
+    required: false
+  - id: knowledge
+    section: qualifications
+    group: 13 · Qualifications
+    prompt: What knowledge does the position require?
+    hint: >-
+      Subject knowledge the work depends on. Add a proficiency where it matters
+      (working / excellent).
+    target: knowledge
+    required: false
+  - id: skills
+    section: qualifications
+    group: 13 · Qualifications
+    prompt: What occupational skills are specifically required?
+    hint: >-
+      The skills the form asks to be identified specifically — with a proficiency
+      (basic / intermediate / advanced / expert) where it matters.
+    target: skills
+    required: false
+  - id: abilities
+    section: qualifications
+    group: 13 · Qualifications
+    prompt: What abilities does the position require?
+    hint: >-
+      What the person must be able to DO. Keep each one observable — something a
+      supervisor could see being done. One per line.
+    target: abilities
+    required: false
