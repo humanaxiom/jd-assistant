@@ -220,20 +220,29 @@ harmonize-measure:  ## Drive merge_cluster over real JDFN clusters; measure the 
 
 # ── Phase-4.4a canonical-draft producer (WRITES DRAFT canonical_jds) ───────
 # Drive the Phase-4 pipeline (4.1 merge -> 4.2a rewrite -> 4.2b audit -> 4.3 change-log
-# -> validator) over the real JDFN role clusters and PERSIST the result as DRAFT
-# canonical_jds rows — the 4.4 review work-list. UNLIKE harmonize-measure this WRITES to
-# Postgres (clusters / canonical_jds / audit_log). Idempotent + never clobbers a
-# reviewer-touched canonical; NOTHING publishes (non-negotiable #1). Recomputes clusters
-# in-process (reuses 3.5); needs Postgres (parsed_jds + dedup_edges — run `make up`,
-# `make migrate`, `make ingest`, `make near-dup`, `make dedup-role` first); no Neo4j.
+# -> validator) over the real role clusters — BOTH forms since HR-206 — and PERSIST the
+# result as DRAFT canonical_jds rows: the 4.4 review work-list. UNLIKE harmonize-measure
+# this WRITES to Postgres (clusters / canonical_jds / audit_log). Idempotent + never
+# clobbers a reviewer-touched canonical; NOTHING publishes (non-negotiable #1). Recomputes
+# clusters in-process (reuses 3.5); needs Postgres (parsed_jds + dedup_edges — run
+# `make up`, `make migrate`, `make ingest`, `make near-dup`, `make dedup-role`); no Neo4j.
 #
 # The FULL pipeline needs a reachable Ollama on `aria-gb10-2` (ADR-003) — so it is
 # LOCAL-ONLY, exactly like `make embed` / `make rewrite-golden`. `--no-llm` persists the
 # deterministic 4.1 merge draft only and needs NO model endpoint. NB it is CANONICAL_ARGS.
 #
+# ⚠ `--no-llm` IS NOT A CHEAPER WAY TO GET THE SAME THING, and on an already-populated
+# Bank it used to take work away. It persists a deterministic merge draft, which is
+# strictly poorer than an LLM-rewritten one — measured on the live Bank 2026-08-17, a
+# `--no-llm` pass refreshed 1,763 untouched JDFN drafts and the cohort's mean score fell
+# 73.0 -> 52.73 in 32 seconds, reported only as `drafts_refreshed`. The producer now
+# REFUSES that overwrite by default (counted `skipped_would_downgrade`); pass
+# `--allow-downgrade` to do it deliberately.
+#
 #   make canonical-drafts                              # full pipeline (needs Ollama)
 #   make canonical-drafts CANONICAL_ARGS="--no-llm"    # deterministic-only (no Ollama)
 #   make canonical-drafts CANONICAL_ARGS="--limit 500"
+#   make canonical-drafts CANONICAL_ARGS="--no-llm --allow-downgrade"  # re-baseline
 canonical-drafts: ## Phase-4.4a: produce DRAFT canonical_jds over real clusters (local-only; --no-llm for no Ollama)
 	docker compose run --rm -T canonical python -m src.jd_bank.canonical $(CANONICAL_ARGS)
 	@echo "✅ canonical-producer summary written to docs/canonical/summary.json"

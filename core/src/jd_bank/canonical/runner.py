@@ -152,6 +152,44 @@ def authoring_template(
     return None
 
 
+# --- pure: the no-DOWNGRADE predicate (the second no-clobber rule) -------------------
+
+
+def draft_was_llm_written(change_log: Mapping[str, Any] | None) -> bool:
+    """Whether an existing draft was produced by the FULL pipeline (rewrite + audit).
+
+    Read from the draft's own ``change_log.pipeline.llm_enabled`` — the producer's own
+    record of how it built that row — rather than inferred from its content. Absent or
+    malformed reads as ``False``: a draft whose provenance cannot be established must
+    not be treated as precious, because that would make the producer un-runnable
+    against any row it did not write.
+    """
+    if not change_log:
+        return False
+    pipeline = change_log.get("pipeline")
+    return bool(isinstance(pipeline, Mapping) and pipeline.get("llm_enabled"))
+
+
+def would_downgrade(change_log: Mapping[str, Any] | None, *, llm_enabled: bool) -> bool:
+    """Whether refreshing this draft would REPLACE LLM-written prose with a
+    deterministic merge — a strictly poorer draft in the same row.
+
+    🔴 THE DEFECT THIS EXISTS FOR, found by running it against the live Bank on
+    2026-08-17. ``--no-llm`` on an ALREADY-POPULATED Bank refreshed 1,763 untouched
+    JDFN drafts, discarding the rewrite pass on every one, and reported it as
+    ``drafts_refreshed`` — a word that reads like an improvement. The mean score of the
+    JDFN cohort fell from 73.0 to 52.73 in thirty-two seconds, and nothing in the run's
+    output said a capability had been removed rather than added.
+
+    **The existing no-clobber rule protects HUMAN work and says nothing about PIPELINE
+    work.** That was a reasonable place to stop when every run was a full run; it stops
+    being reasonable the moment the producer has a cheap mode. A draft is a derived
+    artifact, so refreshing it is legitimate — but *derived by a weaker process* is a
+    downgrade, and a downgrade should have to be asked for.
+    """
+    return not llm_enabled and draft_was_llm_written(change_log)
+
+
 # --- pure: the no-clobber predicate --------------------------------------------------
 
 
@@ -230,6 +268,9 @@ class _Outcome:
     persisted: bool = False
     refreshed: bool = False
     skipped: bool = False
+    #: An untouched DRAFT left alone because refreshing it would have replaced
+    #: LLM-written prose with a deterministic merge (a cheap run over an expensive row).
+    skipped_downgrade: bool = False
     rewrite_failed: bool = False
     audit_failed: bool = False
     #: The validator's verdict on the draft this cluster WROTE — ``None`` when no draft
@@ -369,6 +410,7 @@ async def _process_cluster(
     rewrite_client: ChatClient | None,
     audit_client: ChatClient | None,
     rules: Rules,
+    allow_downgrade: bool,
 ) -> _Outcome:
     """Merge -> (best-effort LLM) -> validate -> upsert cluster + persist/refresh DRAFT
     + append audit_log, for ONE cluster on ONE form. Runs in the caller's SAVEPOINT.
@@ -416,6 +458,26 @@ async def _process_cluster(
                         "existing_status": existing.status.value,
                         "review_action_count": int(action_count or 0),
                         "reason": "reviewer_touched",
+                    },
+                )
+            )
+            return outcome
+
+        # 1b. NO-DOWNGRADE — a cheap run must not overwrite an expensive draft.
+        if not allow_downgrade and would_downgrade(
+            existing.change_log, llm_enabled=rewrite_client is not None
+        ):
+            outcome.skipped_downgrade = True
+            session.add(
+                AuditLog(
+                    event_type="canonical_draft.skipped_would_downgrade",
+                    entity_type="canonical_jd",
+                    entity_id=existing.id,
+                    actor="producer",
+                    payload={
+                        "cluster_id": str(cluster_id),
+                        "existing_status": existing.status.value,
+                        "reason": "would_downgrade_llm_draft_to_deterministic",
                     },
                 )
             )
@@ -589,8 +651,16 @@ async def run_canonical_producer(
     limit: int | None = None,
     commit_every: int | None = None,
     progress_every: int | None = None,
+    allow_downgrade: bool = False,
 ) -> CanonicalProducerResult:
-    """Produce persisted DRAFT ``canonical_jds`` over the real JDFN role clusters.
+    """Produce persisted DRAFT ``canonical_jds`` over the real role clusters.
+
+    ``allow_downgrade=False`` (the DEFAULT) -> a deterministic run LEAVES ALONE any
+    untouched draft that the full pipeline wrote, counting it
+    ``skipped_would_downgrade``. See :func:`would_downgrade`: a `--no-llm` run over an
+    already-populated Bank otherwise discards the rewrite pass on every row it touches
+    and reports it as a refresh. Pass ``True`` to deliberately re-baseline the Bank on
+    deterministic drafts.
 
     ``rewrite_client=None`` -> deterministic-only (the 4.1 merge draft is persisted; the
     rewrite and audit are recorded as skipped) — runnable without Ollama. A provided
@@ -640,6 +710,7 @@ async def run_canonical_producer(
     persisted = 0
     refreshed = 0
     skipped = 0
+    skipped_downgrade = 0
     cluster_failures = 0
     rewrite_failures = 0
     audit_failures = 0
@@ -702,6 +773,7 @@ async def run_canonical_producer(
                     rewrite_client=rewrite_client,
                     audit_client=audit_client,
                     rules=rulebook,
+                    allow_downgrade=allow_downgrade,
                 )
         except Exception:  # noqa: BLE001 - isolate a per-cluster failure, keep the run
             cluster_failures += 1
@@ -709,6 +781,7 @@ async def run_canonical_producer(
             persisted += int(outcome.persisted)
             refreshed += int(outcome.refreshed)
             skipped += int(outcome.skipped)
+            skipped_downgrade += int(outcome.skipped_downgrade)
             rewrite_failures += int(outcome.rewrite_failed)
             audit_failures += int(outcome.audit_failed)
             if outcome.score is not None and outcome.grade is not None:
@@ -756,6 +829,7 @@ async def run_canonical_producer(
         drafts_persisted=persisted,
         drafts_refreshed=refreshed,
         skipped_reviewer_touched=skipped,
+        skipped_would_downgrade=skipped_downgrade,
         cluster_failures=cluster_failures,
         rewrite_failures=rewrite_failures,
         audit_failures=audit_failures,

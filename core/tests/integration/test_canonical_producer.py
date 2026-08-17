@@ -612,6 +612,75 @@ async def test_rewrite_and_audit_are_routed_to_their_own_injected_clients(
         assert audit_client.seen == [JDQualityFindings]
 
 
+# --- the no-DOWNGRADE rule, over a real refresh cycle --------------------------------
+
+
+@pytest.mark.asyncio
+async def test_a_deterministic_run_will_not_overwrite_a_draft_the_llm_wrote(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """🔴 WHAT ACTUALLY HAPPENED TO THE LIVE BANK on 2026-08-17, as a test.
+
+    A full run writes a draft; a later `--no-llm` run must LEAVE IT ALONE rather than
+    replace the rewrite with a deterministic merge. On the live Bank this cost 1,763
+    JDFN drafts and 20 points of cohort mean in thirty-two seconds, reported as
+    ``drafts_refreshed``.
+
+    The second half is the half that matters: with ``allow_downgrade=True`` the same run
+    DOES overwrite it. The guard is a default, not a prohibition — deliberately
+    re-baselining the Bank on deterministic drafts is a legitimate thing to want, and it
+    should cost a flag rather than be impossible.
+    """
+    async with session_maker() as session:
+        await _seed_pair(session)
+        await session.commit()
+
+        await run_canonical_producer(
+            session, rewrite_client=_FakeChat(), audit_client=_FakeChat()
+        )
+        await session.commit()
+
+        written = await session.scalar(select(CanonicalJD))
+        assert written is not None
+        assert written.change_log["pipeline"]["llm_enabled"] is True
+
+        # A cheap run over the expensive draft: skipped, counted, and left byte-alike.
+        guarded = await run_canonical_producer(session, rewrite_client=None)
+        await session.commit()
+
+        assert guarded.skipped_would_downgrade == 1
+        assert guarded.drafts_refreshed == 0
+        after = await session.get(CanonicalJD, written.id)
+        assert after is not None
+        assert after.change_log["pipeline"]["llm_enabled"] is True
+
+        # The audit trail says why, so a skipped row is never a silent one (NN #6).
+        skips = (
+            await session.scalars(
+                select(AuditLog).where(
+                    AuditLog.event_type == "canonical_draft.skipped_would_downgrade"
+                )
+            )
+        ).all()
+        assert len(skips) == 1
+        assert skips[0].payload["reason"] == (
+            "would_downgrade_llm_draft_to_deterministic"
+        )
+
+        # ...and the escape hatch works, because a default that cannot be overridden is
+        # not a default, it is a wall.
+        forced = await run_canonical_producer(
+            session, rewrite_client=None, allow_downgrade=True
+        )
+        await session.commit()
+
+        assert forced.skipped_would_downgrade == 0
+        assert forced.drafts_refreshed == 1
+        downgraded = await session.get(CanonicalJD, written.id)
+        assert downgraded is not None
+        assert downgraded.change_log["pipeline"]["llm_enabled"] is False
+
+
 # --- acceptance #5: APPEND-ONLY audit ------------------------------------------------
 
 

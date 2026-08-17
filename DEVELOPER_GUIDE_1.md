@@ -447,6 +447,32 @@ point-factor block (HR-200). At v3's borrowed 4,000-char cap, **81.4% of CUPE JD
 stored truncated**; after v4, **0%** are, and `continuing_education` — the last of the
 seven sections, and so the first casualty of a cut — went from **17.0% → 85.8%** present.
 
+### ⚠ The second trap: `--no-llm` is not a cheaper way to get the same thing
+
+`make canonical-drafts CANONICAL_ARGS="--no-llm"` reads like the fast path, and on an
+**empty** Bank it is. On an **already-populated** one it used to take work away.
+
+**Measured on the live Bank, 2026-08-17.** A `--no-llm` pass refreshed **1,763 untouched
+JDFN drafts**, discarding the 4.2a rewrite on every one. The cohort's mean score fell
+**73.0 → 52.73** in thirty-two seconds, and the run reported it as `drafts_refreshed` — a
+word that reads like an improvement. Nothing said a capability had been *removed*.
+
+Two things to carry from it:
+
+- **The no-clobber rule protected human work and said nothing about pipeline work.** That
+  was a fair place to stop while every run was a full run; it stopped being fair the
+  moment the producer had a cheap mode. The producer now **refuses the overwrite by
+  default** (`skipped_would_downgrade`, with an audit row saying why) and takes
+  `--allow-downgrade` to do it deliberately.
+- **A deterministic draft and an LLM draft are not the same artifact at different
+  speeds.** The rewrite marks the boilerplate sections present — they are template-
+  provided on the JDFN form — which is most of the score difference, and it produces the
+  prose a reviewer actually reads.
+
+**Before any producer run against the live Bank, take the `-Fc` dump**
+(`docs/runbooks/backup-and-restore.md` §2). It cost nothing here and made the mistake a
+choice rather than an incident.
+
 ---
 
 ## 10. Extending the harness

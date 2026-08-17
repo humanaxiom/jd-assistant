@@ -106,6 +106,11 @@ class CanonicalProducerResult(BaseModel):
     drafts_refreshed: int = Field(ge=0)
     #: A published/archived canonical OR a DRAFT a reviewer acted on — LEFT UNTOUCHED.
     skipped_reviewer_touched: int = Field(ge=0)
+    #: An untouched DRAFT the full pipeline wrote, left alone by a DETERMINISTIC run
+    #: because refreshing it would have discarded the rewrite pass. Zero on a full run,
+    #: and zero on a `--no-llm` run over a Bank the full pipeline never touched — so a
+    #: non-zero value means exactly "a cheap run declined to overwrite expensive work".
+    skipped_would_downgrade: int = Field(default=0, ge=0)
     #: Per-cluster failures isolated (SAVEPOINT rolled back) — never abort the run.
     cluster_failures: int = Field(ge=0)
 

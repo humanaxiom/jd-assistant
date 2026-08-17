@@ -240,6 +240,43 @@ def test_the_shipped_rulebook_harmonizes_both_forms() -> None:
     assert get_rules().harmonization.templates_harmonized == ("jdfn", "wjq")
 
 
+# --- the no-DOWNGRADE rule (found by running it against the live Bank) ---------------
+
+
+@pytest.mark.parametrize(
+    ("change_log", "llm_enabled", "expected"),
+    [
+        # The defect: a cheap run over an expensive draft.
+        ({"pipeline": {"llm_enabled": True}}, False, True),
+        # A full run may always refresh — it is at least as good.
+        ({"pipeline": {"llm_enabled": True}}, True, False),
+        # Deterministic over deterministic is a like-for-like refresh, not a downgrade.
+        ({"pipeline": {"llm_enabled": False}}, False, False),
+        # Provenance we cannot establish is not treated as precious: an unreadable
+        # packet must not make the producer un-runnable against rows it did not write.
+        ({}, False, False),
+        (None, False, False),
+        ({"pipeline": None}, False, False),
+        ({"pipeline": "not-a-mapping"}, False, False),
+    ],
+)
+def test_only_a_cheap_run_over_an_llm_written_draft_is_a_downgrade(
+    change_log: dict[str, object] | None, llm_enabled: bool, expected: bool
+) -> None:
+    """🔴 THE DEFECT, found by running the producer against the LIVE Bank on 2026-08-17.
+
+    `--no-llm` refreshed 1,763 untouched JDFN drafts, discarding the rewrite pass on
+    every one, and reported it as ``drafts_refreshed`` — a word that reads like an
+    improvement. The cohort's mean fell from 73.0 to 52.73 in thirty-two seconds and
+    nothing in the output said a capability had been REMOVED.
+
+    The existing no-clobber rule protects HUMAN work and says nothing about PIPELINE
+    work. That was a fair place to stop while every run was a full run; it stopped being
+    fair the moment the producer had a cheap mode.
+    """
+    assert canon_runner.would_downgrade(change_log, llm_enabled=llm_enabled) is expected
+
+
 # --- per-form evaluation: there is no blended number to quote (CUPE Phase D) ---------
 
 

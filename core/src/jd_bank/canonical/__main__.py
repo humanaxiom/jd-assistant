@@ -67,6 +67,13 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="deterministic-only: persist the 4.1 merge draft, no Ollama call",
     )
     parser.add_argument(
+        "--allow-downgrade",
+        action="store_true",
+        help="let a --no-llm run OVERWRITE drafts the full pipeline wrote (default: it "
+        "leaves them alone and counts them). Only pass this to deliberately "
+        "re-baseline the Bank deterministically — it discards every row's rewrite.",
+    )
+    parser.add_argument(
         "--commit-every",
         type=int,
         default=25,
@@ -144,6 +151,7 @@ async def _run(args: argparse.Namespace) -> CanonicalProducerResult:
                 limit=args.limit,
                 commit_every=commit_every,
                 progress_every=commit_every,
+                allow_downgrade=args.allow_downgrade,
             )
             # The producer may checkpoint-commit between clusters (``--commit-every``);
             # this final commit is the backstop for the remainder after the last one.
@@ -182,6 +190,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"drafts: {result.drafts_persisted} persisted, "
         f"{result.drafts_refreshed} refreshed, "
         f"{result.skipped_reviewer_touched} skipped (reviewer-touched), "
+        f"{result.skipped_would_downgrade} skipped (would downgrade an LLM draft), "
         f"{result.cluster_failures} cluster failures\n"
         f"LLM: enabled={result.llm_enabled}, "
         f"{result.rewrite_failures} rewrite failures, "

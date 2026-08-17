@@ -1,30 +1,60 @@
 {
-  "generated_at": "2026-07-23T10:35:39.028220+00:00",
+  "generated_at": "2026-08-14T22:41:33.951005+00:00",
   "result": {
     "audit_failures": 0,
     "cluster_failures": 0,
-    "clusters_fully_wjq_excluded": 657,
-    "clusters_mixed_jdfn_wjq": 10,
-    "clusters_recomputed": 2458,
-    "clusters_seen": 1801,
+    "clusters_by_template": {
+      "jdfn": 1807,
+      "wjq": 649
+    },
+    "clusters_fully_wjq_excluded": 0,
+    "clusters_mixed_jdfn_wjq": 6,
+    "clusters_recomputed": 2456,
+    "clusters_seen": 2456,
     "documents_seen": 14522,
     "documents_signed": 14522,
     "documents_unsignable": 0,
-    "drafts_persisted": 1488,
-    "drafts_refreshed": 313,
-    "llm_enabled": true,
+    "drafts_persisted": 690,
+    "drafts_refreshed": 1763,
+    "evaluation_by_template": {
+      "jdfn": {
+        "approvable": 179,
+        "clusters": 1807,
+        "drafts_scored": 1804,
+        "grades": {
+          "C": 848,
+          "D": 434,
+          "F": 522
+        },
+        "mean_score": 52.73
+      },
+      "wjq": {
+        "approvable": 3,
+        "clusters": 649,
+        "drafts_scored": 649,
+        "grades": {
+          "B": 351,
+          "C": 155,
+          "D": 137,
+          "F": 6
+        },
+        "mean_score": 71.69
+      }
+    },
+    "llm_enabled": false,
     "member_rows_dropped_unvalidatable": 0,
-    "multi_member_clusters": 1798,
+    "multi_member_clusters": 2454,
     "quality_model": "gpt-oss:120b",
     "quality_prompt_version": "jd_quality_v1",
-    "rewrite_failures": 49,
+    "rewrite_failures": 0,
     "rewrite_model": "gpt-oss:120b",
-    "rewrite_prompt_version": "jd_harmonize_v1",
-    "rules_version": "jd_rules_sfu_v4+90af5e27dc83",
-    "single_member_clusters": 3,
-    "skipped_reviewer_touched": 0,
-    "wjq_members_excluded": 3511,
+    "rewrite_prompt_version": "jd_harmonize_v2",
+    "rules_version": "jd_rules_sfu_v4+76baba29cfeb",
+    "single_member_clusters": 2,
+    "skipped_reviewer_touched": 3,
+    "wjq_members_authored": 3446,
+    "wjq_members_excluded": 24,
     "wjq_members_frequency_confirmed": 2747
   },
-  "source": "parsed_jds + dedup_edges (recomputed clusters; JDFN only)"
+  "source": "parsed_jds + dedup_edges (recomputed clusters; forms per harmonization.templates_harmonized \u2014 HR-206)"
 }
