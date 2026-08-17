@@ -14,13 +14,14 @@ from typing import get_args
 import pytest
 from pydantic import ValidationError
 
-from src.jd_bank.composer.answers import DutyAnswer, ModifiedQual
+from src.jd_bank.composer.answers import ComposerAnswers, DutyAnswer, ModifiedQual
 from src.jd_bank.composer.forms import (
     FORMS,
     FormSpec,
     form_for,
     form_for_template,
     form_from_request,
+    render_kind,
 )
 from src.jd_bank.composer.questions import load_question_set
 from src.jd_bank.composer.wjq_answers import WJQ_CONTEXT_TARGETS, WJQAnswers
@@ -119,6 +120,78 @@ def test_an_unknown_form_name_falls_back_to_a_page_not_a_422() -> None:
     for junk in ("", None, "  ", "WJQ!!", "cupe", 7):
         assert form_from_request(junk).template in {"jdfn", "wjq"}
     assert form_from_request("nonsense").template == "jdfn"
+
+
+# --- render kinds are DERIVED, and derive to what the JDFN Builder already did -------
+
+
+def test_the_derived_render_kinds_match_the_shipped_jdfn_builder_exactly() -> None:
+    """⚠ THE REGRESSION GUARD FOR A REFACTOR ON A LIVE SURFACE.
+
+    ``render_kind`` replaced four hand-written sets of field names in ``compose_ui``.
+    The JDFN Builder is in use, so the derivation has to reproduce the old map field for
+    field — this is that map, transcribed from the code it replaced, asserted against
+    what the contract now derives. If a future change to the answer model moves a field
+    between kinds, this goes red and says which one.
+    """
+    expected = {
+        "title": "text",
+        "department": "text",
+        "grade": "text",
+        "supervisory": "text",  # 600 chars — a text input, as before
+        "employee_group": "select",
+        "include_sfu_boilerplate": "checkbox",
+        "position_summary": "textarea",
+        "additional_context": "textarea",
+        "duties": "duties",
+        "knowledge": "modified",
+        "skills": "modified",
+        "decision_making": "list",
+        "problem_solving": "list",
+        "internal": "list",
+        "external": "list",
+        "education": "list",
+        "experience": "list",
+        "abilities": "list",
+        "cloned_from_cluster_id": "hidden",
+    }
+    for target, kind in expected.items():
+        assert render_kind(ComposerAnswers, target) == kind, target
+    # ...and every field of the contract is covered, so the map cannot rot quietly.
+    assert set(expected) == set(ComposerAnswers.model_fields)
+
+
+def test_an_unknown_target_raises_rather_than_rendering_as_a_line_list() -> None:
+    """🔴 THE DEFECT THE DERIVATION REMOVES. The old ``_kind_for`` ended in
+    ``return "list"``, so a target missing from every set silently became a
+    one-item-per-line textarea. Invisible with one form; with two it would have chopped
+    the WJQ's point-factor sections into lines and stripped ``major_functions`` of its
+    verb and %-allocation columns, with nothing going red."""
+    with pytest.raises(KeyError, match="drifted"):
+        render_kind(ComposerAnswers, "level_of_independence")
+
+
+def test_the_wjq_fields_render_as_the_form_needs_rather_than_as_lines() -> None:
+    """What the fallback would have got wrong, stated positively."""
+    assert render_kind(WJQAnswers, "major_functions") == "duties"
+    assert render_kind(WJQAnswers, "minor_functions") == "duties"
+    assert render_kind(WJQAnswers, "level_of_independence") == "textarea"
+    assert render_kind(WJQAnswers, "working_conditions") == "textarea"
+    assert render_kind(WJQAnswers, "title") == "text"
+    assert render_kind(WJQAnswers, "internal") == "list"
+    assert render_kind(WJQAnswers, "knowledge") == "modified"
+    # The WJQ never asks for the employee group — the assembler fixes it.
+    assert "employee_group" not in WJQAnswers.model_fields
+
+
+def test_every_question_in_every_set_has_a_render_kind() -> None:
+    """The completeness pin: walk the live question sets, not a list. A question whose
+    target cannot be rendered would reach an author as a missing field."""
+    for spec in FORMS.values():
+        for question in load_question_set(
+            spec.question_set, spec.answers_model
+        ).questions:
+            assert render_kind(spec.answers_model, question.target)
 
 
 # --- the WJQ assembler mirrors the PARSER --------------------------------------------

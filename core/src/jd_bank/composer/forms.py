@@ -158,6 +158,61 @@ FORMS: Mapping[JDTemplate, FormSpec] = {
 }
 
 
+#: A ``str`` field at or above this length is rendered as a textarea rather than a
+#: single-line input.
+#:
+#: Chosen to REPRODUCE the shipped JDFN Builder exactly — its hand-written map made
+#: ``position_summary`` and ``additional_context`` (4,000) textareas and ``supervisory``
+#: (600) a text input, and a test asserts the derived kinds still equal that map field
+#: for field. It is a rendering hint about how much someone is about to type, not a
+#: rulebook number, which is why it lives here and not in the register.
+_TEXTAREA_MIN_LENGTH: int = 1000
+
+
+def render_kind(answers_model: type[BaseModel], target: str) -> str:
+    """How ``target`` is rendered and read back — DERIVED from the answer contract.
+
+    ⚠ **This replaced four hand-written sets of field names, and the reason is a
+    correctness one rather than a tidiness one.** The old ``_kind_for`` ended in
+    ``return "list"``, so any target missing from all four sets silently rendered as a
+    one-item-per-line textarea. With one form that was invisible — every JDFN target
+    was in a set. With two it is a live defect: the WJQ's ``major_functions`` would
+    have lost its action-verb and %-allocation columns, and its seven point-factor
+    sections would have been chopped into lines, with nothing anywhere going red.
+
+    Deriving from the model means a new form needs **no** UI declarations at all, and an
+    unknown target raises rather than guessing.
+    """
+    field = answers_model.model_fields.get(target)
+    if field is None:
+        raise KeyError(
+            f"{answers_model.__name__} has no field {target!r} to render — a question "
+            "targets it, so the two have drifted"
+        )
+    if target == "employee_group":
+        return "select"
+    annotation = str(field.annotation)
+    if "bool" in annotation:
+        return "checkbox"
+    if "UUID" in annotation:
+        return "hidden"
+    if "DutyAnswer" in annotation:
+        return "duties"
+    if "ModifiedQual" in annotation:
+        return "modified"
+    if annotation.startswith("list"):
+        return "list"
+    max_length = next(
+        (
+            meta.max_length
+            for meta in field.metadata
+            if getattr(meta, "max_length", None) is not None
+        ),
+        0,
+    )
+    return "textarea" if max_length >= _TEXTAREA_MIN_LENGTH else "text"
+
+
 def form_for_template(template: JDTemplate) -> FormSpec:
     """The form spec for ``template``. Every ``JDTemplate`` has one — a test pins that,
     so adding a template without deciding how it is authored fails the build rather
