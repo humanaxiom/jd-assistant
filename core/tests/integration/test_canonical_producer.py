@@ -612,6 +612,128 @@ async def test_rewrite_and_audit_are_routed_to_their_own_injected_clients(
         assert audit_client.seen == [JDQualityFindings]
 
 
+# --- the no-DOWNGRADE rule, over a real refresh cycle --------------------------------
+
+
+@pytest.mark.asyncio
+async def test_a_deterministic_run_will_not_overwrite_a_draft_the_llm_wrote(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """🔴 WHAT ACTUALLY HAPPENED TO THE LIVE BANK on 2026-08-17, as a test.
+
+    A full run writes a draft; a later `--no-llm` run must LEAVE IT ALONE rather than
+    replace the rewrite with a deterministic merge. On the live Bank this cost 1,763
+    JDFN drafts and 20 points of cohort mean in thirty-two seconds, reported as
+    ``drafts_refreshed``.
+
+    The second half is the half that matters: with ``allow_downgrade=True`` the same run
+    DOES overwrite it. The guard is a default, not a prohibition — deliberately
+    re-baselining the Bank on deterministic drafts is a legitimate thing to want, and it
+    should cost a flag rather than be impossible.
+    """
+    async with session_maker() as session:
+        await _seed_pair(session)
+        await session.commit()
+
+        await run_canonical_producer(
+            session, rewrite_client=_FakeChat(), audit_client=_FakeChat()
+        )
+        await session.commit()
+
+        written = await session.scalar(select(CanonicalJD))
+        assert written is not None
+        assert written.change_log["pipeline"]["llm_enabled"] is True
+
+        # A cheap run over the expensive draft: skipped, counted, and left byte-alike.
+        guarded = await run_canonical_producer(session, rewrite_client=None)
+        await session.commit()
+
+        assert guarded.skipped_would_downgrade == 1
+        assert guarded.drafts_refreshed == 0
+        after = await session.get(CanonicalJD, written.id)
+        assert after is not None
+        assert after.change_log["pipeline"]["llm_enabled"] is True
+
+        # The audit trail says why, so a skipped row is never a silent one (NN #6).
+        skips = (
+            await session.scalars(
+                select(AuditLog).where(
+                    AuditLog.event_type == "canonical_draft.skipped_would_downgrade"
+                )
+            )
+        ).all()
+        assert len(skips) == 1
+        assert skips[0].payload["reason"] == (
+            "would_downgrade_llm_draft_to_deterministic"
+        )
+
+        # ...and the escape hatch works, because a default that cannot be overridden is
+        # not a default, it is a wall.
+        forced = await run_canonical_producer(
+            session, rewrite_client=None, allow_downgrade=True
+        )
+        await session.commit()
+
+        assert forced.skipped_would_downgrade == 0
+        assert forced.drafts_refreshed == 1
+        downgraded = await session.get(CanonicalJD, written.id)
+        assert downgraded is not None
+        assert downgraded.change_log["pipeline"]["llm_enabled"] is False
+
+
+@pytest.mark.asyncio
+async def test_resume_skips_the_clusters_an_llm_pass_already_finished(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """A full LLM pass over this archive measures ~44 HOURS — 2,456 clusters at 64.8s,
+    two model calls each. Without a resume it is also ALL-OR-NOTHING: an interruption
+    anywhere means paying for every cluster again, including the ones already rewritten.
+
+    ``make embed`` has had exactly this property since Phase 3.2, and the reindex
+    runbook cites it as the reason an interrupted reindex needs no resume flag. The
+    producer's far more expensive pass deserves the same.
+
+    Pinned by the model call COUNT, not by the row: the point of a resume is that the
+    work is not done twice, and a test asserting only the row contents would pass on a
+    run that redid every completion and wrote the same answer.
+    """
+    async with session_maker() as session:
+        await _seed_pair(session)
+        await session.commit()
+
+        first = _FakeChat()
+        await run_canonical_producer(
+            session, rewrite_client=first, audit_client=_FakeChat()
+        )
+        await session.commit()
+        assert first.seen == [SFUJobDescription]  # one rewrite was paid for
+
+        second = _FakeChat()
+        resumed = await run_canonical_producer(
+            session,
+            rewrite_client=second,
+            audit_client=_FakeChat(),
+            skip_llm_written=True,
+        )
+        await session.commit()
+
+        assert resumed.skipped_already_llm_written == 1
+        assert resumed.drafts_refreshed == 0
+        assert second.seen == []  # ...and NOT paid for a second time
+
+        # Without the flag the same run does the work again — so the skip is the flag's
+        # doing, not an unrelated idempotency the producer already had.
+        third = _FakeChat()
+        redone = await run_canonical_producer(
+            session, rewrite_client=third, audit_client=_FakeChat()
+        )
+        await session.commit()
+
+        assert redone.skipped_already_llm_written == 0
+        assert redone.drafts_refreshed == 1
+        assert third.seen == [SFUJobDescription]
+
+
 # --- acceptance #5: APPEND-ONLY audit ------------------------------------------------
 
 
@@ -757,6 +879,57 @@ async def test_an_all_cupe_cluster_gets_a_wjq_draft(
         assert canonical.status is CanonicalStatus.DRAFT  # NN #1 — still just a draft
         assert canonical.content["employee_group"] == "cupe"
         assert len(canonical.source_document_ids) == 2
+
+
+@pytest.mark.asyncio
+async def test_each_form_is_evaluated_against_its_own_bar_and_never_blended(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """CUPE Phase D's reporting rule, over a real run holding BOTH forms.
+
+    Two separate clusters — one JDFN, one CUPE — produce two drafts, and each form's
+    numbers are reported under its own key. The important assertion is the last one:
+    the JDFN entry's counts are exactly what a JDFN-only run would have produced, so
+    introducing the CUPE cohort cannot move the number HR has been reading.
+    """
+    async with session_maker() as session:
+        a = await _seed_jd(
+            session, storage_ref="a", sha256=_sha("a"), parsed=_analyst()
+        )
+        b = await _seed_jd(
+            session, storage_ref="b", sha256=_sha("b"), parsed=_analyst()
+        )
+        c = await _seed_jd(
+            session, storage_ref="c", sha256=_sha("c"), parsed=_analyst(group="cupe")
+        )
+        d = await _seed_jd(
+            session, storage_ref="d", sha256=_sha("d"), parsed=_analyst(group="cupe")
+        )
+        await _role_edge(session, a.id, b.id)
+        await _role_edge(session, c.id, d.id)
+        await session.commit()
+
+        result = await run_canonical_producer(session, rewrite_client=None)
+        await session.commit()
+
+        assert set(result.evaluation_by_template) == {"jdfn", "wjq"}
+        jdfn = result.evaluation_by_template["jdfn"]
+        wjq = result.evaluation_by_template["wjq"]
+        assert jdfn.drafts_scored == 1
+        assert wjq.drafts_scored == 1
+        # Each form's grades account for exactly its own drafts — nothing crosses over.
+        assert sum(jdfn.grades.values()) == jdfn.drafts_scored
+        assert sum(wjq.grades.values()) == wjq.drafts_scored
+        assert jdfn.clusters + wjq.clusters == result.clusters_seen
+
+        # ⚠ THE CONTROL: the same run with CUPE off the list reports an IDENTICAL jdfn
+        # block. If drafting CUPE could move the JDFN cohort's numbers, every figure HR
+        # has already been given would silently change under them.
+        jdfn_only = await run_canonical_producer(
+            session, rewrite_client=None, rules=_jdfn_only(get_rules())
+        )
+        await session.commit()
+        assert jdfn_only.evaluation_by_template["jdfn"] == jdfn
 
 
 @pytest.mark.asyncio

@@ -75,7 +75,7 @@ from src.jd_core.models.quality import (
 )
 from src.jd_core.quality.gates import apply_overrides, evaluate_gates
 from src.jd_core.quality.scoring import score_issues
-from src.jd_core.quality.validators import evaluate_jd_rules
+from src.jd_core.quality.validators import evaluate_jd_rules, template_of_content
 from src.jd_core.rules import Rules, get_rules
 
 __all__ = [
@@ -192,6 +192,10 @@ def _queue_item(canonical: CanonicalJD) -> ReviewQueueItem:
         version=canonical.version,
         status=canonical.status,
         title=str((canonical.content or {}).get("title") or ""),
+        # The FORM, read from the draft's own content by the one separator the whole
+        # system uses (CUPE Phase D) — never from the cluster row or a stored label,
+        # which could disagree with what the reviewer is about to read.
+        template=template_of_content(canonical.content),
         stored_score=validator.get("score"),
         stored_grade=validator.get("grade"),
         stored_approvable=approvable,

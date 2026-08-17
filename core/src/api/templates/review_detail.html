@@ -10,6 +10,22 @@
 <div class="panel">
   <h2>{{ packet.content.get("title", "(untitled)") }}</h2>
   <p class="meta">Cluster {{ packet.cluster_id }} · version {{ packet.version }} · status {{ packet.status.value }}</p>
+  {#
+    Which FORM, stated before the score (CUPE Phase D). The reviewer is about to judge a
+    number produced by THIS form's rules and thresholds — a CUPE draft is not scored by
+    the JDFN bar and never was. Saying so here is cheaper than a reviewer discovering it
+    by wondering why a CUPE draft has no Problem Solving section.
+  #}
+  <p>
+    Form:
+    {% if template == "wjq" %}
+    <strong>CUPE (WJQ)</strong> — the CUPE 3338 Weighted Job Questionnaire, a
+    14-section point-factor form. Scored against the WJQ bar.
+    {% else %}
+    <strong>JDFN</strong> — the APSA / APEX / POLY job-description form. Scored
+    against the JDFN bar.
+    {% endif %}
+  </p>
   <p>
     Score: <strong>{{ packet.score }}</strong> ·
     Grade: <strong>{{ packet.grade }}</strong> ·

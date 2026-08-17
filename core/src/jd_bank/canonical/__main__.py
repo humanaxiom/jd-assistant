@@ -67,6 +67,21 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         help="deterministic-only: persist the 4.1 merge draft, no Ollama call",
     )
     parser.add_argument(
+        "--allow-downgrade",
+        action="store_true",
+        help="let a --no-llm run OVERWRITE drafts the full pipeline wrote (default: it "
+        "leaves them alone and counts them). Only pass this to deliberately "
+        "re-baseline the Bank deterministically — it discards every row's rewrite.",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="skip clusters whose draft the FULL pipeline already wrote — the resume "
+        "for an interrupted LLM pass. A complete pass over this archive measures ~44 "
+        "hours, so without it an interruption anywhere means paying for every cluster "
+        "again. Same property `make embed` has had since Phase 3.2.",
+    )
+    parser.add_argument(
         "--commit-every",
         type=int,
         default=25,
@@ -144,6 +159,8 @@ async def _run(args: argparse.Namespace) -> CanonicalProducerResult:
                 limit=args.limit,
                 commit_every=commit_every,
                 progress_every=commit_every,
+                allow_downgrade=args.allow_downgrade,
+                skip_llm_written=args.resume,
             )
             # The producer may checkpoint-commit between clusters (``--commit-every``);
             # this final commit is the backstop for the remainder after the last one.
@@ -165,6 +182,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     by_template = ", ".join(
         f"{template}={count}" for template, count in result.clusters_by_template.items()
     )
+    # …and the same rule for how they SCORED. Each line names the form and its own bar,
+    # because "62.9" means nothing without knowing which profile produced it. There is
+    # no total line on purpose: a mean over two forms is a mean over two different
+    # measurements, and printing one is how it gets quoted.
+    evaluation = "\n".join(
+        f"  {template}: {ev.drafts_scored} drafts scored on the {template} bar, "
+        f"mean {ev.mean_score}, {ev.approvable} approvable, grades {ev.grades}"
+        for template, ev in result.evaluation_by_template.items()
+    )
     print(
         f"clusters: {result.clusters_recomputed} recomputed -> "
         f"{result.clusters_seen} seen [{by_template or 'none'}] "
@@ -173,6 +199,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"drafts: {result.drafts_persisted} persisted, "
         f"{result.drafts_refreshed} refreshed, "
         f"{result.skipped_reviewer_touched} skipped (reviewer-touched), "
+        f"{result.skipped_would_downgrade} skipped (would downgrade an LLM draft), "
+        f"{result.skipped_already_llm_written} skipped (already LLM-written), "
         f"{result.cluster_failures} cluster failures\n"
         f"LLM: enabled={result.llm_enabled}, "
         f"{result.rewrite_failures} rewrite failures, "
@@ -182,7 +210,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"({result.wjq_members_frequency_confirmed} frequency-confirmed), "
         f"{result.clusters_fully_wjq_excluded} clusters fully-WJQ with no draft, "
         f"{result.clusters_mixed_jdfn_wjq} mixed\n"
-        f"forms drafted: {list(result.clusters_by_template)}  "
+        f"evaluation, PER FORM (never blended — each is its own bar):\n"
+        f"{evaluation or '  (no drafts scored)'}\n"
         f"rules_version={result.rules_version}  llm_enabled={result.llm_enabled}",
         file=sys.stderr,
     )

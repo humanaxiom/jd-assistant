@@ -16,7 +16,7 @@ from pydantic import ValidationError
 
 from src.jd_bank.canonical import __main__ as cli
 from src.jd_bank.canonical import runner as canon_runner
-from src.jd_bank.canonical.models import CanonicalProducerResult
+from src.jd_bank.canonical.models import CanonicalProducerResult, TemplateEvaluation
 from src.jd_bank.canonical.runner import (
     DRAFT,
     build_change_log_packet,
@@ -240,6 +240,90 @@ def test_the_shipped_rulebook_harmonizes_both_forms() -> None:
     assert get_rules().harmonization.templates_harmonized == ("jdfn", "wjq")
 
 
+# --- the no-DOWNGRADE rule (found by running it against the live Bank) ---------------
+
+
+@pytest.mark.parametrize(
+    ("change_log", "llm_enabled", "expected"),
+    [
+        # The defect: a cheap run over an expensive draft.
+        ({"pipeline": {"llm_enabled": True}}, False, True),
+        # A full run may always refresh — it is at least as good.
+        ({"pipeline": {"llm_enabled": True}}, True, False),
+        # Deterministic over deterministic is a like-for-like refresh, not a downgrade.
+        ({"pipeline": {"llm_enabled": False}}, False, False),
+        # Provenance we cannot establish is not treated as precious: an unreadable
+        # packet must not make the producer un-runnable against rows it did not write.
+        ({}, False, False),
+        (None, False, False),
+        ({"pipeline": None}, False, False),
+        ({"pipeline": "not-a-mapping"}, False, False),
+    ],
+)
+def test_only_a_cheap_run_over_an_llm_written_draft_is_a_downgrade(
+    change_log: dict[str, object] | None, llm_enabled: bool, expected: bool
+) -> None:
+    """🔴 THE DEFECT, found by running the producer against the LIVE Bank on 2026-08-17.
+
+    `--no-llm` refreshed 1,763 untouched JDFN drafts, discarding the rewrite pass on
+    every one, and reported it as ``drafts_refreshed`` — a word that reads like an
+    improvement. The cohort's mean fell from 73.0 to 52.73 in thirty-two seconds and
+    nothing in the output said a capability had been REMOVED.
+
+    The existing no-clobber rule protects HUMAN work and says nothing about PIPELINE
+    work. That was a fair place to stop while every run was a full run; it stopped being
+    fair the moment the producer had a cheap mode.
+    """
+    assert canon_runner.would_downgrade(change_log, llm_enabled=llm_enabled) is expected
+
+
+# --- per-form evaluation: there is no blended number to quote (CUPE Phase D) ---------
+
+
+def test_the_result_carries_no_field_that_scores_both_forms_at_once() -> None:
+    """🔴 THE PROPERTY, and it is about what is ABSENT.
+
+    A CUPE draft is judged by the WJQ profile and a JDFN draft by the JDFN one, so a
+    single mean over both is a mean over two different measurements — the category error
+    this whole phase removed. The defence is not a convention: the result object has no
+    overall score/grade/approvable field at all, so there is nothing for a reader to
+    quote and nothing for a later template to render. Every quality figure hangs off
+    ``evaluation_by_template``, which cannot be read without naming a form.
+
+    Adding a `mean_score` to the top level turns this red — which is the point, because
+    that is exactly the field someone will reach for when asked "so how good are the
+    drafts?"
+    """
+    top_level = set(CanonicalProducerResult.model_fields)
+    assert not (top_level & {"mean_score", "score", "grade", "grades", "approvable"})
+    per_form = set(TemplateEvaluation.model_fields)
+    assert {"mean_score", "approvable", "grades"} <= per_form
+
+
+def test_an_unscored_cluster_does_not_enter_a_forms_mean_as_a_zero() -> None:
+    """A reviewer-touched or failed cluster produced no draft, so the producer scored
+    nothing for it. Counting it as a zero would understate the cohort — and it would do
+    so exactly where drafts are being reviewed most, since a cluster becomes skippable
+    by a human having WORKED on it. ``drafts_scored`` is the denominator, not
+    ``clusters``."""
+    agg = canon_runner._TemplateAgg()
+    agg.clusters = 3  # three entered...
+    agg.drafts_scored = 1  # ...one produced a draft
+    agg.score_total = 80.0
+    agg.grades["B"] = 1
+
+    evaluation = agg.evaluation()
+    assert evaluation.clusters == 3
+    assert evaluation.drafts_scored == 1
+    assert evaluation.mean_score == 80.0  # not 26.67
+
+
+def test_a_form_that_scored_nothing_reports_zero_rather_than_dividing_by_zero() -> None:
+    """A form can be drafted and score nothing — every one of its clusters skipped as
+    reviewer-touched. That is a real state on a re-run, not an edge case."""
+    assert canon_runner._TemplateAgg().evaluation().mean_score == 0.0
+
+
 # --- draft-only + counts-only frozen result ------------------------------------------
 
 
@@ -262,11 +346,22 @@ def _result() -> CanonicalProducerResult:
         member_rows_dropped_unvalidatable=0,
         clusters_seen=2,
         clusters_by_template={"jdfn": 2},
+        evaluation_by_template={
+            "jdfn": TemplateEvaluation(
+                clusters=2,
+                drafts_scored=2,
+                mean_score=73.0,
+                approvable=1,
+                grades={"B": 1, "C": 1},
+            )
+        },
         multi_member_clusters=2,
         single_member_clusters=0,
         drafts_persisted=2,
         drafts_refreshed=0,
         skipped_reviewer_touched=0,
+        skipped_would_downgrade=0,
+        skipped_already_llm_written=0,
         cluster_failures=0,
         rewrite_failures=0,
         audit_failures=0,
