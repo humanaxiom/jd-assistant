@@ -43,20 +43,42 @@ from src.jd_core.rules import Comparison, Rewrite, Rules, get_rules
 #: retuning one cannot silently move the grounding check.
 _TOKEN = re.compile(r"[a-z0-9]+")
 
-#: The fields that say WHICH DOCUMENT this is, restored from the grounded merge draft
-#: after the model replies. The rewrite's job is prose; none of these is prose.
+#: The ONLY fields the rewrite may change. Everything else on the draft is restored from
+#: the grounded 4.1 merge, which derived it from the source JDs.
 #:
-#: ``employee_group`` is the load-bearing one — it is what ``template_of`` reads, so the
-#: model dropping it (which it did on ~95% of CUPE drafts) silently moves the document
-#: to the other form's bar. ``classification`` and ``position_number`` are here for the
-#: same reason rather than a measured one: a grade and a position number are facts about
-#: the posting that the merge derived from the sources, and a language model has no way
-#: to know either. Restoring a field the model happened to get right costs nothing;
-#: trusting it on a field it cannot know costs a wrong document.
-_IDENTITY_FIELDS: Final[tuple[str, ...]] = (
-    "employee_group",
-    "classification",
-    "position_number",
+#: 🔴 **THIS IS AN ALLOW-LIST BECAUSE A DENY-LIST FAILED THREE TIMES.** The pass was
+#: written as "the model returns a JD, we scrub what it ADDED" — the anti-fabrication
+#: guard — and nothing at all policed what it REMOVED. Each time a field turned out to
+#: matter, it was patched individually, and the next one was found the same way (by
+#: probing the live Bank, never by a test):
+#:
+#: 1. ``employee_group`` — nulled on ~95% of CUPE drafts, silently moving each one to
+#:    the JDFN bar, because that field is what ``template_of`` reads.
+#: 2. ``classification`` / ``position_number`` — facts about the posting a language
+#:    model has no way to know, added to the patch pre-emptively.
+#: 3. ``additional_context`` — nulled likewise, which on a CUPE draft is **seven of the
+#:    WJQ's fourteen sections**: the merge had just been fixed to carry them (HR-207)
+#:    and the rewrite threw them away again on the very next run.
+#:
+#: The prompt's own schema literally shows ``"additional_context": null``, so the model
+#: is doing what it was asked. The defect is the contract, not the model: **a rewrite
+#: that may return any field can delete any field**, and "reword this draft" does not
+#: license dropping content the sources stated. Inverting the default makes the next
+#: such field safe by construction rather than after someone notices it missing.
+#:
+#: The boilerplate presence booleans are deliberately absent here too — they are set
+#: explicitly further down, per template, and restoring them first makes that the only
+#: place they are decided.
+_REWRITABLE_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "title",
+        "position_summary",
+        "duties",
+        "decision_making",
+        "problem_solving",
+        "relationships",
+        "qualifications",
+    }
 )
 
 #: The sections the guard will not let the rewrite CREATE from nothing. Each is a whole
@@ -248,26 +270,19 @@ async def rewrite_merged_role(
 
     scrubbed_jd, record = _apply_anti_fabrication(llm_jd, merged, active)
 
-    # 🔴 THE MODEL MAY REWORD A DRAFT. IT MAY NOT CHANGE WHAT DOCUMENT THE DRAFT IS.
+    # 🔴 THE MODEL MAY REWORD A DRAFT. IT MAY NOT DELETE FROM IT.
     #
-    # Found by probing the live Bank mid-run on 2026-08-17: of ~100 CUPE drafts the
-    # rewrite had refreshed, **5** still carried `employee_group == "cupe"`. The
-    # prompt's schema offers the field (`"apsa"|…|"cupe"|null`) and the model returns
-    # `null` almost every time, so the pass silently converted CUPE drafts into JDFN.
+    # Everything outside `_REWRITABLE_FIELDS` comes back from the GROUNDED merge draft,
+    # which derived it from the source JDs. This is the anti-fabrication guard's posture
+    # applied in the other direction: that guard stops the model ADDING, and until now
+    # nothing stopped it REMOVING — which it did, silently, to three different fields in
+    # one weekend (see `_REWRITABLE_FIELDS` for the list and how each was found).
     #
-    # That single field IS the form: `template_of` reads it, so a stripped draft loses
-    # Phase B's rule selection and Phase C's numbers in one step and is judged by a bar
-    # it was never written for — the exact category error Phases B, C and D removed,
-    # reintroduced by the LLM at the last moment. Nothing downstream could catch it,
-    # because the result is a perfectly well-formed JDFN document.
-    #
-    # These fields are IDENTITY, not prose: they say which form the document is and
-    # which position it describes. Restored from the GROUNDED merge draft, which derived
-    # them from the source JDs — the same posture as the anti-fabrication guard, one
-    # level up. Phase E states the principle for the Builder ("`employee_group` is
-    # FIXED, not asked"); this is the same rule applied to the model.
-    scrubbed_jd = scrubbed_jd.model_copy(
-        update={field: getattr(merged.draft, field) for field in _IDENTITY_FIELDS}
+    # An ALLOW-LIST rather than another patch, because the deny-list version was wrong
+    # three times running: the failure mode is "a field nobody thought about", so only
+    # inverting the default makes the next one safe before someone notices it missing.
+    scrubbed_jd = merged.draft.model_copy(
+        update={field: getattr(scrubbed_jd, field) for field in _REWRITABLE_FIELDS}
     )
 
     # Boilerplate sections (About SFU, territorial acknowledgement, employment equity)
