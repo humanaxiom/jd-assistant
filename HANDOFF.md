@@ -80,20 +80,18 @@ prints the table.
 registry, `WJQAnswers`, `assemble_wjq_jd`, the 14-section WJQ question set, and
 `render_kind`.
 
-**Next, in order:**
+**✅ ALSO DONE — the UI is wired** (`8af3932`): `/new?form=wjq` walks the CUPE
+questionnaire, the picker names both forms, and every UI helper derives from the answer
+contract instead of hand-written name sets. Duty columns are keyed by TARGET now
+(`duties_verb`, not `duty_verb`) because the WJQ has two duty-shaped sections.
 
-1. **Open the PR for the branch** (the API was down).
-2. **Wire `compose_ui.py` through the registry** — `_context`, `_grouped_questions`,
-   `_answers_from_form`, `_values_from_answers` and the `/new` route all take a
-   `FormSpec`; the four `_*_TARGETS` sets and `_kind_for` are replaced by `render_kind`,
-   which is already written and proved behaviour-identical for JDFN.
-   ⚠ `_context`'s `padded_rows` hardcodes `duties`/`knowledge`/`skills`; the WJQ needs
-   `major_functions`/`minor_functions` too, so derive the structured targets from the
-   spec rather than adding a second literal.
-3. **`compose_new.html`** — a form picker, and group headings from `Question.group` (the
-   form's own section names) rather than the UI's `_SECTION_LABELS`.
-4. **`search._answers_from_jd`** — the clone mapping is JDFN-only; cloning a CUPE role
-   needs the WJQ counterpart, and the FormSpec is where it belongs.
+**The ONE remaining piece:**
+
+1. **`search._answers_from_jd`** — the clone mapping is JDFN-only, so `load_clone_answers`
+   / `load_role_clone_answers` produce `ComposerAnswers` whatever form the source was
+   written on, and `_render_clone` pins itself to the JDFN spec and says so. Cloning a
+   CUPE role needs a WJQ counterpart, and the `FormSpec` is where it belongs — a
+   `clone_from_jd` callable beside `assemble`.
 
 **Two things settled that the next session should not re-open:**
 
