@@ -8,9 +8,28 @@
   <h2>Build a new SFU-compliant job description</h2>
   <p class="meta">
     Answer the guided questions, then <strong>Check compliance</strong> to see how the
-    draft measures against SFU standards. Scope: APSA / APEX / POLY (JDFN) template.
-    Nothing is saved or published here — this is authoring with live feedback.
+    draft measures against SFU standards. Nothing is saved or published here — this is
+    authoring with live feedback.
   </p>
+  {#
+    The FORM picker (CUPE Phase E). SFU has two instruments and they are different
+    FORMS, not variants — so the author picks one, and the draft is then judged by that
+    form's own rules (Phase B) and numbers (Phase C). Switching starts a fresh draft
+    rather than trying to carry answers across: the two contracts do not have the same
+    questions, so a "convert" would silently drop whatever the other form does not ask.
+  #}
+  <p class="meta" style="margin-top:.75rem">
+    <strong>Form:</strong>
+    {% for spec in forms %}
+    {% if spec.template == form_spec.template %}
+    <span class="badge ok">{{ spec.label }}</span>
+    {% else %}
+    <a class="meta" href="/jd-bank/ui/compose/new?form={{ spec.template }}"
+       title="Start a new draft on this form">switch to {{ spec.label }}</a>
+    {% endif %}
+    {% endfor %}
+  </p>
+  <p class="meta">{{ form_spec.description }}</p>
   <p class="meta">
     Or <strong>start from an existing JD</strong>:
   </p>
@@ -233,6 +252,11 @@
        Check does not forget it (the near-duplicate guard excludes that role, and the
        submit/export answers keep the lineage). Empty for a from-scratch draft. #}
     <input type="hidden" name="cloned_from_cluster_id" value="{{ cloned_from_cluster_id }}">
+    {# Which SFU FORM this draft is (CUPE Phase E). Hidden so every POST back — check,
+       assist, submit, export — stays on the form the author started, rather than
+       falling back to JDFN and silently re-reading their answers through the wrong
+       contract. #}
+    <input type="hidden" name="form" value="{{ form_spec.template }}">
     {% for group in groups %}
     <h3 id="section-{{ group.section }}">{{ group.label }}</h3>
     {% for q in group.questions %}
@@ -247,15 +271,18 @@
          so the section prompt is a plain heading, not a `for=` label that would dangle. #}
       <p class="label" style="margin:.5rem 0 .25rem">{{ q.prompt }}</p>
       {% if q.kind == "duties" %}
-      {# Structured duty rows: verb / statement / %-allocation, index-aligned columns. #}
+      {# Structured duty rows: verb / statement / %-allocation, index-aligned columns.
+         Keyed by TARGET, like the modified rows below — the WJQ has two duty-shaped
+         sections (major and minor functions), and a fixed `duty_*` prefix would post
+         both into one column and lose which is which. #}
       <div class="rows">
-        {% for row in structured_rows["duties"] %}
+        {% for row in structured_rows[q.target] %}
         <div style="display:flex;gap:.5rem;margin-bottom:.4rem">
-          <input name="duty_verb" value="{{ row.verb }}" placeholder="Action verb"
+          <input name="{{ q.target }}_verb" value="{{ row.verb }}" placeholder="Action verb"
                  aria-label="Action verb" style="flex:0 0 9rem">
-          <input name="duty_statement" value="{{ row.statement }}" placeholder="Duty statement"
+          <input name="{{ q.target }}_statement" value="{{ row.statement }}" placeholder="Duty statement"
                  aria-label="Duty statement" style="flex:1 1 auto">
-          <input name="duty_allocation" value="{{ row.allocation }}" type="number" min="0" max="100"
+          <input name="{{ q.target }}_allocation" value="{{ row.allocation }}" type="number" min="0" max="100"
                  placeholder="%" aria-label="Percentage of time" style="flex:0 0 5rem">
         </div>
         {% endfor %}

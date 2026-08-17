@@ -75,10 +75,18 @@ from src.jd_bank.composer import (
     submit_composed_draft,
     suggest_summary,
 )
+from src.jd_bank.composer.answers import AnswerContract
+from src.jd_bank.composer.forms import (
+    FORMS,
+    FormSpec,
+    form_for_template,
+    form_from_request,
+    render_kind,
+)
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.llm.client import ChatClient
 from src.jd_core.models.parsed_jd import SFUJobDescription
-from src.jd_core.models.quality import SFUSection
+from src.jd_core.models.quality import DEFAULT_TEMPLATE, SFUSection
 from src.jd_core.rules import get_rules
 from src.jd_export import render_sfu_docx
 
@@ -113,23 +121,10 @@ _SECTION_LABELS: dict[SFUSection, str] = {
     "additional_context": "10 · Additional context",
 }
 
-#: How each ``ComposerAnswers`` target is rendered as a form control and read back.
-_SCALAR_TARGETS = {"title", "department", "grade", "supervisory"}
-_TEXTAREA_TARGETS = {"position_summary", "additional_context"}
-_STRING_LIST_TARGETS = {
-    "decision_making",
-    "problem_solving",
-    "internal",
-    "external",
-    "education",
-    "experience",
-    "abilities",
-}
-#: Targets rendered as STRUCTURED repeatable rows (not one-item-per-line textareas),
-#: so the fields the models carry but a flat textarea drops are captured: a duty's
-#: ``action_verb`` (what the action-verb gate checks) + ``allocation`` (the ``(NN%)``
-#: the allocation gate reads), and a knowledge/skill proficiency ``modifier``.
-_MODIFIED_LIST_TARGETS = {"knowledge", "skills"}
+#: How a target is rendered and read back is DERIVED from the answer contract
+#: (`composer.forms.render_kind`, Phase E) rather than listed here. The four name sets
+#: this replaced ended in a silent `return "list"` fallback, which was invisible while
+#: there was one form and would have mis-rendered every field of the second.
 
 #: How many structured rows to show: the filled rows plus a few blanks to add more,
 #: capped at the model's list max (dependency-free "add a row" without client JS).
@@ -189,22 +184,6 @@ _STATE_LABEL = {
 }
 
 
-def _kind_for(target: str) -> str:
-    if target == "employee_group":
-        return "select"
-    if target == "include_sfu_boilerplate":
-        return "checkbox"
-    if target in _SCALAR_TARGETS:
-        return "text"
-    if target in _TEXTAREA_TARGETS:
-        return "textarea"
-    if target == "duties":
-        return "duties"  # structured verb / statement / % rows
-    if target in _MODIFIED_LIST_TARGETS:
-        return "modified"  # structured text + proficiency-modifier rows
-    return "list"  # the remaining string-list targets: one item per line
-
-
 def _lines(value: str) -> list[str]:
     return [line.strip() for line in value.splitlines() if line.strip()]
 
@@ -236,12 +215,19 @@ def _ordered_modifiers(available: frozenset[str], order: tuple[str, ...]) -> lis
     return known + extra
 
 
-def _duty_row_dicts(pairs: list[tuple[str, str]]) -> list[dict[str, str]]:
-    """The submitted duty rows as raw ``{verb, statement, allocation}`` dicts (kept as
-    strings so they repopulate the form even when a value fails validation)."""
-    verbs = _column(pairs, "duty_verb")
-    statements = _column(pairs, "duty_statement")
-    allocations = _column(pairs, "duty_allocation")
+def _duty_row_dicts(pairs: list[tuple[str, str]], target: str) -> list[dict[str, str]]:
+    """The submitted duty rows for ``target`` as raw ``{verb, statement, allocation}``
+    dicts (kept as strings so they repopulate the form even when a value fails
+    validation).
+
+    Keyed by TARGET, like ``_modified_row_dicts`` already was (Phase E). The WJQ form
+    has two duty-shaped sections — MAJOR FUNCTIONS and MINOR FUNCTIONS — so a single
+    fixed ``duty_*`` prefix would post both into one undifferentiated column and lose
+    which is which.
+    """
+    verbs = _column(pairs, f"{target}_verb")
+    statements = _column(pairs, f"{target}_statement")
+    allocations = _column(pairs, f"{target}_allocation")
     count = max(len(verbs), len(statements), len(allocations))
     return [
         {
@@ -265,35 +251,47 @@ def _modified_row_dicts(
     ]
 
 
+def _targets_of_kind(spec: FormSpec, kind: str) -> list[str]:
+    """This form's fields that render as ``kind`` — walked from the answer contract
+    rather than listed (Phase E), so a form that adds a duty-shaped section gets its
+    rows, its repopulation and its padding with no edit here."""
+    return [
+        target
+        for target in spec.answers_model.model_fields
+        if render_kind(spec.answers_model, target) == kind
+    ]
+
+
 def _structured_rows_from_pairs(
-    pairs: list[tuple[str, str]],
+    spec: FormSpec, pairs: list[tuple[str, str]]
 ) -> dict[str, list[dict[str, str]]]:
-    return {
-        "duties": _duty_row_dicts(pairs),
-        "knowledge": _modified_row_dicts(pairs, "knowledge"),
-        "skills": _modified_row_dicts(pairs, "skills"),
-    }
+    rows: dict[str, list[dict[str, str]]] = {}
+    for target in _targets_of_kind(spec, "duties"):
+        rows[target] = _duty_row_dicts(pairs, target)
+    for target in _targets_of_kind(spec, "modified"):
+        rows[target] = _modified_row_dicts(pairs, target)
+    return rows
 
 
 def _structured_rows_from_answers(
-    answers: ComposerAnswers,
+    spec: FormSpec, answers: AnswerContract
 ) -> dict[str, list[dict[str, str]]]:
-    return {
-        "duties": [
+    rows: dict[str, list[dict[str, str]]] = {}
+    for target in _targets_of_kind(spec, "duties"):
+        rows[target] = [
             {
                 "verb": d.action_verb,
                 "statement": d.statement,
                 "allocation": "" if d.allocation is None else str(d.allocation),
             }
-            for d in answers.duties
-        ],
-        "knowledge": [
-            {"text": q.text, "modifier": q.modifier or ""} for q in answers.knowledge
-        ],
-        "skills": [
-            {"text": q.text, "modifier": q.modifier or ""} for q in answers.skills
-        ],
-    }
+            for d in getattr(answers, target)
+        ]
+    for target in _targets_of_kind(spec, "modified"):
+        rows[target] = [
+            {"text": q.text, "modifier": q.modifier or ""}
+            for q in getattr(answers, target)
+        ]
+    return rows
 
 
 def _pad_rows(
@@ -311,13 +309,13 @@ def _pad_rows(
     return padded
 
 
-def _duty_answers(pairs: list[tuple[str, str]]) -> list[DutyAnswer]:
+def _duty_answers(pairs: list[tuple[str, str]], target: str) -> list[DutyAnswer]:
     """Structured duty rows -> ``DutyAnswer`` list, dropping rows with no statement.
 
     Raises :class:`ValueError` for a non-numeric allocation (a crafted body — the
     form uses ``<input type=number>``); the caller re-renders with the error."""
     duties: list[DutyAnswer] = []
-    for row in _duty_row_dicts(pairs):
+    for row in _duty_row_dicts(pairs, target):
         statement = row["statement"].strip()
         if not statement:
             continue
@@ -346,98 +344,96 @@ def _modified_quals(pairs: list[tuple[str, str]], target: str) -> list[ModifiedQ
 
 
 def _answers_from_form(
-    values: dict[str, str], pairs: list[tuple[str, str]]
-) -> ComposerAnswers:
-    """Build ``ComposerAnswers`` from the submitted form: scalar/textarea/string-list
-    targets from the collapsed ``values``; duties and knowledge/skills from the
-    STRUCTURED parallel-array rows in ``pairs``.
+    spec: FormSpec, values: dict[str, str], pairs: list[tuple[str, str]]
+) -> AnswerContract:
+    """Build this FORM's answer contract from the submitted body: scalar / textarea /
+    string-list targets from the collapsed ``values``; duty and knowledge/skill rows
+    from the STRUCTURED parallel arrays in ``pairs``.
+
+    Driven by the contract's own fields (Phase E) rather than by four sets of names, so
+    a form the reader has never seen round-trips correctly and an unrenderable field is
+    impossible rather than silently mis-parsed.
 
     May raise :class:`pydantic.ValidationError` (e.g. an over-long field) or
     :class:`ValueError` (a non-numeric %-allocation) — the caller re-renders the page
     with the error and assembles nothing."""
     data: dict[str, Any] = {}
-    for target in _SCALAR_TARGETS | _TEXTAREA_TARGETS:
-        text = values.get(target, "").strip()
-        if text:
-            data[target] = text
-    group = values.get("employee_group", "").strip()
-    if group:
-        data["employee_group"] = group
-    duties = _duty_answers(pairs)
-    if duties:
-        data["duties"] = duties
-    for target in _STRING_LIST_TARGETS:
-        items = _lines(values.get(target, ""))
-        if items:
-            data[target] = items
-    for target in _MODIFIED_LIST_TARGETS:
-        quals = _modified_quals(pairs, target)
-        if quals:
-            data[target] = quals
-    data["include_sfu_boilerplate"] = values.get("include_sfu_boilerplate") == "on"
-    # Not content: the role this draft was cloned from, carried through the form as a
-    # hidden field so a Check keeps it (the guard excludes it, and submit/export
-    # rebuild from the same answers). A tampered value fails UUID validation and
-    # re-renders with the error, like any other bad field.
-    cloned_from = values.get("cloned_from_cluster_id", "").strip()
-    if cloned_from:
-        data["cloned_from_cluster_id"] = cloned_from
-    return ComposerAnswers(**data)
+    for target in spec.answers_model.model_fields:
+        kind = render_kind(spec.answers_model, target)
+        if kind in {"text", "textarea", "select", "hidden"}:
+            # `hidden` is the cloned-from lineage: not content, carried through the form
+            # so a Check keeps it (the near-duplicate guard excludes that role, and
+            # submit/export rebuild from the same answers). A tampered value fails
+            # validation and re-renders with the error, like any other bad field.
+            text = values.get(target, "").strip()
+            if text:
+                data[target] = text
+        elif kind == "checkbox":
+            data[target] = values.get(target) == "on"
+        elif kind == "list":
+            items = _lines(values.get(target, ""))
+            if items:
+                data[target] = items
+        elif kind == "duties":
+            duties = _duty_answers(pairs, target)
+            if duties:
+                data[target] = duties
+        elif kind == "modified":
+            quals = _modified_quals(pairs, target)
+            if quals:
+                data[target] = quals
+    return spec.answers_model(**data)
 
 
-def _values_from_answers(answers: ComposerAnswers) -> dict[str, str]:
-    """The SCALAR / textarea / string-list form-field view of ``ComposerAnswers`` (the
-    inverse of :func:`_answers_from_form` for those targets), so the guided form
+def _values_from_answers(spec: FormSpec, answers: AnswerContract) -> dict[str, str]:
+    """The scalar / textarea / string-list form-field view of a form's answers — the
+    inverse of :func:`_answers_from_form` for those targets, so the guided form
     repopulates when the Builder is cloned from an existing JD. The structured sections
-    (duties, knowledge, skills) repopulate separately from
-    :func:`_structured_rows_from_answers` — verbs, %-allocations and modifiers included,
-    nothing dropped."""
+    repopulate separately from :func:`_structured_rows_from_answers` — verbs,
+    %-allocations and modifiers included, nothing dropped.
+
+    Walks the contract (Phase E) rather than a hand-written tuple of field names. The
+    old version listed each field twice — once here and once in the inverse — and a
+    field added to only one side would have silently failed to repopulate, losing a
+    cloned answer with nothing going red.
+    """
     values: dict[str, str] = {}
-    for target, scalar in (
-        ("title", answers.title),
-        ("department", answers.department),
-        ("grade", answers.grade),
-        ("employee_group", answers.employee_group),
-        ("position_summary", answers.position_summary),
-        ("supervisory", answers.supervisory),
-        ("additional_context", answers.additional_context),
-    ):
-        if scalar:
-            values[target] = scalar
-    if answers.cloned_from_cluster_id is not None:
-        values["cloned_from_cluster_id"] = str(answers.cloned_from_cluster_id)
-    for target, items in (
-        ("decision_making", answers.decision_making),
-        ("problem_solving", answers.problem_solving),
-        ("internal", answers.internal),
-        ("external", answers.external),
-        ("education", answers.education),
-        ("experience", answers.experience),
-        ("abilities", answers.abilities),
-    ):
-        values[target] = "\n".join(items)
+    for target in spec.answers_model.model_fields:
+        kind = render_kind(spec.answers_model, target)
+        value = getattr(answers, target)
+        if kind in {"text", "textarea", "select", "hidden"}:
+            if value is not None and str(value):
+                values[target] = str(value)
+        elif kind == "list":
+            values[target] = "\n".join(value)
     return values
 
 
-def _grouped_questions(values: dict[str, str]) -> list[dict[str, Any]]:
-    """The question set as ordered section groups, each question carrying its render
-    kind and current value (for repopulation on POST)."""
+def _grouped_questions(spec: FormSpec, values: dict[str, str]) -> list[dict[str, Any]]:
+    """This form's question set as ordered groups, each question carrying its render
+    kind and current value (for repopulation on POST).
+
+    Grouping is by the question's ``group`` when it has one — the FORM's own section
+    name — falling back to the UI's label for its ``SFUSection``. That matters for the
+    WJQ (Phase E), where ten sections map onto ``additional_context`` because that is
+    where the parser stores them: grouped by ``section`` alone, an author would meet one
+    undifferentiated bucket where their questionnaire has seven distinct questions.
+    """
     groups: list[dict[str, Any]] = []
-    for question in load_question_set().questions:
-        if not groups or groups[-1]["section"] != question.section:
+    for question in load_question_set(spec.question_set, spec.answers_model).questions:
+        label = question.group or _SECTION_LABELS.get(
+            question.section, question.section
+        )
+        if not groups or groups[-1]["label"] != label:
             groups.append(
-                {
-                    "section": question.section,
-                    "label": _SECTION_LABELS.get(question.section, question.section),
-                    "questions": [],
-                }
+                {"section": question.section, "label": label, "questions": []}
             )
         groups[-1]["questions"].append(
             {
                 "prompt": question.prompt,
                 "hint": question.hint,
                 "target": question.target,
-                "kind": _kind_for(question.target),
+                "kind": render_kind(spec.answers_model, question.target),
                 "value": values.get(question.target, ""),
             }
         )
@@ -468,47 +464,51 @@ def _context(
     assessment: DraftAssessment | None,
     error: str | None,
     boilerplate_checked: bool,
+    spec: FormSpec,
     answers_json: str = "",
     suggestion: SummarySuggestion | None = None,
     structured_rows: dict[str, list[dict[str, str]]] | None = None,
     related_roles: DuplicateGuard | None = None,
 ) -> dict[str, Any]:
-    groups = _grouped_questions(values)
+    groups = _grouped_questions(spec, values)
     rules = get_rules()
     rows = structured_rows or {}
     # Filled rows + a few blank rows to add more (capped at each model list max), so the
     # structured editors work without client JS — the same no-dependency posture as the
     # rest of this UI. Repopulation rows come from the caller (raw form pairs on a POST,
     # so they survive a validation error; the source answers on a clone).
-    padded_rows = {
-        "duties": _pad_rows(
-            rows.get("duties", []),
+    #
+    # Per TARGET rather than for three fixed names (Phase E): the WJQ has two
+    # duty-shaped sections, and padding only "duties" would leave MINOR FUNCTIONS with
+    # no rows to type into at all.
+    padded_rows: dict[str, list[dict[str, str]]] = {}
+    for target in _targets_of_kind(spec, "duties"):
+        padded_rows[target] = _pad_rows(
+            rows.get(target, []),
             {"verb": "", "statement": "", "allocation": ""},
             min_rows=_DUTY_MIN_ROWS,
             max_rows=_DUTY_MAX_ROWS,
-        ),
-        "knowledge": _pad_rows(
-            rows.get("knowledge", []),
+        )
+    for target in _targets_of_kind(spec, "modified"):
+        padded_rows[target] = _pad_rows(
+            rows.get(target, []),
             {"text": "", "modifier": ""},
             min_rows=_KSA_MIN_ROWS,
             max_rows=_KSA_MAX_ROWS,
-        ),
-        "skills": _pad_rows(
-            rows.get("skills", []),
-            {"text": "", "modifier": ""},
-            min_rows=_KSA_MIN_ROWS,
-            max_rows=_KSA_MAX_ROWS,
-        ),
-    }
+        )
     # The proficiency-scale options — rulebook DATA (qualifications.yaml Parts 5.1/5.2,
-    # NN #2), ordered for display; a rulebook change flows straight through here.
+    # NN #2), ordered for display; a rulebook change flows straight through here. Keyed
+    # by target so a form naming its knowledge/skill sections differently still gets the
+    # right scale beside each.
+    knowledge_options = _ordered_modifiers(
+        rules.qualifications.knowledge_modifiers, _KNOWLEDGE_MODIFIER_ORDER
+    )
+    skill_options = _ordered_modifiers(
+        rules.qualifications.skill_modifiers, _SKILL_MODIFIER_ORDER
+    )
     modifier_options = {
-        "knowledge": _ordered_modifiers(
-            rules.qualifications.knowledge_modifiers, _KNOWLEDGE_MODIFIER_ORDER
-        ),
-        "skills": _ordered_modifiers(
-            rules.qualifications.skill_modifiers, _SKILL_MODIFIER_ORDER
-        ),
+        target: (knowledge_options if target == "knowledge" else skill_options)
+        for target in _targets_of_kind(spec, "modified")
     }
     # Tag each guidance/finding with the section it belongs to, so the "Still to write"
     # and "Fix these" lists can each link to the offending section's fields. The issue
@@ -573,6 +573,12 @@ def _context(
         # Provenance carried through the form as a hidden field, so a Check does not
         # forget which role the draft was cloned from (it is what the guard excludes).
         "cloned_from_cluster_id": values.get("cloned_from_cluster_id", ""),
+        # Which FORM is being authored (Phase E). Carried as a hidden field so every
+        # POST back — check, assist, submit, export — stays on the form the author
+        # started, and rendered as a heading so they can see which SFU instrument they
+        # are filling in.
+        "form_spec": spec,
+        "forms": list(FORMS.values()),
         "error": error,
         "boilerplate_checked": boilerplate_checked,
         # `assessment` is None before the author's first check — no panel renders, so
@@ -598,8 +604,14 @@ def _context(
 
 
 @router.get("/new", response_class=HTMLResponse)
-async def new_draft(request: Request) -> HTMLResponse:
-    """The empty guided form (boilerplate defaulted on — required for approval)."""
+async def new_draft(request: Request, form: str | None = None) -> HTMLResponse:
+    """The empty guided form (boilerplate defaulted on — required for approval).
+
+    ``?form=`` picks the SFU instrument (Phase E). A **normalized string, deliberately
+    not a ``Literal``**: a ``Literal`` answers an unknown value with a raw 422 JSON blob
+    on a page a person is using, which is the P0.0 defect class — so an unrecognised
+    form starts the JDFN flow, and the picker at the top of the page shows both.
+    """
     return templates.TemplateResponse(
         request,
         "compose_new.html",
@@ -609,6 +621,7 @@ async def new_draft(request: Request) -> HTMLResponse:
             assessment=None,
             error=None,
             boilerplate_checked=True,
+            spec=form_from_request(form),
         ),
     )
 
@@ -706,9 +719,10 @@ async def check_draft(
         checked = values.get("include_sfu_boilerplate") == "on"
         # Repopulation rows come from the RAW submitted pairs, so a validation error
         # still shows the author what they typed (never a silently emptied section).
-        rows = _structured_rows_from_pairs(pairs)
+        spec = form_from_request(values.get("form"))
+        rows = _structured_rows_from_pairs(spec, pairs)
         try:
-            answers = _answers_from_form(values, pairs)
+            answers = _answers_from_form(spec, values, pairs)
         except (ValidationError, ValueError) as exc:
             return templates.TemplateResponse(
                 request,
@@ -719,10 +733,11 @@ async def check_draft(
                     assessment=None,
                     error=str(exc),
                     boilerplate_checked=checked,
+                    spec=spec,
                     structured_rows=rows,
                 ),
             )
-        jd = assemble_jd(answers)
+        jd = spec.assemble(answers)
         assessment = assess_draft(jd)
         guard = await _related_roles_panel(
             jd,
@@ -740,6 +755,7 @@ async def check_draft(
                 assessment=assessment,
                 error=None,
                 boilerplate_checked=checked,
+                spec=spec,
                 answers_json=answers.model_dump_json(),
                 structured_rows=rows,
                 related_roles=guard,
@@ -763,9 +779,10 @@ async def assist_draft(
     pairs = await read_form_pairs(request)
     values = _first_values(pairs)
     checked = values.get("include_sfu_boilerplate") == "on"
-    rows = _structured_rows_from_pairs(pairs)
+    spec = form_from_request(values.get("form"))
+    rows = _structured_rows_from_pairs(spec, pairs)
     try:
-        answers = _answers_from_form(values, pairs)
+        answers = _answers_from_form(spec, values, pairs)
     except (ValidationError, ValueError) as exc:
         await client.close()
         return templates.TemplateResponse(
@@ -777,6 +794,7 @@ async def assist_draft(
                 assessment=None,
                 error=str(exc),
                 boilerplate_checked=checked,
+                spec=spec,
                 structured_rows=rows,
             ),
         )
@@ -788,7 +806,7 @@ async def assist_draft(
     budget = get_rules().rewrite.interactive_timeout_seconds
     try:
         suggestion = await asyncio.wait_for(
-            suggest_summary(assemble_jd(answers), client=client), timeout=budget
+            suggest_summary(spec.assemble(answers), client=client), timeout=budget
         )
     except TimeoutError:
         logger.warning(
@@ -807,6 +825,7 @@ async def assist_draft(
                     "and Check compliance without it."
                 ),
                 boilerplate_checked=checked,
+                spec=spec,
                 structured_rows=rows,
             ),
         )
@@ -828,6 +847,7 @@ async def assist_draft(
             assessment=suggestion.assessment,
             error=None,
             boilerplate_checked=checked,
+            spec=spec,
             answers_json=applied.model_dump_json(),
             suggestion=suggestion,
             structured_rows=rows,
@@ -914,17 +934,25 @@ def _render_clone(request: Request, answers: ComposerAnswers) -> HTMLResponse:
     About-SFU / territorial / EE / the Relationships header all "missing". The author
     can still uncheck it."""
     answers = answers.model_copy(update={"include_sfu_boilerplate": True})
+    # Cloning is JDFN-only today: `load_clone_answers` / `load_role_clone_answers`
+    # produce `ComposerAnswers`, so the source is read through the JDFN contract
+    # whatever form it was written on. Cloning a CUPE role needs a WJQ counterpart of
+    # `search._answers_from_jd`, which belongs on the FormSpec — recorded in HANDOFF.md
+    # as the next Phase-E step rather than faked with a spec that does not match the
+    # answers being rendered.
+    spec = form_for_template(DEFAULT_TEMPLATE)
     return templates.TemplateResponse(
         request,
         "compose_new.html",
         _context(
             request,
-            values=_values_from_answers(answers),
+            values=_values_from_answers(spec, answers),
             assessment=assess_draft(assemble_jd(answers)),
             error=None,
             boilerplate_checked=answers.include_sfu_boilerplate,
+            spec=spec,
             answers_json=answers.model_dump_json(),
-            structured_rows=_structured_rows_from_answers(answers),
+            structured_rows=_structured_rows_from_answers(spec, answers),
         ),
     )
 
@@ -991,8 +1019,11 @@ async def submit_draft(
     values = _first_values(pairs)
     # The author is the AUTHENTICATED user, not a form field.
     author_id = actor.cas_username
+    # The FORM rides in a hidden field, so a submit lands on the contract the author
+    # actually filled in (Phase E) rather than on the JDFN one by assumption.
+    spec = form_from_request(values.get("form"))
     try:
-        answers = ComposerAnswers.model_validate_json(values.get("answers_json", ""))
+        answers = spec.answers_model.model_validate_json(values.get("answers_json", ""))
     except ValidationError as exc:
         # The hidden field was produced by our own check step, so this is unexpected;
         # re-render the empty form with the error rather than 500.
@@ -1005,11 +1036,12 @@ async def submit_draft(
                 assessment=None,
                 error=str(exc),
                 boilerplate_checked=True,
+                spec=spec,
             ),
         )
     canonical = await submit_composed_draft(
         session,
-        assemble_jd(answers),
+        spec.assemble(answers),
         author_id=author_id,
         # `assemble_jd` produces a JD document, which has no lineage field — so this
         # is the LAST point the clone's parent still exists. Read it off the answers,
@@ -1030,8 +1062,9 @@ async def export_draft(request: Request) -> Response:
     Pure rendering — nothing is validated, persisted, or published (NN #1). A tampered
     hidden field re-renders the form with the error rather than 500 (mirrors submit)."""
     values = _first_values(await read_form_pairs(request))
+    spec = form_from_request(values.get("form"))
     try:
-        answers = ComposerAnswers.model_validate_json(values.get("answers_json", ""))
+        answers = spec.answers_model.model_validate_json(values.get("answers_json", ""))
     except ValidationError as exc:
         return templates.TemplateResponse(
             request,
@@ -1042,9 +1075,10 @@ async def export_draft(request: Request) -> Response:
                 assessment=None,
                 error=str(exc),
                 boilerplate_checked=True,
+                spec=spec,
             ),
         )
-    jd = assemble_jd(answers)
+    jd = spec.assemble(answers)
     content = render_sfu_docx(jd)
     return Response(
         content=content,

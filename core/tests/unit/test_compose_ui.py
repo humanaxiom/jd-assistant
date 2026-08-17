@@ -35,7 +35,7 @@ from tests.unit.retuned_rules import (
 
 def _post_form(client: TestClient, url: str, pairs: list[tuple[str, str]]):
     """POST an ``application/x-www-form-urlencoded`` body built from ORDERED pairs
-    (so repeated keys like the structured ``duty_statement`` columns survive) — this
+    (so repeated keys like the structured ``duties_statement`` columns survive) — this
     httpx version does not accept a list-of-tuples via ``data=``."""
     from urllib.parse import urlencode
 
@@ -135,7 +135,7 @@ def test_get_renders_the_guided_form() -> None:
     assert "overall purpose of this role" in html
     assert 'name="title"' in html
     # Duties are now a structured row (verb / statement / %), not a bare textarea.
-    assert 'name="duty_statement"' in html
+    assert 'name="duties_statement"' in html
     # No compliance panel until the author checks.
     assert "Live compliance" not in html
 
@@ -473,11 +473,16 @@ def test_export_with_malformed_answers_rerenders_and_does_not_500() -> None:
 
 
 def test_get_renders_structured_duty_and_ksa_rows() -> None:
+    """⚠ The duty columns are named for their TARGET (``duties_*``), not with a fixed
+    ``duty_*`` prefix — changed in Phase E, and not cosmetically. The WJQ form has TWO
+    duty-shaped sections (major and minor functions), so a fixed prefix would post both
+    into one column and lose which is which. Knowledge/skills were already keyed this
+    way; duties now match them."""
     html = _client().get("/jd-bank/ui/compose/new").text
     # A duty row exposes its verb, statement, and %-allocation as separate controls.
-    assert 'name="duty_verb"' in html
-    assert 'name="duty_statement"' in html
-    assert 'name="duty_allocation"' in html
+    assert 'name="duties_verb"' in html
+    assert 'name="duties_statement"' in html
+    assert 'name="duties_allocation"' in html
     # Knowledge/skills rows expose the qualification text and its proficiency modifier.
     assert 'name="knowledge_text"' in html
     assert 'name="knowledge_modifier"' in html
@@ -491,9 +496,9 @@ def test_post_captures_structured_duty_verb_and_allocation() -> None:
         "/jd-bank/ui/compose/new",
         [
             ("title", "Analyst"),
-            ("duty_verb", "Manages"),
-            ("duty_statement", "Manages the general ledger"),
-            ("duty_allocation", "60"),
+            ("duties_verb", "Manages"),
+            ("duties_statement", "Manages the general ledger"),
+            ("duties_allocation", "60"),
         ],
     )
     assert resp.status_code == 200
@@ -517,15 +522,15 @@ def test_post_aligns_multiple_duty_rows_and_drops_blank_rows() -> None:
         "/jd-bank/ui/compose/new",
         [
             ("title", "Analyst"),
-            ("duty_verb", "Manages"),
-            ("duty_statement", "Manages the general ledger"),
-            ("duty_allocation", "60"),
-            ("duty_verb", ""),
-            ("duty_statement", "Prepares monthly reports"),
-            ("duty_allocation", "40"),
-            ("duty_verb", ""),
-            ("duty_statement", ""),
-            ("duty_allocation", ""),
+            ("duties_verb", "Manages"),
+            ("duties_statement", "Manages the general ledger"),
+            ("duties_allocation", "60"),
+            ("duties_verb", ""),
+            ("duties_statement", "Prepares monthly reports"),
+            ("duties_allocation", "40"),
+            ("duties_verb", ""),
+            ("duties_statement", ""),
+            ("duties_allocation", ""),
         ],
     )
     answers = compose_ui.ComposerAnswers.model_validate_json(
@@ -1056,9 +1061,9 @@ def test_related_roles_panel_shows_no_percentage(
         [
             ("title", "Advising Coordinator"),
             ("position_summary", " ".join(["word"] * 120)),
-            ("duty_verb", "Manages"),
-            ("duty_statement", "Manages a caseload of first-year students"),
-            ("duty_allocation", "60"),
+            ("duties_verb", "Manages"),
+            ("duties_statement", "Manages a caseload of first-year students"),
+            ("duties_allocation", "60"),
         ],
     )
     assert resp.status_code == 200
@@ -1475,3 +1480,86 @@ def test_submit_of_an_original_draft_passes_no_parent(
 
     assert submit_mock.await_args is not None
     assert submit_mock.await_args.kwargs["cloned_from_cluster_id"] is None
+
+
+# --- the WJQ form is reachable and round-trips (CUPE Phase E) -------------------------
+
+
+def test_the_wjq_form_renders_its_own_questions_and_not_the_jdfn_ones() -> None:
+    """``?form=wjq`` walks the CUPE questionnaire. The negative assertions matter more
+    than the positive ones: an author on the WJQ must not be asked for Problem Solving
+    or Impact of Decision Making (0.0% and 3.1% of CUPE JDs have them, because the form
+    does not ask), nor for SFU boilerplate the form does not carry (HR-201)."""
+    html = _client().get("/jd-bank/ui/compose/new?form=wjq").text
+
+    assert 'name="level_of_independence"' in html
+    assert 'name="impact_of_errors"' in html
+    assert 'name="major_functions_statement"' in html
+    assert 'name="minor_functions_statement"' in html
+    # The form's OWN section names, not the JDFN labels.
+    assert "5 · Level of Independence" in html
+    assert 'name="decision_making"' not in html
+    assert 'name="problem_solving"' not in html
+    assert 'name="include_sfu_boilerplate"' not in html
+    # ...and the hidden field that keeps every POST back on this form.
+    assert 'name="form" value="wjq"' in html
+
+
+def test_the_jdfn_form_is_unchanged_by_the_existence_of_the_wjq_one() -> None:
+    """The control. Every Phase-D/E change kept JDFN identical, and the Builder is in
+    use — so the default form still asks for the JDFN sections and nothing else."""
+    html = _client().get("/jd-bank/ui/compose/new").text
+
+    assert 'name="decision_making"' in html
+    assert 'name="problem_solving"' in html
+    assert 'name="include_sfu_boilerplate"' in html
+    assert 'name="level_of_independence"' not in html
+    assert 'name="form" value="jdfn"' in html
+
+
+def test_an_unknown_form_starts_the_jdfn_flow_rather_than_422ing() -> None:
+    """The 8.3a lesson on a page a person is using: a ``Literal`` query param would
+    answer a typo with a raw 422 JSON blob."""
+    resp = _client().get("/jd-bank/ui/compose/new?form=nonsense")
+
+    assert resp.status_code == 200
+    assert 'name="form" value="jdfn"' in resp.text
+
+
+def test_a_wjq_check_assembles_a_cupe_draft_judged_by_the_wjq_bar() -> None:
+    """End to end through the POST: the answers are read through the WJQ contract, the
+    WJQ assembler builds the draft, and the live panel judges it as a CUPE document —
+    so the JDFN-only rules cannot appear in it (Phase B)."""
+    resp = _client().post(
+        "/jd-bank/ui/compose/new",
+        data={
+            "form": "wjq",
+            "title": "Departmental Assistant",
+            "position_summary": "Provides administrative support to the department.",
+            "major_functions_verb": "Processes",
+            "major_functions_statement": "Processes purchase orders for the unit",
+            "major_functions_allocation": "40",
+            "level_of_independence": "Works under general supervision.",
+        },
+    )
+
+    assert resp.status_code == 200
+    html = resp.text
+    # The live panel ran — so the body was read through the WJQ contract, assembled by
+    # the WJQ assembler, and validated. (That the point-factor text lands under the
+    # parser's own heading is the ASSEMBLER's property, pinned in test_composer_forms;
+    # `additional_context` is assembled rather than an answer field, so it is correctly
+    # absent from the form this page re-renders.)
+    assert "Live compliance" in html
+    # The author's answers came back, so nothing was dropped by the round trip.
+    assert "Works under general supervision." in html
+    assert "Processes purchase orders for the unit" in html
+    # JDFN-only findings are structurally unable to appear on a CUPE draft (Phase B).
+    assert "SFU-COMP-PROBLEM" not in html
+    assert "SFU-COMP-TERRITORIAL" not in html
+    # ...and the form has no section to fill for what the WJQ does not ask. Asserted on
+    # the section ANCHOR, not the prose: the phrase "Impact of Decision Making" is in
+    # the form's own description ("it has no Problem Solving or Impact of Decision
+    # Making section"), which is the page correctly explaining itself.
+    assert 'id="section-decision_making"' not in html
+    assert 'id="section-problem_solving"' not in html

@@ -22,11 +22,9 @@ requires — same rule as the JDFN contract.
 
 from __future__ import annotations
 
-from uuid import UUID
+from pydantic import ConfigDict, Field
 
-from pydantic import BaseModel, ConfigDict, Field
-
-from src.jd_bank.composer.answers import DutyAnswer, ModifiedQual
+from src.jd_bank.composer.answers import AnswerContract, DutyAnswer, ModifiedQual
 from src.jd_core.rules import WjqSection
 
 __all__ = ["WJQ_CONTEXT_TARGETS", "WJQAnswers"]
@@ -57,7 +55,7 @@ WJQ_CONTEXT_TARGETS: tuple[WjqSection, ...] = (
 )
 
 
-class WJQAnswers(BaseModel):
+class WJQAnswers(AnswerContract):
     """A CUPE (WJQ) job questionnaire as authored — the Builder's WJQ contract."""
 
     model_config = ConfigDict(extra="forbid")
@@ -102,8 +100,3 @@ class WJQAnswers(BaseModel):
     effort: str | None = Field(default=None, max_length=4000)
     working_conditions: str | None = Field(default=None, max_length=4000)
     continuing_education: str | None = Field(default=None, max_length=4000)
-
-    #: The harmonized role this draft was cloned from, when it was — provenance, not
-    #: content, exactly as on the JDFN contract (the near-duplicate authoring guard
-    #: excludes it, so cloning a role does not immediately warn you about that role).
-    cloned_from_cluster_id: UUID | None = None

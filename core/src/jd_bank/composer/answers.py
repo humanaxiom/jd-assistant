@@ -41,7 +41,30 @@ class ModifiedQual(BaseModel):
     modifier: str | None = Field(default=None, max_length=20)
 
 
-class ComposerAnswers(BaseModel):
+class AnswerContract(BaseModel):
+    """What EVERY form's answer contract carries, whatever SFU instrument it models.
+
+    One field so far, and it is here rather than duplicated because the Builder's
+    form-blind half reads it (Phase E): the near-duplicate authoring guard needs to know
+    which role a draft was cloned from in order to exclude it, and that code must not
+    have to ask which form it is holding. A second form declaring its own copy would
+    type-check and then quietly diverge.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: The harmonized role this draft was CLONED from, when it was (Phase 5.9). Not
+    #: content — provenance the Builder carries so the near-duplicate authoring guard
+    #: can exclude it (:func:`~src.jd_bank.composer.duplicates.find_related_roles`'s
+    #: ``exclude_cluster_id``): cloning a role must not immediately warn you that you
+    #: duplicated the very role you cloned. Additive and optional, so every
+    #: ``answers_json`` written before it existed still validates under
+    #: ``extra="forbid"``, and the assemblers ignore it — it never reaches the JD, the
+    #: validator or the review queue.
+    cloned_from_cluster_id: UUID | None = None
+
+
+class ComposerAnswers(AnswerContract):
     """Everything the guided flow collects for one JDFN draft. All optional — the
     Builder validates live as the author fills it in (Phase 5.1)."""
 
@@ -80,12 +103,3 @@ class ComposerAnswers(BaseModel):
     include_sfu_boilerplate: bool = True
     # 10. Additional Contextual Information (optional; dropped if blank)
     additional_context: str | None = Field(default=None, max_length=4000)
-    #: The harmonized role this draft was CLONED from, when it was (Phase 5.9). Not
-    #: content — provenance the Builder carries so the near-duplicate authoring guard
-    #: can exclude it (:func:`~src.jd_bank.composer.duplicates.find_related_roles`'s
-    #: ``exclude_cluster_id``): cloning a role must not immediately warn you that you
-    #: duplicated the very role you cloned. Additive and optional, so every
-    #: ``answers_json`` written before it existed still validates under
-    #: ``extra="forbid"``, and :func:`~src.jd_bank.composer.assemble.assemble_jd`
-    #: ignores it — it never reaches the JD, the validator or the review queue.
-    cloned_from_cluster_id: UUID | None = None

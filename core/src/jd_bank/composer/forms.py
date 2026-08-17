@@ -34,7 +34,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from src.jd_bank.composer.answers import ComposerAnswers
+from src.jd_bank.composer.answers import AnswerContract, ComposerAnswers
 from src.jd_bank.composer.assemble import assemble_jd
 from src.jd_bank.composer.wjq_answers import WJQAnswers
 from src.jd_bank.composer.wjq_assemble import assemble_wjq_jd
@@ -65,7 +65,7 @@ class FormSpec(BaseModel):
     #: SFU instruments needs more than two acronyms.
     description: str = Field(min_length=1)
     #: The answer contract this form's guided flow collects into.
-    answers_model: type[BaseModel]
+    answers_model: type[AnswerContract]
     #: The versioned question-set file (``data/<name>.yaml``) that walks the author
     #: through it.
     question_set: str = Field(min_length=1)
@@ -169,7 +169,7 @@ FORMS: Mapping[JDTemplate, FormSpec] = {
 _TEXTAREA_MIN_LENGTH: int = 1000
 
 
-def render_kind(answers_model: type[BaseModel], target: str) -> str:
+def render_kind(answers_model: type[AnswerContract], target: str) -> str:
     """How ``target`` is rendered and read back — DERIVED from the answer contract.
 
     ⚠ **This replaced four hand-written sets of field names, and the reason is a
