@@ -62,6 +62,7 @@ from src.jd_bank.review import (
 from src.jd_core.models.bank import MergeProvenance
 from src.jd_core.models.parsed_jd import QualificationKind, SFUEmployeeGroup
 from src.jd_core.models.quality import GateOverride, GateReason
+from src.jd_core.quality.validators import template_of_content
 from src.jd_core.rules import Rules, get_rules
 
 logger = logging.getLogger(__name__)
@@ -444,6 +445,12 @@ def _detail_context(
     return {
         "packet": packet,
         "error": error,
+        # Which FORM this draft is (CUPE Phase D). Derived here from the packet's own
+        # content by the one separator the system uses, rather than in the template:
+        # a template renders a decision, it does not make one. Read from the content
+        # DICT rather than a re-validated model on purpose — this is the page where a
+        # human approves a JD, and a form label must not be able to 500 it (8.3b).
+        "template": template_of_content(packet.content),
         "rendered_draft": diff.get("rendered_draft", ""),
         "removed": diff.get("removed", []),
         "provenance": _provenance_view(packet.change_log),

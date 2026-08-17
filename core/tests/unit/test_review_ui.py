@@ -79,6 +79,7 @@ def _queue_item(
     *,
     title: str = "Software Developer",
     stored_blocking_gate_count: int = 0,
+    template: str = "jdfn",
 ) -> ReviewQueueItem:
     return ReviewQueueItem(
         canonical_id=uuid.uuid4(),
@@ -86,6 +87,7 @@ def _queue_item(
         version=1,
         status=CanonicalStatus.DRAFT,
         title=title,
+        template=template,  # type: ignore[arg-type]
         stored_score=72.5,
         stored_grade="B",
         stored_approvable=stored_blocking_gate_count == 0,
@@ -180,6 +182,36 @@ def test_queue_renders_items_in_service_order(monkeypatch: pytest.MonkeyPatch) -
     session.commit.assert_not_awaited()
 
 
+def test_the_queue_says_which_form_each_draft_is(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CUPE Phase D: the queue now holds two SFU forms, and the score beside each is
+    **not the same measurement** — a CUPE draft is judged by the WJQ profile's rules and
+    numbers (Phases B + C). A bare number from two different bars in one sorted column
+    is exactly the comparison this phase spent its whole length removing, so the page
+    labels the form and says the score is on that form's own bar.
+    """
+    session = FakeSession()
+    client = make_client(session)
+    monkeypatch.setattr(
+        ui.service,
+        "list_review_queue",
+        AsyncMock(
+            return_value=(
+                _queue_item(title="Clerk", template="wjq"),
+                _queue_item(title="Analyst", template="jdfn"),
+            )
+        ),
+    )
+
+    body = client.get("/jd-bank/ui/queue").text
+
+    assert "CUPE (WJQ)" in body
+    assert "JDFN" in body
+    # ...and the warning, which is the part that stops the comparison being made.
+    assert "not comparable numbers" in body
+
+
 def test_queue_limit_passthrough(monkeypatch: pytest.MonkeyPatch) -> None:
     session = FakeSession()
     client = make_client(session)
@@ -205,6 +237,64 @@ def test_queue_empty_state_is_not_a_crash(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 # --- GET /jd-bank/ui/review/{canonical_id} --------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("group", "expected", "not_expected"),
+    [
+        ("cupe", "CUPE (WJQ)", "the APSA / APEX / POLY"),
+        ("apsa", "JDFN", "Weighted Job Questionnaire"),
+        (None, "JDFN", "Weighted Job Questionnaire"),
+    ],
+)
+def test_the_detail_page_names_the_form_and_the_bar_it_is_scored_against(
+    monkeypatch: pytest.MonkeyPatch, group: str | None, expected: str, not_expected: str
+) -> None:
+    """CUPE Phase D. This is the page where a human decides to publish, and the score on
+    it was produced by THIS form's rules and thresholds. Saying which form — before the
+    number — is cheaper than a reviewer working it out by wondering why a CUPE draft has
+    no Problem Solving section.
+
+    A draft with no ``employee_group`` reads as JDFN, matching ``template_of``: the
+    default is the form the shipped bar was built on, and it must not be a third state.
+    """
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    packet = _packet(canonical_id=canonical_id)
+    packet = packet.model_copy(
+        update={"content": {"title": "Clerk", "employee_group": group}}
+    )
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}").text
+
+    assert expected in body
+    assert not_expected not in body
+
+
+def test_a_malformed_draft_still_renders_the_page_it_is_approved_on(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """⚠ THE 8.3b LESSON, applied to a label. The form badge reads the content DICT
+    rather than a re-validated model, so content the parser could not round-trip costs
+    the *label*, never the page. A navigation aid that can 500 the approval surface is
+    worse than no aid at all — that defect shipped once already (a sidebar service call
+    turned 13 unrelated review tests red) and is not shipping again for a badge.
+    """
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    packet = _packet(canonical_id=canonical_id).model_copy(
+        # Not a valid SFUJobDescription: no title, and a group outside the Literal.
+        update={"content": {"employee_group": "not-a-real-group"}}
+    )
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+
+    resp = client.get(f"/jd-bank/ui/review/{canonical_id}")
+
+    assert resp.status_code == 200
+    assert "JDFN" in resp.text  # the safe default, not a crash
 
 
 def test_detail_all_overridable_offers_waiver_fields_with_guidance(

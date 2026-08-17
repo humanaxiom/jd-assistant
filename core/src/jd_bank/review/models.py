@@ -31,7 +31,13 @@ from pydantic import BaseModel, ConfigDict
 # Re-exported so callers waive gates through ONE error surface: the override checker
 # lives in jd_core and its error is part of this service's contract.
 from src.jd_bank.db.models import CanonicalStatus
-from src.jd_core.models.quality import GateDecision, JDGrade, JDQualityIssue
+from src.jd_core.models.quality import (
+    DEFAULT_TEMPLATE,
+    GateDecision,
+    JDGrade,
+    JDQualityIssue,
+    JDTemplate,
+)
 from src.jd_core.quality import GateOverrideError
 
 __all__ = [
@@ -140,6 +146,13 @@ class ReviewQueueItem(BaseModel):
     version: int
     status: CanonicalStatus
     title: str
+    #: Which SFU FORM this draft is, derived from its own content by ``template_of``
+    #: (CUPE Phase D). It is on the triage label because the queue now holds two forms
+    #: and the score beside it is **not the same measurement** for both: a WJQ draft is
+    #: scored by the WJQ profile's rules and numbers (Phases B + C). Showing a bare
+    #: number from two different bars in one sorted column invites precisely the
+    #: comparison this phase spent its whole length removing.
+    template: JDTemplate = DEFAULT_TEMPLATE
     #: Display roll-up from ``change_log`` — for triage/ordering only, not the
     # authority.
     stored_score: float | None = None

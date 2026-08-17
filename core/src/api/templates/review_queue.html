@@ -4,13 +4,25 @@
 <div class="panel">
   <h2>Review queue</h2>
   {% if items %}
+  {#
+    The FORM column and the "on its own bar" wording are not decoration (CUPE Phase D).
+    The queue now holds two different SFU forms, and the score beside each is NOT the
+    same measurement: a CUPE draft is judged by the WJQ profile's rules and numbers,
+    a JDFN draft by the JDFN ones. A bare number from two bars in one sorted column is
+    exactly the comparison this phase spent its whole length removing.
+  #}
+  <p class="meta">
+    Two SFU forms are listed here. <strong>Each draft is scored against its own
+    form's bar</strong> — a CUPE score and a JDFN score are not comparable numbers.
+  </p>
   <table>
     <thead>
       <tr>
         <th>Title</th>
+        <th>Form</th>
         <th>Cluster / version</th>
         <th>Status</th>
-        <th>Score</th>
+        <th>Score <span class="meta">(on its own bar)</span></th>
         <th>Grade</th>
         <th>Blocking gates</th>
         <th></th>
@@ -20,6 +32,13 @@
       {% for item in items %}
       <tr>
         <td>{{ item.title }}</td>
+        <td>
+          {% if item.template == "wjq" %}
+          <span class="badge" title="CUPE 3338 Weighted Job Questionnaire">CUPE (WJQ)</span>
+          {% else %}
+          <span class="badge" title="The APSA / APEX / POLY job-description form">JDFN</span>
+          {% endif %}
+        </td>
         <td>{{ item.cluster_id }} / v{{ item.version }}</td>
         <td>{{ item.status.value }}</td>
         <td>{{ item.stored_score if item.stored_score is not none else "—" }}</td>

@@ -46,7 +46,7 @@ from __future__ import annotations
 
 import itertools
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from src.jd_core.models.parsed_jd import SFUJobDescription
@@ -614,6 +614,26 @@ def template_of(sfu: SFUJobDescription) -> JDTemplate:
     direction, since it withholds JDFN-only rules rather than applying them wrongly.
     """
     return "wjq" if sfu.employee_group == WJQ_EMPLOYEE_GROUP else DEFAULT_TEMPLATE
+
+
+def template_of_content(content: Mapping[str, Any] | None) -> JDTemplate:
+    """:func:`template_of` for a STORED content dict — a ``canonical_jds.content``
+    JSONB blob rather than a parsed model.
+
+    Same field, same constants, deliberately the same module: the review queue and the
+    review page both need this answer about rows they have not parsed, and the
+    alternative to one function is each of them growing its own ``== "cupe"``. Two
+    places already disagreed about which documents are CUPE once (see CUPE Phase D);
+    twice would be a pattern.
+
+    **It cannot raise**, and that is the reason it exists rather than a
+    ``model_validate`` at the call site. It is read on the page where a human approves a
+    JD, and a label that can 500 the approval surface is worse than no label — the
+    8.3b lesson. A missing or unrecognised group reads as JDFN, exactly as
+    :func:`template_of` does.
+    """
+    group = (content or {}).get("employee_group")
+    return "wjq" if group == WJQ_EMPLOYEE_GROUP else DEFAULT_TEMPLATE
 
 
 def applies_to_template(
