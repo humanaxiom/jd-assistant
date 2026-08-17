@@ -986,7 +986,7 @@ The pipeline is **already done** for CUPE: 49,448 role-equivalent edges, *more* 
 its own profile. **Evaluation is per group from here — never blended**; a blended approval
 rate over two forms is the category error this whole phase removed.
 
-### Phase E — two builders, if that is the simpler thing (it probably is)
+### Phase E — the routing seam, MEASURED 2026-08-17 (and the answer is neither option)
 
 A CUPE JD is a **different form**, not a variant: 14 WJQ sections against the JDFN's. Making
 one builder emit both means every template, prompt, gate and export grows a conditional, and
@@ -996,6 +996,35 @@ every future change pays that tax twice.
 export) is likely *less* code and makes "which form am I authoring?" a **routing** decision
 made once, rather than a per-field one made everywhere. The shared half is already built and
 template-agnostic. Decide it by trying the routing seam first, not by debating it.
+
+> **✅ THE SEAM WAS TRIED — and the framing above is wrong in a useful way.** Full evidence:
+> `docs/decisions/cupe-phase-e-routing-seam-2026-08-17.md`.
+>
+> **~84% of the composer is already form-blind.** Of 2,204 lines, `duplicates.py` (451),
+> `persist.py` (152), `assist.py` (135), `drafts.py` (110), `questions.py` (94) and
+> `models.py` (85) hold **zero** JDFN-shaped references. The whole divergence is
+> **`answers.py`, `assemble.py`, one function in `search.py` (`_answers_from_jd`), one in
+> `validate.py` (`_section_present`), the question-set YAML, and three declarative maps in
+> `compose_ui.py`.**
+>
+> **So the difference between the forms is DECLARATIONS, not BEHAVIOUR** — and that makes
+> both options in the paragraph above wrong. Conditionals would scatter one fact across
+> seven places; two separate builders would duplicate the *wiring* of 1,500 lines that
+> already do not care which form they hold. What the seam wants is a **form spec selected
+> once** — the same shape `applies_to` (B) and `thresholds_for` (C) already give the rules
+> and the numbers.
+>
+> **It holds structurally because everything downstream of assembly speaks
+> `SFUJobDescription`.** A WJQ assembler returning one — `employee_group="cupe"`, the
+> point-factor blocks in `additional_context` where the WJQ *parser* already puts them —
+> needs no change to search, dedup, validation, review or export. Validation is correct for
+> free: `evaluate_jd_rules` reads `template_of` and applies the WJQ profile.
+>
+> ⚠ **The one thing to settle FIRST: the WJQ's 14 sections do not map onto `SFUSection`.**
+> Ten have no JDFN counterpart, and `SFUSection` is what `Question.section`, the rule
+> catalog and 8.3c's `_SECTION_ANCHORS` completeness pin all key on. Extending it is a
+> rulebook change with a register entry — decide it before the WJQ question set is written,
+> not after.
 
 Until HR rules on HR-194, "the Bank does not *author* CUPE" remains an explicit decision on
 the register, not one made by omission — but **C and D need no HR ruling at all.**
