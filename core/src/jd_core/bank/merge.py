@@ -666,9 +666,19 @@ def merge_cluster(
     # merge differently. A mixed set falls back to JDFN — the same tie-break
     # `templates_harmonized` ships (HR-206), and the conservative direction, since JDFN
     # is the profile every existing draft was built against.
+    #
+    # 🔴 AND THE MERGE POLICY, for a reason that turned out to be much larger than the
+    # thresholds (CUPE Phase E). `additional_context_policy` is `drop` on the JDFN form,
+    # where the field is an optional trailing note. On the WJQ it is where the parser
+    # stores SEVEN OF THE FOURTEEN SECTIONS — so the harmonizer was discarding half of
+    # every CUPE form. Measured on the live Bank: 95.4% of CUPE sources carry it,
+    # averaging 5,524 characters, and **0 of 553 CUPE drafts had any** (HR-207).
     if all(template_of(jd) == WJQ_TEMPLATE for jd in members):
         active = active.model_copy(
-            update={"thresholds": active.thresholds_for(WJQ_TEMPLATE)}
+            update={
+                "thresholds": active.thresholds_for(WJQ_TEMPLATE),
+                "harmonization": active.harmonization_for(WJQ_TEMPLATE),
+            }
         )
 
     harmon = active.harmonization

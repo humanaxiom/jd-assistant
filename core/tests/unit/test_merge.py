@@ -681,3 +681,73 @@ def test_the_experience_bar_is_recorded_too(rules: Rules) -> None:
     bars = {choice.kind: choice for choice in merged.provenance.seniority_bars}
     assert bars["experience"].chosen == 5
     assert bars["experience"].overruled == 2
+
+
+# --- the WJQ's point-factor sections survive the merge (CUPE Phase E, HR-207) --------
+
+
+def test_a_cupe_clusters_point_factor_sections_are_not_dropped() -> None:
+    """🔴 THE DEFECT, FOUND ON THE LIVE BANK 2026-08-17.
+
+    ``additional_context`` means different things on the two forms. On a JDFN JD it is
+    an optional trailing note, so ``drop`` (HR-169) is right. On the WJQ it is where the
+    parser stores SEVEN OF THE FOURTEEN SECTIONS — and the harmonizer was applying the
+    JDFN policy to it, discarding half of every CUPE form at merge time.
+
+    Measured: 95.4% of CUPE sources carry it (avg 5,524 chars); **0 of 553 CUPE drafts
+    had any**. A reviewer would have seen a CUPE role with no Level of Independence, no
+    Impact of Errors and no Working Conditions, with nothing saying they ever existed.
+    """
+    members = [
+        SFUJobDescription(
+            title="Postal Clerk",
+            employee_group="cupe",
+            additional_context="LEVEL OF INDEPENDENCE\nWorks under supervision.",
+        ),
+        SFUJobDescription(
+            title="Postal Clerk",
+            employee_group="cupe",
+            additional_context=(
+                "LEVEL OF INDEPENDENCE\nWorks under general supervision, referring "
+                "unusual cases upward.\n\nEFFORT\nSustained standing and lifting."
+            ),
+        ),
+    ]
+
+    merged = merge_cluster(members)
+
+    context = merged.draft.additional_context or ""
+    assert "LEVEL OF INDEPENDENCE" in context
+    assert "EFFORT" in context  # the longest member's blocks, carried whole
+
+
+def test_a_jdfn_cluster_still_drops_its_additional_context() -> None:
+    """The control. HR-169 is HR's registered decision for the JDFN form and Phase E
+    does not touch it — the overlay applies only when EVERY member is a WJQ document,
+    so a JDFN cluster merges exactly as it did before."""
+    members = [
+        SFUJobDescription(
+            title="Analyst",
+            employee_group="apsa",
+            additional_context="A per-member note that JDFN policy drops.",
+        ),
+        SFUJobDescription(title="Analyst", employee_group="apsa"),
+    ]
+
+    assert merge_cluster(members).draft.additional_context is None
+
+
+def test_a_mixed_cluster_uses_the_jdfn_policy() -> None:
+    """Same tie-break as everywhere else in this phase: unanimity, else JDFN. A mixed
+    cluster is authored on the JDFN form (HR-206), so it merges by the JDFN policy —
+    the two decisions must not disagree about which form a cluster is."""
+    members = [
+        SFUJobDescription(
+            title="Clerk", employee_group="cupe", additional_context="WJQ block"
+        ),
+        SFUJobDescription(
+            title="Clerk", employee_group="apsa", additional_context="JDFN note"
+        ),
+    ]
+
+    assert merge_cluster(members).draft.additional_context is None

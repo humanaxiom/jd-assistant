@@ -59,7 +59,23 @@ summary_policy: within_target_then_central
 # What to do with ADDITIONAL CONTEXT across members. `drop`: omit it (a union of
 # per-member contextual notes is noisy and often position-specific). `longest`: carry the
 # single longest member note verbatim. HR-169.
+#
+# This top-level value is the JDFN policy (as the top-level thresholds are the JDFN
+# profile) — see the `wjq:` block below for why the WJQ needs a different one.
 additional_context_policy: drop
+
+# --- what the WJQ does differently (CUPE Phase E) -----------------------------------
+# `additional_context` means something completely different on the two forms. On a JDFN
+# JD it is an optional trailing note. On the WJQ it is where the parser stores SEVEN OF
+# THE FOURTEEN SECTIONS — the point-factor blocks (`wjq.context_sections`) — which is
+# why Phase A's 4,000-char truncation was a defect worth re-parsing the archive over.
+#
+# MEASURED on the live Bank 2026-08-17: 95.4% of CUPE source documents (4,237 of 4,440)
+# carry it, averaging 5,524 characters — and **0 of 553 CUPE canonical drafts had any**,
+# because the harmonizer applied `drop`. The Bank was discarding half of every CUPE
+# form at merge time. HR-207.
+wjq:
+  additional_context_policy: longest
 
 # The presence booleans (`about_sfu_present`, `territorial_acknowledgement_present`,
 # `employment_equity_present`). `or_across_members`: assert present iff ANY member had it

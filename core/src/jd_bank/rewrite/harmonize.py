@@ -43,6 +43,22 @@ from src.jd_core.rules import Comparison, Rewrite, Rules, get_rules
 #: retuning one cannot silently move the grounding check.
 _TOKEN = re.compile(r"[a-z0-9]+")
 
+#: The fields that say WHICH DOCUMENT this is, restored from the grounded merge draft
+#: after the model replies. The rewrite's job is prose; none of these is prose.
+#:
+#: ``employee_group`` is the load-bearing one — it is what ``template_of`` reads, so the
+#: model dropping it (which it did on ~95% of CUPE drafts) silently moves the document
+#: to the other form's bar. ``classification`` and ``position_number`` are here for the
+#: same reason rather than a measured one: a grade and a position number are facts about
+#: the posting that the merge derived from the sources, and a language model has no way
+#: to know either. Restoring a field the model happened to get right costs nothing;
+#: trusting it on a field it cannot know costs a wrong document.
+_IDENTITY_FIELDS: Final[tuple[str, ...]] = (
+    "employee_group",
+    "classification",
+    "position_number",
+)
+
 #: The sections the guard will not let the rewrite CREATE from nothing. Each is a whole
 #: SFU-template section that a JDFN document has and a WJQ one structurally does not, so
 #: on a CUPE draft an invented one is not embellishment — it is an answer to a question
@@ -231,6 +247,28 @@ async def rewrite_merged_role(
     )
 
     scrubbed_jd, record = _apply_anti_fabrication(llm_jd, merged, active)
+
+    # 🔴 THE MODEL MAY REWORD A DRAFT. IT MAY NOT CHANGE WHAT DOCUMENT THE DRAFT IS.
+    #
+    # Found by probing the live Bank mid-run on 2026-08-17: of ~100 CUPE drafts the
+    # rewrite had refreshed, **5** still carried `employee_group == "cupe"`. The
+    # prompt's schema offers the field (`"apsa"|…|"cupe"|null`) and the model returns
+    # `null` almost every time, so the pass silently converted CUPE drafts into JDFN.
+    #
+    # That single field IS the form: `template_of` reads it, so a stripped draft loses
+    # Phase B's rule selection and Phase C's numbers in one step and is judged by a bar
+    # it was never written for — the exact category error Phases B, C and D removed,
+    # reintroduced by the LLM at the last moment. Nothing downstream could catch it,
+    # because the result is a perfectly well-formed JDFN document.
+    #
+    # These fields are IDENTITY, not prose: they say which form the document is and
+    # which position it describes. Restored from the GROUNDED merge draft, which derived
+    # them from the source JDs — the same posture as the anti-fabrication guard, one
+    # level up. Phase E states the principle for the Builder ("`employee_group` is
+    # FIXED, not asked"); this is the same rule applied to the model.
+    scrubbed_jd = scrubbed_jd.model_copy(
+        update={field: getattr(merged.draft, field) for field in _IDENTITY_FIELDS}
+    )
 
     # Boilerplate sections (About SFU, territorial acknowledgement, employment equity)
     # are template-provided, not authored by the rewrite — mark them present so the

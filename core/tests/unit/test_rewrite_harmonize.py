@@ -15,13 +15,14 @@ from pydantic import ValidationError
 from src.jd_bank.rewrite.harmonize import _flatten_jd, rewrite_merged_role
 from src.jd_core.models.bank import MergedRole, MergeProvenance, RewrittenDraft
 from src.jd_core.models.parsed_jd import (
+    JobClassification,
     SFUDuty,
     SFUJobDescription,
     SFUQualification,
     SFURelationships,
 )
 from src.jd_core.quality.scoring import score_issues
-from src.jd_core.quality.validators import evaluate_jd_rules
+from src.jd_core.quality.validators import evaluate_jd_rules, template_of
 from src.jd_core.rules import Rules, get_rules
 
 _INJECTED_SKILL = "Certified underwater basket weaving instructor"
@@ -485,3 +486,78 @@ async def test_the_rewritten_draft_cannot_be_mutated(rules: Rules) -> None:
     )
     with pytest.raises(ValidationError):
         result.score = 100.0  # type: ignore[misc]
+
+
+# --- the model may reword a draft; it may not change WHAT DOCUMENT it is -------------
+
+
+@pytest.mark.asyncio
+async def test_the_rewrite_cannot_change_which_form_the_draft_is(
+    rules: Rules,
+) -> None:
+    """🔴 FOUND BY PROBING THE LIVE BANK MID-RUN, 2026-08-17.
+
+    Of ~100 CUPE drafts the rewrite had refreshed, **5** still carried
+    ``employee_group == "cupe"``. The prompt's schema offers the field and the model
+    returns ``null`` almost every time, so the pass was silently converting CUPE drafts
+    into JDFN ones.
+
+    That one field IS the form — ``template_of`` reads it — so a stripped draft loses
+    Phase B's rule selection and Phase C's numbers in a single step and is judged by a
+    bar it was never written for. Nothing downstream could catch it: the result is a
+    perfectly well-formed JDFN document.
+
+    The fake here returns exactly what the live model returned: good prose, no group.
+    """
+    stripped = _draft().model_copy(update={"employee_group": None})
+    result = await rewrite_merged_role(
+        _cupe_merged(), client=_FakeChat(stripped), rules=rules
+    )
+
+    assert result.draft.employee_group == "cupe"
+    assert template_of(result.draft) == "wjq"
+
+
+@pytest.mark.asyncio
+async def test_the_rewrite_cannot_invent_a_grade_or_a_position_number(
+    rules: Rules,
+) -> None:
+    """The same rule for the other two identity fields, and for a reason the model
+    cannot argue with: a grade and a position number are facts about the posting that
+    the merge derived from the sources. A language model has no way to know either, so
+    whatever it writes there is invention — including inventing a value where the merge
+    correctly had none."""
+    invented = _draft().model_copy(
+        update={
+            "position_number": "P-99999",
+            "classification": JobClassification(
+                scheme="apsa", value="12", source="entered"
+            ),
+        }
+    )
+    result = await rewrite_merged_role(
+        _merged(), client=_FakeChat(invented), rules=rules
+    )
+
+    assert result.draft.position_number is None
+    assert result.draft.classification is None
+
+
+@pytest.mark.asyncio
+async def test_a_jdfn_drafts_own_group_survives_the_rewrite_too(
+    rules: Rules,
+) -> None:
+    """The control: pinning identity restores what the MERGE said, not a constant. A
+    JDFN draft keeps its own group, so the fix cannot be passing by defaulting
+    everything to CUPE."""
+    grounded = MergedRole(
+        draft=_draft().model_copy(update={"employee_group": "apsa"}),
+        provenance=_merged().provenance,
+    )
+    result = await rewrite_merged_role(
+        grounded,
+        client=_FakeChat(_draft().model_copy(update={"employee_group": "poly"})),
+        rules=rules,
+    )
+
+    assert result.draft.employee_group == "apsa"
