@@ -1280,6 +1280,25 @@ class Wjq(_RuleFile):
         return f"{self.version}{VERSION_SEPARATOR}{self.digest[:CONTENT_HASH_LENGTH]}"
 
 
+class TemplateHarmonization(BaseModel):
+    """The FORM-DEPENDENT merge policy, for one document template (CUPE Phase E).
+
+    Only what a form can actually change lives here. The duty-dedup Jaccard, the core
+    skill fraction and the seniority bar are properties of how CLUSTERS are merged, not
+    of which form their members are on, so none is duplicated per template.
+
+    **Required, with no default**, and nested on purpose — the ``thresholds.wjq`` shape,
+    for the same reason: every field lands on the decision surface as
+    ``harmonization.wjq.<field>``, so a knob added here breaks the build until someone
+    says whether HR must ratify it.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: What to do with ADDITIONAL CONTEXT across members, for this form (HR-207).
+    additional_context_policy: AdditionalContextPolicy
+
+
 class Harmonization(_RuleFile):
     """How a cluster's members are merged into a canonical DRAFT
     (``harmonization.yaml``, Phase 4.1).
@@ -1313,8 +1332,13 @@ class Harmonization(_RuleFile):
     title_policy: TitlePolicy
     #: How the position-summary representative is picked (HR-168).
     summary_policy: SummaryPolicy
-    #: What to do with additional_context across members (HR-169).
+    #: What to do with additional_context across members (HR-169). The top-level value
+    #: IS the JDFN policy, exactly as the top-level thresholds are the JDFN profile —
+    #: so HR's existing entry keeps pointing at the path it names.
     additional_context_policy: AdditionalContextPolicy
+    #: What the WJQ does instead (CUPE Phase E). Resolve with
+    #: :meth:`Rules.harmonization_for`.
+    wjq: TemplateHarmonization
     #: How the boilerplate presence booleans are set (HR-170).
     boilerplate_presence_policy: BoilerplatePresencePolicy
     #: Token-Jaccard at/above which two duty (or qualification) statements collapse
@@ -3112,6 +3136,23 @@ class Rules(BaseModel):
         data = self.thresholds.model_dump()
         data.update(self.thresholds.wjq.model_dump())
         return Thresholds(**data)
+
+    def harmonization_for(self, template: JDTemplate) -> Harmonization:
+        """The merge policy for a cluster of ``template`` members (CUPE Phase E).
+
+        The same overlay ``thresholds_for`` performs, for the same reason and with the
+        same re-validation. What made it necessary is measured: 95.4% of CUPE source
+        documents carry ``additional_context``, averaging 5,524 characters — because
+        that field is where the WJQ's **seven point-factor sections** live — and the
+        JDFN policy is ``drop``, chosen when the field held noisy per-member notes. So
+        the harmonizer was discarding half the CUPE form. (Verified on the live Bank:
+        0 of 553 CUPE drafts carried any context at all.)
+        """
+        if template == DEFAULT_TEMPLATE:
+            return self.harmonization
+        data = self.harmonization.model_dump()
+        data.update(self.harmonization.wjq.model_dump())
+        return Harmonization(**data)
 
     @property
     def content_hash(self) -> str:
