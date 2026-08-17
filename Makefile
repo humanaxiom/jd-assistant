@@ -239,7 +239,14 @@ harmonize-measure:  ## Drive merge_cluster over real JDFN clusters; measure the 
 # REFUSES that overwrite by default (counted `skipped_would_downgrade`); pass
 # `--allow-downgrade` to do it deliberately.
 #
+# ⏱ MEASURED 2026-08-17: a FULL LLM pass over this archive is ~44 HOURS — 2,456 clusters
+# at 64.8s each (a rewrite call plus an advisory audit call per cluster). Use `--resume`
+# to skip the clusters a previous pass already finished; without it an interruption
+# anywhere means paying for every cluster again. `make embed` has had that property
+# since Phase 3.2 and the reindex runbook cites it; this is the same idea.
+#
 #   make canonical-drafts                              # full pipeline (needs Ollama)
+#   make canonical-drafts CANONICAL_ARGS="--resume"    # continue an interrupted pass
 #   make canonical-drafts CANONICAL_ARGS="--no-llm"    # deterministic-only (no Ollama)
 #   make canonical-drafts CANONICAL_ARGS="--limit 500"
 #   make canonical-drafts CANONICAL_ARGS="--no-llm --allow-downgrade"  # re-baseline

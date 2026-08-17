@@ -74,6 +74,14 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "re-baseline the Bank deterministically — it discards every row's rewrite.",
     )
     parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="skip clusters whose draft the FULL pipeline already wrote — the resume "
+        "for an interrupted LLM pass. A complete pass over this archive measures ~44 "
+        "hours, so without it an interruption anywhere means paying for every cluster "
+        "again. Same property `make embed` has had since Phase 3.2.",
+    )
+    parser.add_argument(
         "--commit-every",
         type=int,
         default=25,
@@ -152,6 +160,7 @@ async def _run(args: argparse.Namespace) -> CanonicalProducerResult:
                 commit_every=commit_every,
                 progress_every=commit_every,
                 allow_downgrade=args.allow_downgrade,
+                skip_llm_written=args.resume,
             )
             # The producer may checkpoint-commit between clusters (``--commit-every``);
             # this final commit is the backstop for the remainder after the last one.
@@ -191,6 +200,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"{result.drafts_refreshed} refreshed, "
         f"{result.skipped_reviewer_touched} skipped (reviewer-touched), "
         f"{result.skipped_would_downgrade} skipped (would downgrade an LLM draft), "
+        f"{result.skipped_already_llm_written} skipped (already LLM-written), "
         f"{result.cluster_failures} cluster failures\n"
         f"LLM: enabled={result.llm_enabled}, "
         f"{result.rewrite_failures} rewrite failures, "

@@ -111,6 +111,10 @@ class CanonicalProducerResult(BaseModel):
     #: and zero on a `--no-llm` run over a Bank the full pipeline never touched — so a
     #: non-zero value means exactly "a cheap run declined to overwrite expensive work".
     skipped_would_downgrade: int = Field(default=0, ge=0)
+    #: An untouched DRAFT the full pipeline had already written, skipped by a RESUME run
+    #: (``skip_llm_written``) because it owes no further work. This is what makes the
+    #: ~44-hour LLM pass restartable instead of all-or-nothing.
+    skipped_already_llm_written: int = Field(default=0, ge=0)
     #: Per-cluster failures isolated (SAVEPOINT rolled back) — never abort the run.
     cluster_failures: int = Field(ge=0)
 

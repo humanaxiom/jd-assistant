@@ -271,6 +271,9 @@ class _Outcome:
     #: An untouched DRAFT left alone because refreshing it would have replaced
     #: LLM-written prose with a deterministic merge (a cheap run over an expensive row).
     skipped_downgrade: bool = False
+    #: An untouched DRAFT the full pipeline had already written, skipped by a RESUME
+    #: run (`skip_llm_written`) because it owes no further work.
+    skipped_llm_written: bool = False
     rewrite_failed: bool = False
     audit_failed: bool = False
     #: The validator's verdict on the draft this cluster WROTE — ``None`` when no draft
@@ -411,6 +414,7 @@ async def _process_cluster(
     audit_client: ChatClient | None,
     rules: Rules,
     allow_downgrade: bool,
+    skip_llm_written: bool,
 ) -> _Outcome:
     """Merge -> (best-effort LLM) -> validate -> upsert cluster + persist/refresh DRAFT
     + append audit_log, for ONE cluster on ONE form. Runs in the caller's SAVEPOINT.
@@ -461,6 +465,23 @@ async def _process_cluster(
                     },
                 )
             )
+            return outcome
+
+        # 1a. RESUME — an LLM pass over a Bank that is already part-done.
+        #
+        # A full LLM run over this archive measures ~44 hours (2,456 clusters at 64.8s,
+        # two model calls each). Without this it is also ALL-OR-NOTHING: an interruption
+        # anywhere means paying for every cluster again, including the ones already
+        # rewritten. `make embed` has had exactly this property since Phase 3.2 — run it
+        # again and it skips what is unchanged — and the reindex runbook calls that out
+        # as the reason an interrupted reindex needs no resume flag. The producer's
+        # expensive pass deserves the same.
+        #
+        # The predicate is `would_downgrade`'s, inverted: "was this written by the full
+        # pipeline?" answers both "may a cheap run overwrite it?" and "does an expensive
+        # run still owe it work?".
+        if skip_llm_written and draft_was_llm_written(existing.change_log):
+            outcome.skipped_llm_written = True
             return outcome
 
         # 1b. NO-DOWNGRADE — a cheap run must not overwrite an expensive draft.
@@ -652,6 +673,7 @@ async def run_canonical_producer(
     commit_every: int | None = None,
     progress_every: int | None = None,
     allow_downgrade: bool = False,
+    skip_llm_written: bool = False,
 ) -> CanonicalProducerResult:
     """Produce persisted DRAFT ``canonical_jds`` over the real role clusters.
 
@@ -711,6 +733,7 @@ async def run_canonical_producer(
     refreshed = 0
     skipped = 0
     skipped_downgrade = 0
+    skipped_llm_written = 0
     cluster_failures = 0
     rewrite_failures = 0
     audit_failures = 0
@@ -774,6 +797,7 @@ async def run_canonical_producer(
                     audit_client=audit_client,
                     rules=rulebook,
                     allow_downgrade=allow_downgrade,
+                    skip_llm_written=skip_llm_written,
                 )
         except Exception:  # noqa: BLE001 - isolate a per-cluster failure, keep the run
             cluster_failures += 1
@@ -782,6 +806,7 @@ async def run_canonical_producer(
             refreshed += int(outcome.refreshed)
             skipped += int(outcome.skipped)
             skipped_downgrade += int(outcome.skipped_downgrade)
+            skipped_llm_written += int(outcome.skipped_llm_written)
             rewrite_failures += int(outcome.rewrite_failed)
             audit_failures += int(outcome.audit_failed)
             if outcome.score is not None and outcome.grade is not None:
@@ -830,6 +855,7 @@ async def run_canonical_producer(
         drafts_refreshed=refreshed,
         skipped_reviewer_touched=skipped,
         skipped_would_downgrade=skipped_downgrade,
+        skipped_already_llm_written=skipped_llm_written,
         cluster_failures=cluster_failures,
         rewrite_failures=rewrite_failures,
         audit_failures=audit_failures,

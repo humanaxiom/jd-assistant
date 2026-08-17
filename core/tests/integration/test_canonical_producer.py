@@ -681,6 +681,59 @@ async def test_a_deterministic_run_will_not_overwrite_a_draft_the_llm_wrote(
         assert downgraded.change_log["pipeline"]["llm_enabled"] is False
 
 
+@pytest.mark.asyncio
+async def test_resume_skips_the_clusters_an_llm_pass_already_finished(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """A full LLM pass over this archive measures ~44 HOURS — 2,456 clusters at 64.8s,
+    two model calls each. Without a resume it is also ALL-OR-NOTHING: an interruption
+    anywhere means paying for every cluster again, including the ones already rewritten.
+
+    ``make embed`` has had exactly this property since Phase 3.2, and the reindex
+    runbook cites it as the reason an interrupted reindex needs no resume flag. The
+    producer's far more expensive pass deserves the same.
+
+    Pinned by the model call COUNT, not by the row: the point of a resume is that the
+    work is not done twice, and a test asserting only the row contents would pass on a
+    run that redid every completion and wrote the same answer.
+    """
+    async with session_maker() as session:
+        await _seed_pair(session)
+        await session.commit()
+
+        first = _FakeChat()
+        await run_canonical_producer(
+            session, rewrite_client=first, audit_client=_FakeChat()
+        )
+        await session.commit()
+        assert first.seen == [SFUJobDescription]  # one rewrite was paid for
+
+        second = _FakeChat()
+        resumed = await run_canonical_producer(
+            session,
+            rewrite_client=second,
+            audit_client=_FakeChat(),
+            skip_llm_written=True,
+        )
+        await session.commit()
+
+        assert resumed.skipped_already_llm_written == 1
+        assert resumed.drafts_refreshed == 0
+        assert second.seen == []  # ...and NOT paid for a second time
+
+        # Without the flag the same run does the work again — so the skip is the flag's
+        # doing, not an unrelated idempotency the producer already had.
+        third = _FakeChat()
+        redone = await run_canonical_producer(
+            session, rewrite_client=third, audit_client=_FakeChat()
+        )
+        await session.commit()
+
+        assert redone.skipped_already_llm_written == 0
+        assert redone.drafts_refreshed == 1
+        assert third.seen == [SFUJobDescription]
+
+
 # --- acceptance #5: APPEND-ONLY audit ------------------------------------------------
 
 

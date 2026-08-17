@@ -360,6 +360,8 @@ def _result() -> CanonicalProducerResult:
         drafts_persisted=2,
         drafts_refreshed=0,
         skipped_reviewer_touched=0,
+        skipped_would_downgrade=0,
+        skipped_already_llm_written=0,
         cluster_failures=0,
         rewrite_failures=0,
         audit_failures=0,
