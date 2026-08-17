@@ -914,3 +914,23 @@ async def test_the_operator_is_told_which_vectors_were_excluded(
 
     assert "1 of 2" in caplog.text
     assert "re-run the embedding pass" in caplog.text
+
+
+def test_the_clone_route_serializes_the_whole_answer_contract() -> None:
+    """🔴 THE TRAP `response_model=None` EXISTS FOR, pinned so it cannot come back.
+
+    FastAPI derives the response model from the RETURN ANNOTATION when none is given,
+    and filters the response down to that model's fields. When Phase E widened this
+    route to the shared `AnswerContract` base, that filtering served every clone as just
+    the one field the base declares — the JDFN route silently lost `title` and
+    everything else. Declaring the base was MORE lossy than the narrow pin it replaced.
+
+    Asserted on a field the base does NOT have, because that is the only kind of field
+    the filtering would remove.
+    """
+    from src.api.routes import compose as compose_routes
+
+    route = next(
+        r for r in compose_routes.router.routes if getattr(r, "name", "") == "clone"
+    )
+    assert route.response_model is None

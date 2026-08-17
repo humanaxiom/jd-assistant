@@ -51,7 +51,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.jd_bank.composer.answers import ComposerAnswers, DutyAnswer, ModifiedQual
+from src.jd_bank.composer.answers import AnswerContract
 from src.jd_bank.db.models import CanonicalJD, Cluster, ParsedJDRow
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_core.models.parsed_jd import SFUJobDescription
@@ -157,53 +157,6 @@ class SearchHit(BaseModel):
     #: Cosine similarity to the query — ``None`` for a title match (see above).
     score: float | None = Field(default=None, ge=-1.0, le=1.0)
     match: Literal["role_title", "title", "semantic"] = "semantic"
-
-
-def jd_to_answers(jd: SFUJobDescription) -> ComposerAnswers:
-    """Turn an existing JD back into guided-authoring answers, so the Builder can be
-    pre-filled from it (the inverse of :func:`assemble_jd`).
-
-    Qualifications are split back out by kind into the answer fields; ``security``
-    qualifications have no Builder field and are dropped (the guided flow does not
-    collect them — a v1 limitation, recorded). The SFU boilerplate flag is set iff the
-    source carries all three mandated presence booleans.
-    """
-    rel = jd.relationships
-    return ComposerAnswers(
-        title=jd.title,
-        department=jd.department,
-        employee_group=jd.employee_group,
-        grade=jd.classification.value if jd.classification is not None else None,
-        position_summary=jd.position_summary,
-        duties=[
-            DutyAnswer(action_verb=d.action_verb, statement=d.statement)
-            for d in jd.duties
-        ],
-        decision_making=list(jd.decision_making),
-        problem_solving=list(jd.problem_solving),
-        supervisory=rel.supervisory if rel is not None else None,
-        internal=list(rel.internal) if rel is not None else [],
-        external=list(rel.external) if rel is not None else [],
-        education=[q.text for q in jd.qualifications if q.kind == "education"],
-        experience=[q.text for q in jd.qualifications if q.kind == "experience"],
-        knowledge=[
-            ModifiedQual(text=q.text, modifier=q.modifier)
-            for q in jd.qualifications
-            if q.kind == "knowledge"
-        ],
-        skills=[
-            ModifiedQual(text=q.text, modifier=q.modifier)
-            for q in jd.qualifications
-            if q.kind == "skill"
-        ],
-        abilities=[q.text for q in jd.qualifications if q.kind == "ability"],
-        include_sfu_boilerplate=(
-            jd.about_sfu_present
-            and jd.territorial_acknowledgement_present
-            and jd.employment_equity_present
-        ),
-        additional_context=jd.additional_context,
-    )
 
 
 async def _nearest_source_ids(
@@ -613,17 +566,25 @@ async def search_similar_jds(
 
 async def load_clone_answers(
     session: AsyncSession, source_document_id: UUID
-) -> ComposerAnswers | None:
+) -> AnswerContract | None:
     """The guided-authoring answers to pre-fill the Builder from an existing archive
-    document, or ``None`` if it has no parsed JD."""
+    document, or ``None`` if it has no parsed JD.
+
+    Routed through the FORM the source is on (Phase E): a CUPE document clones into the
+    WJQ contract, not into the JDFN one. Reading it through the wrong contract would
+    drop every section the other form does not ask about — silently, since a missing
+    field is just an empty answer.
+    """
     parsed = await _load_latest_parsed(session, [source_document_id])
     jd = parsed.get(source_document_id)
-    return jd_to_answers(jd) if jd is not None else None
+    if jd is None:
+        return None
+    return _clone_into_its_own_form(jd)
 
 
 async def load_role_clone_answers(
     session: AsyncSession, cluster_id: UUID
-) -> ComposerAnswers | None:
+) -> AnswerContract | None:
     """The guided-authoring answers to pre-fill the Builder from a role's HARMONIZED
     canonical (its current, highest-version content), or ``None`` if the cluster has no
     canonical. This is the preferred clone source: the archive is transitional, so a new
@@ -645,7 +606,9 @@ async def load_role_clone_answers(
     ).first()
     if canonical is None:
         return None
-    answers = jd_to_answers(SFUJobDescription.model_validate(canonical.content))
+    answers = _clone_into_its_own_form(
+        SFUJobDescription.model_validate(canonical.content)
+    )
     return answers.model_copy(update={"cloned_from_cluster_id": cluster_id})
 
 
@@ -695,3 +658,17 @@ async def cluster_id_for_source(
             .limit(1)
         )
     ).first()
+
+
+def _clone_into_its_own_form(jd: SFUJobDescription) -> AnswerContract:
+    """Read ``jd`` back into the answer contract of the FORM it is on (Phase E).
+
+    Imported HERE rather than at module scope: ``forms.py`` imports the assemblers and
+    the clone transforms, so a top-level import back into it from a service module is a
+    cycle. The 8.3c ``get_session`` defect is the standing example of what that costs —
+    an import order that works in every existing suite and raises the first time a new
+    module imports the other one first.
+    """
+    from src.jd_bank.composer.forms import form_for
+
+    return form_for(jd).clone_from_jd(jd)

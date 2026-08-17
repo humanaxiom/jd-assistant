@@ -32,7 +32,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.main import get_session
 from src.jd_bank.composer import (
-    ComposerAnswers,
     DraftAssessment,
     SearchHit,
     SummarySuggestion,
@@ -41,6 +40,7 @@ from src.jd_bank.composer import (
     search_similar_jds,
     suggest_summary,
 )
+from src.jd_bank.composer.answers import AnswerContract
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.llm.client import ChatClient
 from src.jd_core.models.parsed_jd import SFUJobDescription
@@ -183,13 +183,25 @@ async def search(
         await neo4j_driver.close()
 
 
-@router.get("/clone/{source_document_id}", response_model=ComposerAnswers)
+@router.get("/clone/{source_document_id}", response_model=None)
 async def clone(
     source_document_id: UUID,
     session: AsyncSession = Depends(get_session),
-) -> ComposerAnswers:
+) -> AnswerContract:
     """The guided-authoring answers to pre-fill the Builder from an existing JD. 404 if
-    the document has no parsed JD to clone."""
+    the document has no parsed JD to clone.
+
+    Returns the answer contract of the FORM the source is on (Phase E) — ``WJQAnswers``
+    for a CUPE document, ``ComposerAnswers`` for a JDFN one.
+
+    ⚠ **``response_model=None`` is load-bearing, and the test that caught this is worth
+    keeping in mind.** FastAPI derives the response model from the RETURN ANNOTATION
+    when none is given, and filters the response down to that model's fields. Annotating
+    the shared base therefore served every clone as just its one shared field — the JDFN
+    route lost `title` and everything else. Declaring the base was *more* lossy than the
+    old narrow pin, not less. ``None`` disables the filtering so each form's answers are
+    serialized whole.
+    """
     answers = await load_clone_answers(session, source_document_id)
     if answers is None:
         raise HTTPException(status_code=404, detail="no parsed JD to clone")

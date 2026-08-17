@@ -16,7 +16,7 @@ from src.jd_bank.composer.answers import (
     DutyAnswer,
     ModifiedQual,
 )
-from src.jd_bank.composer.assemble import assemble_jd
+from src.jd_bank.composer.assemble import assemble_jd, jd_to_answers
 from src.jd_bank.composer.assist import SummarySuggestion, suggest_summary
 from src.jd_bank.composer.drafts import AuthoredDraft, list_authored_drafts
 from src.jd_bank.composer.duplicates import (
@@ -39,7 +39,6 @@ from src.jd_bank.composer.questions import (
 from src.jd_bank.composer.search import (
     SearchHit,
     cluster_id_for_source,
-    jd_to_answers,
     load_clone_answers,
     load_role_clone_answers,
     search_similar_jds,

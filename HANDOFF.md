@@ -85,13 +85,18 @@ questionnaire, the picker names both forms, and every UI helper derives from the
 contract instead of hand-written name sets. Duty columns are keyed by TARGET now
 (`duties_verb`, not `duty_verb`) because the WJQ has two duty-shaped sections.
 
-**The ONE remaining piece:**
+**✅ AND THE CLONE MAPPING IS DONE TOO** — `FormSpec.clone_from_jd`, so `form_for(jd)`
+picks the contract from the JD itself and a CUPE role clones into the WJQ flow. The
+point-factor sections round-trip through `additional_context` by the parser's own heading
+vocabulary, pinned field by field.
 
-1. **`search._answers_from_jd`** — the clone mapping is JDFN-only, so `load_clone_answers`
-   / `load_role_clone_answers` produce `ComposerAnswers` whatever form the source was
-   written on, and `_render_clone` pins itself to the JDFN spec and says so. Cloning a
-   CUPE role needs a WJQ counterpart, and the `FormSpec` is where it belongs — a
-   `clone_from_jd` callable beside `assemble`.
+**Phase E is complete.** Nothing on the CUPE track is outstanding except what is HR's.
+
+⚠ **One thing to know if you touch the JSON clone route:** `response_model=None` on
+`GET /jd-bank/compose/clone/{id}` is load-bearing. FastAPI derives the response model
+from the RETURN ANNOTATION when none is given and filters the response down to it, so
+annotating the shared `AnswerContract` base served every clone as just that base's one
+field — the JDFN route silently lost `title`. Pinned by a test.
 
 **Two things settled that the next session should not re-open:**
 

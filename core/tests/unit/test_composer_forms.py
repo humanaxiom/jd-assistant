@@ -25,7 +25,7 @@ from src.jd_bank.composer.forms import (
 )
 from src.jd_bank.composer.questions import load_question_set
 from src.jd_bank.composer.wjq_answers import WJQ_CONTEXT_TARGETS, WJQAnswers
-from src.jd_bank.composer.wjq_assemble import assemble_wjq_jd
+from src.jd_bank.composer.wjq_assemble import assemble_wjq_jd, wjq_answers_from_jd
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.models.quality import JDTemplate, SFUSection
 from src.jd_core.quality.validators import evaluate_jd_rules, template_of
@@ -302,3 +302,74 @@ def test_an_empty_wjq_draft_assembles_rather_than_raising() -> None:
     assert jd.title == "Untitled role"
     assert jd.employee_group == "cupe"
     assert jd.additional_context is None
+
+
+# --- the clone transform round-trips a CUPE role (CUPE Phase E) ----------------------
+
+
+def test_a_cupe_draft_clones_back_into_the_answers_that_built_it() -> None:
+    """🔴 THE ROUND TRIP THE WHOLE DESIGN RESTS ON.
+
+    The assembler writes each point-factor section under the heading the PARSER matches;
+    the clone transform reads them back by the same vocabulary. If those two ever
+    disagree, cloning a CUPE role would silently return blank point-factor sections —
+    the author would see an empty form where the role has content, and nothing would
+    error. Asserted field by field rather than "it is not empty".
+    """
+    original = _filled()
+    cloned = wjq_answers_from_jd(assemble_wjq_jd(original))
+
+    assert cloned.title == original.title
+    assert cloned.department == original.department
+    assert cloned.grade == original.grade
+    assert cloned.position_summary == original.position_summary
+    assert cloned.level_of_independence == original.level_of_independence
+    assert cloned.impact_of_errors == original.impact_of_errors
+    assert cloned.working_conditions == original.working_conditions
+    assert cloned.internal == original.internal
+    assert cloned.external == original.external
+    assert cloned.education == original.education
+    assert [q.text for q in cloned.knowledge] == [q.text for q in original.knowledge]
+
+
+def test_cloning_returns_every_duty_as_a_major_function() -> None:
+    """⚠ The major/minor split is a property of the FORM, and both the assembler and the
+    parser merge them into one ``duties`` list — so by the time a JD exists the
+    distinction is gone. Guessing a split would put the author's minor functions
+    somewhere they did not choose; returning them all as majors keeps every duty, in
+    order, where the author can move any of them. Nothing dropped, nothing invented."""
+    original = _filled()
+    cloned = wjq_answers_from_jd(assemble_wjq_jd(original))
+
+    statements = [d.statement for d in cloned.major_functions]
+    assert statements == [
+        "Processes purchase orders",
+        "Maintains the supply room",  # the MINOR function, kept — not lost
+    ]
+    assert cloned.minor_functions == []
+
+
+def test_a_cupe_role_clones_into_the_wjq_contract_not_the_jdfn_one() -> None:
+    """The dispatch: `form_for(jd).clone_from_jd` picks the contract from the JD itself.
+    Read through the JDFN contract instead, a CUPE role would lose every section that
+    form does not ask about — silently, because a missing field is just a blank answer.
+    """
+    cupe_jd = assemble_wjq_jd(_filled())
+    jdfn_jd = SFUJobDescription(title="Analyst", employee_group="apsa")
+
+    assert isinstance(form_for(cupe_jd).clone_from_jd(cupe_jd), WJQAnswers)
+    assert isinstance(form_for(jdfn_jd).clone_from_jd(jdfn_jd), ComposerAnswers)
+
+
+def test_unrecognised_context_text_is_kept_rather_than_dropped() -> None:
+    """A JD parsed from a real `.doc` may carry a heading VARIANT the assembler does not
+    write. Its context then arrives as one unsplit block — which must land somewhere the
+    author can see and edit, never be discarded. Splitting a parsed document perfectly
+    is the parser's job; this function's guarantee is Builder → JD → Builder."""
+    jd = assemble_wjq_jd(_filled()).model_copy(
+        update={"additional_context": "SOME UNKNOWN HEADING\nreal content here"}
+    )
+    cloned = wjq_answers_from_jd(jd)
+
+    # Nothing was parsed into a section, and nothing raised.
+    assert all(getattr(cloned, t) is None for t in WJQ_CONTEXT_TARGETS)

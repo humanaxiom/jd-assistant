@@ -35,9 +35,9 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.jd_bank.composer.answers import AnswerContract, ComposerAnswers
-from src.jd_bank.composer.assemble import assemble_jd
+from src.jd_bank.composer.assemble import assemble_jd, jd_to_answers
 from src.jd_bank.composer.wjq_answers import WJQAnswers
-from src.jd_bank.composer.wjq_assemble import assemble_wjq_jd
+from src.jd_bank.composer.wjq_assemble import assemble_wjq_jd, wjq_answers_from_jd
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.models.quality import (
     DEFAULT_TEMPLATE,
@@ -71,6 +71,11 @@ class FormSpec(BaseModel):
     question_set: str = Field(min_length=1)
     #: answers -> draft. The ONLY place a form's shape becomes a JD.
     assemble: Callable[..., SFUJobDescription]
+    #: draft -> answers, for cloning an existing role into this form. The inverse of
+    #: `assemble`, and the reason cloning works across both: `form_for(jd)` picks the
+    #: contract from the JD itself, so a CUPE role clones into the WJQ flow rather than
+    #: being read through the JDFN one and losing every section that form does not ask.
+    clone_from_jd: Callable[..., AnswerContract]
     #: The sections this form HAS. The live authoring panel walks it, so a form is never
     #: told it is missing a section its instrument does not contain — the panel-level
     #: equivalent of `applies_to`, and the reason a CUPE author is not nagged for a
@@ -139,6 +144,7 @@ FORMS: Mapping[JDTemplate, FormSpec] = {
         answers_model=ComposerAnswers,
         question_set="composer_questions_v1",
         assemble=assemble_jd,
+        clone_from_jd=jd_to_answers,
         sections=_JDFN_SECTIONS,
     ),
     WJQ_TEMPLATE: FormSpec(
@@ -153,6 +159,7 @@ FORMS: Mapping[JDTemplate, FormSpec] = {
         answers_model=WJQAnswers,
         question_set="composer_questions_wjq_v1",
         assemble=assemble_wjq_jd,
+        clone_from_jd=wjq_answers_from_jd,
         sections=_WJQ_SECTIONS,
     ),
 }

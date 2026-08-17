@@ -47,9 +47,9 @@ from src.jd_core.models.parsed_jd import (
 )
 from src.jd_core.models.quality import WJQ_EMPLOYEE_GROUP
 from src.jd_core.parser.segmenter import _MAX_DUTIES
-from src.jd_core.rules import Rules, get_rules
+from src.jd_core.rules import Rules, WjqSection, get_rules
 
-__all__ = ["assemble_wjq_jd"]
+__all__ = ["assemble_wjq_jd", "wjq_answers_from_jd"]
 
 #: ``additional_context``'s own ceiling, read off the model so the block builder below
 #: cannot write a draft the contract refuses. (HR-200 raised the PARSER's cap to 16,000
@@ -195,4 +195,93 @@ def assemble_wjq_jd(
         territorial_acknowledgement_present=False,
         employment_equity_present=False,
         additional_context=_additional_context(answers, rulebook),
+    )
+
+
+# --- the clone transform: a CUPE JD back into WJQ answers -----------------------------
+
+
+def _split_context_blocks(context: str | None, rules: Rules) -> dict[WjqSection, str]:
+    """Read ``additional_context`` back into its point-factor sections.
+
+    The exact inverse of :func:`_additional_context`, and it is what makes cloning a
+    CUPE role possible: the assembler writes each block under the heading the parser
+    matches, so the clone can find them again by the SAME heading vocabulary. A block
+    whose heading is not recognised is left where it is (the tail of the preceding
+    section) rather than dropped — a cloned role's text must never vanish because a
+    heading moved.
+
+    ⚠ Matches on the CANONICAL heading only (``section_headings[...][0]``), because that
+    is the one the assembler writes. A JD parsed from a real ``.doc`` may carry a
+    different heading VARIANT, in which case its context arrives here as one unsplit
+    block and lands in the first section — visible to the author, editable, and not
+    silently lost. Splitting a parsed document perfectly is the parser's job, not this
+    function's; the round trip this guarantees is Builder → JD → Builder.
+    """
+    if not context:
+        return {}
+    headings = rules.wjq.section_headings
+    canonical = {headings[target][0]: target for target in WJQ_CONTEXT_TARGETS}
+
+    blocks: dict[WjqSection, list[str]] = {}
+    current: WjqSection | None = None
+    for line in context.splitlines():
+        stripped = line.strip()
+        if stripped in canonical:
+            current = canonical[stripped]
+            blocks.setdefault(current, [])
+            continue
+        if current is not None:
+            blocks[current].append(line)
+    return {
+        target: "\n".join(lines).strip()
+        for target, lines in blocks.items()
+        if "\n".join(lines).strip()
+    }
+
+
+def wjq_answers_from_jd(
+    jd: SFUJobDescription, *, rules: Rules | None = None
+) -> WJQAnswers:
+    """A CUPE JD as WJQ guided-authoring answers — the clone transform (Phase E).
+
+    ⚠ **Every duty comes back as a MAJOR function.** The WJQ's major/minor split is a
+    property of the FORM, and the assembler — like the parser — merges both into one
+    ``duties`` list, so by the time a JD exists the distinction is gone. Guessing a
+    split (say, by position) would put the author's minor functions somewhere they did
+    not choose; putting them all in the majors keeps every duty, in order, where the
+    author can move any of them down. **Nothing is dropped, and nothing is invented.**
+
+    ``security`` qualifications have no Builder field and are dropped, matching the
+    JDFN clone transform's own documented limitation.
+    """
+    rulebook = rules if rules is not None else get_rules()
+    rel = jd.relationships
+    context = _split_context_blocks(jd.additional_context, rulebook)
+    return WJQAnswers(
+        title=jd.title,
+        department=jd.department,
+        position_number=jd.position_number,
+        grade=jd.classification.value if jd.classification is not None else None,
+        position_summary=jd.position_summary,
+        major_functions=[
+            DutyAnswer(action_verb=d.action_verb, statement=d.statement)
+            for d in jd.duties
+        ],
+        internal=list(rel.internal) if rel is not None else [],
+        external=list(rel.external) if rel is not None else [],
+        education=[q.text for q in jd.qualifications if q.kind == "education"],
+        experience=[q.text for q in jd.qualifications if q.kind == "experience"],
+        knowledge=[
+            ModifiedQual(text=q.text, modifier=q.modifier)
+            for q in jd.qualifications
+            if q.kind == "knowledge"
+        ],
+        skills=[
+            ModifiedQual(text=q.text, modifier=q.modifier)
+            for q in jd.qualifications
+            if q.kind == "skill"
+        ],
+        abilities=[q.text for q in jd.qualifications if q.kind == "ability"],
+        **context,
     )

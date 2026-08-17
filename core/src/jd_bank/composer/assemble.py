@@ -158,3 +158,59 @@ def assemble_jd(
         employment_equity_present=boilerplate,
         additional_context=(answers.additional_context or "").strip() or None,
     )
+
+
+# --- the clone transform: an existing JD back into JDFN answers ----------------------
+#
+# Moved here from `search.py` in Phase E. It is the INVERSE of `assemble_jd`, so it
+# belongs beside it — and, concretely, the form registry needs it: `forms.py` is
+# declarations, and having it import a 700-line service module (with its DB and Neo4j
+# dependencies) to reach one pure function was both a circular import and the wrong
+# direction.
+
+
+def jd_to_answers(jd: SFUJobDescription) -> ComposerAnswers:
+    """Turn an existing JD back into guided-authoring answers, so the Builder can be
+    pre-filled from it (the inverse of :func:`assemble_jd`).
+
+    Qualifications are split back out by kind into the answer fields; ``security``
+    qualifications have no Builder field and are dropped (the guided flow does not
+    collect them — a v1 limitation, recorded). The SFU boilerplate flag is set iff the
+    source carries all three mandated presence booleans.
+    """
+    rel = jd.relationships
+    return ComposerAnswers(
+        title=jd.title,
+        department=jd.department,
+        employee_group=jd.employee_group,
+        grade=jd.classification.value if jd.classification is not None else None,
+        position_summary=jd.position_summary,
+        duties=[
+            DutyAnswer(action_verb=d.action_verb, statement=d.statement)
+            for d in jd.duties
+        ],
+        decision_making=list(jd.decision_making),
+        problem_solving=list(jd.problem_solving),
+        supervisory=rel.supervisory if rel is not None else None,
+        internal=list(rel.internal) if rel is not None else [],
+        external=list(rel.external) if rel is not None else [],
+        education=[q.text for q in jd.qualifications if q.kind == "education"],
+        experience=[q.text for q in jd.qualifications if q.kind == "experience"],
+        knowledge=[
+            ModifiedQual(text=q.text, modifier=q.modifier)
+            for q in jd.qualifications
+            if q.kind == "knowledge"
+        ],
+        skills=[
+            ModifiedQual(text=q.text, modifier=q.modifier)
+            for q in jd.qualifications
+            if q.kind == "skill"
+        ],
+        abilities=[q.text for q in jd.qualifications if q.kind == "ability"],
+        include_sfu_boilerplate=(
+            jd.about_sfu_present
+            and jd.territorial_acknowledgement_present
+            and jd.employment_equity_present
+        ),
+        additional_context=jd.additional_context,
+    )

@@ -57,14 +57,12 @@ from src.api.routes.compose import (
     get_optional_neo4j_driver,
 )
 from src.jd_bank.composer import (
-    ComposerAnswers,
     DraftAssessment,
     DuplicateGuard,
     DutyAnswer,
     ModifiedQual,
     SearchHit,
     SummarySuggestion,
-    assemble_jd,
     assess_draft,
     cluster_id_for_source,
     find_related_roles,
@@ -75,18 +73,18 @@ from src.jd_bank.composer import (
     submit_composed_draft,
     suggest_summary,
 )
-from src.jd_bank.composer.answers import AnswerContract
+from src.jd_bank.composer.answers import AnswerContract, ComposerAnswers
 from src.jd_bank.composer.forms import (
     FORMS,
     FormSpec,
-    form_for_template,
     form_from_request,
     render_kind,
 )
+from src.jd_bank.composer.wjq_answers import WJQAnswers
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.llm.client import ChatClient
 from src.jd_core.models.parsed_jd import SFUJobDescription
-from src.jd_core.models.quality import DEFAULT_TEMPLATE, SFUSection
+from src.jd_core.models.quality import DEFAULT_TEMPLATE, WJQ_TEMPLATE, SFUSection
 from src.jd_core.rules import get_rules
 from src.jd_export import render_sfu_docx
 
@@ -923,33 +921,35 @@ async def search_page(
     )
 
 
-def _render_clone(request: Request, answers: ComposerAnswers) -> HTMLResponse:
+def _render_clone(request: Request, answers: AnswerContract) -> HTMLResponse:
     """Land the author on a scored, ready-to-edit Builder draft pre-filled from
     ``answers`` (the faithful clone rides in ``answers_json`` so submit/export keep the
     verbs/modifiers the lossy form view drops). Read-only — nothing persists (NN #1).
+
+    The FORM comes from the SOURCE (Phase E): a CUPE role clones into the WJQ flow,
+    read back by that form's own ``clone_from_jd``. It is derived from the answers
+    rather than passed in, so the spec cannot disagree with the contract being rendered.
 
     Cloning STARTS A NEW compliant JD, so default SFU boilerplate ON regardless of
     whether the source carried it — many archive JDs predate the territorial-footer
     rollout, so inheriting the source's flag would land the author on a draft with
     About-SFU / territorial / EE / the Relationships header all "missing". The author
-    can still uncheck it."""
-    answers = answers.model_copy(update={"include_sfu_boilerplate": True})
-    # Cloning is JDFN-only today: `load_clone_answers` / `load_role_clone_answers`
-    # produce `ComposerAnswers`, so the source is read through the JDFN contract
-    # whatever form it was written on. Cloning a CUPE role needs a WJQ counterpart of
-    # `search._answers_from_jd`, which belongs on the FormSpec — recorded in HANDOFF.md
-    # as the next Phase-E step rather than faked with a spec that does not match the
-    # answers being rendered.
-    spec = form_for_template(DEFAULT_TEMPLATE)
+    can still uncheck it. ⚠ **JDFN only**: the WJQ has no such flag, because the CUPE
+    form carries none of those blocks (HR-201), so forcing one on would be asserting
+    boilerplate the instrument does not have."""
+    spec = FORMS[WJQ_TEMPLATE if isinstance(answers, WJQAnswers) else DEFAULT_TEMPLATE]
+    if isinstance(answers, ComposerAnswers):
+        answers = answers.model_copy(update={"include_sfu_boilerplate": True})
     return templates.TemplateResponse(
         request,
         "compose_new.html",
         _context(
             request,
             values=_values_from_answers(spec, answers),
-            assessment=assess_draft(assemble_jd(answers)),
+            assessment=assess_draft(spec.assemble(answers)),
             error=None,
-            boilerplate_checked=answers.include_sfu_boilerplate,
+            boilerplate_checked=isinstance(answers, ComposerAnswers)
+            and answers.include_sfu_boilerplate,
             spec=spec,
             answers_json=answers.model_dump_json(),
             structured_rows=_structured_rows_from_answers(spec, answers),
