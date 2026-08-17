@@ -26,11 +26,10 @@ from src.jd_bank.composer.answers import ComposerAnswers
 from src.jd_core.models.quality import SFUSection
 
 _PACKAGE: Final[str] = __package__ or "src.jd_bank.composer"
-_QUESTION_SET_FILE: Final[str] = "composer_questions_v1.yaml"
 
-#: The fields an answer may target — the ComposerAnswers contract, derived so a new
-#: answer field is automatically a legal target and a removed one breaks the build.
-_ANSWER_FIELDS: Final[frozenset[str]] = frozenset(ComposerAnswers.model_fields)
+#: The question set the JDFN flow walks — the default, so every existing caller keeps
+#: working unchanged now that a second form exists (Phase E).
+DEFAULT_QUESTION_SET: Final[str] = "composer_questions_v1"
 
 
 class QuestionSetError(RuntimeError):
@@ -39,25 +38,24 @@ class QuestionSetError(RuntimeError):
 
 class Question(BaseModel):
     """One guided-authoring prompt: what to ask, the Toolkit hint to show, the SFU
-    section it belongs to, and the ``ComposerAnswers`` field it fills."""
+    section it belongs to, and the answer field it fills."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     id: str = Field(min_length=1)
     section: SFUSection
+    #: The FORM's own name for the section this question sits in, for display — e.g.
+    #: "5 · Level of Independence" on the WJQ. Presentation only, and separate from
+    #: ``section`` on purpose (Phase E): ``section`` is the `SFUSection` the panel and
+    #: the rulebook key on, and ten WJQ sections collapse onto `additional_context`
+    #: there, which would otherwise show an author one undifferentiated bucket where
+    #: their form has seven distinct questions. Empty -> the UI falls back to its own
+    #: label for ``section``.
+    group: str = ""
     prompt: str = Field(min_length=1)
     hint: str = ""
     target: str = Field(min_length=1)
     required: bool = False
-
-    @model_validator(mode="after")
-    def _target_is_a_real_answer_field(self) -> Question:
-        if self.target not in _ANSWER_FIELDS:
-            raise ValueError(
-                f"question {self.id!r} targets {self.target!r}, which is not a "
-                f"ComposerAnswers field ({sorted(_ANSWER_FIELDS)})"
-            )
-        return self
 
 
 class QuestionSet(BaseModel):
@@ -78,17 +76,48 @@ class QuestionSet(BaseModel):
 
 
 @lru_cache
-def load_question_set() -> QuestionSet:
-    """Load + validate the shipped guided-authoring question set (cached)."""
-    resource = importlib.resources.files(_PACKAGE).joinpath("data", _QUESTION_SET_FILE)
+def load_question_set(
+    name: str = DEFAULT_QUESTION_SET,
+    answers_model: type[BaseModel] = ComposerAnswers,
+) -> QuestionSet:
+    """Load + validate a guided-authoring question set (cached).
+
+    ``answers_model`` is the contract every ``target`` must name a field of — passed in
+    rather than hardcoded, because the WJQ flow (Phase E) fills a different one. The
+    check stays HERE, at load, so a set that would collect input its assembler silently
+    drops fails loudly on first use instead of quietly losing an author's answer.
+    """
+    filename = f"{name}.yaml"
+    resource = importlib.resources.files(_PACKAGE).joinpath("data", filename)
     try:
         raw = resource.read_text(encoding="utf-8")
-    except OSError as exc:  # pragma: no cover - shipped file is always present
-        raise QuestionSetError(
-            f"cannot read question set {_QUESTION_SET_FILE!r}: {exc}"
-        ) from exc
+    except OSError as exc:
+        raise QuestionSetError(f"cannot read question set {filename!r}: {exc}") from exc
     try:
         data = yaml.safe_load(raw)
-        return QuestionSet.model_validate(data)
+        question_set = QuestionSet.model_validate(data)
     except Exception as exc:
         raise QuestionSetError(f"invalid question set: {exc}") from exc
+
+    check_targets(question_set, answers_model, name=name)
+    return question_set
+
+
+def check_targets(
+    question_set: QuestionSet, answers_model: type[BaseModel], *, name: str = "<set>"
+) -> None:
+    """Refuse a set whose questions fill fields ``answers_model`` does not have.
+
+    Separate from :func:`load_question_set` so the rule can be tested without a file on
+    disk, and so it reads as what it is: a target is only meaningful *against a
+    particular answer contract*, and since Phase E there are two.
+    """
+    fields = frozenset(answers_model.model_fields)
+    unknown = sorted(
+        {q.target for q in question_set.questions if q.target not in fields}
+    )
+    if unknown:
+        raise QuestionSetError(
+            f"question set {name!r} targets {unknown}, which are not "
+            f"{answers_model.__name__} fields ({sorted(fields)})"
+        )

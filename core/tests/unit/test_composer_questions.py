@@ -16,7 +16,7 @@ from src.jd_bank.composer import (
     QuestionSetError,
     load_question_set,
 )
-from src.jd_bank.composer.questions import Question
+from src.jd_bank.composer.questions import Question, check_targets
 
 
 def test_question_set_loads_and_is_versioned() -> None:
@@ -44,8 +44,24 @@ def test_the_set_walks_the_core_authored_sections() -> None:
 
 
 def test_a_target_that_is_not_an_answer_field_is_rejected() -> None:
-    with pytest.raises(ValueError, match="not a ComposerAnswers field"):
-        Question(id="q", section="duties", prompt="p", target="not_a_field")
+    """A question that collects input its assembler drops is refused — still at LOAD, so
+    it fails loudly on first use rather than silently losing an author's answer.
+
+    ⚠ The check moved from ``Question`` to load time in Phase E, and the move is
+    the point: a target is only valid *against a particular answer contract*, and
+    there are now two. Validating inside ``Question`` meant every question in every form
+    was checked against ``ComposerAnswers`` — which would have made the WJQ set
+    unloadable, and, worse, would have been "correct" for the wrong reason if the two
+    contracts had happened to share field names.
+    """
+    stray = QuestionSet(
+        version="test_v1",
+        questions=(
+            Question(id="q", section="duties", prompt="p", target="not_a_field"),
+        ),
+    )
+    with pytest.raises(QuestionSetError, match="not_a_field"):
+        check_targets(stray, ComposerAnswers)
 
 
 def test_duplicate_ids_are_rejected() -> None:
