@@ -13,6 +13,25 @@ Read this first every session. Single source of truth for current state + how we
 | Register | **206** decisions, **0 ratified** — HR-206 (which FORMS the Bank drafts) is the new one. HR-180's default moved to `jd_harmonize_v2` |
 | Live data | 14,565 files · 14,522 parsed at v4 · **2,494 canonical JDs** (was 1,804) · **4 published** · a **~12h LLM pass is RUNNING** — see below |
 
+### 🔴 THE LIVE BANK HAS KNOWN-WRONG CUPE DRAFTS RIGHT NOW (2026-08-17)
+
+**The LLM run is STOPPED, deliberately.** Two defects were found by cloning one real
+CUPE role and checking the result against its sources — both fixed in
+**[#117](https://github.com/humanaxiom/jd-assistant/pull/117)**, neither yet re-run:
+
+| | what is wrong | how many |
+|---|---|---|
+| **form stripped** | the rewrite let the model return `employee_group: null`, so the draft is judged by the **JDFN** bar | **~100** CUPE drafts |
+| **point-factor sections missing** | the merge applied JDFN's `additional_context_policy: drop` to the field where the WJQ keeps **7 of its 14 sections** | **every** CUPE draft (0 of 553 had any) |
+
+Nothing published or reviewer-touched is affected, and **both regenerate** — these are
+DRAFTs. But **do not show a CUPE draft to HR until the producer has re-run**, because a
+reviewer would read a role with no Level of Independence, no Impact of Errors and no
+Working Conditions, with nothing on the page saying they ever existed.
+
+⚠ **`--resume` alone will NOT fix it.** Resume skips drafts the LLM already wrote, which
+includes the ~100 with the stripped form. Deciding the re-run is the first task below.
+
 ### 🔴 READ THIS BEFORE TOUCHING THE LIVE BANK
 
 **A long LLM producer run may still be in flight.** It is resumable and crash-safe
