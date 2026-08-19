@@ -2,19 +2,19 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-19, later) — four of the six review findings are fixed
+## ▶ START HERE (2026-08-19, later) — six review findings fixed, and S-5 measured
 
 | | |
 |---|---|
-| `main` | `2143fb6` — unchanged. Everything below is in OPEN PRs |
-| **Open PRs** | **[#121](https://github.com/humanaxiom/jd-assistant/pull/121)** Phase F backlog (docs) · **[#122](https://github.com/humanaxiom/jd-assistant/pull/122)** eval fix + docs — **CLEAN and mergeable, merge it first** · **[#123](https://github.com/humanaxiom/jd-assistant/pull/123)** P0-1, P0-2, S-1, S-2, S-3, S-4 (**stacked on #122**; it retargets to `main` automatically when #122 lands). Verify with `gh pr list`, never from this table |
-| Gates | **2,822 passing, 94.16%** on #123, run locally. `register-check` in step |
-| `rules_version` | `+76baba29cfeb` — **still unmoved.** Nothing in #123 changes how a JD is SCORED |
+| `main` | `cf118c7` — #122 merged (the eval fix + the two-forms docs) |
+| **Open PRs** | **[#121](https://github.com/humanaxiom/jd-assistant/pull/121)** Phase F backlog (docs) · **[#124](https://github.com/humanaxiom/jd-assistant/pull/124)** P0-1, P0-2, S-1, S-2, S-3, S-4 — replaces #124, which GitHub closed when #122 squash-merged and deleted its base branch. Verify with `gh pr list`, never from this table |
+| Gates | **2,822 passing, 94.16%** on #124, run locally. `register-check` in step. `rewrite-golden` + `gates-live` both green against the real model |
+| `rules_version` | `+76baba29cfeb` — **still unmoved.** Nothing in #124 changes how a JD is SCORED |
 | Register | **208** decisions, **0 ratified** — HR-208 is new (which qualification kinds the rewrite may author) |
 | Live data | 2,490 DRAFT + 4 PUBLISHED · **237 CUPE drafts rebuilt, the rest still wrong** |
-| Producer run | 🔴 **STILL STOPPED.** S-2/S-3/S-4 are fixed in #123 but **not merged and not re-run** — see below |
+| Producer run | 🔴 **STILL STOPPED.** S-2/S-3/S-4 are fixed in #124 but **not merged and not re-run** — see below |
 
-### What #123 fixes, and what it does NOT
+### What #124 fixes, and what it does NOT
 
 `docs/tasks/cupe-review-findings-2026-08-19.md` remains the map. Six of its findings
 are now closed:
@@ -31,9 +31,38 @@ are now closed:
 **None of this has reached the live Bank.** The fixes are in an unmerged PR, and the
 237 rebuilt CUPE drafts were written by the OLD rewrite — so they still lose duty
 frequencies and may carry invented bars. Re-running the producer is what makes the
-fixes real, and it must not start before #122 → #123 are merged.
+fixes real, and it must not start before #122 → #124 are merged.
 
-### 🔴 S-5 IS STILL OPEN, AND IT IS BIGGER THAN "RE-MEASURE"
+### 🔴 S-5 — MEASURED. The guard is not the defect; the 4.1 merge is.
+
+**`docs/baseline/jdfn-remeasure-2026-08-19.md` has the numbers and the argument.** The
+headline, measured against the live Bank:
+
+| JDFN drafts | count | with `decision_making` | mean score |
+|---|---:|---:|---:|
+| written **before** the section guard | 1,156 | 1,084 (93.8%) | **84.61** |
+| written **after** it | 685 | 0 | **66.42** |
+
+`SFU-COMP-DECISION` / `-PROBLEM` / `-RELATIONSHIPS` went from ~6% of JDFN drafts to
+**100%**. Every grade-B JDFN draft in the Bank is a pre-guard one.
+
+**But loosening the guard would be wrong.** The rewrite is fed `_flatten_jd(merged.draft)`
+and nothing else, and that draft's `decision_making` is always empty — so the 1,084
+pre-guard sections were invented from *no source at all*. The 18.19 points are
+fabrication being withdrawn, not a regression. Re-permitting it on JDFN restores an
+18-point lift made of invented content, on the surface where HR-208 was just closed for
+exactly that.
+
+**The real defect is one layer up: 97.0% of JDFN source documents carry
+`decision_making` and 97.4% carry `relationships`, and the 4.1 merge drops all of it as
+"out of scope".** So no JDFN draft the pipeline produces can ever be complete. Merging
+those three sections in 4.1 fixes the guard's input rather than the guard, makes the
+EMPTY-TO-EMPTY protection reachable in production for the first time, and brings the
+points back honestly. It needs a merge policy per section — an HR-207-shaped question,
+so a register entry decided in the same PR. **Not implemented: it changes the whole JDFN
+cohort's output and it is a policy call.**
+
+### The original S-5 framing, for reference
 
 The review flags that "JDFN is the untouched control" is false. **Confirmed against the
 code, not the commit message:** `merge_cluster` deliberately never populates
@@ -91,9 +120,10 @@ cluster 88c49896 — 132 member JDs
 
 ### The queue, in order
 
-1. **Merge #122, then #123.** #122 is CLEAN; #123 stacks on it and retargets itself.
-2. **S-5** — decide scope (re-measure only, or template-scope the section guard first),
-   then re-measure JDFN. Nothing should quote a JDFN number until this is done.
+1. **Merge [#124](https://github.com/humanaxiom/jd-assistant/pull/124)** — `main`-based, all local gates + both live goldens green.
+2. **Merge `decision_making` / `problem_solving` / `relationships` in 4.1** — the S-5
+   conclusion (`docs/baseline/jdfn-remeasure-2026-08-19.md`). Needs a per-section merge
+   policy registered like HR-207. This is the JDFN cohort's missing 18 points, honestly.
 3. **Re-run the producer** over the CUPE cohort with the S-2/S-3/S-4 fixes in place, and
    check the health signal above rather than the progress line.
 4. **Phase F** (`docs/tasks/phase-f-form-scoping-backlog.md`) — search is JDFN-only in
@@ -125,7 +155,7 @@ before anyone edits those entries — 4,300 is the number with no provenance her
   timeout and the GPU was busy. Fixed (`98f284a`) to probe `/api/tags` instead — the
   distinction is *unreachable* (skip correctly) vs *busy* (skipping is a lie). Nine live
   tests now genuinely run. Run them after any rewrite/prompt change; `make gates`
-  excludes them by design. **#123 changes the rewrite pass, so run them before merging.**
+  excludes them by design. **#124 changes the rewrite pass, so run them before merging.**
 - **For a multi-form surface, test the PAGE, not the handler.** P0-1 survived four new
   tests because each built its own request body. `tests/unit/template_scan.py` +
   `_browser_pairs` are the durable shape.
