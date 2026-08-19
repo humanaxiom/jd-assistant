@@ -593,13 +593,59 @@ async def _process_cluster(
         # a refresh DOES emit an UPDATE (bumps ``updated_at``) even when byte-identical;
         # the CONTENT is unchanged and ``drafts_refreshed`` is the honest count —
         # idempotent in ROWS (no dup cluster/version), not a no-op write.
-        existing.content = content
-        existing.source_document_ids = source_document_ids
-        existing.change_log = change_log
-        existing.validation_report_id = None
+        # 🔴 RE-CHECK UNDER A LOCK, because the check at step 1 is now ~65 SECONDS OLD.
+        #
+        # Between that read and this write the cluster spent a merge and TWO model
+        # calls.
+        # A reviewer can approve, reject or edit inside that window — and `approve` sets
+        # `status=PUBLISHED` while this assignment is an unconditional UPDATE with no
+        # predicate. The result would be producer prose sitting in a PUBLISHED row under
+        # an HR approval, with the audit trail calling it a refresh: non-negotiable #1
+        # failing in the one direction nothing watched, not a bad publish but published
+        # content silently replaced.
+        #
+        # ⚠ THE OBVIOUS FIX IS WORSE THAN THE BUG. Adding `with_for_update=True` to the
+        # step-1 read would hold a row lock across both LLM calls, so every reviewer who
+        # opened that draft during a multi-hour producer run would block for a minute.
+        # The lock belongs around the WRITE, which is microseconds — so the row is
+        # re-fetched and re-judged here, and the decision from 65 seconds ago is treated
+        # as the stale hint it is.
+        locked = await session.get(CanonicalJD, existing.id, with_for_update=True)
+        if locked is None:
+            outcome.skipped = True
+            return outcome
+        fresh_actions = await session.scalar(
+            select(func.count())
+            .select_from(ReviewAction)
+            .where(ReviewAction.canonical_jd_id == locked.id)
+        )
+        if reviewer_touched(locked.status, int(fresh_actions or 0)):
+            outcome.skipped = True
+            session.add(
+                AuditLog(
+                    event_type="canonical_draft.skipped_reviewer_touched",
+                    entity_type="canonical_jd",
+                    entity_id=locked.id,
+                    actor="producer",
+                    payload={
+                        "cluster_id": str(cluster_id),
+                        "existing_status": locked.status.value,
+                        "review_action_count": int(fresh_actions or 0),
+                        # The distinguishing detail: a human acted WHILE this
+                        # cluster was in the model — worth telling apart.
+                        "reason": "reviewer_touched_during_llm_window",
+                    },
+                )
+            )
+            return outcome
+
+        locked.content = content
+        locked.source_document_ids = source_document_ids
+        locked.change_log = change_log
+        locked.validation_report_id = None
         outcome.refreshed = True
         action = "refreshed"
-        canonical_id = existing.id
+        canonical_id = locked.id
 
     # 7. Append-only audit — counts / flags only, NEVER incumbent PII.
     session.add(

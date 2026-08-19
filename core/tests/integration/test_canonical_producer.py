@@ -1263,3 +1263,87 @@ async def test_reviewer_touched_still_skipped_and_only_draft_written_with_commit
         ).all()
         assert len(drafts) == 2
         assert all(d.status is CanonicalStatus.DRAFT for d in drafts)
+
+
+@pytest.mark.asyncio
+async def test_a_reviewer_acting_during_the_llm_window_is_not_overwritten(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """🔴 NON-NEGOTIABLE #1, IN THE DIRECTION NOTHING WATCHED.
+
+    The no-clobber check runs BEFORE the merge and two model calls — ~65 seconds before
+    the write. A reviewer can approve inside that window, and the refresh is an
+    unconditional UPDATE with no predicate: producer prose would land in a PUBLISHED row
+    under an HR approval, audited as a "refresh". Not a bad publish — published content
+    silently replaced.
+
+    The fake client is what makes the race deterministic: it mutates the row mid-call,
+    standing in for the reviewer who clicked Approve while the GPU was busy.
+
+    ⚠ Note what is NOT done: the step-1 read is still lock-free. Locking there would
+    hold a row lock across both LLM calls and block every reviewer who opened that draft
+    during a multi-hour run. The lock belongs around the write.
+    """
+
+    class _ApproveMidFlight:
+        """Publishes the row while the 'model' is thinking."""
+
+        def __init__(self, session: AsyncSession, canonical_id: uuid.UUID) -> None:
+            self._session = session
+            self._id = canonical_id
+            self.seen: list[type[object]] = []
+
+        async def chat_json(
+            self,
+            messages: object,
+            model_cls: type[object],
+            *,
+            max_tokens: int,
+            max_retries: int,
+            constrain_to_schema: bool = False,
+        ) -> object:
+            self.seen.append(model_cls)
+            row = await self._session.get(CanonicalJD, self._id)
+            if row is not None and row.status is CanonicalStatus.DRAFT:
+                row.status = CanonicalStatus.PUBLISHED
+                await self._session.flush()
+            if model_cls is SFUJobDescription:
+                return _rewrite_jd()
+            return JDQualityFindings(issues=[])
+
+    async with session_maker() as session:
+        await _seed_pair(session)
+        await session.commit()
+
+        await run_canonical_producer(session, rewrite_client=None)
+        await session.commit()
+        written = await session.scalar(select(CanonicalJD))
+        assert written is not None
+        original = dict(written.content)
+
+        hijack = _ApproveMidFlight(session, written.id)
+        result = await run_canonical_producer(
+            session, rewrite_client=hijack, audit_client=_FakeChat()
+        )
+        await session.commit()
+
+        after = await session.get(CanonicalJD, written.id)
+        assert after is not None
+        # The reviewer's decision stands, and their published content is untouched.
+        assert after.status is CanonicalStatus.PUBLISHED
+        assert after.content == original
+        assert result.drafts_refreshed == 0
+        assert result.skipped_reviewer_touched == 1
+
+        # ...and the audit says a human acted DURING the window, not just "touched".
+        rows = (
+            await session.scalars(
+                select(AuditLog).where(
+                    AuditLog.event_type == "canonical_draft.skipped_reviewer_touched"
+                )
+            )
+        ).all()
+        assert any(
+            r.payload.get("reason") == "reviewer_touched_during_llm_window"
+            for r in rows
+        )
