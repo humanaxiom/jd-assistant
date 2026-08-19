@@ -155,19 +155,47 @@ def authoring_template(
 # --- pure: the no-DOWNGRADE predicate (the second no-clobber rule) -------------------
 
 
-def draft_was_llm_written(change_log: Mapping[str, Any] | None) -> bool:
-    """Whether an existing draft was produced by the FULL pipeline (rewrite + audit).
+def draft_has_rewritten_prose(change_log: Mapping[str, Any] | None) -> bool:
+    """Whether an existing draft actually HOLDS rewritten prose — i.e. the 4.2a rewrite
+    landed on this row, not merely that a rewrite was attempted on it.
 
-    Read from the draft's own ``change_log.pipeline.llm_enabled`` — the producer's own
-    record of how it built that row — rather than inferred from its content. Absent or
-    malformed reads as ``False``: a draft whose provenance cannot be established must
-    not be treated as precious, because that would make the producer un-runnable
-    against any row it did not write.
+    🔴 THE DEFECT THIS EXISTS FOR, measured against the live Bank on 2026-08-19 at
+    **44 drafts**. This predicate used to read ``change_log.pipeline.llm_enabled``,
+    which records only that a rewrite CLIENT WAS INJECTED. A rewrite failure is
+    isolated rather than fatal (see :func:`_run_llm_passes`) — the cluster keeps the
+    deterministic merge draft and the run continues — so a failed cluster was stamped
+    ``llm_enabled: true`` indistinguishably from one whose rewrite succeeded. Both
+    callers below then misread it:
+
+    * ``--resume`` skipped those clusters as "already done", so the clusters that most
+      needed retrying were exactly the ones it could never retry, and
+    * the no-DOWNGRADE guard protected them as though they held prose, so a cheap run
+      could not refresh them either.
+
+    Between the two, those 44 rows were unreachable by any producer invocation that did
+    not name them individually, and a ~44-hour pass could not repair the rows it had
+    itself damaged.
+
+    ``rewrite_ran`` / ``rewrite_failed`` have been written to the same packet since
+    Phase 4.2a (:func:`build_change_log_packet`). Nothing new is recorded here; the
+    wrong field was being read. They are mutually exclusive by construction — a raised
+    rewrite leaves ``rewritten`` ``None`` — and both are asked anyway, because the
+    question is "did prose land", and a packet that ever answers both yes is lying.
+
+    Absent or malformed reads as ``False``: a draft whose provenance cannot be
+    established must not be treated as precious, because that would make the producer
+    un-runnable against any row it did not write. A packet with no ``rewrite_ran`` key
+    at all predates 4.2a and recorded intent only — fall back to what it did record.
     """
     if not change_log:
         return False
     pipeline = change_log.get("pipeline")
-    return bool(isinstance(pipeline, Mapping) and pipeline.get("llm_enabled"))
+    if not isinstance(pipeline, Mapping):
+        return False
+    if "rewrite_ran" not in pipeline:
+        return bool(pipeline.get("llm_enabled"))
+    ran = bool(pipeline.get("rewrite_ran"))
+    return ran and not bool(pipeline.get("rewrite_failed"))
 
 
 def would_downgrade(change_log: Mapping[str, Any] | None, *, llm_enabled: bool) -> bool:
@@ -187,7 +215,7 @@ def would_downgrade(change_log: Mapping[str, Any] | None, *, llm_enabled: bool) 
     artifact, so refreshing it is legitimate — but *derived by a weaker process* is a
     downgrade, and a downgrade should have to be asked for.
     """
-    return not llm_enabled and draft_was_llm_written(change_log)
+    return not llm_enabled and draft_has_rewritten_prose(change_log)
 
 
 # --- pure: the no-clobber predicate --------------------------------------------------
@@ -271,8 +299,9 @@ class _Outcome:
     #: An untouched DRAFT left alone because refreshing it would have replaced
     #: LLM-written prose with a deterministic merge (a cheap run over an expensive row).
     skipped_downgrade: bool = False
-    #: An untouched DRAFT the full pipeline had already written, skipped by a RESUME
-    #: run (`skip_llm_written`) because it owes no further work.
+    #: An untouched DRAFT that already HOLDS a landed rewrite, skipped by a RESUME run
+    #: (`skip_llm_written`) because it owes no further work. A draft whose rewrite
+    #: FAILED holds only the merge and is NOT this — the resume retries it.
     skipped_llm_written: bool = False
     rewrite_failed: bool = False
     audit_failed: bool = False
@@ -477,11 +506,29 @@ async def _process_cluster(
         # as the reason an interrupted reindex needs no resume flag. The producer's
         # expensive pass deserves the same.
         #
-        # The predicate is `would_downgrade`'s, inverted: "was this written by the full
-        # pipeline?" answers both "may a cheap run overwrite it?" and "does an expensive
-        # run still owe it work?".
-        if skip_llm_written and draft_was_llm_written(existing.change_log):
+        # The predicate is `would_downgrade`'s, inverted: "does this row HOLD rewritten
+        # prose?" answers both "may a cheap run overwrite it?" and "does an expensive
+        # run still owe it work?". It asks whether the rewrite LANDED, not whether one
+        # was attempted — see `draft_has_rewritten_prose`, where reading the latter cost
+        # 44 live drafts that no producer invocation could reach.
+        if skip_llm_written and draft_has_rewritten_prose(existing.change_log):
             outcome.skipped_llm_written = True
+            # Per skip, one audit row (NN #6). This was the one skip that wrote none —
+            # a resumed pass left no record of which clusters it declined, over a run
+            # whose progress line reads the same whether it worked or not.
+            session.add(
+                AuditLog(
+                    event_type="canonical_draft.skipped_resume",
+                    entity_type="canonical_jd",
+                    entity_id=existing.id,
+                    actor="producer",
+                    payload={
+                        "cluster_id": str(cluster_id),
+                        "existing_status": existing.status.value,
+                        "reason": "resume_rewrite_already_landed",
+                    },
+                )
+            )
             return outcome
 
         # 1b. NO-DOWNGRADE — a cheap run must not overwrite an expensive draft.
