@@ -13,24 +13,65 @@ Read this first every session. Single source of truth for current state + how we
 | Register | **206** decisions, **0 ratified** — HR-206 (which FORMS the Bank drafts) is the new one. HR-180's default moved to `jd_harmonize_v2` |
 | Live data | 14,565 files · 14,522 parsed at v4 · **2,494 canonical JDs** (was 1,804) · **4 published** · a **~12h LLM pass is RUNNING** — see below |
 
-### 🔴 THE LIVE BANK HAS KNOWN-WRONG CUPE DRAFTS RIGHT NOW (2026-08-17)
+### 🔴 THE CUPE DRAFTS ARE BEING REBUILT RIGHT NOW (started 2026-08-18)
 
-**The LLM run is STOPPED, deliberately.** Two defects were found by cloning one real
-CUPE role and checking the result against its sources — both fixed in
-**[#117](https://github.com/humanaxiom/jd-assistant/pull/117)**, neither yet re-run:
+**A full producer pass is RUNNING** — all 2,456 clusters, ~43h, finishing Wednesday.
+Until it completes the Bank holds a MIX of correct and known-wrong CUPE drafts.
+**Do not show a CUPE draft to HR until it finishes**, and check before starting anything
+else against this database:
 
-| | what is wrong | how many |
+```bash
+docker ps --filter "name=canonical-run"          # is it still going?
+docker compose exec -T postgres psql -U app -d harness -t -c \
+  "SELECT count(*) FROM canonical_jds WHERE status='DRAFT' \
+   AND coalesce(content->>'additional_context','')<>'';"
+```
+
+**That second number is the health check, not the cluster tally.** It was 0 when the run
+started and climbs as CUPE clusters are rebuilt. A progress line reading
+`refreshed=50 failures=0` looks identical whether the drafts are right or ruined — which
+is exactly how two earlier passes ran for half an hour producing garbage.
+
+Stopping the run is safe (`--resume` continues it, though see the caveat below).
+
+#### What was wrong, and what fixed it
+
+Three defects, all found by **probing the live Bank** — cloning one real CUPE role and
+checking the result against its sources. None was reachable by reading the code; none
+would have failed a test.
+
+| | what was wrong | fixed in |
 |---|---|---|
-| **form stripped** | the rewrite let the model return `employee_group: null`, so the draft is judged by the **JDFN** bar | **~100** CUPE drafts |
-| **point-factor sections missing** | the merge applied JDFN's `additional_context_policy: drop` to the field where the WJQ keeps **7 of its 14 sections** | **every** CUPE draft (0 of 553 had any) |
+| the merge dropped **7 of the WJQ's 14 sections** | JDFN's `additional_context_policy: drop` was applied to the field where the WJQ keeps its point-factor blocks. 95.4% of CUPE sources carry it (avg 5,524 chars); **0 of 553 drafts had any** | [#117](https://github.com/humanaxiom/jd-assistant/pull/117) — HR-207, per-template policy |
+| the rewrite **stripped the form** | the model returned `employee_group: null`, so the draft silently moved to the JDFN bar. Of ~100 refreshed, **5** kept their group | [#117](https://github.com/humanaxiom/jd-assistant/pull/117) |
+| the rewrite **deleted the sections again** | the merge fix landed and the very next run threw the content away: the prompt's schema shows `"additional_context": null` | [#118](https://github.com/humanaxiom/jd-assistant/pull/118) |
 
-Nothing published or reviewer-touched is affected, and **both regenerate** — these are
-DRAFTs. But **do not show a CUPE draft to HR until the producer has re-run**, because a
-reviewer would read a role with no Level of Independence, no Impact of Errors and no
-Working Conditions, with nothing on the page saying they ever existed.
+**#118 is the one to read.** Three fields in three days meant the patch was the wrong
+shape: the pass was built as *"the model returns a JD, we scrub what it ADDED"* and
+nothing policed what it **REMOVED**. `_REWRITABLE_FIELDS` is now an ALLOW-LIST of the
+seven prose fields; everything else is restored from the grounded merge draft, and a
+completeness pin over `SFUJobDescription.model_fields` makes the next field an argued
+decision instead of a silent one.
 
-⚠ **`--resume` alone will NOT fix it.** Resume skips drafts the LLM already wrote, which
-includes the ~100 with the stripped form. Deciding the re-run is the first task below.
+#### The verification to run before ANY future producer pass
+
+Both earlier attempts were started on fixes that had not been checked end to end, and
+both were still wrong. The check costs ~90 seconds: drive ONE real all-CUPE cluster
+through merge → rewrite and compare. The last run of it, before this pass:
+
+```
+cluster 88c49896 — 132 member JDs
+  MERGE  -> group='cupe' template=wjq context=6007 chars
+  REWRITE-> group='cupe' template=wjq context=6007 chars  duties=8  score=85.29
+  VERDICT: PASS — form and sections intact
+```
+
+⚠ **`--resume` asks the wrong question.** It skips drafts the LLM already wrote, when
+what you usually want is "redo whatever predates the current merge policy". It cannot
+ask that: `harmonization.yaml` is unhashed, so `rules_version` does not move when the
+policy changes. The fix is to stamp the draft with the harmonization identity that built
+it (`harmonize_stamp` already computes one) — **not built, and the reason resume was not
+used for this pass.**
 
 ### 🔴 READ THIS BEFORE TOUCHING THE LIVE BANK
 
