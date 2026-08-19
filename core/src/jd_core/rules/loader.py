@@ -1439,8 +1439,17 @@ class Rewrite(_RuleFile):
     skill_grounding_threshold: float = Field(ge=0.0, le=1.0)
     #: The minimum token-Jaccard a rewritten DUTY must share with a draft duty (HR-184).
     #: Below it the duty is FLAGGED (recorded, never dropped — a duty may legitimately
-    #: rephrase, so a low-overlap duty is an HR eyeball, not a scrub).
+    #: rephrase, so a low-overlap duty is an HR eyeball, not a scrub). Read in the other
+    #: direction it also decides whether a MERGE duty still has a counterpart at all:
+    #: below it, that duty was REMOVED by the rewrite and is recorded as such; at or
+    #: above it, the rewritten duty carries its merge duty's ``frequency`` back.
     duty_flag_threshold: float = Field(ge=0.0, le=1.0)
+    #: Which qualification KINDS the rewrite may author (HR-208). Everything else the
+    #: model returns is discarded and the merge draft's own qualifications of that kind
+    #: are restored verbatim. knowledge/skill/ability are free-text competencies the
+    #: grounding guard polices; education/experience/security are structural BARS the
+    #: 4.1 merge derives from member signals, which the model has no source for.
+    rewritable_qualification_kinds: tuple[QualificationKind, ...] = Field(min_length=1)
     #: How long ONE INTERACTIVE assist request may wait on the chat model before giving
     #: up and returning the author's page. NOT the batch rewrite budget, which may
     #: legitimately take far longer. HR-199.

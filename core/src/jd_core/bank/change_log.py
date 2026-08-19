@@ -39,9 +39,13 @@ byte-identical :class:`~src.jd_core.models.bank.HarmonizationDiff`.
 canonical / score field. It reports what the deterministic merge (and the optional
 4.2a rewrite scrub) did; it approves nothing and merges nothing itself.
 
-**Render is display-only.** ``rendered_draft`` is ``render_sfu_jd_text(merged.draft)``.
-That text is lossy on re-parse (see ``bank/render.py``); this module renders it for a
-human and STOPS — it builds no render->parse round trip.
+**Render is display-only, and it renders THE DRAFT THAT WILL BE STORED** — the 4.2a
+rewrite's output when one was passed, the merge's otherwise (:func:`_rendered_draft`).
+It was unconditionally the merge's, which is how a rewrite that deleted nine of twelve
+duties produced a reviewer packet showing all twelve and a change log reading
+``removed: []`` (2026-08-19 review, S-2). That text is lossy on re-parse (see
+``bank/render.py``); this module renders it for a human and STOPS — it builds no
+render->parse round trip.
 """
 
 from __future__ import annotations
@@ -59,6 +63,7 @@ from src.jd_core.models.bank import (
     HarmonizationDiff,
     MergedRole,
     RemovedContent,
+    RemovedReason,
     RewrittenDraft,
     SourceContribution,
 )
@@ -78,10 +83,13 @@ def build_harmonization_diff(
     ``merged`` is the :func:`~src.jd_core.bank.merge.merge_cluster` output and
     ``members`` the SAME cluster members it was drawn from (any input order).
     ``rewrite`` optionally folds a 4.2a rewrite pass's anti-fabrication record in: its
-    scrubbed qualifications become ``qualification_scrubbed_ungrounded`` removals and
-    its flagged duties become
+    scrubbed qualifications become ``qualification_scrubbed_ungrounded`` removals, the
+    duties it dropped become ``duty_removed_by_rewrite``, the hiring bars it tried to
+    invent become ``qualification_bar_restored`` (HR-208), and its flagged duties become
     :attr:`~src.jd_core.models.bank.HarmonizationDiff.flagged_duties` (flagged ≠
-    removed).
+    removed). Passed a whole :class:`~src.jd_core.models.bank.RewrittenDraft`, the
+    packet also RENDERS that draft rather than the merge's — see :func:`_rendered_draft`
+    for why the difference mattered.
 
     Pure, deterministic and order-invariant. ``rules`` defaults to the loaded
     rulebook; only the merge's already-registered ``harmonization`` knobs are read.
@@ -151,22 +159,45 @@ def build_harmonization_diff(
     flagged_duties: tuple[str, ...] = ()
     record = _anti_fabrication(rewrite)
     if record is not None:
-        for skill in record.scrubbed_skills:
-            removed.append(
-                RemovedContent(
-                    content=skill,
-                    reason="qualification_scrubbed_ungrounded",
-                    member_index=None,
-                )
+        # Every rewrite-stage removal, in one shape. `member_index=None` throughout:
+        # the rewrite works on the merged draft, so none of these is attributable to a
+        # single source document.
+        rewrite_removals: tuple[tuple[Sequence[str], RemovedReason], ...] = (
+            (record.scrubbed_skills, "qualification_scrubbed_ungrounded"),
+            (record.removed_duties, "duty_removed_by_rewrite"),
+            (record.restored_bars, "qualification_bar_restored"),
+        )
+        for contents, reason in rewrite_removals:
+            removed.extend(
+                RemovedContent(content=content, reason=reason, member_index=None)
+                for content in contents
             )
         flagged_duties = tuple(record.flagged_duties)
 
     return HarmonizationDiff(
-        rendered_draft=render_sfu_jd_text(merged.draft),
+        rendered_draft=render_sfu_jd_text(_rendered_draft(merged, rewrite)),
         per_source=tuple(per_source),
         removed=tuple(removed),
         flagged_duties=flagged_duties,
     )
+
+
+def _rendered_draft(
+    merged: MergedRole, rewrite: AntiFabricationRecord | RewrittenDraft | None
+) -> SFUJobDescription:
+    """The draft this packet should render: the REWRITE's when a rewrite produced one,
+    otherwise the merge's.
+
+    🔴 It was unconditionally ``merged.draft`` (2026-08-19 review, S-2), while what the
+    producer stores in ``canonical_jds.content`` is the rewrite's output. On the
+    measured case — a 12-duty CUPE draft the model returned three duties for — the
+    reviewer's page rendered twelve duties and the change log reported
+    ``duties_kept: 12, removed: []``, while the row held three. Nothing disagreed with
+    anything; every artifact on the review surface was describing a draft that no
+    longer existed. A bare :class:`AntiFabricationRecord` carries no draft, so it still
+    renders the merge's — there is no later one to render.
+    """
+    return rewrite.draft if isinstance(rewrite, RewrittenDraft) else merged.draft
 
 
 def _anti_fabrication(

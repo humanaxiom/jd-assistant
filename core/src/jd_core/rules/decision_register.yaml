@@ -6180,6 +6180,49 @@ decisions:
       content until the producer re-runs over them.
     status: open
 
+  # ── What the rewrite may AUTHOR vs only REWORD (2026-08-19 review, S-3). ──
+  - id: HR-208
+    question: >-
+      When the LLM rewords a harmonized draft, which parts of the Qualifications section
+      is it allowed to WRITE? Today it may reword the competencies (knowledge, skills,
+      abilities) but not the hiring bars (education, experience, security clearance) —
+      those come back exactly as the deterministic merge derived them from the source
+      job descriptions.
+    config:
+      file: rewrite.yaml
+      path: rewrite.rewritable_qualification_kinds
+    current_default: [knowledge, skill, ability]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      🔴 THIS WAS A DEFECT, FOUND BY AN ADVERSARIAL REVIEW ON 2026-08-19. The
+      anti-fabrication guard checked whether a rewritten qualification's wording was
+      grounded in the merge draft — but it checked ONLY the three competency kinds. The
+      other three passed through unexamined, so the model could discard the grounded
+      qualification and insert `PhD in Astrophysics required`, `Ten years of nuclear
+      reactor experience` and `Enhanced Reliability security clearance` on a clerical
+      CUPE draft, and the record of what the guard caught would be EMPTY. On an HR
+      system an invented hiring bar is the highest-consequence fabrication there is: a
+      competency describes the role, but a bar is what screens a candidate out, and a
+      person reading a job posting has no way to tell an invented requirement from a
+      real one. The distinction this draws is about SOURCES, not about trust: education,
+      experience and security are structural facts the 4.1 merge derives from what the
+      member documents state, and the model is not given them to derive from. ⚠ WHAT
+      THIS DOES NOT SETTLE: whether a bar should ever be rewordable — SFU may well want
+      "Grade 12 or equivalent" and "High school graduation" harmonized to one phrasing
+      across the Bank. That is a real editorial need, and the answer to it is a
+      deterministic normalization at merge time (where the sources are), not a licence
+      for the rewrite. HR can also ask for the reverse: freezing the competencies too,
+      which would make the pass a pure prose polish.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (rewrite.yaml is unhashed) — it decides how a draft
+      is WORDED, never how one is scored. Adding `education` here restores the previous
+      behaviour: the model's education line ships, subject only to the grounding
+      threshold (HR-183), which is a token-overlap test a plausible-sounding invented
+      bar can pass. Removing a competency kind freezes it to the merge's wording.
+      Existing drafts are unaffected until the producer re-runs over them.
+    status: open
+
   # ── Embedding over-length fallback ladder (HR-126 follow-up). ──
   - id: HR-193
     question: >-
