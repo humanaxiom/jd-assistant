@@ -12,7 +12,11 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from src.jd_bank.rewrite.harmonize import _flatten_jd, rewrite_merged_role
+from src.jd_bank.rewrite.harmonize import (
+    _REWRITABLE_FIELDS,
+    _flatten_jd,
+    rewrite_merged_role,
+)
 from src.jd_core.models.bank import MergedRole, MergeProvenance, RewrittenDraft
 from src.jd_core.models.parsed_jd import (
     JobClassification,
@@ -561,3 +565,66 @@ async def test_a_jdfn_drafts_own_group_survives_the_rewrite_too(
     )
 
     assert result.draft.employee_group == "apsa"
+
+
+@pytest.mark.asyncio
+async def test_the_rewrite_cannot_delete_the_wjq_point_factor_sections(
+    rules: Rules,
+) -> None:
+    """🔴 THE THIRD INSTANCE, and the one that turned a patch into an allow-list.
+
+    HR-207 had just fixed the MERGE to carry the WJQ's point-factor sections through
+    `additional_context` — and on the very next production run the rewrite threw them
+    away again, because the prompt's schema shows `"additional_context": null` and the
+    model obligingly returns null. Seven of the WJQ's fourteen sections, deleted between
+    one pass and the next.
+
+    The model is doing what it was asked; the defect was the contract. A rewrite that
+    may return any field can delete any field, and "reword this draft" does not license
+    dropping content the sources stated.
+    """
+    grounded = MergedRole(
+        draft=_draft().model_copy(
+            update={
+                "employee_group": "cupe",
+                "additional_context": "LEVEL OF INDEPENDENCE\nWorks under supervision.",
+            }
+        ),
+        provenance=_merged().provenance,
+    )
+    nulled = _draft().model_copy(update={"additional_context": None})
+
+    result = await rewrite_merged_role(grounded, client=_FakeChat(nulled), rules=rules)
+
+    assert result.draft.additional_context == (
+        "LEVEL OF INDEPENDENCE\nWorks under supervision."
+    )
+
+
+def test_every_jd_field_is_either_rewritable_or_preserved() -> None:
+    """⚠ THE COMPLETENESS PIN, walked from the live model rather than a list.
+
+    Adding a field to ``SFUJobDescription`` without deciding whether the rewrite may
+    change it turns this red. The safe default is already "preserved" — an unlisted
+    field comes back from the grounded draft — but the decision should be ARGUED in a
+    diff rather than made by omission, which is exactly how the three fields above came
+    to be deletable in the first place.
+    """
+    fields = set(SFUJobDescription.model_fields)
+    assert _REWRITABLE_FIELDS <= fields
+
+    preserved = fields - _REWRITABLE_FIELDS
+    assert preserved == {
+        # identity: what document this is
+        "employee_group",
+        "position_number",
+        "department",
+        "grade",
+        "classification",
+        # source content the model is not asked to reword (7 of the WJQ's 14 sections)
+        "additional_context",
+        # set explicitly, per template, after the rewrite
+        "about_sfu_present",
+        "territorial_acknowledgement_present",
+        "employment_equity_present",
+    }
