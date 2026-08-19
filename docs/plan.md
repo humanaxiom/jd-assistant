@@ -986,6 +986,36 @@ The pipeline is **already done** for CUPE: 49,448 role-equivalent edges, *more* 
 its own profile. **Evaluation is per group from here — never blended**; a blended approval
 rate over two forms is the category error this whole phase removed.
 
+### ⚠ 2026-08-19 — PHASES B–E ARE BUILT AND UNDER REVIEW. TWO P0s.
+
+**`docs/tasks/cupe-review-findings-2026-08-19.md` supersedes the optimism below.** Six
+adversarial reviewers went over the whole CUPE diff — the work shipped in one weekend,
+orchestrator-only, with no second reviewer. ~30 findings, two P0:
+
+* **A CUPE author cannot submit or export.** The hidden `form` field is in the check form
+  only; Submit and Export are separate `<form>` elements and fall back to JDFN. The
+  author's content is wiped. The Phase E journey ends at an error box.
+* **An inverted test certifies live data loss** — it asserts the dropped text *stays*
+  dropped, and would go red if the bug were fixed.
+
+Then: an author can pick their own approval bar; the rewrite can delete most of a role
+while the change-log reports nothing removed; it can invent education/experience bars;
+`SFUDuty.frequency` is destroyed on every CUPE draft.
+
+**⚠ AND THE CONTROL CLAIM IN THIS PLAN IS FALSE.** "JDFN is the untouched control" is
+asserted throughout Phases B–E. `_SECTIONS_NEVER_INVENTED` fires on **both** forms, so every
+JDFN rewritten draft since Phase D carries findings it did not before. Re-measure before
+quoting any JDFN number from this document.
+
+**The producer run is STOPPED**, 237 of ~649 CUPE drafts rebuilt. Do not restart before the
+content-loss fixes land.
+
+**The durable lesson, and it is not about CUPE.** Four of this weekend's defects were found
+by running things against the live Bank; the rest by reviewers reading code. **None was
+caught by `make gates`, which was green throughout.** The repo already says every claim
+about the archive must be checked against the archive — the corollary is that *a pipeline
+change is a claim about the archive*, and *a green suite is a claim about the tests*.
+
 ### Phase E — the routing seam, MEASURED 2026-08-17 (and the answer is neither option)
 
 A CUPE JD is a **different form**, not a variant: 14 WJQ sections against the JDFN's. Making
