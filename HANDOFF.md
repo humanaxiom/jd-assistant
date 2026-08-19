@@ -260,6 +260,25 @@ phase record is `docs/plan.md` §Phase 9; the ordered triage it came from is
 
 ### The queue, in order
 
+> ### ⟵ NEXT: Phase F — the two forms have to reach the SEARCH and the REPORTING
+>
+> Scoped 2026-08-19 from the Builder's own CUPE page:
+> **`docs/tasks/phase-f-form-scoping-backlog.md`**. Needs no HR ruling.
+>
+> * **F1** — `composer/search.py` still excludes CUPE in FOUR places
+>   (`_NON_JDFN_GROUP`), so an author in CUPE mode searching "start from an existing
+>   JD" gets **zero CUPE results** and can only clone from the other form — which then
+>   silently switches them into the JDFN Builder. Correct when the Builder was JDFN-only;
+>   backwards since Phase E.
+> * **F2** — the baseline + cluster dashboards were generated at `+90af5e27dc83`, which is
+>   **pre-Phase-B**, so every WJQ number on them was scored against the JDFN bar. The page
+>   still says CUPE has "no JDFN approval bar", which B and C made false. And **D3's
+>   per-form draft evaluation renders nowhere** — `evaluation_by_template` lives only in
+>   `docs/canonical/summary.json`, and it is the number HR will actually ask for.
+>
+> ⚠ Re-run `make baseline` AFTER the CUPE rebuild finishes — they contend for Postgres.
+
+
 **Everything the 2026-08-07 review raised is now closed** (P0.1a #82 · P0.2 #83 ·
 P0.1b-i #85 · P0.0 #88 · P0.3 #89 · P0.4 #90 · P0.1b-ii #91 + #92). What is left is what
 was always the real critical path — and the first item is not a commit.
