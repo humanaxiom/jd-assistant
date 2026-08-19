@@ -628,3 +628,239 @@ def test_every_jd_field_is_either_rewritable_or_preserved() -> None:
         "territorial_acknowledgement_present",
         "employment_equity_present",
     }
+
+
+# --- S-2 / S-3 / S-4: the model may reword a draft, it may not silently REMOVE from it
+
+
+def _merged_with(draft: SFUJobDescription) -> MergedRole:
+    return MergedRole(
+        draft=draft,
+        provenance=MergeProvenance(
+            member_count=3,
+            skill_frequency=(("accounting", 3), ("budgeting", 2)),
+        ),
+    )
+
+
+def _cupe_draft_with_frequencies() -> SFUJobDescription:
+    """A CUPE merge draft as the WJQ parser produces one: every duty tagged with how
+    often it is performed (Phase 3.4 / HR-142)."""
+    return SFUJobDescription(
+        title="Departmental Assistant",
+        employee_group="cupe",
+        position_summary="Provides administrative support to the department.",
+        duties=[
+            SFUDuty(
+                action_verb="Processes",
+                statement="Processes purchase orders and invoices for the unit",
+                frequency="daily",
+            ),
+            SFUDuty(
+                action_verb="Maintains",
+                statement="Maintains the departmental filing and records system",
+                frequency="weekly",
+            ),
+        ],
+        qualifications=[
+            SFUQualification(text="High school graduation", kind="education"),
+            SFUQualification(text="Two years of office experience", kind="experience"),
+            SFUQualification(
+                text="Working knowledge of financial accounting", kind="knowledge"
+            ),
+        ],
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_duty_frequency_survives_the_rewrite(rules: Rules) -> None:
+    """S-4. STRUCTURAL, 100%, not probabilistic: the prompt's duty schema has no
+    ``frequency`` key, so the model cannot return one, and ``duties`` is a rewritable
+    CONTAINER replaced wholesale. Every CUPE draft the producer wrote came out
+    ``['daily', 'weekly'] -> [None, None]``.
+
+    The ``_REWRITABLE_FIELDS`` completeness pin cannot see this: it walks
+    ``SFUJobDescription.model_fields`` and ``frequency`` is a field of ``SFUDuty``.
+    """
+    draft = _cupe_draft_with_frequencies()
+    # The model rewords both duties and, as the schema requires, returns no frequency.
+    reworded = draft.model_copy(
+        update={
+            "duties": [
+                SFUDuty(
+                    action_verb="Processes",
+                    statement="Processes purchase orders and invoices for the dept",
+                ),
+                SFUDuty(
+                    action_verb="Maintains",
+                    statement="Maintains the departmental records and filing system",
+                ),
+            ]
+        }
+    )
+
+    result = await rewrite_merged_role(
+        _merged_with(draft), client=_FakeChat(reworded), rules=rules
+    )
+
+    assert [d.frequency for d in result.draft.duties] == ["daily", "weekly"]
+    # ...and the rewording itself was kept — this restores the FIELD, not the duty.
+    assert "for the dept" in result.draft.duties[0].statement
+
+
+@pytest.mark.asyncio
+async def test_a_duty_the_rewrite_dropped_is_recorded_not_silently_gone(
+    rules: Rules,
+) -> None:
+    """S-2. Measured on a real 12-duty CUPE draft: the model returned 3 and the result
+    was grade B, 89.05, with **zero duty findings and an empty anti-fabrication
+    record**. The guard was written as "scrub what the model ADDED"; nothing at all
+    looked at what it REMOVED, so most of a role could vanish and the artifact whose
+    whole purpose is "nothing vanishes silently" said nothing."""
+    draft = _cupe_draft_with_frequencies()
+    kept, dropped = draft.duties[0], draft.duties[1]
+    reworded = draft.model_copy(update={"duties": [kept]})
+
+    result = await rewrite_merged_role(
+        _merged_with(draft), client=_FakeChat(reworded), rules=rules
+    )
+
+    assert dropped.statement in result.anti_fabrication.removed_duties
+    assert kept.statement not in result.anti_fabrication.removed_duties
+
+
+@pytest.mark.asyncio
+async def test_an_ordinary_rewording_removes_nothing(rules: Rules) -> None:
+    """The control for S-2, and the one that matters: rewording IS the pass's job. A
+    removal detector that fired on a reworded duty would make the record noise, and a
+    noisy record is read the same way an empty one is."""
+    draft = _cupe_draft_with_frequencies()
+    reworded = draft.model_copy(
+        update={
+            "duties": [
+                SFUDuty(
+                    action_verb="Processes",
+                    statement="Processes purchase orders and invoices for the dept",
+                ),
+                SFUDuty(
+                    action_verb="Maintains",
+                    statement="Maintains the departmental records and filing system",
+                ),
+            ]
+        }
+    )
+
+    result = await rewrite_merged_role(
+        _merged_with(draft), client=_FakeChat(reworded), rules=rules
+    )
+
+    assert result.anti_fabrication.removed_duties == ()
+
+
+@pytest.mark.asyncio
+async def test_the_rewrite_cannot_invent_an_education_experience_or_security_bar(
+    rules: Rules,
+) -> None:
+    """S-3. ``_GROUNDED_KINDS`` policed knowledge/skill/ability only, so the three kinds
+    that are STRUCTURAL BARS — derived by the 4.1 merge from member signals, not free
+    text — passed through unexamined. Measured: the grounded qualification discarded
+    and ``PhD in Astrophysics required`` / ``Ten years of nuclear reactor experience`` /
+    ``Enhanced Reliability security clearance`` inserted on a clerical CUPE draft, with
+    an EMPTY anti-fabrication record.
+
+    On an HR system an invented hiring bar is the highest-consequence fabrication there
+    is: it is the thing that screens candidates out.
+    """
+    draft = _cupe_draft_with_frequencies()
+    reworded = draft.model_copy(
+        update={
+            "qualifications": [
+                SFUQualification(text="PhD in Astrophysics required", kind="education"),
+                SFUQualification(
+                    text="Ten years of nuclear reactor experience", kind="experience"
+                ),
+                SFUQualification(
+                    text="Enhanced Reliability security clearance", kind="security"
+                ),
+            ]
+        }
+    )
+
+    result = await rewrite_merged_role(
+        _merged_with(draft), client=_FakeChat(reworded), rules=rules
+    )
+
+    texts = [q.text for q in result.draft.qualifications]
+    assert "PhD in Astrophysics required" not in texts
+    assert "Ten years of nuclear reactor experience" not in texts
+    assert "Enhanced Reliability security clearance" not in texts
+    # The merge's own bars came back — restored, not merely dropped.
+    assert "High school graduation" in texts
+    assert "Two years of office experience" in texts
+    # ...and it is EVIDENCE, not a silent swap.
+    assert "PhD in Astrophysics required" in result.anti_fabrication.restored_bars
+
+
+@pytest.mark.asyncio
+async def test_the_rewrite_may_still_reword_the_kinds_it_authors(rules: Rules) -> None:
+    """The control for S-3: knowledge / skill / ability are the model's to reword, and
+    a guard that froze every qualification would make the pass pointless."""
+    draft = _cupe_draft_with_frequencies()
+    reworded = draft.model_copy(
+        update={
+            "qualifications": [
+                SFUQualification(text="High school graduation", kind="education"),
+                SFUQualification(
+                    text="Two years of office experience", kind="experience"
+                ),
+                SFUQualification(
+                    text="Working knowledge of accounting and budgeting",
+                    kind="knowledge",
+                ),
+            ]
+        }
+    )
+
+    result = await rewrite_merged_role(
+        _merged_with(draft), client=_FakeChat(reworded), rules=rules
+    )
+
+    knowledge = [q.text for q in result.draft.qualifications if q.kind == "knowledge"]
+    assert knowledge == ["Working knowledge of accounting and budgeting"]
+    assert result.anti_fabrication.restored_bars == ()
+
+
+@pytest.mark.asyncio
+async def test_a_disabled_guard_leaves_all_three_of_these_alone(rules: Rules) -> None:
+    """The mutation that proves the three above are the GUARD doing work and not the
+    plumbing: with ``anti_fabrication_enabled: false`` the model's output ships
+    unscrubbed, and every one of these protections is off — visibly, via
+    ``enabled=False``, which is the shape the existing escape hatch already has."""
+    draft = _cupe_draft_with_frequencies()
+    reworded = draft.model_copy(
+        update={
+            "duties": [draft.duties[0].model_copy(update={"frequency": None})],
+            "qualifications": [
+                SFUQualification(text="PhD in Astrophysics required", kind="education")
+            ],
+        }
+    )
+    disabled = rules.model_copy(
+        update={
+            "rewrite": rules.rewrite.model_copy(
+                update={"anti_fabrication_enabled": False}
+            )
+        }
+    )
+
+    result = await rewrite_merged_role(
+        _merged_with(draft), client=_FakeChat(reworded), rules=disabled
+    )
+
+    assert result.anti_fabrication.enabled is False
+    assert result.anti_fabrication.removed_duties == ()
+    assert result.anti_fabrication.restored_bars == ()
+    assert [q.text for q in result.draft.qualifications] == [
+        "PhD in Astrophysics required"
+    ]
+    assert [d.frequency for d in result.draft.duties] == [None]

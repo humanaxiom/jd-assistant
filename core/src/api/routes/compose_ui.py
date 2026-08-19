@@ -726,6 +726,11 @@ async def check_draft(
         rows = _structured_rows_from_pairs(spec, pairs)
         try:
             answers = _answers_from_form(spec, values, pairs)
+            # `assemble_checked`, not `assemble`: a posted `employee_group` selects the
+            # ruleset AND the numeric profile, so an unchecked one lets the author pick
+            # the bar their own draft is judged against (S-1). Inside this `try` so the
+            # refusal is the error page the author already gets for a bad field.
+            jd = spec.assemble_checked(answers)
         except (ValidationError, ValueError) as exc:
             return templates.TemplateResponse(
                 request,
@@ -740,7 +745,6 @@ async def check_draft(
                     structured_rows=rows,
                 ),
             )
-        jd = spec.assemble(answers)
         assessment = assess_draft(jd)
         guard = await _related_roles_panel(
             jd,
@@ -786,6 +790,9 @@ async def assist_draft(
     rows = _structured_rows_from_pairs(spec, pairs)
     try:
         answers = _answers_from_form(spec, values, pairs)
+        # Same seam as the check step (S-1): the assist rebuilds the draft from the
+        # posted body too, so it must not be the one door left open.
+        draft = spec.assemble_checked(answers)
     except (ValidationError, ValueError) as exc:
         await client.close()
         return templates.TemplateResponse(
@@ -809,7 +816,7 @@ async def assist_draft(
     budget = get_rules().rewrite.interactive_timeout_seconds
     try:
         suggestion = await asyncio.wait_for(
-            suggest_summary(spec.assemble(answers), client=client), timeout=budget
+            suggest_summary(draft, client=client), timeout=budget
         )
     except TimeoutError:
         logger.warning(
@@ -945,14 +952,24 @@ def _render_clone(request: Request, answers: AnswerContract) -> HTMLResponse:
     spec = FORMS[WJQ_TEMPLATE if isinstance(answers, WJQAnswers) else DEFAULT_TEMPLATE]
     if isinstance(answers, ComposerAnswers):
         answers = answers.model_copy(update={"include_sfu_boilerplate": True})
+    # The same guard as every other assemble seam (S-1), even though the spec here is
+    # derived from the SOURCE rather than from anything posted — `form_for(jd)` already
+    # routes a CUPE role into the WJQ contract, so a mismatch should be unreachable.
+    # "Should be unreachable" is how three CUPE defects shipped, and this page is one a
+    # person is standing on: it renders the refusal, it does not 500 (the 8.3b lesson).
+    try:
+        assessment = assess_draft(spec.assemble_checked(answers))
+        error = None
+    except ValueError as exc:
+        assessment, error = None, str(exc)
     return templates.TemplateResponse(
         request,
         "compose_new.html",
         _context(
             request,
             values=_values_from_answers(spec, answers),
-            assessment=assess_draft(spec.assemble(answers)),
-            error=None,
+            assessment=assessment,
+            error=error,
             boilerplate_checked=isinstance(answers, ComposerAnswers)
             and answers.include_sfu_boilerplate,
             spec=spec,
@@ -1029,7 +1046,11 @@ async def submit_draft(
     spec = form_from_request(values.get("form"))
     try:
         answers = spec.answers_model.model_validate_json(values.get("answers_json", ""))
-    except ValidationError as exc:
+        # S-1: `answers_json` is a POSTED field, so "our own check step wrote it" is an
+        # assumption, not a guarantee — and this is the door that PERSISTS. The bar a
+        # draft is judged against is decided here, before the row exists.
+        draft = spec.assemble_checked(answers)
+    except (ValidationError, ValueError) as exc:
         # The hidden field was produced by our own check step, so this is unexpected;
         # re-render the empty form with the error rather than 500.
         return templates.TemplateResponse(
@@ -1046,7 +1067,7 @@ async def submit_draft(
         )
     canonical = await submit_composed_draft(
         session,
-        spec.assemble(answers),
+        draft,
         author_id=author_id,
         # `assemble_jd` produces a JD document, which has no lineage field — so this
         # is the LAST point the clone's parent still exists. Read it off the answers,
@@ -1070,7 +1091,10 @@ async def export_draft(request: Request) -> Response:
     spec = form_from_request(values.get("form"))
     try:
         answers = spec.answers_model.model_validate_json(values.get("answers_json", ""))
-    except ValidationError as exc:
+        # As in submit (S-1). Export persists nothing, but an official SFU `.docx` on
+        # the wrong form is a document a person will circulate.
+        jd = spec.assemble_checked(answers)
+    except (ValidationError, ValueError) as exc:
         return templates.TemplateResponse(
             request,
             "compose_new.html",
@@ -1083,7 +1107,6 @@ async def export_draft(request: Request) -> Response:
                 spec=spec,
             ),
         )
-    jd = spec.assemble(answers)
     content = render_sfu_docx(jd)
     return Response(
         content=content,

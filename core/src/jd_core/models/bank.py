@@ -260,6 +260,12 @@ RemovedReason = Literal[
     "duty_dropped_over_max",
     "section_not_merged",
     "qualification_scrubbed_ungrounded",
+    # The two REWRITE-stage removals (2026-08-19 review, S-2 / HR-208). The four above
+    # are all things the deterministic MERGE did; these are the first the LLM pass did,
+    # and their absence is why a rewrite that deleted nine of twelve duties produced a
+    # change log reading `removed: []`.
+    "duty_removed_by_rewrite",
+    "qualification_bar_restored",
 ]
 
 
@@ -359,6 +365,23 @@ class AntiFabricationRecord(BaseModel):
     #: never asked. Recorded rather than silently dropped — like the other two lists,
     #: this is evidence a reviewer can see.
     scrubbed_sections: tuple[str, ...] = ()
+    #: The statement of every MERGE-draft duty the rewrite did not return a counterpart
+    #: for (2026-08-19 review, S-2). The three lists above all answer "what did the
+    #: model ADD?"; this is the first that answers "what did it TAKE AWAY?", and it is
+    #: the question that was never asked. Measured on a real 12-duty CUPE draft: the
+    #: model returned three, and the result was grade B, 89.05, with zero duty findings
+    #: and an empty record — most of a role gone, and the artifact whose entire purpose
+    #: is "nothing vanishes silently" reporting nothing. A duty counts as removed when
+    #: its best token-Jaccard against every rewritten duty falls below
+    #: ``rewrite.duty_flag_threshold``, the same bar the flag direction uses.
+    removed_duties: tuple[str, ...] = ()
+    #: The text of every education / experience / security qualification the model
+    #: returned and the guard DISCARDED, having restored the merge draft's own
+    #: (HR-208). Those three kinds are structural hiring BARS the 4.1 merge derives from
+    #: member signals, not free-text competencies — and an invented hiring bar is the
+    #: highest-consequence fabrication an HR system can make, because it is the thing
+    #: that screens a candidate out. Recorded so the swap is evidence, not a silent fix.
+    restored_bars: tuple[str, ...] = ()
 
 
 class RewrittenDraft(BaseModel):

@@ -32,7 +32,7 @@ from src.jd_core.models.bank import (
     MergedRole,
     RewrittenDraft,
 )
-from src.jd_core.models.parsed_jd import SFUJobDescription, SFUQualification
+from src.jd_core.models.parsed_jd import SFUDuty, SFUJobDescription, SFUQualification
 from src.jd_core.models.quality import DEFAULT_TEMPLATE
 from src.jd_core.quality.scoring import score_issues
 from src.jd_core.quality.validators import evaluate_jd_rules, template_of
@@ -92,11 +92,25 @@ _SECTIONS_NEVER_INVENTED: Final[tuple[str, ...]] = (
     "relationships",
 )
 
-#: The qualification kinds the anti-fabrication guard scrubs when ungrounded. Education,
-#: experience and security are structural BARS derived by the 4.1 merge from member
-#: signals, not free-text skills the model could invent, so they pass through — the
-#: guard polices the "skill/knowledge/ability content" the task names.
-_GROUNDED_KINDS = frozenset({"knowledge", "skill", "ability"})
+#: 🔴 REPLACED BY ``rewrite.rewritable_qualification_kinds`` (HR-208, 2026-08-19).
+#:
+#: This was a hardcoded ``frozenset({"knowledge", "skill", "ability"})`` naming the
+#: kinds the grounding guard scrubs — its comment argued that education / experience /
+#: security "are structural BARS derived by the 4.1 merge from member signals, not
+#: free-text skills the model could invent, so they pass through". Every clause of that
+#: is true except the conclusion: because they are derived rather than authored, a model
+#: returning them has NO SOURCE for them, and passing them through is precisely what let
+#: a clerical CUPE draft come back demanding a PhD in Astrophysics and an Enhanced
+#: Reliability clearance, with an empty anti-fabrication record.
+#:
+#: The set is now rulebook DATA (CLAUDE.md §2) and does two jobs: the kinds in it are
+#: the model's to author, policed by grounding; every other kind is DISCARDED and
+#: restored from the merge draft. Left as a name so the reasoning above stays findable.
+
+
+def _rewritable_kinds(rewrite: Rewrite) -> frozenset[str]:
+    """The qualification kinds this rulebook lets the rewrite author (HR-208)."""
+    return frozenset(rewrite.rewritable_qualification_kinds)
 
 
 def _content_tokens(text: str, comparison: Comparison) -> frozenset[str]:
@@ -117,6 +131,24 @@ def _jaccard(a: frozenset[str], b: frozenset[str]) -> float:
     if not union:
         return 1.0
     return len(a & b) / len(union)
+
+
+def _closest(
+    tokens: frozenset[str], candidates: Sequence[frozenset[str]]
+) -> tuple[int, float]:
+    """``(index, score)`` of the candidate closest to ``tokens`` by token-Jaccard, or
+    ``(-1, 0.0)`` when there are no candidates.
+
+    One helper for both directions of the duty reconciliation — "which merge duty is
+    this rewritten one?" and "does this merge duty still exist?" are the same question
+    asked from either end, so they must not be two pieces of arithmetic that can drift.
+    """
+    best_index, best = -1, 0.0
+    for index, candidate in enumerate(candidates):
+        score = _jaccard(tokens, candidate)
+        if score > best:
+            best_index, best = index, score
+    return best_index, best
 
 
 def _skill_frequency_lines(freq: Sequence[tuple[str, int]]) -> str:
@@ -172,27 +204,73 @@ def _apply_anti_fabrication(
     comparison = rules.comparison
     vocab = _draft_vocabulary(merged, comparison)
 
+    authorable = _rewritable_kinds(rewrite)
+
+    # Qualifications, in two populations (HR-208). The kinds the rewrite MAY author are
+    # kept subject to grounding, as before. Every other kind is a structural hiring BAR
+    # the 4.1 merge derived from the members: the model's version is discarded whatever
+    # it says — a plausible invented bar passes a token-overlap test — and the merge's
+    # own comes back verbatim.
+    bars = [q for q in merged.draft.qualifications if q.kind not in authorable]
+    bar_texts = {q.text for q in bars}
     kept: list[SFUQualification] = []
     scrubbed: list[str] = []
+    restored_bars: list[str] = []
     for qual in llm_jd.qualifications:
-        if qual.kind in _GROUNDED_KINDS and not _is_grounded(
-            qual.text, vocab, rewrite, comparison
-        ):
+        if qual.kind not in authorable:
+            # Recorded only when the model's bar DIFFERS from the merge's. A model that
+            # echoed the bar back unchanged had nothing overwritten, and a record that
+            # fired on every draft would be read exactly the way an empty one is.
+            if qual.text not in bar_texts:
+                restored_bars.append(qual.text)
+        elif not _is_grounded(qual.text, vocab, rewrite, comparison):
             scrubbed.append(qual.text)
         else:
             kept.append(qual)
+    kept.extend(bars)
 
+    # Duties, reconciled against the merge draft in BOTH directions on one threshold.
     draft_duty_tokens = [
         _content_tokens(duty.statement, comparison) for duty in merged.draft.duties
     ]
+    llm_duty_tokens = [
+        _content_tokens(duty.statement, comparison) for duty in llm_jd.duties
+    ]
+
+    # → What did the model ADD? (unchanged: flagged, never dropped — a duty may reword.)
+    # ...and, on the same pass, carry back what the model could not return. `frequency`
+    # is a field of `SFUDuty` and the prompt's duty schema has no key for it, so a
+    # wholesale container replacement destroyed it on EVERY CUPE draft — structurally,
+    # 100% (S-4). The top-level `_REWRITABLE_FIELDS` completeness pin cannot see a
+    # nested model's fields, which is why this is restored per matched duty rather than
+    # pinned: the merge duty a rewritten one corresponds to is the one that knows how
+    # often the role performs it.
     flagged: list[str] = []
-    for duty in llm_jd.duties:
-        tokens = _content_tokens(duty.statement, comparison)
-        best = max(
-            (_jaccard(tokens, draft) for draft in draft_duty_tokens), default=0.0
-        )
+    duties: list[SFUDuty] = []
+    for duty, tokens in zip(llm_jd.duties, llm_duty_tokens, strict=True):
+        best_index, best = _closest(tokens, draft_duty_tokens)
         if best < rewrite.duty_flag_threshold:
             flagged.append(duty.statement)
+            duties.append(duty)
+            continue
+        source = merged.draft.duties[best_index]
+        duties.append(
+            duty
+            if duty.frequency is not None
+            else duty.model_copy(update={"frequency": source.frequency})
+        )
+
+    # ← What did the model TAKE AWAY? The question nothing asked (S-2). A merge duty
+    # with no counterpart this close in the rewrite is content the source documents
+    # stated and the draft no longer carries, and "reword this" licenses none of it.
+    # RECORDED, not restored: a rewrite that legitimately folds two near-identical
+    # duties into one is doing its job, and re-adding the fold would fight the pass.
+    # What was missing was the reviewer being told at all.
+    removed_duties = [
+        duty.statement
+        for duty, tokens in zip(merged.draft.duties, draft_duty_tokens, strict=True)
+        if _closest(tokens, llm_duty_tokens)[1] < rewrite.duty_flag_threshold
+    ]
 
     # A SECTION the grounded draft does not have cannot be written by the rewrite
     # (CUPE Phase D). The guard above polices the CONTENT of a section; this polices
@@ -209,12 +287,16 @@ def _apply_anti_fabrication(
         if not getattr(merged.draft, section) and getattr(llm_jd, section):
             emptied[section] = None if section == "relationships" else []
 
-    scrubbed_jd = llm_jd.model_copy(update={"qualifications": kept, **emptied})
+    scrubbed_jd = llm_jd.model_copy(
+        update={"qualifications": kept, "duties": duties, **emptied}
+    )
     return scrubbed_jd, AntiFabricationRecord(
         enabled=True,
         scrubbed_skills=tuple(scrubbed),
         flagged_duties=tuple(flagged),
         scrubbed_sections=tuple(sorted(emptied)),
+        removed_duties=tuple(removed_duties),
+        restored_bars=tuple(restored_bars),
     )
 
 

@@ -8,6 +8,40 @@ code rather than the commit messages. They found ~30 issues; two are P0.
 **Read this before touching CUPE code.** Everything below is CONFIRMED by a reviewer
 running the real code in the `gates` container unless marked SUSPECTED.
 
+## Status (updated 2026-08-19, later)
+
+| finding | state |
+|---|---|
+| P0-1 · the Builder is write-only | **FIXED**, [#123](https://github.com/humanaxiom/jd-assistant/pull/123) |
+| P0-2 · the inverted test / `_split_context_blocks` | **FIXED**, #123 |
+| S-1 · the author picks their own approval bar | **FIXED**, #123 (`FormSpec.assemble_checked`) |
+| S-2 · the rewrite deletes, the change log hides it | **FIXED**, #123 (`removed_duties` + the packet renders the stored draft) |
+| S-3 · invented education / experience / security bars | **FIXED**, #123 (HR-208) |
+| S-4 · `SFUDuty.frequency` destroyed | **FIXED**, #123 |
+| S-5 · "JDFN is the untouched control" is false | **OPEN — and larger than stated.** See below |
+| S-6 · silent truncation | OPEN |
+| producer / rulebook / test-quality lists | OPEN (Phase G) |
+
+⚠ **The fixes are in an unmerged PR and the producer has NOT re-run**, so every draft in
+the live Bank was still written by the old rewrite pass.
+
+**S-5 grew on inspection.** The claim is confirmed against the code: `merge_cluster`
+deliberately never populates `decision_making` / `problem_solving` / `relationships` for
+anyone (`bank/merge.py` ~742), so `_SECTIONS_NEVER_INVENTED`'s antecedent is true on
+every real cluster of every template — the guard empties those sections on JDFN drafts
+too, where the JDFN form legitimately has them. So this is not only "re-measure": the
+guard is not template-scoped and `FormSpec.sections` already declares what each form has.
+Note also that `test_a_section_the_grounded_draft_has_is_left_to_the_rewrite` hand-builds
+a `MergedRole` no `merge_cluster` can produce, which is why the defect survived a green
+suite.
+
+**One correction to this document.** The "register population splice" item below says the
+v4 whole-archive run put the CUPE cohort at 4,300 and that 4,440 is the v3 count.
+Measured directly against `parsed_jds` at `jd_segmenter_v4`: apsa 4,946 · none 4,630 ·
+**cupe 4,440** · apex 420 · poly 50 · excluded 36 (= 14,522). 4,440 **is** the v4 count,
+so HR-202/204/205's population line may be correct as written — re-check before editing
+those entries.
+
 ---
 
 ## 🔴 P0-1 — A CUPE author cannot submit or export. The Builder is write-only.

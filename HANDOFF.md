@@ -2,7 +2,172 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-19) — CUPE shipped, then six reviewers found what one pair of eyes missed
+## ▶ START HERE (2026-08-19, later) — six review findings fixed, and S-5 measured
+
+| | |
+|---|---|
+| `main` | `cf118c7` — #122 merged (the eval fix + the two-forms docs) |
+| **Open PRs** | **[#121](https://github.com/humanaxiom/jd-assistant/pull/121)** Phase F backlog (docs) · **[#124](https://github.com/humanaxiom/jd-assistant/pull/124)** P0-1, P0-2, S-1, S-2, S-3, S-4 — replaces #124, which GitHub closed when #122 squash-merged and deleted its base branch. Verify with `gh pr list`, never from this table |
+| Gates | **2,822 passing, 94.16%** on #124, run locally. `register-check` in step. `rewrite-golden` + `gates-live` both green against the real model |
+| `rules_version` | `+76baba29cfeb` — **still unmoved.** Nothing in #124 changes how a JD is SCORED |
+| Register | **208** decisions, **0 ratified** — HR-208 is new (which qualification kinds the rewrite may author) |
+| Live data | 2,490 DRAFT + 4 PUBLISHED · **237 CUPE drafts rebuilt, the rest still wrong** |
+| Producer run | 🔴 **STILL STOPPED.** S-2/S-3/S-4 are fixed in #124 but **not merged and not re-run** — see below |
+
+### What #124 fixes, and what it does NOT
+
+`docs/tasks/cupe-review-findings-2026-08-19.md` remains the map. Six of its findings
+are now closed:
+
+| | what it was | how it is closed |
+|---|---|---|
+| **P0-1** | a CUPE author could not Submit or Export — the hidden `form` field was in the *check* form only, so both handlers fell back to JDFN and answered with a pydantic error page that wiped everything typed | the field is on all three forms; the CSRF template scanner moved to `tests/unit/template_scan.py` and now asks the same question of `form`; the round trip is driven **from the rendered HTML** (`_browser_pairs`), because every test that synthesises its own POST body supplies the field the page forgets |
+| **P0-2** | `_split_context_blocks` dropped everything before the first canonical heading, and dropped a context with no recognised heading entirely — while its docstring claimed the opposite twice | the preamble opens the first section; the inverted test now tests what its name says, with the no-heading case, the mixed case and a control |
+| **S-1** | a posted `employee_group` chose the ruleset AND the numeric profile: `apsa` → 59.38/D/four gates, `cupe` → 89.05/B/**approved** | `FormSpec.assemble_checked` — assemble, then ask `template_of`, the same question the validator asks. Every seam crosses it: check, assist, submit, export, clone |
+| **S-2** | the rewrite could delete most of a role; the change log reported `removed: []` and `rendered_draft` showed the merge's twelve duties over a row holding three | `removed_duties` asks the other direction on the same threshold; the packet renders **the draft that will be stored** |
+| **S-3** | the model could invent `PhD in Astrophysics required` on a clerical CUPE draft, with an empty record | `rewrite.rewritable_qualification_kinds` (HR-208, `open`). The bars come back from the merge; the swap is recorded in `restored_bars` |
+| **S-4** | `SFUDuty.frequency` destroyed on every CUPE draft — structural, 100%, invisible to the top-level completeness pin | each rewritten duty is matched to its merge duty and carries the frequency back |
+
+**None of this has reached the live Bank.** The fixes are in an unmerged PR, and the
+237 rebuilt CUPE drafts were written by the OLD rewrite — so they still lose duty
+frequencies and may carry invented bars. Re-running the producer is what makes the
+fixes real, and it must not start before #122 → #124 are merged.
+
+### 🔴 S-5 — MEASURED. The guard is not the defect; the 4.1 merge is.
+
+**`docs/baseline/jdfn-remeasure-2026-08-19.md` has the numbers and the argument.** The
+headline, measured against the live Bank:
+
+| JDFN drafts | count | with `decision_making` | mean score |
+|---|---:|---:|---:|
+| written **before** the section guard | 1,156 | 1,084 (93.8%) | **84.61** |
+| written **after** it | 685 | 0 | **66.42** |
+
+`SFU-COMP-DECISION` / `-PROBLEM` / `-RELATIONSHIPS` went from ~6% of JDFN drafts to
+**100%**. Every grade-B JDFN draft in the Bank is a pre-guard one.
+
+**But loosening the guard would be wrong.** The rewrite is fed `_flatten_jd(merged.draft)`
+and nothing else, and that draft's `decision_making` is always empty — so the 1,084
+pre-guard sections were invented from *no source at all*. The 18.19 points are
+fabrication being withdrawn, not a regression. Re-permitting it on JDFN restores an
+18-point lift made of invented content, on the surface where HR-208 was just closed for
+exactly that.
+
+**The real defect is one layer up: 97.0% of JDFN source documents carry
+`decision_making` and 97.4% carry `relationships`, and the 4.1 merge drops all of it as
+"out of scope".** So no JDFN draft the pipeline produces can ever be complete. Merging
+those three sections in 4.1 fixes the guard's input rather than the guard, makes the
+EMPTY-TO-EMPTY protection reachable in production for the first time, and brings the
+points back honestly. It needs a merge policy per section — an HR-207-shaped question,
+so a register entry decided in the same PR. **Not implemented: it changes the whole JDFN
+cohort's output and it is a policy call.**
+
+### The original S-5 framing, for reference
+
+The review flags that "JDFN is the untouched control" is false. **Confirmed against the
+code, not the commit message:** `merge_cluster` deliberately never populates
+`decision_making` / `problem_solving` / `relationships` for *anyone*
+(`bank/merge.py` ~line 742), so `_SECTIONS_NEVER_INVENTED`'s antecedent — "the grounded
+draft does not have this section" — is **true on every real cluster of every template**.
+The guard therefore empties those sections on JDFN drafts too, where the JDFN form
+legitimately HAS them.
+
+Two consequences, and the second is the one to decide:
+
+1. Every JDFN rewritten draft since Phase D carries findings it did not before. **Do not
+   quote any JDFN number until it is re-measured** (the 1,804-draft / mean 52.73 figures
+   are pre-Phase-D and not comparable).
+2. The guard is not template-scoped, and it should be — `FormSpec.sections` already
+   declares which sections each form HAS, which is the same axis as `applies_to` and
+   `thresholds_for`. Fixing it changes what a producer re-run produces for the **whole
+   JDFN cohort**, so it is a decision to take deliberately, not a tidy-up.
+
+⚠ The existing test `test_a_section_the_grounded_draft_has_is_left_to_the_rewrite`
+hand-builds a `MergedRole` whose draft has `problem_solving`. `merge_cluster` cannot
+produce that, so the "EMPTY-TO-EMPTY only" protection it pins is **unreachable in
+production**. That is why the defect survived a green suite.
+
+### Before restarting the producer
+
+```bash
+docker ps --filter "name=canonical-run"     # must be empty
+docker compose exec -T postgres psql -U app -d harness -t -c \
+  "SELECT count(*) FROM canonical_jds WHERE status='DRAFT' \
+   AND coalesce(content->>'additional_context','')<>'';"
+```
+
+That count is the health signal — **237** when the run was stopped, out of ~649 CUPE
+drafts. A progress line reading `refreshed=50 failures=0` looks identical whether the
+drafts are right or ruined; that is how two earlier passes ran for half an hour
+producing garbage.
+
+A verified `-Fc` backup is at `…/scratchpad/harness-pre-full-llm-run.dump` (77.6 MB).
+
+⚠ **`--resume` will not do what you want.** It skips drafts the LLM already wrote, which
+includes every corrupted one, and it permanently abandons clusters whose rewrite failed
+(it keys on "a client was injected", not "the rewrite landed").
+
+### The ~90-second check that must precede ANY producer pass
+
+Two passes were started on unverified fixes and both were still wrong. Drive one real
+all-CUPE cluster through merge → rewrite and compare. Last clean result:
+
+```
+cluster 88c49896 — 132 member JDs
+  MERGE  -> group='cupe' template=wjq context=6007 chars
+  REWRITE-> group='cupe' template=wjq context=6007 chars  duties=8  score=85.29
+```
+
+### The queue, in order
+
+1. **Merge [#124](https://github.com/humanaxiom/jd-assistant/pull/124)** — `main`-based, all local gates + both live goldens green.
+2. **Merge `decision_making` / `problem_solving` / `relationships` in 4.1** — the S-5
+   conclusion (`docs/baseline/jdfn-remeasure-2026-08-19.md`). Needs a per-section merge
+   policy registered like HR-207. This is the JDFN cohort's missing 18 points, honestly.
+3. **Re-run the producer** over the CUPE cohort with the S-2/S-3/S-4 fixes in place, and
+   check the health signal above rather than the progress line.
+4. **Phase F** (`docs/tasks/phase-f-form-scoping-backlog.md`) — search is JDFN-only in
+   both directions, and the dashboards report a pre-CUPE world. D3's per-form draft
+   evaluation renders nowhere, and it is the number HR will ask for.
+5. **Phase G** — the producer and rulebook lists in the review findings. One of them
+   (`--resume` abandoning rewrite-failed clusters) blocks item 3 from being resumable.
+6. 🔴 **TLS at the edge** — still the only genuinely external item. `sfuai.ca:7000` is a
+   Telus NAT forward to `192.168.1.80:25800`, plain HTTP on the public internet.
+7. **HR ratification** — 208 entries, 0 signed, including the bar that gates publishing.
+
+### One correction to the review findings doc
+
+It states the v4 whole-archive run put the CUPE cohort at **4,300** and that 4,440 is the
+v3 count. Measured directly against `parsed_jds` at `jd_segmenter_v4` on 2026-08-19:
+
+```
+apsa 4946 · (none) 4630 · cupe 4440 · apex 420 · poly 50 · excluded 36   (= 14,522)
+```
+
+So **4,440 is the v4 count**, and the register's population line (HR-202/204/205) may be
+right after all. The "register population splice" item in the review needs re-checking
+before anyone edits those entries — 4,300 is the number with no provenance here.
+
+### Process notes worth keeping
+
+- **The live goldens were silently skipping.** `make rewrite-golden` printed
+  `✅ complete` having run nothing, because the probe attempted a completion with a 30s
+  timeout and the GPU was busy. Fixed (`98f284a`) to probe `/api/tags` instead — the
+  distinction is *unreachable* (skip correctly) vs *busy* (skipping is a lie). Nine live
+  tests now genuinely run. Run them after any rewrite/prompt change; `make gates`
+  excludes them by design. **#124 changes the rewrite pass, so run them before merging.**
+- **For a multi-form surface, test the PAGE, not the handler.** P0-1 survived four new
+  tests because each built its own request body. `tests/unit/template_scan.py` +
+  `_browser_pairs` are the durable shape.
+- **Multi-agent review is worth the tokens.** Six reviewers found two P0s, a security
+  amplifier and a vacuous test in ~10 minutes each. Reviewers are always Opus (CLAUDE.md).
+  Tell them to verify against the code, not the commit messages — this repo's docstrings
+  are assertive and were wrong in at least six places, and one of those (the
+  EMPTY-TO-EMPTY claim above) is still live.
+
+---
+
+## ▶ PREVIOUS (2026-08-19, earlier) — CUPE shipped, then six reviewers found what one pair of eyes missed
 
 | | |
 |---|---|

@@ -217,6 +217,14 @@ def _split_context_blocks(context: str | None, rules: Rules) -> dict[WjqSection,
     block and lands in the first section — visible to the author, editable, and not
     silently lost. Splitting a parsed document perfectly is the parser's job, not this
     function's; the round trip this guarantees is Builder → JD → Builder.
+
+    🔴 **That last paragraph described an intention, not the code, until 2026-08-19**
+    (P0-2). The walk started with no current section and kept a line only once a
+    canonical heading had been seen, so anything BEFORE the first heading was dropped —
+    and a context with no recognised heading at all was dropped entirely. It is
+    reachable: ``template_of`` routes on ``employee_group == "cupe"`` alone, so a JDFN
+    document that merely mentions CUPE clones through here carrying ordinary prose. The
+    preamble now opens the first section, which is what the docstring always claimed.
     """
     if not context:
         return {}
@@ -224,15 +232,18 @@ def _split_context_blocks(context: str | None, rules: Rules) -> dict[WjqSection,
     canonical = {headings[target][0]: target for target in WJQ_CONTEXT_TARGETS}
 
     blocks: dict[WjqSection, list[str]] = {}
-    current: WjqSection | None = None
+    # Text before any recognised heading belongs to the first section rather than to
+    # nowhere. Assigned as the starting section rather than buffered separately so the
+    # ordinary case — context that OPENS with that heading — is unchanged: the heading
+    # line re-selects the same target and `setdefault` keeps the (empty) list.
+    current: WjqSection = WJQ_CONTEXT_TARGETS[0]
     for line in context.splitlines():
         stripped = line.strip()
         if stripped in canonical:
             current = canonical[stripped]
             blocks.setdefault(current, [])
             continue
-        if current is not None:
-            blocks[current].append(line)
+        blocks.setdefault(current, []).append(line)
     return {
         target: "\n".join(lines).strip()
         for target, lines in blocks.items()

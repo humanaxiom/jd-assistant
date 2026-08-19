@@ -417,3 +417,77 @@ def test_the_diff_has_no_approval_or_score_surface() -> None:
     assert not (
         fields & {"approved", "canonical", "published", "score", "grade", "approved_by"}
     )
+
+
+# --- S-2: the packet must report the draft that was actually STORED ------------------
+
+
+def test_a_duty_the_rewrite_removed_is_reported_as_removed(rules: Rules) -> None:
+    """S-2 of the 2026-08-19 review, the reporting half. The rewrite pass now records
+    which merge duties it did not return a counterpart for; the change log is where a
+    reviewer reads it, and until it folded that record in, the packet's "removed
+    content and why" list — the artifact whose whole purpose is that nothing vanishes
+    silently — was structurally unable to mention the largest way content vanishes."""
+    cluster = [_member(), _member()]
+    merged = merge_cluster(cluster, rules=rules)
+    record = AntiFabricationRecord(removed_duties=("a duty the rewrite dropped",))
+
+    diff = build_harmonization_diff(merged, cluster, rules=rules, rewrite=record)
+
+    removed = [r for r in diff.removed if r.reason == "duty_removed_by_rewrite"]
+    assert [r.content for r in removed] == ["a duty the rewrite dropped"]
+    # Not attributable to one member: the rewrite works on the merged draft.
+    assert all(r.member_index is None for r in removed)
+
+
+def test_a_bar_the_rewrite_tried_to_invent_is_reported_as_removed(
+    rules: Rules,
+) -> None:
+    """The HR-208 half. An education / experience / security line the model wrote and
+    the guard replaced with the merge's own is content that appeared in the pass and is
+    not in the draft — which is exactly what this list is for."""
+    cluster = [_member(), _member()]
+    merged = merge_cluster(cluster, rules=rules)
+    record = AntiFabricationRecord(restored_bars=("PhD in Astrophysics required",))
+
+    diff = build_harmonization_diff(merged, cluster, rules=rules, rewrite=record)
+
+    removed = [r for r in diff.removed if r.reason == "qualification_bar_restored"]
+    assert [r.content for r in removed] == ["PhD in Astrophysics required"]
+
+
+def test_the_packet_renders_the_draft_that_will_be_stored(rules: Rules) -> None:
+    """🔴 THE CONCEALMENT ITSELF (S-2). ``rendered_draft`` was
+    ``render_sfu_jd_text(merged.draft)`` unconditionally, while the STORED
+    ``canonical_jds.content`` holds the REWRITE's draft.
+    So on the measured 12-duty CUPE case the reviewer's page
+    showed twelve duties, the change log reported ``duties_kept: 12, removed: []``, and
+    the row held three. Every artifact on the review surface agreed with every other —
+    and all of them were describing a draft that no longer existed.
+
+    When a ``RewrittenDraft`` is passed, the render is of THAT draft. Passing a bare
+    record (or nothing) still renders the merge draft, because then there is no later
+    draft to render.
+    """
+    cluster = [_member(), _member()]
+    merged = merge_cluster(cluster, rules=rules)
+    reworded = merged.draft.model_copy(
+        update={"title": "A Title Only The Rewrite Produced"}
+    )
+    rewritten = RewrittenDraft(
+        draft=reworded,
+        score=88.0,
+        grade="B",
+        anti_fabrication=AntiFabricationRecord(),
+        model="test-model",
+        prompt_version="v1",
+        rules_version=rules.version,
+    )
+
+    diff = build_harmonization_diff(merged, cluster, rules=rules, rewrite=rewritten)
+
+    assert "A Title Only The Rewrite Produced" in diff.rendered_draft
+    # ...and the merge-only packet is unchanged: no rewrite ran, nothing to render but
+    # the merge draft.
+    merge_only = build_harmonization_diff(merged, cluster, rules=rules, rewrite=None)
+    assert merge_only.rendered_draft == render_sfu_jd_text(merged.draft)
