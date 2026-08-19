@@ -2,17 +2,17 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-19, later) — six review findings fixed, and S-5 measured
+## ▶ START HERE (2026-08-19, later) — six review findings fixed and MERGED, S-5 measured
 
 | | |
 |---|---|
-| `main` | `cf118c7` — #122 merged (the eval fix + the two-forms docs) |
-| **Open PRs** | **[#121](https://github.com/humanaxiom/jd-assistant/pull/121)** Phase F backlog (docs) · **[#124](https://github.com/humanaxiom/jd-assistant/pull/124)** P0-1, P0-2, S-1, S-2, S-3, S-4 — replaces #124, which GitHub closed when #122 squash-merged and deleted its base branch. Verify with `gh pr list`, never from this table |
-| Gates | **2,822 passing, 94.16%** on #124, run locally. `register-check` in step. `rewrite-golden` + `gates-live` both green against the real model |
+| `main` | `0beda92` — **#122 and #124 both merged.** Nothing from this session is left unmerged |
+| **Open PRs** | **[#121](https://github.com/humanaxiom/jd-assistant/pull/121)** Phase F backlog (docs) — the only one. Verify with `gh pr list`, never from this table |
+| Gates | **2,822 passing, 94.16%** — locally and in CI on #124. `register-check` + `guide-check` exit 0. `rewrite-golden` + `gates-live` green against the real model |
 | `rules_version` | `+76baba29cfeb` — **still unmoved.** Nothing in #124 changes how a JD is SCORED |
 | Register | **208** decisions, **0 ratified** — HR-208 is new (which qualification kinds the rewrite may author) |
 | Live data | 2,490 DRAFT + 4 PUBLISHED · **237 CUPE drafts rebuilt, the rest still wrong** |
-| Producer run | 🔴 **STILL STOPPED.** S-2/S-3/S-4 are fixed in #124 but **not merged and not re-run** — see below |
+| Producer run | 🔴 **STILL STOPPED.** The S-2/S-3/S-4 fixes are on `main` now but **have never been re-run**, so every draft in the Bank predates them — see below |
 
 ### What #124 fixes, and what it does NOT
 
@@ -28,10 +28,10 @@ are now closed:
 | **S-3** | the model could invent `PhD in Astrophysics required` on a clerical CUPE draft, with an empty record | `rewrite.rewritable_qualification_kinds` (HR-208, `open`). The bars come back from the merge; the swap is recorded in `restored_bars` |
 | **S-4** | `SFUDuty.frequency` destroyed on every CUPE draft — structural, 100%, invisible to the top-level completeness pin | each rewritten duty is matched to its merge duty and carries the frequency back |
 
-**None of this has reached the live Bank.** The fixes are in an unmerged PR, and the
-237 rebuilt CUPE drafts were written by the OLD rewrite — so they still lose duty
-frequencies and may carry invented bars. Re-running the producer is what makes the
-fixes real, and it must not start before #122 → #124 are merged.
+**None of this has reached the live Bank.** The code is on `main`, but the producer has
+not re-run since — so all 237 rebuilt CUPE drafts were written by the OLD rewrite and
+still lose duty frequencies and may carry invented bars. **Merging the fix is not the
+same as fixing the data.** Re-running the producer is what makes them real.
 
 ### 🔴 S-5 — MEASURED. The guard is not the defect; the 4.1 merge is.
 
@@ -87,25 +87,51 @@ hand-builds a `MergedRole` whose draft has `problem_solving`. `merge_cluster` ca
 produce that, so the "EMPTY-TO-EMPTY only" protection it pins is **unreachable in
 production**. That is why the defect survived a green suite.
 
-### Before restarting the producer
+### ▶ IF YOU ARE STARTING COLD, DO THESE FOUR THINGS FIRST
 
 ```bash
-docker ps --filter "name=canonical-run"     # must be empty
+git fetch && git log --oneline origin/main -1     # expect 0beda92 or later
+gh pr list                                        # the table above lags; this does not
+docker ps --filter "name=canonical-run"           # MUST be empty before any producer work
 docker compose exec -T postgres psql -U app -d harness -t -c \
   "SELECT count(*) FROM canonical_jds WHERE status='DRAFT' \
    AND coalesce(content->>'additional_context','')<>'';"
 ```
 
-That count is the health signal — **237** when the run was stopped, out of ~649 CUPE
-drafts. A progress line reading `refreshed=50 failures=0` looks identical whether the
-drafts are right or ruined; that is how two earlier passes ran for half an hour
-producing garbage.
+Verified 2026-08-19 20:5x UTC: **2,490 DRAFT · 4 PUBLISHED · 649 CUPE drafts · 237 of
+them carrying point-factor context.** That last number is the health signal for a CUPE
+producer pass, and it is the ONLY one that distinguishes a good run from a ruined one —
+`refreshed=50 failures=0` prints identically either way.
 
-A verified `-Fc` backup is at `…/scratchpad/harness-pre-full-llm-run.dump` (77.6 MB).
+🔴 **THE BACKUP IS IN A DEAD SESSION'S SCRATCHPAD.** A fresh session's scratchpad is a
+different directory, so it will not find it by convention. The verified `-Fc` dump of the
+Bank (77.6 MiB, taken before the full LLM run) is at:
 
-⚠ **`--resume` will not do what you want.** It skips drafts the LLM already wrote, which
-includes every corrupted one, and it permanently abandons clusters whose rewrite failed
-(it keys on "a client was injected", not "the rewrite landed").
+```
+C:\Users\adam\AppData\Local\Temp\claude\c--repos-JD-Assistant\
+  b59bc387-f7e3-451d-ae54-2a947281a9c6\scratchpad\harness-pre-full-llm-run.dump
+```
+
+**It is in a temp directory and nothing guarantees it survives.** Copy it somewhere
+durable before touching the producer. And when restoring: a full `-Fc` dump into an
+EMPTY database — `pg_restore --data-only` wipes the Bank and exits 0.
+
+### The queue, in order
+
+1. **Re-run the producer** over the CUPE cohort — the S-2/S-3/S-4 fixes are on `main`
+   and no draft in the Bank has seen them. Check the health signal above, not the
+   progress line. ⚠ `--resume` will skip every corrupted draft (see the warning above).
+2. **Merge `decision_making` / `problem_solving` / `relationships` in 4.1** — the S-5
+   conclusion (`docs/baseline/jdfn-remeasure-2026-08-19.md`). Needs a per-section merge
+   policy registered like HR-207. This is the JDFN cohort's missing 18 points, honestly.
+3. **Phase F** (`docs/tasks/phase-f-form-scoping-backlog.md`) — search is JDFN-only in
+   both directions, and the dashboards report a pre-CUPE world. D3's per-form draft
+   evaluation renders nowhere, and it is the number HR will ask for.
+4. **Phase G** — the producer and rulebook lists in the review findings. One of them
+   (`--resume` abandoning rewrite-failed clusters) blocks item 1 from being resumable.
+5. 🔴 **TLS at the edge** — still the only genuinely external item. `sfuai.ca:7000` is a
+   Telus NAT forward to `192.168.1.80:25800`, plain HTTP on the public internet.
+6. **HR ratification** — 208 entries, 0 signed, including the bar that gates publishing.
 
 ### The ~90-second check that must precede ANY producer pass
 
@@ -118,22 +144,67 @@ cluster 88c49896 — 132 member JDs
   REWRITE-> group='cupe' template=wjq context=6007 chars  duties=8  score=85.29
 ```
 
-### The queue, in order
+### ▶ ITEM 1 IN DETAIL — the producer re-run
 
-1. **Merge [#124](https://github.com/humanaxiom/jd-assistant/pull/124)** — `main`-based, all local gates + both live goldens green.
-2. **Merge `decision_making` / `problem_solving` / `relationships` in 4.1** — the S-5
-   conclusion (`docs/baseline/jdfn-remeasure-2026-08-19.md`). Needs a per-section merge
-   policy registered like HR-207. This is the JDFN cohort's missing 18 points, honestly.
-3. **Re-run the producer** over the CUPE cohort with the S-2/S-3/S-4 fixes in place, and
-   check the health signal above rather than the progress line.
-4. **Phase F** (`docs/tasks/phase-f-form-scoping-backlog.md`) — search is JDFN-only in
-   both directions, and the dashboards report a pre-CUPE world. D3's per-form draft
-   evaluation renders nowhere, and it is the number HR will ask for.
-5. **Phase G** — the producer and rulebook lists in the review findings. One of them
-   (`--resume` abandoning rewrite-failed clusters) blocks item 3 from being resumable.
-6. 🔴 **TLS at the edge** — still the only genuinely external item. `sfuai.ca:7000` is a
-   Telus NAT forward to `192.168.1.80:25800`, plain HTTP on the public internet.
-7. **HR ratification** — 208 entries, 0 signed, including the bar that gates publishing.
+The S-2/S-3/S-4 fixes are on `main` and **no draft in the Bank has seen them.** Until
+this runs, every CUPE draft still loses its duty frequencies and may carry an invented
+hiring bar.
+
+**Do the ~90-second check first** (below) — two earlier passes were started on unverified
+fixes and both produced garbage for half an hour before anyone noticed.
+
+```bash
+make canonical-drafts CANONICAL_ARGS="--commit-every 25"
+```
+
+⚠ **Do NOT add `--resume`.** It skips drafts the LLM already wrote — which is *every
+corrupted one* — and it permanently abandons clusters whose rewrite failed, because it
+keys on "a client was injected" (`pipeline.llm_enabled`) rather than "the rewrite
+landed". The clusters that most need retrying are exactly the ones it can never retry.
+Fixing that (key on `rewrite_ran` / `not rewrite_failed`) is a Phase G item and it is
+what would make this pass resumable; a full pass is ~44 hours without it.
+
+⚠ `--resume --allow-downgrade --no-llm` is a silent no-op — resume fires first, the
+deliberate re-baseline never happens, and the run exits 0.
+
+### ▶ ITEM 2 IN DETAIL — merging the three sections in 4.1
+
+`docs/baseline/jdfn-remeasure-2026-08-19.md` is the argument and the evidence. The work:
+
+1. `merge_cluster` (`core/src/jd_core/bank/merge.py` ~742) currently drops
+   `decision_making` / `problem_solving` / `relationships` / `position_number` as "out
+   of scope" and flags `sections_not_merged`. Merge the first three.
+2. Each needs a POLICY — `drop` / `longest` / union — which is an HR-207-shaped question
+   and therefore **a register entry decided in the same PR**, not a quiet default.
+   `problem_solving` is the interesting one: only 44.9% of JDFN sources have it, so a
+   cluster where half the members carry the section is a real question about what the
+   harmonized role should say.
+3. It should move `harmonization.yaml` (unhashed), so `rules_version` stays put.
+4. Afterwards, `_SECTIONS_NEVER_INVENTED`'s EMPTY-TO-EMPTY rule becomes reachable in
+   production for the first time — replace
+   `test_a_section_the_grounded_draft_has_is_left_to_the_rewrite`'s hand-built
+   `MergedRole` (which `merge_cluster` cannot produce) with a real merge.
+
+### ▶ WHAT THIS SESSION LEARNED THAT IS NOT IN A DIFF
+
+- **For a multi-form surface, test the PAGE, not the handler.** P0-1 survived four new
+  tests because each built its own request body and supplied the field the page forgot.
+  `core/tests/unit/template_scan.py` + `_browser_pairs` in `test_compose_ui.py` are the
+  durable shape; the CSRF scanner had been asking exactly this question of one field
+  since Phase 8 and nobody generalised it.
+- **A guard's own test can be unreachable in production.** Two of them were: the
+  EMPTY-TO-EMPTY section test hand-builds a `MergedRole` the merge cannot produce, and
+  `test_unrecognised_context_text_is_kept_rather_than_dropped` asserted the opposite of
+  its own name. Both were green. When a test constructs its own fixture rather than
+  driving the real producer, ask whether the shape it built can actually occur.
+- **Measure before accepting a review's fix.** S-5's stated remedy — scope the section
+  guard to CUPE — would have restored an 18-point score lift made of content the model
+  invented from nothing. The review's *finding* was right and its *fix* was backwards,
+  and only the query told the difference.
+- **`make gates` locally before every commit, and the live goldens after any rewrite or
+  prompt change.** `make rewrite-golden` + `make gates-live` both ran green this session
+  against `aria-gb10-2`; they are excluded from `make gates` by design and CI can never
+  run them.
 
 ### One correction to the review findings doc
 
