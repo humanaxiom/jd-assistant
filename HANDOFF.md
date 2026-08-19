@@ -87,36 +87,34 @@ hand-builds a `MergedRole` whose draft has `problem_solving`. `merge_cluster` ca
 produce that, so the "EMPTY-TO-EMPTY only" protection it pins is **unreachable in
 production**. That is why the defect survived a green suite.
 
-### Before restarting the producer
+### ▶ IF YOU ARE STARTING COLD, DO THESE FOUR THINGS FIRST
 
 ```bash
-docker ps --filter "name=canonical-run"     # must be empty
+git fetch && git log --oneline origin/main -1     # expect 0beda92 or later
+gh pr list                                        # the table above lags; this does not
+docker ps --filter "name=canonical-run"           # MUST be empty before any producer work
 docker compose exec -T postgres psql -U app -d harness -t -c \
   "SELECT count(*) FROM canonical_jds WHERE status='DRAFT' \
    AND coalesce(content->>'additional_context','')<>'';"
 ```
 
-That count is the health signal — **237** when the run was stopped, out of ~649 CUPE
-drafts. A progress line reading `refreshed=50 failures=0` looks identical whether the
-drafts are right or ruined; that is how two earlier passes ran for half an hour
-producing garbage.
+Verified 2026-08-19 20:5x UTC: **2,490 DRAFT · 4 PUBLISHED · 649 CUPE drafts · 237 of
+them carrying point-factor context.** That last number is the health signal for a CUPE
+producer pass, and it is the ONLY one that distinguishes a good run from a ruined one —
+`refreshed=50 failures=0` prints identically either way.
 
-A verified `-Fc` backup is at `…/scratchpad/harness-pre-full-llm-run.dump` (77.6 MB).
-
-⚠ **`--resume` will not do what you want.** It skips drafts the LLM already wrote, which
-includes every corrupted one, and it permanently abandons clusters whose rewrite failed
-(it keys on "a client was injected", not "the rewrite landed").
-
-### The ~90-second check that must precede ANY producer pass
-
-Two passes were started on unverified fixes and both were still wrong. Drive one real
-all-CUPE cluster through merge → rewrite and compare. Last clean result:
+🔴 **THE BACKUP IS IN A DEAD SESSION'S SCRATCHPAD.** A fresh session's scratchpad is a
+different directory, so it will not find it by convention. The verified `-Fc` dump of the
+Bank (77.6 MiB, taken before the full LLM run) is at:
 
 ```
-cluster 88c49896 — 132 member JDs
-  MERGE  -> group='cupe' template=wjq context=6007 chars
-  REWRITE-> group='cupe' template=wjq context=6007 chars  duties=8  score=85.29
+C:\Users\adam\AppData\Local\Temp\claude\c--repos-JD-Assistant\
+  b59bc387-f7e3-451d-ae54-2a947281a9c6\scratchpad\harness-pre-full-llm-run.dump
 ```
+
+**It is in a temp directory and nothing guarantees it survives.** Copy it somewhere
+durable before touching the producer. And when restoring: a full `-Fc` dump into an
+EMPTY database — `pg_restore --data-only` wipes the Bank and exits 0.
 
 ### The queue, in order
 
@@ -134,6 +132,79 @@ cluster 88c49896 — 132 member JDs
 5. 🔴 **TLS at the edge** — still the only genuinely external item. `sfuai.ca:7000` is a
    Telus NAT forward to `192.168.1.80:25800`, plain HTTP on the public internet.
 6. **HR ratification** — 208 entries, 0 signed, including the bar that gates publishing.
+
+### The ~90-second check that must precede ANY producer pass
+
+Two passes were started on unverified fixes and both were still wrong. Drive one real
+all-CUPE cluster through merge → rewrite and compare. Last clean result:
+
+```
+cluster 88c49896 — 132 member JDs
+  MERGE  -> group='cupe' template=wjq context=6007 chars
+  REWRITE-> group='cupe' template=wjq context=6007 chars  duties=8  score=85.29
+```
+
+### ▶ ITEM 1 IN DETAIL — the producer re-run
+
+The S-2/S-3/S-4 fixes are on `main` and **no draft in the Bank has seen them.** Until
+this runs, every CUPE draft still loses its duty frequencies and may carry an invented
+hiring bar.
+
+**Do the ~90-second check first** (below) — two earlier passes were started on unverified
+fixes and both produced garbage for half an hour before anyone noticed.
+
+```bash
+make canonical-drafts CANONICAL_ARGS="--commit-every 25"
+```
+
+⚠ **Do NOT add `--resume`.** It skips drafts the LLM already wrote — which is *every
+corrupted one* — and it permanently abandons clusters whose rewrite failed, because it
+keys on "a client was injected" (`pipeline.llm_enabled`) rather than "the rewrite
+landed". The clusters that most need retrying are exactly the ones it can never retry.
+Fixing that (key on `rewrite_ran` / `not rewrite_failed`) is a Phase G item and it is
+what would make this pass resumable; a full pass is ~44 hours without it.
+
+⚠ `--resume --allow-downgrade --no-llm` is a silent no-op — resume fires first, the
+deliberate re-baseline never happens, and the run exits 0.
+
+### ▶ ITEM 2 IN DETAIL — merging the three sections in 4.1
+
+`docs/baseline/jdfn-remeasure-2026-08-19.md` is the argument and the evidence. The work:
+
+1. `merge_cluster` (`core/src/jd_core/bank/merge.py` ~742) currently drops
+   `decision_making` / `problem_solving` / `relationships` / `position_number` as "out
+   of scope" and flags `sections_not_merged`. Merge the first three.
+2. Each needs a POLICY — `drop` / `longest` / union — which is an HR-207-shaped question
+   and therefore **a register entry decided in the same PR**, not a quiet default.
+   `problem_solving` is the interesting one: only 44.9% of JDFN sources have it, so a
+   cluster where half the members carry the section is a real question about what the
+   harmonized role should say.
+3. It should move `harmonization.yaml` (unhashed), so `rules_version` stays put.
+4. Afterwards, `_SECTIONS_NEVER_INVENTED`'s EMPTY-TO-EMPTY rule becomes reachable in
+   production for the first time — replace
+   `test_a_section_the_grounded_draft_has_is_left_to_the_rewrite`'s hand-built
+   `MergedRole` (which `merge_cluster` cannot produce) with a real merge.
+
+### ▶ WHAT THIS SESSION LEARNED THAT IS NOT IN A DIFF
+
+- **For a multi-form surface, test the PAGE, not the handler.** P0-1 survived four new
+  tests because each built its own request body and supplied the field the page forgot.
+  `core/tests/unit/template_scan.py` + `_browser_pairs` in `test_compose_ui.py` are the
+  durable shape; the CSRF scanner had been asking exactly this question of one field
+  since Phase 8 and nobody generalised it.
+- **A guard's own test can be unreachable in production.** Two of them were: the
+  EMPTY-TO-EMPTY section test hand-builds a `MergedRole` the merge cannot produce, and
+  `test_unrecognised_context_text_is_kept_rather_than_dropped` asserted the opposite of
+  its own name. Both were green. When a test constructs its own fixture rather than
+  driving the real producer, ask whether the shape it built can actually occur.
+- **Measure before accepting a review's fix.** S-5's stated remedy — scope the section
+  guard to CUPE — would have restored an 18-point score lift made of content the model
+  invented from nothing. The review's *finding* was right and its *fix* was backwards,
+  and only the query told the difference.
+- **`make gates` locally before every commit, and the live goldens after any rewrite or
+  prompt change.** `make rewrite-golden` + `make gates-live` both ran green this session
+  against `aria-gb10-2`; they are excluded from `make gates` by design and CI can never
+  run them.
 
 ### One correction to the review findings doc
 
