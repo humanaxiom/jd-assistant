@@ -22,31 +22,60 @@ from __future__ import annotations
 import asyncio
 import math
 
+import httpx
 import pytest
 
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_core.rules import get_rules
+from src.settings import get_settings
 
 pytestmark = pytest.mark.live
 
 
-def _probe_reachable() -> bool:
+def _endpoint_is_up() -> bool:
+    """Is the inference HOST up — asked WITHOUT running inference.
+
+    ⚠ **This used to attempt a completion, and that silently disabled the golden
+    whenever the GPU was busy.** Found 2026-08-19: a full canonical-producer pass was
+    saturating `aria-gb10-2`, a 30-second completion probe timed out, the fixture read
+    "unreachable", every test skipped, and `make gates-live` printed its success
+    line and exited 0 — reporting a passing golden that had run nothing.
+
+    The two states the old probe conflated are genuinely different:
+
+    * **unreachable** — off-VPN, wrong host, service down. Skipping is CORRECT; a
+      developer elsewhere must not fail on a local-only test (ADR-003).
+    * **busy** — the host is up and will answer, just not in 30 seconds. Skipping is a
+      LIE, and the worse kind: it is silent, and it fires exactly when the system is
+      under the load a golden is most worth running against.
+
+    So reachability is now asked of the model list — cheap, no inference, no GPU — and
+    inference latency is left to the tests' own ``--timeout=300``. The file already
+    carried one fix for a false skip (a reasoning-token budget that starved the reply);
+    this is the second, and the pattern is the same: **a probe that cannot tell
+    "no" from "not yet" turns a safety net off without telling anyone.**
+    """
+    base = get_settings().ollama_base_url.rstrip("/")
+    tags = (
+        base[: -len("/v1")] + "/api/tags"
+        if base.endswith("/v1")
+        else base + "/api/tags"
+    )
+
     async def _try() -> bool:
-        client = EmbedClient(rules=get_rules())
         try:
-            await asyncio.wait_for(client.embed_batch(["probe"]), timeout=5.0)
-            return True
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(tags)
+                return response.status_code == 200
         except Exception:  # noqa: BLE001 - any failure means "not reachable right now"
             return False
-        finally:
-            await client.close()
 
     return asyncio.run(_try())
 
 
 @pytest.fixture(autouse=True)
 def _skip_if_unreachable() -> None:
-    if not _probe_reachable():
+    if not _endpoint_is_up():
         pytest.skip(
             "aria-gb10-2 (Ollama) is unreachable from this host — local-only test, "
             "see ADR-003"
