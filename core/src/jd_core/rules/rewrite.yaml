@@ -81,7 +81,28 @@ skill_grounding_threshold: 0.5
 # The minimum token-Jaccard a rewritten DUTY must share with SOME draft duty. Below it the
 # duty is FLAGGED (recorded, never dropped — a duty may legitimately rephrase, so a
 # low-overlap duty is an HR eyeball, not a scrub). PROVISIONAL. HR-184.
+#
+# The same threshold, read in the OTHER direction, decides whether a MERGE duty still has
+# a counterpart in the rewrite: a merge duty matching no rewritten duty this closely is
+# recorded as REMOVED (`AntiFabricationRecord.removed_duties`), and a rewritten duty that
+# DOES match carries its merge duty's `frequency` back. One number, both directions —
+# deliberately not a second knob, because "close enough to be the same duty" is one
+# question and answering it twice is how two thresholds drift apart.
 duty_flag_threshold: 0.2
+
+# Which QUALIFICATION KINDS the rewrite is allowed to author. Everything else the model
+# returns is discarded and the 4.1 merge draft's own qualifications of that kind are
+# RESTORED verbatim (recorded in `AntiFabricationRecord.restored_bars`). HR-208.
+#
+# knowledge / skill / ability are free-text competencies — rewording them is the pass's
+# job, and the grounding guard (`skill_grounding_*`) polices what it may say. education /
+# experience / security are STRUCTURAL BARS the 4.1 merge derives from member signals,
+# and a language model has no source for them: it was measured inserting `PhD in
+# Astrophysics required` and `Enhanced Reliability security clearance` on a clerical CUPE
+# draft, with an empty anti-fabrication record, because the grounding guard read only the
+# three kinds below. On an HR system an invented hiring bar is the highest-consequence
+# fabrication there is — it is what screens candidates out.
+rewritable_qualification_kinds: [knowledge, skill, ability]
 
 # How long ONE INTERACTIVE assist request (the Builder's "improve my summary") may wait
 # on the chat model before it gives up and returns the author's page with an
