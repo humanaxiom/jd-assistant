@@ -76,10 +76,11 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument(
         "--resume",
         action="store_true",
-        help="skip clusters whose draft the FULL pipeline already wrote — the resume "
+        help="skip clusters whose draft already HOLDS a landed rewrite — the resume "
         "for an interrupted LLM pass. A complete pass over this archive measures ~44 "
         "hours, so without it an interruption anywhere means paying for every cluster "
-        "again. Same property `make embed` has had since Phase 3.2.",
+        "again. Same property `make embed` has had since Phase 3.2. A cluster whose "
+        "rewrite FAILED holds only the deterministic merge, so a resume retries it.",
     )
     parser.add_argument(
         "--commit-every",

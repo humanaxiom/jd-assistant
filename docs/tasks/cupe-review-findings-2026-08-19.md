@@ -164,11 +164,13 @@ pathology the rulebook names elsewhere.
 
 ## Producer / data integrity
 
-- **`--resume` permanently abandons rewrite-failed clusters.** `pipeline.llm_enabled` means
-  "a client was injected", not "the rewrite landed", so a cluster whose rewrite raised holds
-  a deterministic draft stamped `llm_enabled: True` and is skipped by every future resume,
-  counted as "owes no further work". **The clusters that most need retrying are the ones
-  resume can never retry.** Fix: key on `rewrite_ran` / `not rewrite_failed`.
+- ~~**`--resume` permanently abandons rewrite-failed clusters.**~~ **CLOSED (#126).**
+  `pipeline.llm_enabled` meant "a client was injected", not "the rewrite landed", so a
+  cluster whose rewrite raised held a deterministic draft stamped `llm_enabled: True`
+  and was skipped by every future resume — and, by the same misread, protected from a
+  cheap run by the no-DOWNGRADE guard. **Measured on the live Bank: 44 drafts,
+  unreachable by any producer invocation that did not name them.** `draft_was_llm_written`
+  is now `draft_has_rewritten_prose` and asks `rewrite_ran and not rewrite_failed`.
 - **Counters do not partition.** Three shapes fall through every counter:
   `templates_harmonized=("wjq",)` with an all-JDFN cluster; a mixed cluster under
   `("wjq","jdfn")`; a cluster whose members all fail to load. `wjq_members_authored` counts
@@ -178,8 +180,10 @@ pathology the rulebook names elsewhere.
 - **The `clusters` snapshot is write-once**, so re-ordering `templates_harmonized` re-authors
   the canonical while the cluster row keeps claiming the old form and the old sources — the
   Library would show APSA documents as the sources of a CUPE draft.
-- **A resume skip writes no audit row**, contradicting the module's own stated invariant
-  ("one audit row per persist/refresh and per skip").
+- ~~**A resume skip writes no audit row**~~ **CLOSED (#126).** It was the one skip that
+  wrote none, contradicting the module's own stated invariant ("one audit row per
+  persist/refresh and per skip"). Now `canonical_draft.skipped_resume` /
+  `reason=resume_rewrite_already_landed` — counts and flags only, never JD text.
 - **`--resume --allow-downgrade --no-llm` is a silent no-op** — resume fires first, so the
   deliberate re-baseline never happens and the run exits 0.
 - **A member dropped by `load_member_jds` is invisible per cluster** — `members_excluded`

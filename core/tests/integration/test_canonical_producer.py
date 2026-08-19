@@ -734,6 +734,113 @@ async def test_resume_skips_the_clusters_an_llm_pass_already_finished(
         assert third.seen == [SFUJobDescription]
 
 
+@pytest.mark.asyncio
+async def test_resume_retries_a_cluster_whose_rewrite_failed(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """🔴 THE DEFECT: ``--resume`` permanently abandoned the clusters that most needed
+    retrying — measured on the live Bank on 2026-08-19 at **44 drafts**.
+
+    A rewrite failure is isolated, never fatal: the cluster keeps the deterministic
+    merge draft and the run continues (that is deliberate — see ``_run_llm_passes``).
+    But the resume predicate asked ``pipeline.llm_enabled``, which records only that a
+    client was INJECTED. So a cluster whose rewrite raised was stamped ``llm_enabled:
+    true`` exactly like one whose rewrite landed, and every later ``--resume`` pass
+    skipped it. The transient failure became permanent, and a ~44-hour pass could never
+    repair the rows it had itself damaged.
+
+    ``rewrite_ran`` / ``rewrite_failed`` were already written to the same packet since
+    Phase 4.2a. Nothing needed to be recorded; the wrong field was being read.
+
+    Pinned by the model call COUNT, because the point is that the work IS redone.
+    """
+    async with session_maker() as session:
+        await _seed_pair(session)
+        await session.commit()
+
+        # A pass whose rewrite raises: the merge draft is kept, the run continues.
+        failed = _FakeChat(raise_on="rewrite")
+        first = await run_canonical_producer(
+            session, rewrite_client=failed, audit_client=_FakeChat()
+        )
+        await session.commit()
+
+        assert first.rewrite_failures == 1
+        assert first.drafts_persisted == 1
+        written = await session.scalar(select(CanonicalJD))
+        assert written is not None
+        # The row records BOTH facts: a client was injected, and the rewrite did
+        # not land.
+        assert written.change_log["pipeline"]["llm_enabled"] is True
+        assert written.change_log["pipeline"]["rewrite_ran"] is False
+        assert written.change_log["pipeline"]["rewrite_failed"] is True
+
+        # The resume owes this cluster work — the draft holds no rewritten prose.
+        second = _FakeChat()
+        resumed = await run_canonical_producer(
+            session,
+            rewrite_client=second,
+            audit_client=_FakeChat(),
+            skip_llm_written=True,
+        )
+        await session.commit()
+
+        assert resumed.skipped_already_llm_written == 0
+        assert resumed.drafts_refreshed == 1
+        assert second.seen == [SFUJobDescription]  # the retry was actually attempted
+
+        repaired = await session.get(CanonicalJD, written.id)
+        assert repaired is not None
+        assert repaired.change_log["pipeline"]["rewrite_ran"] is True
+        assert repaired.change_log["pipeline"]["rewrite_failed"] is False
+
+        # ...and NOW a further resume leaves it alone, so the fix narrows the skip
+        # rather than removing it.
+        third = _FakeChat()
+        settled = await run_canonical_producer(
+            session,
+            rewrite_client=third,
+            audit_client=_FakeChat(),
+            skip_llm_written=True,
+        )
+        await session.commit()
+
+        assert settled.skipped_already_llm_written == 1
+        assert settled.drafts_refreshed == 0
+        assert third.seen == []
+
+
+@pytest.mark.asyncio
+async def test_a_deterministic_run_may_refresh_a_draft_whose_rewrite_failed(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """The no-DOWNGRADE rule protects LLM-written PROSE. A rewrite-failed draft holds
+    the deterministic merge and nothing else, so refreshing it with a deterministic run
+    replaces a merge with a merge — not a downgrade, and blocking it was the same
+    misread of ``llm_enabled`` as the resume bug.
+
+    The consequence on the live Bank: those 44 rows could be repaired by neither an
+    expensive run (resume skipped them) nor a cheap one (the downgrade guard skipped
+    them). They were unreachable by any producer invocation that did not name them.
+    """
+    async with session_maker() as session:
+        await _seed_pair(session)
+        await session.commit()
+
+        await run_canonical_producer(
+            session,
+            rewrite_client=_FakeChat(raise_on="rewrite"),
+            audit_client=_FakeChat(),
+        )
+        await session.commit()
+
+        cheap = await run_canonical_producer(session, rewrite_client=None)
+        await session.commit()
+
+        assert cheap.skipped_would_downgrade == 0
+        assert cheap.drafts_refreshed == 1
+
+
 # --- acceptance #5: APPEND-ONLY audit ------------------------------------------------
 
 
@@ -795,6 +902,51 @@ async def test_a_skip_writes_an_append_only_audit_row(
         assert len(rows) == 1
         assert rows[0].event_type == "canonical_draft.skipped_reviewer_touched"
         assert rows[0].payload["reason"] == "reviewer_touched"
+
+
+@pytest.mark.asyncio
+async def test_a_resume_skip_writes_an_append_only_audit_row(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """The module's stated invariant (NN #6, module docstring) is "one ``audit_log`` row
+    per persist/refresh **and per skip**". The RESUME skip was the one skip that wrote
+    nothing, so a resumed pass over the live Bank left no record of which clusters it
+    declined and why — during exactly the ~44-hour run where telling a good pass from a
+    ruined one matters most, and where `refreshed=N failures=0` prints identically
+    either way.
+    """
+    async with session_maker() as session:
+        await _seed_pair(session)
+        await session.commit()
+
+        await run_canonical_producer(
+            session, rewrite_client=_FakeChat(), audit_client=_FakeChat()
+        )
+        await session.commit()
+
+        resumed = await run_canonical_producer(
+            session,
+            rewrite_client=_FakeChat(),
+            audit_client=_FakeChat(),
+            skip_llm_written=True,
+        )
+        await session.commit()
+        assert resumed.skipped_already_llm_written == 1
+
+    async with session_maker() as session:
+        skips = (
+            await session.scalars(
+                select(AuditLog).where(
+                    AuditLog.event_type == "canonical_draft.skipped_resume"
+                )
+            )
+        ).all()
+        assert len(skips) == 1
+        assert skips[0].actor == "producer"
+        assert skips[0].payload["reason"] == "resume_rewrite_already_landed"
+        # Counts/flags only — NEVER JD text / incumbent PII.
+        assert "cluster_id" in skips[0].payload
+        assert "title" not in skips[0].payload
 
 
 # --- acceptance #7: cluster spine reused — WJQ excluded + counted --------------------
