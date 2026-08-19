@@ -2,7 +2,202 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-19, later) — six review findings fixed and MERGED, S-5 measured
+## ▶ START HERE (2026-08-19, latest) — `--resume` fixed; the producer re-run is now restartable
+
+| | |
+|---|---|
+| `main` | `033eac8` — **#125 and #126 both merged.** Nothing from this session is left unmerged |
+| **Open PRs** | **[#121](https://github.com/humanaxiom/jd-assistant/pull/121)** Phase F backlog (docs) — the only one. Verify with `gh pr list`, never from this table |
+| Gates | **2,825 passing, 94.16%** — locally and in CI on #126. `register-check` + `guide-check` exit 0 |
+| `rules_version` | `+76baba29cfeb` — **still unmoved.** #126 touches no rulebook YAML; nothing changes how a JD is SCORED |
+| Register | **208** decisions, **0 ratified**. #126 adds none — a predicate reading the wrong field is not a tunable default |
+| Live data | 2,490 DRAFT + 4 PUBLISHED · **237 CUPE drafts rebuilt, the rest still wrong** — unchanged, #126 touched no data |
+| Producer run | 🔴 **STILL STOPPED** — but it is now **restartable**, which it was not this morning |
+| Backup | ✅ **out of temp.** `C:\Users\adam\jd-bank-backups\harness-pre-full-llm-run.dump` (81,331,260 B, verified byte-identical to the original) |
+
+### What #126 fixes
+
+The Phase G item that blocked item 1 from being resumable. `draft_was_llm_written` read
+`change_log.pipeline.llm_enabled`, which records only that a rewrite **client was
+injected**. A rewrite failure is isolated rather than fatal — the cluster keeps the
+deterministic merge draft and the run continues — so a failed cluster was stamped
+`llm_enabled: true` indistinguishably from one whose rewrite succeeded.
+
+**Both callers of that predicate misread it, and the second one is not in the review
+findings:**
+
+| caller | question it thought it asked | what it actually skipped |
+|---|---|---|
+| `--resume` | "does an expensive run still owe this work?" | clusters whose rewrite **raised** |
+| no-DOWNGRADE guard | "may a cheap run overwrite this?" | the same clusters, as though they held prose they do not hold |
+
+So those rows were reachable by **no producer invocation that did not name them
+individually** — and a ~44-hour pass could not repair the rows it had itself damaged.
+
+Measured against the live Bank:
+
+```
+ llm_enabled | rewrite_ran | rewrite_failed | count
+-------------+-------------+----------------+-------
+ true        | true        | false          |  2021
+ false       | false       | false          |   423
+ true        | false       | true           |    44   <-- abandoned
+             |             |                |     2
+```
+
+The resume's skip count over the current Bank moves **2,065 → 2,021** — exactly those 44
+recovered. `rewrite_ran` / `rewrite_failed` had been in the same packet since Phase 4.2a;
+nothing new is recorded, the wrong field was being read. The predicate is now
+`draft_has_rewritten_prose`, because the old name was the bug stated out loud.
+
+**Also closed:** a resume skip wrote no audit row — the only skip violating the module's
+own invariant ("one `audit_log` row per persist/refresh and per skip"). Now
+`canonical_draft.skipped_resume` / `reason=resume_rewrite_already_landed`.
+
+⚠ **#126 makes the 44 drafts REACHABLE, not fixed.** They still hold a deterministic
+merge with no rewrite. The producer re-run is what repairs them.
+
+### 🔴 S-5 — MEASURED. The guard is not the defect; the 4.1 merge is.
+
+**`docs/baseline/jdfn-remeasure-2026-08-19.md` has the numbers and the argument.** The
+headline, measured against the live Bank:
+
+| JDFN drafts | count | with `decision_making` | mean score |
+|---|---:|---:|---:|
+| written **before** the section guard | 1,156 | 1,084 (93.8%) | **84.61** |
+| written **after** it | 685 | 0 | **66.42** |
+
+**But loosening the guard would be wrong.** The rewrite is fed `_flatten_jd(merged.draft)`
+and nothing else, and that draft's `decision_making` is always empty — so the 1,084
+pre-guard sections were invented from *no source at all*. The 18.19 points are
+fabrication being withdrawn, not a regression.
+
+**The real defect is one layer up: 97.0% of JDFN source documents carry
+`decision_making` and 97.4% carry `relationships`, and the 4.1 merge drops all of it as
+"out of scope".** So no JDFN draft the pipeline produces can ever be complete. Merging
+those three sections in 4.1 fixes the guard's *input* rather than the guard, makes the
+EMPTY-TO-EMPTY protection reachable in production for the first time, and brings the
+points back honestly. It needs a merge policy per section — an HR-207-shaped question,
+so a register entry decided in the same PR.
+
+### ▶ IF YOU ARE STARTING COLD, DO THESE FOUR THINGS FIRST
+
+```bash
+git fetch && git log --oneline origin/main -1     # expect 033eac8 or later
+gh pr list                                        # the table above lags; this does not
+docker ps --filter "name=canonical-run"           # MUST be empty before any producer work
+docker compose exec -T postgres psql -U app -d harness -t -c \
+  "SELECT count(*) FROM canonical_jds WHERE status='DRAFT' \
+   AND coalesce(content->>'additional_context','')<>'';"
+```
+
+Verified 2026-08-19: **2,490 DRAFT · 4 PUBLISHED · 649 CUPE drafts · 237 of them carrying
+point-factor context.** That last number is the health signal for a CUPE producer pass,
+and it is the ONLY one that distinguishes a good run from a ruined one — `refreshed=50
+failures=0` prints identically either way.
+
+⚠ **The box has other Docker projects on it.** A `docker ps` full of random-named
+`postgres:16-alpine` / `neo4j:5-community` containers is probably
+`C:\repos\recruiter-assistant`'s testcontainers, not ours. Filter by
+`label=org.testcontainers=true` and check the session id before concluding anything is
+wrong here.
+
+### The queue, in order
+
+1. **Re-run the producer** over the CUPE cohort — the S-2/S-3/S-4 fixes are on `main`
+   and no draft in the Bank has seen them. **`--resume` is now safe and correct (#126)**,
+   so an interrupted pass is restartable. Check the health signal above, not the
+   progress line. Read the ⚠ in ITEM 1 first: resume makes a pass *restartable*, it does
+   not make a *re-baseline* happen.
+2. **Merge `decision_making` / `problem_solving` / `relationships` in 4.1** — the S-5
+   conclusion (`docs/baseline/jdfn-remeasure-2026-08-19.md`). Needs a per-section merge
+   policy registered like HR-207. This is the JDFN cohort's missing 18 points, honestly.
+3. **Phase F** (`docs/tasks/phase-f-form-scoping-backlog.md`) — search is JDFN-only in
+   both directions, and the dashboards report a pre-CUPE world. D3's per-form draft
+   evaluation renders nowhere, and it is the number HR will ask for.
+4. **Phase G** — the remaining producer + rulebook items in the review findings. The two
+   resume items are closed; **counters do not partition**, the **write-once `clusters`
+   snapshot**, `--resume --allow-downgrade --no-llm` as a **silent no-op**, and
+   **per-cluster member drops being invisible** are still open.
+5. 🔴 **TLS at the edge** — still the only genuinely external item. `sfuai.ca:7000` is a
+   Telus NAT forward to `192.168.1.80:25800`, plain HTTP on the public internet.
+6. **HR ratification** — 208 entries, 0 signed, including the bar that gates publishing.
+
+### The ~90-second check that must precede ANY producer pass
+
+Two passes were started on unverified fixes and both were still wrong. Drive one real
+all-CUPE cluster through merge → rewrite and compare. Last clean result:
+
+```
+cluster 88c49896 — 132 member JDs
+  MERGE  -> group='cupe' template=wjq context=6007 chars
+  REWRITE-> group='cupe' template=wjq context=6007 chars  duties=8  score=85.29
+```
+
+### ▶ ITEM 1 IN DETAIL — the producer re-run
+
+The S-2/S-3/S-4 fixes are on `main` and **no draft in the Bank has seen them.** Until
+this runs, every CUPE draft still loses its duty frequencies and may carry an invented
+hiring bar. **Do the ~90-second check first.**
+
+```bash
+make canonical-drafts CANONICAL_ARGS="--commit-every 25"
+```
+
+⚠ **Start WITHOUT `--resume`, and add it only to continue that same pass after an
+interruption.** This is the distinction that matters and it is easy to get backwards:
+
+| | what it does |
+|---|---|
+| **no `--resume`** | rebuilds every cluster with the new rewrite — **this is the re-baseline you want** |
+| **`--resume`** | skips clusters that already HOLD a landed rewrite — including the 2,021 the OLD rewrite wrote |
+
+✅ `--resume` is now correct (#126): it asks whether the rewrite LANDED, so it retries
+the 44 whose rewrite failed instead of abandoning them forever. That makes a ~44-hour
+pass survivable. It still, correctly, declines to redo work that succeeded — which is
+why it is the wrong flag to *open* a re-baseline with.
+
+⚠ `--resume --allow-downgrade --no-llm` is still a silent no-op — resume fires first, the
+deliberate re-baseline never happens, and the run exits 0. **Still open (Phase G).**
+
+### ▶ ITEM 2 IN DETAIL — merging the three sections in 4.1
+
+`docs/baseline/jdfn-remeasure-2026-08-19.md` is the argument and the evidence. The work:
+
+1. `merge_cluster` (`core/src/jd_core/bank/merge.py` ~742) currently drops
+   `decision_making` / `problem_solving` / `relationships` / `position_number` as "out
+   of scope" and flags `sections_not_merged`. Merge the first three.
+2. Each needs a POLICY — `drop` / `longest` / union — which is an HR-207-shaped question
+   and therefore **a register entry decided in the same PR**, not a quiet default.
+   `problem_solving` is the interesting one: only 44.9% of JDFN sources have it, so a
+   cluster where half the members carry the section is a real question about what the
+   harmonized role should say.
+3. It should move `harmonization.yaml` (unhashed), so `rules_version` stays put.
+4. Afterwards, `_SECTIONS_NEVER_INVENTED`'s EMPTY-TO-EMPTY rule becomes reachable in
+   production for the first time — replace
+   `test_a_section_the_grounded_draft_has_is_left_to_the_rewrite`'s hand-built
+   `MergedRole` (which `merge_cluster` cannot produce) with a real merge.
+
+### ▶ WHAT THIS SESSION LEARNED THAT IS NOT IN A DIFF
+
+- **A predicate's NAME can be the bug, stated out loud.** `draft_was_llm_written` was
+  read by two callers asking two different questions, and it answered a third one ("was
+  a client injected"). The rename to `draft_has_rewritten_prose` is most of the fix;
+  once the name states the question, the wrong field is visible.
+- **A fix's blast radius is the set of its CALLERS, not the bug report.** The review
+  found the resume half. The no-DOWNGRADE half — same predicate, opposite direction,
+  and the reason the 44 rows were unreachable *at all* rather than merely un-resumable
+  — only showed up by grepping for the callers.
+- **Quantify against the live Bank before and after.** `2,065 → 2,021` is a claim a
+  reviewer can check in one query; "resume now retries failed clusters" is not.
+- **The backup was in a dead session's scratchpad and is now not.** A path under
+  `AppData\Local\Temp\claude\<session-uuid>\` is unreachable from any other session by
+  construction. Anything that must outlive a session goes somewhere durable, and the
+  handoff carries the absolute path.
+
+---
+
+## ▶ PREVIOUS (2026-08-19, later) — six review findings fixed and MERGED, S-5 measured
 
 | | |
 |---|---|
@@ -120,7 +315,7 @@ EMPTY database — `pg_restore --data-only` wipes the Bank and exits 0.
 
 1. **Re-run the producer** over the CUPE cohort — the S-2/S-3/S-4 fixes are on `main`
    and no draft in the Bank has seen them. Check the health signal above, not the
-   progress line. ⚠ `--resume` will skip every corrupted draft (see the warning above).
+   progress line. ⚠ 🕐 SUPERSEDED by #126 — see the current START HERE section.
 2. **Merge `decision_making` / `problem_solving` / `relationships` in 4.1** — the S-5
    conclusion (`docs/baseline/jdfn-remeasure-2026-08-19.md`). Needs a per-section merge
    policy registered like HR-207. This is the JDFN cohort's missing 18 points, honestly.
@@ -129,6 +324,7 @@ EMPTY database — `pg_restore --data-only` wipes the Bank and exits 0.
    evaluation renders nowhere, and it is the number HR will ask for.
 4. **Phase G** — the producer and rulebook lists in the review findings. One of them
    (`--resume` abandoning rewrite-failed clusters) blocks item 1 from being resumable.
+   🕐 **That one is CLOSED (#126).**
 5. 🔴 **TLS at the edge** — still the only genuinely external item. `sfuai.ca:7000` is a
    Telus NAT forward to `192.168.1.80:25800`, plain HTTP on the public internet.
 6. **HR ratification** — 208 entries, 0 signed, including the bar that gates publishing.
@@ -156,6 +352,11 @@ fixes and both produced garbage for half an hour before anyone noticed.
 ```bash
 make canonical-drafts CANONICAL_ARGS="--commit-every 25"
 ```
+
+> 🕐 **SUPERSEDED by #126 — historical record, do not follow.** The abandonment half of
+> this warning is FIXED: `--resume` now keys on "the rewrite landed". The rest still
+> holds — resume skips drafts the LLM already wrote, so it is still the wrong flag to
+> OPEN a re-baseline with. See the current START HERE section.
 
 ⚠ **Do NOT add `--resume`.** It skips drafts the LLM already wrote — which is *every
 corrupted one* — and it permanently abandons clusters whose rewrite failed, because it
