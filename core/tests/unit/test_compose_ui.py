@@ -31,9 +31,16 @@ from tests.unit.retuned_rules import (
     retuned_embeddings,
     retuned_rewrite,
 )
+from tests.unit.template_scan import action_of, post_forms
 
 
-def _post_form(client: TestClient, url: str, pairs: list[tuple[str, str]]):
+def _post_form(
+    client: TestClient,
+    url: str,
+    pairs: list[tuple[str, str]],
+    *,
+    follow_redirects: bool = True,
+):
     """POST an ``application/x-www-form-urlencoded`` body built from ORDERED pairs
     (so repeated keys like the structured ``duties_statement`` columns survive) — this
     httpx version does not accept a list-of-tuples via ``data=``."""
@@ -43,6 +50,7 @@ def _post_form(client: TestClient, url: str, pairs: list[tuple[str, str]]):
         url,
         content=urlencode(pairs),
         headers={"content-type": "application/x-www-form-urlencoded"},
+        follow_redirects=follow_redirects,
     )
 
 
@@ -1563,3 +1571,182 @@ def test_a_wjq_check_assembles_a_cupe_draft_judged_by_the_wjq_bar() -> None:
     # Making section"), which is the page correctly explaining itself.
     assert 'id="section-decision_making"' not in html
     assert 'id="section-problem_solving"' not in html
+
+
+# ── P0-1: the page, not the handler ──────────────────────────────────────────────────
+#
+# Four WJQ UI tests above pass while a CUPE author cannot finish a draft, because each
+# synthesises its own POST body and supplies the hidden ``form`` field the PAGE forgets
+# to emit. Hidden inputs do not cross ``<form>`` boundaries, and Export and Submit are
+# separate forms from Check. These drive the round trip from the RENDERED HTML — the
+# pairs a browser would actually send — so a field missing from one form of three is a
+# red test rather than a pydantic error page that wipes everything the author typed.
+
+_COMPOSE = "/jd-bank/ui/compose"
+_INPUT_TAG = re.compile(r"<input\b[^>]*>", re.IGNORECASE)
+_ATTR = r"""{}\s*=\s*["']([^"']*)["']"""
+
+#: A minimal but real WJQ questionnaire, as the fields the page names them.
+_WJQ_ANSWERS: list[tuple[str, str]] = [
+    ("form", "wjq"),
+    ("title", "Departmental Assistant"),
+    ("position_summary", "Provides administrative support to the department."),
+    ("major_functions_verb", "Processes"),
+    ("major_functions_statement", "Processes purchase orders for the unit"),
+    ("major_functions_allocation", "40"),
+    ("level_of_independence", "Works under general supervision."),
+]
+
+
+def _browser_pairs(html_text: str, action: str) -> list[tuple[str, str]]:
+    """Exactly what a browser sends when the button in the form posting to ``action``
+    is pressed: every named ``<input>`` INSIDE THAT ``<form>``, and nothing else."""
+    forms = [f for f in post_forms(html_text) if action_of(f) == action]
+    assert len(forms) == 1, (
+        f"expected one form posting to {action}, found {len(forms)} — the page changed "
+        "shape, so this test is no longer driving the round trip it claims to"
+    )
+    pairs: list[tuple[str, str]] = []
+    for tag in _INPUT_TAG.finditer(forms[0]):
+        name = re.search(_ATTR.format("name"), tag.group(0))
+        if name is None:
+            continue
+        value = re.search(_ATTR.format("value"), tag.group(0))
+        pairs.append(
+            (
+                html_lib.unescape(name.group(1)),
+                html_lib.unescape(value.group(1)) if value else "",
+            )
+        )
+    return pairs
+
+
+def _checked_wjq_page() -> str:
+    """The Builder page a CUPE author is looking at after pressing Check."""
+    resp = _post_form(_client(), "/jd-bank/ui/compose/new", _WJQ_ANSWERS)
+    assert resp.status_code == 200
+    return resp.text
+
+
+def test_a_wjq_author_can_export_from_the_page_the_builder_renders() -> None:
+    """P0-1. Posted with the export form's OWN fields — no synthesised ``form``. Before
+    the fix this answered 200 ``text/html``: a pydantic error page, not a ``.docx``."""
+    page = _checked_wjq_page()
+    action = "/jd-bank/ui/compose/export"
+
+    resp = _post_form(_client(), action, _browser_pairs(page, action))
+
+    assert resp.status_code == 200
+    assert resp.headers["content-type"] == (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    assert resp.content[:2] == b"PK"  # a .docx is a zip archive
+
+
+def test_a_wjq_author_can_submit_from_the_page_the_builder_renders(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """P0-1, the other half. Before the fix this returned 200 (the error page) with
+    nothing persisted, and the author's whole questionnaire gone from the page."""
+    page = _checked_wjq_page()
+    action = "/jd-bank/ui/compose/submit"
+    session = _FakeSession()
+    submit_mock = AsyncMock(return_value=type("C", (), {"id": uuid.uuid4()})())
+    monkeypatch.setattr(compose_ui, "submit_composed_draft", submit_mock)
+
+    resp = _post_form(
+        _client_with_session(session),
+        action,
+        _browser_pairs(page, action),
+        follow_redirects=False,
+    )
+
+    assert resp.status_code == 303, (
+        "the CUPE author's Submit did not persist — a 200 here is the error page that "
+        "ends the Phase E journey"
+    )
+    submit_mock.assert_awaited_once()
+    # ...and it was assembled through the WJQ contract, not silently re-read as JDFN.
+    submitted = submit_mock.await_args
+    assert submitted is not None
+    assert submitted.args[1].employee_group == "cupe"
+
+
+@pytest.mark.parametrize("form_name", ["jdfn", "wjq"])
+def test_every_posting_form_on_the_builder_page_carries_the_form_field(
+    form_name: str,
+) -> None:
+    """The generalised guard, and the durable one: the CSRF scan asks this question of
+    ``csrf_token`` on every template; ``form`` is the second field with the same
+    property — required by every handler the page posts to, and defaulting silently to
+    JDFN when absent. A field on the page is not a field on the form."""
+    page = _post_form(
+        _client(),
+        "/jd-bank/ui/compose/new",
+        _WJQ_ANSWERS if form_name == "wjq" else [("form", "jdfn"), ("title", "Role")],
+    ).text
+
+    # The Builder's own forms — not the base template's sign-out, which is every
+    # page's and carries no draft.
+    forms = [f for f in post_forms(page) if action_of(f).startswith(_COMPOSE)]
+    assert len(forms) == 3, f"expected check + export + submit, found {len(forms)}"
+    for form in forms:
+        assert f'name="form" value="{form_name}"' in form, (
+            f"the form posting to {action_of(form)!r} does not carry the SFU form the "
+            f"author is filling ({form_name}), so its handler falls back to JDFN and "
+            f"reads their answers through the wrong contract.\n{form[:300]}"
+        )
+
+
+# ── S-1: the dropdown is not the control ─────────────────────────────────────────────
+
+
+def test_a_posted_employee_group_cannot_move_a_jdfn_draft_onto_the_cupe_bar() -> None:
+    """S-1. The page offers apsa/apex/poly; the handler took whatever was posted. A
+    body is not a dropdown, so this is the path that matters: same content, one field,
+    and the draft was scored by the other form's rules and numbers.
+
+    The author gets the error page, not a CUPE-scored panel — and specifically not the
+    approvable one, because ``SFU-APPROVE-EDI-FOOTER`` does not apply to the WJQ."""
+    resp = _post_form(
+        _client(),
+        "/jd-bank/ui/compose/new",
+        [
+            ("form", "jdfn"),
+            ("title", "Financial Analyst"),
+            ("employee_group", "cupe"),
+            ("position_summary", "Analyses budgets for the faculty."),
+        ],
+    )
+
+    assert resp.status_code == 200
+    body = resp.text
+    assert "cupe" in body.lower()  # the error names the group it refused
+    # It did NOT quietly become a CUPE draft judged by the CUPE bar.
+    assert "Live compliance" not in body
+
+
+def test_a_tampered_answers_json_cannot_submit_onto_the_other_forms_bar(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The same hole through the OTHER door. ``/submit`` and ``/export`` rebuild from
+    ``answers_json`` rather than from the guided fields, so a check on the form parse
+    alone would have left this path open — which is why the guard sits on the assemble
+    seam every one of them crosses."""
+    session = _FakeSession()
+    submit_mock = AsyncMock(return_value=type("C", (), {"id": uuid.uuid4()})())
+    monkeypatch.setattr(compose_ui, "submit_composed_draft", submit_mock)
+
+    resp = _post_form(
+        _client_with_session(session),
+        "/jd-bank/ui/compose/submit",
+        [
+            ("form", "jdfn"),
+            ("answers_json", '{"title": "Analyst", "employee_group": "cupe"}'),
+        ],
+        follow_redirects=False,
+    )
+
+    assert resp.status_code == 200  # the error page, not a 303
+    submit_mock.assert_not_awaited()
+    session.commit.assert_not_awaited()

@@ -365,11 +365,116 @@ def test_unrecognised_context_text_is_kept_rather_than_dropped() -> None:
     """A JD parsed from a real `.doc` may carry a heading VARIANT the assembler does not
     write. Its context then arrives as one unsplit block — which must land somewhere the
     author can see and edit, never be discarded. Splitting a parsed document perfectly
-    is the parser's job; this function's guarantee is Builder → JD → Builder."""
+    is the parser's job; this function's guarantee is Builder → JD → Builder.
+
+    ⚠ **This test used to assert the opposite of its own name** (P0-2 of the
+    2026-08-19 review): it pinned ``all(... is None)`` — that the text WAS dropped —
+    under a docstring promising it was kept, so fixing the defect would have turned it
+    red. It is reachable on live data: ``template_of`` routes on ``employee_group ==
+    "cupe"`` alone, so a JDFN document that merely mentions CUPE clones through here
+    with ordinary prose in ``additional_context`` and no WJQ heading anywhere in it.
+    """
     jd = assemble_wjq_jd(_filled()).model_copy(
         update={"additional_context": "SOME UNKNOWN HEADING\nreal content here"}
     )
     cloned = wjq_answers_from_jd(jd)
 
-    # Nothing was parsed into a section, and nothing raised.
-    assert all(getattr(cloned, t) is None for t in WJQ_CONTEXT_TARGETS)
+    # It landed in the FIRST section — visible to the author, editable, and not lost.
+    first = WJQ_CONTEXT_TARGETS[0]
+    assert getattr(cloned, first) == "SOME UNKNOWN HEADING\nreal content here"
+    assert all(getattr(cloned, t) is None for t in WJQ_CONTEXT_TARGETS[1:])
+
+
+def test_context_with_no_recognised_heading_at_all_survives_the_clone() -> None:
+    """The live shape, not the synthetic one: ordinary prose with no heading of any
+    kind. It was discarded ENTIRELY — the loop only kept lines once a canonical heading
+    had been seen, and none ever was."""
+    jd = assemble_wjq_jd(_filled()).model_copy(
+        update={"additional_context": "Works with the registrar during peak periods."}
+    )
+
+    cloned = wjq_answers_from_jd(jd)
+
+    assert (
+        getattr(cloned, WJQ_CONTEXT_TARGETS[0])
+        == "Works with the registrar during peak periods."
+    )
+
+
+def test_a_preamble_before_the_first_heading_is_kept_and_sections_still_split() -> None:
+    """The mixed case, which is the one a real `.doc` produces: a header block the
+    parser did not strip, then the recognised sections. Keeping the preamble must not
+    cost the split — every heading after it still lands in its own field."""
+    headings = get_rules().wjq.section_headings
+    context = "\n".join(
+        [
+            "Position Number 12345",
+            headings["effort"][0],
+            "Sustained keyboarding.",
+            headings["working_conditions"][0],
+            "Open office.",
+        ]
+    )
+    jd = assemble_wjq_jd(_filled()).model_copy(update={"additional_context": context})
+
+    cloned = wjq_answers_from_jd(jd)
+
+    assert cloned.effort == "Sustained keyboarding."
+    assert cloned.working_conditions == "Open office."
+    # The preamble went to the first section rather than into the void...
+    assert getattr(cloned, WJQ_CONTEXT_TARGETS[0]) == "Position Number 12345"
+
+
+def test_the_ordinary_round_trip_puts_nothing_extra_in_the_first_section() -> None:
+    """The control for the three above: on context this module WROTE, the first
+    section holds its own text and nothing else. A "keep the preamble" rule that
+    quietly prepended stray lines to every clone would be a new silent corruption."""
+    original = _filled()
+
+    cloned = wjq_answers_from_jd(assemble_wjq_jd(original))
+
+    first = WJQ_CONTEXT_TARGETS[0]
+    assert getattr(cloned, first) == getattr(original, first)
+
+
+# --- S-1: the author does not choose the bar their draft is judged against -----------
+
+
+def test_a_jdfn_author_cannot_move_their_draft_onto_the_cupe_bar() -> None:
+    """🔴 S-1 of the 2026-08-19 review, and the runtime twin of
+    ``_assembles_its_own_template``.
+
+    Since Phase B ``employee_group`` selects the RULESET, and since Phase C the numeric
+    PROFILE. The JDFN Builder passed the posted value straight into the contract with no
+    check, and the page's dropdown is not a control — anyone can post a body. Measured
+    on identical content: ``apsa`` → 59.38, grade D, blocked on four gates; ``cupe`` →
+    89.05, grade B, **approved with zero blocking gates**. One of those gates,
+    ``SFU-APPROVE-EDI-FOOTER``, is overridable *with a written reason in the audit log*
+    (NN #1) — so a dropdown value was a silent, unaudited override of it.
+
+    The check is ``template_of``, not a list of group names, because ``template_of`` is
+    what the validator itself asks. ``excluded`` and an unset group are JDFN documents
+    and stay assemblable — refusing them would break cloning the 36 ``excluded``
+    documents in the archive for no security gain.
+    """
+    jdfn = form_for_template("jdfn")
+
+    with pytest.raises(ValueError, match="wjq"):
+        jdfn.assemble_checked(ComposerAnswers(title="Analyst", employee_group="cupe"))
+
+    for group in ("apsa", "apex", "poly", "excluded", None):
+        jd = jdfn.assemble_checked(
+            ComposerAnswers(title="Analyst", employee_group=group)
+        )
+        assert template_of(jd) == "jdfn"
+
+
+def test_the_wjq_form_assembles_through_the_same_guard() -> None:
+    """The control: the WJQ assembler FIXES the group, so its drafts pass the same
+    check unchanged. The guard is on the seam, not on one form."""
+    wjq = form_for_template("wjq")
+
+    jd = wjq.assemble_checked(WJQAnswers(title="Departmental Assistant"))
+
+    assert template_of(jd) == "wjq"
+    assert jd.employee_group == "cupe"

@@ -228,6 +228,11 @@
   <form method="post" action="/jd-bank/ui/compose/export">
     {{ csrf_token_field(request) }}
     <input type="hidden" name="answers_json" value="{{ answers_json }}">
+    {# Which SFU FORM this draft is. Repeated per form ON PURPOSE: hidden inputs do not
+       cross <form> boundaries, and this is its own element. Emitting it once (in the
+       check form below) made every CUPE Export return a pydantic error page — the
+       handler read the WJQ answers through the JDFN contract. #}
+    <input type="hidden" name="form" value="{{ form_spec.template }}">
     <button type="submit">Export .docx ↓</button>
   </form>
 
@@ -240,6 +245,9 @@
   <form method="post" action="/jd-bank/ui/compose/submit">
     {{ csrf_token_field(request) }}
     <input type="hidden" name="answers_json" value="{{ answers_json }}">
+    {# As above — its own form, so its own copy of the field. Without it a CUPE author
+       pressed Submit and got an error page with everything they had typed wiped. #}
+    <input type="hidden" name="form" value="{{ form_spec.template }}">
     <button type="submit">Submit for review →</button>
   </form>
 </div>
@@ -252,10 +260,12 @@
        Check does not forget it (the near-duplicate guard excludes that role, and the
        submit/export answers keep the lineage). Empty for a from-scratch draft. #}
     <input type="hidden" name="cloned_from_cluster_id" value="{{ cloned_from_cluster_id }}">
-    {# Which SFU FORM this draft is (CUPE Phase E). Hidden so every POST back — check,
-       assist, submit, export — stays on the form the author started, rather than
-       falling back to JDFN and silently re-reading their answers through the wrong
-       contract. #}
+    {# Which SFU FORM this draft is (CUPE Phase E). Hidden so every POST back — check
+       and assist here, submit and export in their own forms above — stays on the form
+       the author started, rather than falling back to JDFN and silently re-reading
+       their answers through the wrong contract. Every posting form on this page needs
+       its own copy; `test_every_posting_form_on_the_builder_page_carries_the_form_field`
+       is what keeps the fourth one honest. #}
     <input type="hidden" name="form" value="{{ form_spec.template }}">
     {% for group in groups %}
     <h3 id="section-{{ group.section }}">{{ group.label }}</h3>

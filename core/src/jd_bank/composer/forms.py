@@ -102,6 +102,39 @@ class FormSpec(BaseModel):
             )
         return self
 
+    def assemble_checked(self, answers: AnswerContract) -> SFUJobDescription:
+        """``assemble``, then the same question asked of the ANSWERS — the runtime twin
+        of :meth:`_assembles_its_own_template`.
+
+        🔴 The construction-time guard proves the assembler is faithful for an *empty*
+        answer set. It cannot see that the JDFN assembler passes ``employee_group``
+        straight through, so a posted ``employee_group=cupe`` produced a draft that
+        ``template_of`` calls WJQ — judged by the CUPE ruleset (Phase B) and the CUPE
+        numbers (Phase C), on the JDFN form. Measured on identical content: 59.38 /
+        grade D / four blocking gates as ``apsa``, **89.05 / grade B / none** as
+        ``cupe``. ``SFU-APPROVE-EDI-FOOTER`` is *overridable with a written reason in
+        the audit log* (NN #1); a dropdown value was overriding it with neither.
+
+        Asks ``template_of`` rather than checking the group against a list, because
+        ``template_of`` is the question the validator itself asks — so this cannot drift
+        from it, and groups that do NOT move the bar (``excluded``, unset) keep working.
+        That matters: 36 archive documents are ``excluded`` and 4,630 carry no group at
+        all, and every one of them must stay clonable.
+
+        Raises ``ValueError``, which every Builder handler already renders as the error
+        page rather than a 500 — the author is told to switch forms, not 500'd.
+        """
+        jd = self.assemble(answers)
+        produced = template_of(jd)
+        if produced != self.template:
+            raise ValueError(
+                f"this is the {self.template!r} form, but these answers assemble a "
+                f"{produced!r} draft (employee_group={jd.employee_group!r}), which "
+                "would be judged by the other form's rules and numbers. Start the "
+                "draft on that form instead of changing the group on this one."
+            )
+        return jd
+
 
 #: The JDFN template's sections, in ask order — the sections the shipped Builder walks.
 _JDFN_SECTIONS: tuple[SFUSection, ...] = (
