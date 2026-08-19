@@ -121,7 +121,6 @@ entry, and ``rules_version`` does not move.
 
 from __future__ import annotations
 
-import re
 import uuid
 from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass
@@ -151,6 +150,7 @@ from tests.unit.auth_fakes import (
     signed_in_with_session,
     user_holding,
 )
+from tests.unit.template_scan import post_forms
 
 #: The hidden form field the token rides in. One name, used by the macro that renders it
 #: and by the check that reads it.
@@ -1098,41 +1098,6 @@ def test_a_page_rendered_without_a_session_still_renders(
 # ── 5. Every form carries the field (the "define once, call at ~10 sites" risk) ──────
 
 
-_FORM_OPEN = re.compile(r"<form\b[^>]*>", re.IGNORECASE)
-#: ``method=post`` however it is written — quoted either way, or bare. The first version
-#: of this matched only the double-quoted spelling, so switching a form to single quotes
-#: would have dropped it out of the scan silently.
-_METHOD_POST = re.compile(r"""method\s*=\s*['"]?post['"]?""", re.IGNORECASE)
-
-
-class UnclosedFormError(RuntimeError):
-    """A ``<form>`` in a template with no ``</form>``.
-
-    Raised, not tolerated. The first version of this scanner sliced an unclosed form to
-    end-of-file, which meant *anything* later in the file satisfied the assertion — and
-    that is not hypothetical: ``_csrf.html``'s own doc-comment contained a form tag, so
-    this suite reported a green on the very file that defines the macro, for entirely
-    the wrong reason. Both ends are closed now: the comment no longer spells out a form
-    tag, and an unclosed one is an error rather than a free pass.
-    """
-
-
-def _post_forms(html: str) -> list[str]:
-    """Each posting form's source, opening tag to ``</form>``."""
-    forms: list[str] = []
-    for match in _FORM_OPEN.finditer(html):
-        if not _METHOD_POST.search(match.group(0)):
-            continue
-        end = html.lower().find("</form>", match.end())
-        if end == -1:
-            raise UnclosedFormError(
-                f"a posting form has no </form>: {match.group(0)!r}. Close it — an "
-                "unclosed form makes this scan pass on the rest of the file."
-            )
-        forms.append(html[match.start() : end])
-    return forms
-
-
 @pytest.mark.parametrize(
     "template", sorted(p.name for p in _TEMPLATES_DIR.glob("*.html")), ids=lambda x: x
 )
@@ -1147,7 +1112,7 @@ def test_every_post_form_in_every_template_carries_the_csrf_field(
     """
     source = (_TEMPLATES_DIR / template).read_text(encoding="utf-8")
 
-    for form in _post_forms(source):
+    for form in post_forms(source):
         assert CSRF_FIELD in form, (
             f"a posting form in {template} does not carry the {CSRF_FIELD!r} field, so "
             f"its button will 403. Call the shared macro inside it.\n{form[:300]}"
@@ -1160,7 +1125,7 @@ def test_the_form_scanner_finds_the_forms_it_claims_to() -> None:
     them is found. A scanner that silently matched nothing would report every template
     clean."""
     found = {
-        path.name: len(_post_forms(path.read_text(encoding="utf-8")))
+        path.name: len(post_forms(path.read_text(encoding="utf-8")))
         for path in _TEMPLATES_DIR.glob("*.html")
     }
 
