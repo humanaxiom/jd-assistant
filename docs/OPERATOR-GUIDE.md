@@ -116,7 +116,7 @@ default). **Admin required:** no.
 
 | Task | How | Notes |
 |---|---|---|
-| Start from an existing JD | **🔎 Search to clone** → pick a match → *Start from this* | Finds **harmonized roles and source documents**, JDFN scope. An exact or near **title** ranks above semantic matches — see the note below. |
+| Start from an existing JD | **🔎 Search to clone** → pick a match → *Start from this* | Finds **harmonized roles and source documents**. ⚠ **JDFN scope only** — a CUPE author gets no CUPE results here yet (Phase F1). An exact or near **title** ranks above semantic matches — see the note below. |
 | Author from scratch | Fill the guided questions, then **Check compliance** | Live panel shows the score, grade, blocking gates, and "Still to write" — each finding links straight to the section that needs it. Remaining findings are headed **"Fix these"** when a gate still blocks the draft; once the gates already **permit** it, the same findings are headed **"Suggested improvements"** with an amber **Suggestion** badge, and a note that they do not block review. |
 | See roles SFU already has | The **"Roles SFU already has"** panel, once enough of the draft is written | Existing harmonized roles that look like the one being written, each with **Start from this role →**, plus how many roles carry **exactly this title** and across how many **departments**. Advisory only — it never blocks submission and does not change the compliance verdict. |
 | Improve the summary with AI | **✨ Improve summary (assist)** | A self-hosted LLM suggests a better Position Summary; you review and edit it (nothing auto-applies). |
@@ -149,21 +149,47 @@ default). **Admin required:** no.
 > and a percentage would look precise while meaning nothing. The panel therefore ranks, and
 > states the one fact that needs no vector at all — the title and department collision.
 
-> **Scope:** the Builder authors **JDFN** roles (APSA / APEX / Polytechnic) only. CUPE
-> roles use a different instrument (WJQ) with no ratified quality bar yet, so they are
-> deliberately not authorable — see the HR decision register (HR-143 / HR-194).
+> ### The Builder authors BOTH SFU forms (new — CUPE Phases B–E, 2026-08)
 >
-> **That exclusion is now measured, not assumed** (2026-08-14). Scored through the shipped
-> validator, **0 of 600** sampled CUPE JDs clear the JDFN approval bar, against 11.3% of
-> JDFN ones — and the reason is the *form*, not the quality: four rules fire on **100%** of
-> CUPE documents because the WJQ instrument does not contain the sections they check
-> (**0.0%** have a Problem Solving section; **3.1%** an Impact of Decision Making one).
-> Serving CUPE means building a WJQ quality bar first, which is HR's call.
-> Evidence: `docs/decisions/cupe-scope-measured-2026-08-14.md`; what it would take:
-> `docs/tasks/cupe-support-design.md`.
+> The page opens with a **Form** picker:
 >
-> **CUPE JDs are still ingested, parsed and searchable** — 4,440 of them, 30.6% of the
-> archive. "Not authorable" is not "not in the Bank".
+> * **JDFN (APSA / APEX / POLY)** — SFU's job-description form, what the Toolkit, the
+>   validator and the approval gates were written against.
+> * **CUPE (WJQ)** — the CUPE 3338 Weighted Job Questionnaire, a **14-section
+>   point-factor instrument**. A different *form*, not a variant: it has no Problem
+>   Solving or Impact of Decision Making section, and it carries none of SFU's
+>   boilerplate blocks.
+>
+> **Each draft is judged against its OWN form's bar.** A rule that reads a section the
+> WJQ does not have is withheld from CUPE drafts entirely (Phase B), and the numbers
+> differ where the form differs — the WJQ allows **12** duties because the instrument
+> prints twelve slots and 77.4% of CUPE JDs fill all twelve (HR-202). **A CUPE score and
+> a JDFN score are therefore not comparable numbers**, and every surface that shows both
+> says so.
+>
+> **Switching form starts a fresh draft.** The two forms do not ask the same questions,
+> so carrying answers across would silently drop whatever the other form does not have.
+>
+> ⚠ **Known gap:** *Search to clone* is still **JDFN-only** in both directions — an
+> author in CUPE mode gets no CUPE results, and starting from a JDFN result switches
+> them to the JDFN Builder. Scoped as **Phase F1**
+> (`docs/tasks/phase-f-form-scoping-backlog.md`); not yet built.
+>
+> **What HR has and has not ruled.** All **207** register entries are still `open`,
+> including every value in the WJQ profile. The bar CUPE drafts are measured against was
+> built the way APSA's was — measured over the corpus, every value registered, nothing
+> auto-publishing — and HR may change any of it. **HR-194** (may the Bank *author* CUPE?)
+> and **HR-201** (do SFU's boilerplate requirements apply to a form that has no such
+> block?) are the two that decide scope, and both are unsigned.
+>
+> **Why CUPE needed its own everything.** Measured before any of it was built: scored
+> through the JDFN validator, **0 of 600** CUPE JDs were approvable, against 11.3% of
+> JDFN ones — and the cause was the *form*, not the quality. Four rules fired on **100%**
+> of CUPE documents because the WJQ does not contain the sections they check (**0.0%**
+> have a Problem Solving section; **3.1%** an Impact of Decision Making one). Once each
+> form is judged on its own terms the picture inverts: the CUPE cohort is approvable at
+> **59.0%**. Evidence: `docs/decisions/cupe-scope-measured-2026-08-14.md` and
+> `docs/decisions/cupe-phase-b-measured-2026-08-14.md`.
 
 ---
 
@@ -175,8 +201,8 @@ they reach the address another way. **Admin required:** no (reviewer suffices).
 
 | Task | How | Notes |
 |---|---|---|
-| See what's awaiting review | Open the **Review queue** | Lists draft canonical JDs. |
-| Inspect a draft | Click a row → the review detail page | Shows the rendered draft, the harmonization change-log (what each source fed, what was dropped and why), **how the draft was assembled** (see below), and the live gate decision. |
+| See what's awaiting review | Open the **Review queue** | Lists draft canonical JDs, each with the SFU **form** it is on — JDFN or CUPE (WJQ). The queue holds both, and **the score beside a draft is not the same measurement for the two**: each is judged against its own form's bar. The page says so above the table. |
+| Inspect a draft | Click a row → the review detail page | Names the **form** and the bar it was scored against, before the score. Shows the rendered draft, the harmonization change-log (what each source fed, what was dropped and why), **how the draft was assembled** (see below), and the live gate decision. |
 | **See how the draft was assembled** | The **"How this draft was assembled"** panel | How many source JDs were harmonized into this draft; how many of them required each skill and stated each duty; anything flagged for your eye; and **how the education and experience bars were chosen**. |
 | See what changed | **Changes since last approved version →** | A side-by-side, section-by-section diff of the draft against the last approved version of the same role. Says "no prior approved version" the first time a role is reviewed. |
 | **Approve** | **Approve** (fill an override reason for any overridable blocking gate) | Publishes **only if** the validator's gates permit it, re-checked at approve time. A blocked draft cannot be approved without a valid override + written reason. Approving a draft also **supersedes** (archives) any other live published version of the same role, so a cluster never carries two published rows at once. |

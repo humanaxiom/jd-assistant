@@ -2,7 +2,121 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-17) — CUPE Phases C, D and (half of) E
+## ▶ START HERE (2026-08-19) — CUPE shipped, then six reviewers found what one pair of eyes missed
+
+| | |
+|---|---|
+| `main` | `2143fb6` — Phases C, D, E and two rounds of fixes (#112 → #120) |
+| **Open PRs** | **[#121](https://github.com/humanaxiom/jd-assistant/pull/121)** Phase F backlog (docs) · **[#122](https://github.com/humanaxiom/jd-assistant/pull/122)** the eval fix + user/architecture docs + the two review fixes. Verify with `gh pr list`, never from this table |
+| Gates | **2,802 passing, 94.14%** on #122. `register-check` + `guide-check` exit 0 |
+| `rules_version` | `+76baba29cfeb` — unmoved since Phase C |
+| Register | **207** decisions, **0 ratified** |
+| Live data | 2,490 DRAFT + 4 PUBLISHED · **237 CUPE drafts rebuilt, the rest still wrong** |
+| Producer run | 🔴 **STOPPED DELIBERATELY.** Do not restart until P0/S fixes land — see below |
+
+### 🔴 READ THIS FIRST — the CUPE Builder is broken, and the Bank is half-rebuilt
+
+**`docs/tasks/cupe-review-findings-2026-08-19.md` is the most important document in the
+repo right now.** Six adversarial reviewers went over Phases B–E, which shipped in one
+weekend orchestrator-only with no second reviewer. They found ~30 issues. Two are P0:
+
+1. **A CUPE author cannot submit or export.** The hidden `form` field is in the *check*
+   form only; Submit and Export are separate `<form>` elements, so both fall back to JDFN
+   and fail to parse the WJQ answers. The author's typed content is wiped from the page.
+   **The whole Phase E journey ends at an error box.** Four new WJQ UI tests missed it
+   because each synthesised its own POST body, supplying the field the page forgets.
+2. **An inverted test certifies live data loss** —
+   `test_unrecognised_context_text_is_kept_rather_than_dropped` asserts the text *was*
+   dropped. It would go red if the bug were fixed.
+
+Then, in order: an author can pick their own approval bar via `employee_group`; the rewrite
+can delete most of a role with the change-log reporting nothing removed; it can invent
+education/experience/security bars; `SFUDuty.frequency` is destroyed on every CUPE draft.
+
+**⚠ And a claim made repeatedly in this repo is false: "JDFN is the untouched control."**
+`_SECTIONS_NEVER_INVENTED` fires on both forms, so every JDFN rewritten draft since Phase D
+carries findings it did not before. **Re-measure before quoting any JDFN number.**
+
+### Before restarting the producer
+
+```bash
+docker ps --filter "name=canonical-run"     # must be empty
+docker compose exec -T postgres psql -U app -d harness -t -c \
+  "SELECT count(*) FROM canonical_jds WHERE status='DRAFT' \
+   AND coalesce(content->>'additional_context','')<>'';"
+```
+
+That count is the health signal — **237** when the run was stopped, out of ~649 CUPE
+drafts. A progress line reading `refreshed=50 failures=0` looks identical whether the drafts
+are right or ruined; that is how two earlier passes ran for half an hour producing garbage.
+
+**Do not restart until at least S-2/S-3/S-4 are fixed** — the run would otherwise keep
+producing drafts that lose duty frequencies, can lose duties wholesale, and can carry
+invented hiring bars. A verified `-Fc` backup is at
+`…/scratchpad/harness-pre-full-llm-run.dump` (77.6 MB).
+
+⚠ **`--resume` will not do what you want.** It skips drafts the LLM already wrote, which
+includes every corrupted one, and it permanently abandons clusters whose rewrite failed
+(it keys on "a client was injected", not "the rewrite landed").
+
+### The ~90-second check that must precede ANY producer pass
+
+Two passes were started on unverified fixes and both were still wrong. Drive one real
+all-CUPE cluster through merge → rewrite and compare. Last clean result:
+
+```
+cluster 88c49896 — 132 member JDs
+  MERGE  -> group='cupe' template=wjq context=6007 chars
+  REWRITE-> group='cupe' template=wjq context=6007 chars  duties=8  score=85.29
+```
+
+### What landed, and what it cost
+
+Phases C/D/E made the two SFU forms real on four axes — `applies_to` (which rules judge a
+form), `thresholds_for` (which numbers), `templates_harmonized` (which forms get drafted,
+HR-206), `FormSpec` (what a form consists of) — all keyed on `JDTemplate`, all resolved from
+the document's own `employee_group` via `template_of`. **649 CUPE roles have drafts** where
+they had none, and the Builder offers both forms.
+
+The measured result, per form, never blended (from the deterministic pass — **stale, and
+not comparable to any LLM-written figure**): jdfn 1,804 drafts, mean 52.73, 179 approvable ·
+wjq 649 drafts, mean 71.69, 3 approvable.
+
+**Four defects this weekend were found by running things against the live Bank, not by
+reading or testing** — the `--no-llm` downgrade of 1,763 drafts (recovered from backup), and
+three ways a CUPE draft stopped being a CUPE draft. Gates were green through every one.
+
+### The queue, in order
+
+1. **P0-1 and P0-2** from the review findings — the Builder cannot complete a draft.
+2. **S-1 → S-4**, then re-measure JDFN (S-5).
+3. **Phase F** (`docs/tasks/phase-f-form-scoping-backlog.md`) — search is JDFN-only in both
+   directions, and the dashboards report a pre-CUPE world (`+90af5e27dc83` vs the shipped
+   `+76baba29cfeb`). D3's per-form draft evaluation renders nowhere, and it is the number HR
+   will ask for.
+4. **Phase G** — the producer and rulebook lists in the review findings.
+5. 🔴 **TLS at the edge** — still the only genuinely external item. `sfuai.ca:7000` is a
+   Telus NAT forward to `192.168.1.80:25800`, plain HTTP on the public internet. It dropped
+   once on 2026-08-19 and recovered; the app, the firewall and DNS were all verified healthy,
+   so the fragility is the forward itself and the non-standard port through SFU VPN.
+6. **HR ratification** — 207 entries, 0 signed, including the bar that gates publishing.
+
+### Process notes worth keeping
+
+- **The live goldens were silently skipping.** `make rewrite-golden` printed
+  `✅ complete` having run nothing, because the probe attempted a completion with a 30s
+  timeout and the GPU was busy. Fixed (`98f284a`) to probe `/api/tags` instead — the
+  distinction is *unreachable* (skip correctly) vs *busy* (skipping is a lie). Nine live
+  tests now genuinely run. Run them after any rewrite/prompt change; `make gates` excludes
+  them by design.
+- **Multi-agent review is worth the tokens.** Six reviewers found two P0s, a security
+  amplifier and a vacuous test in ~10 minutes each. Reviewers are always Opus (CLAUDE.md).
+  Tell them to verify against the code, not the commit messages — this repo's docstrings are
+  assertive and were wrong in at least six places.
+
+---
+
+## ▶ PREVIOUS (2026-08-17) — CUPE Phases C, D and (half of) E
 
 | | |
 |---|---|

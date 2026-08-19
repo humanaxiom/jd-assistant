@@ -407,12 +407,31 @@ the SFU 10-section model and stores the **seven point-factor sections verbatim**
 `problem_solving`, because WJQ has no such prose and force-mapping would feed
 `hay_signals.py` a bogus signal. **Empty is honest.**
 
-**⚠ The validator is template-blind.** `evaluate_jd_rules` runs every rule over every JD.
-Measured, that means four rules fire on **100%** of CUPE documents — not because those JDs
-are poor, but because the CUPE form does not contain the sections they check. **CUPE is
-deliberately out of scope for the Builder and the approval bar** (`jdfn_employee_groups`,
-HR-194 — an *open* decision, not an oversight). See
-`docs/decisions/cupe-scope-measured-2026-08-14.md` and `docs/tasks/cupe-support-design.md`.
+**⚠ The validator WAS template-blind — it is not any more (CUPE Phases B–E, 2026-08).**
+It used to run every rule over every JD, which meant four rules fired on **100%** of CUPE
+documents: not because those JDs are poor, but because the CUPE form does not contain the
+sections they check. That is now fixed on four axes, all keyed on the same `JDTemplate`
+and all resolved from the document's own `employee_group` via `template_of`:
+
+| axis | mechanism | where |
+|---|---|---|
+| which RULES may judge a form | `RuleSpec.applies_to` — required, no default | `rule_catalog.yaml` (Phase B) |
+| which NUMBERS judge it | `Rules.thresholds_for(template)` — e.g. WJQ `duties_max: 12` | `thresholds.yaml` (Phase C) |
+| which FORMS get harmonized into drafts | `harmonization.templates_harmonized` (HR-206), a PRIORITY order | `harmonization.yaml` (Phase D) |
+| what a form CONSISTS of, for authoring | `composer.forms.FormSpec` + `FORMS` | `composer/forms.py` (Phase E) |
+
+**The one thing to understand before changing any of it:** `employee_group` is what
+`template_of` reads, so that single field decides which bar a document is judged by. Two
+guards exist because it was got wrong twice — the WJQ Builder **fixes** it rather than
+asking the author (`wjq_assemble`), and the LLM rewrite **restores** it from the grounded
+merge draft (`_REWRITABLE_FIELDS`), after the model was found nulling it on ~95% of CUPE
+drafts and silently moving them to the JDFN bar.
+
+**Scope is still HR's**: all 207 register entries are `open`, including HR-194 (may the
+Bank *author* CUPE?) and HR-201 (do SFU's boilerplate rules apply to a form that has no
+such block?). The WJQ bar was built the way APSA's was — measured, registered, nothing
+auto-publishing. Evidence: `docs/decisions/cupe-scope-measured-2026-08-14.md`,
+`cupe-phase-b-measured-2026-08-14.md`, `cupe-phase-e-routing-seam-2026-08-17.md`.
 
 ### `parser_version` — the trap to know before you touch the parser
 

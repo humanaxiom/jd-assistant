@@ -300,8 +300,13 @@ def _pad_rows(
     max_rows: int,
 ) -> list[dict[str, str]]:
     """The filled rows plus blank rows to add more, capped at the model's list max."""
-    padded = list(rows)
-    target = min(max_rows, max(min_rows, len(rows) + _ROW_SPARE))
+    # TRUNCATE as well as pad. The cap was documented but only ever appended, so a
+    # crafted body's rows were all echoed back into the page: measured 20k posted rows
+    # -> an 11 MB response from a 560 KB request, a 20-40x amplifier available to any
+    # authenticated author. The models reject the oversized list, but the re-render path
+    # feeds the RAW rows back here so the author sees what they typed.
+    padded = list(rows)[:max_rows]
+    target = min(max_rows, max(min_rows, len(padded) + _ROW_SPARE))
     while len(padded) < target:
         padded.append(dict(blank))
     return padded
