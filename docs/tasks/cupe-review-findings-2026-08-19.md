@@ -12,20 +12,21 @@ running the real code in the `gates` container unless marked SUSPECTED.
 
 | finding | state |
 |---|---|
-| P0-1 · the Builder is write-only | **FIXED**, [#123](https://github.com/humanaxiom/jd-assistant/pull/123) |
-| P0-2 · the inverted test / `_split_context_blocks` | **FIXED**, #123 |
-| S-1 · the author picks their own approval bar | **FIXED**, #123 (`FormSpec.assemble_checked`) |
-| S-2 · the rewrite deletes, the change log hides it | **FIXED**, #123 (`removed_duties` + the packet renders the stored draft) |
-| S-3 · invented education / experience / security bars | **FIXED**, #123 (HR-208) |
-| S-4 · `SFUDuty.frequency` destroyed | **FIXED**, #123 |
-| S-5 · "JDFN is the untouched control" is false | **OPEN — and larger than stated.** See below |
+| P0-1 · the Builder is write-only | **FIXED**, [#124](https://github.com/humanaxiom/jd-assistant/pull/124) |
+| P0-2 · the inverted test / `_split_context_blocks` | **FIXED**, #124 |
+| S-1 · the author picks their own approval bar | **FIXED**, #124 (`FormSpec.assemble_checked`) |
+| S-2 · the rewrite deletes, the change log hides it | **FIXED**, #124 (`removed_duties` + the packet renders the stored draft) |
+| S-3 · invented education / experience / security bars | **FIXED**, #124 (HR-208) |
+| S-4 · `SFUDuty.frequency` destroyed | **FIXED**, #124 |
+| S-5 · "JDFN is the untouched control" is false | **MEASURED** (`docs/baseline/jdfn-remeasure-2026-08-19.md`) — and the conclusion is that the GUARD is right and the 4.1 merge is the defect. Fix still open |
 | S-6 · silent truncation | OPEN |
 | producer / rulebook / test-quality lists | OPEN (Phase G) |
 
-⚠ **The fixes are in an unmerged PR and the producer has NOT re-run**, so every draft in
-the live Bank was still written by the old rewrite pass.
+⚠ **The fixes are on `main` (#124), but the producer has NOT re-run**, so every draft in
+the live Bank was still written by the old rewrite pass. Merging the fix is not the same
+as fixing the data.
 
-**S-5 grew on inspection.** The claim is confirmed against the code: `merge_cluster`
+**S-5 grew on inspection, then was measured.** The claim is confirmed against the code: `merge_cluster`
 deliberately never populates `decision_making` / `problem_solving` / `relationships` for
 anyone (`bank/merge.py` ~742), so `_SECTIONS_NEVER_INVENTED`'s antecedent is true on
 every real cluster of every template — the guard empties those sections on JDFN drafts

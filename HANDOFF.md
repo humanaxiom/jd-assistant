@@ -2,17 +2,17 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-19, later) — six review findings fixed, and S-5 measured
+## ▶ START HERE (2026-08-19, later) — six review findings fixed and MERGED, S-5 measured
 
 | | |
 |---|---|
-| `main` | `cf118c7` — #122 merged (the eval fix + the two-forms docs) |
-| **Open PRs** | **[#121](https://github.com/humanaxiom/jd-assistant/pull/121)** Phase F backlog (docs) · **[#124](https://github.com/humanaxiom/jd-assistant/pull/124)** P0-1, P0-2, S-1, S-2, S-3, S-4 — replaces #124, which GitHub closed when #122 squash-merged and deleted its base branch. Verify with `gh pr list`, never from this table |
-| Gates | **2,822 passing, 94.16%** on #124, run locally. `register-check` in step. `rewrite-golden` + `gates-live` both green against the real model |
+| `main` | `0beda92` — **#122 and #124 both merged.** Nothing from this session is left unmerged |
+| **Open PRs** | **[#121](https://github.com/humanaxiom/jd-assistant/pull/121)** Phase F backlog (docs) — the only one. Verify with `gh pr list`, never from this table |
+| Gates | **2,822 passing, 94.16%** — locally and in CI on #124. `register-check` + `guide-check` exit 0. `rewrite-golden` + `gates-live` green against the real model |
 | `rules_version` | `+76baba29cfeb` — **still unmoved.** Nothing in #124 changes how a JD is SCORED |
 | Register | **208** decisions, **0 ratified** — HR-208 is new (which qualification kinds the rewrite may author) |
 | Live data | 2,490 DRAFT + 4 PUBLISHED · **237 CUPE drafts rebuilt, the rest still wrong** |
-| Producer run | 🔴 **STILL STOPPED.** S-2/S-3/S-4 are fixed in #124 but **not merged and not re-run** — see below |
+| Producer run | 🔴 **STILL STOPPED.** The S-2/S-3/S-4 fixes are on `main` now but **have never been re-run**, so every draft in the Bank predates them — see below |
 
 ### What #124 fixes, and what it does NOT
 
@@ -28,10 +28,10 @@ are now closed:
 | **S-3** | the model could invent `PhD in Astrophysics required` on a clerical CUPE draft, with an empty record | `rewrite.rewritable_qualification_kinds` (HR-208, `open`). The bars come back from the merge; the swap is recorded in `restored_bars` |
 | **S-4** | `SFUDuty.frequency` destroyed on every CUPE draft — structural, 100%, invisible to the top-level completeness pin | each rewritten duty is matched to its merge duty and carries the frequency back |
 
-**None of this has reached the live Bank.** The fixes are in an unmerged PR, and the
-237 rebuilt CUPE drafts were written by the OLD rewrite — so they still lose duty
-frequencies and may carry invented bars. Re-running the producer is what makes the
-fixes real, and it must not start before #122 → #124 are merged.
+**None of this has reached the live Bank.** The code is on `main`, but the producer has
+not re-run since — so all 237 rebuilt CUPE drafts were written by the OLD rewrite and
+still lose duty frequencies and may carry invented bars. **Merging the fix is not the
+same as fixing the data.** Re-running the producer is what makes them real.
 
 ### 🔴 S-5 — MEASURED. The guard is not the defect; the 4.1 merge is.
 
@@ -120,20 +120,20 @@ cluster 88c49896 — 132 member JDs
 
 ### The queue, in order
 
-1. **Merge [#124](https://github.com/humanaxiom/jd-assistant/pull/124)** — `main`-based, all local gates + both live goldens green.
+1. **Re-run the producer** over the CUPE cohort — the S-2/S-3/S-4 fixes are on `main`
+   and no draft in the Bank has seen them. Check the health signal above, not the
+   progress line. ⚠ `--resume` will skip every corrupted draft (see the warning above).
 2. **Merge `decision_making` / `problem_solving` / `relationships` in 4.1** — the S-5
    conclusion (`docs/baseline/jdfn-remeasure-2026-08-19.md`). Needs a per-section merge
    policy registered like HR-207. This is the JDFN cohort's missing 18 points, honestly.
-3. **Re-run the producer** over the CUPE cohort with the S-2/S-3/S-4 fixes in place, and
-   check the health signal above rather than the progress line.
-4. **Phase F** (`docs/tasks/phase-f-form-scoping-backlog.md`) — search is JDFN-only in
+3. **Phase F** (`docs/tasks/phase-f-form-scoping-backlog.md`) — search is JDFN-only in
    both directions, and the dashboards report a pre-CUPE world. D3's per-form draft
    evaluation renders nowhere, and it is the number HR will ask for.
-5. **Phase G** — the producer and rulebook lists in the review findings. One of them
-   (`--resume` abandoning rewrite-failed clusters) blocks item 3 from being resumable.
-6. 🔴 **TLS at the edge** — still the only genuinely external item. `sfuai.ca:7000` is a
+4. **Phase G** — the producer and rulebook lists in the review findings. One of them
+   (`--resume` abandoning rewrite-failed clusters) blocks item 1 from being resumable.
+5. 🔴 **TLS at the edge** — still the only genuinely external item. `sfuai.ca:7000` is a
    Telus NAT forward to `192.168.1.80:25800`, plain HTTP on the public internet.
-7. **HR ratification** — 208 entries, 0 signed, including the bar that gates publishing.
+6. **HR ratification** — 208 entries, 0 signed, including the bar that gates publishing.
 
 ### One correction to the review findings doc
 
