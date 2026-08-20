@@ -83,6 +83,17 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "rewrite FAILED holds only the deterministic merge, so a resume retries it.",
     )
     parser.add_argument(
+        "--only-template",
+        choices=["jdfn", "wjq"],
+        default=None,
+        help="process ONLY the clusters the rulebook would author on this form, "
+        "leaving every other cluster untouched — no row written, no model call paid "
+        "for. Operational scoping for ONE run: repairing the CUPE cohort otherwise "
+        "costs a full pass (649 clusters of work inside 2,493 clusters of cost, ~44 "
+        "hours). It does NOT change which form a cluster authors on — that is "
+        "harmonization.templates_harmonized, an HR-registered decision.",
+    )
+    parser.add_argument(
         "--commit-every",
         type=int,
         default=25,
@@ -162,6 +173,7 @@ async def _run(args: argparse.Namespace) -> CanonicalProducerResult:
                 progress_every=commit_every,
                 allow_downgrade=args.allow_downgrade,
                 skip_llm_written=args.resume,
+                only_template=args.only_template,
             )
             # The producer may checkpoint-commit between clusters (``--commit-every``);
             # this final commit is the backstop for the remainder after the last one.
@@ -192,7 +204,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"mean {ev.mean_score}, {ev.approvable} approvable, grades {ev.grades}"
         for template, ev in result.evaluation_by_template.items()
     )
+    # A SCOPED run must never read back as a full one. Named first, before any count,
+    # because the counts below are all counts of the scope and not of the Bank.
+    scope = (
+        f"⚠ SCOPED RUN — only clusters authoring on {args.only_template!r}; "
+        f"{result.clusters_out_of_scope} clusters deliberately not looked at\n"
+        if args.only_template
+        else ""
+    )
     print(
+        f"{scope}"
         f"clusters: {result.clusters_recomputed} recomputed -> "
         f"{result.clusters_seen} seen [{by_template or 'none'}] "
         f"({result.multi_member_clusters} multi, "
@@ -202,6 +223,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"{result.skipped_reviewer_touched} skipped (reviewer-touched), "
         f"{result.skipped_would_downgrade} skipped (would downgrade an LLM draft), "
         f"{result.skipped_already_llm_written} skipped (already LLM-written), "
+        f"{result.clusters_out_of_scope} out of scope, "
         f"{result.cluster_failures} cluster failures\n"
         f"LLM: enabled={result.llm_enabled}, "
         f"{result.rewrite_failures} rewrite failures, "
