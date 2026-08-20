@@ -6223,6 +6223,53 @@ decisions:
       Existing drafts are unaffected until the producer re-runs over them.
     status: open
 
+  - id: HR-209
+    question: >-
+      When the LLM rewords a harmonized draft, how many duties should it be asked for —
+      the number the harmonization actually found in the source job descriptions, or the
+      form's own minimum? Today it is asked for the number found, so a role harmonized
+      from twelve duties comes back as twelve reworded duties rather than a shorter
+      summary of them.
+    config:
+      file: rewrite.yaml
+      path: rewrite.duty_floor_policy
+    current_default: grounded
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      🔴 MEASURED AGAINST THE LIVE BANK ON 2026-08-19, over the five largest all-CUPE
+      clusters (132, 108, 74, 52 and 47 source documents): 60 harmonized duties came back
+      as 36 reworded ones, and only 10 of those still carried how often the role performs
+      the duty. Phase D had already fixed the destructive version of this — the prompt
+      states the drafted form's own numbers, so a CUPE rewrite asks for 3–12 duties and
+      not the JDFN form's 3–5. What was left is quieter and survived every gate: the
+      FLOOR of 3 licensed the model to compress twelve grounded duties into seven, and
+      nothing objected, because the WJQ profile's own minimum is 3 (HR-203) — so the
+      compressed draft passes its own bar — and the anti-fabrication guard is looking the
+      other way, since it exists to stop the model ADDING content rather than dropping
+      it. The scores stayed in the 67–85 band and the grades stayed at B. For a CUPE role
+      this matters twice over: the WJQ form has twelve duty slots and 77.4% of CUPE job
+      descriptions fill all twelve, and duty frequency is an input to the point-factor
+      evaluation, so a dropped duty is not only missing text but a missing evaluation
+      signal. The judgement being registered is that a rewrite is a REWORDING pass:
+      handed twelve duties, its job is to reword twelve, not to decide how many duties a
+      role has. The form's minimum stays exactly right for the VALIDATOR, which judges a
+      finished job description whatever its source; it is the wrong number to hand a pass
+      whose input is already known. ⚠ WHAT THIS DOES NOT SETTLE — whether a harmonized
+      role SHOULD carry every duty its sources stated. Folding two near-identical duties
+      into one is legitimate editorial work, and HR may well want a harmonized role to be
+      shorter than the sum of its sources. That is a question about the harmonization
+      (4.1, `harmonization.max_duties`), where the source documents are, and not a
+      licence for the rewrite to decide it silently.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (rewrite.yaml is unhashed) — it decides how a draft
+      is WORDED, never how one is scored. `form_minimum` restores the pre-HR-209
+      behaviour exactly. A sparse harmonization is deliberately NOT rounded up to the
+      form's minimum: a cluster that grounded two duties has two duties, and asking for
+      three asks the model to invent one — the validator reports that under-run
+      (`SFU-STRUCT-DUTIES-TOO-FEW`) instead, which is the right place for it to be
+      noticed. Existing drafts are unaffected until the producer re-runs over them.
+    status: open
   # ── Embedding over-length fallback ladder (HR-126 follow-up). ──
   - id: HR-193
     question: >-

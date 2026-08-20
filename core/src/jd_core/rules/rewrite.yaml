@@ -90,6 +90,30 @@ skill_grounding_threshold: 0.5
 # question and answering it twice is how two thresholds drift apart.
 duty_flag_threshold: 0.2
 
+# What DUTY FLOOR the rewrite prompt states. `grounded` (shipped): the number of duties
+# THIS merge actually produced, capped by the form's `duties_max`. `form_minimum`: the
+# drafted form's own `duties_min` — the pre-HR-209 behaviour. HR-209.
+#
+# 🔴 MEASURED against the live Bank on 2026-08-19, over the five largest all-CUPE
+# clusters: 60 merge duties came back as 36 rewritten ones, and only 10 of those kept a
+# `frequency`. Phase D had already fixed the destructive case — the prompt states the
+# drafted form's numbers, so a CUPE rewrite asks for `3–12` and not JDFN's `3–5`. What
+# was left is quieter: the FLOOR of 3 licenses the model to compress twelve grounded
+# duties into seven, and nothing objects. The WJQ profile's `duties_min` is 3 (HR-203),
+# so the seven-duty draft passes its own bar; the anti-fabrication guard is looking the
+# other way, because it exists to stop the model ADDING.
+#
+# The floor the REWRITE should state is not the form's — it is what this particular merge
+# grounded. A rewrite is a rewording pass: handed twelve duties, its job is to reword
+# twelve, not to decide how many duties a role has. The form's `duties_min` stays exactly
+# right for the VALIDATOR, which judges a finished JD from any source; it is the wrong
+# number to hand a pass whose input is already known.
+#
+# A SPARSE merge is NOT rounded up to the form's minimum: a cluster that grounded two
+# duties has two duties, and asking for three asks the model to invent one. The validator
+# reports the under-run (`SFU-STRUCT-DUTIES-TOO-FEW`) — the right place for it.
+duty_floor_policy: grounded
+
 # Which QUALIFICATION KINDS the rewrite is allowed to author. Everything else the model
 # returns is discarded and the 4.1 merge draft's own qualifications of that kind are
 # RESTORED verbatim (recorded in `AntiFabricationRecord.restored_bars`). HR-208.

@@ -326,13 +326,32 @@ async def rewrite_merged_role(
     # source documents actually stated.
     thresholds = active.thresholds_for(template_of(merged.draft))
 
+    # …and the FLOOR is this merge's own, not the form's (HR-209). Phase D fixed the
+    # destructive case; this fixes the quiet one. Measured over the five largest
+    # all-CUPE clusters on 2026-08-19: 60 merge duties came back as 36, only 10
+    # keeping a `frequency`. The form's `duties_min` of 3 licensed the model to
+    # compress twelve grounded duties into seven, and nothing downstream objected —
+    # the WJQ profile's own floor is 3 (HR-203), so the compressed draft passes its
+    # own bar, and the anti-fabrication guard exists to stop the model ADDING.
+    #
+    # A rewrite is a rewording pass. Handed twelve duties its job is to reword twelve,
+    # not to decide how many duties a role has. Capped by `duties_max` so a floor can
+    # never ask for more than the form holds, and NOT raised to `duties_min` for a
+    # sparse merge: a cluster that grounded two duties has two, and asking for three
+    # asks the model to invent one. The validator reports that under-run honestly.
+    duties_min = (
+        min(len(merged.draft.duties), thresholds.duties_max)
+        if rewrite.duty_floor_policy == "grounded"
+        else thresholds.duties_min
+    )
+
     # We feed the GROUNDED 4.1 draft into the `member_jds` slot, not the raw members.
     prompt = load_prompt(
         rewrite.prompt_version,
         member_count=merged.provenance.member_count,
         skill_frequency=_skill_frequency_lines(merged.provenance.skill_frequency),
         member_jds=_flatten_jd(merged.draft),
-        duties_min=thresholds.duties_min,
+        duties_min=duties_min,
         duties_max=thresholds.duties_max,
         summary_min_words=thresholds.summary_min_words,
         summary_max_words=thresholds.summary_max_words,

@@ -1444,6 +1444,12 @@ class Rewrite(_RuleFile):
     #: below it, that duty was REMOVED by the rewrite and is recorded as such; at or
     #: above it, the rewritten duty carries its merge duty's ``frequency`` back.
     duty_flag_threshold: float = Field(ge=0.0, le=1.0)
+    #: What DUTY FLOOR the rewrite prompt states (HR-209). ``grounded`` -> the number of
+    #: duties THIS merge produced, capped by the form's ``duties_max``; ``form_minimum``
+    #: -> the drafted form's own ``duties_min``. Measured: the form floor of 3 licensed
+    #: the model to compress twelve grounded WJQ duties into seven, and nothing
+    #: objected. A rewrite is a rewording pass — handed twelve, it rewords twelve.
+    duty_floor_policy: Literal["grounded", "form_minimum"] = "grounded"
     #: Which qualification KINDS the rewrite may author (HR-208). Everything else the
     #: model returns is discarded and the merge draft's own qualifications of that kind
     #: are restored verbatim. knowledge/skill/ability are free-text competencies the
