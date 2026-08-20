@@ -2,7 +2,177 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-19, latest) — `--resume` fixed; the producer re-run is now restartable
+## ▶ START HERE (2026-08-20, latest) — the 4.1 merge carries three more sections; the producer run was killed by Docker
+
+| | |
+|---|---|
+| `main` | `db45760` — **#127, #128 and #129 merged.** The previous START HERE said `033eac8` and was three commits stale within a day; trust `git log`, not this table |
+| **Open PRs** | **[#130](https://github.com/humanaxiom/jd-assistant/pull/130)** the 4.1 merge sections (this session) · **[#121](https://github.com/humanaxiom/jd-assistant/pull/121)** Phase F backlog (docs). Verify with `gh pr list`, never from this table |
+| Gates | **2,844 passing, 94.16% → 94.18%** on #130, full suite incl. integration. `register-check` exits 0 |
+| `rules_version` | `+76baba29cfeb` — **still unmoved.** `harmonization.yaml` is unhashed; #130 changes how a draft is ASSEMBLED, never how one is SCORED |
+| Register | **212** decisions, **0 ratified**. HR-210 / HR-211 / HR-212 are new and all `open` |
+| Live data | 2,490 DRAFT + 4 PUBLISHED · 237 CUPE drafts with point-factor context — **unchanged, and verified after the crash below** |
+| Producer run | 🔴 **STOPPED — killed mid-run by a Docker restart, 0 clusters committed.** Deliberately NOT restarted; see the decision below |
+| Backup | ✅ unchanged: `C:\Users\adam\jd-bank-backups\harness-pre-full-llm-run.dump` (81,331,260 B) |
+
+### 🔴 THE PRODUCER RUN DIED, AND NOTHING IN THE APPLICATION DID IT
+
+A CUPE pass (`--only-template wjq --commit-every 25`) was started at **18:52:27 UTC**,
+42 seconds after HR-209 (#129) merged — it picked the fix up through the `./core` bind
+mount, not the image, which is 2026-07-21 and stale. It ran for 52 minutes and was
+killed at **19:44:35 UTC**.
+
+**It was not the code.** Every container in every project on the box exited **255 at the
+same instant** — `jd-bank-{api,postgres,neo4j,redis}` and the run itself. Exit 255 across
+an entire daemon is Docker Desktop / WSL2 going down, not an application fault. `OOMKilled`
+is false. The other projects on the box came back on their own; **jd-bank did not, because
+its compose services carry no `restart:` policy while `recruiter-assistant`, `azprograms`
+and `bccb` all do.** So the stack sat down for ~50 minutes and nothing said so.
+
+⚠ **Two things to take from this, neither of them "re-run it":**
+
+1. **`--commit-every 25` did exactly its job.** The run died before its first checkpoint,
+   so **zero** clusters were committed and nothing is half-written. Verified after
+   bringing the stack back: **2,490 DRAFT / 4 PUBLISHED / 237 with context** — byte-for-byte
+   the pre-run baseline. A partial commit here would have been much worse than a lost run.
+2. **A silent producer is not a stopped producer, and a stopped one is not a broken one.**
+   The container logged **zero lines in 52 minutes** and sat at **0.00% CPU**, which reads
+   exactly like a hang. It was neither: `python -m` runs without `-u`, so stdout is
+   block-buffered, and the process was in `epoll_wait` on the model socket. The way to
+   tell is to ask something other than the log — `docker exec … /api/ps` on `aria-gb10-2`
+   and watch `expires_at` roll forward, which only happens when a request completes.
+   Consider adding `-u` to the canonical service's command so the next run is legible.
+
+### ▶ THE DECISION THIS SESSION MADE — the re-run WAITS for #130
+
+The obvious move was to restart the CUPE pass immediately. **Measured against the live
+Bank first, and it was the wrong move:**
+
+```sql
+SELECT count(*) AS cupe_docs,
+       count(*) FILTER (WHERE jsonb_array_length(coalesce(parsed->'decision_making','[]'::jsonb))>0),
+       count(*) FILTER (WHERE parsed->'relationships' IS NOT NULL AND parsed->'relationships'<>'null'::jsonb)
+FROM parsed_jds WHERE parser_version='jd_segmenter_v4' AND parsed->>'employee_group'='cupe';
+--  4440 |  139 |  3147
+```
+
+**70.9% of CUPE source documents (3,147 of 4,440) carry `relationships`, and today's
+merge drops every one.** #130 is not a JDFN-only change, as the S-5 write-up implied —
+it changes what a CUPE draft contains too. Running the ~11-hour WJQ pass now would
+produce a cohort that is stale for 70.9% of its own relationship content the moment #130
+lands, and buy a second pass. So the queue below puts #130 first.
+
+### ▶ IF YOU ARE STARTING COLD, DO THESE FIVE THINGS FIRST
+
+```bash
+git fetch && git log --oneline origin/main -1     # expect db45760 or later
+gh pr list                                        # the table above lags; this does not
+docker ps --format '{{.Names}}' | grep jd-bank    # ⚠ NEW: the stack does not self-restart
+docker compose up -d                              # ...bring it back if that came up empty
+docker ps --filter "name=canonical"               # MUST be empty before any producer work
+docker compose exec -T postgres psql -U app -d harness -t -c \
+  "SELECT count(*) FROM canonical_jds WHERE status='DRAFT' \
+   AND coalesce(content->>'additional_context','')<>'';"
+```
+
+Verified 2026-08-20 **after** the crash and restart: **2,490 DRAFT · 4 PUBLISHED · 237
+carrying point-factor context.** That last number is the health signal for a CUPE
+producer pass and the ONLY one that distinguishes a good run from a ruined one —
+`refreshed=50 failures=0` prints identically either way.
+
+⚠ **The box has other Docker projects on it.** A `docker ps` full of random-named
+`postgres:16-alpine` / `neo4j:5-community` containers is probably
+`C:\repos\recruiter-assistant`'s testcontainers, not ours.
+
+⚠ **Never pass `--remove-orphans`** to a compose command here while a producer run is
+alive: the run is a `docker compose run` one-off in project `jd-bank`, so compose reports
+it as an orphan and the flag would delete it mid-pass.
+
+### What #130 does
+
+Implements the S-5 conclusion (`docs/baseline/jdfn-remeasure-2026-08-19.md`), which had
+been measured and argued but deliberately not shipped. `merge_cluster` now merges
+`decision_making` / `problem_solving` / `relationships`, each under its own registered
+policy — `drop` (the old behaviour) / `longest` (one member's section verbatim) / `union`
+(pooled across the members that state it, folded at `duty_dedup_jaccard_min`).
+
+| knob | ships | entry | why |
+|---|---|---|---|
+| `decision_making_policy` | `union` | HR-210 | a list of discrete statements — the shape duties already have |
+| `problem_solving_policy` | `union` | HR-211 | same shape; **flagged as the likeliest-wrong knob** (44.9% source presence) |
+| `relationships_policy` | `longest` | HR-212 | a STRUCTURED object; pooling two `supervisory` lines states a third nobody wrote |
+
+Two consequences worth knowing before reading the diff:
+
+- **`sections_not_merged` is now a DIFF AGAINST THE DRAFT**, not a hardcoded section
+  list. With a policy per section only the draft knows what survived. `position_number`
+  is still never merged and is now the only section that flags by default — which is what
+  keeps the flag alive at all.
+- **The EMPTY-TO-EMPTY guard is reachable in production for the first time.**
+  `test_a_section_the_grounded_draft_has_is_left_to_the_rewrite` hand-built a `MergedRole`
+  that `merge_cluster` could not emit — which is how a green suite kept certifying a guard
+  that never fired. It now drives a real merge with an explicit precondition assertion.
+
+### The queue, in order
+
+1. **Review + merge [#130](https://github.com/humanaxiom/jd-assistant/pull/130).** It now
+   gates item 2 — see the 70.9% measurement above.
+2. **Re-run the producer over the CUPE cohort**, once, after #130 is on `main`:
+   `make canonical-drafts CANONICAL_ARGS="--only-template wjq --commit-every 25"`.
+   **Start WITHOUT `--resume`** — that is the re-baseline; `--resume` skips clusters that
+   already hold a landed rewrite and is the flag for continuing an interrupted pass, not
+   for opening one. Do the ~90-second single-cluster check below first.
+3. **Phase F** (`docs/tasks/phase-f-form-scoping-backlog.md`) — search is JDFN-only in
+   both directions and the dashboards report a pre-CUPE world. D3's per-form draft
+   evaluation renders nowhere, and it is the number HR will ask for.
+4. **Phase G** — the remaining producer + rulebook review items. The two resume items are
+   closed; **counters do not partition**, the **write-once `clusters` snapshot**,
+   `--resume --allow-downgrade --no-llm` as a **silent no-op**, and **per-cluster member
+   drops being invisible** are still open. Add: **the canonical service should run
+   `python -u`**, and **the compose stack should survive a Docker restart**.
+5. 🔴 **TLS at the edge** — still the only genuinely external item. `sfuai.ca:7000` is a
+   Telus NAT forward to `192.168.1.80:25800`, plain HTTP on the public internet.
+6. **HR ratification** — 212 entries, 0 signed, including the bar that gates publishing.
+
+### The ~90-second check that must precede ANY producer pass
+
+Two passes were started on unverified fixes and both were still wrong. Drive one real
+all-CUPE cluster through merge → rewrite and compare. Last clean result:
+
+```
+cluster 88c49896 — 132 member JDs
+  MERGE  -> group='cupe' template=wjq context=6007 chars
+  REWRITE-> group='cupe' template=wjq context=6007 chars  duties=8  score=85.29
+```
+
+⚠ After #130 this cluster should ALSO come back with a `relationships` section — that is
+the cheapest confirmation the merge change reached the CUPE cohort.
+
+### ▶ WHAT THIS SESSION LEARNED THAT IS NOT IN A DIFF
+
+- **Measure the blast radius of your own fix before sequencing around it.** #130 was
+  filed under "the JDFN cohort's missing 18 points" and the S-5 doc quotes JDFN
+  percentages throughout. One query said 70.9% of CUPE sources carry `relationships` too.
+  Had the CUPE pass been restarted on that assumption, ~11 GPU-hours would have produced
+  a cohort needing a second pass.
+- **A doc that says "not implemented here, and here is why" is worth more than the code
+  it withholds.** `jdfn-remeasure-2026-08-19.md` made this a two-hour task instead of a
+  two-day one: the measurement, the rejected fix (loosening the guard) *and the reason it
+  is wrong* were already written down.
+- **Edit in a worktree when a long run bind-mounts the repo.** `./core` is mounted `rw`
+  into the producer container. Python imports at start, so an edit will not usually change
+  a run in flight — but "usually" is doing real work in that sentence, and a lazily
+  imported module would switch policy mid-pass and leave a Bank with two merge policies
+  and no way to tell which draft got which. `git worktree add` costs seconds.
+- **The name in the docstring outlives the code.** Three separate docstrings still
+  enumerated the three sections as "sections 4.1 does not merge" after the merge started
+  merging them. That sentence was the entire justification for the hardcoded list the PR
+  removes; leaving it would have re-taught the next reader the thing being fixed. Found
+  by reading the diff, not by a failing test — no test asserts a docstring.
+
+---
+
+## ▶ PREVIOUS (2026-08-19, later) — `--resume` fixed; the producer re-run is now restartable
 
 | | |
 |---|---|
