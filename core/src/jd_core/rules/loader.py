@@ -199,6 +199,17 @@ SummaryPolicy = Literal["within_target_then_central", "most_central"]
 #: What the engine does with ADDITIONAL CONTEXT across members (HR-169).
 AdditionalContextPolicy = Literal["drop", "longest"]
 
+#: What the engine does with a MEMBER-LEVEL SECTION that 4.1 merges as of 2026-08-20 —
+#: ``decision_making`` / ``problem_solving`` / ``relationships`` (HR-210…HR-212).
+#:
+#: ``drop`` = leave the section at its model default (what shipped until HR-210; the
+#: content is lost and ``sections_not_merged`` says so). ``longest`` = carry the single
+#: richest member's section VERBATIM, the representative-member shape ``summary_policy``
+#: and HR-207 already use — nothing pooled, nothing synthesized. ``union`` = pool across
+#: the members that state the section, folding near-identical statements at
+#: ``duty_dedup_jaccard_min`` (HR-171 — one Jaccard, one home).
+SectionMergePolicy = Literal["drop", "longest", "union"]
+
 #: How the engine sets the boilerplate presence booleans (HR-170).
 BoilerplatePresencePolicy = Literal["or_across_members", "all_present"]
 
@@ -1339,6 +1350,18 @@ class Harmonization(_RuleFile):
     #: What the WJQ does instead (CUPE Phase E). Resolve with
     #: :meth:`Rules.harmonization_for`.
     wjq: TemplateHarmonization
+    #: How the DECISION MAKING section is merged across members (HR-210). 97.0% of
+    #: JDFN source documents carry it and the merge dropped every one until
+    #: 2026-08-20 — see ``docs/baseline/jdfn-remeasure-2026-08-19.md``.
+    decision_making_policy: SectionMergePolicy
+    #: How the PROBLEM SOLVING section is merged across members (HR-211). The
+    #: interesting one at 44.9% source presence: a cluster where half the members
+    #: carry the section is a real question about what the harmonized role should say.
+    problem_solving_policy: SectionMergePolicy
+    #: How the RELATIONSHIPS object is merged across members (HR-212). 97.4% source
+    #: presence. Structured rather than a statement list, so its ``union`` still takes
+    #: ``supervisory`` from ONE member verbatim.
+    relationships_policy: SectionMergePolicy
     #: How the boilerplate presence booleans are set (HR-170).
     boilerplate_presence_policy: BoilerplatePresencePolicy
     #: Token-Jaccard at/above which two duty (or qualification) statements collapse

@@ -21,10 +21,14 @@ the same SET of members in any input order yields a byte-identical ``MergedRole`
 
 **Deliberately partial.** Only the sections the task enumerates are harmonized:
 title / department / grade / employee-group / summary / additional-context / the
-presence booleans, the duties, and the Qualifications. ``position_number``,
-``decision_making``, ``problem_solving`` and ``relationships`` are left at their model
-defaults — the deterministic engine does not merge them in 4.1 (a follow-up), rather
-than inventing an unregistered merge policy for each. Duty statements are carried
+presence booleans, the duties, the Qualifications, and — since 2026-08-20 —
+``decision_making`` / ``problem_solving`` / ``relationships``, each under its own
+registered policy (HR-210 / HR-211 / HR-212). Those three were left at their model
+defaults until then; the measured cost is in
+``docs/baseline/jdfn-remeasure-2026-08-19.md`` (97.0% / 44.9% / 97.4% of JDFN sources
+carry them, so no draft the pipeline produced could be complete). ``position_number``
+is still NOT merged — it identifies a POSITION and a harmonized ROLE has no single
+one. Duty statements are carried
 **verbatim** on their representative: %-allocation rebalancing is explicitly out of
 scope (its own follow-up).
 """
@@ -55,10 +59,17 @@ from src.jd_core.models.parsed_jd import (
     SFUEmployeeGroup,
     SFUJobDescription,
     SFUQualification,
+    SFURelationships,
 )
 from src.jd_core.models.quality import WJQ_TEMPLATE
 from src.jd_core.quality.validators import template_of
-from src.jd_core.rules import Comparison, Harmonization, Rules, get_rules
+from src.jd_core.rules import (
+    Comparison,
+    Harmonization,
+    Rules,
+    SectionMergePolicy,
+    get_rules,
+)
 
 #: A skill/statement token: a maximal run of lowercase letters/digits — the same
 #: alphabet ``signals``/``similarity`` tokenize with. Kept local (a third local copy,
@@ -119,13 +130,11 @@ def dropped_duty_occurrences(
     return frozenset(occ for group in dropped for occ in group.occurrences)
 
 
-def unmerged_content(jd: SFUJobDescription) -> list[str]:
-    """The actual content pieces a member carries in a section 4.1 does NOT merge —
-    decision_making / problem_solving / relationships / position_number — verbatim and
-    in a deterministic order. Empty iff the member has nothing in those sections; that
-    emptiness is exactly the ``sections_not_merged`` trigger (see
-    :func:`_has_unmerged_content`). Relationships count only when they carry a real
-    value (a present-but-empty ``SFURelationships`` is not content)."""
+def _member_level_pieces(jd: SFUJobDescription) -> list[str]:
+    """Every content piece a JD carries in the four MEMBER-LEVEL sections — the three
+    the merge policies (HR-210…HR-212) govern plus ``position_number`` — verbatim and
+    in a deterministic order. Relationships count only when they carry a real value (a
+    present-but-empty ``SFURelationships`` is not content)."""
     pieces: list[str] = list(jd.decision_making) + list(jd.problem_solving)
     rel = jd.relationships
     if rel is not None:
@@ -136,6 +145,212 @@ def unmerged_content(jd: SFUJobDescription) -> list[str]:
     if jd.position_number:
         pieces.append(jd.position_number)
     return pieces
+
+
+def unmerged_content(jd: SFUJobDescription, draft: SFUJobDescription) -> list[str]:
+    """The content pieces this member carries in a member-level section that the
+    harmonized ``draft`` does **not** carry — verbatim, deterministically ordered.
+    Empty iff the draft kept everything this member stated; that emptiness is exactly
+    the ``sections_not_merged`` trigger (see :func:`_has_unmerged_content`).
+
+    🔴 It is a DIFF AGAINST THE DRAFT, not a hardcoded list of unmerged sections, and
+    that is the point. Before 2026-08-20 the three sections were never merged for
+    anyone, so "which sections does 4.1 skip?" was a constant and the two questions
+    were the same question. Now that ``decision_making`` / ``problem_solving`` /
+    ``relationships`` each have a policy (``drop`` / ``longest`` / ``union``), only the
+    draft knows what survived: under ``drop`` every piece is lost, under ``longest``
+    the non-representative members' pieces are, and under ``union`` a near-identical
+    statement folded onto a representative did not survive VERBATIM. Asking the draft
+    stays correct under all three — and under whatever HR ratifies instead, without
+    this function having to be retaught the policy set.
+
+    ``position_number`` is never merged (a harmonized ROLE has no single position
+    number), so it always reports — which is what keeps the flag alive by default now
+    that the other three usually do not.
+    """
+    carried = frozenset(_member_level_pieces(draft))
+    return [piece for piece in _member_level_pieces(jd) if piece not in carried]
+
+
+# --- the three member-level sections (HR-210 / HR-211 / HR-212) ---------------------
+
+
+def _model_list_cap(field: str) -> int:
+    """The maximum length ``SFUJobDescription`` itself declares for a list field.
+
+    Read off the model rather than restated as a literal: a union over a 132-member
+    CUPE cluster really can exceed the cap, and a hand-copied 20 that drifts from the
+    model turns into a ``ValidationError`` in hour nine of a 44-hour producer pass.
+    """
+    for meta in SFUJobDescription.model_fields[field].metadata:
+        cap = getattr(meta, "max_length", None)
+        if isinstance(cap, int):
+            return cap
+    raise RuntimeError(f"SFUJobDescription.{field} declares no max_length")
+
+
+def _statement_richness(statements: Sequence[str]) -> tuple[int, int]:
+    """How much a member says in a statement section: item count, then total
+    characters. The ``longest`` representative maximizes this."""
+    return len(statements), sum(len(s) for s in statements)
+
+
+def _union_statements(
+    per_member: Sequence[tuple[int, str]], harmon: Harmonization, *, cap: int
+) -> tuple[list[str], tuple[int, ...]]:
+    """Pool statements across members, folding near-identical ones at the SAME
+    token-Jaccard the duty and qualification dedup use (HR-171 — one Jaccard, one
+    home), and return them with the member indices that fed the section.
+
+    Groups are ordered by member COVERAGE (how many members stated it) and then by
+    representative text — the same "top-by-coverage, deterministic tie-break" shape
+    ``_merge_duties`` uses — then cut to the model's own cap.
+    """
+    items = sorted(per_member, key=lambda it: (it[1], it[0]))
+    groups: list[tuple[list[str], set[int], frozenset[str]]] = []
+    thr = harmon.duty_dedup_jaccard_min
+    for member_index, statement in items:
+        toks = _tokens(statement)
+        for texts, members, rep_tokens in groups:
+            if _jaccard(toks, rep_tokens) >= thr:
+                texts.append(statement)
+                members.add(member_index)
+                break
+        else:
+            groups.append(([statement], {member_index}, toks))
+
+    # Representative = longest then lexicographic, exactly as `_group_representative`
+    # picks a qualification's.
+    resolved = [
+        (max(texts, key=lambda t: (len(t), t)), members)
+        for texts, members in ((texts, members) for texts, members, _ in groups)
+    ]
+    resolved.sort(key=lambda it: (-len(it[1]), it[0]))
+    kept = resolved[:cap]
+    contributors = sorted({i for _, members in kept for i in members})
+    return [text for text, _ in kept], tuple(contributors)
+
+
+def _merge_statement_section(
+    ordered: Sequence[SFUJobDescription],
+    harmon: Harmonization,
+    *,
+    field: str,
+    policy: SectionMergePolicy,
+) -> tuple[list[str], tuple[int, ...]]:
+    """Merge one ``list[str]`` member-level section (``decision_making`` /
+    ``problem_solving``) under its policy. ``drop`` -> empty (the pre-2026-08-20
+    behaviour); ``longest`` -> the richest single member's list VERBATIM; ``union`` ->
+    pooled + deduped across the members that state it.
+
+    A member's SILENCE is never a statement: the union is over the members that carry
+    the section, so a cluster where half the members are silent (``problem_solving``
+    is at 44.9% source presence) contributes nothing on their behalf.
+    """
+    cap = _model_list_cap(field)
+    if policy == "drop":
+        return [], ()
+    per_member: list[tuple[int, list[str]]] = [
+        (i, [s for s in getattr(jd, field) if s.strip()])
+        for i, jd in enumerate(ordered)
+    ]
+    stated = [(i, items) for i, items in per_member if items]
+    if not stated:
+        return [], ()
+    if policy == "longest":
+        idx, items = max(stated, key=lambda it: (*_statement_richness(it[1]), -it[0]))
+        return list(items[:cap]), (idx,)
+    return _union_statements(
+        [(i, s) for i, items in stated for s in items], harmon, cap=cap
+    )
+
+
+def _rel_richness(rel: SFURelationships) -> tuple[int, int]:
+    """How much relationship content a member states — piece count, then characters."""
+    pieces = (
+        ([rel.supervisory] if rel.supervisory else [])
+        + list(rel.internal)
+        + list(rel.external)
+    )
+    return len(pieces), sum(len(p) for p in pieces)
+
+
+def _union_contacts(
+    per_member: Sequence[tuple[int, str]], *, cap: int
+) -> tuple[list[str], set[int]]:
+    """Pool a contact list (``internal`` / ``external``) across members.
+
+    EXACT (case-folded) match, deliberately NOT the token-Jaccard used for statements:
+    these are short organizational labels, and at 0.7 Jaccard "Payroll" and "Payroll
+    Services" would collapse onto one another — a merge that quietly renames a unit.
+    Ordered by coverage then label, cut to the model's cap.
+    """
+    by_key: dict[str, tuple[str, set[int]]] = {}
+    for member_index, label in sorted(per_member, key=lambda it: (it[1], it[0])):
+        key = label.strip().casefold()
+        if not key:
+            continue
+        text, members = by_key.setdefault(key, (label.strip(), set()))
+        members.add(member_index)
+        by_key[key] = (text, members)
+    ranked = sorted(by_key.values(), key=lambda it: (-len(it[1]), it[0]))[:cap]
+    return [text for text, _ in ranked], {i for _, members in ranked for i in members}
+
+
+def _merge_relationships(
+    ordered: Sequence[SFUJobDescription], harmon: Harmonization
+) -> tuple[SFURelationships | None, tuple[int, ...]]:
+    """Merge the ``relationships`` OBJECT under its policy (HR-212).
+
+    Structured rather than a statement list, so ``union`` is not the same operation it
+    is for the two sections above: ``supervisory`` is prose describing ONE reporting
+    structure, and pooling two of them would state a third that no source document
+    wrote. Under both ``longest`` and ``union`` it therefore comes from a single member
+    verbatim; only the contact LISTS pool.
+    """
+    policy = harmon.relationships_policy
+    if policy == "drop":
+        return None, ()
+    stated = [
+        (i, jd.relationships)
+        for i, jd in enumerate(ordered)
+        if jd.relationships is not None and _rel_richness(jd.relationships)[0]
+    ]
+    if not stated:
+        return None, ()
+    if policy == "longest":
+        idx, rel = max(stated, key=lambda it: (*_rel_richness(it[1]), -it[0]))
+        return rel, (idx,)
+
+    sup_idx, supervisory = max(
+        ((i, r.supervisory) for i, r in stated if r.supervisory),
+        key=lambda it: (len(it[1]), it[1], -it[0]),
+        default=(None, None),
+    )
+    internal, internal_members = _union_contacts(
+        [(i, c) for i, r in stated for c in r.internal],
+        cap=_rel_field_cap("internal"),
+    )
+    external, external_members = _union_contacts(
+        [(i, c) for i, r in stated for c in r.external],
+        cap=_rel_field_cap("external"),
+    )
+    contributors = internal_members | external_members
+    if sup_idx is not None:
+        contributors.add(sup_idx)
+    return (
+        SFURelationships(supervisory=supervisory, internal=internal, external=external),
+        tuple(sorted(contributors)),
+    )
+
+
+def _rel_field_cap(field: str) -> int:
+    """:func:`_model_list_cap` for ``SFURelationships``' own list fields."""
+    for meta in SFURelationships.model_fields[field].metadata:
+        cap = getattr(meta, "max_length", None)
+        if isinstance(cap, int):
+            return cap
+    raise RuntimeError(f"SFURelationships.{field} declares no max_length")
 
 
 # --- section selection: scalars / text ---------------------------------------------
@@ -739,12 +954,25 @@ def merge_cluster(
     if n == 1:
         flags.add("single_member")
 
-    # 4.1 deliberately does NOT merge decision_making / problem_solving / relationships
-    # / position_number (out of scope). If any member actually carried content in one of
-    # them, the draft silently drops it — so tell the 4.4 human reviewer (non-negotiable
-    # #6) rather than let it vanish.
-    if any(_has_unmerged_content(jd) for jd in ordered):
-        flags.add("sections_not_merged")
+    # The three member-level sections, each under its own registered policy
+    # (HR-210 / HR-211 / HR-212). Until 2026-08-20 all three were dropped for every
+    # cluster of every form, which is why no draft the pipeline produced could be
+    # complete — see the YAML header and docs/baseline/jdfn-remeasure-2026-08-19.md.
+    decision_making, dm_idx = _merge_statement_section(
+        ordered, harmon, field="decision_making", policy=harmon.decision_making_policy
+    )
+    if dm_idx:
+        contributors["decision_making"] = dm_idx
+
+    problem_solving, ps_idx = _merge_statement_section(
+        ordered, harmon, field="problem_solving", policy=harmon.problem_solving_policy
+    )
+    if ps_idx:
+        contributors["problem_solving"] = ps_idx
+
+    relationships, rel_idx = _merge_relationships(ordered, harmon)
+    if rel_idx:
+        contributors["relationships"] = rel_idx
 
     draft = SFUJobDescription(
         title=title,
@@ -754,11 +982,21 @@ def merge_cluster(
         about_sfu_present=about,
         position_summary=summary,
         duties=duties,
+        decision_making=decision_making,
+        problem_solving=problem_solving,
+        relationships=relationships,
         qualifications=qualifications,
         territorial_acknowledgement_present=territorial,
         employment_equity_present=equity,
         additional_context=additional_context,
     )
+
+    # Whatever a member stated in a member-level section that the DRAFT does not carry
+    # is content this merge dropped — so tell the 4.4 human reviewer (non-negotiable
+    # #6) rather than let it vanish. Computed against the finished draft, so it stays
+    # true under every policy: see :func:`unmerged_content`.
+    if any(_has_unmerged_content(jd, draft) for jd in ordered):
+        flags.add("sections_not_merged")
 
     provenance = MergeProvenance(
         member_count=n,
@@ -783,9 +1021,9 @@ def _as_group(value: object | None) -> SFUEmployeeGroup | None:
     return cast("SFUEmployeeGroup", value)
 
 
-def _has_unmerged_content(jd: SFUJobDescription) -> bool:
-    """Whether a member carries content in a section 4.1 does NOT merge — the trigger
-    for the ``sections_not_merged`` provenance flag. The notion of "unmerged content"
-    is :func:`unmerged_content` (one home): the flag fires iff that content is
+def _has_unmerged_content(jd: SFUJobDescription, draft: SFUJobDescription) -> bool:
+    """Whether a member carries member-level content the ``draft`` did not keep — the
+    trigger for the ``sections_not_merged`` provenance flag. The notion of "unmerged
+    content" is :func:`unmerged_content` (one home): the flag fires iff that content is
     non-empty, so the change-log lists exactly what the flag warns about."""
-    return bool(unmerged_content(jd))
+    return bool(unmerged_content(jd, draft))

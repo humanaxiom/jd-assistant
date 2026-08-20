@@ -17,6 +17,7 @@ from src.jd_bank.rewrite.harmonize import (
     _flatten_jd,
     rewrite_merged_role,
 )
+from src.jd_core.bank.merge import merge_cluster
 from src.jd_core.models.bank import MergedRole, MergeProvenance, RewrittenDraft
 from src.jd_core.models.parsed_jd import (
     JobClassification,
@@ -81,6 +82,12 @@ def _draft() -> SFUJobDescription:
             ),
         ],
     )
+
+
+def _member_jd(**overrides: object) -> SFUJobDescription:
+    """A cluster MEMBER — a source-shaped JD to feed the real 4.1 merge, as opposed to
+    ``_draft()``, which is a merge OUTPUT."""
+    return _draft().model_copy(update=overrides)
 
 
 def _merged() -> MergedRole:
@@ -274,10 +281,26 @@ async def test_a_section_the_grounded_draft_has_is_left_to_the_rewrite(
     rules: Rules,
 ) -> None:
     """EMPTY-TO-EMPTY only. Rewording a section the draft HAS is the pass's whole job,
-    so the guard must not touch it — else it would drop content the sources stated."""
-    grounded = MergedRole(
-        draft=_draft().model_copy(update={"problem_solving": ["Original wording"]}),
-        provenance=_merged().provenance,
+    so the guard must not touch it — else it would drop content the sources stated.
+
+    🔴 THE GROUNDED DRAFT IS A REAL ``merge_cluster`` OUTPUT, and that is the point of
+    this test rather than an incidental detail. Until HR-211 the merge populated
+    ``problem_solving`` for NOBODY, so this protection was unreachable in production
+    and could only be exercised by hand-building a ``MergedRole`` the engine could not
+    emit — which is exactly how a green suite kept certifying a guard that never fired.
+    Building the input through the real merge is what makes the assertion mean
+    something; if the section stops being merged, the precondition below goes red.
+    """
+    grounded = merge_cluster(
+        [
+            _member_jd(problem_solving=["Original wording"]),
+            _member_jd(problem_solving=["Original wording"]),
+        ],
+        rules=rules,
+    )
+    assert grounded.draft.problem_solving, (
+        "precondition: the MERGE must produce this section, or the guard under test "
+        "is unreachable in production and this test proves nothing"
     )
     result = await rewrite_merged_role(
         grounded,

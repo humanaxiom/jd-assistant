@@ -137,9 +137,11 @@ def build_harmonization_diff(
                 RemovedContent(content=statement, reason=reason, member_index=i)
             )
 
-        # Content in the sections 4.1 does not merge, if the draft dropped it (the same
-        # notion `merge` flags as `sections_not_merged`). Reported, not just flagged.
-        for piece in unmerged_content(member):
+        # Member-level content the DRAFT did not keep (the same notion `merge` flags
+        # as `sections_not_merged`). Reported, not just flagged. Since HR-210…HR-212
+        # this is a diff against the draft rather than a fixed section list, so it
+        # stays exact under `drop`, `longest` and `union` alike.
+        for piece in unmerged_content(member, merged.draft):
             removed.append(
                 RemovedContent(
                     content=piece, reason="section_not_merged", member_index=i

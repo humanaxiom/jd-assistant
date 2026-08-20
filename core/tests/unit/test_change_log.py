@@ -335,14 +335,45 @@ def test_sections_not_merged_lists_the_actual_content_not_just_a_flag(
         for r in diff.removed
         if r.reason == "section_not_merged"
     }
-    for content in (
+    # `position_number` is the section 4.1 still does not merge (a harmonized ROLE has
+    # no single position number), so it is the one whose content is reported as lost —
+    # with the member index that stated it.
+    assert section_removed == {"P-12345": rich_index}
+
+    # ...and the three sections the merge now DOES carry (HR-210…HR-212) are reported
+    # as removed by NOBODY: the draft holds them, and telling a 4.4 reviewer that
+    # content was dropped while it sits on the page in front of them is how a flag
+    # stops being read.
+    for carried in (
         "Resolves cross-team scheduling conflicts.",
         "Approves vendor contracts up to $50k.",
-        "P-12345",
         "Supervises 3 coordinators.",
     ):
-        assert content in section_removed
-        assert section_removed[content] == rich_index
+        assert carried not in section_removed
+
+
+def test_a_dropped_section_still_lists_its_content(rules: Rules) -> None:
+    """The other direction, under the policy that really does lose the content. This
+    is what keeps `section_not_merged` honest now that it is a diff against the draft
+    rather than a fixed list of sections 4.1 skips."""
+    cluster = [
+        _member(title="Plain"),
+        _member(
+            title="Rich", decision_making=["Approves vendor contracts up to $50k."]
+        ),
+    ]
+    dropping = rules.model_copy(
+        update={
+            "harmonization": rules.harmonization.model_copy(
+                update={"decision_making_policy": "drop"}
+            )
+        }
+    )
+    merged = merge_cluster(cluster, rules=dropping)
+    diff = build_harmonization_diff(merged, cluster, rules=dropping)
+    assert "Approves vendor contracts up to $50k." in {
+        r.content for r in diff.removed if r.reason == "section_not_merged"
+    }
 
 
 # --- acceptance 4: rewrite folding is optional + correct ----------------------------

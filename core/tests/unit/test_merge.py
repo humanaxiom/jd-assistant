@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.jd_core.bank.merge import merge_cluster
+from src.jd_core.bank.merge import canonical_member_order, merge_cluster
 from src.jd_core.models.bank import MergedRole
 from src.jd_core.models.parsed_jd import (
     SFUDuty,
@@ -448,7 +448,10 @@ def test_sections_not_merged_flag_fires_when_a_member_has_unmerged_content(
         _member(),
         _member(problem_solving=["Resolves cross-team scheduling conflicts."]),
     ]
-    merged = merge_cluster(cluster, rules=rules)
+    # `problem_solving` IS merged by default since HR-211, so the flag has to be
+    # provoked with the policy that actually drops it — the flag tracks what the
+    # draft LOST, and under `union` this cluster loses nothing.
+    merged = merge_cluster(cluster, rules=_with(rules, problem_solving_policy="drop"))
     assert "sections_not_merged" in merged.provenance.flags
 
 
@@ -471,7 +474,9 @@ def test_sections_not_merged_fires_on_a_relationships_object_with_content(
             relationships=SFURelationships(supervisory="Supervises 3 coordinators.")
         ),
     ]
-    merged = merge_cluster(cluster, rules=rules)
+    # Under `drop` (HR-212's other option) the object's content really is lost, which
+    # is the only policy where this distinction can still be observed.
+    merged = merge_cluster(cluster, rules=_with(rules, relationships_policy="drop"))
     assert "sections_not_merged" in merged.provenance.flags
 
 
@@ -481,7 +486,10 @@ def test_sections_not_merged_ignores_a_present_but_empty_relationships_object(
     """A PRESENT-but-empty relationships object is NOT content — pins the other
     direction, so a regression to `rel is not None` goes red here."""
     cluster = [_member(), _member(relationships=SFURelationships())]
-    merged = merge_cluster(cluster, rules=rules)
+    # Under `drop`, matching the test above — otherwise this passes for the wrong
+    # reason (nothing is dropped under `longest`, so the flag would be silent
+    # whatever the object held, and the assertion would pin nothing).
+    merged = merge_cluster(cluster, rules=_with(rules, relationships_policy="drop"))
     assert "sections_not_merged" not in merged.provenance.flags
 
 
@@ -751,3 +759,222 @@ def test_a_mixed_cluster_uses_the_jdfn_policy() -> None:
     ]
 
     assert merge_cluster(members).draft.additional_context is None
+
+
+# --- the three sections 4.1 now merges (HR-210 / HR-211 / HR-212) -------------------
+#
+# Until 2026-08-20 `merge_cluster` left decision_making / problem_solving /
+# relationships at their model defaults for EVERY cluster of EVERY template, and the
+# rewrite's `_SECTIONS_NEVER_INVENTED` guard then refused to let the model write them —
+# correctly, since it had no source for a word of them. Measured consequence
+# (`docs/baseline/jdfn-remeasure-2026-08-19.md`): 685 post-guard JDFN drafts, 0 with a
+# Decision Making section, mean score 66.42, and all three completeness rules firing on
+# 100% of drafts — a constant, not a signal. The content was in the sources all along
+# (97.0% / 44.9% / 97.4%); the merge dropped it. Each section is now a registered knob.
+
+
+def _dm(*statements: str) -> dict[str, object]:
+    return {"decision_making": list(statements)}
+
+
+def test_decision_making_union_pools_every_members_statements(rules: Rules) -> None:
+    """The shipped default. A statement any member made survives into the draft —
+    this is the section being merged at all, which is the whole point of HR-210."""
+    merged = merge_cluster(
+        [
+            _member(**_dm("Approves expenditures up to $10,000.")),
+            _member(**_dm("Selects the reporting cadence for the faculty.")),
+        ],
+        rules=rules,
+    )
+    assert set(merged.draft.decision_making) == {
+        "Approves expenditures up to $10,000.",
+        "Selects the reporting cadence for the faculty.",
+    }
+
+
+def test_decision_making_union_folds_near_identical_statements(rules: Rules) -> None:
+    """Two members stating the same decision in near-identical words are ONE
+    statement, at the same Jaccard the duty and qualification dedup already use
+    (HR-171 - one Jaccard, one home). Without this a 132-member CUPE cluster returns
+    the same sentence 132 times."""
+    merged = merge_cluster(
+        [
+            _member(**_dm("Approves expenditures up to $10,000.")),
+            _member(**_dm("Approves expenditures up to $10,000")),
+        ],
+        rules=rules,
+    )
+    assert len(merged.draft.decision_making) == 1
+
+
+def test_decision_making_drop_restores_the_pre_2026_08_20_behaviour(
+    rules: Rules,
+) -> None:
+    """MUTATION pin: `drop` is what shipped before HR-210 and empties the section."""
+    tuned = _with(rules, decision_making_policy="drop")
+    merged = merge_cluster([_member(**_dm("Approves expenditures."))], rules=tuned)
+    assert merged.draft.decision_making == []
+
+
+def test_decision_making_longest_takes_one_members_list_verbatim(
+    rules: Rules,
+) -> None:
+    """MUTATION pin: `longest` is the representative-member shape HR-207 chose for
+    additional_context - one member's list, verbatim, nothing pooled."""
+    tuned = _with(rules, decision_making_policy="longest")
+    merged = merge_cluster(
+        [
+            _member(**_dm("Approves expenditures up to $10,000.", "Sets the cadence.")),
+            _member(**_dm("Signs off on travel claims.")),
+        ],
+        rules=tuned,
+    )
+    assert merged.draft.decision_making == [
+        "Approves expenditures up to $10,000.",
+        "Sets the cadence.",
+    ]
+
+
+def test_decision_making_union_respects_the_models_own_cap(rules: Rules) -> None:
+    """`SFUJobDescription.decision_making` is capped at 20 by the model. A union over
+    a large cluster must cut to the cap itself rather than raise a ValidationError in
+    the middle of a 44-hour producer pass."""
+    cluster = [_member(**_dm(f"Approves category {i} spending.")) for i in range(30)]
+    merged = merge_cluster(cluster, rules=rules)
+    assert len(merged.draft.decision_making) == 20
+
+
+def test_problem_solving_merges_only_the_members_that_state_it(rules: Rules) -> None:
+    """The 44.9% case named in the S-5 measurement: half the cluster carries the
+    section. The union is over the members that HAVE it - a member's silence is not a
+    statement, and nothing is invented to fill its place."""
+    merged = merge_cluster(
+        [
+            _member(problem_solving=["Resolves cross-team scheduling conflicts."]),
+            _member(),
+        ],
+        rules=rules,
+    )
+    assert merged.draft.problem_solving == ["Resolves cross-team scheduling conflicts."]
+
+
+def test_relationships_longest_takes_the_richest_member_verbatim(
+    rules: Rules,
+) -> None:
+    """The shipped default (HR-212). `relationships` is a STRUCTURED object whose
+    `supervisory` is prose, so the representative-member shape is the one that cannot
+    synthesize a reporting line no source wrote."""
+    rich = SFURelationships(
+        supervisory="Supervises 3 coordinators.",
+        internal=["Dean Office", "Payroll"],
+        external=["External auditors"],
+    )
+    merged = merge_cluster(
+        [
+            _member(relationships=SFURelationships(supervisory="Reports to the AD.")),
+            _member(relationships=rich),
+        ],
+        rules=rules,
+    )
+    assert merged.draft.relationships == rich
+
+
+def test_relationships_union_pools_the_contact_lists(rules: Rules) -> None:
+    """MUTATION pin. `union` pools internal/external across members but still takes
+    `supervisory` from a single member VERBATIM - a supervisory line is prose about
+    one reporting structure, and concatenating two of them invents a third."""
+    tuned = _with(rules, relationships_policy="union")
+    merged = merge_cluster(
+        [
+            _member(
+                relationships=SFURelationships(
+                    supervisory="Supervises 3 coordinators.", internal=["Payroll"]
+                )
+            ),
+            _member(
+                relationships=SFURelationships(
+                    internal=["Dean Office"], external=["External auditors"]
+                )
+            ),
+        ],
+        rules=tuned,
+    )
+    rel = merged.draft.relationships
+    assert rel is not None
+    assert rel.supervisory == "Supervises 3 coordinators."
+    assert set(rel.internal) == {"Payroll", "Dean Office"}
+    assert set(rel.external) == {"External auditors"}
+
+
+def test_relationships_drop_leaves_the_section_absent(rules: Rules) -> None:
+    """MUTATION pin: `drop` is the pre-HR-212 behaviour."""
+    tuned = _with(rules, relationships_policy="drop")
+    merged = merge_cluster(
+        [_member(relationships=SFURelationships(supervisory="Supervises 3."))],
+        rules=tuned,
+    )
+    assert merged.draft.relationships is None
+
+
+def test_a_merged_section_is_no_longer_reported_as_not_merged(rules: Rules) -> None:
+    """`sections_not_merged` must mean "content this draft DROPPED". Once a section
+    is merged, flagging it warns a 4.4 reviewer about content that is sitting in the
+    draft in front of them - the flag would become a constant and stop being read."""
+    merged = merge_cluster(
+        [
+            _member(**_dm("Approves expenditures.")),
+            _member(problem_solving=["Resolves conflicts."]),
+        ],
+        rules=rules,
+    )
+    assert merged.draft.decision_making, "precondition: the section IS merged"
+    assert "sections_not_merged" not in merged.provenance.flags
+
+
+def test_a_dropped_section_is_still_reported_as_not_merged(rules: Rules) -> None:
+    """The other direction: under a `drop` policy the content really is lost, so the
+    flag must still fire. This is what keeps the flag honest under every policy."""
+    tuned = _with(rules, decision_making_policy="drop")
+    merged = merge_cluster([_member(**_dm("Approves expenditures."))], rules=tuned)
+    assert "sections_not_merged" in merged.provenance.flags
+
+
+def test_position_number_is_still_not_merged_and_still_flagged(rules: Rules) -> None:
+    """`position_number` stays out of scope - it identifies a POSITION, and a
+    harmonized ROLE has no single one. It is now the only section that flags by
+    default, which is why the flag survives at all."""
+    merged = merge_cluster([_member(position_number="P-00412")], rules=rules)
+    assert "sections_not_merged" in merged.provenance.flags
+
+
+def test_the_three_merged_sections_are_order_invariant(rules: Rules) -> None:
+    """Order-invariance is a property of the whole engine (module docstring) and the
+    new sections must not be the hole in it."""
+    a = _member(
+        **_dm("Approves expenditures."),
+        problem_solving=["Resolves conflicts."],
+        relationships=SFURelationships(internal=["Payroll"]),
+    )
+    b = _member(
+        **_dm("Sets the reporting cadence."),
+        problem_solving=["Triages system outages."],
+        relationships=SFURelationships(internal=["Dean Office"]),
+    )
+    assert merge_cluster([a, b], rules=rules) == merge_cluster([b, a], rules=rules)
+
+
+def test_merged_sections_record_their_contributing_members(rules: Rules) -> None:
+    """Provenance is non-negotiable #6: a merged section must say which members fed
+    it, exactly as summary / additional_context / title already do."""
+    cluster = [_member(), _member(**_dm("Approves expenditures."))]
+    merged = merge_cluster(cluster, rules=rules)
+    contributors = dict(merged.provenance.section_contributors)
+    # Exactly one member stated it, so exactly one member fed it — and the index is a
+    # position in `canonical_member_order`, NOT in the caller's input order (the whole
+    # engine is order-invariant, so asserting the input position would be asserting
+    # something the merge deliberately does not promise).
+    (idx,) = contributors["decision_making"]
+    assert canonical_member_order(cluster)[idx].decision_making == [
+        "Approves expenditures."
+    ]
