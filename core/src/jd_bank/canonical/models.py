@@ -117,6 +117,12 @@ class CanonicalProducerResult(BaseModel):
     #: FAILED is NOT counted here — it holds only the deterministic merge, so a resume
     #: retries it (see :func:`draft_has_rewritten_prose`).
     skipped_already_llm_written: int = Field(default=0, ge=0)
+    #: Clusters the rulebook WOULD have authored, excluded from THIS INVOCATION by
+    #: ``only_template`` (the CLI `--only-template`). An OPERATIONAL scope, not a
+    #: rulebook outcome: zero on every unscoped run, so a non-zero value means exactly
+    #: "this pass deliberately did not look at N clusters". Reported so a scoped run
+    #: cannot be mistaken for a full one when its summary is read back later.
+    clusters_out_of_scope: int = Field(default=0, ge=0)
     #: Per-cluster failures isolated (SAVEPOINT rolled back) — never abort the run.
     cluster_failures: int = Field(ge=0)
 

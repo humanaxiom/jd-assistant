@@ -767,6 +767,7 @@ async def run_canonical_producer(
     progress_every: int | None = None,
     allow_downgrade: bool = False,
     skip_llm_written: bool = False,
+    only_template: str | None = None,
 ) -> CanonicalProducerResult:
     """Produce persisted DRAFT ``canonical_jds`` over the real role clusters.
 
@@ -783,6 +784,20 @@ async def run_canonical_producer(
     audit; each is bound to its own rulebook model (``rules.rewrite`` vs
     ``rules.quality`` — separate decisions) so the ``QualityAudit.model`` stamp cannot
     lie (NN #6). A per-cluster model failure isolates + counts, not aborts.
+
+    ``only_template="wjq"`` -> process ONLY the clusters this rulebook would author on
+    that form, leaving every other cluster completely untouched (no row written, no
+    model call paid for). Operational scoping for ONE INVOCATION — repairing the CUPE
+    cohort otherwise costs a full pass, and on the live Bank that is 649 clusters of
+    work inside 2,493 clusters of cost (~44 hours).
+
+    ⚠ **This is NOT a rulebook decision and deliberately does not look like one.** It
+    filters AFTER :func:`authoring_template` has decided which form each cluster
+    authors on; it never changes that decision. The rulebook knob for that is
+    ``harmonization.templates_harmonized`` (an HR-registered priority order), and
+    narrowing it to ``[wjq]`` to get the same effect would ALSO re-author mixed
+    clusters and desynchronise the write-once ``clusters`` snapshot. Hence a caller
+    argument in the same class as ``limit``, and no register entry.
 
     Deterministic + single-process for the deterministic parts; idempotent persistence.
 
@@ -827,6 +842,10 @@ async def run_canonical_producer(
     skipped = 0
     skipped_downgrade = 0
     skipped_llm_written = 0
+    #: Clusters the rulebook WOULD author, excluded from THIS INVOCATION by
+    #: `only_template`. Not a rulebook outcome — an operational scope, counted so a
+    #: scoped run says out loud what it did not look at.
+    out_of_scope = 0
     cluster_failures = 0
     rewrite_failures = 0
     audit_failures = 0
@@ -850,6 +869,12 @@ async def run_canonical_producer(
         # mixed cluster does exactly what it did before Phase D.
         by_form = partition_by_template(present)
         template = authoring_template(by_form, rulebook.harmonization)
+        # OPERATIONAL SCOPE — after the rulebook has decided the form, before any
+        # counter, any row and any model call. A cluster excluded here is not a
+        # rulebook outcome and must not colour the per-form aggregates.
+        if only_template is not None and template != only_template:
+            out_of_scope += 1
+            continue
         wjq_members = [jd for _, jd in by_form.get(WJQ_TEMPLATE, ())]
 
         wjq_freq_confirmed += sum(1 for jd in wjq_members if member_has_frequency(jd))
@@ -949,6 +974,7 @@ async def run_canonical_producer(
         skipped_reviewer_touched=skipped,
         skipped_would_downgrade=skipped_downgrade,
         skipped_already_llm_written=skipped_llm_written,
+        clusters_out_of_scope=out_of_scope,
         cluster_failures=cluster_failures,
         rewrite_failures=rewrite_failures,
         audit_failures=audit_failures,

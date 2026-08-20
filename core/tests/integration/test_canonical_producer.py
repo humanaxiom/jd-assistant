@@ -1499,3 +1499,113 @@ async def test_a_reviewer_acting_during_the_llm_window_is_not_overwritten(
             r.payload.get("reason") == "reviewer_touched_during_llm_window"
             for r in rows
         )
+
+
+# --- operational scoping: --only-template --------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_only_template_processes_one_cohort_and_leaves_the_other_untouched(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """🔴 WHY THIS EXISTS. Re-running the producer to repair the CUPE cohort meant a
+    FULL pass — 2,493 clusters, ~44 hours — because the only scoping the CLI had was
+    ``--limit N`` over ``parsed_jds`` rows, which is a smoke test rather than a cohort.
+    Measured on the live Bank: **649 of 2,493 clusters are CUPE**, so the other 1,844
+    were being rewritten purely as collateral, at ~4x the cost of the work actually
+    wanted — and, with the 4.1 section merge still to land, they would need rewriting
+    again immediately afterwards.
+
+    ⚠ **This is OPERATIONAL scoping, not a rulebook decision.** It filters which
+    clusters THIS INVOCATION processes, *after* the rulebook has decided which form
+    each cluster authors on. It does NOT change that decision — that is
+    ``harmonization.templates_harmonized``, an HR-registered priority order, and
+    narrowing it to ``[wjq]`` would ALSO re-author mixed clusters and desynchronise the
+    write-once ``clusters`` snapshot. Hence a CLI flag, in the same class as
+    ``--limit``, and no register entry.
+
+    The assertion that matters is the third one: the out-of-scope cohort is not merely
+    uncounted, it has **no row written at all**.
+    """
+    async with session_maker() as session:
+        # One CUPE cluster (authors WJQ) and one APSA cluster (authors JDFN).
+        c1 = await _seed_jd(
+            session, storage_ref="c1", sha256=_sha("c1"), parsed=_analyst(group="cupe")
+        )
+        c2 = await _seed_jd(
+            session, storage_ref="c2", sha256=_sha("c2"), parsed=_analyst(group="cupe")
+        )
+        await _role_edge(session, c1.id, c2.id)
+        j1 = await _seed_jd(
+            session, storage_ref="j1", sha256=_sha("j1"), parsed=_analyst()
+        )
+        j2 = await _seed_jd(
+            session, storage_ref="j2", sha256=_sha("j2"), parsed=_analyst()
+        )
+        await _role_edge(session, j1.id, j2.id)
+        await session.commit()
+
+        scoped = await run_canonical_producer(
+            session, rewrite_client=None, only_template="wjq"
+        )
+        await session.commit()
+
+        assert scoped.clusters_by_template == {"wjq": 1}
+        assert scoped.drafts_persisted == 1
+        assert scoped.clusters_out_of_scope == 1
+
+    async with session_maker() as session:
+        # The JDFN cohort was not touched: no draft, not merely an uncounted one.
+        rows = (await session.scalars(select(CanonicalJD))).all()
+        assert len(rows) == 1
+        assert rows[0].content["employee_group"] == "cupe"
+
+    async with session_maker() as session:
+        # ...and the control: unscoped, the SAME corpus produces both.
+        both = await run_canonical_producer(session, rewrite_client=None)
+        await session.commit()
+
+        assert both.clusters_by_template == {"wjq": 1, "jdfn": 1}
+        assert both.clusters_out_of_scope == 0
+        assert both.drafts_persisted == 1  # the JDFN one; the WJQ one is refreshed
+        assert both.drafts_refreshed == 1
+
+
+@pytest.mark.asyncio
+async def test_only_template_does_not_pay_the_model_for_the_cohort_it_skips(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """The whole point is the GPU hours. A scoping flag that still drove the rewrite
+    over the out-of-scope cohort would count correctly and save nothing, and the counts
+    are exactly what a passing test would otherwise check.
+
+    Pinned by the model call COUNT, for the same reason the resume test is.
+    """
+    async with session_maker() as session:
+        c1 = await _seed_jd(
+            session, storage_ref="c1", sha256=_sha("c1"), parsed=_analyst(group="cupe")
+        )
+        c2 = await _seed_jd(
+            session, storage_ref="c2", sha256=_sha("c2"), parsed=_analyst(group="cupe")
+        )
+        await _role_edge(session, c1.id, c2.id)
+        j1 = await _seed_jd(
+            session, storage_ref="j1", sha256=_sha("j1"), parsed=_analyst()
+        )
+        j2 = await _seed_jd(
+            session, storage_ref="j2", sha256=_sha("j2"), parsed=_analyst()
+        )
+        await _role_edge(session, j1.id, j2.id)
+        await session.commit()
+
+        rewrite = _FakeChat()
+        await run_canonical_producer(
+            session,
+            rewrite_client=rewrite,
+            audit_client=_FakeChat(),
+            only_template="wjq",
+        )
+        await session.commit()
+
+        # ONE rewrite, for the one in-scope cluster — not two.
+        assert rewrite.seen == [SFUJobDescription]
