@@ -864,3 +864,97 @@ async def test_a_disabled_guard_leaves_all_three_of_these_alone(rules: Rules) ->
         "PhD in Astrophysics required"
     ]
     assert [d.frequency for d in result.draft.duties] == [None]
+
+
+def _with_duty_floor_policy(rules: Rules, policy: str) -> Rules:
+    """The same rulebook with `rewrite.duty_floor_policy` swapped — so the OTHER policy
+    is exercised by a test rather than merely existing in the YAML."""
+    return rules.model_copy(
+        update={
+            "rewrite": rules.rewrite.model_copy(update={"duty_floor_policy": policy})
+        }
+    )
+
+
+@pytest.mark.asyncio
+async def test_the_prompt_asks_for_the_duties_the_merge_actually_grounded(
+    rules: Rules,
+) -> None:
+    """🔴 THE DEFECT, measured against the live Bank on 2026-08-19 over the five largest
+    all-CUPE clusters: **60 merge duties became 36 rewritten ones.** The merge fills all
+    twelve WJQ slots; the rewrite returned six to eight.
+
+    Phase D fixed the prompt to state the DRAFT'S OWN FORM's numbers, so a CUPE rewrite
+    is correctly asked for ``3–12`` rather than JDFN's ``3–5``. That removed the
+    destructive case and left a quieter one: **the floor of 3 licenses the model to
+    compress twelve grounded duties into seven, and nothing objects.** The WJQ profile's
+    own ``duties_min`` is 3 (HR-203), so a seven-duty CUPE draft passes its own bar
+    while dropping five duties the source documents stated; the anti-fabrication guard
+    is looking the other way, because it exists to stop the model ADDING.
+
+    The floor the rewrite should state is not the form's — it is **what this particular
+    merge actually grounded**. A rewrite is a rewording pass: it is handed twelve duties
+    and its job is to reword twelve, not to choose how many a role has. The form's
+    ``duties_min`` remains exactly right for the VALIDATOR, which judges a finished JD
+    from any source; it is the wrong number to hand a pass whose input is already known.
+
+    ``rewrite.duty_floor_policy`` (HR-209, `open`). Asserted over both policies, because
+    an assertion on ``grounded`` alone would also pass if the resolution ignored the
+    policy and always used the grounded count.
+    """
+    # A CUPE merge holding SIX grounded duties — fewer than the form's max, more than
+    # its min, so neither bound can produce the expected number by coincidence.
+    six = _cupe_merged()
+    duties = tuple(
+        SFUDuty(action_verb="Process", statement=f"Process records batch {i}.")
+        for i in range(6)
+    )
+    six = MergedRole(
+        draft=six.draft.model_copy(update={"duties": duties}),
+        provenance=six.provenance,
+    )
+
+    grounded_chat = _FakeChat(six.draft)
+    await rewrite_merged_role(six, client=grounded_chat, rules=rules)
+    assert "6–12 major duties" in grounded_chat.calls[0][0][0]
+
+    # The other policy is today's behaviour, and it is still reachable.
+    form_rules = _with_duty_floor_policy(rules, "form_minimum")
+    form_chat = _FakeChat(six.draft)
+    await rewrite_merged_role(six, client=form_chat, rules=form_rules)
+    wjq = rules.thresholds_for("wjq")
+    assert f"{wjq.duties_min}–{wjq.duties_max} major duties" in form_chat.calls[0][0][0]
+    # ...and the two genuinely differ, so neither assertion passes by coincidence.
+    assert wjq.duties_min != len(duties)
+
+
+@pytest.mark.asyncio
+async def test_the_grounded_floor_never_asks_for_more_than_the_form_allows(
+    rules: Rules,
+) -> None:
+    """The floor is a floor, not a target, and it must not become a ceiling-breaker: a
+    merge that grounded more duties than the form has slots would otherwise ask the
+    model for more duties than the form can hold, turning a content-preserving rule into
+    an invitation to overflow it.
+
+    It must also not round a SPARSE merge up to the form's minimum. A cluster that
+    grounded two duties is a cluster with two duties; asking for three is asking the
+    model to invent one, which is the exact failure the anti-fabrication guard exists to
+    catch and the exact failure a floor should not manufacture. The validator will flag
+    the under-run honestly (`SFU-STRUCT-DUTIES-TOO-FEW`), which is the right place for
+    it to be noticed.
+    """
+    wjq = rules.thresholds_for("wjq")
+
+    sparse = _cupe_merged()
+    sparse = MergedRole(
+        draft=sparse.draft.model_copy(
+            update={"duties": (SFUDuty(action_verb="File", statement="File records."),)}
+        ),
+        provenance=sparse.provenance,
+    )
+    chat = _FakeChat(sparse.draft)
+    await rewrite_merged_role(sparse, client=chat, rules=rules)
+    system = chat.calls[0][0][0]
+    assert f"1–{wjq.duties_max} major duties" in system
+    assert f"{wjq.duties_min}–" not in system
