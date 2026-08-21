@@ -186,8 +186,37 @@ async def _run(args: argparse.Namespace) -> CanonicalProducerResult:
     return result
 
 
+def _reject_contradictory_flags(args: argparse.Namespace) -> str | None:
+    """The message for a flag combination that cannot be honoured, or ``None``.
+
+    🔴 ``--resume --allow-downgrade`` WAS A SILENT NO-OP that exited 0. The two flags
+    ask for opposite things about the same rows: ``--resume`` says "skip every cluster
+    that already holds a landed rewrite", and ``--allow-downgrade`` exists ONLY to let a
+    cheap run overwrite exactly those clusters. Resume is tested first, so it won every
+    time — the deliberate re-baseline never happened, and the run reported success.
+
+    An operator reaching for ``--allow-downgrade`` is doing something destructive on
+    purpose (it discards a ~44-hour pass) and is the last person who should have to
+    infer from a summary that it did not happen. Refusing is the only honest answer:
+    picking a winner would mean guessing which half of a contradiction was meant.
+    """
+    if args.resume and args.allow_downgrade:
+        return (
+            "--resume and --allow-downgrade contradict each other: --resume SKIPS the "
+            "clusters holding a landed rewrite, which are the only clusters "
+            "--allow-downgrade exists to overwrite. Resume is evaluated first, so this "
+            "combination silently did nothing and exited 0. Drop --resume to "
+            "re-baseline, or drop --allow-downgrade to continue an interrupted pass."
+        )
+    return None
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(list(sys.argv[1:] if argv is None else argv))
+    contradiction = _reject_contradictory_flags(args)
+    if contradiction is not None:
+        print(f"❌ {contradiction}", file=sys.stderr)
+        return 2
     result = asyncio.run(_run(args))
 
     # Per FORM, never one blended number (CUPE Phase D) — a single "clusters seen"

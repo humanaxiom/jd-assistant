@@ -171,24 +171,40 @@ pathology the rulebook names elsewhere.
   cheap run by the no-DOWNGRADE guard. **Measured on the live Bank: 44 drafts,
   unreachable by any producer invocation that did not name them.** `draft_was_llm_written`
   is now `draft_has_rewritten_prose` and asks `rewrite_ran and not rewrite_failed`.
-- **Counters do not partition.** Three shapes fall through every counter:
-  `templates_harmonized=("wjq",)` with an all-JDFN cluster; a mixed cluster under
-  `("wjq","jdfn")`; a cluster whose members all fail to load. `wjq_members_authored` counts
-  members of clusters that were skipped or failed. The documented identity in `models.py`
-  ("persisted + refreshed + skipped + failed == clusters_seen") predates two new skip
-  counters and is now false.
-- **The `clusters` snapshot is write-once**, so re-ordering `templates_harmonized` re-authors
-  the canonical while the cluster row keeps claiming the old form and the old sources — the
-  Library would show APSA documents as the sources of a CUPE draft.
+- ~~**Counters do not partition.**~~ **CLOSED (2026-08-21).** Both identities are now
+  `model_validator`s on `CanonicalProducerResult` rather than prose, so they cannot go
+  stale again: `clusters_seen` == the six outcome buckets, and `clusters_recomputed` ==
+  entered + the four explicit reasons for not entering. Two counters were added for the
+  shapes that fell through (`clusters_no_authorable_template`,
+  `clusters_no_members_loaded`); `clusters_mixed_jdfn_wjq` now counts by MEMBERSHIP rather
+  than by which form won; and `wjq_members_authored` is incremented only when the run
+  actually WROTE the draft, with the remainder in `wjq_members_unwritten`.
+- ~~**The `clusters` snapshot is write-once.**~~ **CLOSED (2026-08-21).** It is refreshed
+  with the draft it describes, and pinned by an integration test that re-orders
+  `templates_harmonized` between two passes and asserts the row's `authored_template` and
+  member list follow the canonical. Both rows are derived from the same members on the same
+  run; they move together or the provenance is a lie.
 - ~~**A resume skip writes no audit row**~~ **CLOSED (#126).** It was the one skip that
   wrote none, contradicting the module's own stated invariant ("one audit row per
   persist/refresh and per skip"). Now `canonical_draft.skipped_resume` /
   `reason=resume_rewrite_already_landed` — counts and flags only, never JD text.
-- **`--resume --allow-downgrade --no-llm` is a silent no-op** — resume fires first, so the
-  deliberate re-baseline never happens and the run exits 0.
-- **A member dropped by `load_member_jds` is invisible per cluster** — `members_excluded`
-  counts template drops only, so HR can read a "harmonized" role that is a copy of one
-  document with nothing saying a source was dropped.
+- ~~**`--resume --allow-downgrade --no-llm` is a silent no-op**~~ **CLOSED (2026-08-21).**
+  The CLI now REFUSES `--resume --allow-downgrade` with exit 2 and an explanation, rather
+  than resolving a contradiction by evaluation order. The two flags ask opposite things
+  about the same rows, so there is no correct winner to pick: `--resume` skips exactly the
+  clusters `--allow-downgrade` exists to overwrite. An operator discarding a ~44-hour pass
+  on purpose should not have to infer from a summary that it did not happen.
+- ~~**A member dropped by `load_member_jds` is invisible per cluster**~~ **NOT REACHABLE —
+  measured 2026-08-21 while writing the test for it.** Both loaders read the same
+  `parsed_jds` rows through `SFUJobDescription.model_validate`, but `load_signed_corpus`
+  (clustering) must ALSO build `JobSignals`, so it accepts a strict SUBSET: a row that
+  fails the member load already failed to sign and was never in a cluster to be dropped
+  from. `member_rows_dropped_unvalidatable` is therefore **structurally zero** for the
+  producer — the same class of dead parameter as `thresholds.wjq.duties_max: 12` below.
+  The loss is real but happens earlier and is already counted, as `documents_unsignable`;
+  an integration test now pins that. A per-cluster `members_unloadable` was added to the
+  snapshot anyway as defence in depth, since the two loaders are separate functions with
+  separate validation and only their current coupling makes this safe.
 
 ## Rulebook / policy
 
