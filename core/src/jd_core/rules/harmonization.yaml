@@ -77,6 +77,53 @@ additional_context_policy: drop
 wjq:
   additional_context_policy: longest
 
+# --- the three member-level sections 4.1 merges (S-5, 2026-08-20) -------------------
+# Until 2026-08-20 the merge left DECISION MAKING, PROBLEM SOLVING and RELATIONSHIPS at
+# their model defaults for every cluster of every form, and said so honestly via
+# `sections_not_merged`. MEASURED consequence (docs/baseline/jdfn-remeasure-2026-08-19.md):
+# the rewrite's anti-fabrication guard refuses to let the model CREATE a section the
+# grounded draft does not have — correctly — so 685 post-guard JDFN drafts carried none
+# of the three, mean score 66.42, and all three completeness rules fired on 100% of
+# drafts. A finding present on every draft is a constant, not a signal.
+#
+# The content was in the sources the whole time: 97.0% of JDFN documents carry
+# `decision_making`, 44.9% `problem_solving`, 97.4% `relationships`. The merge dropped it
+# before the rewrite ever saw it, so NO draft the pipeline produced could be complete.
+#
+# ⚠ The fix is NOT to loosen the guard. Pre-guard, 1,084 JDFN drafts carried a Decision
+# Making section the model invented from an empty draft — an 18.19-point lift made of
+# fabricated content. Merging the sections puts GROUNDED text where the guard expects it
+# and brings those points back honestly.
+#
+# Each policy: `drop` (the pre-2026-08-20 behaviour — content lost, and
+# `sections_not_merged` reports it), `longest` (the single richest member's section
+# verbatim — the representative-member shape HR-207/HR-168 use), or `union` (pool across
+# the members that state it, folding near-identical statements at
+# `duty_dedup_jaccard_min` — one Jaccard, one home). All three are `open`.
+
+# HR-210. `union`: Decision Making is a list of discrete scope statements, structurally
+# a DUTY list rather than prose — and the engine's settled policy for statement lists is
+# union + Jaccard dedup, not a representative. A harmonized role's decision scope is the
+# scope its positions actually state.
+decision_making_policy: union
+
+# HR-211. `union`, matching HR-210 — the two sections are the same SHAPE and a split
+# policy would be a special case nobody asked for. ⚠ This is the knob most likely to be
+# wrong: at 44.9% source presence, a cluster where half the members state the section
+# and half do not is a genuine question about what the harmonized role should say, and
+# the union answers it by pooling only the members that spoke. Silence is not a
+# statement, so nothing is invented to fill the gap — but HR may prefer `longest`.
+problem_solving_policy: union
+
+# HR-212. `longest`, NOT `union` — deliberately different from the two above.
+# `relationships` is a STRUCTURED object whose `supervisory` field is prose describing
+# one reporting structure; pooling two supervisory lines invents a third that no source
+# wrote. `longest` carries one member's object verbatim. (`union` is available and pools
+# the internal/external contact lists while still taking `supervisory` from a single
+# member — more complete, and noisier, since a 132-member cluster's pooled contact list
+# describes no single position.)
+relationships_policy: longest
+
 # The presence booleans (`about_sfu_present`, `territorial_acknowledgement_present`,
 # `employment_equity_present`). `or_across_members`: assert present iff ANY member had it
 # (honest — a draft does not carry the boilerplate TEXT, so a re-parse still trips the

@@ -13,8 +13,14 @@ So a 4.4 reviewer can see, for a draft, where each section came from and *exactl
 what was removed and why — nothing vanishes silently (non-negotiable #6).
 
 **Scope of ``removed``.** It covers dropped *duties* (deduplicated / cap-dropped) and
-the unmerged sections (decision_making / problem_solving / relationships /
-position_number), plus the optional rewrite-stage qualification scrubs. It is NOT
+member-level section content THE DRAFT DID NOT KEEP, plus the optional rewrite-stage
+qualification scrubs. Since HR-210…HR-212 that last category is a diff against the
+draft rather than a fixed list of sections 4.1 skips: ``decision_making`` /
+``problem_solving`` / ``relationships`` are now merged under their own policies, so
+what they contribute here depends on the policy (everything under ``drop``, the
+non-representative members' content under ``longest``, a folded near-duplicate's exact
+wording under ``union``). ``position_number`` is never merged and so always
+contributes. See :func:`~src.jd_core.bank.merge.unmerged_content`. It is NOT
 exhaustive over the KSA rebuild's incidental non-core-skill drops — a one-off skill
 required by too few members is deliberately outside :data:`RemovedReason`; that pruning
 is visible instead via :attr:`MergeProvenance.skill_frequency` (the per-skill member
@@ -137,9 +143,11 @@ def build_harmonization_diff(
                 RemovedContent(content=statement, reason=reason, member_index=i)
             )
 
-        # Content in the sections 4.1 does not merge, if the draft dropped it (the same
-        # notion `merge` flags as `sections_not_merged`). Reported, not just flagged.
-        for piece in unmerged_content(member):
+        # Member-level content the DRAFT did not keep (the same notion `merge` flags
+        # as `sections_not_merged`). Reported, not just flagged. Since HR-210…HR-212
+        # this is a diff against the draft rather than a fixed section list, so it
+        # stays exact under `drop`, `longest` and `union` alike.
+        for piece in unmerged_content(member, merged.draft):
             removed.append(
                 RemovedContent(
                     content=piece, reason="section_not_merged", member_index=i

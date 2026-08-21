@@ -218,10 +218,12 @@ class MergeProvenance(BaseModel):
     section_contributors: tuple[tuple[str, tuple[int, ...]], ...] = ()
     #: HR-eyeball flags (never an auto-fix): ``grade_disagreement``,
     #: ``employee_group_disagreement``, ``duties_over_max``, ``no_core_skills``,
-    #: ``single_member``, and ``sections_not_merged`` (a member carried content in a
-    #: section 4.1 does not merge — decision_making / problem_solving / relationships /
-    #: position_number — so the draft dropped it; the 4.4 reviewer is told, not
-    #: surprised). Kept as an open, extensible tuple.
+    #: ``single_member``, and ``sections_not_merged`` (a member carried member-level
+    #: content the DRAFT did not keep, so the 4.4 reviewer is told rather than
+    #: surprised). Since HR-210…HR-212 that is a diff against the draft, not a fixed
+    #: section list: ``position_number`` is never merged and always counts, while
+    #: ``decision_making`` / ``problem_solving`` / ``relationships`` count only what
+    #: their policies dropped. Kept as an open, extensible tuple.
     flags: tuple[str, ...] = ()
     #: How the education / experience bars were chosen, and what the members actually
     #: stated (P1.2). Defaults to empty so a ``change_log`` packet written before this
@@ -251,8 +253,10 @@ class MergedRole(BaseModel):
 #: ``duty_deduplicated`` — a member duty folded onto another member's near-identical
 #: representative; ``duty_dropped_over_max`` — a member duty the ``max_duties`` cap
 #: dropped (only reachable when the ``duties_over_max`` flag is set);
-#: ``section_not_merged`` — content in a section 4.1 does not merge (decision_making /
-#: problem_solving / relationships / position_number); and
+#: ``section_not_merged`` — member-level section content the harmonized draft did not
+#: keep (``position_number``, which 4.1 never merges, plus whatever the HR-210…HR-212
+#: policies dropped for ``decision_making`` / ``problem_solving`` / ``relationships``);
+#: and
 #: ``qualification_scrubbed_ungrounded`` — a rewrite-stage qualification the guard
 #: dropped as ungrounded (not tied to a member).
 RemovedReason = Literal[

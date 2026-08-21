@@ -6270,6 +6270,121 @@ decisions:
       (`SFU-STRUCT-DUTIES-TOO-FEW`) instead, which is the right place for it to be
       noticed. Existing drafts are unaffected until the producer re-runs over them.
     status: open
+
+  # ── The three sections the 4.1 merge dropped for everyone (S-5, 2026-08-20). ──
+  - id: HR-210
+    question: >-
+      When several job descriptions are harmonized into one role, what happens to their
+      IMPACT OF DECISION MAKING sections? Until 2026-08-20 the harmonizer dropped them
+      for every cluster of every form, so no canonical draft the pipeline produced had
+      one.
+    config:
+      file: harmonization.yaml
+      path: harmonization.decision_making_policy
+    current_default: union
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      🔴 THIS WAS A DEFECT WITH A MEASURED PRICE, not a design choice anyone made — see
+      `docs/baseline/jdfn-remeasure-2026-08-19.md`. The merge documented these sections as
+      "out of scope" for 4.1 and flagged the loss honestly (`sections_not_merged`), which
+      was defensible while nothing downstream depended on them. Then the CUPE Phase D
+      anti-fabrication guard began refusing to let the rewrite CREATE a section the
+      grounded draft does not have. Because the merge never populated this one, that
+      antecedent was true on every real cluster of every template, and the guard fired on
+      the whole JDFN cohort — which had been described as "the untouched control" across
+      Phases B–E. MEASURED on the live Bank: the 685 post-guard JDFN drafts have ZERO
+      decision_making sections and a mean score of 66.42, against 84.61 for the 1,156
+      written before it; `SFU-COMP-DECISION` went from firing on 6.2% of drafts to 100%,
+      which makes it a constant rather than a signal. ⚠ THE FIX IS NOT TO LOOSEN THE
+      GUARD. The rewrite is fed the merge draft and nothing else, so the 1,084 pre-guard
+      sections were invented from NO SOURCE AT ALL — the 18.19 points were fabricated, and
+      the guard withdrawing them was correct. What is broken is one layer up: 97.0% of
+      JDFN source documents (5,254 of 5,416) state their decision-making scope and the
+      merge discarded all of it before the rewrite could see a word. `union` pools the
+      statements across the members that make them, folding near-identical ones at the
+      same token-Jaccard the duty and qualification dedup already use (HR-171) — the
+      settled policy for a list of discrete statements, which is what this section is.
+      ⚠ WHAT THIS DOES NOT SETTLE: whether a harmonized role's decision scope should be
+      the UNION of its positions' scopes. A union describes a role with the authority of
+      its most senior member in every dimension at once, which may overstate the typical
+      position; `longest` (one member's list verbatim) understates it instead. Neither is
+      obviously right and HR should rule.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (harmonization.yaml is unhashed) — it decides how a
+      draft is ASSEMBLED, never how one is scored. `drop` restores the pre-2026-08-20
+      behaviour exactly and drafts lose the section again. Nothing is invented under any
+      setting: every statement is carried verbatim from a source document, and a member
+      that states nothing contributes nothing. Existing drafts do not gain the content
+      until the producer re-runs over them.
+    status: open
+
+  - id: HR-211
+    question: >-
+      The same question for PROBLEM SOLVING — and it is a harder one, because fewer than
+      half the source documents answer it.
+    config:
+      file: harmonization.yaml
+      path: harmonization.problem_solving_policy
+    current_default: union
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      Same defect and same measurement as HR-210 (`SFU-COMP-PROBLEM` also went from 6.2%
+      to 100% of JDFN drafts), so the argument for merging the section at all is that
+      one. `union` is shipped to MATCH HR-210: the two sections have the same shape — a
+      list of discrete statements — and splitting their policies would be a special case
+      nobody asked for. ⚠ THIS IS THE KNOB MOST LIKELY TO BE WRONG, and it is flagged
+      rather than smoothed over. Only 2,434 of 5,416 JDFN source documents (44.9%) carry
+      a Problem Solving section, against 97.0% for decision-making. So a cluster where
+      half the members describe their problem-solving and half are silent is a genuine
+      question about what the harmonized role should say, not a mechanical merge. The
+      union answers it by pooling ONLY the members that spoke — silence is not a
+      statement, and nothing is written on a silent member's behalf — but that means a
+      role's Problem Solving section can be sourced from a minority of its positions
+      without saying so on the page. The change log records which members fed the section
+      (non-negotiable #6), so the provenance is recoverable; whether that is enough is
+      HR's call.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. `drop` restores the pre-2026-08-20 behaviour;
+      `longest` carries one member's list verbatim, which for this section means the
+      harmonized role describes the problem-solving of a single position and says nothing
+      about the others. Existing drafts are unaffected until the producer re-runs.
+    status: open
+
+  - id: HR-212
+    question: >-
+      And the same question for RELATIONSHIPS — who the role reports to, supervises, and
+      works with inside and outside the university.
+    config:
+      file: harmonization.yaml
+      path: harmonization.relationships_policy
+    current_default: longest
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      Same defect and same measurement as HR-210 (`SFU-COMP-RELATIONSHIPS` went from 5.9%
+      to 100% of JDFN drafts), and the content is there to merge: 5,275 of 5,416 JDFN
+      source documents (97.4%) carry it. But this section is DELIBERATELY GIVEN A
+      DIFFERENT DEFAULT from the two above, and the difference is the point. Decision
+      Making and Problem Solving are lists of independent statements, so pooling them
+      composes cleanly. `relationships` is a STRUCTURED object whose `supervisory` field
+      is prose describing ONE reporting structure — "Reports to the Associate Director;
+      supervises three coordinators". Two members' supervisory lines cannot be pooled
+      into a third without stating a reporting relationship that no source document
+      wrote, which is exactly the fabrication the CUPE guard exists to prevent. `longest`
+      carries the single richest member's object verbatim, the representative-member
+      shape HR-207 and HR-168 already use. ⚠ WHAT THIS DOES NOT SETTLE: `longest` means
+      the harmonized role's contacts are one position's contacts. The `union` option
+      pools the internal/external contact LISTS (while still taking `supervisory` from
+      one member verbatim, for the reason above) and is more complete — but a
+      132-member CUPE cluster's pooled contact list describes no single position and
+      would read as though every incumbent works with all of it.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. `drop` restores the pre-2026-08-20 behaviour. Under
+      no setting is a supervisory line synthesized from more than one member. Existing
+      drafts are unaffected until the producer re-runs over them.
+    status: open
   # ── Embedding over-length fallback ladder (HR-126 follow-up). ──
   - id: HR-193
     question: >-
