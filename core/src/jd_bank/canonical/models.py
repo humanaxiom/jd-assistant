@@ -12,7 +12,7 @@ OBSERVATION, and the class is frozen so a report cannot be edited after the fact
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class TemplateEvaluation(BaseModel):
@@ -51,11 +51,34 @@ class TemplateEvaluation(BaseModel):
 class CanonicalProducerResult(BaseModel):
     """What one canonical-producer pass did — counts + stamps only, no JD text.
 
-    ``drafts_persisted`` (first time a cluster got a canonical) + ``drafts_refreshed``
-    (an untouched DRAFT re-written in place) + ``skipped_reviewer_touched`` (a
-    published/archived canonical, or a DRAFT with a review action — LEFT UNTOUCHED) +
-    ``cluster_failures`` account for every JDFN cluster the run entered
-    (``clusters_seen``). Re-running yields ``drafts_persisted == 0`` and the same rows.
+    **TWO PARTITIONS, ENFORCED BY THE VALIDATORS BELOW RATHER THAN DESCRIBED HERE.**
+
+    Every cluster the run ENTERED lands in exactly one outcome bucket::
+
+        clusters_seen == drafts_persisted + drafts_refreshed + skipped_reviewer_touched
+                       + skipped_would_downgrade + skipped_already_llm_written
+                       + cluster_failures
+
+    ...and every cluster the CLUSTERING produced is either entered or explicitly
+    declined::
+
+        clusters_recomputed == clusters_seen + clusters_out_of_scope
+                             + clusters_fully_wjq_excluded
+                             + clusters_no_authorable_template
+                             + clusters_no_members_loaded
+
+    🔴 THE SECOND IDENTITY IS WHY THE FIRST IS ENFORCED AND NOT MERELY WRITTEN DOWN.
+    The prose here used to read "persisted + refreshed + skipped + failed account for
+    every cluster the run entered" — true when it was written, false by the time it was
+    read: two skip counters (``skipped_would_downgrade`` and
+    ``skipped_already_llm_written``) were added under it and the sentence was not, so it
+    described a partition that no longer held. THREE cluster shapes also fell
+    through every counter entirely — an all-JDFN cluster under
+    ``templates_harmonized=("wjq",)``, and a cluster whose members all failed to load —
+    so a run could decline work and report a total that looked complete. A docstring
+    cannot go stale into a `ValidationError`; a model validator can, which is the point.
+
+    Re-running yields ``drafts_persisted == 0`` and the same rows.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -83,8 +106,20 @@ class CanonicalProducerResult(BaseModel):
     #: ``wjq`` is absent from ``templates_harmonized``. It counts what was *excluded*,
     #: so the name stays true under both settings.
     clusters_fully_wjq_excluded: int = Field(ge=0)
+    #: Clusters holding members on MORE THAN ONE form. Counted by how many forms the
+    #: cluster contains, NOT by which one won: the old test also required the winner to
+    #: be non-WJQ, so re-ordering ``templates_harmonized`` to put ``wjq`` first made
+    #: every mixed cluster report as un-mixed.
     clusters_mixed_jdfn_wjq: int = Field(ge=0)
+    #: Member ROWS that failed to load or validate, corpus-wide. See
+    #: ``members_unloadable`` in a cluster's snapshot for the per-cluster split.
     member_rows_dropped_unvalidatable: int = Field(ge=0)
+    #: WJQ members in WJQ-authored clusters this run did NOT write (skipped or failed),
+    #: so ``wjq_members_authored`` can mean what it says. Before this existed those
+    #: members were counted as authored on the strength of the cluster's FORM, before
+    #: the cluster was processed — so a resumed pass that skipped everything still
+    #: reported thousands of members "authored".
+    wjq_members_unwritten: int = Field(default=0, ge=0)
 
     # --- what the producer did, per cluster ---
     #: Clusters the run entered (persisted + refreshed + skipped + failed).
@@ -123,6 +158,17 @@ class CanonicalProducerResult(BaseModel):
     #: "this pass deliberately did not look at N clusters". Reported so a scoped run
     #: cannot be mistaken for a full one when its summary is read back later.
     clusters_out_of_scope: int = Field(default=0, ge=0)
+    #: Clusters holding members, none of them on a form in ``templates_harmonized`` —
+    #: excluding the all-WJQ shape, which keeps its own long-standing counter. Today
+    #: this is only reachable by removing ``jdfn`` from the list; it is counted because
+    #: "the run entered N clusters" must not be able to quietly mean "N minus the ones
+    #: it had no form for".
+    clusters_no_authorable_template: int = Field(default=0, ge=0)
+    #: Clusters where EVERY member row failed to load or validate, so there was nothing
+    #: to merge. Distinct from a cluster failure: nothing raised, there was simply no
+    #: input — and a run that silently drops such a cluster reports a smaller archive
+    #: than it was given.
+    clusters_no_members_loaded: int = Field(default=0, ge=0)
     #: Per-cluster failures isolated (SAVEPOINT rolled back) — never abort the run.
     cluster_failures: int = Field(ge=0)
 
@@ -140,3 +186,65 @@ class CanonicalProducerResult(BaseModel):
     rewrite_prompt_version: str
     quality_model: str
     quality_prompt_version: str
+
+    @model_validator(mode="after")
+    def _every_entered_cluster_has_exactly_one_outcome(
+        self,
+    ) -> CanonicalProducerResult:
+        """``clusters_seen`` is the sum of the six outcome buckets.
+
+        A cluster that reaches ``_process_cluster`` sets exactly one of them, so this
+        holds by construction — which is precisely what makes it worth asserting. The
+        cost of it drifting is not a wrong number on a report: it is a run that
+        declined to do work and said nothing, over a pass whose progress line reads
+        identically whether it worked or not.
+        """
+        buckets = (
+            self.drafts_persisted
+            + self.drafts_refreshed
+            + self.skipped_reviewer_touched
+            + self.skipped_would_downgrade
+            + self.skipped_already_llm_written
+            + self.cluster_failures
+        )
+        if buckets != self.clusters_seen:
+            raise ValueError(
+                f"clusters_seen ({self.clusters_seen}) != the sum of the outcome "
+                f"buckets ({buckets}): persisted={self.drafts_persisted} "
+                f"refreshed={self.drafts_refreshed} "
+                f"skipped_reviewer_touched={self.skipped_reviewer_touched} "
+                f"skipped_would_downgrade={self.skipped_would_downgrade} "
+                f"skipped_already_llm_written={self.skipped_already_llm_written} "
+                f"cluster_failures={self.cluster_failures}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _every_recomputed_cluster_is_entered_or_declined(
+        self,
+    ) -> CanonicalProducerResult:
+        """``clusters_recomputed`` is the sum of the clusters entered and the four
+        explicit reasons for not entering one.
+
+        This is the identity the three fall-through shapes broke, and the reason
+        ``clusters_no_authorable_template`` / ``clusters_no_members_loaded`` exist at
+        all: without them a cluster could be skipped for a reason no field named, and
+        the arithmetic would not object.
+        """
+        accounted = (
+            self.clusters_seen
+            + self.clusters_out_of_scope
+            + self.clusters_fully_wjq_excluded
+            + self.clusters_no_authorable_template
+            + self.clusters_no_members_loaded
+        )
+        if accounted != self.clusters_recomputed:
+            raise ValueError(
+                f"clusters_recomputed ({self.clusters_recomputed}) != clusters "
+                f"accounted for ({accounted}): seen={self.clusters_seen} "
+                f"out_of_scope={self.clusters_out_of_scope} "
+                f"fully_wjq_excluded={self.clusters_fully_wjq_excluded} "
+                f"no_authorable_template={self.clusters_no_authorable_template} "
+                f"no_members_loaded={self.clusters_no_members_loaded}"
+            )
+        return self

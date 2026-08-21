@@ -1609,3 +1609,198 @@ async def test_only_template_does_not_pay_the_model_for_the_cohort_it_skips(
 
         # ONE rewrite, for the one in-scope cluster — not two.
         assert rewrite.seen == [SFUJobDescription]
+
+
+# --- the clusters snapshot follows the draft it describes ----------------------------
+
+
+def _wjq_first(rules: Rules) -> Rules:
+    """``templates_harmonized`` re-ordered so a MIXED cluster authors on the WJQ form
+    instead of the JDFN one — the change that re-authors a draft without touching a
+    single source document."""
+    harmonization = Harmonization(
+        **{**rules.harmonization.model_dump(), "templates_harmonized": ("wjq", "jdfn")}
+    )
+    return rules.model_copy(update={"harmonization": harmonization})
+
+
+async def _seed_cupe_pair(session: AsyncSession) -> None:
+    """Two role-equivalent CUPE analysts — an ALL-WJQ cluster, so the run authors on
+    the WJQ form and every member of it is a WJQ member."""
+    a = await _seed_jd(
+        session, storage_ref="ca", sha256=_sha("ca"), parsed=_analyst(group="cupe")
+    )
+    b = await _seed_jd(
+        session, storage_ref="cb", sha256=_sha("cb"), parsed=_analyst(group="cupe")
+    )
+    await _role_edge(session, a.id, b.id)
+
+
+async def test_the_cluster_snapshot_is_re_authored_with_the_draft(
+    session_maker: async_sessionmaker[AsyncSession], rules: Rules
+) -> None:
+    """🔴 THE SNAPSHOT WAS WRITE-ONCE, and the draft was not.
+
+    The ``clusters`` row was built on FIRST INSERT and never touched again, while the
+    canonical was re-authored on every run. So re-ordering ``templates_harmonized``
+    flipped a mixed cluster's draft from JDFN to WJQ and left the snapshot claiming the
+    OLD form and the OLD member list. The Library reads that snapshot to answer "which
+    documents is this role drawn from?", so HR would have read a CUPE role whose sources
+    were listed as APSA documents, with nothing anywhere saying the two disagreed.
+
+    Both rows are DERIVED from the same members on the same run. They move together or
+    the provenance is a lie (NN #6).
+    """
+    mixed = _no_group_veto(rules)
+    async with session_maker() as session:
+        apsa, cupe = await _seed_pair(session, group_b="cupe")
+        await session.commit()
+
+    # Pass 1 — shipped order: the mixed cluster authors JDFN.
+    async with session_maker() as session:
+        await run_canonical_producer(
+            session, rewrite_client=None, audit_client=None, rules=mixed
+        )
+        await session.commit()
+
+    async with session_maker() as session:
+        cluster = (await session.scalars(select(Cluster))).one()
+        assert cluster.constraint_metadata["authored_template"] == "jdfn"
+        assert [m["source_id"] for m in cluster.members] == [str(apsa.id)]
+
+    # Pass 2 — WJQ first. The DRAFT is re-authored on the other form...
+    async with session_maker() as session:
+        result = await run_canonical_producer(
+            session,
+            rewrite_client=None,
+            audit_client=None,
+            rules=_wjq_first(mixed),
+        )
+        await session.commit()
+        assert result.drafts_refreshed == 1
+
+    # ...and the snapshot followed it. Before this fix both assertions below held the
+    # PASS-1 values while the canonical held CUPE prose.
+    async with session_maker() as session:
+        cluster = (await session.scalars(select(Cluster))).one()
+        assert cluster.constraint_metadata["authored_template"] == "wjq"
+        assert [m["source_id"] for m in cluster.members] == [str(cupe.id)]
+        assert cluster.employee_group == "cupe"
+
+
+async def test_an_unreadable_member_row_is_dropped_at_clustering_not_at_the_merge(
+    session_maker: async_sessionmaker[AsyncSession], rules: Rules
+) -> None:
+    """🔴 WHY ``member_rows_dropped_unvalidatable`` IS STRUCTURALLY ZERO HERE — measured
+    while trying to write the opposite test.
+
+    The review finding "a member dropped by ``load_member_jds`` is invisible per
+    cluster" describes a path that cannot currently be taken. Both loaders read the same
+    ``parsed_jds`` rows through ``SFUJobDescription.model_validate``, but
+    ``load_signed_corpus`` (clustering) ALSO has to build ``JobSignals``, so it accepts
+    a strict SUBSET: a row that fails the member load would already have failed to sign
+    and would never be in a cluster to be dropped from.
+
+    So the loss is real but it happens EARLIER and is already counted, as
+    ``documents_unsignable`` — which is what this test pins. The per-cluster
+    ``members_unloadable`` field stays as defence in depth: the two loaders are separate
+    functions with separate validation, and if anyone ever tightens the member load this
+    becomes live without the snapshot needing to be retaught.
+    """
+    async with session_maker() as session:
+        _a, b = await _seed_pair(session)
+        await session.commit()
+
+    # Corrupt in a SEPARATE session: inside the seeding one the ParsedJDRow is still a
+    # pending ORM object, so the raw UPDATE hits nothing and the subsequent flush
+    # inserts the pristine row over it.
+    async with session_maker() as session:
+        await session.execute(
+            text(
+                'UPDATE parsed_jds SET parsed = \'{"title": ""}\'::jsonb '
+                "WHERE source_document_id = :sid"
+            ),
+            {"sid": b.id},
+        )
+        await session.commit()
+
+    async with session_maker() as session:
+        result = await run_canonical_producer(
+            session, rewrite_client=None, audit_client=None, rules=rules
+        )
+        await session.commit()
+
+    # Dropped at CLUSTERING, and counted there...
+    assert result.documents_seen == 2
+    assert result.documents_unsignable == 1
+    # ...so the merge never saw it, and the member load dropped nothing.
+    assert result.member_rows_dropped_unvalidatable == 0
+    # The surviving document no longer clusters with anything, so nothing is drafted
+    # from a silently-halved cluster — the outcome the finding was worried about.
+    assert result.clusters_recomputed == 0
+    assert result.clusters_seen == 0
+
+
+async def test_wjq_members_are_authored_only_when_the_run_wrote_the_draft(
+    session_maker: async_sessionmaker[AsyncSession], rules: Rules
+) -> None:
+    """``wjq_members_authored`` was incremented off the cluster's FORM before the
+    cluster was processed, so it counted members of clusters the run then skipped. On a
+    resumed pass — the whole point of #126 — that reported thousands of members
+    "authored" by a run that wrote nothing. Authored now means "fed a draft this run
+    WROTE"; the rest are ``wjq_members_unwritten``."""
+    async with session_maker() as session:
+        await _seed_cupe_pair(session)
+        await session.commit()
+
+    # Pass 1 writes the draft: the two CUPE members are genuinely authored.
+    async with session_maker() as session:
+        first = await run_canonical_producer(
+            session, rewrite_client=None, audit_client=None, rules=rules
+        )
+        await session.commit()
+    assert first.wjq_members_authored == 2
+    assert first.wjq_members_unwritten == 0
+
+    # Pass 2 SKIPS it (a reviewer touched the draft) — so nobody was authored by it.
+    async with session_maker() as session:
+        canonical = (await session.scalars(select(CanonicalJD))).one()
+        session.add(
+            ReviewAction(
+                canonical_jd_id=canonical.id,
+                reviewer_id="hr-user",
+                action=ReviewActionKind.EDIT,
+                reason="touched",
+            )
+        )
+        await session.commit()
+
+    async with session_maker() as session:
+        second = await run_canonical_producer(
+            session, rewrite_client=None, audit_client=None, rules=rules
+        )
+        await session.commit()
+
+    assert second.skipped_reviewer_touched == 1
+    assert second.wjq_members_authored == 0
+    assert second.wjq_members_unwritten == 2
+
+
+async def test_a_mixed_cluster_is_counted_mixed_whichever_form_wins(
+    session_maker: async_sessionmaker[AsyncSession], rules: Rules
+) -> None:
+    """``clusters_mixed_jdfn_wjq`` also required the winner to be non-WJQ, so putting
+    ``wjq`` first in ``templates_harmonized`` reported every mixed cluster as un-mixed.
+    Mixed is a property of the CLUSTER's membership, not of which form won."""
+    mixed_rules = _no_group_veto(rules)
+    async with session_maker() as session:
+        await _seed_pair(session, group_b="cupe")
+        await session.commit()
+
+    for scoped in (mixed_rules, _wjq_first(mixed_rules)):
+        async with session_maker() as session:
+            result = await run_canonical_producer(
+                session, rewrite_client=None, audit_client=None, rules=scoped
+            )
+            await session.commit()
+        assert result.clusters_mixed_jdfn_wjq == 1

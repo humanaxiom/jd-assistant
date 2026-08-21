@@ -332,8 +332,8 @@ def test_the_producer_writes_only_the_draft_status() -> None:
     assert DRAFT is CanonicalStatus.DRAFT
 
 
-def _result() -> CanonicalProducerResult:
-    return CanonicalProducerResult(
+def _result(**overrides: object) -> CanonicalProducerResult:
+    base: dict[str, object] = dict(
         documents_seen=10,
         documents_signed=9,
         documents_unsignable=1,
@@ -372,6 +372,8 @@ def _result() -> CanonicalProducerResult:
         quality_model="gpt-oss:120b",
         quality_prompt_version="jd_quality_v1",
     )
+    base.update(overrides)
+    return CanonicalProducerResult(**base)  # type: ignore[arg-type]
 
 
 def test_the_result_is_frozen_and_counts_only() -> None:
@@ -431,3 +433,84 @@ def test_build_clients_binds_the_audit_client_to_the_quality_model(
 def test_build_clients_no_llm_yields_no_clients() -> None:
     """``--no-llm`` -> ``(None, None)``: the deterministic path, no Ollama needed."""
     assert cli._build_clients(get_rules(), no_llm=True) == (None, None)
+
+
+# --- the two partitions, enforced rather than described ------------------------------
+#
+# The class docstring used to claim "persisted + refreshed + skipped + failed account
+# for every cluster the run entered". True when written; false by the time it was read,
+# because two skip counters were added underneath it. And three cluster shapes fell
+# through EVERY counter, so a run could decline work and still report a total that
+# looked complete. Both identities are now model validators — a docstring cannot go
+# stale into a ValidationError.
+
+
+def test_a_result_whose_outcome_buckets_do_not_sum_is_refused() -> None:
+    """The first identity. One cluster entered, none accounted for — exactly the shape
+    a new outcome bucket that nobody added to the sum would produce."""
+    with pytest.raises(ValidationError, match="outcome buckets"):
+        _result(clusters_seen=3, clusters_recomputed=4, drafts_persisted=2)
+
+
+def test_a_result_that_loses_a_cluster_between_recompute_and_entry_is_refused() -> None:
+    """The second identity, and the one that catches a genuinely NEW fall-through: a
+    cluster the clustering produced that no counter claims. Before these fields existed
+    this was silent, which is what let three shapes go missing."""
+    with pytest.raises(ValidationError, match="clusters accounted for"):
+        _result(clusters_recomputed=9)
+
+
+def test_the_two_new_decline_reasons_close_the_second_identity() -> None:
+    """...and they close it: the same otherwise-unaccounted clusters, once named, make
+    the result constructible. This is the pair of tests that says the fields are load-
+    bearing rather than decorative."""
+    result = _result(
+        clusters_recomputed=9,
+        clusters_no_authorable_template=3,
+        clusters_no_members_loaded=3,
+    )
+    assert result.clusters_no_authorable_template == 3
+    assert result.clusters_no_members_loaded == 3
+
+
+def test_a_skip_counter_is_part_of_the_outcome_partition() -> None:
+    """The regression that made the old docstring false: a cluster skipped by a resume
+    (or by the no-downgrade guard) is ENTERED, so it must be in the sum. If someone
+    adds a seventh bucket and forgets the validator, this is the shape that goes red."""
+    result = _result(
+        clusters_seen=4,
+        clusters_recomputed=5,
+        drafts_persisted=2,
+        skipped_already_llm_written=1,
+        skipped_would_downgrade=1,
+    )
+    assert result.clusters_seen == 4
+
+
+# --- contradictory CLI flags are refused, not silently resolved ----------------------
+
+
+def test_resume_with_allow_downgrade_is_refused_instead_of_doing_nothing(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """🔴 THE DEFECT: this combination was a SILENT NO-OP that exited 0.
+
+    ``--resume`` skips every cluster holding a landed rewrite; ``--allow-downgrade``
+    exists only to overwrite exactly those clusters. Resume is tested first, so it won,
+    the deliberate re-baseline never happened, and the run reported success. An operator
+    reaching for ``--allow-downgrade`` is discarding a ~44-hour pass on purpose and is
+    the last person who should have to infer from a summary that it did not happen.
+    """
+    exit_code = cli.main(["--resume", "--allow-downgrade", "--no-llm"])
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert "--resume and --allow-downgrade contradict" in err
+
+
+def test_either_flag_alone_is_still_accepted() -> None:
+    """The other direction — the guard must reject the CONTRADICTION, not the flags. A
+    check that also refused a plain ``--resume`` would break the resume this repo just
+    spent #126 making correct."""
+    for argv in (["--resume"], ["--allow-downgrade", "--no-llm"]):
+        args = cli._parse_args(argv)
+        assert cli._reject_contradictory_flags(args) is None

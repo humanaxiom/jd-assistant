@@ -397,6 +397,7 @@ def _cluster_snapshot(
     merged: MergedRole,
     template: JDTemplate,
     members_excluded: int,
+    members_unloadable: int,
 ) -> dict[str, Any]:
     """The auditable ``clusters`` snapshot for a first insert: the members that fed the
     canonical, the form they were authored on, the harmonized employee group, and the
@@ -425,6 +426,11 @@ def _cluster_snapshot(
             # count that can now hold JDFN members must not still say "wjq".
             "authored_template": template,
             "members_excluded": members_excluded,
+            # Members the CLUSTERING listed that could not be reconstructed at all.
+            # Corpus-wide this is `member_rows_dropped_unvalidatable`; per cluster it
+            # was invisible, so a "harmonized" role could be a verbatim copy of one
+            # document while its provenance still claimed a cluster of six (NN #6).
+            "members_unloadable": members_unloadable,
         },
     }
 
@@ -439,6 +445,7 @@ async def _process_cluster(
     *,
     template: JDTemplate,
     members_excluded: int,
+    members_unloadable: int,
     rewrite_client: ChatClient | None,
     audit_client: ChatClient | None,
     rules: Rules,
@@ -598,15 +605,31 @@ async def _process_cluster(
     ]
 
     # 5. UPSERT the clusters row (select-or-insert on the STABLE content-derived id).
+    #
+    # 🔴 IT REFRESHES, and until 2026-08-21 it did not. The row was written on FIRST
+    # INSERT and never touched again, while step 6 below re-authored the canonical every
+    # run. So re-ordering `templates_harmonized` re-authored a cluster's draft on the
+    # other form and left the snapshot claiming the OLD form and the OLD member list —
+    # and the Library reads the snapshot for "which documents is this role drawn from?".
+    # The visible result would be a CUPE draft whose sources are listed as APSA
+    # documents, with nothing anywhere saying they disagree.
+    #
+    # Refreshing is correct because this row is DERIVED, exactly like the draft it
+    # describes: both are recomputed from the same members on the same run, so they must
+    # move together or not at all. It cannot reach a human-authored cluster — the
+    # composer mints its rows under `uuid4` with `origin: composed`, while this id is
+    # content-derived — and it cannot reach a reviewer-touched one, because every skip
+    # path returned long before here.
+    snapshot = _cluster_snapshot(
+        record,
+        member_ids=member_ids,
+        merged=merged,
+        template=template,
+        members_excluded=members_excluded,
+        members_unloadable=members_unloadable,
+    )
     cluster = await session.get(Cluster, cluster_id)
     if cluster is None:
-        snapshot = _cluster_snapshot(
-            record,
-            member_ids=member_ids,
-            merged=merged,
-            template=template,
-            members_excluded=members_excluded,
-        )
         cluster = Cluster(
             id=cluster_id,  # NOT the table's uuid4 default — the idempotency key.
             label=snapshot["label"],
@@ -616,7 +639,12 @@ async def _process_cluster(
             constraint_metadata=snapshot["constraint_metadata"],
         )
         session.add(cluster)
-        await session.flush()
+    else:
+        cluster.label = snapshot["label"]
+        cluster.employee_group = snapshot["employee_group"]
+        cluster.members = snapshot["members"]
+        cluster.constraint_metadata = snapshot["constraint_metadata"]
+    await session.flush()
 
     # 6. Persist / refresh the DRAFT canonical.
     if existing is None:
@@ -795,9 +823,11 @@ async def run_canonical_producer(
     filters AFTER :func:`authoring_template` has decided which form each cluster
     authors on; it never changes that decision. The rulebook knob for that is
     ``harmonization.templates_harmonized`` (an HR-registered priority order), and
-    narrowing it to ``[wjq]`` to get the same effect would ALSO re-author mixed
-    clusters and desynchronise the write-once ``clusters`` snapshot. Hence a caller
-    argument in the same class as ``limit``, and no register entry.
+    narrowing it to ``[wjq]`` to get the same effect would ALSO re-author every mixed
+    cluster onto the other form — a rulebook change to the whole archive, made to scope
+    one run. (It used to desynchronise the ``clusters`` snapshot as well, because that
+    row was write-once; it now follows the draft. The re-authoring is still the reason
+    this is a caller argument in the same class as ``limit``, and not a register entry.)
 
     Deterministic + single-process for the deterministic parts; idempotent persistence.
 
@@ -846,6 +876,12 @@ async def run_canonical_producer(
     #: `only_template`. Not a rulebook outcome — an operational scope, counted so a
     #: scoped run says out loud what it did not look at.
     out_of_scope = 0
+    #: The two shapes that fell through every counter until 2026-08-21 (see
+    #: `CanonicalProducerResult`, second identity).
+    no_authorable = 0
+    no_members_loaded = 0
+    #: WJQ members in WJQ-authored clusters this run did NOT write.
+    wjq_unwritten_total = 0
     cluster_failures = 0
     rewrite_failures = 0
     audit_failures = 0
@@ -878,21 +914,39 @@ async def run_canonical_producer(
         wjq_members = [jd for _, jd in by_form.get(WJQ_TEMPLATE, ())]
 
         wjq_freq_confirmed += sum(1 for jd in wjq_members if member_has_frequency(jd))
-        if template == WJQ_TEMPLATE:
-            wjq_authored_total += len(wjq_members)
-        else:
+        if template != WJQ_TEMPLATE:
             wjq_excluded_total += len(wjq_members)
 
+        # Members the clustering listed that `load_member_jds` could not reconstruct.
+        # Corpus-wide this is `member_rows_dropped_unvalidatable`; PER CLUSTER it was
+        # invisible, because `members_excluded` counts form drops only. So HR could
+        # read a "harmonized" role that is a verbatim copy of one document, with the
+        # provenance silently claiming a cluster of six (NN #6).
+        members_unloadable = len(member_ids_sorted) - len(present)
+
+        if not present:
+            # Nothing raised — there was simply no input, because every member row
+            # failed to load. Counted rather than `continue`d past, so the arithmetic
+            # cannot report a smaller archive than the clustering handed over.
+            no_members_loaded += 1
+            continue
+
         if template is None:
-            # No member is on a form the Bank drafts. Today that can only be an all-WJQ
-            # cluster with `wjq` removed from the list — the pre-Phase-D behaviour.
+            # No member is on a form the Bank drafts. The all-WJQ shape keeps its own
+            # long-standing counter; anything else (reachable by removing `jdfn` from
+            # `templates_harmonized`) fell through every counter until 2026-08-21.
             if wjq_members:
                 fully_wjq += 1
+            else:
+                no_authorable += 1
             continue
 
         member_pairs = by_form[template]
         excluded_count = len(present) - len(member_pairs)
-        if excluded_count and WJQ_TEMPLATE in by_form and template != WJQ_TEMPLATE:
+        # MIXED is a property of the CLUSTER, not of which form won. The old test also
+        # demanded `template != WJQ_TEMPLATE`, so putting `wjq` first in
+        # `templates_harmonized` would have reported every mixed cluster as un-mixed.
+        if len(by_form) > 1:
             mixed += 1
 
         clusters_seen += 1
@@ -911,6 +965,7 @@ async def run_canonical_producer(
                     member_pairs,
                     template=template,
                     members_excluded=excluded_count,
+                    members_unloadable=members_unloadable,
                     rewrite_client=rewrite_client,
                     audit_client=audit_client,
                     rules=rulebook,
@@ -919,6 +974,8 @@ async def run_canonical_producer(
                 )
         except Exception:  # noqa: BLE001 - isolate a per-cluster failure, keep the run
             cluster_failures += 1
+            if template == WJQ_TEMPLATE:
+                wjq_unwritten_total += len(wjq_members)
         else:
             persisted += int(outcome.persisted)
             refreshed += int(outcome.refreshed)
@@ -927,6 +984,15 @@ async def run_canonical_producer(
             skipped_llm_written += int(outcome.skipped_llm_written)
             rewrite_failures += int(outcome.rewrite_failed)
             audit_failures += int(outcome.audit_failed)
+            # AUTHORED means "fed a draft THIS RUN WROTE", which is only knowable here.
+            # Counting it off the cluster's FORM before processing (what it did until
+            # 2026-08-21) meant a resumed pass that skipped every cluster still
+            # reported thousands of members authored.
+            if template == WJQ_TEMPLATE:
+                if outcome.persisted or outcome.refreshed:
+                    wjq_authored_total += len(wjq_members)
+                else:
+                    wjq_unwritten_total += len(wjq_members)
             if outcome.score is not None and outcome.grade is not None:
                 agg = per_form[template]
                 agg.drafts_scored += 1
@@ -964,6 +1030,9 @@ async def run_canonical_producer(
             template: agg.evaluation() for template, agg in sorted(per_form.items())
         },
         clusters_fully_wjq_excluded=fully_wjq,
+        clusters_no_authorable_template=no_authorable,
+        clusters_no_members_loaded=no_members_loaded,
+        wjq_members_unwritten=wjq_unwritten_total,
         clusters_mixed_jdfn_wjq=mixed,
         member_rows_dropped_unvalidatable=dropped_unvalidatable,
         clusters_seen=clusters_seen,
