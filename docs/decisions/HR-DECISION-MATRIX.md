@@ -8,7 +8,13 @@ code**, and every decision below is a setting we change in minutes and re-measur
 
 **Status:** *awaiting HR review — nothing in this system has been ratified by SFU.* Until you rule,
 the system's behaviour is provisional and unchanged.
-**Last verified against the live system: 11 August 2026.**
+**Last verified against the live system: 21 August 2026.**
+
+> 🔴 **ONE DECISION HAS MATERIALLY CHANGED SINCE CIRCULATION — [Decision 8](#decision-8--ratify-the-cupe-bar-the-question-has-changed-since-you-last-read-it-).**
+> It used to ask you to confirm the Bank was APSA/APEX/Poly only. **The Bank now reads, scores and
+> drafts CUPE roles on their own WJQ bar**, so the question is no longer whether to have one but
+> whether the one we built is right. Everything else below is unchanged in substance. If you are
+> holding a printout dated before 21 August 2026, re-read Decision 8 and skip the rest.
 
 > ⚠️ **`docs/HR-DECISION-MATRIX.pdf` is a manual export dated 31 July 2026 and is now out of
 > date** — it predates the corrections below. Re-export it from this file before sending anything
@@ -30,8 +36,9 @@ the system's behaviour is provisional and unchanged.
 >   which is *not* one of the eight below; it is tracked separately (see the end of Part 4).
 > - **Sign-in is now SFU single sign-on with proper roles**, and the pilot in Part 5 has been
 >   updated accordingly.
-> - **The settings count moved from 194 to 197.** No new rule was added to the approval bar; the
->   three additions govern an advisory feature in the authoring tool.
+> - **The settings count moved from 194 to 212.** No new rule was added to the APSA/APEX/Poly
+>   approval bar. The additions are the WJQ profile behind Decision 8, plus the authoring-tool and
+>   drafting settings described in *What changed for the people writing JDs* below.
 > - **The full settings register now says which settings are actually yours.** Feedback on the
 >   first circulation was that the companion register
 >   (`docs/decisions/HR-DECISION-REGISTER.md`) reads as an undifferentiated list of 197 items, so
@@ -39,9 +46,53 @@ the system's behaviour is provisional and unchanged.
 >   entry now carries an audience, and the register leads with a section called **"Your
 >   decisions"**: **65 settings change whether a job description passes** and are yours to rule
 >   on; 49 shape what a reviewer *sees* without deciding anything; 83 are engineering settings you
->   should never be asked about. **Nothing was removed** — the same build check still covers all
->   197, so none of them can change quietly. **This does not change the ask in Part 4:** the eight
->   settings below are still what we need from you now, and the 65 are the wider set behind them.
+>   should never be asked about. **Nothing was removed** — the same build check still covers all of
+>   them, so none can change quietly. As of 21 August the split is **77 yours · 50 reviewer-facing ·
+>   85 engineering, out of 212.** **This does not change the ask in Part 4:** the eight settings
+>   below are still what we need from you now, and the 77 are the wider set behind them.
+
+### What changed for the people writing JDs
+
+Four corrections since circulation, all found by measuring the tool against your own archive rather
+than by anyone reporting them. None changes the approval bar; each changes what a reviewer or an
+author actually sees on the page, so they are listed here rather than buried in the register.
+
+**1. The tool used to invent whole sections, and now it cannot.** When it harmonizes several similar
+job descriptions into one, a language model rewrites the result into cleaner prose. We found it was
+writing **Impact of Decision Making** sections for roles whose source documents said nothing about
+decision-making — **1,084 drafts carried a section invented from no source at all.** Those drafts
+scored *18 points higher* for it. The guard that stops this is now in place, and the points came
+back honestly a different way: the harmonizer now carries the **Decision Making, Problem Solving and
+Relationships** sections across from the source documents, which it had been discarding. **97% of
+APSA/APEX/Poly documents state their decision-making scope and 97% their working relationships** —
+all of it was being thrown away before the rewrite ever saw it, which is why no draft the tool
+produced could ever be complete.
+
+**2. The tool cannot invent a hiring bar.** The same rewrite pass was free to write the
+**education, experience and security-clearance** requirements. It is not any more — those now come
+back exactly as derived from the source job descriptions. This was found after a clerical CUPE draft
+came back demanding **a PhD in Astrophysics and an Enhanced Reliability clearance**, with nothing
+flagged. A reviewer who accepted that draft would have published a hiring bar no source document
+asked for.
+
+**3. A harmonized role keeps its duties.** The rewrite was being told the *form's minimum* number of
+duties rather than the number actually found, so it treated twelve grounded duties as licence to
+write seven. Measured over the five largest CUPE role groups: **60 duties went in and 36 came out,
+and only 10 of those kept how often the role performs them.** It now rewords what it is given —
+**48 in, 48 out**, with frequency retention up from 28% to 44%. For a CUPE role this matters twice,
+because duty frequency is an input to the point-factor evaluation, so a dropped duty is a missing
+evaluation signal and not just missing text.
+
+**4. CUPE point-factor content is no longer discarded.** **95.4% of CUPE documents carry** the
+Level of Independence / Impact of Errors / Effort / Working Conditions blocks, and **none of the
+CUPE drafts had any of it**, because the harmonizer applied a rule written for the APSA form. A
+reviewer would have read a CUPE role with no working conditions and nothing saying they had ever
+existed.
+
+> **The pattern worth noticing, because it should shape how you read Part 3.** In three of these
+> four, the *defect made the numbers look better*. Invented sections scored higher; compressed duty
+> lists scored higher. **A rising score is not self-evidently good news**, and the pilot in Part 5
+> is where you get to catch the version of this we have not found yet.
 
 **We are asking you for two things:**
 
@@ -157,14 +208,17 @@ one is a fair test of the bar:
 
 | Population | Size | Approvable | What it actually measures |
 |---|---:|---:|---|
-| Whole archive | 14,522 scored | ~5% | **Not meaningful — do not quote.** Mixes 1990s JDs and a second form (the CUPE Weighted Job Questionnaire) that has no SFU quality bar at all. |
+| Whole archive | 14,522 scored | ~5% | **Not meaningful — do not quote.** Mixes 1990s JDs with a second form (the CUPE Weighted Job Questionnaire) judged by a different bar. Averaging the two is a category error. |
 | JDs dated 2024+ | 1,034 | 61% | A *date* band — still partly measuring a rollout, not quality. |
 | **Current practice** | **874** | **78.6%** | **The fair trial** — the job descriptions SFU writes today, under today's template and conventions. |
 
-> **The CUPE form (4,300 files, ~30% of the archive)** is the Weighted Job Questionnaire — a
-> *different instrument* with no SFU quality bar defined. The tool reads it, but does **not** score it
-> against the APSA/APEX/Polytechnic rules; doing so would be a category error. It is excluded from
-> every approval figure above. Decision 8 asks you to confirm this scope.
+> **The CUPE form (4,440 files, ~30% of the archive)** is the Weighted Job Questionnaire — a
+> *different instrument*. The tool now scores it, but **against its own WJQ bar, never these
+> rules**; judging a CUPE JD by the APSA/APEX/Polytechnic standard would be a category error. It
+> is therefore **excluded from every approval figure above**, and the system computes no combined
+> score over the two forms. **[Decision 8](#decision-8--ratify-the-cupe-bar-the-question-has-changed-since-you-last-read-it-)
+> asks you to rule on that WJQ bar** — it is provisional and unratified, and it is the part of
+> this document that changed most since circulation.
 
 ### The headline: the bar is sound, and barely binding
 
@@ -238,7 +292,7 @@ Each is a **setting**, not a code change. Three kinds of ask appear:
 | **5** | The **"placeholder" gate** blocks with **no appeal** | 🔵 Choose | Make it waivable with a written reason | 0 | ☐ |
 | **6** | The **wish-list-language** word list ("may include", "an asset") | 🟣 Review | A JD reviewer confirms the list is complete | 0 | ☐ |
 | **7** | Should the wish-list gate be **overridable**? | 🔵 Choose | Confirm it stays waivable (decide on purpose) | 0 | ☐ |
-| **8** | **Scope:** the tool scores/authors only APSA/APEX/Poly, **not CUPE** (~30% of the archive) | 🔵 Choose | Confirm APSA/APEX/Poly-only for now, or commission a CUPE bar (a separate project) | n/a | ☐ |
+| **8** | **Scope:** the Bank now scores + drafts **CUPE** too (~30% of the archive), on its own WJQ bar — **changed since circulation** | 🔵 Choose | Ratify the CUPE bar as provisional and pilot it | n/a | ☐ |
 
 Details for each follow.
 
@@ -374,12 +428,42 @@ case we make it non-appealable. A small policy call, bundled here so it isn't de
 
 ---
 
-### Decision 8 — Confirm the scope: APSA/APEX/Poly only, not CUPE 🔵
+### Decision 8 — Ratify the CUPE bar (the question has changed since you last read it) 🔵
 
-**The finding:** everything above is measured on job descriptions written on SFU's **APSA/APEX/Poly
-template.** **CUPE roles use a different form — the Weighted Job Questionnaire (WJQ)** — and they are
-**4,440 of your 14,565 files (30.6%).** The tool *reads* them, but does **not** score them and will
-**not** author them.
+> 🔴 **READ THIS FIRST — THIS DECISION IS NOT THE ONE THAT WAS CIRCULATED.** It used to ask you to
+> confirm the Bank was **APSA/APEX/Poly only**, and recommended exactly that. Since then we built
+> option (b) — the CUPE bar. **The Bank now reads, scores and drafts CUPE roles.** So the question
+> is no longer *whether to have a CUPE bar*; it is **whether the one we built is right.** The
+> paragraphs below have been rewritten. If you are working from a printed copy dated before
+> 21 August 2026, this decision is the one to re-read.
+
+**The finding:** everything in Part 3 is measured on job descriptions written on SFU's
+**APSA/APEX/Poly template.** **CUPE roles use a different form — the Weighted Job Questionnaire
+(WJQ)** — and they are **4,440 of your 14,565 files (30.6%).**
+
+**What changed:** the tool now handles the WJQ form end to end. It reads its fourteen sections,
+scores it against a **separate WJQ profile** rather than the APSA/APEX/Poly one, and drafts
+harmonized CUPE roles. Before this, **657 all-CUPE role groups (26.7% of all role groups) produced
+no draft at all** — the Bank was silently skipping a third of SFU's roles.
+
+**Why this is not the category error we warned you about.** The original objection stands and we did
+not overrule it: scoring a CUPE job description against APSA/APEX/Poly rules would produce a number
+measuring "how much does this CUPE role resemble an APSA one." So we did not do that. A CUPE
+document is judged by **its own rules and its own thresholds**, chosen from what the WJQ form
+actually asks for, and **the two cohorts are never averaged into one number** — the system does not
+compute a blended score, so nobody can quote one by accident.
+
+Three examples of what "its own bar" means, each measured against your archive:
+
+| | APSA/APEX/Poly | CUPE (WJQ) | why |
+|---|---|---|---|
+| Duties expected | 3–5 | **3–12** | the WJQ has twelve duty slots and **77.4% of CUPE JDs fill all twelve**. Against the APSA rule, 82.3% of the cohort was flagged for "too many duties" — a property of the form, not a writing defect |
+| The boilerplate footer | required | **not required** | the WJQ form has no About SFU block, no territorial acknowledgement and no equity statement. Requiring them would fail every CUPE JD for omitting something its form never had |
+| Point-factor sections | n/a | **carried** | Level of Independence, Impact of Errors, Effort, Working Conditions and the rest. **95.4% of CUPE documents (4,237 of 4,440) carry them** |
+
+⚠ **Every setting in the WJQ profile is one we chose, and none is ratified.** SFU's JD Toolkit is
+silent on the WJQ form, so unlike the APSA/APEX/Poly bar there was no published standard to inherit.
+That is precisely why this is a decision and not an announcement.
 
 > **One caveat we owe you, because it changes how precisely we can state this boundary.** Of the
 > whole archive, we can currently identify the employee group for about two thirds:
@@ -391,25 +475,27 @@ template.** **CUPE roles use a different form — the Weighted Job Questionnaire
 > APSA/APEX/Poly template, and we are still improving our ability to tell you exactly how many
 > documents that is."
 
-This is deliberate, not an oversight:
-
-- The whole quality bar in this document was built from SFU's APSA/APEX/Poly standard. **There is no
-  CUPE quality standard encoded** — the Toolkit does not define one for the WJQ form.
-- Scoring a CUPE job description against these rules would be a **category error** — a number that
-  looks like a quality grade but really measures "how much does this CUPE role resemble an
-  APSA/APEX/Poly one." That is worse than no number.
-
 **Choose one:**
 
-- **(a) [recommended, for now]** Confirm the Bank is **APSA/APEX/Poly-only.** CUPE JDs remain
-  readable/searchable but are neither scored nor authored, and this document's numbers cover ~70% of
-  the archive **by design**, honestly labelled.
-- **(b)** Commission a **CUPE quality bar** — a WJQ ruleset with its own thresholds and sign-off. That
-  is a **separate project**: it needs SFU to define what "good" means for a WJQ role before we can
-  build a checker for it. Once that exists, CUPE switches on with one setting.
+- **(a) [recommended]** **Ratify the CUPE bar as provisional and pilot it.** CUPE roles stay in the
+  Bank, judged by the WJQ profile, with every CUPE draft still requiring the same human approval as
+  every other draft. Include a handful of CUPE roles in the Part 5 pilot and tell us where the WJQ
+  numbers are wrong — that is the only way settings we invented become settings you own.
+- **(b)** **Turn CUPE back off.** A single setting returns the Bank to
+  APSA/APEX/Poly only. CUPE JDs remain readable and searchable but are neither scored nor drafted,
+  and roughly a third of SFU's roles have no canonical entry.
+- **(c)** **Ratify it only for reading and searching, not for drafting.** CUPE documents stay
+  browsable and their content is preserved, but the Bank authors no CUPE canonical until SFU has
+  defined what "good" means for a WJQ role.
 
-Either way, decide it **on purpose** rather than inherit "the Bank ignores a third of SFU roles" as an
-accident of which template we started with.
+Decide it **on purpose** rather than inherit either answer — "the Bank ignores a third of SFU roles"
+or "the Bank grades a third of SFU roles against a bar nobody signed" — as an accident of which
+template we started with.
+
+> **What we are NOT claiming.** We have not discovered SFU's CUPE quality standard; there isn't one
+> published. We built a defensible starting point from what the WJQ form asks for and measured it
+> against all 4,440 CUPE documents. Ratifying (a) means "this is a reasonable provisional bar, keep
+> going and bring us evidence", not "this is the CUPE standard."
 
 ---
 

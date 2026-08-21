@@ -979,7 +979,7 @@ understood; and JDFN parses a **median of 1** qualification against WJQ's 21 —
 block landing as one blob — so any qualification-count threshold taken from JDFN would be
 calibrated on a parser artifact.
 
-### Phase D — harmonize + cluster CUPE, then evaluate per group ⟵ **NEXT**
+### Phase D — harmonize + cluster CUPE, then evaluate per group — BUILT; re-baseline RUNNING (2026-08-21)
 
 The pipeline is **already done** for CUPE: 49,448 role-equivalent edges, *more* than APSA's
 49,008 (Phase 3 measured). Turn it on, produce CUPE drafts, and evaluate each group against
@@ -1009,6 +1009,38 @@ quoting any JDFN number from this document.
 
 **The producer run is STOPPED**, 237 of ~649 CUPE drafts rebuilt. Do not restart before the
 content-loss fixes land.
+
+### ✅ 2026-08-21 — THE CONTENT-LOSS FIXES ARE ALL ON `main`, AND THE RE-BASELINE IS RUNNING
+
+Every finding quoted above is closed, and the producer re-run the plan was waiting for is in
+flight (`--only-template wjq --commit-every 25`, no `--resume` — a genuine re-baseline).
+
+| shipped | what it fixes |
+|---|---|
+| #122 / #124 | the two P0s (the CUPE author's Submit/Export, the inverted test), the author-chosen approval bar, the change-log that reported nothing removed, and HR-208 (the rewrite may not author a hiring bar) |
+| #126 | `--resume` asks whether the rewrite LANDED, not whether one was tried — 44 drafts had become unreachable by **any** producer invocation |
+| #128 | `--only-template` scopes a pass to one cohort: 649 clusters of work no longer costs a 2,493-cluster pass |
+| #129 | HR-209 — the rewrite is asked for the duties the merge grounded, not the form's minimum (60→36 duties became 48→48) |
+| #130 | HR-210/211/212 — `decision_making` / `problem_solving` / `relationships` are merged in 4.1 |
+| #132 | the producer's counters partition (two `model_validator` identities), and the `clusters` snapshot follows the draft instead of being write-once |
+
+**⚠ THE FALSE CONTROL CLAIM ABOVE IS NOW MEASURED AND FIXED, AND THE FIX WAS NOT THE OBVIOUS
+ONE.** `docs/baseline/jdfn-remeasure-2026-08-19.md` has the argument. Loosening
+`_SECTIONS_NEVER_INVENTED` on JDFN would have been wrong: the rewrite is fed the merge draft
+and nothing else, and that draft's `decision_making` was **always empty**, so the 1,084
+pre-guard JDFN sections were invented from no source at all. The 18.19 points were
+fabrication being withdrawn, not a regression. The real defect was one layer up — the 4.1
+merge discarded content **97.0% / 44.9% / 97.4%** of JDFN sources actually carry — which is
+what #130 fixes. **Re-measure the JDFN cohort after this run; do not quote a JDFN number from
+this document.**
+
+**Pre-flight, measured on the reference all-CUPE cluster (132 members) before the run
+started:** merge and rewrite both `group='cupe' template='wjq' context=6007 chars
+duties=12`, `relationships=YES`, `scrubbed_sections=()`, score 76.13 / grade B. Isolating
+#130 on that cluster: **+0.84 and `SFU-COMP-RELATIONSHIPS` removed, with no new findings** —
+so the move from the previously-recorded 85.29 is HR-209's intended trade (twelve real duties
+instead of seven compressed ones), not a regression. ⚠ *A rising score has been the signature
+of three separate content-loss defects in this phase; treat one as a question, not a result.*
 
 **The durable lesson, and it is not about CUPE.** Four of this weekend's defects were found
 by running things against the live Bank; the rest by reviewers reading code. **None was

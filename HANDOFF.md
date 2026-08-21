@@ -2,7 +2,180 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-20, latest) — the 4.1 merge carries three more sections; the producer run was killed by Docker
+## ▶ START HERE (2026-08-21, latest) — everything merged; the CUPE re-baseline is RUNNING
+
+| | |
+|---|---|
+| `main` | `d68b202` — **#121, #130, #131 and #132 all merged. Zero open PRs.** Verify with `gh pr list`, never from this table |
+| Gates | **2,854 passing, 94.26%** — re-run on MERGED main, full suite incl. integration. #130 and #132 both touch the producer and had never been tested together |
+| `rules_version` | `+76baba29cfeb` — **still unmoved.** `harmonization.yaml` is unhashed; nothing merged changes how a JD is SCORED |
+| Register | **212** decisions, **0 ratified**. Audience split: **77 HR · 50 reviewer-facing · 85 engineering** |
+| Live data | 2,490 DRAFT + 4 PUBLISHED · **237 CUPE drafts carrying point-factor context — climbing, the run is rewriting them now** |
+| Producer run | 🟢 **LIVE** — `jd-canonical-cupe-rerun`, started 2026-08-21 ~17:34 UTC |
+| CI | 🔴 **GitHub Actions is blocked repo-wide on billing** — every job fails in ~2s with *"recent account payments have failed or your spending limit needs to be increased"*. **Local `make gates` is the only evidence right now.** Not a branch-name problem, despite what the failing check is called |
+
+### ▶ THE RUN THAT IS IN FLIGHT
+
+```
+docker compose run -d --name jd-canonical-cupe-rerun -e PYTHONUNBUFFERED=1 canonical \
+  python -m src.jd_bank.canonical --only-template wjq --commit-every 25
+```
+
+**No `--resume` — this is the re-baseline.** Two deliberate differences from the pass that
+died on 2026-08-20:
+
+- **`PYTHONUNBUFFERED=1`** (the Phase G legibility item). The previous run logged **zero lines
+  in 52 minutes** and sat at 0.00% CPU, which reads exactly like a hang and was not — `python
+  -m` without `-u` block-buffers stdout. Progress lines now appear as they happen, every 25
+  clusters.
+- **NOT `--rm`.** A dead container is how the last crash was diagnosed. Let it persist.
+
+⚠ **Nothing commits until the first 25-cluster checkpoint** (~25 min at ~60 s/cluster), and
+the first progress line lands at the same moment. Silence before that is expected.
+
+**The health signal — the ONLY number that separates a good run from a ruined one**, because
+`refreshed=50 failures=0` prints identically either way:
+
+```bash
+docker compose exec -T postgres psql -U app -d harness -t -c \
+  "SELECT count(*) FROM canonical_jds WHERE status='DRAFT' \
+   AND coalesce(content->>'additional_context','')<>'';"
+```
+
+**237 at launch; it should climb toward ~649.** If it stalls while the progress line advances,
+stop the run — that is the shape of a pass that is "succeeding" while destroying content.
+
+⚠ **Never pass `--remove-orphans`** to a compose command while this is alive: the run is a
+`docker compose run` one-off in project `jd-bank`, so compose reports it as an orphan and the
+flag would delete it mid-pass.
+
+### The ~90-second pre-flight, run BEFORE this pass (2026-08-21)
+
+Two earlier passes were started on unverified fixes and both were still wrong. One real
+all-CUPE cluster driven through merge → rewrite:
+
+```
+cluster 88c49896 — 132 member JDs
+  MERGE  -> group='cupe' template='wjq' context=6007 chars duties=12
+            relationships=YES  decision_making=0  problem_solving=0
+  REWRITE-> group='cupe' template='wjq' context=6007 chars duties=12  score=76.13
+            scrubbed_sections=()
+```
+
+All three recent fixes confirmed on real data: context 6007 (HR-207), duties **12→12**
+(HR-209 — it used to compress to 8), `relationships=YES` (HR-212 reaching CUPE).
+
+**⚠ THE SCORE MOVED 85.29 → 76.13, AND THAT WAS WORTH 10 MINUTES BEFORE SPENDING 11 GPU-HOURS.**
+Isolating #130 on the same cluster:
+
+```
+relationships=drop (pre-#130):   score=75.29  grade=B
+relationships=longest (shipped): score=76.13  grade=B
+delta = +0.84 · NEW findings: [] · REMOVED: ['SFU-COMP-RELATIONSHIPS']
+```
+
+So #130 **improves** the draft and introduces nothing. The drop is HR-209's intended trade —
+twelve real duties instead of seven compressed ones give the rules more surface — which #129
+predicted in as many words ("scores stayed in the 67–85 band, grades stayed at B"). **A more
+complete draft scoring lower is the honest direction.**
+
+> 🔴 **The pattern to carry: in three separate defects this phase, the bug made the score go
+> UP.** Invented sections scored higher; compressed duty lists scored higher; dropped
+> point-factor content scored higher. **Treat a rising score as a question, not a result.**
+
+### ▶ IF YOU ARE STARTING COLD, DO THESE FIVE THINGS FIRST
+
+```bash
+git fetch && git log --oneline origin/main -1     # expect d68b202 or later
+gh pr list                                        # the table above lags; this does not
+docker ps --format '{{.Names}}' | grep jd-bank    # ⚠ the stack does NOT self-restart
+docker compose up -d                              # ...bring it back if that came up empty
+docker ps --filter "name=canonical"               # a run in flight? or MUST be empty before starting one
+```
+
+⚠ **The box has other Docker projects on it.** A `docker ps` full of random-named
+`postgres:16-alpine` / `neo4j:5-community` containers is probably
+`C:\repos\recruiter-assistant`'s testcontainers, not ours.
+
+### What landed since the last handoff
+
+- **#130 — HR-210/211/212.** The 4.1 merge now carries `decision_making` / `problem_solving` /
+  `relationships`, each a registered knob (`drop` / `longest` / `union`). `relationships` ships
+  `longest` deliberately, unlike the other two: it is a STRUCTURED object whose `supervisory`
+  field is prose about one reporting structure, and pooling two of them states a third nobody
+  wrote. **`sections_not_merged` is now a diff against the draft**, not a fixed section list.
+- **#132 — Phase G producer items.** The `clusters` snapshot follows the draft (it was
+  write-once, so re-ordering `templates_harmonized` left the Library showing **APSA documents
+  as the sources of a CUPE draft**). Both counter identities are `model_validator`s now, so
+  the partition cannot go stale into prose again. `--resume --allow-downgrade` exits 2 instead
+  of silently doing nothing.
+- **#132 also recorded a finding as NOT REACHABLE rather than closing it.** "A member dropped
+  by `load_member_jds` is invisible per cluster" cannot happen: both loaders validate the same
+  rows, but clustering must *also* build `JobSignals`, so it accepts a strict subset — a row
+  that fails the member load already failed to sign. `member_rows_dropped_unvalidatable` is
+  **structurally zero**, the same class of dead parameter as `thresholds.wjq.duties_max: 12`.
+- **HR-facing docs refreshed** (this PR) — see below.
+
+### 🔴 THE HR MATRIX HAD A DECISION THAT CONTRADICTED THE SHIPPED SYSTEM
+
+`docs/decisions/HR-DECISION-MATRIX.md` **Decision 8** still asked HR to *"Confirm the scope:
+APSA/APEX/Poly only, not CUPE"*, and recommended exactly that. Its option (b) — "commission a
+CUPE quality bar, a separate project" — **is what Phases A–E built.** HR would have been
+ratifying a boundary the system no longer has.
+
+Decision 8 is rewritten: the question is now whether the WJQ bar we built is right, with three
+options (ratify provisionally and pilot / turn CUPE back off / read-and-search only). The
+matrix also gains **"What changed for the people writing JDs"** — the four content-loss
+corrections stated for an HR reader, without internal codenames.
+
+`docs/OPERATOR-GUIDE.md` gains a **fifth guardrail — "the model may reword; it may not
+invent"** — with the four limits and what happens when a rewrite fails (fall back to the
+deterministic merge; a draft is never lost, only less polished). That is the question a
+recruiter using an AI-assisted tool asks first, and the guide had no answer to it.
+
+### The queue, in order
+
+1. **Watch the run to its first checkpoint**, then to completion (~649 clusters). Health
+   signal above, not the progress line.
+2. **Re-measure the JDFN cohort** once the CUPE pass is done. Every JDFN figure in `plan.md`
+   and the baseline docs predates #130, and the S-5 write-up says so explicitly. The ~18
+   points should come back **honestly** this time — from merged source content rather than
+   invented sections. That measurement is the evidence for HR-210/211/212.
+3. **Phase F** (`docs/tasks/phase-f-form-scoping-backlog.md`, on `main` since #121) — search is
+   JDFN-only in both directions, the dashboards report a pre-CUPE world, and D3's per-form
+   draft evaluation renders nowhere. **That last one is the number HR will ask for.**
+4. **Phase G, the rest** — the remaining rulebook items:
+   `SFU-GATE-SENIOR-TITLE` is unfalsifiable on the WJQ (it needs `relationships.supervisory`,
+   which `parser/wjq.py` never populates by design — 71 of 4,300 CUPE documents carry the
+   finding and it feeds a gate no CUPE author can clear), and `thresholds.wjq.duties_max: 12`
+   is structurally dead. Plus: **the compose stack should survive a Docker restart** (it has no
+   `restart:` policy while every other project on the box does), and **`python -u` belongs in
+   the canonical service** rather than being passed per-run.
+5. 🔴 **TLS at the edge** — still the only genuinely external item. `sfuai.ca:7000` is a Telus
+   NAT forward to `192.168.1.80:25800`, plain HTTP on the public internet.
+6. **HR ratification** — 212 entries, 0 signed, including the bar that gates publishing.
+
+### ▶ WHAT THIS SESSION LEARNED THAT IS NOT IN A DIFF
+
+- **Test the MERGE, not the branches.** #130 and #132 were each green alone and had never run
+  together; both touch the producer. Re-running full gates on merged `main` before launching
+  cost six minutes against an eleven-hour run. A green branch is a claim about that branch.
+- **Investigate a moved number before spending on it.** The pre-flight score had dropped nine
+  points. Ten minutes of isolation showed #130 was worth **+0.84** and the move belonged to a
+  different, intended change. Launching without checking would have meant discovering it in
+  hour nine; *not* checking and being right is indistinguishable from not checking and being
+  wrong.
+- **An HR-facing document can go stale in a direction that costs trust, not just accuracy.**
+  Decision 8 did not merely lag — it asked SFU to ratify the opposite of what shipped. Docs
+  that ask someone to *decide* need re-reading whenever the thing they describe changes, and
+  nothing in `make gates` can catch that.
+- **A finding can be closed by measuring that it is unreachable.** Two this session: the
+  per-cluster member drop (#132) and the JDFN guard (#130, where the obvious fix was the wrong
+  one). Recording *why it never fires* is worth more than a fix that changes nothing.
+
+---
+
+## ▶ PREVIOUS (2026-08-20) — the 4.1 merge carries three more sections; the producer run was killed by Docker
 
 | | |
 |---|---|
