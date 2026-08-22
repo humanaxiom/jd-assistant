@@ -361,6 +361,15 @@ class AntiFabricationRecord(BaseModel):
     #: The statement of every rewritten duty FLAGGED (no token overlap to a draft duty),
     #: kept in the draft, surfaced for the 4.4 human reviewer.
     flagged_duties: tuple[str, ...] = ()
+    #: The statement of every duty DROPPED because the grounded draft had NO duties at
+    #: all, so there was nothing to reword and every duty returned was an invention
+    #: (HR-213). Distinct from :attr:`flagged_duties` on purpose: a flagged duty drifted
+    #: from a real one and stays in the draft for a human to judge; these had no source
+    #: to drift from. **Measured on the live Bank 2026-08-22: 1,219 such duties across
+    #: 153 drafts**, 996 of them on the CUPE cohort, produced because the WJQ parser
+    #: recovers no duties from 16.2% of CUPE documents and the rewrite filled the
+    #: silence.
+    invented_duties: tuple[str, ...] = ()
     #: The name of every SECTION emptied because the grounded draft did not have one —
     #: ``decision_making`` / ``problem_solving`` / ``relationships`` (CUPE Phase D).
     #: A whole section is a coarser unit than a skill, and the coarsest fabrication:

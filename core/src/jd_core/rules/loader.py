@@ -1467,6 +1467,11 @@ class Rewrite(_RuleFile):
     #: below it, that duty was REMOVED by the rewrite and is recorded as such; at or
     #: above it, the rewritten duty carries its merge duty's ``frequency`` back.
     duty_flag_threshold: float = Field(ge=0.0, le=1.0)
+    #: Whether a rewrite handed a draft with NO duties may return any (HR-213).
+    #: ``True`` (shipped) -> it may not: every duty it returns is dropped and recorded
+    #: as ``invented_duties``, and the draft honestly fails the too-few-duties rule.
+    #: MEASURED 2026-08-22: 1,219 duties across 153 drafts had no source at all.
+    duties_never_invented: bool = True
     #: What DUTY FLOOR the rewrite prompt states (HR-209). ``grounded`` -> the number of
     #: duties THIS merge produced, capped by the form's ``duties_max``; ``form_minimum``
     #: -> the drafted form's own ``duties_min``. Measured: the form floor of 3 licensed

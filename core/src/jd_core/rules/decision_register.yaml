@@ -5986,7 +5986,7 @@ decisions:
     tier: hr_policy
     why_it_matters: >-
       Kept at the JDFN value because nothing measured argues against it: the WJQ's
-      under-run is rare (`SFU-STRUCT-DUTIES-TOO-FEW` fires on 0.6% of CUPE against
+      under-run is rare (`SFU-COMP-DUTIES` fires on 0.6% of CUPE against
       40.6% of JDFN). Registered rather than silently inherited because a value that is
       the same by DECISION and a value that is the same by OMISSION look identical in
       the YAML and are not the same thing — the omission is what this phase is fixing.
@@ -6267,7 +6267,7 @@ decisions:
       behaviour exactly. A sparse harmonization is deliberately NOT rounded up to the
       form's minimum: a cluster that grounded two duties has two duties, and asking for
       three asks the model to invent one — the validator reports that under-run
-      (`SFU-STRUCT-DUTIES-TOO-FEW`) instead, which is the right place for it to be
+      (`SFU-COMP-DUTIES`) instead, which is the right place for it to be
       noticed. Existing drafts are unaffected until the producer re-runs over them.
     status: open
 
@@ -6384,6 +6384,51 @@ decisions:
       Does NOT move `rules_version`. `drop` restores the pre-2026-08-20 behaviour. Under
       no setting is a supervisory line synthesized from more than one member. Existing
       drafts are unaffected until the producer re-runs over them.
+    status: open
+
+  # ── May the rewrite write duties for a role whose sources state none? (2026-08-22) ──
+  - id: HR-213
+    question: >-
+      When the tool rewords a harmonized job description whose source documents list NO
+      duties at all, may it write some? Today it may not: it returns none, and the draft
+      is reported as incomplete rather than filled in.
+    config:
+      file: rewrite.yaml
+      path: rewrite.duties_never_invented
+    current_default: true
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      🔴 THIS WAS A DEFECT FOUND BY MEASURING THE LIVE SYSTEM ON 2026-08-22, and it is
+      the most serious one this project has found: **153 canonical drafts carry 1,219
+      duties that no source document states.** 101 of the 649 CUPE drafts (15.6%) are
+      affected, accounting for 996 of those duties; the rest are on the APSA form and on
+      documents whose employee group we cannot yet classify. Duties are the core content
+      of a job description, so this is a more serious version of the invented-sections
+      defect corrected earlier. The chain has three links and only the last one is a
+      policy question. First, the reader recovers no duties from 719 of 4,440 CUPE
+      documents (16.2%) against 2.2% on the APSA form — a gap in how we read the
+      Weighted Job Questionnaire, which we are fixing separately and which is NOT for HR
+      to rule on. Second, the deterministic harmonizer correctly produces no duties from
+      documents that state none. Third, the language model then wrote eight to twelve
+      plausible, specific duties out of nothing — for one role, verifying bibliographic
+      records against the library online catalogue, for a position whose sources list no
+      duties whatsoever. Nothing objected, because the guard that watches duties only
+      FLAGS what the model adds and never removes it. That is the right rule when the
+      draft HAS duties for a reworded one to drift from, and vacuous when it has none:
+      there is no wording to preserve, so every duty returned is an invention, and
+      "flagged" is the wrong word for content with no source. ⚠ WHAT THIS COSTS, stated
+      plainly: a draft that honestly reports no duties FAILS the completeness rule
+      `SFU-COMP-DUTIES` and cannot be approved until a human writes them. That
+      is the intended outcome — it is the reader's gap becoming visible in the one place
+      someone will act on it, rather than being papered over with text that reads well
+      and describes nobody's job.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (rewrite.yaml is unhashed) — it decides what a draft
+      may CONTAIN, never how one is scored. `false` restores the pre-2026-08-22
+      behaviour and the tool may again write duties for roles whose sources state none.
+      Existing affected drafts are not repaired until the producer re-runs over them,
+      and until then the Bank still holds the 1,219 duties already written.
     status: open
   # ── Embedding over-length fallback ladder (HR-126 follow-up). ──
   - id: HR-193

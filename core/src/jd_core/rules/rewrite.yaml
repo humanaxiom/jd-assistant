@@ -90,6 +90,23 @@ skill_grounding_threshold: 0.5
 # question and answering it twice is how two thresholds drift apart.
 duty_flag_threshold: 0.2
 
+# May a rewrite handed a draft with NO DUTIES AT ALL return any? `true` (shipped): no —
+# every duty it returns is dropped and recorded as `invented_duties`.
+#
+# 🔴 MEASURED ON THE LIVE BANK 2026-08-22: 153 drafts carry 1,219 duties that NO source
+# document states — 101 of the 649 CUPE drafts (15.6%), 996 duties. The chain: the WJQ
+# parser recovers no duties from 719 of 4,440 CUPE documents (16.2%, against 2.2% on the
+# APSA form); the 4.1 merge correctly produces nothing from nothing; and the rewrite then
+# writes eight to twelve plausible, specific duties out of thin air.
+#
+# Nothing objected, because the duty guard only FLAGS what the model adds and never
+# removes it — right when the draft HAS duties to drift from, vacuous when it has none.
+# `false` restores the pre-2026-08-22 behaviour. A draft that honestly reports no duties
+# fails `SFU-COMP-DUTIES` (the completeness rule for a JD with no duties at all), which
+# is the right place for the parser gap to become visible: a fabricated duty list scores
+# better and tells the reviewer something untrue about the role. HR-213.
+duties_never_invented: true
+
 # What DUTY FLOOR the rewrite prompt states. `grounded` (shipped): the number of duties
 # THIS merge actually produced, capped by the form's `duties_max`. `form_minimum`: the
 # drafted form's own `duties_min` — the pre-HR-209 behaviour. HR-209.
@@ -111,7 +128,7 @@ duty_flag_threshold: 0.2
 #
 # A SPARSE merge is NOT rounded up to the form's minimum: a cluster that grounded two
 # duties has two duties, and asking for three asks the model to invent one. The validator
-# reports the under-run (`SFU-STRUCT-DUTIES-TOO-FEW`) — the right place for it.
+# reports the under-run (`SFU-COMP-DUTIES`) — the right place for it.
 duty_floor_policy: grounded
 
 # Which QUALIFICATION KINDS the rewrite is allowed to author. Everything else the model
