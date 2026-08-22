@@ -51,6 +51,7 @@ empty fields and low confidence.
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 
 from src.jd_core.models.parsed_jd import (
     SFUDuty,
@@ -83,6 +84,12 @@ from src.jd_core.rules import Wjq, WjqSection, get_rules
 
 #: A leading enumeration prefix on a WJQ heading cell (``1.`` / ``13)``).
 _NUM_PREFIX = re.compile(r"^\s*\d{1,2}\s*[.)]\s*")
+
+#: The COLUMN BOUNDARY in antiword's fixed-width rendering of a table it did not
+#: recognise: two or more spaces, or the end of the cell. One space is running prose and
+#: must NOT count, or a duty beginning with a heading's words would be taken for the
+#: heading — see :func:`_match_heading`.
+_COLUMN_GAP = r"(?:\s{2,}|$)"
 #: Bullet markers, including antiword's ``.`` bullet for legacy ``.doc``.
 _WJQ_BULLET = re.compile(r"^\s*(?:[.\-–—•*·▪‣◦]|\(?\d{1,2}[.)])\s+")
 #: A standalone, UPPERCASE ``(D)/(W)/(M)/(S)`` frequency token — line-start or line-end
@@ -129,21 +136,78 @@ def _cells(line: str) -> list[str]:
     return [c for c in (_clean(part) for part in line.split("|")) if c]
 
 
+@lru_cache(maxsize=256)
+def _heading_rx(target: str) -> re.Pattern[str]:
+    """``target``'s words, ANY whitespace run between them, then a column gap.
+
+    One pattern covers all three shapes antiword produces for the same heading — alone
+    on its line, STRETCHED (``POSITION   IDENTIFICATION``), and printed beside the next
+    column — because an exact match is simply the gap's ``$`` branch. Cached: the
+    vocabulary is small and fixed, and this is consulted per line of the archive."""
+    return re.compile(r"\s+".join(re.escape(w) for w in target.split()) + _COLUMN_GAP)
+
+
 def _match_heading(line: str, wjq: Wjq) -> WjqSection | None:
     """The WJQ section a line is the heading for, or ``None``.
 
     A heading occupies its own table cell: ``N. PHRASE``. The cell is number-peeled and
-    ``(CONTINUED)``-stripped, then matched exactly against the heading vocabulary — so a
-    duty that merely *starts with* a heading word (``Level of detail…``) is never taken
-    for the heading."""
+    ``(CONTINUED)``-stripped, then matched against the heading vocabulary — either
+    exactly, or as a prefix followed by a COLUMN GAP (below).
+
+    🔴 THE COLUMN GAP, AND WHY AN EXACT MATCH ALONE LOST 16% OF THE CUPE ARCHIVE.
+    ``_cells`` splits on ``|``, which is how antiword renders a table it recognises. It
+    renders a MULTI-COLUMN layout it does not recognise as fixed-width text with **no
+    pipes at all**, so a heading and the cell to its right land on one physical line::
+
+        ' 1. POSITION IDENTIFICATION                        For Use by Human'
+        '    Resources Only'
+
+    Cleaned, that cell is ``1. POSITION IDENTIFICATION FOR USE BY HUMAN``, which equals
+    no heading phrase — so the section never opened. MEASURED 2026-08-22: **719 of 4,440
+    CUPE documents (16.2%) parsed to ZERO duties**, against 2.2% on the APSA form, and
+    every non-recoverable one was a legacy ``.doc``. That silence is what the rewrite
+    then filled with invented duties (HR-213): 1,219 of them across 153 drafts.
+
+    A run of **two or more spaces** is the column boundary, and that is what keeps this
+    from becoming the prefix match the original docstring rightly refused: running prose
+    continues after one space, so ``Level of detail required…`` still cannot be taken
+    for the ``LEVEL OF DETAIL`` heading, while a heading plus a column can.
+
+    🔴 AND THE SAME LAYOUT STRETCHES THE HEADING'S OWN WORDS APART. antiword pads to
+    fixed width *inside* the cell too, so the archive holds ``4.    MINOR  FUNCTIONS
+    (List duties…`` and ``MAJOR   FUNCTIONS   (CONTINUED)``. Matching a *collapsed*
+    cell exactly handles the stretch but not the column; matching a *raw* prefix handles
+    the column but not the stretch — so a heading carrying BOTH satisfied neither, and
+    the sections that carry the duties are exactly where both appear. MEASURED
+    2026-08-22 over a 400-file sample (122 WJQ documents): 4 documents lost 11 heading
+    lines to the combination. :func:`_heading_rx` therefore matches the vocabulary's
+    words with ``\\s+`` between them and the column gap after, which subsumes all three
+    shapes — an exact match is just the gap's ``$`` branch.
+
+    MEASURED both directions before shipping, over the failing CUPE population: **78.8%
+    (197/250) gain a duties block**.
+
+    …and re-measured for the whitespace-tolerant rule that actually ships, running the
+    old and new matcher over the SAME documents in one pass — 2,000 archive files,
+    **552 WJQ**: zero-duty documents **20 → 16**, four gain duties, **543 identical**,
+    four keep their count with cleaner text, and **one drops 6 → 3 — which is the point,
+    not a regression.** That document's "duties" included ``(a) ___ Little or no
+    opportunity for independent work`` and ``__Assigns work to other staff``: an
+    unrecognised heading does not merely lose the section below it, it lets the FORM'S
+    OWN CHECKBOX SCAFFOLDING bleed upward into the duty list. Count down, content up.
+    """
     cont = wjq.continued_marker.upper()
-    for cell in _cells(line):
-        upper = cell.upper().replace(cont, "").strip()
+    # NOT `_cells`: it collapses internal whitespace, which is the very signal that
+    # tells a heading's own cell from the column printed beside it.
+    for raw in line.split("|"):
+        upper = raw.upper().replace(cont, "").strip()
+        if not upper:
+            continue
         peeled = _NUM_PREFIX.sub("", upper, count=1).strip()
         for section, phrases in wjq.section_headings.items():
             for phrase in phrases:
-                target = phrase.upper()
-                if peeled == target or upper == target:
+                rx = _heading_rx(phrase.upper())
+                if rx.match(peeled) or rx.match(upper):
                     return section
     return None
 

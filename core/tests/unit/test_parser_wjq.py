@@ -18,7 +18,7 @@ import pytest
 
 from src.jd_bank.ingest.extract import extract_text_from_path
 from src.jd_core.parser import ParseResult, parse_jd
-from src.jd_core.parser.wjq import is_wjq, segment_wjq
+from src.jd_core.parser.wjq import _match_heading, is_wjq, segment_wjq
 from src.jd_core.rules import Rules, get_rules
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
@@ -298,3 +298,84 @@ def test_the_docx_fixture_recovers_all_the_id_fields() -> None:
         q.kind for q in jd.qualifications
     }
     assert {"daily", "weekly"} <= {d.frequency for d in jd.duties if d.frequency}
+
+
+# --- the antiword COLUMN GAP (2026-08-22) --------------------------------------------
+
+
+def test_a_heading_sharing_a_line_with_the_next_column_is_still_a_heading() -> None:
+    """🔴 THE DEFECT THAT LOST 16% OF THE CUPE ARCHIVE'S DUTIES.
+
+    `_cells` splits on `|`, which is how antiword renders a table it recognises. A
+    MULTI-COLUMN layout it does not recognise comes out as fixed-width text with no
+    pipes, so the heading and the cell to its right land on one physical line — exactly
+    as below, taken from `19920428_00001201Clerk.doc`. Cleaned, that reads
+    `1. POSITION IDENTIFICATION FOR USE BY HUMAN`, which equals no heading phrase, so
+    the section never opened.
+
+    MEASURED: 719 of 4,440 CUPE documents (16.2%) parsed to ZERO duties, against 2.2%
+    on the APSA form — and the rewrite filled that silence with 1,219 invented duties
+    across 153 drafts (HR-213).
+    """
+    wjq = get_rules().wjq
+    line = " 1. POSITION IDENTIFICATION                        For Use by Human"
+    assert _match_heading(line, wjq) == "position_identification"
+
+
+def test_a_duty_that_merely_starts_with_a_heading_phrase_is_not_a_heading() -> None:
+    """The protection the original exact match existed for, and the reason the column
+    gap is TWO spaces rather than a plain prefix: running prose continues after ONE
+    space, so a duty opening with a heading's words is still not the heading."""
+    wjq = get_rules().wjq
+    section = next(iter(wjq.section_headings))
+    phrase = wjq.section_headings[section][0]
+    assert _match_heading(f"{phrase} required to complete the task", wjq) is None
+
+
+def test_a_heading_alone_on_its_line_still_matches() -> None:
+    """The unchanged case — the exact match that already worked must keep working, or
+    this fix trades one cohort's duties for another's."""
+    wjq = get_rules().wjq
+    section = next(iter(wjq.section_headings))
+    phrase = wjq.section_headings[section][0]
+    assert _match_heading(f"  {phrase}  ", wjq) == section
+
+
+def test_internal_whitespace_in_a_heading_is_tolerated() -> None:
+    """antiword's fixed-width output also stretches headings — `1. POSITION
+    IDENTIFICATION` appears with two and three internal spaces across the archive."""
+    wjq = get_rules().wjq
+    assert _match_heading("1. POSITION   IDENTIFICATION", wjq) == (
+        "position_identification"
+    )
+
+
+def test_a_heading_with_internal_whitespace_and_a_column_beside_it_matches() -> None:
+    """🔴 THE COLUMN GAP AND THE INTERNAL RUN, TOGETHER — the variant the first fix
+    left behind.
+
+    `_match_heading` accepted a heading either exactly (whitespace-collapsed) or as a
+    RAW prefix before a column gap. A heading carrying BOTH — antiword stretches the
+    words apart AND prints the next column beside it — satisfied neither: the collapsed
+    compare failed on the trailing column, and `startswith` failed on the internal run.
+
+    MEASURED 2026-08-22 over a 400-file archive sample (122 WJQ documents): 4 documents
+    lost 11 heading lines to this combination, and they are the DUTY-BEARING ones —
+    `4. MINOR  FUNCTIONS`, `MAJOR   FUNCTIONS   CONTINUED`, `2. POSITION  SUMMARY`.
+    Same root cause as the case above, one variant over.
+    """
+    wjq = get_rules().wjq
+    assert (
+        _match_heading(
+            "1. POSITION   IDENTIFICATION                 For Use by Human", wjq
+        )
+        == "position_identification"
+    )
+    assert (
+        _match_heading(
+            "4.    MINOR  FUNCTIONS    (List duties and responsibilities that occur",
+            wjq,
+        )
+        == "minor_functions"
+    )
+    assert _match_heading("MAJOR   FUNCTIONS   (CONTINUED)", wjq) == "major_functions"
