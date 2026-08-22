@@ -2,7 +2,205 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-21, latest) — everything merged; the CUPE re-baseline is RUNNING
+## ▶ START HERE (2026-08-22, latest) — the re-baseline finished, and the audit it exposed found fabricated duties
+
+| | |
+|---|---|
+| `main` | `7ad9c9c` — **#133, #134, #135 all merged. Zero open PRs.** Verify with `gh pr list` |
+| Gates | **2,873 passing, 93.36%** — re-run on MERGED main, full suite incl. integration |
+| `rules_version` | `+76baba29cfeb` — **still unmoved.** Nothing merged changes how a JD is SCORED |
+| Register | **213** decisions, **0 ratified**. HR-213 is new |
+| Live data | 2,490 DRAFT + 4 PUBLISHED · **620 CUPE drafts carrying point-factor context** (was 237) |
+| Producer run | ✅ **COMPLETE** — 649/649 refreshed, **0 cluster failures**, ~18.8 h |
+| CI | 🔴 **GitHub Actions still blocked on billing.** Local `make gates` is the only evidence |
+
+### The CUPE re-baseline finished, and it worked
+
+```
+clusters: 2456 recomputed -> 649 seen [wjq=649]
+drafts:   0 persisted, 649 refreshed, 0 skipped, 0 cluster failures, 1807 out of scope
+LLM:      10 rewrite failures (1.5%), 1 audit failure
+wjq:      mean 76.38 · 6 approvable · grades {B: 307, C: 337, D: 5}
+```
+
+| | before | after |
+|---|---:|---:|
+| CUPE drafts with point-factor content (HR-207) | 237 | **620 of 620 possible** |
+| CUPE drafts with Relationships (HR-212) | 0 | **426** |
+| mean duties per CUPE draft (HR-209) | ~7 | **11.44** |
+
+**620 is not a shortfall against 649**: 620 clusters have a source document carrying
+point-factor content and 29 have none, so that is 100% carry-through. The `--only-template`
+scoping worked and announced its own blind spot (1,807 clusters not looked at).
+
+### 🔴 `make bank-audit` — THE NEW THING, AND THE REASON THE REST OF THIS SECTION EXISTS
+
+**Read-only, per form, one command.** For each section: how many clusters' **sources
+offered** it vs how many **drafts keep it**. That ratio is what nothing reported, and it
+is why four content-loss defects in a row were found by hand-written SQL days after the
+run that caused them. The producer's own summary counts CLUSTERS PROCESSED, not CONTENT
+KEPT — `refreshed=649 failures=0` prints identically whether a run enriched every draft
+or gutted it.
+
+```bash
+make bank-audit                              # the report; exits 2 on a verdict
+make bank-audit AUDIT_ARGS="--json"          # machine-readable, two runs diff cleanly
+```
+
+**Run it BEFORE and AFTER every producer pass.** A carry-through that falls is a
+content-loss defect; there is no other view that shows one.
+
+Two readings it computes that are worth knowing about:
+
+- **the merge-only CONTROL.** A rewrite *failure* falls back to the deterministic merge,
+  so those drafts are the same pipeline with the model removed — a controlled comparison
+  the Bank produces for free. It is what turned "frequencies are low" into "**the rewrite
+  destroys a field the merge preserves**": rewritten **23.5%**, merge-only **75.0%**,
+  sources 79.7%.
+- **carry-through ABOVE 100% = fabrication.** A draft can only carry what its sources
+  stated. JDFN `problem_solving` reads **228.2% (1,084 / 475)** — the S-5 invented
+  sections as one number instead of a five-page argument.
+
+⚠ The audit found **three bugs in itself** on its first runs, all "arithmetically fine,
+meaning the wrong thing", each now a test. The worst: the JDFN filter was an allow-list
+and silently omitted **1,300 drafts** whose `employee_group` is null (31.9% of the archive
+is unclassified and still drafted and scored). It reported 541 JDFN drafts where the Bank
+holds 1,841. If you extend this tool, that is the failure mode to expect.
+
+### 🔴🔴 FABRICATED DUTIES — the most serious defect this project has found
+
+**153 canonical drafts carry 1,219 duties that NO SOURCE DOCUMENT STATES.**
+
+| cohort | drafts | invented duties |
+|---|---:|---:|
+| CUPE | **101 of 649 (15.6%)** | **996** |
+| unclassified | 38 | 160 |
+| APSA | 14 | 63 |
+
+A role whose sources list **no duties at all** came back with twelve, including
+*"verifies bibliographic records against the library online catalogue"*. Duties are the
+core content of a job description; this is S-5 one field over, on the field that matters
+most.
+
+**The chain has three links and only the last is fixed:**
+
+1. **the WJQ parser recovers NO duties from 719 of 4,440 CUPE documents (16.2%)** —
+   against 2.2% on APSA, 2.1% APEX, 0% Poly. A reader gap, 7× the JDFN rate. ⟵ **NEXT**
+2. `merge_cluster` correctly produces nothing from documents that state nothing.
+3. the rewrite wrote 8–12 plausible duties into the silence. **CLOSED by #135** (HR-213,
+   `rewrite.duties_never_invented`) — the same EMPTY-TO-EMPTY rule already applied to
+   whole sections.
+
+Nothing objected because the duty guard only ever **flagged** what the model added and
+never removed it — right when the draft HAS duties to drift from, vacuous when it has none.
+
+⚠ **#135 STOPS NEW FABRICATION; IT REPAIRS NOTHING.** The 1,219 duties already in the
+Bank stay until the producer re-runs over those clusters — and that re-run should follow
+the parser fix, not precede it, or it will simply re-derive empty duty lists.
+
+⚠ **And it has a cost, stated rather than discovered later:** a draft that honestly
+reports no duties fails `SFU-COMP-DUTIES` and cannot be approved until a human writes
+them. That is intended — it is the parser gap becoming visible where someone will act on
+it, instead of being papered over by text that reads well and describes nobody's job.
+
+### The duty-frequency defect — MEASURED, NOT FIXED, and the naive fix is unsafe
+
+Cohort-wide retention is **24.1%**, *below* the 27.8% HR-209 recorded as its "before" and
+far below the 43.8% it predicted from five clusters. The restore exists but sits **inside**
+the well-grounded branch, so a heavily-reworded duty hits `continue` and keeps nothing.
+
+**Do not simply move the restore out of that branch.** Measured over 120 real CUPE
+clusters:
+
+| | |
+|---|---|
+| duty counts merge vs draft align | **91.7%** (HR-209 working) |
+| argmax match == positional match | **8–26%** — the model REORDERS heavily |
+| duties with Jaccard < 0.2 to ANY merge duty | **62.4%** |
+
+So positional matching would attach a wrong frequency ~80% of the time, and low-confidence
+argmax is noise. **A wrong frequency is worse than a missing one** — it feeds the CUPE
+point-factor evaluation. This needs a real matching design, and it ranks **below** the
+parser gap and the fabrication cleanup.
+
+### ▶ ON PURGING AND STARTING FROM ZERO — asked 2026-08-22, answered with evidence
+
+**A full purge + re-ingest would not help and would cost days.** `canonical_jds` is fully
+derived and the producer already rebuilds it in place (this run: 649 refreshed, **0
+persisted**). Re-ingesting re-derives the same drafts from the same parses with the same
+code, reproducing the identical defect, at ~19 h (CUPE) or ~44 h (full) of GPU.
+
+**But the instinct was half right, and the audit found where.** The break is at the
+**parse** layer, not the ingest or the data: the WJQ duty extraction fails on 16.2% of
+CUPE documents. **Re-parsing costs no GPU at all.** So the defensible version is: fix the
+WJQ duty parser → re-parse CUPE → **one** producer pass. Hours, not days.
+
+### ▶ IF YOU ARE STARTING COLD
+
+```bash
+git fetch && git log --oneline origin/main -1     # expect 7ad9c9c or later
+gh pr list                                        # the table above lags; this does not
+docker ps --format '{{.Names}}' | grep jd-bank    # ⚠ the stack does NOT self-restart
+docker compose up -d                              # ...if that came up empty
+docker ps --filter "name=canonical"               # MUST be empty before any producer work
+make bank-audit                                   # ⟵ START HERE. What the Bank CONTAINS
+```
+
+⚠ **The box has other Docker projects on it** — a `docker ps` full of random-named
+`postgres:16-alpine` containers is probably `recruiter-assistant`'s testcontainers.
+⚠ **Never pass `--remove-orphans`** while a producer run is alive; compose reports the run
+as an orphan and the flag would delete it mid-pass.
+
+### The queue, in order
+
+1. 🔴 **Fix the WJQ duty parser** — 719 of 4,440 CUPE documents (16.2%) yield no duties.
+   This is the root of the fabrication chain and the reason 101 CUPE drafts have invented
+   content. No GPU needed to fix or to re-parse.
+2. **Re-parse CUPE, then ONE producer pass** over the affected clusters. `make bank-audit`
+   before and after — the invented-duty count must go to zero and duty carry-through must
+   rise.
+3. **The duty-frequency matching design** — see above. Needs evidence, not a patch.
+4. **Re-measure the JDFN cohort.** Every JDFN figure predates #130; the audit shows
+   `relationships`/`decision_making` carry-through at **60.9%** and `problem_solving`
+   FABRICATED at 228.2%. A JDFN pass should take the first two toward 100% and the third
+   to at most 100%.
+5. **Phase F** (`docs/tasks/phase-f-form-scoping-backlog.md`) — search is JDFN-only both
+   ways; D3's per-form draft evaluation renders nowhere and it is the number HR will ask for.
+6. **Phase G rulebook items** — `SFU-GATE-SENIOR-TITLE` unfalsifiable on the WJQ;
+   `thresholds.wjq.duties_max: 12` structurally dead; **the stack should survive a Docker
+   restart** (no `restart:` policy while every other project on the box has one).
+7. 🔴 **TLS at the edge** — `sfuai.ca:7000` is a Telus NAT forward to plain HTTP.
+8. **HR ratification** — 213 entries, 0 signed.
+
+### ▶ ONE NUMBER HR WILL ASK ABOUT
+
+**6 of 649 CUPE drafts are approvable**, blocked overwhelmingly by
+`SFU-APPROVE-KSA-ORDER` (547) and `SFU-APPROVE-QUAL-EQUIVALENT` (503). Both are
+deliberately `applies_to: [jdfn, wjq]` — registered decisions, not JDFN rules leaking onto
+the WJQ. So it is a real finding about CUPE JDs and an HR question, not a bug. State it
+before someone else discovers it.
+
+### ▶ WHAT THIS SESSION LEARNED THAT IS NOT IN A DIFF
+
+- **Build the measurement before the next fix, not after the next surprise.** Four
+  content-loss defects were each found by hand-written SQL days late. `make bank-audit`
+  cost an afternoon and immediately surfaced a defect (1,219 fabricated duties) that four
+  rounds of review, a green suite and a completed 18-hour run had all missed.
+- **A metric that cries wolf gets ignored, so a tool must know policy from bug.** The
+  audit's first run flagged JDFN `additional_context` at 0% — which is exactly what HR-169
+  asks for — and rendered "no source states it" as a 0% failure. Both are now readings, not
+  alarms.
+- **Above 100% is a different failure from below 100%.** Losing content and inventing it
+  have opposite fixes, and a metric that collapses both into "not 100%" hides the worse one.
+- **Measure before patching, even when the patch is one line.** The frequency restore looks
+  like a one-line move. Measuring first showed the model reorders duties so heavily that
+  both obvious matching rules would attach WRONG frequencies to a field that feeds the
+  point-factor evaluation. The one-line fix would have been the fourth "fixed it" that
+  wasn't.
+
+---
+
+## ▶ PREVIOUS (2026-08-21) — everything merged; the CUPE re-baseline was running
 
 | | |
 |---|---|
