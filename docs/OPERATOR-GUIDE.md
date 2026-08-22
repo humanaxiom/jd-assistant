@@ -32,7 +32,16 @@ truth, and helps staff **author new, standards-compliant JDs**. Two halves:
   **compose** a JD with live compliance feedback, **review & approve** drafts, browse
   **dashboards**, and (admins) **manage users**.
 
-**Four guardrails the whole system is built on** — operators must not work around these:
+**Two forms, two bars.** SFU writes job descriptions on two different documents, and JD Bank
+treats them as different: the **APSA/APEX/Poly** template, and the **CUPE Weighted Job
+Questionnaire (WJQ)**. Each is scored against its own rules and its own thresholds — the WJQ
+expects 3–12 duties where the APSA form expects 3–5, and carries point-factor blocks (Level
+of Independence, Impact of Errors, Effort, Working Conditions) the APSA form has no concept
+of. **The two are never averaged into one number**; the system does not compute a blended
+score, so nobody can quote one by accident. ⚠ The WJQ bar is **provisional and unratified** —
+SFU's JD Toolkit is silent on that form, so every WJQ setting is one we chose (HR Decision 8).
+
+**Five guardrails the whole system is built on** — operators must not work around these:
 
 1. **Nothing auto-publishes.** A canonical JD is a *draft* until a human **reviewer**
    explicitly approves it. Overriding a blocking gate requires a written reason, recorded.
@@ -42,6 +51,30 @@ truth, and helps staff **author new, standards-compliant JDs**. Two halves:
    never from the LLM's own claims about its output.
 4. **Append-only, tamper-evident audit.** Every review/approve/edit and every login is
    recorded in a hash-chained `audit_log` (alteration or deletion is detectable, §8).
+5. **The model may reword; it may not invent.** See below — this is the guardrail an
+   author or reviewer is most likely to be asked about, and the one with the most measured
+   history behind it.
+
+### What the AI will and will not do to a JD
+
+When JD Bank harmonizes several similar job descriptions into one role, a self-hosted model
+rewrites the merged result into cleaner prose. **Its job is rewording, not authorship.** Four
+limits, each added after measuring the tool against the real archive — in three of the four
+the defect made the *score go up*, which is why none of them was reported by a user:
+
+| The model may not… | Why the limit exists |
+|---|---|
+| **write a section the sources never wrote** | It was writing *Impact of Decision Making* for roles whose sources said nothing about it — **1,084 drafts carried a section invented from no source at all**, and scored ~18 points higher for it |
+| **write the hiring bar** | Education, experience and security clearance come back exactly as derived from the source JDs. A clerical CUPE draft once came back demanding **a PhD in Astrophysics and an Enhanced Reliability clearance**, with nothing flagged |
+| **decide how many duties a role has** | Told the form's *minimum* instead of the number actually found, it treated twelve grounded duties as licence to write seven. Over the five largest CUPE roles: **60 duties in, 36 out** — now 48 in, 48 out |
+| **drop the point-factor content** | **95.4% of CUPE documents carry** the WJQ point-factor blocks; a rule written for the APSA form was discarding all of it |
+
+If the rewrite fails or is refused, the draft falls back to the **deterministic merge** — the
+grounded text assembled from the source documents with no model involved. A draft is never
+lost because the model had a bad day; it is only less polished.
+
+**Everything the harmonizer dropped is listed for the reviewer**, per source document and with
+a reason (deduplicated, over the duty cap, not merged). Nothing vanishes silently.
 
 ---
 
