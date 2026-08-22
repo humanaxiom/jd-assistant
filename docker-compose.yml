@@ -521,7 +521,34 @@ services:
       - ./docs/canonical:/committed
     depends_on:
       postgres: { condition: service_healthy }
-    command: ["python", "-m", "src.jd_bank.canonical"]
+    # `-u`: a producer pass runs for hours and its progress line goes to stderr. Without
+    # unbuffered output a live run logs NOTHING until a 8KB buffer fills — on 2026-08-20
+    # a healthy pass showed zero lines in 52 minutes and was very nearly killed as hung.
+    command: ["python", "-u", "-m", "src.jd_bank.canonical"]
+
+  # ─── Bank content audit (read-only) ────────────────────────────────────────
+  # What the live Bank actually CONTAINS, per form — the carry-through report
+  # (`make bank-audit`). Reads; writes no Bank row. Needs Postgres only: no Ollama, no
+  # Neo4j, so it is safe and cheap to run at any time, including while a producer pass
+  # is in flight (the numbers are then mid-flight, which the report does not know).
+  #
+  # It exists because every content-loss defect in Phases A-G was found by hand-written
+  # SQL days after the run that caused it. The producer's own summary counts CLUSTERS
+  # PROCESSED, not CONTENT KEPT — `refreshed=649 failures=0` prints identically whether
+  # a run enriched every draft or gutted it.
+  bank-audit:
+    profiles: ["tools"]
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    environment:
+      <<: *app_env
+    volumes:
+      - ./core:/app
+      - ./docs/canonical:/committed
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: ["python", "-u", "-m", "src.jd_bank.bank_audit"]
 
   # ─── Phase-4.2a LLM rewrite golden (opt-in, LOCAL-ONLY) ────────────────────
   # Runs the live rewrite golden against the REAL chat model on `aria-gb10-2`

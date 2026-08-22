@@ -5,7 +5,7 @@
 .PHONY: up down gates gates-fast gates-integration gates-live migrate logs shell \
         hook-install register register-check baseline dedup ingest embed embed-roles \
         near-dup dedup-role cluster harmonize-measure canonical-drafts rewrite-golden \
-        quality-golden
+        quality-golden bank-audit
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -251,8 +251,23 @@ harmonize-measure:  ## Drive merge_cluster over real JDFN clusters; measure the 
 #   make canonical-drafts CANONICAL_ARGS="--limit 500"
 #   make canonical-drafts CANONICAL_ARGS="--no-llm --allow-downgrade"  # re-baseline
 canonical-drafts: ## Phase-4.4a: produce DRAFT canonical_jds over real clusters (local-only; --no-llm for no Ollama)
-	docker compose run --rm -T canonical python -m src.jd_bank.canonical $(CANONICAL_ARGS)
+	docker compose run --rm -T canonical python -u -m src.jd_bank.canonical $(CANONICAL_ARGS)
 	@echo "✅ canonical-producer summary written to docs/canonical/summary.json"
+
+# ── Bank content audit (read-only) ─────────────────────────────────────────
+# What the live Bank actually CONTAINS, per form: for each section, how many clusters'
+# SOURCES offered it vs how many DRAFTS kept it. Run it BEFORE and AFTER any producer
+# pass — a carry-through that falls is a content-loss defect, and this is the only view
+# that shows one. `refreshed=649 failures=0` prints identically either way.
+#
+# Exits 2 if any section's carry-through is below --min-retention (default 100), so it
+# can gate a pipeline rather than only inform a suspicious human.
+#
+#   make bank-audit
+#   make bank-audit AUDIT_ARGS="--json"                 # machine-readable, diffable
+#   make bank-audit AUDIT_ARGS="--min-retention 95"     # loosen the verdict
+bank-audit:       ## Read-only: per-form content carry-through of the live Bank
+	docker compose run --rm -T bank-audit python -u -m src.jd_bank.bank_audit $(AUDIT_ARGS)
 
 # ── Migrations (already Docker) ────────────────────────────────────────────
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).
