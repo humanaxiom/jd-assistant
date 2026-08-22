@@ -348,3 +348,34 @@ def test_internal_whitespace_in_a_heading_is_tolerated() -> None:
     assert _match_heading("1. POSITION   IDENTIFICATION", wjq) == (
         "position_identification"
     )
+
+
+def test_a_heading_with_internal_whitespace_and_a_column_beside_it_matches() -> None:
+    """🔴 THE COLUMN GAP AND THE INTERNAL RUN, TOGETHER — the variant the first fix
+    left behind.
+
+    `_match_heading` accepted a heading either exactly (whitespace-collapsed) or as a
+    RAW prefix before a column gap. A heading carrying BOTH — antiword stretches the
+    words apart AND prints the next column beside it — satisfied neither: the collapsed
+    compare failed on the trailing column, and `startswith` failed on the internal run.
+
+    MEASURED 2026-08-22 over a 400-file archive sample (122 WJQ documents): 4 documents
+    lost 11 heading lines to this combination, and they are the DUTY-BEARING ones —
+    `4. MINOR  FUNCTIONS`, `MAJOR   FUNCTIONS   CONTINUED`, `2. POSITION  SUMMARY`.
+    Same root cause as the case above, one variant over.
+    """
+    wjq = get_rules().wjq
+    assert (
+        _match_heading(
+            "1. POSITION   IDENTIFICATION                 For Use by Human", wjq
+        )
+        == "position_identification"
+    )
+    assert (
+        _match_heading(
+            "4.    MINOR  FUNCTIONS    (List duties and responsibilities that occur",
+            wjq,
+        )
+        == "minor_functions"
+    )
+    assert _match_heading("MAJOR   FUNCTIONS   (CONTINUED)", wjq) == "major_functions"
