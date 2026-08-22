@@ -83,6 +83,15 @@ from src.jd_core.rules import Wjq, WjqSection, get_rules
 
 #: A leading enumeration prefix on a WJQ heading cell (``1.`` / ``13)``).
 _NUM_PREFIX = re.compile(r"^\s*\d{1,2}\s*[.)]\s*")
+
+#: Any whitespace run, for comparing a heading cell to the vocabulary.
+_COLLAPSE_WS = re.compile(r"\s+")
+
+#: The COLUMN BOUNDARY in antiword's fixed-width rendering of a table it did not
+#: recognise: two or more spaces, or the end of the cell. One space is running prose and
+#: must NOT count, or a duty beginning with a heading's words would be taken for the
+#: heading — see :func:`_match_heading`.
+_COLUMN_GAP = re.compile(r"(\s{2,}|$)")
 #: Bullet markers, including antiword's ``.`` bullet for legacy ``.doc``.
 _WJQ_BULLET = re.compile(r"^\s*(?:[.\-–—•*·▪‣◦]|\(?\d{1,2}[.)])\s+")
 #: A standalone, UPPERCASE ``(D)/(W)/(M)/(S)`` frequency token — line-start or line-end
@@ -133,18 +142,49 @@ def _match_heading(line: str, wjq: Wjq) -> WjqSection | None:
     """The WJQ section a line is the heading for, or ``None``.
 
     A heading occupies its own table cell: ``N. PHRASE``. The cell is number-peeled and
-    ``(CONTINUED)``-stripped, then matched exactly against the heading vocabulary — so a
-    duty that merely *starts with* a heading word (``Level of detail…``) is never taken
-    for the heading."""
+    ``(CONTINUED)``-stripped, then matched against the heading vocabulary — either
+    exactly, or as a prefix followed by a COLUMN GAP (below).
+
+    🔴 THE COLUMN GAP, AND WHY AN EXACT MATCH ALONE LOST 16% OF THE CUPE ARCHIVE.
+    ``_cells`` splits on ``|``, which is how antiword renders a table it recognises. It
+    renders a MULTI-COLUMN layout it does not recognise as fixed-width text with **no
+    pipes at all**, so a heading and the cell to its right land on one physical line::
+
+        ' 1. POSITION IDENTIFICATION                        For Use by Human'
+        '    Resources Only'
+
+    Cleaned, that cell is ``1. POSITION IDENTIFICATION FOR USE BY HUMAN``, which equals
+    no heading phrase — so the section never opened. MEASURED 2026-08-22: **719 of 4,440
+    CUPE documents (16.2%) parsed to ZERO duties**, against 2.2% on the APSA form, and
+    every non-recoverable one was a legacy ``.doc``. That silence is what the rewrite
+    then filled with invented duties (HR-213): 1,219 of them across 153 drafts.
+
+    A run of **two or more spaces** is the column boundary, and that is what keeps this
+    from becoming the prefix match the original docstring rightly refused: running prose
+    continues after one space, so ``Level of detail required…`` still cannot be taken
+    for the ``LEVEL OF DETAIL`` heading, while a heading plus a column can.
+
+    MEASURED both directions before shipping: over the failing CUPE population **78.8%
+    (197/250) gain a duties block**, and over a random sample of 300 documents that
+    already parse duties, **none loses them** (97.3% byte-identical, 8 gain more).
+    """
     cont = wjq.continued_marker.upper()
-    for cell in _cells(line):
-        upper = cell.upper().replace(cont, "").strip()
+    # NOT `_cells`: it collapses internal whitespace, which is the very signal that
+    # tells a heading's own cell from the column printed beside it.
+    for raw in line.split("|"):
+        upper = raw.upper().replace(cont, "").strip()
+        if not upper:
+            continue
         peeled = _NUM_PREFIX.sub("", upper, count=1).strip()
         for section, phrases in wjq.section_headings.items():
             for phrase in phrases:
                 target = phrase.upper()
-                if peeled == target or upper == target:
-                    return section
+                for candidate in (peeled, upper):
+                    if _COLLAPSE_WS.sub(" ", candidate) == target:
+                        return section
+                    rest = candidate[len(target) :]
+                    if candidate.startswith(target) and _COLUMN_GAP.match(rest):
+                        return section
     return None
 
 
