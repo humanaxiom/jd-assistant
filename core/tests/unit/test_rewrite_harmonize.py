@@ -981,3 +981,83 @@ async def test_the_grounded_floor_never_asks_for_more_than_the_form_allows(
     system = chat.calls[0][0][0]
     assert f"1–{wjq.duties_max} major duties" in system
     assert f"{wjq.duties_min}–" not in system
+
+
+# --- a draft with NO duties cannot acquire any (HR-213) ------------------------------
+
+
+def _dutiless_merged() -> MergedRole:
+    """A grounded merge with NO duties — what `merge_cluster` correctly produces when
+    every source document in the cluster states none. Measured on the live Bank: the
+    WJQ parser recovers no duties from 16.2% of CUPE documents, so this is a common
+    real shape, not a contrived one."""
+    return MergedRole(
+        draft=_draft().model_copy(update={"duties": []}),
+        provenance=_merged().provenance,
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_draft_with_no_duties_does_not_acquire_them(rules: Rules) -> None:
+    """🔴 THE DEFECT, measured 2026-08-22: 153 live drafts carry 1,219 duties that NO
+    source document states — 996 of them on the CUPE cohort.
+
+    The duty guard only ever FLAGGED what the model added, never removed it. That is
+    right when the draft HAS duties for a reworded one to drift from; it is vacuous when
+    the draft has none, because there is no wording to preserve and every duty returned
+    is an invention. The rewrite wrote eight to twelve specific, plausible duties for
+    roles whose sources list none, and nothing objected.
+    """
+    result = await rewrite_merged_role(
+        _dutiless_merged(), client=_FakeChat(_draft()), rules=rules
+    )
+    assert result.draft.duties == []
+    # Recorded, never silently dropped — the reviewer is told (NN #6), and these are a
+    # DIFFERENT record from `flagged_duties`: a flagged duty drifted from a real one.
+    assert result.anti_fabrication.invented_duties
+    assert result.anti_fabrication.flagged_duties == ()
+
+
+@pytest.mark.asyncio
+async def test_the_dutiless_draft_then_fails_its_own_completeness_rule(
+    rules: Rules,
+) -> None:
+    """The cost, stated out loud. Withholding invented duties means the draft cannot be
+    approved — which is the POINT: the reader's gap becomes visible in the one place a
+    human will act on it, instead of being papered over by text that reads well and
+    describes nobody's job. Validator-as-oracle (NN #3): asserted as the validator's
+    verdict, never as model text."""
+    result = await rewrite_merged_role(
+        _dutiless_merged(), client=_FakeChat(_draft()), rules=rules
+    )
+    assert "SFU-COMP-DUTIES" in {i.rule_id for i in result.issues}
+
+
+@pytest.mark.asyncio
+async def test_a_draft_that_has_duties_still_lets_the_rewrite_reword_them(
+    rules: Rules,
+) -> None:
+    """The other direction, and the reason this is EMPTY-TO-EMPTY rather than a ban on
+    duty changes. Rewording a duty the draft HAS is the pass's whole job; a guard that
+    also emptied those would delete the role."""
+    result = await rewrite_merged_role(
+        _merged(), client=_FakeChat(_draft()), rules=rules
+    )
+    assert result.draft.duties
+    assert result.anti_fabrication.invented_duties == ()
+
+
+@pytest.mark.asyncio
+async def test_the_knob_restores_the_pre_2026_08_22_behaviour(rules: Rules) -> None:
+    """MUTATION pin (HR-213). `false` lets the model write duties for a role whose
+    sources state none — what shipped until 2026-08-22."""
+    permissive = rules.model_copy(
+        update={
+            "rewrite": rules.rewrite.model_copy(update={"duties_never_invented": False})
+        }
+    )
+    result = await rewrite_merged_role(
+        _dutiless_merged(), client=_FakeChat(_draft()), rules=permissive
+    )
+    assert result.draft.duties
+    assert result.anti_fabrication.invented_duties == ()

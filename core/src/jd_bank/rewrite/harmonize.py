@@ -260,6 +260,35 @@ def _apply_anti_fabrication(
             else duty.model_copy(update={"frequency": source.frequency})
         )
 
+    # 🔴 EMPTY-TO-EMPTY, FOR DUTIES. A grounded draft with NO duties cannot acquire any
+    # from a rewording pass, and until 2026-08-22 it could and did.
+    #
+    # MEASURED ON THE LIVE BANK: 153 drafts carry 1,219 duties that NO source document
+    # states — 101 of the 649 CUPE drafts (15.6%), 996 duties. The chain is: the WJQ
+    # parser recovers no duties from 719 of 4,440 CUPE documents (16.2%, against 2.2%
+    # on the APSA form); `merge_cluster` correctly produces nothing from nothing; and
+    # the rewrite then writes eight to twelve plausible, specific duties out of thin air
+    # ("verifies bibliographic records against the library online catalogue" for a role
+    # whose sources list no duties at all).
+    #
+    # NOTHING OBJECTED, because the duty guard above only FLAGS what the model adds and
+    # never removes it — deliberately, since a reworded duty must be allowed to drift.
+    # That reasoning is sound when the draft HAS duties to drift from. It is vacuous
+    # when the draft has none: there is no wording to preserve, so every duty returned
+    # is an invention, and "flagged" is the wrong verb for content with no source.
+    #
+    # This is the SAME rule as `_SECTIONS_NEVER_INVENTED` one field over, and the same
+    # argument S-5 settled for whole sections: a draft that honestly reports no duties
+    # fails `SFU-COMP-DUTIES`, which is the validator doing its job and the
+    # right place for the parser gap to become visible. A fabricated duty list scores
+    # better and tells a reviewer something untrue about the role.
+    if rewrite.duties_never_invented and not merged.draft.duties and duties:
+        invented_duties = [duty.statement for duty in duties]
+        duties = []
+        flagged = []
+    else:
+        invented_duties = []
+
     # ← What did the model TAKE AWAY? The question nothing asked (S-2). A merge duty
     # with no counterpart this close in the rewrite is content the source documents
     # stated and the draft no longer carries, and "reword this" licenses none of it.
@@ -296,6 +325,7 @@ def _apply_anti_fabrication(
         flagged_duties=tuple(flagged),
         scrubbed_sections=tuple(sorted(emptied)),
         removed_duties=tuple(removed_duties),
+        invented_duties=tuple(invented_duties),
         restored_bars=tuple(restored_bars),
     )
 
