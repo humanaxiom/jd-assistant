@@ -1,60 +1,53 @@
 {
-  "generated_at": "2026-08-14T22:41:33.951005+00:00",
+  "generated_at": "2026-08-22T12:24:19.551222+00:00",
   "result": {
-    "audit_failures": 0,
+    "audit_failures": 1,
     "cluster_failures": 0,
     "clusters_by_template": {
-      "jdfn": 1807,
       "wjq": 649
     },
     "clusters_fully_wjq_excluded": 0,
-    "clusters_mixed_jdfn_wjq": 6,
+    "clusters_mixed_jdfn_wjq": 0,
+    "clusters_no_authorable_template": 0,
+    "clusters_no_members_loaded": 0,
+    "clusters_out_of_scope": 1807,
     "clusters_recomputed": 2456,
-    "clusters_seen": 2456,
+    "clusters_seen": 649,
     "documents_seen": 14522,
     "documents_signed": 14522,
     "documents_unsignable": 0,
-    "drafts_persisted": 690,
-    "drafts_refreshed": 1763,
+    "drafts_persisted": 0,
+    "drafts_refreshed": 649,
     "evaluation_by_template": {
-      "jdfn": {
-        "approvable": 179,
-        "clusters": 1807,
-        "drafts_scored": 1804,
-        "grades": {
-          "C": 848,
-          "D": 434,
-          "F": 522
-        },
-        "mean_score": 52.73
-      },
       "wjq": {
-        "approvable": 3,
+        "approvable": 6,
         "clusters": 649,
         "drafts_scored": 649,
         "grades": {
-          "B": 351,
-          "C": 155,
-          "D": 137,
-          "F": 6
+          "B": 307,
+          "C": 337,
+          "D": 5
         },
-        "mean_score": 71.69
+        "mean_score": 76.38
       }
     },
-    "llm_enabled": false,
+    "llm_enabled": true,
     "member_rows_dropped_unvalidatable": 0,
-    "multi_member_clusters": 2454,
+    "multi_member_clusters": 649,
     "quality_model": "gpt-oss:120b",
     "quality_prompt_version": "jd_quality_v1",
-    "rewrite_failures": 0,
+    "rewrite_failures": 10,
     "rewrite_model": "gpt-oss:120b",
     "rewrite_prompt_version": "jd_harmonize_v2",
     "rules_version": "jd_rules_sfu_v4+76baba29cfeb",
-    "single_member_clusters": 2,
-    "skipped_reviewer_touched": 3,
+    "single_member_clusters": 0,
+    "skipped_already_llm_written": 0,
+    "skipped_reviewer_touched": 0,
+    "skipped_would_downgrade": 0,
     "wjq_members_authored": 3446,
-    "wjq_members_excluded": 24,
-    "wjq_members_frequency_confirmed": 2747
+    "wjq_members_excluded": 0,
+    "wjq_members_frequency_confirmed": 2747,
+    "wjq_members_unwritten": 0
   },
   "source": "parsed_jds + dedup_edges (recomputed clusters; forms per harmonization.templates_harmonized \u2014 HR-206)"
 }

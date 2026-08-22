@@ -1010,7 +1010,7 @@ quoting any JDFN number from this document.
 **The producer run is STOPPED**, 237 of ~649 CUPE drafts rebuilt. Do not restart before the
 content-loss fixes land.
 
-### ✅ 2026-08-21 — THE CONTENT-LOSS FIXES ARE ALL ON `main`, AND THE RE-BASELINE IS RUNNING
+### ✅ 2026-08-21 — THE CONTENT-LOSS FIXES ARE ALL ON `main`, AND THE RE-BASELINE RAN
 
 Every finding quoted above is closed, and the producer re-run the plan was waiting for is in
 flight (`--only-template wjq --commit-every 25`, no `--resume` — a genuine re-baseline).
@@ -1041,6 +1041,36 @@ duties=12`, `relationships=YES`, `scrubbed_sections=()`, score 76.13 / grade B. 
 so the move from the previously-recorded 85.29 is HR-209's intended trade (twelve real duties
 instead of seven compressed ones), not a regression. ⚠ *A rising score has been the signature
 of three separate content-loss defects in this phase; treat one as a question, not a result.*
+
+### ✅ 2026-08-22 — THE RE-BASELINE COMPLETED, AND THE AUDIT IT PROMPTED FOUND FABRICATED DUTIES
+
+**649/649 clusters refreshed, 0 cluster failures, ~18.8 hours**, mean 76.38 on the WJQ bar.
+Point-factor carry-through went 237 → **620 of 620 possible (100%)**, Relationships 0 → 426,
+mean duties ~7 → **11.44**. HR-207, HR-209 and HR-212 all landed on real data.
+
+**Then `make bank-audit` shipped (#134) and changed what we can see.** Read-only, per form:
+for each section, how many clusters' SOURCES offered it vs how many DRAFTS keep it. That
+ratio is the thing four consecutive content-loss defects were invisible to, because the
+producer summary counts CLUSTERS PROCESSED, not CONTENT KEPT.
+
+🔴 **IT IMMEDIATELY FOUND THE WORST DEFECT OF THE PHASE: 153 drafts carry 1,219 duties that
+NO SOURCE DOCUMENT STATES** — 101 of the 649 CUPE drafts (15.6%), 996 duties. Three links:
+
+1. **the WJQ parser recovers no duties from 719 of 4,440 CUPE documents (16.2%)**, against
+   2.2% on the APSA form — a reader gap, 7× the JDFN rate. ⟵ **NEXT**
+2. `merge_cluster` correctly produces nothing from documents that state nothing;
+3. the rewrite wrote 8–12 plausible duties into the silence, because the duty guard only
+   ever FLAGGED additions and never removed them. **Closed by #135** (HR-213), the same
+   EMPTY-TO-EMPTY rule already applied to whole sections.
+
+⚠ #135 stops NEW fabrication and repairs nothing; the 1,219 duties stay until the producer
+re-runs, and that re-run must follow the parser fix or it will re-derive empty duty lists.
+
+**Two things this makes true about the rest of this document.** The duty-frequency claim in
+HR-209's block above was measured on five clusters and read 43.8%; **cohort-wide it is
+24.1%**, below its own "before". And JDFN `problem_solving` carry-through reads **228.2%**
+— above 100% means the Bank holds content no source wrote, so the S-5 fabrication is still
+in the JDFN cohort and will be until that cohort is re-run.
 
 **The durable lesson, and it is not about CUPE.** Four of this weekend's defects were found
 by running things against the live Bank; the rest by reviewers reading code. **None was
