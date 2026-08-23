@@ -1061,3 +1061,91 @@ async def test_the_knob_restores_the_pre_2026_08_22_behaviour(rules: Rules) -> N
     )
     assert result.draft.duties
     assert result.anti_fabrication.invented_duties == ()
+
+
+# --- HR-214: the guard was asymmetric ------------------------------------------------
+
+
+def _merged_with_relationships() -> MergedRole:
+    """A merge that DID ground a Relationships section — the case HR-214 protects."""
+    return MergedRole(
+        draft=_draft().model_copy(
+            update={
+                "relationships": SFURelationships(
+                    internal=("Department managers", "Finance staff", "Payroll"),
+                    external=("External auditors",),
+                )
+            }
+        ),
+        provenance=MergeProvenance(
+            member_count=3, skill_frequency=(("accounting", 3),)
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_the_rewrite_may_not_empty_a_section_the_merge_grounded(
+    rules: Rules,
+) -> None:
+    """🔴 THE MIRROR OF HR-213, AND THE GUARD'S BLIND SIDE.
+
+    `_SECTIONS_NEVER_INVENTED` fires only on EMPTY -> NON-EMPTY: it stops the model
+    writing a section the merge never grounded. It said nothing about NON-EMPTY ->
+    EMPTY, and its comment claimed outright that "this drops nothing a source document
+    stated" — which is false.
+
+    MEASURED 2026-08-23 over the 50 clusters the v5 producer pass processed before it
+    was stopped: the merge grounded `relationships` for 43 of them and **11 drafts came
+    back without it — a 25.6% loss rate**, with ZERO sections created (so the
+    empty-to-empty guard was working perfectly the whole time, on the direction that was
+    not losing content). All 40 members of one cluster carried relationships; the merge
+    produced `internal=20, external=1`; the draft carried none.
+    """
+    llm_dropped_it = _draft().model_copy(update={"relationships": None})
+    result = await rewrite_merged_role(
+        _merged_with_relationships(), client=_FakeChat(llm_dropped_it), rules=rules
+    )
+    assert result.draft.relationships is not None
+    assert (
+        result.draft.relationships == _merged_with_relationships().draft.relationships
+    )
+    assert "relationships" in result.anti_fabrication.restored_sections
+
+
+@pytest.mark.asyncio
+async def test_a_section_the_rewrite_kept_is_left_to_the_rewrite(rules: Rules) -> None:
+    """The limit of the fix: rewording is the pass's whole job, so a section the model
+    RETURNED is its own — HR-214 restores only what came back EMPTY. Whether compressing
+    twenty internal contacts to three is acceptable rewording or content loss is a
+    separate, open question and deliberately NOT decided here."""
+    reworded = _draft().model_copy(
+        update={
+            "relationships": SFURelationships(
+                internal=("Departmental managers",), external=("Auditors",)
+            )
+        }
+    )
+    result = await rewrite_merged_role(
+        _merged_with_relationships(), client=_FakeChat(reworded), rules=rules
+    )
+    assert result.draft.relationships == reworded.relationships
+    assert result.anti_fabrication.restored_sections == ()
+
+
+@pytest.mark.asyncio
+async def test_hr_214_knob_restores_the_pre_2026_08_23_behaviour(rules: Rules) -> None:
+    """`false` is the old behaviour: the section stays emptied."""
+    off = rules.model_copy(
+        update={
+            "rewrite": rules.rewrite.model_copy(
+                update={"sections_never_emptied": False}
+            )
+        }
+    )
+    result = await rewrite_merged_role(
+        _merged_with_relationships(),
+        client=_FakeChat(_draft().model_copy(update={"relationships": None})),
+        rules=off,
+    )
+    assert result.draft.relationships is None
+    assert result.anti_fabrication.restored_sections == ()

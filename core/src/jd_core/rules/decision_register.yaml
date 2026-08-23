@@ -6430,6 +6430,49 @@ decisions:
       Existing affected drafts are not repaired until the producer re-runs over them,
       and until then the Bank still holds the 1,219 duties already written.
     status: open
+
+  # ── May the rewrite DELETE a section the sources stated? (2026-08-23) ──
+  - id: HR-214
+    question: >-
+      When the tool rewords a harmonized job description, may it return a whole SECTION
+      empty that the source documents did state — for example the internal and external
+      contacts a role works with? Today it may not: the harmonized version is put back.
+    config:
+      file: rewrite.yaml
+      path: rewrite.sections_never_emptied
+    current_default: true
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      🔴 THE EXACT MIRROR OF THE INVENTED-DUTIES DEFECT, ON THE OPPOSITE DIRECTION, AND
+      IT WENT UNWATCHED FOR THE SAME REASON. The guard that protects whole sections was
+      built to stop the language model WRITING a section the source documents never
+      contained — a real risk, because the CUPE questionnaire simply does not ask some of
+      the questions the university's standard template does. It was never asked the
+      reverse question: what if the model DELETES a section the sources did state? The
+      code even recorded an assumption that this "drops nothing a source document
+      stated". That was asserted, never measured, and it is false. **MEASURED 2026-08-23
+      over the 50 roles a production run had processed before it was stopped: the
+      harmonizer grounded a contacts section for 43 of them from the real documents, and
+      11 of the finished drafts came back WITHOUT it — 25.6% — while ZERO sections were
+      invented.** The guard was working perfectly, on the one direction that was not
+      losing anything. One role had all 40 of its source documents listing contacts,
+      harmonized into twenty internal and one external, and its draft carried none.
+      Against the roles the run had not yet touched, which retain that section 90.4% of
+      the time, the difference is far outside chance. This matters to HR because contacts
+      are content a person wrote about a real job: losing them makes the description
+      quietly less true, and nothing in the system reported the loss. ⚠ WHAT THIS ENTRY
+      DELIBERATELY DOES NOT SETTLE: a section the model DID return is left as it wrote
+      it, even when much shorter than the harmonized version — the same role compressed
+      twenty internal contacts to three on a later attempt. Whether that is acceptable
+      editing or unacceptable loss is a real question and a separate one, and it is put
+      to HR rather than answered quietly by a number chosen here.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (rewrite.yaml is unhashed) — it decides what a draft
+      may CONTAIN, never how one is scored. `false` restores the pre-2026-08-23
+      behaviour and the tool may again delete a stated section while reporting success.
+      Drafts already affected are not repaired until the producer re-runs over them.
+    status: open
   # ── Embedding over-length fallback ladder (HR-126 follow-up). ──
   - id: HR-193
     question: >-

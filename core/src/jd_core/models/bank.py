@@ -395,6 +395,17 @@ class AntiFabricationRecord(BaseModel):
     #: highest-consequence fabrication an HR system can make, because it is the thing
     #: that screens a candidate out. Recorded so the swap is evidence, not a silent fix.
     restored_bars: tuple[str, ...] = ()
+    #: The name of every SECTION the merge GROUNDED and the rewrite returned EMPTY,
+    #: whose merge value was restored (HR-214). The exact mirror of
+    #: :attr:`scrubbed_sections`: that answers "what did the model INVENT?", this one
+    #: "what did it DELETE?" — and only the first question was ever asked.
+    #: `_SECTIONS_NEVER_INVENTED` fired solely on empty -> non-empty, and its comment
+    #: claimed the other direction "drops nothing a source document stated", which is
+    #: false. **MEASURED 2026-08-23 over the 50 clusters the v5 producer pass processed
+    #: before it was stopped: the merge grounded `relationships` for 43 and 11 drafts
+    #: came back without it — 25.6% — while ZERO sections were created.** The guard was
+    #: working perfectly, on the one direction that was not losing content.
+    restored_sections: tuple[str, ...] = ()
 
 
 class RewrittenDraft(BaseModel):

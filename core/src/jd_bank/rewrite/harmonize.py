@@ -310,11 +310,36 @@ def _apply_anti_fabrication(
     # cannot object, because it only reads qualifications and duties.
     #
     # ⚠ EMPTY-TO-EMPTY only. A section the draft HAS is left entirely to the rewrite —
-    # rewording is the pass's whole job. This drops nothing a source document stated.
+    # rewording is the pass's whole job.
     emptied: dict[str, Any] = {}
     for section in _SECTIONS_NEVER_INVENTED:
         if not getattr(merged.draft, section) and getattr(llm_jd, section):
             emptied[section] = None if section == "relationships" else []
+
+    # 🔴 …AND THE OTHER DIRECTION, WHICH WENT UNGUARDED (HR-214). The loop above stops
+    # the model INVENTING a section. Until 2026-08-23 its comment also claimed that
+    # leaving the reverse case alone "drops nothing a source document stated" —
+    # asserted, never measured, false: a rewrite returning the section EMPTY deletes
+    # content the merge grounded from real member documents, and nothing objected, as
+    # nothing objected to invented duties (HR-213) for the mirror-image reason.
+    #
+    # MEASURED over the 50 clusters the v5 producer pass processed before being stopped:
+    # the merge grounded `relationships` for 43 and 11 drafts came back WITHOUT it —
+    # 25.6% — against a 90.4% carry-through control on the untouched cohort, about -3
+    # sigma. One cluster: 40/40 members carrying relationships, merge `internal=20,
+    # external=1`, draft none.
+    #
+    # ⚠ EMPTY-ONLY, deliberately. A section the model RETURNED is its own, even when it
+    # is thinner than the merge's — the same cluster compressed twenty internal contacts
+    # to three on a re-run, and whether that is rewording or loss is an open question
+    # that must not be settled by a threshold smuggled in here.
+    restored_sections: list[str] = []
+    if rewrite.sections_never_emptied:
+        for section in _SECTIONS_NEVER_INVENTED:
+            grounded = getattr(merged.draft, section)
+            if grounded and not getattr(llm_jd, section) and section not in emptied:
+                emptied[section] = grounded
+                restored_sections.append(section)
 
     scrubbed_jd = llm_jd.model_copy(
         update={"qualifications": kept, "duties": duties, **emptied}
@@ -323,10 +348,11 @@ def _apply_anti_fabrication(
         enabled=True,
         scrubbed_skills=tuple(scrubbed),
         flagged_duties=tuple(flagged),
-        scrubbed_sections=tuple(sorted(emptied)),
+        scrubbed_sections=tuple(sorted(set(emptied) - set(restored_sections))),
         removed_duties=tuple(removed_duties),
         invented_duties=tuple(invented_duties),
         restored_bars=tuple(restored_bars),
+        restored_sections=tuple(sorted(restored_sections)),
     )
 
 

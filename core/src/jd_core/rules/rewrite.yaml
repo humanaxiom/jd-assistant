@@ -107,6 +107,33 @@ duty_flag_threshold: 0.2
 # better and tells the reviewer something untrue about the role. HR-213.
 duties_never_invented: true
 
+# Whether a SECTION the 4.1 merge GROUNDED may come back EMPTY from the rewrite.
+#
+# 🔴 THE MIRROR OF HR-213, AND THE SAME BLIND SIDE ONE DIRECTION OVER. The section guard
+# (`_SECTIONS_NEVER_INVENTED`) fires only on EMPTY -> NON-EMPTY: it stops the model
+# writing a Problem Solving section onto a CUPE role whose form never asks for one. It
+# said nothing about NON-EMPTY -> EMPTY, and its comment asserted that direction "drops
+# nothing a source document stated". That was never measured, and it is false.
+#
+# MEASURED 2026-08-23 over the 50 clusters the v5 producer pass processed before it was
+# stopped for this: the merge grounded `relationships` for 43 of them and 11 drafts came
+# back WITHOUT it — a 25.6% loss rate — with ZERO sections created. One cluster had all
+# 40 members carrying relationships and a merge of `internal=20, external=1`; its draft
+# carried none. Against the untouched cohort as a control (90.4% carry-through on the
+# same population), that is roughly -3 sigma, not noise.
+#
+# `true` (shipped): the merge's own section is restored and the name recorded in
+# `AntiFabricationRecord.restored_sections`. `false` restores the pre-2026-08-23
+# behaviour.
+#
+# ⚠ WHAT THIS DELIBERATELY DOES NOT DECIDE: a section the model RETURNED is left alone,
+# even when it is far thinner than the merge's. The same cluster above compressed twenty
+# internal contacts to three on a re-run, which is either acceptable rewording or content
+# loss depending on a judgement nobody has made yet. Restoring only the EMPTY case is the
+# part that is unambiguous; the compression question is HR's and is not silently answered
+# by shipping a threshold here. HR-214.
+sections_never_emptied: true
+
 # What DUTY FLOOR the rewrite prompt states. `grounded` (shipped): the number of duties
 # THIS merge actually produced, capped by the form's `duties_max`. `form_minimum`: the
 # drafted form's own `duties_min` — the pre-HR-209 behaviour. HR-209.

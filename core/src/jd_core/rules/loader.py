@@ -1472,6 +1472,14 @@ class Rewrite(_RuleFile):
     #: as ``invented_duties``, and the draft honestly fails the too-few-duties rule.
     #: MEASURED 2026-08-22: 1,219 duties across 153 drafts had no source at all.
     duties_never_invented: bool = True
+    #: Whether a SECTION the 4.1 merge grounded may come back EMPTY from the rewrite
+    #: (HR-214). ``True`` (shipped) -> it may not: the merge's own section is restored
+    #: and recorded as ``restored_sections``. The exact mirror of the guard that already
+    #: stops the model INVENTING a section — that one fired only on empty -> non-empty
+    #: and claimed the other direction dropped nothing, which was never measured.
+    #: MEASURED 2026-08-23: the merge grounded ``relationships`` for 43 of 50 processed
+    #: clusters and 11 drafts came back without it (25.6%), with zero sections created.
+    sections_never_emptied: bool = True
     #: What DUTY FLOOR the rewrite prompt states (HR-209). ``grounded`` -> the number of
     #: duties THIS merge produced, capped by the form's ``duties_max``; ``form_minimum``
     #: -> the drafted form's own ``duties_min``. Measured: the form floor of 3 licensed
