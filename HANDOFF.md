@@ -2,7 +2,155 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-22, latest) — the re-baseline finished, and the audit it exposed found fabricated duties
+## ▶ START HERE (2026-08-22, latest) — the parser gap is CLOSED at the source layer; the drafts have not caught up yet
+
+| | |
+|---|---|
+| `main` | `6411da7` — **#137 merged.** Verify with `gh pr list`, never from this table |
+| Gates | **2,878 passing, 93.37%** — re-run on the bump, full suite incl. integration |
+| `rules_version` | `+76baba29cfeb` — **still unmoved.** A parser change alters what is READ, never how a JD is SCORED |
+| `PARSER_VERSION` | 🔴 **`jd_segmenter_v5` (was v4)** — bumped AND re-parsed in the same session, as the trap requires |
+| Register | **213** decisions, **0 ratified**. No new entries: a reader defect is not a policy default |
+| Live data | 2,490 DRAFT + 4 PUBLISHED · **drafts still built from v4 parses — this is the open work** |
+| CI | ✅ **GREEN AGAIN — the billing block is lifted** (2026-08-23). All three jobs pass on #138 |
+
+### ✅ CI IS GREEN AGAIN — and the two-day outage was never broken code
+
+**RESOLVED 2026-08-23.** All three jobs pass on #138:
+
+```
+✓ Gate: branch-name                                        4s
+✓ Gate: HR decision register (docs are in step)           43s
+✓ Gates: ruff · black · mypy · unit · integration · cov  10m54s
+```
+
+**Keep the diagnosis, because the symptom is deeply misleading.** From 2026-08-21 every
+run failed in **2–4 seconds** and the failing check was named `Gate: branch-name` — which
+reads exactly like a branch-naming rule rejecting the branch, and is not. The real cause
+was in the annotation, not the log:
+
+```
+The job was not started because recent account payments have failed
+or your spending limit needs to be increased.
+```
+
+The job never *started*; the two real gate jobs reported `skipping`, not `fail`. **If
+this recurs, do not debug the workflow file** — check GitHub → Billing & plans. Two
+distinct causes share that one message: a failed payment, *and* a private repo exhausting
+its included Actions minutes while the spending limit sits at $0.
+
+⚠ **And this repo is PRIVATE, so "public repos have free Actions" does not rescue it.**
+Making it public is **not** an available workaround: `fixtures/golden/` holds **41 real
+SFU JD documents** (verified byte-identical to `C:\repos\hris\fixtures\SFU_JDs`), with
+real position numbers, departments and titles. Publishing them is an institutional
+disclosure decision, not a CI convenience — and it cuts against non-negotiable #5.
+(`core/tests/fixtures/incumbent_sample.txt` *is* synthetic — "Jane Doe", `example.com` —
+the golden set is not. Do not confuse the two.)
+
+⚠ **Stale red marks linger on PRs from the outage.** GitHub keeps the blocked run
+alongside its re-run, so `gh pr checks` shows both `fail` (the original) and `pass` (the
+re-run). Read the run ID, not the colour.
+
+### THE WJQ DUTY PARSER — queue item 1, DONE at the parse layer
+
+`_match_heading` could not see a heading that antiword's fixed-width layout had either
+printed **beside the next column** or **stretched apart internally**. #137 fixed the
+first; review found it left the second, and a heading carrying BOTH matched neither rule:
+
+```
+'1. POSITION   IDENTIFICATION'                        -> ok
+' 1. POSITION IDENTIFICATION      For Use by Human'   -> ok
+'1. POSITION   IDENTIFICATION     For Use by Human'   -> None   <-- the variant
+```
+
+Both are now one rule: the vocabulary's words joined by `\s+`, then the column gap. An
+exact match is just the gap's `$` branch, so all three shapes fall out of one pattern.
+
+**MEASURED OVER ALL 4,440 CUPE DOCUMENTS, v4 vs v5 in the live database:**
+
+| | v4 | v5 |
+|---|---:|---:|
+| parse to ZERO duties | **719 (16.2%)** | **120 (2.7%)** |
+| carry exactly 12 duties | 3,436 | **4,008 (90.3%)** |
+| total duties extracted | 43,147 | **50,228** |
+| mean duties | 9.72 | **11.31** |
+
+**2.7% against the APSA form's 2.2%** — the 7× reader gap that the whole fabrication
+chain rested on is gone. 636 documents gained duties; 3,785 are unchanged.
+
+### ⚠ THE 19 DOCUMENTS THAT LOST DUTIES ARE THE MOST INFORMATIVE RESULT
+
+Nineteen went DOWN, one from 12 duties to 1. Every dropped item was checked, and not one
+was a real duty:
+
+```
+(a) ___ Little or no opportunity for independent work. (b) x Some opportunity for…
+TRAINING EXERCISED (If the position provides training, check each description…)
+Type of Contact  Students  General Public  Tutor/markers & Course Supervisors…
+< 1 hour  frequent  < 1 hour  frequent  < 1 hour  frequent…
+```
+
+**An unrecognised heading does not merely lose the section BELOW it — it lets the form's
+own checkbox scaffolding bleed UPWARD into the duty list.** So the gap was starving
+duties *and* polluting them, and HR would have read the pollution as authored content.
+Count down, content up. The thin-duty bucket (1–3) barely moved, 69 → 72, so removing
+boilerplate did not create a new population of hollow documents.
+
+### 🔴 THE BANK HAS NOT CAUGHT UP — AND THE AUDIT NOW SAYS SO OUT LOUD
+
+`make bank-audit` **before** the re-parse vs **after**:
+
+| WJQ carry-through | before | after |
+|---|---:|---:|
+| `relationships` | 426 / 473 = 90.1% | 426 / **573** = **74.3%** |
+| `additional_context` | 620 / 620 = 100% | 620 / **622** = 99.7% |
+
+**The numerators did not move; the denominators did.** Drafts are still built from v4
+parses while sources now offer v5 content — so ~100 more clusters have `relationships`
+in their sources than any draft carries. **A carry-through that falls here is CORRECT
+and is the measure of the pending work**, not a new defect. JDFN is byte-identical
+across the two runs, which confirms the fix is WJQ-only with no cross-form leakage.
+
+### ▶ THE QUEUE, IN ORDER
+
+1. 🔴 **ONE producer pass over the CUPE clusters** — `--only-template wjq`. This is the
+   step that converts 7,081 newly-read duties into drafts and clears the **1,219
+   fabricated duties** in 153 drafts. `make bank-audit` before and after; WJQ
+   `relationships` should climb back toward 100% and the invented-duty count go to zero.
+   ⚠ ~19 h of GPU based on the last run. **Deliberately not started this session.**
+2. ⚠ **Expect approvable counts to FALL, and say so before someone finds it.** HR-213
+   means a draft that honestly reports no duties fails `SFU-COMP-DUTIES`. 599 documents
+   just stopped being silent, but some drafts will now surface real gaps instead of
+   fluent invention. That is the fix working.
+3. **The duty-frequency matching design** — unchanged from the previous handoff; the
+   model reorders duties so heavily that both obvious matching rules attach WRONG
+   frequencies to a field feeding the CUPE point-factor evaluation. Needs evidence.
+4. **Re-measure the JDFN cohort** — `problem_solving` still reads **228.2% FABRICATED**
+   (1,084 / 475). Untouched by this work; it is a JDFN-side S-5 defect.
+5. **Phase F**, **Phase G rulebook items**, 🔴 **TLS at the edge**, **HR ratification**
+   (213 entries, 0 signed) — all unchanged.
+
+### ▶ WHAT THIS SESSION LEARNED THAT IS NOT IN A DIFF
+
+- **A green PR is a claim about the tests, not about the fix being complete.** #137 was
+  green, correct, and measured — and still left a variant of its own defect standing,
+  found by asking "what OTHER shape does this layout produce?" and checking against the
+  archive rather than against the test suite.
+- **A duplicated constant is how a measurement tool starts lying.** `bank_audit` held a
+  hardcoded `"jd_segmenter_v4"` while every other consumer imported `PARSER_VERSION`.
+  The v5 bump would have made it count the OLD corpus against the NEW Bank and report
+  the difference as content loss — a false alarm in the one tool whose entire value is
+  being believed when it cries loss. Found by grepping the literal before bumping it.
+- **The metric moving the WRONG way can be the honest answer.** WJQ carry-through fell
+  after the re-parse and that is exactly right: new content in sources that no draft
+  carries yet. A tool that only ever reports improvement is not measuring anything.
+- **Measure the fix in the direction it might do harm, not just the direction it helps.**
+  The 19 documents that LOST duties were the finding of the session — they revealed the
+  gap was polluting duty lists, which nothing had noticed and no count would show.
+
+---
+
+## ▶ PREVIOUS (2026-08-22, earlier) — the re-baseline finished, and the audit it exposed found fabricated duties
 
 | | |
 |---|---|

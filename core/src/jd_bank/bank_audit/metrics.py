@@ -55,12 +55,19 @@ from src.jd_bank.bank_audit.models import (
     RewriteHealth,
 )
 from src.jd_core.models.quality import JDTemplate
+from src.jd_core.parser.segmenter import PARSER_VERSION
 from src.jd_core.rules import Rules, get_rules
 
 #: The parser version whose rows are the archive of record. Everything here reads the
 #: same population the producer reads, so an audit and a run can never disagree about
 #: which documents exist.
-_PARSER_VERSION = "jd_segmenter_v4"
+#:
+#: ⚠ IMPORTED, NOT COPIED — it was a hardcoded `"jd_segmenter_v4"` until the v5 bump,
+#: which is the one thing that CAN make an audit and a run disagree. Every other
+#: consumer filters on the constant itself; this module alone held a duplicate, so a
+#: bump would have left the audit reporting the OLD corpus against the NEW Bank and
+#: calling the difference content loss.
+_PARSER_VERSION = PARSER_VERSION
 
 #: `employee_group` -> the FORM that group's documents are written on. The same
 #: separator `template_of` applies, expressed in SQL because this module aggregates over

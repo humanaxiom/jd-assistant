@@ -461,10 +461,18 @@ Two things that make this less alarming than it sounds, both worth knowing:
 `PARSER_VERSION` changes what the *running* service reports immediately — before you have
 re-parsed anything. Expect that window and close it.
 
-**Current version: `jd_segmenter_v4`** — `additional_context` keeps the whole WJQ
-point-factor block (HR-200). At v3's borrowed 4,000-char cap, **81.4% of CUPE JDs were
-stored truncated**; after v4, **0%** are, and `continuing_education` — the last of the
-seven sections, and so the first casualty of a cut — went from **17.0% → 85.8%** present.
+**Current version: `jd_segmenter_v5`** — the WJQ heading match tolerates antiword's
+fixed-width layout (#137). A heading printed beside the next column, or with its own
+words stretched apart, matched nothing, so the section never opened: **719 of 4,440 CUPE
+documents (16.2%) parsed to ZERO duties**, against 2.2% on the APSA form. That silence is
+what the rewrite filled with **1,219 invented duties across 153 drafts** (HR-213). The
+same gap also let the form's checkbox scaffolding bleed *upward* into the duty list, so
+it was starving duties and polluting them at once.
+
+**v4** — `additional_context` keeps the whole WJQ point-factor block (HR-200). At v3's
+borrowed 4,000-char cap, **81.4% of CUPE JDs were stored truncated**; after v4, **0%**
+are, and `continuing_education` — the last of the seven sections, and so the first
+casualty of a cut — went from **17.0% → 85.8%** present.
 
 ### ⚠ The second trap: `--no-llm` is not a cheaper way to get the same thing
 
