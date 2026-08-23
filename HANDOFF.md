@@ -12,21 +12,44 @@ Read this first every session. Single source of truth for current state + how we
 | `PARSER_VERSION` | 🔴 **`jd_segmenter_v5` (was v4)** — bumped AND re-parsed in the same session, as the trap requires |
 | Register | **213** decisions, **0 ratified**. No new entries: a reader defect is not a policy default |
 | Live data | 2,490 DRAFT + 4 PUBLISHED · **drafts still built from v4 parses — this is the open work** |
-| CI | 🔴 **STILL blocked on GitHub billing**, unchanged. Local `make gates` is the only evidence |
+| CI | ✅ **GREEN AGAIN — the billing block is lifted** (2026-08-23). All three jobs pass on #138 |
 
-### 🔴 CI IS NOT BROKEN CODE — IT IS AN UNPAID BILL
+### ✅ CI IS GREEN AGAIN — and the two-day outage was never broken code
 
-Every run since 2026-08-21 fails in **2–4 seconds**, and the failing check is called
-`Gate: branch-name`, which reads like a naming problem and is not:
+**RESOLVED 2026-08-23.** All three jobs pass on #138:
+
+```
+✓ Gate: branch-name                                        4s
+✓ Gate: HR decision register (docs are in step)           43s
+✓ Gates: ruff · black · mypy · unit · integration · cov  10m54s
+```
+
+**Keep the diagnosis, because the symptom is deeply misleading.** From 2026-08-21 every
+run failed in **2–4 seconds** and the failing check was named `Gate: branch-name` — which
+reads exactly like a branch-naming rule rejecting the branch, and is not. The real cause
+was in the annotation, not the log:
 
 ```
 The job was not started because recent account payments have failed
 or your spending limit needs to be increased.
 ```
 
-The job never starts; the two real gate jobs report `skipping`. It is repo-wide on
-`humanaxiom` and fixable **only** in GitHub → Billing & plans. **Do not debug the
-workflow file.** Until it is paid, a PR's evidence is a pasted local `make gates`.
+The job never *started*; the two real gate jobs reported `skipping`, not `fail`. **If
+this recurs, do not debug the workflow file** — check GitHub → Billing & plans. Two
+distinct causes share that one message: a failed payment, *and* a private repo exhausting
+its included Actions minutes while the spending limit sits at $0.
+
+⚠ **And this repo is PRIVATE, so "public repos have free Actions" does not rescue it.**
+Making it public is **not** an available workaround: `fixtures/golden/` holds **41 real
+SFU JD documents** (verified byte-identical to `C:\repos\hris\fixtures\SFU_JDs`), with
+real position numbers, departments and titles. Publishing them is an institutional
+disclosure decision, not a CI convenience — and it cuts against non-negotiable #5.
+(`core/tests/fixtures/incumbent_sample.txt` *is* synthetic — "Jane Doe", `example.com` —
+the golden set is not. Do not confuse the two.)
+
+⚠ **Stale red marks linger on PRs from the outage.** GitHub keeps the blocked run
+alongside its re-run, so `gh pr checks` shows both `fail` (the original) and `pass` (the
+re-run). Read the run ID, not the colour.
 
 ### THE WJQ DUTY PARSER — queue item 1, DONE at the parse layer
 
