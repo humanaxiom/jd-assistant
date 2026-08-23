@@ -2,19 +2,19 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-23, latest) — parser gap CLOSED, re-parsed, and the producer pass is IN FLIGHT
+## ▶ START HERE (2026-08-23, latest) — parser gap closed and re-parsed; a SECOND content-loss defect found and fixed; producer run 2 IN FLIGHT
 
 | | |
 |---|---|
-| `main` | `cb7d444` — **#137 AND #138 merged. Zero open PRs.** Verify with `gh pr list`, never from this table |
-| Gates | **2,878 passing, 93.37%** — re-run on the bump, full suite incl. integration |
+| `main` | `9ee1c1b` — **#137, #138, #139, #140 all merged. Zero open PRs.** Verify with `gh pr list`, never from this table |
+| Gates | **2,890 passing, 93.36%** — re-run on MERGED main, full suite incl. integration. #139 and #140 had never run together |
 | `rules_version` | `+76baba29cfeb` — **still unmoved.** A parser change alters what is READ, never how a JD is SCORED |
 | `PARSER_VERSION` | 🔴 **`jd_segmenter_v5` (was v4)** — bumped AND re-parsed in the same session, as the trap requires |
-| Register | **213** decisions, **0 ratified**. No new entries: a reader defect is not a policy default |
+| Register | **214** decisions, **0 ratified**. HR-214 is new |
 | Live data | 2,490 DRAFT + 4 PUBLISHED · **drafts still built from v4 parses — the run below is fixing exactly this** |
-| Producer run | 🟢 **LIVE — `jd-canonical-v5-cupe`**, started 2026-08-23 ~00:52 UTC. See "THE RUN IN FLIGHT" below |
-| Backup | ✅ `C:\Users\adam\jd-bank-backups\harness-pre-v5-producer-20260823.dump` (102,118,345 B, full `-Fc`) |
-| CI | ✅ **GREEN AGAIN — the billing block is lifted** (2026-08-23). All three jobs pass on #138 |
+| Producer run | 🟢 **LIVE — `jd-canonical-v5-cupe-run2`**, started 2026-08-23 ~07:05 UTC. ⚠ Run 1 was STOPPED — see below |
+| Backup | ✅ `jd-bank-backups\harness-pre-v5-producer-run2-20260823.dump` (102,167,561 B, full `-Fc`, taken before run 2) |
+| CI | ✅ **GREEN — the billing block is lifted** (2026-08-23). All three jobs pass on #138, #139 and #140 |
 
 ### ✅ CI IS GREEN AGAIN — and the two-day outage was never broken code
 
@@ -113,15 +113,44 @@ in their sources than any draft carries. **A carry-through that falls here is CO
 and is the measure of the pending work**, not a new defect. JDFN is byte-identical
 across the two runs, which confirms the fix is WJQ-only with no cross-form leakage.
 
+### 🔴 RUN 1 WAS STOPPED AT 50 CLUSTERS — and stopping it is how HR-214 was found
+
+The first v5 pass ran ~2 h and was **deliberately killed**, because its health signal did
+exactly what this file says to watch for: `relationships` sat **flat at 427** across two
+checkpoints while the cluster counter advanced. That is the shape of a pass succeeding
+while destroying content, and it was.
+
+Using the 599 untouched clusters as a CONTROL — the move worth copying:
+
+| clusters whose v4 sources offered relationships | offered | draft keeps | rate |
+|---|---:|---:|---:|
+| untouched (599) | 437 | 395 | **90.4%** |
+| processed by run 1 (50) | 36 | 27 | **75.0%** |
+
+≈ **-3 sigma**. Two alternative explanations were checked and killed before acting: no
+fabricated relationships existed to be "replaced" (0 untouched drafts carry the section
+with no v4 source), and the processed clusters are not size-biased in a direction that
+could explain it (6.5 mean members vs 5.2 — and more members means MORE chance to carry
+the section). The cause was then ISOLATED, not inferred: one cluster driven through
+merge → rewrite showed 40/40 members carrying relationships, the merge producing
+`internal=20, external=1`, and the rewrite returning `internal=3, external=3` — and in
+production, nothing at all.
+
+**Fixed by #139 (HR-214).** ⚠ **11 drafts from run 1 are still degraded**; run 2 repairs
+them by rewriting all 649.
+
 ### 🟢 THE RUN IN FLIGHT — read this before touching anything
 
 ```bash
-docker compose run -d --name jd-canonical-v5-cupe -e PYTHONUNBUFFERED=1 canonical \
+docker compose run -d --name jd-canonical-v5-cupe-run2 -e PYTHONUNBUFFERED=1 canonical \
   python -m src.jd_bank.canonical --only-template wjq --commit-every 25
 ```
 
-**No `--resume` — this is the v5 re-baseline.** It converts the 7,081 newly-read duties
-into drafts and is the step that clears the **1,219 fabricated duties** in 153 drafts.
+**No `--resume`, and that is not optional this time:** the 50 clusters run 1 processed
+carry the HR-214 defect, so resuming would skip exactly the drafts that need repairing.
+
+It converts the 7,081 newly-read duties into drafts, clears the **1,219 fabricated
+duties** in 153 drafts, and repairs run 1's 11 emptied sections.
 
 ⚠ **Never pass `--remove-orphans`** to a compose command while this is alive: the run is
 a `docker compose run` one-off in project `jd-bank`, so compose reports it as an orphan
@@ -151,9 +180,17 @@ docker compose exec -T postgres psql -U app -d harness -t -c \
    FROM canonical_jds;"
 ```
 
-**At launch: `relationships` = 426, mean duties = 11.44. Sources now offer 573.** The
-first should climb toward ~573. **If it stalls while the cluster counter advances, STOP
-THE RUN** — that is the shape of a pass "succeeding" while destroying content.
+**At run 2's launch: `relationships` = 427, mean duties = 11.44. Sources now offer 573.**
+The first should climb toward ~573. **If it stalls while the cluster counter advances,
+STOP THE RUN** — that is the shape of a pass "succeeding" while destroying content, and
+on run 1 it was exactly that. This is not a hypothetical instruction any more: following
+it is what produced HR-214.
+
+⚠ **A flat count is not proof of a bug — CHECK BEFORE STOPPING.** The decisive test is
+the CONTROL comparison above (processed clusters vs untouched ones, on the same
+population), not the raw count. Roughly 15 minutes of SQL separates "the run is
+destroying content" from "these clusters had nothing to gain", and the two look
+identical in the count alone.
 
 #### ⚠ 0% CPU AND TOTAL SILENCE ARE NORMAL HERE, AND THAT IS NOT THE OLD BUG
 
@@ -200,8 +237,13 @@ recovers — but that is the exposure, and Docker has killed a run mid-pass befo
 #### When it finishes — the two things to check, in this order
 
 1. `make bank-audit` and diff against `docs/canonical/bank-audit.json` (committed, holds
-   the pre-run state). **WJQ `relationships` must climb from 426/573 toward 100%.**
+   the pre-run state). **WJQ `relationships` must climb from 427/573 toward 100%.**
 2. **The invented-duty count must go to ZERO.** That is the whole point of the pass.
+3. **`restored_sections` must be NON-EMPTY somewhere** (HR-214's new
+   `AntiFabricationRecord` field). It is the proof the guard actually fired rather than
+   merely shipping: run 1 lost the section on 25.6% of the clusters it touched, so a run
+   that repairs nothing and records nothing means the knob is inert, not that the model
+   behaved.
 
 ⚠ **And expect approvable counts to FALL — say it before someone else finds it.** HR-213
 means a draft that honestly reports no duties fails `SFU-COMP-DUTIES`. 599 documents just
@@ -210,35 +252,58 @@ invention. **That is the fix working, not a regression.**
 
 ### ▶ THE QUEUE, IN ORDER
 
-1. 🟢 **WATCH THE RUN IN FLIGHT to completion**, then do the two checks in that section —
+1. 🟢 **WATCH RUN 2 to completion**, then do the THREE checks in that section —
    `make bank-audit` diffed against the committed pre-run `docs/canonical/bank-audit.json`,
-   and the invented-duty count, which must reach **zero**. Health signal, not the
-   progress line. **This is queue item 1 and it is already executing.**
+   the invented-duty count (must reach **zero**), and `restored_sections` (must be
+   non-empty somewhere, or HR-214's guard is inert). Health signal, not the progress
+   line. **Already executing.**
 2. **The duty-frequency matching design** — unchanged from the previous handoff; the
    model reorders duties so heavily that both obvious matching rules attach WRONG
    frequencies to a field feeding the CUPE point-factor evaluation. Needs evidence.
 3. **Re-measure the JDFN cohort** — `problem_solving` still reads **228.2% FABRICATED**
    (1,084 / 475). Untouched by this work; it is a JDFN-side S-5 defect.
 4. **Phase F**, **Phase G rulebook items**, 🔴 **TLS at the edge**, **HR ratification**
-   (213 entries, 0 signed) — all unchanged.
+   (214 entries, 0 signed) — all unchanged.
 
 ### ▶ WHAT THIS SESSION LEARNED THAT IS NOT IN A DIFF
 
-- **A green PR is a claim about the tests, not about the fix being complete.** #137 was
-  green, correct, and measured — and still left a variant of its own defect standing,
-  found by asking "what OTHER shape does this layout produce?" and checking against the
-  archive rather than against the test suite.
-- **A duplicated constant is how a measurement tool starts lying.** `bank_audit` held a
-  hardcoded `"jd_segmenter_v4"` while every other consumer imported `PARSER_VERSION`.
-  The v5 bump would have made it count the OLD corpus against the NEW Bank and report
-  the difference as content loss — a false alarm in the one tool whose entire value is
-  being believed when it cries loss. Found by grepping the literal before bumping it.
-- **The metric moving the WRONG way can be the honest answer.** WJQ carry-through fell
-  after the re-parse and that is exactly right: new content in sources that no draft
-  carries yet. A tool that only ever reports improvement is not measuring anything.
-- **Measure the fix in the direction it might do harm, not just the direction it helps.**
-  The 19 documents that LOST duties were the finding of the session — they revealed the
-  gap was polluting duty lists, which nothing had noticed and no count would show.
+- **A flat number is a finding. Two flat numbers are a defect.** `relationships` sitting
+  at 427 across two checkpoints is what caught HR-214 — and the count ALONE could not
+  tell "the run is destroying content" from "these clusters had nothing to gain". What
+  settled it was a **CONTROL**: the 599 clusters the run had not reached yet, on the same
+  population, carrying the section at 90.4% against the processed 50 at 75.0%. The Bank
+  produces that control for free on every partial run, and nothing had ever used it.
+- **Kill the alternative explanations before acting, not after.** Two were live and both
+  were checkable in minutes: "the old drafts had FABRICATED relationships now replaced by
+  real ones" (dead — 0 untouched drafts carry the section with no source) and "the
+  processed clusters are unrepresentative" (dead — they average MORE members, which runs
+  the wrong way). Stopping a 20-hour run on a number is cheap to get wrong.
+- **Isolate the stage; do not infer it.** One cluster through merge → rewrite showed
+  40/40 members carrying relationships, the merge producing `internal=20, external=1`,
+  and the rewrite returning `internal=3, external=3` — in production, nothing. That took
+  minutes and turned "the pass loses relationships" into "the REWRITE loses them, and
+  non-deterministically".
+- **The same blind spot, twice, in opposite directions.** HR-213 fixed a guard that only
+  watched what the model ADDED. HR-214 is the identical omission in reverse: the section
+  guard fired only on empty → non-empty and its comment ASSERTED the other direction
+  "drops nothing a source document stated". **Every asymmetric guard in this codebase is
+  a place to ask what the unwatched direction does** — and to distrust a comment that
+  answers it without a measurement.
+- **A green run on the wrong tree proves nothing.** The queue-sorting work passed full
+  gates while sitting on top of HR-214; rebased onto `main` and re-run, two of its own
+  tests failed. The `_rollup` fixture had invented a flat roll-up shape when the code
+  reads `validator.gate_decision.*`, so every field read as absent — **a fixture that
+  silently produces empty values tests nothing**, and the sort tests passed throughout
+  because they did not touch those fields.
+- **CI can be red for two days without a line of bad code.** Every run failed in 2–4s on
+  a billing block, under a check named `Gate: branch-name`. The lesson is not "check
+  billing" — it is that a failing check's NAME is not its cause, and three paragraphs of
+  workarounds got written before anyone simply re-ran it after the bill was paid.
+- **The design constraint was already in the codebase, stated twice.** Making the review
+  queue sortable looked like pure UI work until `ReviewQueueItem`'s own docstring turned
+  out to forbid the obvious version of it: a bare score column sorted across two forms is
+  "precisely the comparison this phase spent its whole length removing". Reading what the
+  code says about itself changed the feature's design rather than merely its comments.
 
 ---
 
