@@ -178,7 +178,7 @@ def test_queue_renders_items_in_service_order(monkeypatch: pytest.MonkeyPatch) -
     assert f"/jd-bank/ui/review/{first.canonical_id}" in body
     assert f"/jd-bank/ui/review/{second.canonical_id}" in body
     assert ">2<" in body  # the blocking-gate count badge
-    mock.assert_awaited_once_with(session, limit=None)
+    mock.assert_awaited_once_with(session, limit=None, sort="triage", direction="asc")
     session.commit.assert_not_awaited()
 
 
@@ -221,7 +221,7 @@ def test_queue_limit_passthrough(monkeypatch: pytest.MonkeyPatch) -> None:
     resp = client.get("/jd-bank/ui/queue", params={"limit": 5})
 
     assert resp.status_code == 200
-    mock.assert_awaited_once_with(session, limit=5)
+    mock.assert_awaited_once_with(session, limit=5, sort="triage", direction="asc")
 
 
 def test_queue_empty_state_is_not_a_crash(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1639,3 +1639,62 @@ def test_every_jump_link_on_the_page_resolves_to_a_real_anchor(
     ids = set(re.findall(r'id="(edit-[a-z_]+)"', body))
     assert hrefs, "expected the gate to offer jump links"
     assert hrefs <= ids, f"jump links with no anchor on the page: {sorted(hrefs - ids)}"
+
+
+def test_the_queue_headings_link_to_a_sort_and_toggle_direction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Clicking a heading sorts; clicking the ACTIVE heading reverses it. The arrow
+    marks which column is live, so the table says what it is doing."""
+    session = FakeSession()
+    client = make_client(session)
+    monkeypatch.setattr(
+        ui.service,
+        "list_review_queue",
+        AsyncMock(return_value=(_queue_item(title="Clerk"),)),
+    )
+
+    default = client.get("/jd-bank/ui/queue").text
+    assert "sort=title&amp;dir=asc" in default
+    assert "▲" not in default and "▼" not in default  # nothing sorted yet
+
+    ascending = client.get("/jd-bank/ui/queue", params={"sort": "title"}).text
+    assert "▲" in ascending
+    assert "sort=title&amp;dir=desc" in ascending  # the toggle
+
+
+def test_an_unknown_sort_key_renders_the_default_queue(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A hand-edited query string is user input. The route normalises it BEFORE the
+    template renders, so a bogus key cannot draw an arrow on a column that is not
+    sorted, nor reach the service."""
+    session = FakeSession()
+    client = make_client(session)
+    mock = AsyncMock(return_value=())
+    monkeypatch.setattr(ui.service, "list_review_queue", mock)
+
+    resp = client.get("/jd-bank/ui/queue", params={"sort": "../../etc/passwd"})
+
+    assert resp.status_code == 200
+    mock.assert_awaited_once_with(session, limit=None, sort="triage", direction="asc")
+
+
+def test_the_queue_says_score_sorting_stays_inside_a_form(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The page must SAY why Score does not rank every draft against every other — a
+    reviewer who sorts by score and sees CUPE and JDFN blocks would otherwise read it
+    as a bug rather than the invariant it is."""
+    session = FakeSession()
+    client = make_client(session)
+    monkeypatch.setattr(
+        ui.service,
+        "list_review_queue",
+        AsyncMock(return_value=(_queue_item(title="Clerk", template="wjq"),)),
+    )
+
+    body = client.get("/jd-bank/ui/queue", params={"sort": "score"}).text
+
+    assert "Score and Grade sort within each form" in body
+    assert "never ranked against" in body

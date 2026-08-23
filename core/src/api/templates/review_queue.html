@@ -9,24 +9,50 @@
     The queue now holds two different SFU forms, and the score beside each is NOT the
     same measurement: a CUPE draft is judged by the WJQ profile's rules and numbers,
     a JDFN draft by the JDFN ones. A bare number from two bars in one sorted column is
-    exactly the comparison this phase spent its whole length removing.
+    exactly the comparison this phase spent its whole length removing — which is why
+    sorting by Score or Grade orders drafts WITHIN each form and never across the two.
   #}
   <p class="meta">
     Two SFU forms are listed here. <strong>Each draft is scored against its own
     form's bar</strong> — a CUPE score and a JDFN score are not comparable numbers.
+    Click a column heading to sort; <strong>Score and Grade sort within each form</strong>,
+    so a CUPE draft is never ranked against a JDFN one.
+    {% if sort != "triage" %}
+    {# The reset link takes NO conditional in its PATH: `test_template_links` reduces a
+       link to the path before `?`, so a `{% if %}` there renders as an unroutable
+       segment. Query-string interpolation is fine (the sort links below rely on it). #}
+    · <a href="/jd-bank/ui/queue">reset to needs-eyes-first</a>
+    {% endif %}
   </p>
+  {# A sortable column heading: links to the same query sorted by `key`, toggling
+     direction if it is already the active sort; shows ▲/▼ when active. Mirrors the
+     library page's `sorth` so the two tables behave identically. #}
+  {% macro sorth(key, label, note="") -%}
+    {%- set active = (sort == key) -%}
+    {%- set next_dir = 'desc' if (active and direction == 'asc') else 'asc' -%}
+    <th><a href="/jd-bank/ui/queue?sort={{ key }}&amp;dir={{ next_dir }}{% if limit %}&amp;limit={{ limit }}{% endif %}"
+      {% if note %}title="{{ note }}"{% endif %}>{{ label }}{% if active %} {{ '▲' if direction == 'asc' else '▼' }}{% endif %}</a></th>
+  {%- endmacro %}
   <table>
     <thead>
       <tr>
-        <th>Title</th>
-        <th>Form</th>
+        {{ sorth('title', 'Title') }}
+        {{ sorth('form', 'Form') }}
         <th>Cluster / version</th>
-        <th>Status</th>
-        <th>Score <span class="meta">(on its own bar)</span></th>
-        <th>Grade</th>
-        <th>Blocking gates</th>
+        {{ sorth('status', 'Status') }}
+        {{ sorth('score', 'Score', 'Sorts within each form — the two bars are not comparable') }}
+        {{ sorth('grade', 'Grade', 'Sorts within each form — the two bars are not comparable') }}
+        {{ sorth('blocking', 'Blocking gates') }}
         <th></th>
       </tr>
+      {% if sort != "triage" %}
+      <tr>
+        <td colspan="8" class="meta">
+          Sorted by {{ sort }} ({{ 'ascending' if direction == 'asc' else 'descending' }}).
+          The default order puts the drafts needing eyes first.
+        </td>
+      </tr>
+      {% endif %}
     </thead>
     <tbody>
       {% for item in items %}

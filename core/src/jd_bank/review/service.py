@@ -39,8 +39,8 @@ operations ``flush`` but do not ``commit`` — the caller commits (or rolls back
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Any
+from collections.abc import Callable, Sequence
+from typing import Any, Final
 from uuid import UUID
 
 from sqlalchemy import func, select, text
@@ -85,6 +85,7 @@ __all__ = [
     "get_structural_context",
     "get_version_diff",
     "list_review_queue",
+    "normalise_queue_sort",
     "reject",
 ]
 
@@ -204,16 +205,84 @@ def _queue_item(canonical: CanonicalJD) -> ReviewQueueItem:
     )
 
 
-async def list_review_queue(
-    session: AsyncSession, *, limit: int | None = None
-) -> tuple[ReviewQueueItem, ...]:
-    """The live DRAFT canonicals needing eyes, needs-eyes-first.
+#: The queue's sortable columns. ``triage`` is the DEFAULT and is not a column: it is
+#: the needs-eyes-first order the queue has always opened onto, kept as the default so
+#: making the table sortable cannot quietly redefine what a reviewer sees first.
+#:
+#: 🔴 ``score`` AND ``grade`` SORT WITHIN A FORM, NEVER ACROSS ONE. The queue holds two
+#: SFU forms and the number beside each is not the same measurement — a WJQ draft is
+#: scored by the WJQ profile's rules and thresholds, a JDFN draft by the JDFN ones.
+#: :class:`ReviewQueueItem` says so in as many words: a bare number from two bars "in
+#: one sorted column invites precisely the comparison this phase spent its whole length
+#: removing". A sortable score column is that exact invitation — unless the forms stay
+#: BLOCKED TOGETHER, which is why ``template`` is the primary key for both. Ranking a
+#: CUPE draft against a JDFN one is not a sort order anybody should be offered.
+_QUEUE_SORTS: Final[tuple[str, ...]] = (
+    "triage",
+    "title",
+    "form",
+    "status",
+    "score",
+    "grade",
+    "blocking",
+)
 
-    Only DRAFT rows appear (a published/archived canonical is off the queue). Ordered so
-    the drafts whose STORED decision is blocked (or unknown) come first, then oldest
-    first — a deterministic, triage-friendly order. ``limit`` caps the returned count
-    AFTER ordering. The item carries labels/counts only; the full draft is fetched per
+#: The sort keys whose value can be absent, and which therefore keep unknown rows at the
+#: BOTTOM in both directions (the SQL ``NULLS LAST`` the library page gets for free). A
+#: draft with no stored roll-up is not "the worst" or "the best" — it is unmeasured, and
+#: floating it to the top of a descending sort would misreport that as a finding.
+_NULLABLE_SORTS: Final[frozenset[str]] = frozenset({"score", "grade", "blocking"})
+
+
+def normalise_queue_sort(sort: str | None, direction: str | None) -> tuple[str, str]:
+    """``(sort, direction)`` clamped to what the queue actually supports.
+
+    A query string is user input: an unknown key falls back to ``triage`` rather than
+    raising, so a hand-edited or stale URL renders the default queue instead of a 500.
+    """
+    key = sort if sort in _QUEUE_SORTS else "triage"
+    return key, ("desc" if direction == "desc" else "asc")
+
+
+def _sort_key(sort: str) -> Callable[[ReviewQueueItem], Any]:
+    """The ordering key for one sortable column. ``form`` leads the score/grade keys so
+    the two SFU forms can never interleave — see :data:`_QUEUE_SORTS`."""
+    keys: dict[str, Callable[[ReviewQueueItem], Any]] = {
+        "title": lambda i: (i.title.casefold(), i.created_at),
+        "form": lambda i: (i.template, i.title.casefold()),
+        "status": lambda i: (i.status.value, i.title.casefold()),
+        "score": lambda i: (i.template, i.stored_score, i.title.casefold()),
+        "grade": lambda i: (i.template, i.stored_grade, i.title.casefold()),
+        "blocking": lambda i: (i.stored_blocking_gate_count, i.title.casefold()),
+    }
+    return keys[sort]
+
+
+def _missing(item: ReviewQueueItem, sort: str) -> bool:
+    if sort == "score":
+        return item.stored_score is None
+    if sort == "grade":
+        return item.stored_grade is None
+    return False
+
+
+async def list_review_queue(
+    session: AsyncSession,
+    *,
+    limit: int | None = None,
+    sort: str | None = None,
+    direction: str | None = None,
+) -> tuple[ReviewQueueItem, ...]:
+    """The live DRAFT canonicals needing eyes, needs-eyes-first by default.
+
+    Only DRAFT rows appear (a published/archived canonical is off the queue). With no
+    ``sort`` the order is the triage one: drafts whose STORED decision is blocked (or
+    unknown) first, then oldest first — deterministic and triage-friendly. ``sort`` /
+    ``direction`` (see :data:`_QUEUE_SORTS`) reorder the whole queue instead; an
+    unrecognised key falls back to triage. ``limit`` caps the returned count AFTER
+    ordering. The item carries labels/counts only; the full draft is fetched per
     canonical via :func:`get_review_packet`."""
+    key, order = normalise_queue_sort(sort, direction)
     rows = (
         await session.scalars(
             select(CanonicalJD)
@@ -222,11 +291,20 @@ async def list_review_queue(
         )
     ).all()
     items = [_queue_item(row) for row in rows]
-    # Stable sort: an approvable-looking draft (stored_approvable is True) sinks below
-    # the
-    # ones still blocked or unknown; created_at breaks the tie. A stable sort preserves
-    # the SQL created_at/id order within each bucket.
-    items.sort(key=lambda item: (item.stored_approvable is True, item.created_at))
+    if key == "triage":
+        # Stable sort: an approvable-looking draft (stored_approvable is True) sinks
+        # below the ones still blocked or unknown; created_at breaks the tie. A stable
+        # sort preserves the SQL created_at/id order within each bucket.
+        items.sort(key=lambda item: (item.stored_approvable is True, item.created_at))
+    elif key in _NULLABLE_SORTS:
+        # Unmeasured rows keep to the bottom in BOTH directions, so reversing the sort
+        # cannot promote "we do not know" to the top and read as a result.
+        known = [i for i in items if not _missing(i, key)]
+        unknown = [i for i in items if _missing(i, key)]
+        known.sort(key=_sort_key(key), reverse=order == "desc")
+        items = known + unknown
+    else:
+        items.sort(key=_sort_key(key), reverse=order == "desc")
     if limit is not None:
         items = items[:limit]
     return tuple(items)

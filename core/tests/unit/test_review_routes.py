@@ -163,7 +163,7 @@ def test_list_queue_happy_path_and_limit_passthrough(
     mock.assert_awaited_once()
     call = mock.await_args
     assert call.args == (session,)
-    assert call.kwargs == {"limit": 5}
+    assert call.kwargs == {"limit": 5, "sort": None, "direction": None}
     session.commit.assert_not_awaited()  # a GET never commits
 
 
@@ -177,7 +177,7 @@ def test_list_queue_without_limit_passes_none(monkeypatch: pytest.MonkeyPatch) -
 
     assert resp.status_code == 200
     assert resp.json() == []
-    mock.assert_awaited_once_with(session, limit=None)
+    mock.assert_awaited_once_with(session, limit=None, sort=None, direction=None)
 
 
 # --- GET /jd-bank/review/{canonical_id} -----------------------------------------------
@@ -717,3 +717,29 @@ def test_unauthenticated_approve_of_a_gate_clean_draft_does_not_publish(
     )
     would_publish.assert_not_awaited()
     session.commit.assert_not_awaited()
+
+
+def test_the_queue_api_passes_a_sort_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = FakeSession()
+    client = make_client(session)
+    mock = AsyncMock(return_value=())
+    monkeypatch.setattr(jd_bank.service, "list_review_queue", mock)
+
+    resp = client.get("/jd-bank/review/queue", params={"sort": "score", "dir": "desc"})
+
+    assert resp.status_code == 200
+    mock.assert_awaited_once_with(session, limit=None, sort="score", direction="desc")
+
+
+def test_an_unknown_queue_sort_is_not_a_4xx(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A query string is input, not a contract violation: the service clamps an unknown
+    key to the default order, so a stale client keeps working instead of breaking."""
+    session = FakeSession()
+    client = make_client(session)
+    mock = AsyncMock(return_value=())
+    monkeypatch.setattr(jd_bank.service, "list_review_queue", mock)
+
+    resp = client.get("/jd-bank/review/queue", params={"sort": "nonsense"})
+
+    assert resp.status_code == 200
+    mock.assert_awaited_once_with(session, limit=None, sort="nonsense", direction=None)
