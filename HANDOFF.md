@@ -2,16 +2,18 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-22, latest) — the parser gap is CLOSED at the source layer; the drafts have not caught up yet
+## ▶ START HERE (2026-08-23, latest) — parser gap CLOSED, re-parsed, and the producer pass is IN FLIGHT
 
 | | |
 |---|---|
-| `main` | `6411da7` — **#137 merged.** Verify with `gh pr list`, never from this table |
+| `main` | `cb7d444` — **#137 AND #138 merged. Zero open PRs.** Verify with `gh pr list`, never from this table |
 | Gates | **2,878 passing, 93.37%** — re-run on the bump, full suite incl. integration |
 | `rules_version` | `+76baba29cfeb` — **still unmoved.** A parser change alters what is READ, never how a JD is SCORED |
 | `PARSER_VERSION` | 🔴 **`jd_segmenter_v5` (was v4)** — bumped AND re-parsed in the same session, as the trap requires |
 | Register | **213** decisions, **0 ratified**. No new entries: a reader defect is not a policy default |
-| Live data | 2,490 DRAFT + 4 PUBLISHED · **drafts still built from v4 parses — this is the open work** |
+| Live data | 2,490 DRAFT + 4 PUBLISHED · **drafts still built from v4 parses — the run below is fixing exactly this** |
+| Producer run | 🟢 **LIVE — `jd-canonical-v5-cupe`**, started 2026-08-23 ~00:52 UTC. See "THE RUN IN FLIGHT" below |
+| Backup | ✅ `C:\Users\adam\jd-bank-backups\harness-pre-v5-producer-20260823.dump` (102,118,345 B, full `-Fc`) |
 | CI | ✅ **GREEN AGAIN — the billing block is lifted** (2026-08-23). All three jobs pass on #138 |
 
 ### ✅ CI IS GREEN AGAIN — and the two-day outage was never broken code
@@ -111,23 +113,113 @@ in their sources than any draft carries. **A carry-through that falls here is CO
 and is the measure of the pending work**, not a new defect. JDFN is byte-identical
 across the two runs, which confirms the fix is WJQ-only with no cross-form leakage.
 
+### 🟢 THE RUN IN FLIGHT — read this before touching anything
+
+```bash
+docker compose run -d --name jd-canonical-v5-cupe -e PYTHONUNBUFFERED=1 canonical \
+  python -m src.jd_bank.canonical --only-template wjq --commit-every 25
+```
+
+**No `--resume` — this is the v5 re-baseline.** It converts the 7,081 newly-read duties
+into drafts and is the step that clears the **1,219 fabricated duties** in 153 drafts.
+
+⚠ **Never pass `--remove-orphans`** to a compose command while this is alive: the run is
+a `docker compose run` one-off in project `jd-bank`, so compose reports it as an orphan
+and the flag would delete it mid-pass.
+
+**Pre-flight actually performed** (not assumed — each has burned a previous run):
+
+- no `canonical` container in flight; stack healthy
+- Postgres dumped **full `-Fc`**, never `--data-only` (that restore silently wipes the Bank and exits 0)
+- **Ollama reachability verified from the `canonical` service itself**, and the model the
+  rulebook asks for confirmed present: `rewrite.yaml` / `quality.yaml` both want
+  `gpt-oss:120b`, embeddings want `nomic-embed-text`. ⚠ `OLLAMA_BASE_URL` ends in `/v1`,
+  so `/api/tags` 404s — use `/v1/models`. A 19-hour run that dies on a missing model in
+  hour one is the expensive kind of failure.
+
+#### The health signal — the ONLY number separating a good run from a ruined one
+
+`refreshed=25 failures=0` prints identically whether a pass enriched every draft or
+gutted it. Watch CONTENT:
+
+```bash
+docker compose exec -T postgres psql -U app -d harness -t -c \
+  "SELECT count(*) FILTER (WHERE status='DRAFT' AND content->>'employee_group'='cupe'
+     AND content->'relationships' IS NOT NULL AND content->'relationships' <> 'null'::jsonb),
+   round(avg(jsonb_array_length(coalesce(content->'duties','[]'::jsonb)))
+     FILTER (WHERE status='DRAFT' AND content->>'employee_group'='cupe'),2)
+   FROM canonical_jds;"
+```
+
+**At launch: `relationships` = 426, mean duties = 11.44. Sources now offer 573.** The
+first should climb toward ~573. **If it stalls while the cluster counter advances, STOP
+THE RUN** — that is the shape of a pass "succeeding" while destroying content.
+
+#### ⚠ 0% CPU AND TOTAL SILENCE ARE NORMAL HERE, AND THAT IS NOT THE OLD BUG
+
+The 2026-08-21 run logged nothing for 52 minutes at 0.00% CPU and it was block-buffered
+stdout. **This is a different thing that looks identical.** `PYTHONUNBUFFERED=1` is set,
+and the progress line only prints **at each 25-cluster checkpoint** — the first landed at
+**4,319s (72 min)**. Between checkpoints the box is waiting on a REMOTE GPU
+(`aria-gb10-2`), so 0% local CPU is exactly right.
+
+**To tell a working run from a stalled one, don't use CPU or logs — use Postgres:**
+
+```bash
+docker compose exec -T postgres psql -U app -d harness -t -A -c \
+  "SELECT state, extract(epoch from now()-state_change)::int FROM pg_stat_activity
+   WHERE usename='app' AND state='idle in transaction' ORDER BY state_change DESC LIMIT 1;"
+```
+
+`idle in transaction` whose age **resets** every few minutes = a cluster boundary = it is
+working. An age that only grows for >10 min = genuinely stuck. ⚠ **One sample cannot tell
+these apart** — a single 38-second reading was misread as "cycling" during this session
+when it was mid-cluster. Take three.
+
+#### Throughput, measured rather than assumed
+
+First checkpoint: **25 clusters in 4,319.2s = 172.8s/cluster**, `failures=0`,
+`persisted=0 refreshed=25` (correct — all 649 drafts already exist; this is a rewrite in
+place). **But the rate improves steeply**: the rolling mean fell 247s → 147s and recent
+intervals are 102–123s, because the expensive clusters come first.
+
+| basis | rate | 649 clusters |
+|---|---:|---:|
+| checkpoint average | 172.8s | ~31 h |
+| recent intervals | ~110s | ~20 h |
+
+**So 20–31 h, likely nearer the low end** — slower than the 18.8 h v4 pass, and the
+reason is the fix working: v5 recovered 7,081 duties, so there is simply more text to
+rewrite. ⚠ **Do not project a run's total from its first four clusters** (that produced a
+34 h estimate this session, which the checkpoint corrected).
+
+⚠ At ~170s/cluster, `--commit-every 25` leaves **~72 min of GPU work uncommitted** between
+checkpoints, versus ~25 min in the v4 pass. A crash costs at most one window and `--resume`
+recovers — but that is the exposure, and Docker has killed a run mid-pass before.
+
+#### When it finishes — the two things to check, in this order
+
+1. `make bank-audit` and diff against `docs/canonical/bank-audit.json` (committed, holds
+   the pre-run state). **WJQ `relationships` must climb from 426/573 toward 100%.**
+2. **The invented-duty count must go to ZERO.** That is the whole point of the pass.
+
+⚠ **And expect approvable counts to FALL — say it before someone else finds it.** HR-213
+means a draft that honestly reports no duties fails `SFU-COMP-DUTIES`. 599 documents just
+stopped being silent, but some drafts will now surface real gaps instead of fluent
+invention. **That is the fix working, not a regression.**
+
 ### ▶ THE QUEUE, IN ORDER
 
-1. 🔴 **ONE producer pass over the CUPE clusters** — `--only-template wjq`. This is the
-   step that converts 7,081 newly-read duties into drafts and clears the **1,219
-   fabricated duties** in 153 drafts. `make bank-audit` before and after; WJQ
-   `relationships` should climb back toward 100% and the invented-duty count go to zero.
-   ⚠ ~19 h of GPU based on the last run. **Deliberately not started this session.**
-2. ⚠ **Expect approvable counts to FALL, and say so before someone finds it.** HR-213
-   means a draft that honestly reports no duties fails `SFU-COMP-DUTIES`. 599 documents
-   just stopped being silent, but some drafts will now surface real gaps instead of
-   fluent invention. That is the fix working.
-3. **The duty-frequency matching design** — unchanged from the previous handoff; the
+1. 🟢 **WATCH THE RUN IN FLIGHT to completion**, then do the two checks in that section —
+   `make bank-audit` diffed against the committed pre-run `docs/canonical/bank-audit.json`,
+   and the invented-duty count, which must reach **zero**. Health signal, not the
+   progress line. **This is queue item 1 and it is already executing.**
+2. **The duty-frequency matching design** — unchanged from the previous handoff; the
    model reorders duties so heavily that both obvious matching rules attach WRONG
    frequencies to a field feeding the CUPE point-factor evaluation. Needs evidence.
-4. **Re-measure the JDFN cohort** — `problem_solving` still reads **228.2% FABRICATED**
+3. **Re-measure the JDFN cohort** — `problem_solving` still reads **228.2% FABRICATED**
    (1,084 / 475). Untouched by this work; it is a JDFN-side S-5 defect.
-5. **Phase F**, **Phase G rulebook items**, 🔴 **TLS at the edge**, **HR ratification**
+4. **Phase F**, **Phase G rulebook items**, 🔴 **TLS at the edge**, **HR ratification**
    (213 entries, 0 signed) — all unchanged.
 
 ### ▶ WHAT THIS SESSION LEARNED THAT IS NOT IN A DIFF
