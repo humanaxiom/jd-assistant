@@ -33,6 +33,7 @@ that clears every gate — so "permitted" is a real, reproducible state, not a m
 from __future__ import annotations
 
 import asyncio
+import itertools
 import uuid
 from collections.abc import AsyncIterator, Iterator
 
@@ -90,6 +91,12 @@ REVIEWER = "hr-reviewer"
 
 
 # --- the clean, approvable JD (the 2.3 gate suite's baseline) ------------------------
+
+
+def _cupe_jd(**update: object) -> SFUJobDescription:
+    """A WJQ/CUPE draft — `template_of` reads `employee_group`, so that one field is
+    what puts this draft on the other form's bar."""
+    return _clean_jd(**update).model_copy(update={"employee_group": "cupe"})
 
 
 def _clean_jd(**update: object) -> SFUJobDescription:
@@ -1186,3 +1193,136 @@ async def test_version_diff_ignores_a_published_version_in_another_cluster(
 
     async with session_maker() as session:
         assert await get_version_diff(session, draft_id) is None
+
+
+# --- the queue is sortable (2026-08-23) ----------------------------------------------
+
+
+def _rollup(score: float, grade: str, blocking: int) -> dict[str, object]:
+    """A `change_log` display roll-up, in the shape `_queue_item` ACTUALLY reads.
+
+    ⚠ The approvable flag and the blocking count live under ``validator.gate_decision``
+    — NOT as flat keys on ``validator``. An earlier version of this helper invented the
+    flat shape; every field then read as absent, `stored_approvable` came back ``None``
+    for every row, and the triage assertions failed for a reason that had nothing to do
+    with the ordering they were testing. A fixture that silently produces empty values
+    tests nothing.
+    """
+    return {
+        "validator": {
+            "score": score,
+            "grade": grade,
+            "gate_decision": {
+                "approved": blocking == 0,
+                "blocking": [f"SFU-GATE-{n}" for n in range(blocking)],
+            },
+        }
+    }
+
+
+@pytest.mark.asyncio
+async def test_the_queue_still_defaults_to_the_triage_order(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """The DEFAULT must not change. Needs-eyes-first is a deliberate triage order, and
+    making the queue sortable must not quietly redefine what a reviewer opens onto."""
+    async with session_maker() as session:
+        await _seed_canonical(
+            session,
+            content=_clean_jd(title="Approvable").model_dump(mode="json"),
+            change_log=_rollup(90.0, "A", 0),
+        )
+        await _seed_canonical(
+            session,
+            content=_clean_jd(title="Blocked").model_dump(mode="json"),
+            change_log=_rollup(40.0, "D", 5),
+        )
+        await session.commit()
+
+        titles = [i.title for i in await list_review_queue(session)]
+        assert titles == ["Blocked", "Approvable"]
+
+
+@pytest.mark.asyncio
+async def test_the_queue_sorts_by_a_requested_column(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        for title in ("Carla", "Aaron", "Bianca"):
+            await _seed_canonical(
+                session,
+                content=_clean_jd(title=title).model_dump(mode="json"),
+                change_log=_rollup(50.0, "C", 1),
+            )
+        await session.commit()
+
+        asc = [i.title for i in await list_review_queue(session, sort="title")]
+        assert asc == ["Aaron", "Bianca", "Carla"]
+        desc = [
+            i.title
+            for i in await list_review_queue(session, sort="title", direction="desc")
+        ]
+        assert desc == ["Carla", "Bianca", "Aaron"]
+
+
+@pytest.mark.asyncio
+async def test_sorting_by_score_never_interleaves_the_two_forms(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """🔴 THE CONSTRAINT THIS FEATURE HAD TO BE DESIGNED AROUND.
+
+    `ReviewQueueItem.template` exists because the queue holds two SFU forms and the
+    score beside each is NOT the same measurement — a WJQ draft is scored by the WJQ
+    profile's rules, a JDFN draft by the JDFN ones. The model's own docstring says a
+    bare number from two bars "in one sorted column invites precisely the comparison
+    this phase spent its whole length removing".
+
+    So a sortable score column is the exact thing that comment warns about, unless the
+    forms stay BLOCKED TOGETHER. They do: form is the primary key and the score orders
+    only WITHIN a form, so no CUPE row is ever ranked against a JDFN row.
+    """
+    async with session_maker() as session:
+        await _seed_canonical(
+            session,
+            content=_cupe_jd(title="CUPE low").model_dump(mode="json"),
+            change_log=_rollup(10.0, "D", 1),
+        )
+        await _seed_canonical(
+            session,
+            content=_clean_jd(title="JDFN low").model_dump(mode="json"),
+            change_log=_rollup(20.0, "D", 1),
+        )
+        await _seed_canonical(
+            session,
+            content=_cupe_jd(title="CUPE high").model_dump(mode="json"),
+            change_log=_rollup(95.0, "A", 0),
+        )
+        await session.commit()
+
+        forms = [i.template for i in await list_review_queue(session, sort="score")]
+        # Each form appears in ONE contiguous run — never interleaved.
+        assert [f for f, _ in itertools.groupby(forms)] == sorted(set(forms))
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_sort_key_falls_back_to_triage(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """A hand-edited query string is a user input, not a crash."""
+    async with session_maker() as session:
+        await _seed_canonical(
+            session,
+            content=_clean_jd(title="Approvable").model_dump(mode="json"),
+            change_log=_rollup(90.0, "A", 0),
+        )
+        await _seed_canonical(
+            session,
+            content=_clean_jd(title="Blocked").model_dump(mode="json"),
+            change_log=_rollup(40.0, "D", 5),
+        )
+        await session.commit()
+
+        titles = [
+            i.title for i in await list_review_queue(session, sort="'; DROP TABLE --")
+        ]
+        assert titles == ["Blocked", "Approvable"]

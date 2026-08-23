@@ -160,9 +160,22 @@ _SERVICE_ERRORS: tuple[type[Exception], ...] = tuple(
 @router.get("/review/queue", response_model=list[ReviewQueueItem])
 async def list_queue(
     limit: int | None = None,
+    sort: str | None = None,
+    dir: str | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> list[ReviewQueueItem]:
-    items = await service.list_review_queue(session, limit=limit)
+    """The review queue. Default order is needs-eyes-first; ``sort`` / ``dir`` reorder
+    it (see ``service._QUEUE_SORTS``), and an unrecognised key falls back to that
+    default rather than 4xx-ing — a query string is input, not a contract violation.
+
+    ⚠ ``score`` and ``grade`` order WITHIN a form, never across one: the queue holds two
+    SFU forms whose numbers are not the same measurement. A client ranking a CUPE draft
+    against a JDFN one is the comparison CUPE Phase D exists to prevent, so the API will
+    not produce that ordering even when asked for it plainly.
+    """
+    items = await service.list_review_queue(
+        session, limit=limit, sort=sort, direction=dir
+    )
     return list(items)
 
 

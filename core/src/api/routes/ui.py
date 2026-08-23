@@ -531,10 +531,27 @@ async def _rerender_detail_with_error(
 async def queue_view(
     request: Request,
     limit: int | None = None,
+    sort: str | None = None,
+    dir: str | None = None,
     session: AsyncSession = Depends(get_session),
 ) -> HTMLResponse:
-    items = await service.list_review_queue(session, limit=limit)
-    return templates.TemplateResponse(request, "review_queue.html", {"items": items})
+    # Normalised HERE as well as in the service, so the header links render the sort the
+    # service actually applied rather than the string the URL asked for — a stale or
+    # hand-edited `?sort=` would otherwise draw an arrow on a column that is not sorted.
+    active_sort, active_dir = service.normalise_queue_sort(sort, dir)
+    items = await service.list_review_queue(
+        session, limit=limit, sort=active_sort, direction=active_dir
+    )
+    return templates.TemplateResponse(
+        request,
+        "review_queue.html",
+        {
+            "items": items,
+            "sort": active_sort,
+            "direction": active_dir,
+            "limit": limit,
+        },
+    )
 
 
 @router.get("/review/{canonical_id}", response_class=HTMLResponse)
