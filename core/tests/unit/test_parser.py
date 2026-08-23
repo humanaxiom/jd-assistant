@@ -248,8 +248,12 @@ def test_parser_version_constant() -> None:
     literal is what forces (or fails to force) an archive re-parse. v3 = the
     docx-header identification-block fix. **v4 = `additional_context` keeps the whole
     WJQ point-factor block** (HR-200) — at v3's borrowed 4,000-char cap, 81.4% of CUPE
-    JDs were stored truncated and the last of the seven sections survived in 17.0%."""
-    assert parse_jd("anything").parser_version == "jd_segmenter_v4"
+    JDs were stored truncated and the last of the seven sections survived in 17.0%.
+    **v5 = the WJQ heading match tolerates antiword's fixed-width layout** (#137): a
+    heading printed beside the next column, or with its own words stretched apart,
+    matched nothing, so 16.2% of CUPE documents parsed to ZERO duties — the silence the
+    rewrite filled with 1,219 invented duties (HR-213)."""
+    assert parse_jd("anything").parser_version == "jd_segmenter_v5"
 
 
 # ── End-to-end on the real legacy .doc ───────────────────────────────────────

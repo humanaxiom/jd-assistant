@@ -349,7 +349,15 @@ docker compose -f docker-compose.prod.yml up -d
 > **user-facing pages are unaffected** either way — they read the most recent parse
 > regardless of version.
 >
-> Current version: **`jd_segmenter_v4`** (2026-08-14). It exists because
+> Current version: **`jd_segmenter_v5`** (2026-08-22). It exists because the reader could
+> not see a section heading that the old CUPE forms print *beside* the next column, or
+> with its own words stretched apart by the layout — so the section never opened. **719
+> of 4,440 CUPE job descriptions (16.2%) came through with no duties at all**, and duties
+> are the part of a job description that matters most. Worse in both directions: where a
+> heading went unseen, the form's own checkbox text (*"Little or no opportunity for
+> independent work"*) could be read as if it were a duty someone had written.
+>
+> The previous version, **`jd_segmenter_v4`** (2026-08-14), exists because
 > `additional_context` had inherited `position_summary`'s 4,000-character ceiling, which
 > silently truncated **81.4% of CUPE job descriptions** — that field holds the whole WJQ
 > point-factor block. After v4, **0%** are truncated and `continuing_education` is present

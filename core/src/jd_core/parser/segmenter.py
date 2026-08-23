@@ -72,7 +72,14 @@ from src.jd_core.parser.headings import Era, SectionKey
 #: re-parse leaves them querying a version with no rows — an apparently empty Bank.
 #: v4 = `additional_context` keeps the whole WJQ point-factor block (HR-200); at v3's
 #: borrowed 4,000-char cap, 81.4% of CUPE JDs were stored truncated.
-PARSER_VERSION = "jd_segmenter_v4"
+#: v5 = the WJQ heading match tolerates antiword's fixed-width layout (#137). A heading
+#: printed beside the next column, or with its own words stretched apart, was matching
+#: nothing — so the section never opened. MEASURED: 719 of 4,440 CUPE documents (16.2%)
+#: parsed to ZERO duties, and that silence is what the rewrite filled with 1,219
+#: invented duties across 153 drafts (HR-213). The gap also let the form's checkbox
+#: scaffolding bleed UPWARD into the duty list, so it was starving duties and polluting
+#: them at once.
+PARSER_VERSION = "jd_segmenter_v5"
 
 #: Which SFU document template ``parse_jd`` read: the APSA/APEX/POLY "JDFN" form (the
 #: original segmenter), the CUPE/WJQ questionnaire, or neither recognisably.
