@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-08-22T12:24:19.551222+00:00",
+  "generated_at": "2026-08-24T03:15:13.405082+00:00",
   "result": {
-    "audit_failures": 1,
+    "audit_failures": 6,
     "cluster_failures": 0,
     "clusters_by_template": {
       "wjq": 649
@@ -20,15 +20,15 @@
     "drafts_refreshed": 649,
     "evaluation_by_template": {
       "wjq": {
-        "approvable": 6,
+        "approvable": 3,
         "clusters": 649,
         "drafts_scored": 649,
         "grades": {
-          "B": 307,
-          "C": 337,
-          "D": 5
+          "B": 288,
+          "C": 348,
+          "D": 13
         },
-        "mean_score": 76.38
+        "mean_score": 76.22
       }
     },
     "llm_enabled": true,
@@ -36,7 +36,7 @@
     "multi_member_clusters": 649,
     "quality_model": "gpt-oss:120b",
     "quality_prompt_version": "jd_quality_v1",
-    "rewrite_failures": 10,
+    "rewrite_failures": 6,
     "rewrite_model": "gpt-oss:120b",
     "rewrite_prompt_version": "jd_harmonize_v2",
     "rules_version": "jd_rules_sfu_v4+76baba29cfeb",
@@ -46,7 +46,7 @@
     "skipped_would_downgrade": 0,
     "wjq_members_authored": 3446,
     "wjq_members_excluded": 0,
-    "wjq_members_frequency_confirmed": 2747,
+    "wjq_members_frequency_confirmed": 3031,
     "wjq_members_unwritten": 0
   },
   "source": "parsed_jds + dedup_edges (recomputed clusters; forms per harmonization.templates_harmonized \u2014 HR-206)"
