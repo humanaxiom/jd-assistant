@@ -2,7 +2,7 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-23, latest) — parser gap closed and re-parsed; a SECOND content-loss defect found and fixed; producer run 2 IN FLIGHT
+## ▶ START HERE (2026-08-23, latest) — the v5 pass is COMPLETE and every WJQ carry-through reads 100%
 
 | | |
 |---|---|
@@ -11,8 +11,8 @@ Read this first every session. Single source of truth for current state + how we
 | `rules_version` | `+76baba29cfeb` — **still unmoved.** A parser change alters what is READ, never how a JD is SCORED |
 | `PARSER_VERSION` | 🔴 **`jd_segmenter_v5` (was v4)** — bumped AND re-parsed in the same session, as the trap requires |
 | Register | **214** decisions, **0 ratified**. HR-214 is new |
-| Live data | 2,490 DRAFT + 4 PUBLISHED · **drafts still built from v4 parses — the run below is fixing exactly this** |
-| Producer run | 🟢 **LIVE — `jd-canonical-v5-cupe-run2`**, started 2026-08-23 ~07:05 UTC. ⚠ Run 1 was STOPPED — see below |
+| Live data | 2,490 DRAFT + 4 PUBLISHED · **all 649 CUPE drafts rebuilt from v5 parses.** JDFN drafts are still v4-derived |
+| Producer run | ✅ **COMPLETE** — 649/649 refreshed, **0 cluster failures**, ~19.4 h, exit 0. Run 1 was stopped at 50; see below |
 | Backup | ✅ `jd-bank-backups\harness-pre-v5-producer-run2-20260823.dump` (102,167,561 B, full `-Fc`, taken before run 2) |
 | CI | ✅ **GREEN — the billing block is lifted** (2026-08-23). All three jobs pass on #138, #139 and #140 |
 
@@ -98,7 +98,7 @@ duties *and* polluting them, and HR would have read the pollution as authored co
 Count down, content up. The thin-duty bucket (1–3) barely moved, 69 → 72, so removing
 boilerplate did not create a new population of hollow documents.
 
-### 🔴 THE BANK HAS NOT CAUGHT UP — AND THE AUDIT NOW SAYS SO OUT LOUD
+### ✅ THE BANK HAS CAUGHT UP — the section that used to say it had not
 
 `make bank-audit` **before** the re-parse vs **after**:
 
@@ -107,11 +107,12 @@ boilerplate did not create a new population of hollow documents.
 | `relationships` | 426 / 473 = 90.1% | 426 / **573** = **74.3%** |
 | `additional_context` | 620 / 620 = 100% | 620 / **622** = 99.7% |
 
-**The numerators did not move; the denominators did.** Drafts are still built from v4
-parses while sources now offer v5 content — so ~100 more clusters have `relationships`
-in their sources than any draft carries. **A carry-through that falls here is CORRECT
-and is the measure of the pending work**, not a new defect. JDFN is byte-identical
-across the two runs, which confirms the fix is WJQ-only with no cross-form leakage.
+**The numerators did not move; the denominators did.** That was the state BEFORE run 2:
+drafts still built from v4 parses while sources offered v5 content. **A carry-through
+that falls in that window is CORRECT** — it is the measure of pending work, not a defect,
+and it is the reading that made the pending producer pass legible. Run 2 has since taken
+all three to 100% (above). Kept because the SHAPE recurs: after any re-parse, expect
+carry-through to drop until the producer catches up, and do not chase it as a bug.
 
 ### 🔴 RUN 1 WAS STOPPED AT 50 CLUSTERS — and stopping it is how HR-214 was found
 
@@ -139,134 +140,85 @@ production, nothing at all.
 **Fixed by #139 (HR-214).** ⚠ **11 drafts from run 1 are still degraded**; run 2 repairs
 them by rewriting all 649.
 
-### 🟢 THE RUN IN FLIGHT — read this before touching anything
+### ✅ THE RUN THAT FINISHED — what it proved, and what it did NOT fix
 
-```bash
-docker compose run -d --name jd-canonical-v5-cupe-run2 -e PYTHONUNBUFFERED=1 canonical \
-  python -m src.jd_bank.canonical --only-template wjq --commit-every 25
+```
+649/649 refreshed · 0 persisted · 0 cluster failures · exit 0 · ~19.4 h · 112 s/cluster
+LLM: 6 rewrite failures, 6 audit failures   (the merge-only fallback; drafts still built)
 ```
 
-**No `--resume`, and that is not optional this time:** the 50 clusters run 1 processed
-carry the HR-214 defect, so resuming would skip exactly the drafts that need repairing.
+**Every WJQ carry-through now reads 100%, and for the first time none carries a 🔴:**
 
-It converts the 7,081 newly-read duties into drafts, clears the **1,219 fabricated
-duties** in 153 drafts, and repairs run 1's 11 emptied sections.
-
-⚠ **Never pass `--remove-orphans`** to a compose command while this is alive: the run is
-a `docker compose run` one-off in project `jd-bank`, so compose reports it as an orphan
-and the flag would delete it mid-pass.
-
-**Pre-flight actually performed** (not assumed — each has burned a previous run):
-
-- no `canonical` container in flight; stack healthy
-- Postgres dumped **full `-Fc`**, never `--data-only` (that restore silently wipes the Bank and exits 0)
-- **Ollama reachability verified from the `canonical` service itself**, and the model the
-  rulebook asks for confirmed present: `rewrite.yaml` / `quality.yaml` both want
-  `gpt-oss:120b`, embeddings want `nomic-embed-text`. ⚠ `OLLAMA_BASE_URL` ends in `/v1`,
-  so `/api/tags` 404s — use `/v1/models`. A 19-hour run that dies on a missing model in
-  hour one is the expensive kind of failure.
-
-#### The health signal — the ONLY number separating a good run from a ruined one
-
-`refreshed=25 failures=0` prints identically whether a pass enriched every draft or
-gutted it. Watch CONTENT:
-
-```bash
-docker compose exec -T postgres psql -U app -d harness -t -c \
-  "SELECT count(*) FILTER (WHERE status='DRAFT' AND content->>'employee_group'='cupe'
-     AND content->'relationships' IS NOT NULL AND content->'relationships' <> 'null'::jsonb),
-   round(avg(jsonb_array_length(coalesce(content->'duties','[]'::jsonb)))
-     FILTER (WHERE status='DRAFT' AND content->>'employee_group'='cupe'),2)
-   FROM canonical_jds;"
-```
-
-**At run 2's launch: `relationships` = 427, mean duties = 11.44. Sources now offer 573.**
-The first should climb toward ~573. **If it stalls while the cluster counter advances,
-STOP THE RUN** — that is the shape of a pass "succeeding" while destroying content, and
-on run 1 it was exactly that. This is not a hypothetical instruction any more: following
-it is what produced HR-214.
-
-⚠ **A flat count is not proof of a bug — CHECK BEFORE STOPPING.** The decisive test is
-the CONTROL comparison above (processed clusters vs untouched ones, on the same
-population), not the raw count. Roughly 15 minutes of SQL separates "the run is
-destroying content" from "these clusters had nothing to gain", and the two look
-identical in the count alone.
-
-#### ⚠ 0% CPU AND TOTAL SILENCE ARE NORMAL HERE, AND THAT IS NOT THE OLD BUG
-
-The 2026-08-21 run logged nothing for 52 minutes at 0.00% CPU and it was block-buffered
-stdout. **This is a different thing that looks identical.** `PYTHONUNBUFFERED=1` is set,
-and the progress line only prints **at each 25-cluster checkpoint** — the first landed at
-**4,319s (72 min)**. Between checkpoints the box is waiting on a REMOTE GPU
-(`aria-gb10-2`), so 0% local CPU is exactly right.
-
-**To tell a working run from a stalled one, don't use CPU or logs — use Postgres:**
-
-```bash
-docker compose exec -T postgres psql -U app -d harness -t -A -c \
-  "SELECT state, extract(epoch from now()-state_change)::int FROM pg_stat_activity
-   WHERE usename='app' AND state='idle in transaction' ORDER BY state_change DESC LIMIT 1;"
-```
-
-`idle in transaction` whose age **resets** every few minutes = a cluster boundary = it is
-working. An age that only grows for >10 min = genuinely stuck. ⚠ **One sample cannot tell
-these apart** — a single 38-second reading was misread as "cycling" during this session
-when it was mid-cluster. Take three.
-
-#### Throughput, measured rather than assumed
-
-First checkpoint: **25 clusters in 4,319.2s = 172.8s/cluster**, `failures=0`,
-`persisted=0 refreshed=25` (correct — all 649 drafts already exist; this is a rewrite in
-place). **But the rate improves steeply**: the rolling mean fell 247s → 147s and recent
-intervals are 102–123s, because the expensive clusters come first.
-
-| basis | rate | 649 clusters |
+| WJQ carry-through | before run 2 | after |
 |---|---:|---:|
-| checkpoint average | 172.8s | ~31 h |
-| recent intervals | ~110s | ~20 h |
+| `additional_context` | 620 / 622 = 99.7% | **622 / 622 = 100.0%** |
+| `relationships` | 426 / 573 = 74.3% | **573 / 573 = 100.0%** |
+| `decision_making` | 21 / 24 = 87.5% | **24 / 24 = 100.0%** |
+| **fabricated duties (CUPE)** | **996** | **0** |
 
-**So 20–31 h, likely nearer the low end** — slower than the 18.8 h v4 pass, and the
-reason is the fix working: v5 recovered 7,081 duties, so there is simply more text to
-rewrite. ⚠ **Do not project a run's total from its first four clusters** (that produced a
-34 h estimate this session, which the checkpoint corrected).
+**The guards did the work — they are not inert.** Across the 649 drafts, HR-214 restored
+a section the rewrite had emptied **73 times**, and HR-213 blocked invented duties **12
+times**. That matters: a run reporting 100% with the guards never firing would mean the
+model happened to behave, which is not a fix.
 
-⚠ At ~170s/cluster, `--commit-every 25` leaves **~72 min of GPU work uncommitted** between
-checkpoints, versus ~25 min in the v4 pass. A crash costs at most one window and `--resume`
-recovers — but that is the exposure, and Docker has killed a run mid-pass before.
+⚠ **THE COST LANDED EXACTLY WHERE IT WAS PREDICTED.** Approvable CUPE drafts fell
+**6 → 3** and the mean score 76.38 → 76.22. That is HR-213 working: a draft whose sources
+state no duties now fails `SFU-COMP-DUTIES` instead of passing on invented content. It was
+stated before the run rather than explained afterwards, which is the only reason it reads
+as a confirmed prediction and not a regression.
 
-#### When it finishes — the two things to check, in this order
+### 🔴 WHAT THIS RUN DID NOT FIX — do not read the 100%s as "CUPE is done"
 
-1. `make bank-audit` and diff against `docs/canonical/bank-audit.json` (committed, holds
-   the pre-run state). **WJQ `relationships` must climb from 427/573 toward 100%.**
-2. **The invented-duty count must go to ZERO.** That is the whole point of the pass.
-3. **`restored_sections` must be NON-EMPTY somewhere** (HR-214's new
-   `AntiFabricationRecord` field). It is the proof the guard actually fired rather than
-   merely shipping: run 1 lost the section on 25.6% of the clusters it touched, so a run
-   that repairs nothing and records nothing means the knob is inert, not that the model
-   behaved.
-
-⚠ **And expect approvable counts to FALL — say it before someone else finds it.** HR-213
-means a draft that honestly reports no duties fails `SFU-COMP-DUTIES`. 599 documents just
-stopped being silent, but some drafts will now surface real gaps instead of fluent
-invention. **That is the fix working, not a regression.**
+- **Duty frequency is still destroyed by the rewrite: 27.7% rewritten vs 92.3%
+  merge-only.** The audit still flags it, and it is still queue item 2. The measurement
+  that matters is already recorded: the model REORDERS duties so heavily that both
+  obvious matching rules would attach WRONG frequencies to a field feeding the CUPE
+  point-factor evaluation. **A wrong frequency is worse than a missing one.** Needs a
+  real matching design, not a patch.
+- **Duties flagged on 96.8% of drafts.** A flag on nearly every draft is a constant, not
+  a signal — pre-existing, unrelated to this pass.
+- **The COMPRESSION question is open and registered, not answered.** HR-214 restores a
+  section the rewrite returned EMPTY; it leaves alone one the model returned THINNER. A
+  cluster whose merge produced `internal=20` came back `internal=3` on a re-run, and
+  whether that is acceptable editing or content loss is HR's call (HR-214's entry says so
+  explicitly). **Do not close it with a threshold.**
+- **JDFN is untouched.** `problem_solving` still reads **228.2% FABRICATED** (1,084/475)
+  on that cohort. Every JDFN figure predates this work.
+- **1,807 clusters were deliberately not looked at** — the run announced its own blind
+  spot, as a scoped run should.
 
 ### ▶ THE QUEUE, IN ORDER
 
-1. 🟢 **WATCH RUN 2 to completion**, then do the THREE checks in that section —
-   `make bank-audit` diffed against the committed pre-run `docs/canonical/bank-audit.json`,
-   the invented-duty count (must reach **zero**), and `restored_sections` (must be
-   non-empty somewhere, or HR-214's guard is inert). Health signal, not the progress
-   line. **Already executing.**
-2. **The duty-frequency matching design** — unchanged from the previous handoff; the
-   model reorders duties so heavily that both obvious matching rules attach WRONG
-   frequencies to a field feeding the CUPE point-factor evaluation. Needs evidence.
-3. **Re-measure the JDFN cohort** — `problem_solving` still reads **228.2% FABRICATED**
-   (1,084 / 475). Untouched by this work; it is a JDFN-side S-5 defect.
+1. 🔴 **The duty-frequency matching design.** The one CUPE defect this pass did NOT fix:
+   **27.7% rewritten vs 92.3% merge-only**, still flagged by `make bank-audit`. The naive
+   fix is unsafe and that is MEASURED, not assumed — the model reorders duties so heavily
+   (argmax == positional on 8–26%; 62.4% of duties share Jaccard < 0.2 with ANY merge
+   duty) that both obvious matching rules would attach WRONG frequencies to a field
+   feeding the CUPE point-factor evaluation. **A wrong frequency is worse than a missing
+   one.** Needs a real design, not a patch.
+2. **Re-measure the JDFN cohort** — `problem_solving` still reads **228.2% FABRICATED**
+   (1,084 / 475). Untouched by this work; a JDFN-side S-5 defect. A JDFN producer pass is
+   the natural next run, and it would carry HR-213 + HR-214 to that cohort too.
+3. **HR-214's COMPRESSION question** — registered `open` and deliberately unanswered: a
+   section the model returns THINNER than the merge is left alone. **Do not close it with
+   a threshold**; it is HR's call.
 4. **Phase F**, **Phase G rulebook items**, 🔴 **TLS at the edge**, **HR ratification**
    (214 entries, 0 signed) — all unchanged.
 
 ### ▶ WHAT THIS SESSION LEARNED THAT IS NOT IN A DIFF
 
+- **A 100% metric proves nothing unless the GUARD that produces it fired.** Run 2 reports
+  100% carry-through on all three WJQ sections — and the reading that makes that
+  trustworthy is that HR-214 restored a section **73 times** and HR-213 blocked invented
+  duties **12 times**. A run showing 100% with the guards never firing would mean the
+  model happened to behave, which is not a fix and would revert on the next pass. **Check
+  the mechanism, not only the outcome.**
+- **A wrong JSON path returns 0 exactly as convincingly as a guard that never fires.**
+  The first `restored_sections` query used `change_log->rewrite->anti_fabrication`; the
+  real key is top-level. It returned 0 and the conclusion drawn was "the model behaved
+  this time" — plausible, reassuring, wrong. Dumping ONE raw record showed
+  `restored_sections: ["relationships"]` immediately. **Before believing a zero, prove
+  the query can produce a non-zero.**
 - **A flat number is a finding. Two flat numbers are a defect.** `relationships` sitting
   at 427 across two checkpoints is what caught HR-214 — and the count ALONE could not
   tell "the run is destroying content" from "these clusters had nothing to gain". What
