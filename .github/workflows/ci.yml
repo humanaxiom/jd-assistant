@@ -5,9 +5,40 @@ name: CI — Gates Pipeline (Docker-only, ADR-006)
 # same command as local `make gates`, so local == CI. testcontainers reach the
 # host Docker socket at /var/run/docker.sock (preinstalled on ubuntu-latest).
 
+# ⚠ EVERY PR USED TO COST TWO FULL RUNS. `on: push` with no branch filter fired on the
+# branch push AND `pull_request` fired on the same commit — 20 minutes of Actions minutes
+# to gate one change twice. `push` is now main-only (post-merge verification), so a PR
+# costs ONE run and `main` still gets checked after every merge.
+#
+# `paths-ignore` skips the suite for documentation CI does not validate. Deliberately NOT
+# a blanket `**.md`: `docs/decisions/**` holds the HR decision register, which the
+# register gate DOES validate against `decision_register.yaml`, and a hand-edit there must
+# still be caught. See CLAUDE.md § Change workflow — most docs commit straight to `main`
+# and never reach this file at all.
+#
+# ⚠ NO `!` NEGATION BELOW, deliberately. GitHub's negation semantics in `paths-ignore`
+# are order-dependent and easy to get subtly wrong, and getting it wrong here means the
+# register gate silently stops running. `docs/decisions/**` is protected by being ABSENT
+# from this list rather than by a negated pattern — it therefore always triggers CI.
 on:
   push:
+    branches: [main]
+    paths-ignore: &doc_paths
+      - '*.md'
+      - 'docs/*.md'
+      - 'docs/adr/**'
+      - 'docs/archive/**'
+      - 'docs/audit/**'
+      - 'docs/baseline/**'
+      - 'docs/canonical/**'
+      - 'docs/cluster/**'
+      - 'docs/dedup/**'
+      - 'docs/demo/**'
+      - 'docs/embeddings/**'
+      - 'docs/harmonize/**'
+      - 'docs/tasks/**'
   pull_request:
+    paths-ignore: *doc_paths
 
 jobs:
   # ─── Gate 0: Branch naming (main is exempt as the protected base) ─────────

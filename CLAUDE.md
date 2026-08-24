@@ -39,6 +39,35 @@ Paths: `C:\repos\agent-harnesses-v2` is the **live upstream harness** — this r
 of it (kept in sync; subagents subsystem reconciled 2026-07-10, see ADR-004). `C:\repos\jdbank`
 is STALE (abandoned v1 attempt). The live project repo is `C:\repos\JD-Assistant`.
 
+## Change workflow — what needs a PR and what does not
+
+**This OVERRIDES the vendored harness rule "NEVER commit to `main`" for the doc cases
+below.** The harness rule assumes every change can break something; in this repo most
+documentation cannot, and each PR costs two full CI runs (~20 min of Actions minutes) to
+prove it. 53 of 60 CI runs in one four-day stretch were largely doc churn — that is the
+abuse this section exists to stop.
+
+**Commit straight to `main` (no branch, no PR):**
+- Any file under `docs/` **except** `docs/plan.md` and `docs/decisions/**`
+- `README.md`, `DEVELOPER_GUIDE_1.md`, `docs/OPERATOR-GUIDE.md`, status/audit write-ups
+- Generated report artifacts (`docs/canonical/*.json`, `docs/baseline/*.json`)
+- Typo / formatting / link fixes anywhere
+
+**Still requires a branch + PR:**
+- 🔴 **Anything under `core/`** — code, tests, rules YAML. No exceptions.
+- 🔴 **`HANDOFF.md` and `docs/plan.md`** — the two source-of-truth documents. A PR is how a
+  change to "what we are doing next" gets seen rather than absorbed.
+- 🔴 **`docs/decisions/**`** — the HR register and matrix are the decision record; CI's
+  register gate validates them and a hand-edit must be caught.
+- 🔴 **`CLAUDE.md`, `.github/**`, `docker-compose*.yml`, `Makefile`** — anything that
+  changes how the project is built, gated, or governed.
+
+**Rules that do not relax:**
+- `make gates` green before ANY commit that touches `core/` — direct-to-main or not.
+- A doc commit still gets a real message. "docs: fix typo" is fine; empty is not.
+- If a doc change and a code change belong together (a rulebook knob and its register
+  entry), they ship in the SAME PR — never split to dodge a branch.
+
 ## Subagents subsystem (from the harness)
 `core/src/agents/` provides a Planner→Tester→Coder(loop)→Reviewer→Security→Docs pipeline
 (`orchestrator.py`, dispatched via the `run_pipeline` arq job). Reviewer approval + security
