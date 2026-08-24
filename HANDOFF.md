@@ -2,7 +2,78 @@
 
 Read this first every session. Single source of truth for current state + how we work.
 
-## ▶ START HERE (2026-08-23, latest) — the v5 pass is COMPLETE and every WJQ carry-through reads 100%
+## ▶ START HERE (2026-08-24) — 🔴 STOP BUILDING. The constraint is HR review, and it has been for a month
+
+**Read [`docs/STATUS-2026-08-24.md`](docs/STATUS-2026-08-24.md) first.** It is the
+re-evaluation that produced this section, with every number reproduced as a query.
+
+| | |
+|---|---|
+| `main` | `fe5393c` — #137–#141. Verify with `gh pr list`, never from this table |
+| Gates | **2,890 passing, 93.36%** · CI green (the billing block is lifted) |
+| Archive | 14,565 ingested · 14,522 parsed at `jd_segmenter_v5` |
+| Drafts | **2,489 DRAFT · 5 PUBLISHED** ⟵ **this is the project's actual output** |
+| **Approvable NOW** | **jdfn 1,292 of 1,840 (70.2%)** · wjq 3 of 649 (0.5%) |
+| Human review actions, ever | **8** (5 approve, 2 override, 1 edit) in six weeks |
+| Register | 214 decisions, **0 ratified** |
+| Producer run | ✅ complete, 649/649, 0 failures. **Do not start another one** |
+
+### 🔴 THE SITUATION, IN THREE FACTS
+
+1. **1,292 JDFN drafts pass every gate today and not one has been shown to a reviewer.**
+   They are blocked on nothing we build.
+2. **CUPE is 0.5% approvable for reasons content cannot fix.**
+   `SFU-APPROVE-QUAL-EQUIVALENT` blocks **620 of 649 (95.5%)** and
+   `SFU-APPROVE-KSA-ORDER` blocks **564 (86.9%)** — both are *registered, unratified HR
+   policy decisions*, not defects. Last week's 19.4 GPU-hours of content fixes moved
+   CUPE approvable **6 → 3**.
+3. **The plan named the exit a month ago** (`plan.md:511`, written 2026-07-21: *"4.5 (the
+   human pilot) is now the next milestone"*) and it still has not happened.
+
+### ▶ WHAT TO DO NEXT — in this order, and not in parallel with more building
+
+1. 🔴 **Fix TLS at the edge FIRST.** `sfuai.ca:7000` is a Telus NAT forward to plain HTTP
+   carrying CAS sign-in cookies. A pilot puts a real SFU HR reviewer on that host, so
+   this stops being backlog the moment step 2 is scheduled.
+2. 🔴 **Run the JDFN pilot.** ~20 of the 1,292 approvable drafts, in front of a real HR
+   reviewer, approving / rejecting / editing for real.
+   **Success = 20 PUBLISHED JDs + a list of what the reviewer actually objected to.**
+   That list beats any measurement we can take ourselves.
+3. 🔴 **Get `SFU-APPROVE-QUAL-EQUIVALENT` and `SFU-APPROVE-KSA-ORDER` ruled on.** One HR
+   ruling on those two could move CUPE approvable from 3 to several hundred — more than
+   every engineering change made this month combined, at **zero GPU cost**.
+4. **Book the HR ratification session.** `HR-DECISION-MATRIX.md` has been HR-ready since
+   2026-08-21. It needs a calendar invitation, not another revision.
+
+### ⛔ WHAT NOT TO DO
+
+- **No more producer runs.** Each is ~19 GPU-hours and moves published JDs by zero.
+- **No more parser / rewrite / merge fidelity work.** The duty-frequency defect (27.7%
+  rewritten vs 92.3% merge-only) is real, registered, and **can wait** — it feeds a CUPE
+  point-factor evaluation on a cohort that is 99.5% blocked for unrelated reasons.
+- **Do not read `make bank-audit` as progress.** It measures draft FIDELITY, not
+  DELIVERY. It is a good tool — it caught two real defects — and it is not the goal.
+
+### ▶ HOW "DONE" IS MEASURED FROM NOW ON
+
+> **Published JDs in the Bank. Today: 5. Next milestone: 20. Then 100.**
+
+Not carry-through percentages. Not mean scores. Not test counts.
+
+### ▶ THE LESSON THAT COST THE MOST
+
+**When the critical path runs through a decision someone else has to make, and nobody
+books the meeting, work flows to whatever can be done alone — and there is always more
+fidelity to chase.** Six weeks produced a genuinely good system and five published JDs.
+Fifteen minutes of SQL (`STATUS-2026-08-24.md` §5) would have shown at any point in the
+last month that CUPE's blockers were policy, not content.
+
+**Before any further engineering, ask: does this change the number of PUBLISHED JDs?**
+If not, it is not the next task, however real the defect is.
+
+---
+
+## ▶ PREVIOUS (2026-08-23) — the v5 pass completed; every WJQ carry-through reads 100% (engineering, not delivery)
 
 | | |
 |---|---|

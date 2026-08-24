@@ -1,5 +1,50 @@
 # JD Bank — Build Plan
 
+> 🔴 **RE-EVALUATED 2026-08-24 — READ THIS BEFORE THE PHASE LIST.**
+> See [`docs/STATUS-2026-08-24.md`](STATUS-2026-08-24.md) for the evidence.
+>
+> **The phase list below is a BUILD RECORD, not a to-do list. Almost all of it is done,
+> and finishing the rest will not deliver this project.**
+>
+> **The state, in three numbers:** 2,489 canonical drafts exist · **1,292 of them are
+> approvable today** · **5 JDs have ever been published.** Eight human review actions in
+> six weeks. 214 registered decisions, **0 ratified**.
+>
+> **The binding constraint is HR review and ratification, not engineering**, and it has
+> been since 2026-07-21 — the date Phase 4.6 shipped and this file (line ~511) recorded
+> *"4.5 (the human pilot) is now the next milestone."* That pilot still has not happened,
+> while Phases 5, 8, 9, A–G and two CUPE re-baselines were built instead.
+>
+> **The sharpest illustration:** CUPE is 0.5% approvable (3 of 649), and its two top
+> blockers are `SFU-APPROVE-QUAL-EQUIVALENT` (620 drafts, 95.5%) and
+> `SFU-APPROVE-KSA-ORDER` (564, 86.9%) — both *unratified HR policy decisions*, not
+> content defects. A week of content fixes and 19.4 GPU-hours moved CUPE approvable
+> **6 → 3**. Content was never the constraint on that cohort.
+>
+> ### THE CRITICAL PATH, IN ORDER — nothing else starts until these move
+>
+> 1. 🔴 **TLS at the edge.** `sfuai.ca:7000` is a plain-HTTP NAT forward carrying CAS
+>    sign-in cookies. A pilot puts a real HR reviewer on it. Fix before, not after.
+> 2. 🔴 **The 4.5 JDFN pilot.** ~20 of the 1,292 approvable drafts, reviewed for real.
+>    **Success = 20 PUBLISHED JDs + the reviewer's actual objections.**
+> 3. 🔴 **Ratify `SFU-APPROVE-QUAL-EQUIVALENT` + `SFU-APPROVE-KSA-ORDER`.** One HR ruling
+>    could move CUPE approvable from 3 to several hundred, at zero GPU cost — more than
+>    every engineering change made in August, combined.
+> 4. **The HR ratification session.** The matrix has been HR-ready since 2026-08-21; it
+>    needs a calendar invitation, not another revision.
+>
+> ### ⛔ EXPLICITLY DEFERRED — real, registered, and NOT next
+>
+> Duty-frequency matching (27.7% rewritten vs 92.3% merge-only) · HR-214's compression
+> question · the JDFN `problem_solving` re-measure (228.2%) · Phase F form scoping ·
+> Phase 7 overlap graph · any further producer run (~19 GPU-hours each, zero published
+> JDs each).
+>
+> ### HOW DONE IS MEASURED NOW
+>
+> **Published JDs in the Bank. Today: 5. Next: 20. Then 100.** Not carry-through
+> percentages, not mean scores, not test counts.
+
 > **Forward-looking roadmap + current backlog:** see [`docs/ROADMAP.md`](ROADMAP.md)
 > (quick wins, high-value features grounded in peer-university systems, and sequencing).
 > This file remains the phase-by-phase build record.
@@ -345,7 +390,7 @@ Test suite **at that point (Phase 2.6)**: **1143 passing**, coverage **97.40%**.
 figure — the "at HEAD" wording was wrong the moment the next commit landed; for today's numbers
 read the newest `make gates` line in `git log` and the register's own header.)*
 
-### Phase 2.7 — ⏭ HR ratification (needs SFU, not us)
+### Phase 2.7 — 🔴 HR ratification — **THE CRITICAL PATH, BLOCKED SINCE 2026-07-21, 0 of 214 ratified**
 
 The register is now a list of **measured** decisions rather than guesses, so HR review is possible
 for the first time. Two documents drive it:
@@ -509,6 +554,11 @@ is substantial but its only visible surface is the transport-only review queue �
 **Phase 4.6 (Visibility & local-only assurance) was sequenced AHEAD of the 4.5 human pilot and is now
 COMPLETE (shipped 2026-07-21)** — the work had to be *seen* and *proven local* before a real HR
 reviewer is asked to trust it. **4.5 (the human pilot) is now the next milestone.**
+
+> 🔴 **STILL TRUE, AND STILL NOT DONE — written 2026-07-21, unchanged as of 2026-08-24.**
+> A month of Phases 5 / 8 / 9 / A–G and two CUPE re-baselines happened instead. 1,292
+> JDFN drafts are approvable today and none has been reviewed. **This line is the whole
+> re-evaluation in one sentence: the plan knew, and the work went elsewhere.**
 - **4.1** ✅ **MERGED + calibrated** (PR #46). Deterministic merge engine (`bank/merge.py`): section
   selection, duty union/dedup/reorder, KSA rebuild — pure, no LLM, drafts only. 9 knobs in registered/
   unhashed `harmonization.yaml` (HR-167..175). Calibrated over 1,801 JDFN clusters via the
