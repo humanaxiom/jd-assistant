@@ -6,10 +6,39 @@ and is not required reading. Rewritten 2026-08-24 after the re-evaluation in
 [`docs/STATUS-2026-08-24.md`](docs/STATUS-2026-08-24.md).
 
 ---
+## 🟢 CIO SUPPORT — 2026-08-27. The pilot is no longer the hard part.
+
+The system was demoed to the CIO, who is **fully supportive** and asked for an **IT-services
+subset** as the compelling showcase. That changes the situation this file has described
+since 2026-08-24: the blocker was never engineering, it was a decision nobody had taken —
+and it has now been taken.
+
+**The demo cohort exists today and is healthy** (measured 2026-08-27):
+
+| | |
+|---|---:|
+| ITP source documents | **368** |
+| harmonized IT roles they produce | **45** |
+| of those **approvable right now** | **32 (71%)** |
+
+**368 documents → 45 roles** is the value proposition in one screen, and it needs no new
+work to *show*. Plan: [`docs/plans/IT-SUBSET-DEMO-AND-FACETS.md`](docs/plans/IT-SUBSET-DEMO-AND-FACETS.md)
+(design only, no code, deliberately additive — no schema change, nothing touching scoring).
+
+**⚠ Answer this before the demo, not during it:** eight of the 45 roles are all titled
+*"Information Technology Professional"*. Either they are genuinely distinct (levels /
+specialisations under a generic SFU title) or they should have clustered. It is a
+15-minute query, and "we don't know" in the room is the one avoidable outcome.
+
+**⚠ The demo is still not the deliverable.** Published JDs are. A compelling showcase that
+produces zero approvals has moved exactly as far as the six weeks before it. **The demo's
+job is to get the pilot booked.**
+
+---
 
 ## 🔴 THE ONE THING TO UNDERSTAND
 
-**The system works. It has no output. The constraint is not engineering.**
+**The system works. It has no output. The constraint was never engineering.**
 
 | | |
 |---|---:|
@@ -33,24 +62,28 @@ GPU-hours moved CUPE approvable **6 → 3**.
 **Done is measured in published JDs. Today: 5. Next: 20. Then 100.**
 Not carry-through, not scores, not test counts.
 
----
-
 ## ▶ THE CRITICAL PATH
 
-**Only item 1 is ours to do alone.** 2–4 need a person at SFU.
+**Items 1–2 are ours. 3–5 need a person at SFU — and the CIO's support is what makes them
+gettable now.**
 
 1. 🔴 **TLS at the edge.** `sfuai.ca:7000` is a Telus NAT forward to plain HTTP on the
-   public internet, carrying CAS sign-in cookies. The pilot puts a real SFU HR reviewer
-   on that host — **fix before the pilot, not after.** This is the only critical-path
-   item engineering can close unilaterally.
-2. 🔴 **The 4.5 JDFN pilot.** ~20 of the 1,292 approvable drafts, in front of a real HR
-   reviewer, approved / rejected / edited for real.
+   public internet, carrying CAS sign-in cookies. Any demo or pilot puts a real SFU person
+   on that host — **fix before, not after.** Unchanged, still ours alone, and the CIO demo
+   makes it more urgent rather than less.
+2. 🟢 **The IT-subset demo** — [`docs/plans/IT-SUBSET-DEMO-AND-FACETS.md`](docs/plans/IT-SUBSET-DEMO-AND-FACETS.md).
+   Two steps to a showable thing: answer the duplicate-title question (15 min), then the
+   Layer 1 collection page. **No blocking dependency** — the ITP family comes from source
+   filenames today. Everything past that (department map, facets, stats) is product, not
+   demo.
+3. 🔴 **The pilot.** ~20 of the 1,292 approvable drafts, in front of a real HR reviewer,
+   approved / rejected / edited for real.
    **Success = 20 PUBLISHED JDs + a written list of what the reviewer objected to.**
    That list is worth more than any measurement we can take ourselves.
-3. 🔴 **Ratify two gates:** `SFU-APPROVE-QUAL-EQUIVALENT` and `SFU-APPROVE-KSA-ORDER`.
+4. 🔴 **Ratify two gates:** `SFU-APPROVE-QUAL-EQUIVALENT` and `SFU-APPROVE-KSA-ORDER`.
    One ruling could move CUPE approvable from 3 to several hundred at **zero GPU cost** —
    more than every engineering change made in August, combined.
-4. **Book the HR ratification session.**
+5. **Book the HR ratification session.**
    [`docs/decisions/HR-DECISION-MATRIX.md`](docs/decisions/HR-DECISION-MATRIX.md) has
    been HR-ready since 2026-08-21. It needs a calendar invitation, not another revision.
 
@@ -68,6 +101,10 @@ Each is a genuine finding. None changes the published-JD count.
   *thinner* than the merge is left alone. **Do not close it with a threshold**; it is HR's.
 - **JDFN `problem_solving` at 228.2% FABRICATED** (1,084 / 475) — a real S-5-class defect
   on the JDFN cohort, untouched by the CUPE work.
+- **`classification` carry-through** — parsed on 21% of documents (3,053 / 14,522), reaches
+  **0%** of drafts. A real content-loss defect, recorded 2026-08-27. ⛔ **Not on the demo
+  path**: the family dimension the facets need (ITP / APSA / APEX / POLY / CUPE) comes from
+  source filenames today. Fix it on its own merits, not as a dependency.
 - **Phase F** (form scoping: search is JDFN-only both ways), **Phase 7** (overlap graph),
   remaining **Phase G** rulebook items.
 - ⛔ **No further producer runs.** ~19 GPU-hours each; zero published JDs each.
@@ -140,6 +177,7 @@ Distilled from six weeks; the full set is in the archive.
 | what | where |
 |---|---|
 | **The re-evaluation — read first** | [`docs/STATUS-2026-08-24.md`](docs/STATUS-2026-08-24.md) |
+| **The IT demo + facets plan** | [`docs/plans/IT-SUBSET-DEMO-AND-FACETS.md`](docs/plans/IT-SUBSET-DEMO-AND-FACETS.md) |
 | Remaining work | [`docs/plan.md`](docs/plan.md) |
 | Project invariants | [`CLAUDE.md`](CLAUDE.md) |
 | Onboarding, traps, `PARSER_VERSION` | [`DEVELOPER_GUIDE_1.md`](DEVELOPER_GUIDE_1.md) |
