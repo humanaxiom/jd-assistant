@@ -126,6 +126,9 @@ The IT sweep is the template, and the method transfers:
 2. **Sweep duty text** for candidates.
 3. 🔴 **Measure recall against the seed.** If the sweep misses seed members — as mine
    missed 38 of 45 — **the term list is wrong, not the seed.** Widen and repeat.
+   ⚠ **And measure it in more than one direction.** The IT list has now failed four times:
+   missing the engineers, then the analysts, then the leadership, and finally anyone whose
+   JD does not use the vocabulary at all. Recall against one seed proves one direction.
 4. **Review candidates**, capturing rejections with reasons.
 5. **Publish with the recall statement.**
 
