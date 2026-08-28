@@ -73,15 +73,30 @@ Not carry-through, not scores, not test counts.
 today, they have lead time.**
 
 ### 🟢 TRACK A — the demo
-*1,420 IT source documents → ~166 roles (8.5:1), and 121 sit outside central IT.*
+**Lead with the number that needs no review:** *469 IT source documents → 45 harmonized
+roles (10.4:1), 32 approvable today.* Then the embedded finding as a **reviewed** claim —
+IT roles sit in Library Systems, Linguistics, Facilities, Mechatronics, Earth Sciences,
+Beedie, Education and Health Sciences.
+
+🔴 **The old headline "1,420 documents → ~166 roles (8.5:1)" is NOT reproducible** and must
+not be said in the room — it came from the term list measured to miss 38 of 45 seed roles.
+The corrected sweep's ratio is a stable ~6.1:1 at every cut, and no cut yields 166/1,420.
+See [`docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md).
 
 - ✅ **A1 — the duplicate-title question. DONE** —
   [`docs/plans/IT-DUPLICATE-TITLE-ANSWER.md`](docs/plans/IT-DUPLICATE-TITLE-ANSWER.md).
   **20** roles carry the title (not 8) and they are **distinct** — 15 specialisation ×
   ITP-level cells, 18 of 20 level-homogeneous, a 4.1% tail. No merge warranted.
-- **A2 — IT functional family.** Duty-term sweep ∪ ITP family ∪ title terms.
-  🔴 **Validate recall against the ITP seed and let it fail** — the first term list missed
-  38 of 45 because it encoded "IT = desktop support".
+- 🟡 **A2 — IT functional family. MEASURED; build remains** —
+  [`docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md).
+  The recall validation ran and **failed usefully: there is no threshold.** 98% recall
+  costs 1,141 candidates (46% of the corpus); at the ~166 the plan assumed, recall is
+  **48.9%** — half the *known* IT roles missed. **So the score ranks a review queue; it
+  never decides membership.** Remaining: `functional_families.yaml` + the ranked queue.
+  🔴 The bias failure recurred in the opposite direction — the new list nearly misses the
+  **analyst** half (Business/Systems/Security Analyst), because analysts write about
+  processes, not technologies. **That is why the union with the ITP family is load-bearing.**
+  ⚠ Word-boundary matching is mandatory: `lan` as a substring matched **1,568 roles** (63%).
 - **A3 — collection page.** The screen the CIO sees. **A1–A3 alone are a complete demo.**
 - **A4 — live funnel panel**, **A5 — facets** (each showing its own coverage).
 
@@ -171,6 +186,13 @@ Distilled from six weeks; the full set is in the archive.
   *up*: invented sections, compressed duty lists, dropped point-factor content.
 - **Verify state against the remote before trusting any doc.** `gh pr list` costs seconds;
   a handoff that records intent as outcome is worse than one merely out of date.
+- **A term list is a hypothesis, and it fails differently each time you rewrite it.** The
+  first IT list missed the engineers (it encoded "IT = desktop support"); the corrected one
+  nearly misses the **analysts** (they write about processes, not technologies). **Validate
+  every functional definition against a known-good seed, and let it fail.**
+- **Match on word boundaries, never substrings.** `lan` as a substring matched 1,568 of
+  2,493 roles — *plan*, *planning*, *Langara* — and 63% is not obviously absurd when you
+  are expecting "bigger than you think". A wrong sweep looks exactly like a finding.
 - **A number derived from a wrong number can still be right — and that hides the error.**
   The IT plan quoted 368 ITP documents; the truth is 469. The 45 roles and 32 approvable it
   derived were correct, because they came from the right query and only the document count
@@ -189,6 +211,7 @@ Distilled from six weeks; the full set is in the archive.
 | **The re-evaluation — read first** | [`docs/STATUS-2026-08-24.md`](docs/STATUS-2026-08-24.md) |
 | **The IT demo + facets plan** | [`docs/plans/IT-SUBSET-DEMO-AND-FACETS.md`](docs/plans/IT-SUBSET-DEMO-AND-FACETS.md) |
 | **A1 answered — the duplicate-title question** | [`docs/plans/IT-DUPLICATE-TITLE-ANSWER.md`](docs/plans/IT-DUPLICATE-TITLE-ANSWER.md) |
+| **A2 measured — the sweep has no threshold** | [`docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md) |
 | **Functional role taxonomy (the sweep)** | [`docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md`](docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md) |
 | **Source-archive dashboard (the 14,565)** | [`docs/plans/SOURCE-ARCHIVE-DASHBOARD.md`](docs/plans/SOURCE-ARCHIVE-DASHBOARD.md) |
 | Department taxonomy (a *filter*; demoted) | [`docs/plans/DEPARTMENT-TAXONOMY.md`](docs/plans/DEPARTMENT-TAXONOMY.md) |

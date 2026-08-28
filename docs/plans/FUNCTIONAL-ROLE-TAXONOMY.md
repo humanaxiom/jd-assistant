@@ -5,6 +5,17 @@
 [`DEPARTMENT-TAXONOMY.md`](DEPARTMENT-TAXONOMY.md), which remains valid as a *facet* but is
 the wrong instrument for finding a function.
 
+> 🔴 **SUPERSEDED IN PART, 2026-08-27 — read
+> [`IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](IT-FUNCTIONAL-SWEEP-MEASUREMENT.md) alongside this.**
+> The method below is right and is what was executed. Its **numbers are not**: every
+> "128 / 121 / ~166 roles" figure on this page came from the biased term list this document
+> itself condemns in §2, and none of them reproduces. The corrected sweep measured that
+> **no threshold is both precise and complete** (98% recall costs 1,141 candidates; at ~166
+> candidates recall is 48.9%), which turns §3.2's "rank, never auto-assign" from a
+> precaution into a requirement. **Treat every role count on this page as an estimate that
+> was tested and failed.**
+
+
 ---
 
 ## 1. The org-chart approach was wrong, and here is the proof
@@ -57,7 +68,7 @@ No single signal is sufficient — that is the measured finding, not a precautio
 | signal | strength | measured |
 |---|---|---|
 | **duty text** | the function itself | 99.1% of drafts have duties; found 121 embedded IT roles |
-| **classification family** (filename) | authoritative where present | ITP = 368 docs → 45 roles; found the senior half the duty terms missed |
+| **classification family** (filename) | authoritative where present | ITP = **469** docs → 45 roles; the ONLY signal that finds the analyst half (measured) |
 | **title** | fast, unreliable alone | "Technical Support Specialist" is IT; "Research Technician" may or may not be |
 | **department** | weak for function, useful as a *filter* | most IT roles are not in an IT department |
 
@@ -85,7 +96,9 @@ membership.
 information_technology:
   label: Information Technology
   evidence:
-    duty_terms: [network, server, hardware, software, troubleshoot, operating system,
+    # ⚠ MATCHED ON WORD BOUNDARIES, never as substrings: `lan` as a substring
+    # matched 1,568 of 2,493 roles (plan, planning, Langara). See the measurement §7.
+    duty_terms: [network, server, hardware, software, troubleshooting, operating system,
                  architecture, identity management, application development, data centre]
     classification_families: [ITP]
     title_terms: [systems analyst, network, computer, technical support, developer]
@@ -99,8 +112,7 @@ term list and re-running everything downstream.
 
 ### 3.4 Every family reports its own recall risk
 
-A family page states: *"166 roles; 121 found by duties, 45 by classification, 7 by both;
-38 ITP roles were missed by duty terms until the list was widened."*
+A family page states its recall honestly, e.g. *"45 roles confirmed from the ITP classification family; N added by review from a ranked duty-text queue; the duty sweep alone reaches 98% recall only by returning 46% of the archive, and it nearly misses every IT **analyst** role."*
 
 **This is not decoration.** It is the only defence against the §2 failure recurring
 silently in the next family somebody defines.
@@ -127,7 +139,7 @@ generalise. A taxonomy is easy to define and expensive to correct once people ci
 
 | plan | status |
 |---|---|
-| [`IT-SUBSET-DEMO-AND-FACETS.md`](IT-SUBSET-DEMO-AND-FACETS.md) | **still valid, and better.** The demo cohort grows from 45 to ~166 roles and now includes IT staff embedded across a dozen faculties — a *stronger* CIO story: "your IT function is 166 roles, and 121 of them are outside your own department." |
+| [`IT-SUBSET-DEMO-AND-FACETS.md`](IT-SUBSET-DEMO-AND-FACETS.md) | **still valid; the story changes shape.** The demo leads with the **45 authoritative ITP roles** and adds embedded IT as a **reviewed** list, because no computed total is defensible (measurement §1). The CIO story is *"your IT function is larger than your IT department, and here is the ranked list"* — not a number. |
 | [`DEPARTMENT-TAXONOMY.md`](DEPARTMENT-TAXONOMY.md) | **demoted, not cancelled.** Department stays a useful *filter* ("IT roles in the Faculty of Science") and the 739-string sweep still stands. It is no longer the way to define a function, and it is **no longer blocked on an authoritative org list** for this purpose. |
 
 **The org-list ask is no longer the long pole.** That is the practical win from this change
