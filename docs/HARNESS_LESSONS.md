@@ -377,6 +377,18 @@ unchecked source, so agreement between them was a *correlated* failure, not evid
 - The dangerous case is a number *derived* from a wrong number that is nonetheless
   right — the derivation looks like verification and is not.
 
+### 8e-bis. A placeholder is not a null, and a null check will not find it
+
+A parser wrote `Untitled Position` whenever it failed to find a title. The obvious quality
+check — `title <> ""` — therefore reported **100% coverage** while 14% of the corpus had no
+real title, most of it already downstream in finished records.
+
+- **Check for the sentinel the writing code uses, not for emptiness or null.**
+- Grep the writer for its fallbacks (`Untitled`, `Unknown`, `N/A`, `0`, epoch dates) and
+  test for those. A default that looks like data is invisible to every "is it missing?"
+  query anyone will think to write.
+- This one produced a false all-clear *inside the investigation that later found it*.
+
 ### 8f. One aggregate can hide a real gap inside an expected one
 
 A pipeline reported 3,653 documents lost to de-duplication. Split into buckets: 1,900

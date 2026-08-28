@@ -51,7 +51,7 @@ person, and inferring them is how you hand a VP a confident wrong number.**
 
 | # | task | who | notes |
 |---|---|---|---|
-| **B2** | 🔴 **Run the pilot** | needs HR | ~20 of the 1,292 approvable drafts, reviewed for real. **Success = 20 PUBLISHED JDs + the reviewer's written objections.** ⛔ **Blocked on BGL-1 (TLS)** — this is the step that puts other people's credentials on the wire. |
+| **B2** | 🔴 **Run the pilot** | needs HR | ~20 of the 1,292 approvable drafts, reviewed for real. **Success = 20 PUBLISHED JDs + the reviewer's written objections.** |
 | **B3** | 🔴 **Ratify two gates** | needs HR | `SFU-APPROVE-QUAL-EQUIVALENT` (blocks 620 CUPE) · `SFU-APPROVE-KSA-ORDER` (564). One ruling beats every engineering change made in August, at zero GPU cost. |
 | **B4** | **Book HR ratification** | needs HR | **79 decisions need an HR ruling**, 0 ratified — the register holds more, but the rest are engineering settings or shape what a reviewer sees and are not HR's to sign. The matrix needs a calendar invitation, not another revision. |
 
@@ -64,17 +64,18 @@ person, and inferring them is how you hand a VP a confident wrong number.**
 **Decided 2026-08-27.** A separate category from Track C on purpose: **Track C items may
 never be built; these must be**, before the system carries anyone but us.
 
-**The trigger is a person, not a date: a BGL item must close before anyone outside the
-development team signs in.** A demo we drive ourselves exposes only our own session and is
-not the trigger. **B2 is.**
+**These items block NOTHING** (decided 2026-08-28) — not the pilot, not the demo, not any
+other work. They are the known list to close before the system goes live in the ordinary
+sense. The exposure is unchanged; what is recorded is that it is not being treated as a
+stop.
 
 | # | task | who | notes |
 |---|---|---|---|
-| **BGL-1** | 🔴 **TLS at the edge** *(was B1)* | eng | `sfuai.ca:7000` is plain HTTP carrying CAS session cookies — anyone signing in over it hands their SFU session to whatever is on the path. Ours alone to close, no HR dependency. ⛔ **Blocks B2.** |
+| **BGL-1** | 🔴 **TLS at the edge** *(was B1)* | eng | `sfuai.ca:7000` is plain HTTP carrying CAS session cookies — anyone signing in over it hands their SFU session to whatever is on the path. Ours alone to close, no HR dependency. **Blocks nothing.** |
 
 ⚠ **This is a suppression, not a resolution.** The exposure is unchanged and unmitigated;
-what changed is that we are not working on it yet. If a pilot, a hands-on session, or any
-non-developer login is scheduled, **BGL-1 returns to the top of the list that day.**
+what changed is that we are not working on it yet and it gates nothing. Recorded so that
+when it is picked up, it is picked up deliberately rather than discovered.
 
 ---
 
@@ -84,7 +85,7 @@ Real, registered, and **none of it changes the published-JD count.**
 
 | item | note |
 |---|---|
-| 🔴 **1,204 unaccounted documents** | Parsed, reached no role, and have **no near-duplicate link to anything** — ~8% of the archive, spanning every employee group, so not one unprocessed cohort. Surfaced by the A4 funnel, which was invisible while the drop was reported as a single "3,653 de-duplicated". **Not on the published-JD path**, so it is a finding to carry rather than the next task — but it is the largest unexplained thing in the Bank. |
+| 🔴 **The 1,204 — DIAGNOSED, three defects** | **519** title-extraction failures (`Untitled Position` on 385; page headers, separator rows and `[pic]` captured as titles on 134). **378 genuine one-off roles the pipeline cannot represent at all** — 2,489 of 2,493 clusters have 2+ members, so a job with no near-duplicate produces no role; this **caps what the Bank can ever publish** and needs a registered decision, not a patch. **~307** share a title with documents that did cluster — a Tier-2 recall miss; measure before tuning. ⚠ `Untitled Position` is a PLACEHOLDER: `title <> ''` reports 100% coverage and is wrong, and 2,050 documents archive-wide carry it — 1,395 of them already in drafts. → [`plans/THE-1204-UNACCOUNTED-DOCUMENTS.md`](plans/THE-1204-UNACCOUNTED-DOCUMENTS.md) |
 | **Duty-frequency matching** | 27.7% rewritten vs 92.3% merge-only. Naive fix *measured* unsafe. Needs a design. |
 | **`classification` carry-through** | Parsed on 21% of documents, reaches 0% of drafts. Real defect; ⛔ **not on the demo path** — family comes from filenames. |
 | **Document date at ingest** | Not stored; filenames carry it. Unlocks the 1967–2026 era cut. Store as `file_date_from_filename` and **label it derived**. |

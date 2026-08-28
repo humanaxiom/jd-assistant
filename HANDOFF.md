@@ -153,8 +153,6 @@ live one is needed, and why they should be retired rather than run alongside.
 
 - **B2 — run the pilot.** ~20 approvable drafts reviewed for real.
   **Success = 20 PUBLISHED JDs + the reviewer's written objections.**
-  ⛔ **Blocked on BGL-1 (TLS)** — this is the step that puts other people's credentials
-  on the wire.
 - **B3 — ratify two gates.** `SFU-APPROVE-QUAL-EQUIVALENT` (620 CUPE drafts) and
   `SFU-APPROVE-KSA-ORDER` (564). One ruling beats every engineering change made in August,
   at zero GPU cost.
@@ -168,26 +166,31 @@ live one is needed, and why they should be retired rather than run alongside.
 done. They are listed here rather than in Track C because Track C items may never be built;
 **these must be, before the system carries anyone but us.**
 
-**The trigger is a person, not a date: BGL items must close before anyone outside the
-development team signs in.** A demo we drive ourselves exposes only our own session, so it
-is not the trigger. **B2 is.**
+**These items block nothing** (decided 2026-08-28). They are the known list to close
+before the system goes live in the ordinary sense; they do not gate the pilot, the demo, or
+any other work. The exposure they describe is unchanged — what is recorded here is that we
+are not treating it as a stop.
 
 - **BGL-1 — TLS at the edge.** `sfuai.ca:7000` is plain HTTP carrying CAS session cookies.
   Anyone signing in over it hands their SFU session to whatever is on the path. Ours alone
-  to close; no HR dependency. ⛔ **Blocks B2.**
+  to close; no HR dependency.
+  **It blocks NOTHING** (decided 2026-08-28). It is recorded here as a known exposure to
+  close before going live, not as a gate on the pilot or anything else.
 
-⚠ **This is a suppression, not a resolution.** The exposure is unchanged and unmitigated —
-what changed is only that we are not working on it yet. If a pilot, a hands-on session, or
-any non-developer login gets scheduled, **BGL-1 comes back to the top of the list that day**.
+⚠ **This is a suppression, not a resolution.** The exposure is unchanged and unmitigated;
+what changed is that we are not working on it yet and it stops nothing. Recorded so that
+when it is picked up, it is picked up deliberately rather than discovered.
 
 ## ⛔ NOT NEXT — real, registered, and deliberately deferred
 
 Each is a genuine finding. **None changes the published-JD count.** Detail and reasoning in
 [`docs/plan.md`](docs/plan.md) Track C.
 
-- 🔴 **1,204 unaccounted documents** — parsed, in no role, and with no near-duplicate link
-  to anything. ~8% of the archive, across every employee group. Surfaced by the A4 funnel.
-  **The largest unexplained thing in the Bank, and still not on the published-JD path.**
+- 🔴 **The 1,204 — diagnosed, three defects.** 519 title-extraction failures · **378
+  genuine one-off roles the pipeline cannot represent** (a job with no near-duplicate makes
+  no role — 2,489 of 2,493 clusters have 2+ members) · ~307 dedup recall misses. The
+  structural one **caps what the Bank can ever publish**. →
+  [`docs/plans/THE-1204-UNACCOUNTED-DOCUMENTS.md`](docs/plans/THE-1204-UNACCOUNTED-DOCUMENTS.md)
 - **Duty-frequency matching** (27.7% vs 92.3% merge-only) — naive fix *measured* unsafe.
 - **`classification` carry-through** — 21% of parses, 0% of drafts. Not on the demo path.
 - **Document date at ingest** — unlocks the 1967–2026 era cut. Label it *derived*.
@@ -221,11 +224,14 @@ WJQ carry-through 100%, fabricated duties 0).
 32 approvable, 451 documents, 129 candidates) and `/jd-bank/ui/funnel` (scope-parameterised,
 every stage naming what it lost). Both read the DB at request time.
 
-🔴 **Open finding from the funnel: 1,204 parsed documents reached no role and have no
-near-duplicate link to anything.** ~8% of the archive, spanning every employee group, and
-not explained by de-duplication. Registered here because it was invisible until a funnel
-refused to report a single "de-duplicated" number — it is NOT on the published-JD path, so
-it is a finding to carry, not the next task.
+🔴 **The 1,204 unaccounted documents are now diagnosed** —
+[`docs/plans/THE-1204-UNACCOUNTED-DOCUMENTS.md`](docs/plans/THE-1204-UNACCOUNTED-DOCUMENTS.md).
+**Three defects, not one:** 519 are title-extraction failures (`Untitled Position`, page
+headers and separator rows captured as titles); **378 are genuine one-off roles that the
+pipeline cannot represent at all** — 2,489 of 2,493 clusters have 2+ members, so a job with
+no near-duplicate produces no role; ~307 share a title with documents that did cluster and
+look like a Tier-2 recall miss. **The structural one caps what the Bank can ever publish**
+and needs a decision before code.
 
 ---
 
@@ -290,6 +296,11 @@ Distilled from six weeks; the full set is in the archive.
   derived were correct, because they came from the right query and only the document count
   was mis-transcribed. **Re-derive a headline number before saying it out loud**, and keep
   the query next to it.
+- 🔴 **A PLACEHOLDER is not a null, and a null check will not find it.** The parser writes
+  `Untitled Position` when it finds no title, so `title <> ''` reports **100% title
+  coverage** — while 2,050 of 14,522 documents (14%) have no real title, 1,395 of them
+  already inside drafts. That false all-clear was produced during the very investigation
+  that then found it. **Check for the sentinel the writer uses, not for emptiness.**
 - 🔴 **One aggregate can hide a real gap inside an expected one.** "3,653 de-duplicated"
   is a plausible, comfortable sentence. Split into its buckets it is 1,900 genuine
   near-duplicates, 549 duplicates of each other, and **1,204 documents with no duplicate
@@ -324,6 +335,7 @@ Distilled from six weeks; the full set is in the archive.
 | **A1 answered — the duplicate-title question** | [`docs/plans/IT-DUPLICATE-TITLE-ANSWER.md`](docs/plans/IT-DUPLICATE-TITLE-ANSWER.md) |
 | **A2 measured — the sweep has no threshold** | [`docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md) |
 | **Scopes + org rollup (VPFA next)** | [`docs/plans/SCOPES-AND-ORG-ROLLUP.md`](docs/plans/SCOPES-AND-ORG-ROLLUP.md) |
+| **The 1,204 unaccounted — diagnosed** | [`docs/plans/THE-1204-UNACCOUNTED-DOCUMENTS.md`](docs/plans/THE-1204-UNACCOUNTED-DOCUMENTS.md) |
 | **The IT collection page (A3)** | `/jd-bank/ui/collection/it` · `core/src/jd_bank/library/families.py` |
 | **Functional families rulebook** | `core/src/jd_core/rules/functional_families.yaml` (HR-215…HR-220) |
 | **Functional role taxonomy (the sweep)** | [`docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md`](docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md) |
