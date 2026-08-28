@@ -84,6 +84,11 @@ hooks: no-commit-to-main, ruff auto-fix) for sessions run from the repo root, a 
   the diff touches, not by what is fastest. If correctness depends on how a real Postgres/Neo4j/
   driver behaves (schema, SQL, stores, embeddings, dedup, migrations), `make gates-fast` cannot
   prove it — run the full `make gates`. Pure functions / rules YAML / docs: `gates-fast` is enough.
+- 🔴 **`make gates` is NOT the whole gate.** CI also runs the **HR register drift check**,
+  which `make gates` does not. Edit `decision_register.yaml` or any rules YAML and you MUST
+  run `make register` and commit the regenerated `docs/decisions/HR-DECISION-REGISTER.md` in
+  the same commit — a green local suite says nothing about it, and that is exactly how a
+  merge to `main` failed CI on 2026-08-27. `make register-check` verifies it locally.
 - **Read the diff, don't just read the report.** A missing `DEFAULT` or foreign key is visible in
   a 50-line diff and invisible in a prose summary.
 - **Check your prompt before blaming the agent.** A thin report usually means a thin instruction

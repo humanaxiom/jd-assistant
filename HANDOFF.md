@@ -50,7 +50,8 @@ job is to get the pilot booked.**
 |---|---:|
 | Canonical drafts | 2,489 |
 | **Approvable right now** | **1,292** |
-| **Ever published** | **5** |
+| **Published — CURRENT versions** | **4** |
+| Clusters ever published | 5 (one was edited; an edit mints a new draft) |
 | Human review actions, ever | **8** (in six weeks) |
 | HR decisions **needing an HR ruling** / ratified | 79 / **0** |
 
@@ -184,6 +185,9 @@ any non-developer login gets scheduled, **BGL-1 comes back to the top of the lis
 Each is a genuine finding. **None changes the published-JD count.** Detail and reasoning in
 [`docs/plan.md`](docs/plan.md) Track C.
 
+- 🔴 **1,204 unaccounted documents** — parsed, in no role, and with no near-duplicate link
+  to anything. ~8% of the archive, across every employee group. Surfaced by the A4 funnel.
+  **The largest unexplained thing in the Bank, and still not on the published-JD path.**
 - **Duty-frequency matching** (27.7% vs 92.3% merge-only) — naive fix *measured* unsafe.
 - **`classification` carry-through** — 21% of parses, 0% of drafts. Not on the demo path.
 - **Document date at ingest** — unlocks the 1967–2026 era cut. Label it *derived*.
@@ -208,9 +212,20 @@ docker ps --filter "name=canonical"               # MUST be empty; do not start 
 ⚠ **The box runs other Docker projects.** Random `postgres:16-alpine` /
 `neo4j:5-community` containers are `recruiter-assistant`'s testcontainers, not ours.
 
-**Current state:** `main` at the latest merge · gates **2,890 passing, 93.36%** · CI green ·
-`PARSER_VERSION` `jd_segmenter_v5` · `rules_version` `jd_rules_sfu_v4+76baba29cfeb` ·
-CUPE content chain **complete** (every WJQ carry-through 100%, fabricated duties 0).
+**Current state (2026-08-28):** `main` at `625bd69` · gates **2,934 passing, 93.46%** ·
+CI green · `PARSER_VERSION` `jd_segmenter_v5` · `rules_version` `jd_rules_sfu_v4+76baba29cfeb`
+(unmoved — the A2/A4/A5 rule files are unhashed) · CUPE content chain **complete** (every
+WJQ carry-through 100%, fabricated duties 0).
+
+**Track A is COMPLETE (A1–A5).** Two live surfaces: `/jd-bank/ui/collection/it` (45 roles,
+32 approvable, 451 documents, 129 candidates) and `/jd-bank/ui/funnel` (scope-parameterised,
+every stage naming what it lost). Both read the DB at request time.
+
+🔴 **Open finding from the funnel: 1,204 parsed documents reached no role and have no
+near-duplicate link to anything.** ~8% of the archive, spanning every employee group, and
+not explained by de-duplication. Registered here because it was invisible until a funnel
+refused to report a single "de-duplicated" number — it is NOT on the published-JD path, so
+it is a finding to carry, not the next task.
 
 ---
 
@@ -248,10 +263,25 @@ Distilled from six weeks; the full set is in the archive.
   *up*: invented sections, compressed duty lists, dropped point-factor content.
 - **Verify state against the remote before trusting any doc.** `gh pr list` costs seconds;
   a handoff that records intent as outcome is worse than one merely out of date.
-- **A term list is a hypothesis, and it fails differently each time you rewrite it.** The
-  first IT list missed the engineers (it encoded "IT = desktop support"); the corrected one
-  nearly misses the **analysts** (they write about processes, not technologies). **Validate
-  every functional definition against a known-good seed, and let it fail.**
+- **A term list is a hypothesis, and it fails differently every time you rewrite it.**
+  Four failures now, same list: it missed the **engineers** (it encoded "IT = desktop
+  support"), then nearly missed the **analysts** (they write about processes, not
+  technologies), then missed the **leadership** entirely (a Senior Director's duties carry
+  no technology nouns at all), and separately it cannot see anyone whose JD simply does not
+  describe the work in those words. **Validate every functional definition against a
+  known-good seed, and let it fail.** Then assume the next rewrite fails somewhere new.
+- 🔴 **Internal consistency is not corroboration — it is what hides the error.** Five
+  numbers and names in the planning docs were wrong this session (8→20 ITP-titled roles,
+  368→469 documents, the unreproducible "1,420 → 166", "Practitioner"→"Professional",
+  214→79 as the real HR ask). Every one was consistent across two to four documents, and
+  that is precisely why none had been caught: they all derived from a single unchecked
+  source, so agreement between them was a **correlated** failure, not evidence. **Only the
+  archive is a second opinion.**
+- **Ask what the AUDIENCE will look for, not only what the system computes.** The IT
+  collection was correct and complete on its own terms, and would still have failed in
+  front of ITS directors: it lists roles SFU *classifies* as IT, while a director looks for
+  their own department — 45 of their staff were surfaced nowhere. No test could have caught
+  that, because nothing was broken. The question "what will they scan for first?" caught it.
 - **Match on word boundaries, never substrings.** `lan` as a substring matched 1,568 of
   2,493 roles — *plan*, *planning*, *Langara* — and 63% is not obviously absurd when you
   are expecting "bigger than you think". A wrong sweep looks exactly like a finding.
@@ -260,6 +290,25 @@ Distilled from six weeks; the full set is in the archive.
   derived were correct, because they came from the right query and only the document count
   was mis-transcribed. **Re-derive a headline number before saying it out loud**, and keep
   the query next to it.
+- 🔴 **One aggregate can hide a real gap inside an expected one.** "3,653 de-duplicated"
+  is a plausible, comfortable sentence. Split into its buckets it is 1,900 genuine
+  near-duplicates, 549 duplicates of each other, and **1,204 documents with no duplicate
+  link at all that nobody has explained** — 8% of the archive, invisible for as long as it
+  was reported as one number. **Report the buckets, never the total, when the total is a
+  difference.**
+- **`make gates` is not the whole gate.** The HR-register drift check runs only in CI, so a
+  green local suite said nothing about it and `a65e224` failed on a stale generated file.
+  **Run `make register` whenever the register changes**; know which checks live only in CI.
+- **Use the project's own formatter, not a similar one.** `ruff format` reformatted 29
+  unrelated files in a style `black` — the actual gate — then rejected. And an
+  auto-rewrapper for long lines mangled docstrings into orphan fragments. Both had to be
+  reverted, and the second cost more than fixing 33 lines by hand would have.
+- **A watcher must match the signal, not a substring of the output.** A completion check
+  looking for "passed" fired on ruff's *"All checks passed!"* and reported a test result
+  that had not happened yet. Same shape as believing a zero.
+- **In a REVIEW queue, over-inclusion is cheap and under-inclusion is not.** A wrong
+  candidate costs one "no" in the room; a missing one costs the reviewer's confidence in
+  the whole list. Bias a worklist wide — and only a worklist, never a membership rule.
 - **EVERY CLAIM ABOUT THE ARCHIVE MUST BE CHECKED AGAINST THE ARCHIVE.** A sample of the
   newest files is not a sample of the corpus. This rule has caught the Phase 0 census, two
   coders, a reviewer *and* the orchestrator.

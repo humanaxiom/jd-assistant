@@ -70,8 +70,29 @@ family (the ITP filename) is not a redundant convenience — for these nine role
 *only* signal that works. An intersection design would delete the analyst half of the IT
 function, and it would look precise while doing it.
 
-⚠ **Expect this failure again in every family somebody defines.** It has now happened twice
-in the same family, in two different directions, to two different term lists.
+⚠ **Expect this failure again in every family somebody defines.** It has now happened
+**four times** in this one family: the first list missed the **engineers**; this list
+nearly missed the **analysts**; it missed the **leadership** entirely (a Senior Director's
+duties carry no technology nouns — see §2a); and it cannot see anyone whose JD simply does
+not describe the work in those words. **Assume the next rewrite fails somewhere new, and
+validate against a known-good seed every time.**
+
+### 2a. 🔴 Third direction: the sweep cannot see leadership either
+
+Measured 2026-08-27 while building the collection page. **47 roles carry an ITS department
+without the ITP classification, and 45 of them were surfaced nowhere at all** — not
+members, not candidates:
+
+> *Solutions Architect · Director, Infrastructure Services · Senior Director, Application
+> Services · Service Desk Team Lead · Portfolio Manager · Systems Administrator ·
+> PeopleSoft Developer · Research Computing Analyst*
+
+Their duty text describes **coordination, budgets and people**, not technologies, so they
+score below any usable cutoff. No ranking signal could ever have reached them.
+
+**Fix (HR-222, shipped):** a `department` match raises a role as a **candidate**, whatever
+its duty score — the union rule applied to a third signal. Membership is untouched. The
+queue went 72 → 129, with **11 roles visible only because of it**.
 
 ## 3. The ranking is good — and it proves the embedded-IT claim
 

@@ -322,6 +322,82 @@ Harness rules that are about *your* behavior, not the agents':
 - **Verify state against the remote before trusting a handoff document.** Local branches and
   handoff notes lag; `git fetch` + a PR status check costs seconds.
 
+
+---
+
+## 8. Verification traps that survive a green suite
+
+Added 2026-08-28 after a session in which every one of these fired. All are portable —
+none is specific to this project's domain.
+
+### 8a. The gate command is not the whole gate
+
+`make gates` was green locally and CI still failed: the HR-register drift check runs
+**only in CI**. A green local suite said nothing about it.
+
+- **Enumerate what CI runs that the local gate does not**, and put the list in `CLAUDE.md`.
+- Anything generating a committed artifact from a source file needs its regenerate step
+  run in the same commit — here, `make register` after any `decision_register.yaml` edit.
+- The failure mode is worse than a plain red build: the local green makes you *confident*.
+
+### 8b. A watcher must match the signal, not a substring of the output
+
+A background completion check looking for `passed` fired on **ruff's** `All checks
+passed!` and reported a pytest result that had not happened yet.
+
+- Match on something only the real signal emits (`\d+ passed`, an exit code, a sentinel).
+- This is the same shape as believing a zero from a wrong query: the output *looked* like
+  the answer.
+
+### 8c. Use the project's own formatter, never a similar one
+
+`ruff format` reformatted **29 unrelated files** in a style that `black` — the actual
+gate — then rejected. Both had to be reverted.
+
+- Read the gate target before running any formatter. `ruff check --fix` and `ruff format`
+  are different tools; only one of them may be yours.
+- **Never run a repo-wide reformat to fix your own lint errors.** The blast radius is
+  every file, and the diff review cost is real.
+
+### 8d. Automated prose rewrapping is a false economy
+
+A script that rewrapped over-long docstring lines produced orphan fragments —
+`only`, `ARCHIVE,`, `number.` — leaving the prose worse than the lint error.
+
+- Fix a bounded set of long lines by hand. 33 lines is faster than reverting a bad
+  rewrite, and the revert here also clobbered unrelated edits that had to be redone.
+
+### 8e. Internal consistency is not corroboration
+
+Five numbers and names in the planning documents were wrong, each consistent across two
+to four documents. **That consistency is why none was caught**: they all derived from one
+unchecked source, so agreement between them was a *correlated* failure, not evidence.
+
+- **A document is never a second opinion on another document.** Only the source data is.
+- The dangerous case is a number *derived* from a wrong number that is nonetheless
+  right — the derivation looks like verification and is not.
+
+### 8f. One aggregate can hide a real gap inside an expected one
+
+A pipeline reported 3,653 documents lost to de-duplication. Split into buckets: 1,900
+genuine near-duplicates, 549 duplicates of each other, and **1,204 with no duplicate link
+at all that nobody had explained** — 8% of the corpus, invisible while it was one number.
+
+- **When a stage reports a difference, report its buckets, never the total.**
+- Pick the buckets so that one of them is "unaccounted for". If that bucket cannot be
+  computed, the reconciliation is not a reconciliation.
+
+### 8g. Ask what the audience will look for, not only what the system computes
+
+A feature was correct, complete, and would still have failed in front of its users: it
+answered a question adjacent to the one they would ask. No test could catch it, because
+nothing was broken.
+
+- Before shipping a view, name the person who will open it and the **first thing they
+  will scan for**. Then check that it is there.
+- In this instance that question found 45 records the users would have looked for and not
+  found — a defect no amount of testing the built thing would have surfaced.
+
 ---
 
 ## Porting checklist
@@ -339,6 +415,9 @@ Day one in the new project:
 - [ ] Run the four stale-instruction audits (§4) and fix everything they surface
 - [ ] Add mutation hygiene (§5) to every merge-blocking gate agent
 - [ ] Add the contradiction-ownership rule (§6) to the tester agent
+- [ ] List what CI runs that the local gate does NOT (§8a), and put it in `CLAUDE.md`
+- [ ] Identify every committed artifact generated from a source file, and its regenerate step (§8a)
+- [ ] Confirm which formatter the gate actually runs before any agent is told to format (§8c)
 - [ ] Verify the whole thing by running one small real feature end to end through the pipeline
 
 The last item matters most. **These fixes are themselves unverified until an actual feature has
