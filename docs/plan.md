@@ -1,142 +1,85 @@
 # JD Bank — Remaining Work
 
-**Forward-looking only.** Everything built between 2026-07-10 and 2026-08-24 — Phases 0–9
-and A–G — is in
-[`docs/archive/BUILD-RECORD-phases-0-9-A-G.md`](archive/BUILD-RECORD-phases-0-9-A-G.md).
-This file lists what is **actually left**, in the order it should be done.
+**Execution order.** Everything built 2026-07-10 → 08-24 is in
+[`archive/BUILD-RECORD-phases-0-9-A-G.md`](archive/BUILD-RECORD-phases-0-9-A-G.md).
+Rewritten 2026-08-27 to fold in the CIO demo work.
 
-Written 2026-08-24 from the evidence in [`STATUS-2026-08-24.md`](STATUS-2026-08-24.md).
-
----
-
-## The state, in three numbers
-
-**2,489 canonical drafts · 1,292 approvable today · 5 ever published.**
-
-The system is built. It has not been used. **Every item in Part 1 below is worth more
-than every item in Part 2**, and three of the four are not engineering.
+> **Done is measured in PUBLISHED JDs. Today: 5. First milestone: 20. Then 100.**
+> Not carry-through, not scores, not test counts. Evidence:
+> [`STATUS-2026-08-24.md`](STATUS-2026-08-24.md).
 
 ---
 
-# PART 1 — THE CRITICAL PATH
+# TRACK A — THE DEMO (CIO asked for it; it is what gets the pilot booked)
 
-## 1. TLS at the edge 🔴 *(ours, and the only one that is)*
+Detail: [`plans/IT-SUBSET-DEMO-AND-FACETS.md`](plans/IT-SUBSET-DEMO-AND-FACETS.md) ·
+[`plans/FUNCTIONAL-ROLE-TAXONOMY.md`](plans/FUNCTIONAL-ROLE-TAXONOMY.md) ·
+[`plans/SOURCE-ARCHIVE-DASHBOARD.md`](plans/SOURCE-ARCHIVE-DASHBOARD.md)
 
-`sfuai.ca:7000` is a Telus NAT forward to `192.168.1.80:25800` — **plain HTTP on the
-public internet, carrying CAS sign-in cookies.**
+**The story, measured:** *1,420 IT source documents → ~166 harmonized roles (8.5:1), and
+121 of them sit outside central IT.*
 
-- **Why now:** the pilot puts a real SFU HR reviewer on that host. Today it is a demo
-  forward; the moment a reviewer signs in it is a credential exposure.
-- **Done when:** the pilot host serves HTTPS with a valid certificate, HTTP redirects,
-  and the CAS return URL matches.
-- **Blocks:** item 2. Do not schedule the pilot before this lands.
+| # | task | notes | size |
+|---|---|---|---|
+| **A1** | **Answer the duplicate-title question** | 8 of 45 ITP roles are all titled *"Information Technology Professional"*. Genuinely distinct levels, or should they have clustered? **It will be asked in the room.** | 15 min |
+| **A2** | **IT functional family — build and validate** | Duty-term sweep ∪ ITP classification family ∪ title terms. 🔴 **Validate recall against the ITP seed and let it fail** — the first term list missed 38 of 45 because it encoded "IT = desktop support". | small–med |
+| **A3** | **Collection page** | `/jd-bank/ui/library?collection=it` — 166 roles, approvable count, source documents behind each. Reviewed membership list is the authority, not the term list. | small–med |
+| **A4** | **Live funnel panel** | source → parsed → clustered → roles → approvable, filterable, every stage reconciling (the 43 unreadable named, not dropped). | small–med |
+| **A5** | **Facets** | functional family · classification family · form · approvable. **Each shows its own coverage + a `(not stated)` bucket.** | medium |
 
-## 2. The 4.5 human pilot 🔴 *(needs an HR reviewer)*
-
-Named as "the next milestone" on **2026-07-21**. It has not happened.
-
-- **Scope:** ~20 of the 1,292 approvable JDFN drafts, reviewed for real — approve, reject
-  or edit, through the review queue, by someone who writes SFU job descriptions.
-- **Done when:** **20 PUBLISHED JDs** exist, and there is a written list of what the
-  reviewer actually objected to.
-- **Why it outranks everything:** that list is the only evidence we cannot generate
-  ourselves. Every measurement so far has been us marking our own homework.
-- **Prerequisite:** item 1. Nothing else.
-
-## 3. Ratify the two gates that hold CUPE shut 🔴 *(needs HR)*
-
-| gate | CUPE drafts blocked |
-|---|---:|
-| `SFU-APPROVE-QUAL-EQUIVALENT` | **620 of 649 (95.5%)** |
-| `SFU-APPROVE-KSA-ORDER` | **564 of 649 (86.9%)** |
-
-Both are registered, unratified policy decisions — **not defects**. The 1990s Weighted
-Job Questionnaire had no reason to carry an "equivalent combination" clause.
-
-- **Done when:** both carry `decided_by` / `decided_on` / `decision_note` in
-  `decision_register.yaml`, or `applies_to` is narrowed by an HR ruling.
-- **Payoff:** potentially 3 → several hundred approvable CUPE drafts, at **zero GPU cost**
-  — more than every engineering change made in August, combined.
-
-## 4. The HR ratification session *(needs a calendar invitation)*
-
-214 decisions, **0 ratified**.
-[`decisions/HR-DECISION-MATRIX.md`](decisions/HR-DECISION-MATRIX.md) has been HR-ready
-since 2026-08-21 and covers the eight that matter.
-
-- **Done when:** the eight matrix decisions are ruled on and recorded in the register
-  (never a side file — a `ratified` entry without `decided_by`/`decided_on`/
-  `decision_note` fails the rulebook load).
-- **Note:** the matrix does not need another revision. It needs a meeting.
+⚠ **A1–A3 alone are a complete demo.** If time runs short, stop there.
 
 ---
 
-# PART 2 — DEFERRED ENGINEERING
+# TRACK B — THE PILOT (the actual deliverable)
 
-**Real, registered, and none of it changes the published-JD count.** Do not start any of
-this while Part 1 is open. Ordered by value once Part 1 moves.
+| # | task | who | notes |
+|---|---|---|---|
+| **B1** | 🔴 **TLS at the edge** | eng | `sfuai.ca:7000` is plain HTTP carrying CAS cookies. **Any demo or pilot puts a real person on it.** The only critical-path item engineering closes alone. |
+| **B2** | 🔴 **Run the pilot** | needs HR | ~20 of the 1,292 approvable drafts, reviewed for real. **Success = 20 PUBLISHED JDs + the reviewer's written objections.** |
+| **B3** | 🔴 **Ratify two gates** | needs HR | `SFU-APPROVE-QUAL-EQUIVALENT` (blocks 620 CUPE) · `SFU-APPROVE-KSA-ORDER` (564). One ruling beats every engineering change made in August, at zero GPU cost. |
+| **B4** | **Book HR ratification** | needs HR | 214 decisions, 0 ratified. The matrix needs a calendar invitation, not another revision. |
 
-## 2.1 Duty-frequency matching *(design needed, not a patch)*
-
-27.7% retention on rewritten drafts vs **92.3% merge-only**. The naive fix is *measured*
-unsafe: argmax==positional agrees on only 8–26% of duties, and 62.4% share Jaccard < 0.2
-with any merge duty — so both obvious rules attach **wrong** frequencies to a field that
-feeds the CUPE point-factor evaluation. **A wrong frequency is worse than a missing one.**
-Needs a real matching design with evidence. Serves a cohort currently 99.5% blocked by
-Part 1 §3.
-
-## 2.2 JDFN cohort re-measure
-
-`problem_solving` reads **228.2% FABRICATED** (1,084 / 475) — an S-5-class defect on the
-JDFN side, untouched by the CUPE work. A JDFN producer pass would also carry HR-213 and
-HR-214 to that cohort. ⚠ ~44 GPU-hours for the full archive; scope it.
-
-## 2.3 HR-214's compression question *(HR's call, do not pre-empt)*
-
-HR-214 restores a section the rewrite returned **empty**. It deliberately leaves alone one
-returned **thinner** — a merge producing `internal=20` came back `internal=3`. Whether
-that is acceptable editing or content loss is registered `open`. **Do not close it with a
-threshold.**
-
-## 2.4 Phase F — form scoping
-
-Search is JDFN-only in both directions; dashboards report a pre-CUPE world; D3's per-form
-draft evaluation renders nowhere. Backlog:
-[`docs/tasks/phase-f-form-scoping-backlog.md`](tasks/phase-f-form-scoping-backlog.md).
-
-## 2.5 Phase G — remaining rulebook items
-
-- `SFU-GATE-SENIOR-TITLE` is unfalsifiable on the WJQ (needs `relationships.supervisory`,
-  which `parser/wjq.py` never populates by design).
-- `thresholds.wjq.duties_max: 12` is structurally dead.
-- The compose stack has **no `restart:` policy** while every other project on the box does
-  — it does not survive a Docker restart. *(Small, real, and it has cost a run before.)*
-
-## 2.6 Phase 7 — role/duty overlap graph
-
-Neo4j domain overlap graph. Explicitly **not** MVP. Deferred since the original plan.
+**B1 can run in parallel with Track A. B2–B4 are asks, not tasks — make them now.**
 
 ---
 
-# What is finished and must not be reopened
+# TRACK C — DEFERRED
 
-So no session re-litigates settled work:
+Real, registered, and **none of it changes the published-JD count.**
 
-- **Ingest / parse / extract** — 14,522 of 14,565, the 43 individually accounted for.
-- **Dedup + clustering** — Tier 1/2/3, 2,456 clusters.
-- **Two-form split** — JDFN and WJQ, each scored on its own bar (CUPE Phases A–E).
-- **Harmonization** — 4.1 deterministic merge + 4.2a LLM rewrite, anti-fabrication guarded.
-- **The CUPE content chain** — as of 2026-08-23 every WJQ carry-through reads **100%** and
-  fabricated duties are **0**. `PARSER_VERSION` is `jd_segmenter_v5`, re-parsed.
-- **Security / SSO / deployment / navigability** — Phase 9.
-- **JD Builder** (Phase 5) · **Role Library** (Phase 8.1) · **`make bank-audit`** (the
-  carry-through report).
+| item | note |
+|---|---|
+| **Duty-frequency matching** | 27.7% rewritten vs 92.3% merge-only. Naive fix *measured* unsafe. Needs a design. |
+| **`classification` carry-through** | Parsed on 21% of documents, reaches 0% of drafts. Real defect; ⛔ **not on the demo path** — family comes from filenames. |
+| **Document date at ingest** | Not stored; filenames carry it. Unlocks the 1967–2026 era cut. Store as `file_date_from_filename` and **label it derived**. |
+| **Department taxonomy** | 739 strings, 65% singletons, mechanical normalisation collapses only 7.4%. **Demoted to a *filter*** — [`plans/DEPARTMENT-TAXONOMY.md`](plans/DEPARTMENT-TAXONOMY.md). No longer blocked on an org list. |
+| **HR-214 compression question** | Registered `open`. **Do not close with a threshold** — HR's call. |
+| **JDFN `problem_solving`** | 228.2% fabricated (1,084 / 475). Untouched by the CUPE work. |
+| **Retire the static dashboards** | `dashboard_baseline/_clusters/_dedup` read committed JSON. Two sources of truth will disagree. |
+| **Phase F / Phase G / overlap graph** | Unchanged. |
+| ⛔ **No further producer runs** | ~19 GPU-hours each; zero published JDs each. |
 
 ---
 
-## How "done" is measured
+# Rules that apply to all of it
 
-> **Published JDs in the Bank. Today: 5. Next milestone: 20. Then 100.**
+- **Additive only.** No schema change, nothing touching scoring, clustering or the approval
+  bar. If a task starts requiring that, stop — it is restructuring, and it risks the pilot
+  for a demo feature.
+- **Measure before designing** anything with a score, threshold or term list, over the full
+  corpus. Twice the obvious design was undeliverable.
+- **Rank, never threshold.** Role-vector similarity is measured-unreliable here; embeddings
+  may order a review queue, never decide membership.
+- **Registered decisions.** Any non-trivial default is YAML + a register entry in the same
+  PR. The build enforces it.
+- **Honest rendering.** Every facet shows coverage and a `(not stated)` bucket. A view that
+  silently drops rows is the archive-claim error in UI form.
+- **`make gates` green before any commit touching `core/`.**
 
-Not carry-through percentages. Not mean scores. Not test counts. Those measure whether the
-machine works — which it does. They do not measure whether SFU has job descriptions.
+# Finished — do not reopen
+
+Ingest / parse / extract · dedup + clustering · the two-form split · harmonization · the
+CUPE content chain (every WJQ carry-through 100%, fabricated duties 0, `jd_segmenter_v5`) ·
+security / SSO / deployment · JD Builder · Role Library · `make bank-audit` · the pilot fork
++ archive release.

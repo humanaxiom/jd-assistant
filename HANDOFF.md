@@ -62,66 +62,55 @@ GPU-hours moved CUPE approvable **6 → 3**.
 **Done is measured in published JDs. Today: 5. Next: 20. Then 100.**
 Not carry-through, not scores, not test counts.
 
-## ▶ THE CRITICAL PATH
+## ▶ WHAT TO WORK ON — full detail in [`docs/plan.md`](docs/plan.md)
 
-**Items 1–2 are ours. 3–5 need a person at SFU — and the CIO's support is what makes them
-gettable now.**
+**Track A (demo) and B1 (TLS) are ours and can run in parallel. B2–B4 are asks — make them
+today, they have lead time.**
 
-1. 🔴 **TLS at the edge.** `sfuai.ca:7000` is a Telus NAT forward to plain HTTP on the
-   public internet, carrying CAS sign-in cookies. Any demo or pilot puts a real SFU person
-   on that host — **fix before, not after.** Unchanged, still ours alone, and the CIO demo
-   makes it more urgent rather than less.
-2. 🟢 **The IT-subset demo** — [`docs/plans/IT-SUBSET-DEMO-AND-FACETS.md`](docs/plans/IT-SUBSET-DEMO-AND-FACETS.md).
-   Two steps to a showable thing: answer the duplicate-title question (15 min), then the
-   Layer 1 collection page. **No blocking dependency** — the ITP family comes from source
-   filenames today. Everything past that (department map, facets, stats) is product, not
-   demo.
-   ⚠ **Function ≠ department, and this is measured.** IT at SFU is central AND embedded: a
-   duty-text sweep found **121 IT roles in faculties and business units** (Faculty of
-   Science, Beedie, Linguistics, Earth Sciences…), **none in a central IT department**. No
-   org chart gathers a function. The taxonomy is therefore **functional, from duty text** —
-   see [`docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md`](docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md).
-   **This removes the org-list blocker**: the sweep runs on data we already have.
-   ⚠ **The demo needs the SOURCE side visible too** — everything the Bank shows today is
-   post-harmonization. For IT: **1,420 source documents → ~166 roles (8.5:1)**. That funnel
-   is the demo, and the existing archive dashboards are STATIC file-backed snapshots that
-   cannot be filtered. See [`docs/plans/SOURCE-ARCHIVE-DASHBOARD.md`](docs/plans/SOURCE-ARCHIVE-DASHBOARD.md).
-3. 🔴 **The pilot.** ~20 of the 1,292 approvable drafts, in front of a real HR reviewer,
-   approved / rejected / edited for real.
-   **Success = 20 PUBLISHED JDs + a written list of what the reviewer objected to.**
-   That list is worth more than any measurement we can take ourselves.
-4. 🔴 **Ratify two gates:** `SFU-APPROVE-QUAL-EQUIVALENT` and `SFU-APPROVE-KSA-ORDER`.
-   One ruling could move CUPE approvable from 3 to several hundred at **zero GPU cost** —
-   more than every engineering change made in August, combined.
-5. **Book the HR ratification session.**
-   [`docs/decisions/HR-DECISION-MATRIX.md`](docs/decisions/HR-DECISION-MATRIX.md) has
-   been HR-ready since 2026-08-21. It needs a calendar invitation, not another revision.
+### 🟢 TRACK A — the demo
+*1,420 IT source documents → ~166 roles (8.5:1), and 121 sit outside central IT.*
+
+- **A1 — the duplicate-title question (15 min).** 8 of 45 ITP roles are all titled
+  *"Information Technology Professional"*. Distinct levels, or a clustering miss?
+  **It will be asked in the room.** Do this first.
+- **A2 — IT functional family.** Duty-term sweep ∪ ITP family ∪ title terms.
+  🔴 **Validate recall against the ITP seed and let it fail** — the first term list missed
+  38 of 45 because it encoded "IT = desktop support".
+- **A3 — collection page.** The screen the CIO sees. **A1–A3 alone are a complete demo.**
+- **A4 — live funnel panel**, **A5 — facets** (each showing its own coverage).
+
+⚠ **Function ≠ department, and it is measured.** IT is central *and* embedded across a dozen
+faculties. No org chart gathers a function; the taxonomy is functional, from duty text.
+
+⚠ **The archive-side dashboards are STATIC** (committed JSON, not the DB). That is why a
+live one is needed, and why they should be retired rather than run alongside.
+
+### 🔴 TRACK B — the pilot (the actual deliverable)
+
+- **B1 — TLS at the edge.** `sfuai.ca:7000` is plain HTTP carrying CAS cookies. **Any demo
+  or pilot puts a real person on it.** Ours alone; do it before either.
+- **B2 — run the pilot.** ~20 approvable drafts reviewed for real.
+  **Success = 20 PUBLISHED JDs + the reviewer's written objections.**
+- **B3 — ratify two gates.** `SFU-APPROVE-QUAL-EQUIVALENT` (620 CUPE drafts) and
+  `SFU-APPROVE-KSA-ORDER` (564). One ruling beats every engineering change made in August,
+  at zero GPU cost.
+- **B4 — book the HR ratification session.** 214 decisions, 0 ratified.
 
 ## ⛔ NOT NEXT — real, registered, and deliberately deferred
 
-Each is a genuine finding. None changes the published-JD count.
+Each is a genuine finding. **None changes the published-JD count.** Detail and reasoning in
+[`docs/plan.md`](docs/plan.md) Track C.
 
-- **Duty-frequency matching** — 27.7% rewritten vs 92.3% merge-only. The naive fix is
-  *measured* unsafe: the model reorders duties so heavily (62.4% share Jaccard < 0.2 with
-  any merge duty) that both obvious matching rules attach **wrong** frequencies to a
-  field feeding CUPE point-factor evaluation. A wrong frequency is worse than a missing
-  one. Needs a real design — and it serves a cohort that is 99.5% blocked for unrelated
-  reasons.
-- **HR-214's compression question** — registered `open`. A section the model returns
-  *thinner* than the merge is left alone. **Do not close it with a threshold**; it is HR's.
-- **JDFN `problem_solving` at 228.2% FABRICATED** (1,084 / 475) — a real S-5-class defect
-  on the JDFN cohort, untouched by the CUPE work.
-- **`classification` carry-through** — parsed on 21% of documents (3,053 / 14,522), reaches
-  **0%** of drafts. A real content-loss defect, recorded 2026-08-27. ⛔ **Not on the demo
-  path**: the family dimension the facets need (ITP / APSA / APEX / POLY / CUPE) comes from
-  source filenames today. Fix it on its own merits, not as a dependency.
-- **Phase F** (form scoping: search is JDFN-only both ways), **Phase 7** (overlap graph),
-  remaining **Phase G** rulebook items.
+- **Duty-frequency matching** (27.7% vs 92.3% merge-only) — naive fix *measured* unsafe.
+- **`classification` carry-through** — 21% of parses, 0% of drafts. Not on the demo path.
+- **Document date at ingest** — unlocks the 1967–2026 era cut. Label it *derived*.
+- **Department taxonomy** — 739 strings; demoted to a *filter*, no longer org-list blocked.
+- **HR-214 compression question** — **do not close with a threshold**; HR's call.
+- **JDFN `problem_solving`** — 228.2% fabricated (1,084 / 475).
+- **Retire the static dashboards** — two sources of truth will disagree.
+- **Phase F**, **Phase G**, **overlap graph** — unchanged.
 - ⛔ **No further producer runs.** ~19 GPU-hours each; zero published JDs each.
-- ⛔ **`make bank-audit` is not progress.** It measures draft FIDELITY, not DELIVERY. Good
-  tool — it caught two real defects — but it is not the goal.
-
----
+- ⛔ **`make bank-audit` is not progress.** It measures draft FIDELITY, not DELIVERY.
 
 ## ▶ IF YOU ARE STARTING COLD
 
