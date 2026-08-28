@@ -21,7 +21,7 @@ Detail: [`plans/IT-SUBSET-DEMO-AND-FACETS.md`](plans/IT-SUBSET-DEMO-AND-FACETS.m
 
 | # | task | notes | size |
 |---|---|---|---|
-| **A1** | **Answer the duplicate-title question** | 8 of 45 ITP roles are all titled *"Information Technology Professional"*. Genuinely distinct levels, or should they have clustered? **It will be asked in the room.** | 15 min |
+| ✅ **A1** | ~~Answer the duplicate-title question~~ **DONE** | **20** roles (not 8) are titled *"Information Technology Professional"* and they are **distinct** — 15 specialisation × ITP-level cells, 18 of 20 level-homogeneous, a 5-role / 13-document (4.1%) tail whose examined members are real sub-specialisations. **No merge warranted.** Also corrected: ITP 368→**469** docs, APSA 3,351→**3,442**. → [`plans/IT-DUPLICATE-TITLE-ANSWER.md`](plans/IT-DUPLICATE-TITLE-ANSWER.md) | — |
 | **A2** | **IT functional family — build and validate** | Duty-term sweep ∪ ITP classification family ∪ title terms. 🔴 **Validate recall against the ITP seed and let it fail** — the first term list missed 38 of 45 because it encoded "IT = desktop support". | small–med |
 | **A3** | **Collection page** | `/jd-bank/ui/library?collection=it` — 166 roles, approvable count, source documents behind each. Reviewed membership list is the authority, not the term list. | small–med |
 | **A4** | **Live funnel panel** | source → parsed → clustered → roles → approvable, filterable, every stage reconciling (the 43 unreadable named, not dropped). | small–med |
