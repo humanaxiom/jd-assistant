@@ -17,18 +17,23 @@ and it has now been taken.
 
 | | |
 |---|---:|
-| ITP source documents | **368** |
+| ITP source documents | **469** |
 | harmonized IT roles they produce | **45** |
 | of those **approvable right now** | **32 (71%)** |
 
-**368 documents → 45 roles** is the value proposition in one screen, and it needs no new
-work to *show*. Plan: [`docs/plans/IT-SUBSET-DEMO-AND-FACETS.md`](docs/plans/IT-SUBSET-DEMO-AND-FACETS.md)
+**469 documents → 45 roles** (10.4:1) is the value proposition in one screen, and it needs
+no new work to *show*. Plan: [`docs/plans/IT-SUBSET-DEMO-AND-FACETS.md`](docs/plans/IT-SUBSET-DEMO-AND-FACETS.md)
 (design only, no code, deliberately additive — no schema change, nothing touching scoring).
 
-**⚠ Answer this before the demo, not during it:** eight of the 45 roles are all titled
-*"Information Technology Professional"*. Either they are genuinely distinct (levels /
-specialisations under a generic SFU title) or they should have clustered. It is a
-15-minute query, and "we don't know" in the room is the one avoidable outcome.
+**✅ The duplicate-title question is answered** —
+[`docs/plans/IT-DUPLICATE-TITLE-ANSWER.md`](docs/plans/IT-DUPLICATE-TITLE-ANSWER.md).
+**Twenty** roles (not eight) are titled *"Information Technology Professional"*, and they
+are **distinct**: ITP is SFU's generic classification title, and the 20 resolve to **15
+specialisation × ITP-level cells**, 18 of 20 level-homogeneous. No merge warranted.
+
+🔴 **That pass also mis-stated two document counts** — ITP 368→**469**, APSA 3,351→**3,442** —
+while the figures derived from them (45 roles, 32 approvable) were right. **Re-derive a
+headline number before it is said out loud.**
 
 **⚠ The demo is still not the deliverable.** Published JDs are. A compelling showcase that
 produces zero approvals has moved exactly as far as the six weeks before it. **The demo's
@@ -70,9 +75,10 @@ today, they have lead time.**
 ### 🟢 TRACK A — the demo
 *1,420 IT source documents → ~166 roles (8.5:1), and 121 sit outside central IT.*
 
-- **A1 — the duplicate-title question (15 min).** 8 of 45 ITP roles are all titled
-  *"Information Technology Professional"*. Distinct levels, or a clustering miss?
-  **It will be asked in the room.** Do this first.
+- ✅ **A1 — the duplicate-title question. DONE** —
+  [`docs/plans/IT-DUPLICATE-TITLE-ANSWER.md`](docs/plans/IT-DUPLICATE-TITLE-ANSWER.md).
+  **20** roles carry the title (not 8) and they are **distinct** — 15 specialisation ×
+  ITP-level cells, 18 of 20 level-homogeneous, a 4.1% tail. No merge warranted.
 - **A2 — IT functional family.** Duty-term sweep ∪ ITP family ∪ title terms.
   🔴 **Validate recall against the ITP seed and let it fail** — the first term list missed
   38 of 45 because it encoded "IT = desktop support".
@@ -165,6 +171,11 @@ Distilled from six weeks; the full set is in the archive.
   *up*: invented sections, compressed duty lists, dropped point-factor content.
 - **Verify state against the remote before trusting any doc.** `gh pr list` costs seconds;
   a handoff that records intent as outcome is worse than one merely out of date.
+- **A number derived from a wrong number can still be right — and that hides the error.**
+  The IT plan quoted 368 ITP documents; the truth is 469. The 45 roles and 32 approvable it
+  derived were correct, because they came from the right query and only the document count
+  was mis-transcribed. **Re-derive a headline number before saying it out loud**, and keep
+  the query next to it.
 - **EVERY CLAIM ABOUT THE ARCHIVE MUST BE CHECKED AGAINST THE ARCHIVE.** A sample of the
   newest files is not a sample of the corpus. This rule has caught the Phase 0 census, two
   coders, a reviewer *and* the orchestrator.
@@ -177,6 +188,7 @@ Distilled from six weeks; the full set is in the archive.
 |---|---|
 | **The re-evaluation — read first** | [`docs/STATUS-2026-08-24.md`](docs/STATUS-2026-08-24.md) |
 | **The IT demo + facets plan** | [`docs/plans/IT-SUBSET-DEMO-AND-FACETS.md`](docs/plans/IT-SUBSET-DEMO-AND-FACETS.md) |
+| **A1 answered — the duplicate-title question** | [`docs/plans/IT-DUPLICATE-TITLE-ANSWER.md`](docs/plans/IT-DUPLICATE-TITLE-ANSWER.md) |
 | **Functional role taxonomy (the sweep)** | [`docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md`](docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md) |
 | **Source-archive dashboard (the 14,565)** | [`docs/plans/SOURCE-ARCHIVE-DASHBOARD.md`](docs/plans/SOURCE-ARCHIVE-DASHBOARD.md) |
 | Department taxonomy (a *filter*; demoted) | [`docs/plans/DEPARTMENT-TAXONOMY.md`](docs/plans/DEPARTMENT-TAXONOMY.md) |

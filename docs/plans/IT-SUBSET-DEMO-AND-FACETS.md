@@ -16,20 +16,22 @@ SFU's IT job family is **ITP** (Information Technology Practitioner), identifiab
 
 | | |
 |---|---:|
-| ITP source documents in the archive | **368** |
+| ITP source documents in the archive | **469** |
 | harmonized roles they produce | **45** |
 | of those, **approvable right now** | **32 (71%)** |
 | departments they span | 15 |
 
-The compression is the story: **368 documents → 45 roles.** Individual roles absorb 43, 36,
+The compression is the story: **469 documents → 45 roles** (10.4:1). Individual roles absorb 43, 36,
 31, 30, 29 near-identical source JDs each. That is the value proposition in one screen, and
 it is real today — no new work required to *show* it.
 
-⚠ **One thing to resolve before the CIO sees it.** Eight of the 45 roles are all titled
-*"Information Technology Professional"*. Someone will ask why. Either they are genuine
-distinct roles (different levels/specialisations sharing a generic SFU title) or they
-should have clustered together. **Answer this before the demo, not during it** — it is a
-15-minute query, and "we don't know" in the room is the one avoidable outcome.
+✅ **RESOLVED 2026-08-27 — [`IT-DUPLICATE-TITLE-ANSWER.md`](IT-DUPLICATE-TITLE-ANSWER.md).**
+**Twenty** of the 45 roles are titled *"Information Technology Professional"* (this section
+originally said eight — wrong under every cohort definition tested). They are **distinct**:
+ITP is SFU's generic classification title, and the 20 roles resolve to **15 distinct
+specialisation × ITP-level cells**, 18 of 20 level-homogeneous. The 5 roles sharing a cell
+hold 13 of 315 documents (4.1%) and the two examined are real sub-specialisations.
+**No merge warranted; nothing to change before the demo.**
 
 ---
 
@@ -56,7 +58,7 @@ facets actually need — the **family** (ITP / APSA / APEX / POLY / CUPE) — is
 today from source filenames (§1, §4), with no code change and no merge fix:
 
 ```
-ITP 368 · APSA 3,351 · APEX 345 · POLY 49 · CUPE 779   (of 14,565 documents)
+ITP 469 · APSA 3,442 · APEX 345 · POLY 49 · CUPE 779   (of 14,565 documents)
 ```
 
 So this is a **recorded defect to fix on its own merits, later** — worth doing because
@@ -130,8 +132,9 @@ A **named, curated set of roles** — the IT collection is the first one.
   collection is *reviewed*; a facet silently inherits whatever the department string says.
   For a demo, reviewed beats clever.
 
-**Deliverable:** one page showing 45 IT roles, 32 approvable, 368 source documents behind
-them, each role clicking through to the JD and its sources.
+**Deliverable:** one page showing 45 IT roles, 32 approvable, 469 source documents behind
+them (**422** of which sit behind a current draft — show both, not just the larger), each
+role clicking through to the JD and its sources.
 
 ### Layer 2 — facets on the library
 
@@ -162,7 +165,7 @@ new thing is grouping by canonical unit, which Layer 2's map provides.
 
 | # | work | why here | rough size |
 |---|---|---|---|
-| 1 | **Answer the duplicate-title question** | it will be asked in the room | 15 min |
+| 1 | ~~Answer the duplicate-title question~~ ✅ **done** — [`IT-DUPLICATE-TITLE-ANSWER.md`](IT-DUPLICATE-TITLE-ANSWER.md) | it will be asked in the room | — |
 | 2 | **Layer 1 collection** | this *is* the demo — filename family, no dependencies | small–medium |
 | 3 | **Department taxonomy** — [`DEPARTMENT-TAXONOMY.md`](DEPARTMENT-TAXONOMY.md) | 739 strings; blocked on SFU's authoritative org list, which is not engineering | 1–2 days curation, after the list |
 | 4 | **Layer 2 facets** | needs 3 | medium |
@@ -176,7 +179,12 @@ new thing is grouping by canonical unit, which Layer 2's map provides.
 
 ## 6. Risks
 
-- 🔴 **The duplicate-title question** (§1) — unanswered, and it is the obvious question.
+- ✅ ~~**The duplicate-title question** (§1)~~ — answered:
+  [`IT-DUPLICATE-TITLE-ANSWER.md`](IT-DUPLICATE-TITLE-ANSWER.md).
+- 🔴 **Two document counts in this plan's first draft were wrong** (ITP 368→469, APSA
+  3,351→3,442) while the figures derived from them (45 roles, 32 approvable) were right.
+  **Re-derive a headline number before it is said out loud** — §5 of the answer doc has the
+  query.
 - ⚠ **`department` at 72%** — a stakeholder who filters and finds their unit missing
   concludes the system does not have their JDs. Show coverage explicitly.
 - ⚠ **Scope creep dressed as polish.** This plan is *additive*. If it starts requiring
