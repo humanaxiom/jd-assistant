@@ -156,6 +156,54 @@ families:
       - programmer
       - web
 
+    # HR-222 — DEPARTMENT strings that raise a role as a CANDIDATE for review.
+    # ⚠ CANDIDATES ONLY. A department can never confer membership: measured, a unit's
+    # own name matches a fraction of its portfolio, and `School of Computing Science` is
+    # an ACADEMIC unit that looks exactly like ITS to any matcher.
+    # Why it exists: 47 roles carry an ITS department without the ITP classification, and
+    # 45 of them were surfaced nowhere at all — Systems Administrator, Senior Systems
+    # Engineer, PeopleSoft Developer, Research Computing Analyst. The duty sweep scores
+    # them below the queue cutoff, so only this signal finds them.
+    department_terms:
+      # ⚠ EXACT strings, case-insensitive and whitespace-trimmed — NOT prefixes. The
+      # archive writes this unit ~25 different ways, and a loose match would sweep in
+      # `School of Computing Science` (13 roles), an ACADEMIC unit that teaches
+      # computing and is not ITS. Curated from the live Bank 2026-08-27; PROVISIONAL,
+      # and the ITS director sessions are where it gets vetted.
+      - Information Technology
+      - Information Technology Services
+      - Information Technology Services, SFU Vancouver Campus
+      - IT Services
+      - IT Services (ITS) – SFU Surrey Campus
+      - IT Services - Infrastructure
+      - IT Services Infrastructure Services
+      - IT Services – Application Services
+      - IT Services – Audio Visual
+      - IT Services – CaRS Client Services Innovations
+      - IT Services – High Performance Computing
+      - IT Services, Application Services
+      - IT Services, AV Services
+      - IT Services, Client Services
+      - IT Services, Learning and Community Systems
+      - IT Services, Strategic Services
+      - IT Client Services
+      - IT Client Services – AV Services
+      - IT Service Desk (11-8246)
+      - Application Services, IT Services
+      - Application Services, Information Technology Services
+      - Business Solutions, IT Services
+      - Client Services, IT Services
+      - Learning and Community Systems, IT Services
+      - Research Computing, IT Services
+      - Science – IT Services
+      - Enterprise Systems
+      - Enterprise Systems - Application Services
+      - ESPM Enterprise Systems
+      - Academic Computing Services
+      - Advanced Research Computing
+      - Research Computing
+      - Library Systems
+
     # The recall statement this family must publish about itself. Pure copy, so NOT
     # registered and NOT on the decision surface — but REQUIRED by the model. Not
     # decoration: it is the only defence against finding 2 recurring silently in the

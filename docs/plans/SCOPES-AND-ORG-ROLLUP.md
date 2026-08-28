@@ -194,3 +194,80 @@ audience that will know it is wrong.
   is, and the UI must not blur them.
 - ⚠ **A unit page invites "why is my team missing?"** The honest answer is §4.3's coverage
   number, shown before it is asked.
+
+---
+
+## 8. The unit priority list
+
+**Order set by review, 2026-08-27.** One unit end-to-end at a time — the taxonomy plan's
+rule ("do not build ten families at once") applies to units for the same reason.
+
+| # | unit | status | measured today |
+|---|---|---|---|
+| 1 | **ITS** (Information Technology Services) | 🟢 **in flight** — the IT collection ships, and is going to ITS directors for vetting | 45 ITP-classified roles · 451 documents · 32 approvable |
+| 2 | **VPFA** (Finance and Administration) | ⏸ next — **ITS rolls up into it** | naive name filter **2 roles**; portfolio **~55+** |
+| 3 | **Facilities Services** | ⏸ queued | exact name **23 roles**; `%facilit%` **39** across **14 strings**; incl. security/grounds/trades/parking **57** |
+
+⚠ **Facilities shows the boundary problem in its purest form.** 23 → 39 → 57 depending on
+where the unit ends, and **only a human can say where that is**: is Campus Security part of
+Facilities? Parking? Occupational Health & Trades Safety? The *range* is the finding; the
+answer is a curation decision, not a query.
+
+⚠ **And it needs case folding.** `FACILITIES SERVICES` and `Facilities Services` are two
+distinct strings in the Bank today — a concrete instance of
+[`DEPARTMENT-TAXONOMY.md`](DEPARTMENT-TAXONOMY.md)'s measurement that mechanical
+normalisation collapses only 7.4% of the sprawl.
+
+**Nothing about units 2 and 3 changes unit 1.** The IT collection is stable and is what
+goes into the director sessions; VPFA and Facilities are queued behind the org-unit
+resolver, which is still blocked on a human (§6).
+
+---
+
+## 9. 🔴 Before the ITS director sessions — read this
+
+The collection answers **"which roles does SFU *classify* as IT?"** (the ITP code). A
+director asks **"which roles are in *my department*?"** Those are different questions, and
+measured, they barely overlap:
+
+| | |
+|---|---:|
+| roles in the IT collection (ITP-classified) | **45** |
+| …of those, with an ITS-looking department | **10** |
+| …of those, with **no department recorded at all** | **23** |
+| roles with an ITS department that are **not** ITP-classified | **47** |
+| …of those 47, surfaced in the candidate queue | **2** |
+| …of those 47, **surfaced nowhere at all** | 🔴 **45** |
+
+**A director will look for their own staff and not find them.** The 45 invisible roles
+include *Systems Administrator*, *Senior Systems Engineer*, *PeopleSoft Developer*,
+*Research Computing Analyst*, *Technology Coordinator* and *Audio-Visual and Computing
+Support Technician* — titles no one in the room will accept as "not IT".
+
+**Why the queue misses them:** it ranks on duty terms alone, and these score below the
+queue cutoff. It is the same recall failure the sweep already demonstrated twice, in a
+third costume — and the fix is the one the design already prescribes, **union the
+signals**: the candidate queue should also surface roles whose *department* matches the
+unit, as candidates for a human to rule on.
+
+✅ **FIXED 2026-08-27, on approval.** `department_terms` (HR-222, `open`, `hr_informed`)
+raises a role as a **candidate** when it sits in one of the unit's departments, whatever
+its duty score. Measured effect on the live Bank:
+
+| | before | after |
+|---|---:|---:|
+| collection members | 45 | **45 (unchanged)** |
+| approvable | 32 | **32 (unchanged)** |
+| candidates in the queue | 72 | **129** |
+| …in an IT department | — | 63 |
+| …visible ONLY because of the department signal | — | **11** |
+
+Those 11 are the ones that matter in the room: *Solutions Architect*, *Director,
+Infrastructure Services*, *Senior Director, Application Services*, *Service Desk Team
+Lead*, *Portfolio Manager* — leadership and coordination roles whose duty text carries no
+technology vocabulary at all, so no ranking signal could ever have found them.
+
+⚠ **The alias list is EXACT-match and PROVISIONAL.** The archive writes this one unit ~25
+ways, and a looser match would sweep in `School of Computing Science` (13 roles), an
+academic unit that is not ITS. 33 strings are curated from the live Bank; **the director
+sessions are where that list gets vetted**, and a correction is one line.

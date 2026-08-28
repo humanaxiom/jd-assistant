@@ -42,7 +42,9 @@
     and the decision is recorded in the rulebook.
   </p>
   <p class="meta">
-    Ordered by how many distinct family terms each role's text contains. That count is
+    Ordered by how many distinct family terms each role's text contains, and a role in one
+    of the function's own <strong>departments</strong> is listed whatever it scores — 45 real
+    IT roles reach this list that way and no other. The counts are
     shown so you can see why a row surfaced — <strong>it is not a confidence and not a
     percentage</strong>. Measured against the roles SFU's own classification already
     calls IT, no cut-off of this score is both accurate and complete, which is why it
@@ -68,7 +70,16 @@
            honest rendering; a blank cell reads as "this role has no home". #}
         <td>{{ candidate.department or "(not stated)" }}</td>
         <td>{{ candidate.source_count }}</td>
-        <td>{{ candidate.matches }} <span class="meta">({{ candidate.duty_matches }} in duties, {{ candidate.title_matches }} in title)</span></td>
+        <td>
+          {% if candidate.matches %}{{ candidate.matches }}{% else %}—{% endif %}
+          <span class="meta">
+            {% if candidate.matches %}({{ candidate.duty_matches }} in duties, {{ candidate.title_matches }} in title){% endif %}
+            {# Said plainly: a role can reach this list on its DEPARTMENT alone, and 45
+               real IT roles do. Hiding that would make a zero-score row look like noise
+               when it is the strongest kind of candidate there is. #}
+            {% if candidate.department_match %}<br><strong>in an IT department</strong>{% endif %}
+          </span>
+        </td>
         <td>{{ candidate.status }}</td>
         <td><a href="/jd-bank/ui/role/{{ candidate.cluster_id }}">Open →</a></td>
       </tr>

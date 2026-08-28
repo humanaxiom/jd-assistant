@@ -2,7 +2,7 @@
 
 The answer to "where is the actual content?": read-only pages that render archive
 source JDs and harmonized roles as readable text, so HR can *read* a JD rather than only
-see a filename, a count, or a dashboard. Five surfaces:
+see a filename, a count, or a dashboard. Six surfaces:
 
 * ``GET /jd-bank/ui/library`` — browse/search the harmonized roles (the primary unit).
 * ``GET /jd-bank/ui/role/{cluster_id}`` — one role: its canonical content + the source
@@ -12,6 +12,8 @@ see a filename, a count, or a dashboard. Five surfaces:
 * ``GET /jd-bank/ui/collection/{slug}`` — one functional family (Phase A2): its roles,
   the compression behind them, and — under ``?queue=1`` — the ranked candidates a human
   has yet to rule on.
+* ``GET /jd-bank/ui/funnel`` — the LIVE archive → published funnel + facets
+  (Phase A4/A5), for a scope (``?scope=it``) or the whole Bank.
 
 **Read-only (NN #1).** Every handler calls exactly one :mod:`src.jd_bank.library` read
 function and renders it — nothing here mutates a row, publishes, or overrides a gate.
@@ -34,6 +36,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.deps import may_review
 from src.api.main import get_session
 from src.jd_bank.library import (
+    build_facets,
+    build_funnel,
     collection_stats,
     family_for,
     get_role,
@@ -42,6 +46,7 @@ from src.jd_bank.library import (
     list_source_jds,
     rank_candidates,
     resolve_members,
+    scope_for,
 )
 
 router: APIRouter = APIRouter(prefix="/jd-bank/ui")
@@ -210,5 +215,41 @@ async def collection_view(
             "pagination": _pagination(
                 total=page.total, limit=page.limit, offset=page.offset, q=page.q
             ),
+        },
+    )
+
+
+@router.get("/funnel", response_class=HTMLResponse)
+async def funnel_view(
+    request: Request,
+    scope: str | None = None,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """The LIVE archive → published funnel and facets for a scope (Phase A4/A5).
+
+    Read from the database at request time. Every other archive-side dashboard renders a
+    committed JSON artifact written by a batch run, which is why they drift the moment
+    anything is reprocessed — two sources of truth that disagree, and the wrong one gets
+    quoted.
+
+    The ``scope`` query parameter selects the set of roles; absent means the whole Bank.
+    An unknown scope is a 404 rather than a silent fallback, because a mistyped scope
+    showing all 2,493 roles under a unit's name is worse than an error page.
+    """
+    resolved = await scope_for(session, scope)
+    if resolved is None:
+        return templates.TemplateResponse(
+            request,
+            "library_not_found.html",
+            {"what": "scope", "id": scope},
+            status_code=404,
+        )
+    return templates.TemplateResponse(
+        request,
+        "funnel.html",
+        {
+            "funnel": await build_funnel(session, resolved),
+            "facets": await build_facets(session, resolved),
+            "scope": resolved,
         },
     )

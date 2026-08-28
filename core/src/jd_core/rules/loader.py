@@ -1606,6 +1606,17 @@ class FunctionalFamily(BaseModel):
     duty_terms: tuple[str, ...] = ()
     #: Title terms, word-boundary matched. **Ordering only.**
     title_terms: tuple[str, ...] = ()
+    #: DEPARTMENT strings that raise a role as a CANDIDATE — never as a member.
+    #:
+    #: Measured before this existed: 47 roles carried an ITS department without the ITP
+    #: classification and 45 of them were surfaced nowhere at all, including *Systems
+    #: Administrator* and *PeopleSoft Developer*. The duty sweep could not see them.
+    #:
+    #: ⚠ It cannot confer membership, for the reason the department taxonomy was
+    #: demoted:
+    #: a unit's own name matches a fraction of its portfolio (VPFA: 2 against ~55+), and
+    #: ``School of Computing Science`` looks exactly like ITS to any matcher.
+    department_terms: tuple[str, ...] = ()
     #: What this family must publish about its own recall. Pure copy, and NOT on the
     #: decision surface — but required, because a family that does not state how it
     #: under-recalls is the failure this whole file exists to stop recurring.
@@ -3936,6 +3947,7 @@ def decision_surface(rules: Rules) -> frozenset[str]:
             f"functional_families.{key}.exclude",
             f"functional_families.{key}.duty_terms",
             f"functional_families.{key}.title_terms",
+            f"functional_families.{key}.department_terms",
         }
     return frozenset(paths)
 

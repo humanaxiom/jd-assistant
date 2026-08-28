@@ -20,8 +20,13 @@ from fastapi.testclient import TestClient
 from src.api.main import app, get_session
 from src.api.routes import library as library_route
 from src.jd_bank.library import (
+    WHOLE_BANK,
     CollectionStats,
+    Facet,
+    FacetBucket,
     FamilyCandidate,
+    Funnel,
+    FunnelStage,
     MemberJD,
     RoleListItem,
     RolePage,
@@ -482,3 +487,86 @@ def test_queue_names_an_unstated_department_rather_than_leaving_it_blank(
     )
     response = make_client().get("/jd-bank/ui/collection/it?queue=1")
     assert "(not stated)" in response.text
+
+
+# --- the live funnel + facets (Phase A4/A5) -------------------------------------------
+
+
+def _funnel() -> Funnel:
+    return Funnel(
+        scope_key="all",
+        scope_label="The whole Bank",
+        stages=(
+            FunnelStage(key="documents", label="Source documents", count=14565, lost=0),
+            FunnelStage(
+                key="parsed",
+                label="Readable",
+                count=14522,
+                lost=43,
+                note="43 could not be read at all.",
+            ),
+            FunnelStage(key="roles", label="Harmonized roles", count=2493, lost=0),
+        ),
+    )
+
+
+def _facet(**update: object) -> Facet:
+    base: dict[str, object] = {
+        "key": "department",
+        "label": "Department",
+        "buckets": (FacetBucket(value="Financial Services", count=8),),
+        "other": 3,
+        "not_stated": 692,
+        "total": 2493,
+        "note": "Raw strings, NOT an org rollup.",
+    }
+    return Facet(**{**base, **update})
+
+
+def test_funnel_page_names_what_each_stage_lost(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A funnel that shows only counts lets a real gap hide inside an expected one."""
+    monkeypatch.setattr(library_route, "scope_for", AsyncMock(return_value=WHOLE_BANK))
+    monkeypatch.setattr(
+        library_route, "build_funnel", AsyncMock(return_value=_funnel())
+    )
+    monkeypatch.setattr(library_route, "build_facets", AsyncMock(return_value=()))
+    response = make_client().get("/jd-bank/ui/funnel")
+
+    assert response.status_code == 200
+    body = response.text
+    assert "14,565" in body and "14,522" in body
+    assert "43 could not be read at all." in body
+    assert "−43" in body, "the loss at each stage is shown, not just the survivors"
+
+
+def test_funnel_facet_shows_coverage_and_the_not_stated_bucket(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A facet that silently drops the roles it has no value for is the archive-claim
+    error in UI form."""
+    monkeypatch.setattr(library_route, "scope_for", AsyncMock(return_value=WHOLE_BANK))
+    monkeypatch.setattr(
+        library_route, "build_funnel", AsyncMock(return_value=_funnel())
+    )
+    monkeypatch.setattr(
+        library_route, "build_facets", AsyncMock(return_value=(_facet(),))
+    )
+    response = make_client().get("/jd-bank/ui/funnel")
+
+    body = response.text
+    assert "692" in body, "the not-stated bucket is shown, never folded away"
+    assert "(not stated)" in body
+    assert "72.2%" in body, "the facet states its own coverage"
+    assert "NOT an org rollup" in body
+
+
+def test_unknown_scope_is_a_404_not_the_whole_bank(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """⚠ A mistyped scope rendering all 2,493 roles under a unit's name is worse than an
+    error page."""
+    monkeypatch.setattr(library_route, "scope_for", AsyncMock(return_value=None))
+    response = make_client().get("/jd-bank/ui/funnel?scope=nope")
+    assert response.status_code == 404

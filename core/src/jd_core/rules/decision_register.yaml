@@ -6925,6 +6925,75 @@ decisions:
       reviewer's worklist. The same word-boundary caution as HR-219 applies.
     status: open
 
+
+  - id: HR-222
+    question: >-
+      Should a job description sitting in one of a unit's departments be put in front of a
+      reviewer as a possible member of that job family, even when its duties never mention
+      the family's vocabulary?
+    config:
+      file: functional_families.yaml
+      path: functional_families.information_technology.department_terms
+    current_default:
+      - "Information Technology"
+      - "Information Technology Services"
+      - "Information Technology Services, SFU Vancouver Campus"
+      - "IT Services"
+      - "IT Services (ITS) – SFU Surrey Campus"
+      - "IT Services - Infrastructure"
+      - "IT Services Infrastructure Services"
+      - "IT Services – Application Services"
+      - "IT Services – Audio Visual"
+      - "IT Services – CaRS Client Services Innovations"
+      - "IT Services – High Performance Computing"
+      - "IT Services, Application Services"
+      - "IT Services, AV Services"
+      - "IT Services, Client Services"
+      - "IT Services, Learning and Community Systems"
+      - "IT Services, Strategic Services"
+      - "IT Client Services"
+      - "IT Client Services – AV Services"
+      - "IT Service Desk (11-8246)"
+      - "Application Services, IT Services"
+      - "Application Services, Information Technology Services"
+      - "Business Solutions, IT Services"
+      - "Client Services, IT Services"
+      - "Learning and Community Systems, IT Services"
+      - "Research Computing, IT Services"
+      - "Science – IT Services"
+      - "Enterprise Systems"
+      - "Enterprise Systems - Application Services"
+      - "ESPM Enterprise Systems"
+      - "Academic Computing Services"
+      - "Advanced Research Computing"
+      - "Research Computing"
+      - "Library Systems"
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Without this list a whole population of real IT staff is invisible, and the
+      measurement is blunt. Forty-seven job descriptions record an IT department but do not
+      carry SFU's ITP classification, and forty-five of them appeared NOWHERE — not in the
+      IT collection, and not even in the list of possible members a reviewer is offered.
+      Among them are Systems Administrator, Senior Systems Engineer, PeopleSoft Developer,
+      Research Computing Analyst and Audio-Visual and Computing Support Technician: roles
+      nobody would accept as "not IT". They were missed because the only signal in use read
+      the DUTIES, and these particular descriptions are written in language that scores too
+      low to reach the list. This adds a second, independent way in. It matters most in the
+      room: an IT director reviewing their own function and not finding their own staff
+      concludes, reasonably, that the system does not have them.
+    impact_if_changed: >-
+      Does NOT move `rules_version`, and — the important part — does NOT decide who is in
+      the family. A department match puts a role on a reviewer's list of QUESTIONS; a human
+      still rules on it, and that ruling is recorded under HR-217 or HR-218. It cannot be
+      allowed to confer membership, because a unit's own name matches only a fraction of
+      its people (for Finance and Administration, two job descriptions against a portfolio
+      of roughly fifty-five), and because "School of Computing Science" is an ACADEMIC
+      department that looks identical to IT Services to any automatic matcher. Adding a
+      department here lengthens a worklist. Removing one hides those roles from review
+      again.
+    status: open
+
 trivial:
   # --- archive baseline: presentation ------------------------------------------
   - config: {file: segmentation.yaml, path: segmentation.score_histogram_bin}
