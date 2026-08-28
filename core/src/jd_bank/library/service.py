@@ -15,7 +15,7 @@ fresh gate decision (that is the review packet's job).
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from typing import Any
 from uuid import UUID
 
@@ -260,11 +260,20 @@ async def list_roles(
     offset: int = 0,
     sort: str = "title",
     direction: str = "asc",
+    cluster_ids: Collection[UUID] | None = None,
 ) -> RolePage:
     """A page of harmonized roles (one per cluster, the current version), optionally
     filtered by a title substring and sorted by a clickable column (``sort`` in
     :data:`_ROLE_SORTS`, ``direction`` asc/desc — anything else falls back to title
-    asc). ``total`` is the pre-pagination count for the "showing N–M of TOTAL" line."""
+    asc). ``total`` is the pre-pagination count for the "showing N–M of TOTAL" line.
+
+    ``cluster_ids`` narrows the page to a named set of roles — the resolved membership
+    of a functional family (Phase A2), so a collection page reuses this one query
+    rather than growing a parallel one that could sort or paginate differently. An
+    EMPTY collection returns an empty page, never the whole library: the difference
+    matters, because the wrong direction here shows a stakeholder the entire archive
+    under their own unit's name.
+    """
     limit = _clamp_limit(limit)
     offset = max(0, offset)
     query = q.strip()
@@ -280,6 +289,8 @@ async def list_roles(
     base = select(CanonicalJD).join(latest_ids, CanonicalJD.id == latest_ids.c.id)
     if query:
         base = base.where(CanonicalJD.content["title"].astext.ilike(f"%{query}%"))
+    if cluster_ids is not None:
+        base = base.where(CanonicalJD.cluster_id.in_(list(cluster_ids)))
     total = await session.scalar(select(func.count()).select_from(base.subquery())) or 0
     column = _ROLE_SORTS[sort_key]
     ordering = (column.desc() if descending else column.asc()).nulls_last()

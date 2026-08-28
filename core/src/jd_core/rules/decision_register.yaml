@@ -6708,6 +6708,223 @@ decisions:
 #   * not a decision at all (presentation, or definitional given something else);
 #   * decided elsewhere — `covered_by` names the entry that pins it (validated).
 # ═════════════════════════════════════════════════════════════════════════════
+
+  - id: HR-215
+    question: >-
+      When we offer a reviewer a ranked list of "roles that might belong to this job
+      family", how far down the list should we go before stopping?
+    config:
+      file: functional_families.yaml
+      path: functional_families.review_queue_min_score
+    current_default: 7
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      This decides the LENGTH OF A REVIEWER'S WORKLIST and nothing else. It is emphatically
+      NOT a test of whether a role belongs to a family, and the measurement is the reason
+      the distinction is written into the rulebook rather than left to good intentions.
+      Scoring every role by how many distinct IT terms its duties contain, and checking the
+      result against the 45 roles SFU's own ITP classification already calls IT: keeping
+      98% of them requires returning 1,141 roles, which is 46% of the entire archive, while
+      trimming to a plausible-looking couple of hundred keeps only 48.9% of them. There is
+      no cut point that is both accurate and complete. At the value shipped here the sweep
+      would find just 17.8% of the known-IT roles — so if this number were ever used to
+      decide family membership it would silently discard three of every four roles the
+      university itself classifies as IT. It is used only to order and truncate a list a
+      human then works through. 7 was chosen because it yields about 60 roles to review,
+      which is one sitting's work, and because it contains every role in the measurement's
+      top table.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (functional_families.yaml is unhashed) and does NOT
+      change who is in any family — the membership resolver never reads this value.
+      Lowering it gives a reviewer a longer worklist with more weak candidates; raising it
+      gives a shorter one and risks never showing a genuine family member at all. Nothing
+      published, scored, graded or approved moves either way.
+    status: open
+
+  - id: HR-216
+    question: >-
+      Which of SFU's own job families should be treated as authoritative evidence that a
+      role belongs to the Information Technology function?
+    config:
+      file: functional_families.yaml
+      path: functional_families.information_technology.classification_families
+    current_default: [ITP]
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      This is the ONLY signal that actually decides who is in the IT family, and it defers
+      to SFU rather than to us: ITP (Information Technology Practitioner) is the
+      university's own IT job family, and it is recorded in the source document filenames.
+      It gathers 469 archive documents into 45 harmonized roles, 32 of which pass every
+      gate today. The measurement showed why it cannot be replaced by reading duty text.
+      Nine IT roles — Business Analyst, Business Systems Analyst, Information Technology
+      Business Analyst, Information Security Analyst and others — score 0 or 1 on the
+      duty-term sweep, because an analyst writes about processes, requirements and
+      stakeholders rather than about servers and operating systems. For those roles SFU's
+      classification is the only thing that finds them at all. The evidence is therefore
+      UNIONED, never intersected: requiring both signals would delete the analyst half of
+      the IT function while looking more precise for doing it.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Changes WHO IS IN the IT collection, which is what a
+      stakeholder browsing "the IT roles" sees. It changes no JD's content, score, grade or
+      approval state, and it can never publish anything. Emptying it would leave the family
+      with only whatever a human has explicitly listed under HR-217.
+    status: open
+
+  - id: HR-217
+    question: >-
+      Should a person be able to add a role to a job family by hand when our signals miss
+      it, and which roles have been added that way?
+    config:
+      file: functional_families.yaml
+      path: functional_families.information_technology.include
+    current_default: []
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      IT at SFU is not confined to the IT department. The measured evidence is direct: the
+      strongest candidates outside the ITP family sit in Library Systems, Linguistics,
+      Facilities Management, the Faculty of Science, Mechatronics, Computing Science, Earth
+      Sciences, Beedie, Education and Health Sciences — and not one of them is in a central
+      IT unit. No org chart gathers a function. This list is how a reviewer records the
+      judgement that one of those roles is genuinely IT, and it is a list of decisions
+      rather than a computation on purpose: the sweep can rank candidates but it was
+      measured to be incapable of deciding them. It ships EMPTY because nobody has done the
+      review yet, and pre-filling it from a score would be exactly the automatic assignment
+      the measurement rules out.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Adds named roles to what the IT collection shows.
+      Nothing is scored, graded, approved or published as a result. An entry that names a
+      cluster which no longer exists is inert rather than an error — the resolver reports
+      the roles it can find.
+    status: open
+
+  - id: HR-218
+    question: >-
+      Should a person be able to remove a role from a job family when our signals wrongly
+      include it, and which roles have been removed that way?
+    config:
+      file: functional_families.yaml
+      path: functional_families.information_technology.exclude
+    current_default: []
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The counterpart to HR-217, and the reason a mis-sorted role is fixed by editing one
+      line rather than by re-tuning a word list and re-running everything downstream. A
+      recorded rejection is evidence in its own right: it tells the next person that a
+      candidate was considered and declined, rather than never seen. The measurement
+      produced a concrete example of what belongs here — a Research Technician in the
+      Faculty of Arts and Social Sciences ranks as highly as genuine IT roles on duty text
+      alone, and is very likely not IT. It ships EMPTY for the same reason as HR-217: the
+      review has not happened.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Removes named roles from what the IT collection shows,
+      and takes precedence over every other signal including HR-216 — which is deliberate,
+      so a human ruling always beats a rule. Nothing is scored, graded, approved, published
+      or deleted; the role itself is untouched and stays in the library.
+    status: open
+
+  - id: HR-219
+    question: >-
+      Which words in a job description's duties should make it rank higher on a reviewer's
+      "might be IT" worklist?
+    config:
+      file: functional_families.yaml
+      path: functional_families.information_technology.duty_terms
+    current_default:
+      - "network"
+      - "servers?"
+      - "hardware"
+      - "software"
+      - "troubleshooting"
+      - "troubleshoot"
+      - "operating systems?"
+      - "architecture"
+      - "identity management"
+      - "application development"
+      - "data centre"
+      - "databases?"
+      - "systems analyst"
+      - "programming"
+      - "programmer"
+      - "cybersecurity"
+      - "information security"
+      - "help ?desk"
+      - "workstations?"
+      - "lan"
+      - "wan"
+      - "firewall"
+      - "virtualization"
+      - "api"
+      - "sql"
+      - "linux"
+      - "unix"
+      - "active directory"
+      - "technical support"
+      - "web application"
+      - "middleware"
+      - "information technology"
+      - "computing"
+      - "desktop"
+      - "encryption"
+      - "scripting"
+      - "debugging"
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A word list like this is a HYPOTHESIS about what a job family looks like, and it will
+      be shaped by whoever writes it. That is not a worry, it is a measured fact about this
+      exact list, twice over. The first version encoded one person's mental model of IT as
+      desktop support and missed 38 of the 45 roles SFU classifies as IT — every architect
+      and engineer among them. This corrected version reaches 98% of them, but it nearly
+      misses the opposite group: the ANALYSTS, who describe processes rather than
+      technologies. Both failures were invisible until the list was checked against a
+      known-good set of roles. That is why it is registered, why it can only ORDER a
+      worklist rather than decide membership, and why any change to it must be re-checked
+      against SFU's ITP roles rather than judged by reading it.
+    impact_if_changed: >-
+      Does NOT move `rules_version` and does NOT change who is in any family. It reorders
+      and lengthens or shortens a reviewer's worklist. One caution is technical and was
+      learned the hard way: these terms are matched on WORD BOUNDARIES. Matched loosely as
+      fragments, the three-letter term `lan` also matches "plan", "planning" and "Langara",
+      and pulls in 1,568 of 2,493 roles — 63% of the corpus from a single term, which does
+      not look absurd when you are already expecting IT to be bigger than the org chart
+      suggests. A short term added here is safe only because of that boundary rule.
+    status: open
+
+  - id: HR-220
+    question: >-
+      Which words in a job TITLE should make it rank higher on a reviewer's "might be IT"
+      worklist?
+    config:
+      file: functional_families.yaml
+      path: functional_families.information_technology.title_terms
+    current_default:
+      - "systems analyst"
+      - "network"
+      - "computer"
+      - "technical support"
+      - "developer"
+      - "information technology"
+      - "programmer"
+      - "web"
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Titles are fast to read and unreliable on their own, which is why they only
+      contribute to the ordering of a worklist alongside HR-219. "Technical Support
+      Specialist" is IT; "Research Technician" may or may not be, and the measurement
+      caught precisely that title as the sweep's one clear false positive. A separate knob
+      from the duty terms because a title is different evidence from a duty statement:
+      changing what we believe about titles should not silently change what we believe
+      about duties.
+    impact_if_changed: >-
+      Does NOT move `rules_version` and does NOT change who is in any family. It reorders a
+      reviewer's worklist. The same word-boundary caution as HR-219 applies.
+    status: open
+
 trivial:
   # --- archive baseline: presentation ------------------------------------------
   - config: {file: segmentation.yaml, path: segmentation.score_histogram_bin}

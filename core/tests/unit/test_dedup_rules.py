@@ -87,6 +87,8 @@ def test_dedup_is_the_fourth_unhashed_file(rules: Rules) -> None:
         "rewrite.yaml",
         # Phase 4.2b added a seventh: the LLM quality-audit pass's knobs.
         "quality.yaml",
+        # Phase A2 added an eighth: which roles a named FUNCTION gathers, for browsing.
+        "functional_families.yaml",
     }
     assert "dedup" not in loader._HASHED_FIELDS
 

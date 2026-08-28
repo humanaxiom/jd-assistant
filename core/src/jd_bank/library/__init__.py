@@ -7,7 +7,17 @@ see filenames, counts, and dashboards. Everything here is read-only (NN #1).
 
 from __future__ import annotations
 
+from src.jd_bank.library.families import (
+    MAX_CANDIDATES,
+    collection_stats,
+    family_for,
+    rank_candidates,
+    resolve_members,
+    score_text,
+)
 from src.jd_bank.library.models import (
+    CollectionStats,
+    FamilyCandidate,
     MemberJD,
     RoleListItem,
     RolePage,
@@ -27,6 +37,9 @@ from src.jd_bank.library.service import (
 
 __all__ = [
     "DEFAULT_PAGE_SIZE",
+    "MAX_CANDIDATES",
+    "CollectionStats",
+    "FamilyCandidate",
     "MemberJD",
     "RoleListItem",
     "RolePage",
@@ -35,8 +48,13 @@ __all__ = [
     "SourceJDView",
     "SourceListItem",
     "SourcePage",
+    "collection_stats",
+    "family_for",
     "get_role",
     "get_source_jd",
     "list_roles",
     "list_source_jds",
+    "rank_candidates",
+    "resolve_members",
+    "score_text",
 ]

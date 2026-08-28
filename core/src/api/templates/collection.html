@@ -1,0 +1,136 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — {{ stats.label }}{% endblock %}
+{% block header %}🏦 JD Bank — {{ stats.label }}{% endblock %}
+{% block content %}
+
+{# The compression IS the claim, so the two numbers are shown together and in that
+   order. A document count on its own reads as loss ("why so few?") rather than as
+   harmonization, and a role count on its own hides the work. #}
+<div class="panel">
+  <h2>{{ stats.source_documents }} source documents → {{ stats.roles }} harmonized roles</h2>
+  <p>
+    The SFU archive holds <strong>{{ stats.source_documents }}</strong> job description
+    documents for this function. The Bank has distilled them into
+    <strong>{{ stats.roles }}</strong> roles{% if stats.roles %} — about
+    {{ (stats.source_documents / stats.roles) | round(1) }} documents per role{% endif %}.
+    <strong>{{ stats.approvable }}</strong> of those
+    pass every rulebook gate today and could go to a reviewer now.
+  </p>
+  <p class="meta">
+    Every role below opens to its harmonized text and the source JDs behind it, so the
+    compression can be checked rather than taken on trust. The document count is the
+    documents actually behind these roles — not every file in the archive that carries
+    the classification code, some of which no current role draws on.
+  </p>
+</div>
+
+{# NOT decoration. A family that does not state how it under-recalls is the exact
+   failure this taxonomy has already committed twice: the first IT term list missed
+   every engineer, the corrected one nearly misses every analyst, and neither was
+   visible until checked against a known-good set of roles. #}
+<div class="panel">
+  <h3>How this collection is assembled</h3>
+  <p>{{ stats.recall_note }}</p>
+</div>
+
+{% if showing_queue %}
+<div class="panel">
+  <h2>Candidates for review — {{ candidates | length }}</h2>
+  <p>
+    Roles that are <strong>not</strong> in this collection but use its vocabulary. These
+    are <strong>questions, not members</strong>: a person confirms or rejects each one,
+    and the decision is recorded in the rulebook.
+  </p>
+  <p class="meta">
+    Ordered by how many distinct family terms each role's text contains. That count is
+    shown so you can see why a row surfaced — <strong>it is not a confidence and not a
+    percentage</strong>. Measured against the roles SFU's own classification already
+    calls IT, no cut-off of this score is both accurate and complete, which is why it
+    ranks a worklist and never decides membership.
+  </p>
+  {% if candidates %}
+  <table>
+    <thead>
+      <tr>
+        <th>Role</th>
+        <th>Department</th>
+        <th>Sources</th>
+        <th>Terms matched</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for candidate in candidates %}
+      <tr>
+        <td><a href="/jd-bank/ui/role/{{ candidate.cluster_id }}">{{ candidate.title }}</a></td>
+        {# Department is known for roughly 72% of roles. Saying "not stated" is the
+           honest rendering; a blank cell reads as "this role has no home". #}
+        <td>{{ candidate.department or "(not stated)" }}</td>
+        <td>{{ candidate.source_count }}</td>
+        <td>{{ candidate.matches }} <span class="meta">({{ candidate.duty_matches }} in duties, {{ candidate.title_matches }} in title)</span></td>
+        <td>{{ candidate.status }}</td>
+        <td><a href="/jd-bank/ui/role/{{ candidate.cluster_id }}">Open →</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No candidates above the review-queue cut-off.</p>
+  {% endif %}
+  <p class="meta"><a href="/jd-bank/ui/collection/{{ stats.slug }}">← Back to the {{ stats.roles }} roles in this collection</a></p>
+</div>
+
+{% else %}
+<div class="panel">
+  <h2>Roles in this collection</h2>
+  {% if page.items %}
+  <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }} · click a column heading to sort</p>
+  {% macro sorth(key, label) -%}
+    {%- set active = (page.sort == key) -%}
+    {%- set next_dir = 'desc' if (active and page.direction == 'asc') else 'asc' -%}
+    <th><a href="/jd-bank/ui/collection/{{ stats.slug }}?sort={{ key }}&amp;dir={{ next_dir }}&amp;limit={{ page.limit }}">{{ label }}{% if active %} {{ '▲' if page.direction == 'asc' else '▼' }}{% endif %}</a></th>
+  {%- endmacro %}
+  <table>
+    <thead>
+      <tr>
+        {{ sorth('title', 'Role') }}
+        {{ sorth('sources', 'Sources') }}
+        {{ sorth('score', 'Score') }}
+        {{ sorth('grade', 'Quality') }}
+        {{ sorth('status', 'Status') }}
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in page.items %}
+      <tr>
+        <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">{{ item.title }}</a></td>
+        <td>{{ item.source_count }}</td>
+        <td>{{ "%.1f"|format(item.score) if item.score is not none else "—" }}</td>
+        <td>{{ item.grade or "—" }}</td>
+        <td>{{ item.status }}</td>
+        <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">Open →</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="meta">
+    {% if pagination.prev_offset is not none %}
+    <a href="/jd-bank/ui/collection/{{ stats.slug }}?sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.prev_offset }}&amp;limit={{ pagination.limit }}">← Prev</a>
+    {% endif %}
+    {% if pagination.next_offset is not none %}
+    <a href="/jd-bank/ui/collection/{{ stats.slug }}?sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.next_offset }}&amp;limit={{ pagination.limit }}">Next →</a>
+    {% endif %}
+  </p>
+  {% else %}
+  <p>No roles in this collection yet.</p>
+  {% endif %}
+  <p class="meta">
+    <a href="/jd-bank/ui/collection/{{ stats.slug }}?queue=1">Review candidates for this collection →</a>
+    · <a href="/jd-bank/ui/library">All roles in the Bank</a>
+  </p>
+</div>
+{% endif %}
+
+{% endblock %}

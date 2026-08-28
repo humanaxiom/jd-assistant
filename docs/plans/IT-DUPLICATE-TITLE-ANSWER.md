@@ -30,9 +30,14 @@ queries are in §5 so they can be re-run. This closes Track A1 in
 correct and only the document count was mis-transcribed. Adopting that definition as
 canonical keeps the demo headline stable:
 
-> **469 IT source documents → 45 harmonized roles → 32 approvable today (71%).**
+> **451 IT source documents → 45 harmonized roles → 32 approvable today (71%).**
 
-⚠ **The compression ratio improves with the correction** (10.4:1, not 8.2:1). It was
+(Corrected again on 2026-08-27 while building the page: 469 is the count of ITP-named
+files in the ARCHIVE, but 47 of them sit behind no current role and 29 non-ITP files were
+clustered in, so `469 → 45` does not reconcile. **451** is the documents actually behind
+the 45 roles, and it is what the collection page shows.)
+
+⚠ **The compression ratio improves with the correction** (10.0:1, not 8.2:1). It was
 understated, not overstated — but a number that cannot be reproduced is a number that
 will be challenged in the room, which is the whole reason for this document.
 
