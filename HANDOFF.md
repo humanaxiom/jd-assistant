@@ -82,6 +82,10 @@ gettable now.**
    org chart gathers a function. The taxonomy is therefore **functional, from duty text** —
    see [`docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md`](docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md).
    **This removes the org-list blocker**: the sweep runs on data we already have.
+   ⚠ **The demo needs the SOURCE side visible too** — everything the Bank shows today is
+   post-harmonization. For IT: **1,420 source documents → ~166 roles (8.5:1)**. That funnel
+   is the demo, and the existing archive dashboards are STATIC file-backed snapshots that
+   cannot be filtered. See [`docs/plans/SOURCE-ARCHIVE-DASHBOARD.md`](docs/plans/SOURCE-ARCHIVE-DASHBOARD.md).
 3. 🔴 **The pilot.** ~20 of the 1,292 approvable drafts, in front of a real HR reviewer,
    approved / rejected / edited for real.
    **Success = 20 PUBLISHED JDs + a written list of what the reviewer objected to.**
@@ -185,6 +189,7 @@ Distilled from six weeks; the full set is in the archive.
 | **The re-evaluation — read first** | [`docs/STATUS-2026-08-24.md`](docs/STATUS-2026-08-24.md) |
 | **The IT demo + facets plan** | [`docs/plans/IT-SUBSET-DEMO-AND-FACETS.md`](docs/plans/IT-SUBSET-DEMO-AND-FACETS.md) |
 | **Functional role taxonomy (the sweep)** | [`docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md`](docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md) |
+| **Source-archive dashboard (the 14,565)** | [`docs/plans/SOURCE-ARCHIVE-DASHBOARD.md`](docs/plans/SOURCE-ARCHIVE-DASHBOARD.md) |
 | Department taxonomy (a *filter*; demoted) | [`docs/plans/DEPARTMENT-TAXONOMY.md`](docs/plans/DEPARTMENT-TAXONOMY.md) |
 | Remaining work | [`docs/plan.md`](docs/plan.md) |
 | Project invariants | [`CLAUDE.md`](CLAUDE.md) |
