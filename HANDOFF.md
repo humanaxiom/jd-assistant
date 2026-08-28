@@ -52,7 +52,7 @@ job is to get the pilot booked.**
 | **Approvable right now** | **1,292** |
 | **Ever published** | **5** |
 | Human review actions, ever | **8** (in six weeks) |
-| HR decisions registered / ratified | 214 / **0** |
+| HR decisions **needing an HR ruling** / ratified | 79 / **0** |
 
 **1,292 JDFN drafts pass every gate today and not one has been shown to a reviewer.**
 They are blocked on nothing we build.
@@ -123,7 +123,9 @@ live one is needed, and why they should be retired rather than run alongside.
 - **B3 — ratify two gates.** `SFU-APPROVE-QUAL-EQUIVALENT` (620 CUPE drafts) and
   `SFU-APPROVE-KSA-ORDER` (564). One ruling beats every engineering change made in August,
   at zero GPU cost.
-- **B4 — book the HR ratification session.** 214 decisions, 0 ratified.
+- **B4 — book the HR ratification session.** **79 decisions need an HR ruling**, 0 ratified.
+  (The register holds more, but the rest are engineering settings or shape what a reviewer
+  sees — they are not HR's to sign. The ask is 79, and that is a bookable meeting.)
 
 ## ⛔ NOT NEXT — real, registered, and deliberately deferred
 
@@ -230,7 +232,7 @@ Distilled from six weeks; the full set is in the archive.
 | Onboarding, traps, `PARSER_VERSION` | [`DEVELOPER_GUIDE_1.md`](DEVELOPER_GUIDE_1.md) |
 | Operating the system | [`docs/OPERATOR-GUIDE.md`](docs/OPERATOR-GUIDE.md) |
 | What HR must decide | [`docs/decisions/HR-DECISION-MATRIX.md`](docs/decisions/HR-DECISION-MATRIX.md) |
-| Every registered default (214) | [`docs/decisions/HR-DECISION-REGISTER.md`](docs/decisions/HR-DECISION-REGISTER.md) |
+| Every registered default (the file's own header is the count of record) | [`docs/decisions/HR-DECISION-REGISTER.md`](docs/decisions/HR-DECISION-REGISTER.md) |
 | Archive baseline (all 14,565) | [`docs/baseline/README.md`](docs/baseline/README.md) |
 | Build record, phases 0–9 + A–G | [`docs/archive/BUILD-RECORD-phases-0-9-A-G.md`](docs/archive/BUILD-RECORD-phases-0-9-A-G.md) |
 | Session history, Jul 10 – Aug 24 | [`docs/archive/HANDOFF-ARCHIVE-2026-07-10-to-08-24.md`](docs/archive/HANDOFF-ARCHIVE-2026-07-10-to-08-24.md) |
