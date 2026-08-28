@@ -38,3 +38,18 @@ RULES:
   a test to go green is forbidden. Fix it here in the RED commit, and say in your report
   which assertion you changed and which HR-DECISION-REGISTER entry / ADR authorizes it.
   Whoever creates a contradiction resolves it, in the same commit.
+
+## Two failure modes that produced green suites over real defects here
+
+- **Break the WHY, not just the what.** If a test's docstring explains *why* a property
+  holds ("this passes `join_paragraphs=True`, which is what makes the two render
+  identically"), then break *that mechanism* and confirm the test goes red. On this project
+  a docstring named a mechanism that was **inert** — the property held for an unrelated
+  reason, so the test pinned nothing while reading as though it pinned everything.
+- **A fixture that silently produces empty values tests nothing.** Assert your fixture is
+  shaped the way the code READS it, not the way you assume. A helper here invented a flat
+  roll-up shape when the code read a nested one; every field came back absent, every
+  assertion passed, and the tests were certifying nothing. **If a test would still pass
+  with the fixture returning `{}`, it is not a test.**
+- **Content-key your fakes.** A fake that keys outputs on call index makes an entire class
+  of bug — "this record got another record's value" — impossible to write a test for.

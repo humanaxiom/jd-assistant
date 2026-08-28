@@ -21,3 +21,24 @@ HARD RULES:
 - Check `docs/adr/` for decisions that constrain the design
 
 Output the plan table plus a one-paragraph reasoning section. Do not write any code.
+
+## Before planning any scoring, threshold, filter or taxonomy work
+
+- 🔴 **Measure over the FULL corpus first, in the plan.** Twice on this project the obvious
+  design was undeliverable and only a full-population spike showed it: role-vector
+  similarity where unrelated roles outscore true twins, and duty matching where the model
+  reorders so heavily that both obvious rules attach WRONG values. **A design validated on
+  five examples is a claim about five examples.** Put the measurement in the plan as step 1,
+  and make it able to fail.
+- **Hand-written term lists and rule sets are hypotheses.** They encode whoever wrote them.
+  An IT duty-term list here silently excluded architects and engineers because its author
+  was thinking of desktop support. **Validate against a known-good seed set, and treat a
+  miss as the list being wrong, not the seed.**
+- **Rank, do not threshold.** Where similarity or scoring orders candidates, plan for a
+  human-reviewed list as the authority. Never plan a cosine/score cutoff as the decider.
+
+## The question that outranks the plan
+
+**Does this move the deliverable?** (For JD Bank: PUBLISHED JDs — see `HANDOFF.md`.) If the
+task does not, say so in the reasoning paragraph and name what would. Planning good work on
+the wrong thing is the most expensive failure available to this role.
