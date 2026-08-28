@@ -76,10 +76,12 @@ gettable now.**
    Layer 1 collection page. **No blocking dependency** — the ITP family comes from source
    filenames today. Everything past that (department map, facets, stats) is product, not
    demo.
-   ⚠ **The department taxonomy is a bigger job than the demo** — 739 distinct department
-   strings, 65% appearing once, mechanical normalisation collapses only 7.4%. It is blocked
-   on obtaining SFU's **authoritative org list**, which is not engineering work. Start that
-   ask now; see [`docs/plans/DEPARTMENT-TAXONOMY.md`](docs/plans/DEPARTMENT-TAXONOMY.md).
+   ⚠ **Function ≠ department, and this is measured.** IT at SFU is central AND embedded: a
+   duty-text sweep found **121 IT roles in faculties and business units** (Faculty of
+   Science, Beedie, Linguistics, Earth Sciences…), **none in a central IT department**. No
+   org chart gathers a function. The taxonomy is therefore **functional, from duty text** —
+   see [`docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md`](docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md).
+   **This removes the org-list blocker**: the sweep runs on data we already have.
 3. 🔴 **The pilot.** ~20 of the 1,292 approvable drafts, in front of a real HR reviewer,
    approved / rejected / edited for real.
    **Success = 20 PUBLISHED JDs + a written list of what the reviewer objected to.**
@@ -182,7 +184,8 @@ Distilled from six weeks; the full set is in the archive.
 |---|---|
 | **The re-evaluation — read first** | [`docs/STATUS-2026-08-24.md`](docs/STATUS-2026-08-24.md) |
 | **The IT demo + facets plan** | [`docs/plans/IT-SUBSET-DEMO-AND-FACETS.md`](docs/plans/IT-SUBSET-DEMO-AND-FACETS.md) |
-| **The department taxonomy (all units)** | [`docs/plans/DEPARTMENT-TAXONOMY.md`](docs/plans/DEPARTMENT-TAXONOMY.md) |
+| **Functional role taxonomy (the sweep)** | [`docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md`](docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md) |
+| Department taxonomy (a *filter*; demoted) | [`docs/plans/DEPARTMENT-TAXONOMY.md`](docs/plans/DEPARTMENT-TAXONOMY.md) |
 | Remaining work | [`docs/plan.md`](docs/plan.md) |
 | Project invariants | [`CLAUDE.md`](CLAUDE.md) |
 | Onboarding, traps, `PARSER_VERSION` | [`DEVELOPER_GUIDE_1.md`](DEVELOPER_GUIDE_1.md) |

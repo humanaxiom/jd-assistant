@@ -1,6 +1,18 @@
 # Plan — the department taxonomy (a full sweep, built to be accurate)
 
 **Status:** design only, no code. Written 2026-08-27.
+
+> 🔴 **SUPERSEDED AS THE PRIMARY MECHANISM (2026-08-27).** Measurement showed IT at SFU is
+> both central and embedded — a duty-text sweep found **121 IT roles sitting in faculties
+> and business units**, none of them in a central IT department. **No org chart gathers a
+> function.** See [`FUNCTIONAL-ROLE-TAXONOMY.md`](FUNCTIONAL-ROLE-TAXONOMY.md).
+>
+> **This document remains valid** for what it actually does: department as a *filter*
+> ("IT roles in the Faculty of Science"), and the 739-string sweep below still stands. It is
+> **no longer blocked on an authoritative org list**, because it is no longer how a function
+> gets defined.
+
+
 **Why:** the IT demo exposed department fragmentation, and the same fragmentation blocks
 every other unit. This is the general capability, and **accuracy is the requirement, not
 coverage.**
