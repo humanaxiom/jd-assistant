@@ -71,9 +71,24 @@ families:
     slug: it
 
     # HR-216 — the AUTHORITATIVE membership signal. SFU's IT job family is ITP
-    # (Information Technology Practitioner) and it is carried in the source filename
+    # (Information Technology Professional) and it is carried in the source filename
     # (`20060503_30181_ITP_III_Gr_12.doc`). 469 documents -> 45 roles, 32 approvable.
     # This is the only signal that finds the IT ANALYSTS (finding 2).
+    #
+    # ⚠ ITP IS NOT ITS, and the difference is the whole point of this file.
+    #   ITP = the CLASSIFICATION. What a person is graded as. 469 filenames carry it.
+    #   ITS = the DEPARTMENT ("IT Services", "Information Technology Services").
+    #         Where some IT people sit. It appears in ZERO filenames — it is a
+    #         `department` string on 1,000 parses, not a job family.
+    # A `classification_families` entry names a CLASSIFICATION. Putting a department
+    # here would gather the people who sit in one unit and miss every IT role embedded
+    # in a faculty — measured as the majority of them (see finding 2 and the
+    # DEPARTMENT-TAXONOMY plan, which demotes department to a filter for exactly this
+    # reason).
+    #
+    # Measured spellings in the archive, because both exist: 2,189 parses title the
+    # role "Information Technology Professional" against 68 "Practitioner". This file
+    # said "Practitioner" until 2026-08-27; the archive says otherwise 32:1.
     classification_families:
       - ITP
 

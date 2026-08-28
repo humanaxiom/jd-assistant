@@ -12,7 +12,12 @@ a department dropdown would work, and the data says it would fail in front of th
 
 ## 1. The demo cohort exists, and it is good
 
-SFU's IT job family is **ITP** (Information Technology Practitioner), identifiable today:
+SFU's IT job family is **ITP** (Information Technology Professional), identifiable today:
+
+⚠ **ITP is not ITS.** `ITS` / "IT Services" is the DEPARTMENT — where some IT people sit.
+`ITP` is the CLASSIFICATION — what they are graded as, and it appears in **469 filenames**
+while `ITS` appears in **none**. Conflating them is the precise error §3b and the
+functional taxonomy exist to prevent.
 
 | | |
 |---|---:|
