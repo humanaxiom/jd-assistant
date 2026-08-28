@@ -20,6 +20,8 @@ from fastapi.testclient import TestClient
 from src.api.main import app, get_session
 from src.api.routes import library as library_route
 from src.jd_bank.library import (
+    CollectionStats,
+    FamilyCandidate,
     MemberJD,
     RoleListItem,
     RolePage,
@@ -323,3 +325,160 @@ def test_nav_exposes_jd_bank(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert resp.status_code == 200
     assert 'href="/jd-bank/ui/library">🏦 JD Bank' in resp.text
+
+
+# --- the collection page (Phase A2) ---------------------------------------------------
+
+
+def _collection_stats(**update: object) -> CollectionStats:
+    base = {
+        "label": "Information Technology",
+        "slug": "it",
+        "roles": 45,
+        "source_documents": 469,
+        "approvable": 32,
+        "recall_note": "Membership comes from the ITP classification family.",
+    }
+    return CollectionStats(**{**base, **update})
+
+
+def _candidate(title: str, *, duty: int = 9, title_hits: int = 2) -> FamilyCandidate:
+    return FamilyCandidate(
+        cluster_id=uuid.uuid4(),
+        canonical_id=uuid.uuid4(),
+        title=title,
+        status="DRAFT",
+        source_count=4,
+        department=None,
+        duty_matches=duty,
+        title_matches=title_hits,
+    )
+
+
+def test_collection_leads_with_the_compression_not_a_bare_count(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The two numbers must appear together: a document count alone reads as loss."""
+    monkeypatch.setattr(
+        library_route, "family_for", lambda slug: object() if slug == "it" else None
+    )
+    monkeypatch.setattr(
+        library_route, "collection_stats", AsyncMock(return_value=_collection_stats())
+    )
+    monkeypatch.setattr(
+        library_route, "resolve_members", AsyncMock(return_value=frozenset())
+    )
+    monkeypatch.setattr(
+        library_route,
+        "list_roles",
+        AsyncMock(
+            return_value=RolePage(
+                items=(),
+                total=0,
+                limit=50,
+                offset=0,
+                q="",
+                sort="title",
+                direction="asc",
+            )
+        ),
+    )
+    response = make_client().get("/jd-bank/ui/collection/it")
+
+    assert response.status_code == 200
+    body = response.text
+    assert "469" in body and "45" in body
+    assert "32" in body
+    # The family must publish how it under-recalls — see the measurement.
+    assert "ITP classification family" in body
+
+
+def test_unknown_collection_is_a_404_not_an_empty_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An empty page for a mistyped slug looks like a family with no roles."""
+    monkeypatch.setattr(library_route, "family_for", lambda slug: None)
+    response = make_client().get("/jd-bank/ui/collection/nope")
+    assert response.status_code == 404
+
+
+def test_queue_shows_match_counts_never_a_percentage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The score is a count of matched terms. Rendering it as a percentage or a
+    confidence would present a verdict the measurement showed is wrong at every
+    cutoff."""
+    monkeypatch.setattr(library_route, "family_for", lambda slug: object())
+    monkeypatch.setattr(
+        library_route, "collection_stats", AsyncMock(return_value=_collection_stats())
+    )
+    monkeypatch.setattr(
+        library_route, "resolve_members", AsyncMock(return_value=frozenset())
+    )
+    monkeypatch.setattr(
+        library_route,
+        "rank_candidates",
+        AsyncMock(return_value=(_candidate("Library Systems Technician"),)),
+    )
+    monkeypatch.setattr(
+        library_route,
+        "list_roles",
+        AsyncMock(
+            return_value=RolePage(
+                items=(),
+                total=0,
+                limit=50,
+                offset=0,
+                q="",
+                sort="title",
+                direction="asc",
+            )
+        ),
+    )
+    response = make_client().get("/jd-bank/ui/collection/it?queue=1")
+
+    assert response.status_code == 200
+    body = response.text
+    assert "Library Systems Technician" in body
+    assert "11" in body, "the matched-term count is the evidence shown"
+    assert (
+        "%" not in body.split("Candidates for review")[1].split("</table>")[0]
+    ), "a match count must never be rendered as a percentage"
+    # A candidate is a question, and the page must say so.
+    assert "questions, not members" in body
+
+
+def test_queue_names_an_unstated_department_rather_than_leaving_it_blank(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Department is known for ~72% of roles. A blank cell reads as "no home"; the
+    facet must show its own coverage rather than silently dropping it."""
+    monkeypatch.setattr(library_route, "family_for", lambda slug: object())
+    monkeypatch.setattr(
+        library_route, "collection_stats", AsyncMock(return_value=_collection_stats())
+    )
+    monkeypatch.setattr(
+        library_route, "resolve_members", AsyncMock(return_value=frozenset())
+    )
+    monkeypatch.setattr(
+        library_route,
+        "rank_candidates",
+        AsyncMock(return_value=(_candidate("Technical Support Specialist"),)),
+    )
+    monkeypatch.setattr(
+        library_route,
+        "list_roles",
+        AsyncMock(
+            return_value=RolePage(
+                items=(),
+                total=0,
+                limit=50,
+                offset=0,
+                q="",
+                sort="title",
+                direction="asc",
+            )
+        ),
+    )
+    response = make_client().get("/jd-bank/ui/collection/it?queue=1")
+    assert "(not stated)" in response.text

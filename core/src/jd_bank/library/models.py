@@ -136,3 +136,59 @@ class SourcePage(_Frozen):
     limit: int
     offset: int
     q: str
+
+
+class CollectionStats(_Frozen):
+    """The headline of a functional family's collection page (Phase A2).
+
+    ``source_documents`` and ``roles`` are reported TOGETHER because the compression
+    between them is the whole claim — "469 documents became 45 roles". A document count
+    on its own invites "why so few?" and reads as loss rather than as harmonization.
+
+    ``recall_note`` is not decoration. A family that does not state how it under-recalls
+    is exactly the failure the functional taxonomy keeps re-committing: the first IT
+    term list missed every engineer, the corrected one nearly misses every analyst, and
+    neither was visible until checked against a known-good set of roles.
+    """
+
+    label: str
+    slug: str
+    #: Roles in the family — resolved membership, never a term-score cutoff.
+    roles: int
+    #: Archive documents behind those roles (the numerator of the compression story).
+    source_documents: int
+    #: How many of the roles pass every gate today. Read from the stored gate decision,
+    #: the same roll-up the review queue shows — never a fresh recompute.
+    approvable: int
+    #: What this family publishes about its own recall, verbatim from the rulebook.
+    recall_note: str
+
+
+class FamilyCandidate(_Frozen):
+    """A row in a family's REVIEW QUEUE — a role that might belong, for a human to rule
+    on (Phase A2).
+
+    ⚠ **A candidate is a candidate.** The match counts are shown so a reviewer can see
+    why the row surfaced, and they are counts of matched terms — never a percentage and
+    never a confidence, because the sweep was measured to be incapable of deciding
+    membership at any cutoff. The one clear false positive the measurement found (a
+    Research Technician) ranked as highly as genuine IT roles.
+    """
+
+    cluster_id: UUID
+    canonical_id: UUID
+    title: str
+    status: str
+    source_count: int
+    #: Where the role sits. Known for ~72% of roles, so it may be ``None`` — and the
+    #: template must show that rather than implying the role has no home.
+    department: str | None
+    #: How many distinct family duty terms the role's text contains.
+    duty_matches: int
+    #: How many distinct family title terms the role's TITLE contains.
+    title_matches: int
+
+    @property
+    def matches(self) -> int:
+        """The rank key — the ordering of the worklist, and nothing more."""
+        return self.duty_matches + self.title_matches

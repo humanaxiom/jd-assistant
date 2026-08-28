@@ -192,6 +192,13 @@ EXPECTED_ACCESS: dict[tuple[str, str], Rule] = {
         Access.ANY_AUTHENTICATED, Surface.UI
     ),
     ("GET", "/jd-bank/ui/archive"): Rule(Access.ANY_AUTHENTICATED, Surface.UI),
+    # One functional family's collection (Phase A2). Read-only, and it exposes NOTHING
+    # the roles list does not already: the same roles, filtered to a rulebook-defined
+    # membership, plus a ranked candidate list built from the same content. Same class
+    # as its siblings above.
+    ("GET", "/jd-bank/ui/collection/{slug}"): Rule(
+        Access.ANY_AUTHENTICATED, Surface.UI
+    ),
     # ── My drafts (src/api/routes/drafts.py) — P0.0 ──────────────────────────────
     # Any signed-in user, because it is where the Builder lands whoever just submitted,
     # and `author` is the default new-user role. It shows each reader only their OWN

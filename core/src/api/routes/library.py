@@ -2,13 +2,16 @@
 
 The answer to "where is the actual content?": read-only pages that render archive
 source JDs and harmonized roles as readable text, so HR can *read* a JD rather than only
-see a filename, a count, or a dashboard. Four surfaces:
+see a filename, a count, or a dashboard. Five surfaces:
 
 * ``GET /jd-bank/ui/library`` — browse/search the harmonized roles (the primary unit).
 * ``GET /jd-bank/ui/role/{cluster_id}`` — one role: its canonical content + the source
   JDs it was distilled from, each opening to its full text.
 * ``GET /jd-bank/ui/jd/{source_document_id}`` — one archive source JD, rendered.
 * ``GET /jd-bank/ui/archive`` — the flat "all the .docx files" browser.
+* ``GET /jd-bank/ui/collection/{slug}`` — one functional family (Phase A2): its roles,
+  the compression behind them, and — under ``?queue=1`` — the ranked candidates a human
+  has yet to rule on.
 
 **Read-only (NN #1).** Every handler calls exactly one :mod:`src.jd_bank.library` read
 function and renders it — nothing here mutates a row, publishes, or overrides a gate.
@@ -31,10 +34,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.api.deps import may_review
 from src.api.main import get_session
 from src.jd_bank.library import (
+    collection_stats,
+    family_for,
     get_role,
     get_source_jd,
     list_roles,
     list_source_jds,
+    rank_candidates,
+    resolve_members,
 )
 
 router: APIRouter = APIRouter(prefix="/jd-bank/ui")
@@ -141,6 +148,65 @@ async def archive_view(
         "archive.html",
         {
             "page": page,
+            "pagination": _pagination(
+                total=page.total, limit=page.limit, offset=page.offset, q=page.q
+            ),
+        },
+    )
+
+
+@router.get("/collection/{slug}", response_class=HTMLResponse)
+async def collection_view(
+    request: Request,
+    slug: str,
+    limit: int | None = None,
+    offset: int = 0,
+    sort: str = "title",
+    dir: str = "asc",
+    queue: bool = False,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """One functional family as a browsable collection (Phase A2) — the IT demo screen.
+
+    Shows the family's **resolved membership** (SFU's own classification family plus the
+    reviewed overrides), the compression behind it, and the family's own recall note.
+    ``?queue=1`` switches to the ranked CANDIDATE list — roles that might belong, for a
+    human to rule on.
+
+    The two lists are deliberately separate surfaces rather than one filtered list. A
+    member is in the family; a candidate is a question. Blending them would put a
+    term-score verdict in front of a stakeholder as though it were membership, and that
+    verdict was measured to be wrong at every cutoff — 98% recall costs 46% of the
+    archive, and a plausible-looking cohort keeps only half the roles SFU itself
+    classifies as IT.
+    """
+    family = family_for(slug)
+    if family is None:
+        return templates.TemplateResponse(
+            request,
+            "library_not_found.html",
+            {"what": "collection", "id": slug},
+            status_code=404,
+        )
+    stats = await collection_stats(session, family)
+    candidates = await rank_candidates(session, family) if queue else ()
+    members = await resolve_members(session, family)
+    page = await list_roles(
+        session,
+        limit=limit,
+        offset=offset,
+        sort=sort,
+        direction=dir,
+        cluster_ids=members,
+    )
+    return templates.TemplateResponse(
+        request,
+        "collection.html",
+        {
+            "stats": stats,
+            "page": page,
+            "candidates": candidates,
+            "showing_queue": queue,
             "pagination": _pagination(
                 total=page.total, limit=page.limit, offset=page.offset, q=page.q
             ),

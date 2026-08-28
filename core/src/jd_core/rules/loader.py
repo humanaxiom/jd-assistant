@@ -49,6 +49,7 @@ from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
 from typing import Annotated, Any, Final, Literal, NamedTuple, TypeVar, cast, get_args
+from uuid import UUID
 
 import yaml
 from pydantic import (
@@ -147,6 +148,12 @@ REWRITE_FILE: Final[str] = "rewrite.yaml"
 #: how a JD is *audited* (advisory), not how a JD is *scored/approved* — registered and
 #: on the surface but NOT hashed into ``rules_version`` (:data:`_UNHASHED_FILES`).
 QUALITY_FILE: Final[str] = "quality.yaml"
+
+#: Which harmonized roles are gathered into a named FUNCTION (Phase A2) — a rule file
+#: that decides what a BROWSE/COLLECTION surface shows, never what the validator
+#: computes about a JD. Registered and on the surface but NOT hashed into
+#: ``rules_version`` (:data:`_UNHASHED_FILES`).
+FUNCTIONAL_FAMILIES_FILE: Final[str] = "functional_families.yaml"
 
 #: The content-bearing SFU sections an embedding may be built from — the subset of
 #: :data:`~src.jd_core.models.quality.SFUSection` that carries free text at all.
@@ -1558,6 +1565,87 @@ class QualityAuditRules(_RuleFile):
     #: ``false`` keeps every finding UNSCRUBBED — the escape hatch, registered so
     #: flipping it cannot be quiet.
     anti_fabrication_enabled: bool
+
+
+class FunctionalFamily(BaseModel):
+    """One functional job family — what people DO, not where they sit (Phase A2).
+
+    **Membership is resolved, never frozen.** The authority is
+    :attr:`classification_families` (SFU's own job family, carried in the source
+    filename) plus the human :attr:`include` / :attr:`exclude` overrides. Freezing a
+    list of cluster ids here would rot the moment the Bank is re-clustered, and a
+    rulebook that silently points at nothing is worse than one pointing at the wrong
+    thing.
+
+    :attr:`duty_terms` and :attr:`title_terms` **order a review queue and nothing
+    else.** That is measured, not cautious: scored against the 45-role ITP seed, 98%
+    recall costs 1,141 candidates (46% of the archive) and the ~166 candidates the
+    plan assumed carry 48.9% recall — more than half of the roles we already know are
+    IT. No cut point is both precise and complete, so the terms cannot decide
+    membership. See ``docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md``.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: Display name. Pure copy — deliberately NOT on the decision surface.
+    label: str = Field(min_length=1)
+    #: URL token for the collection page (``?collection=it``). An identifier, not a
+    #: policy call: the family's *identity* is its key in :attr:`FunctionalFamilies
+    #: .families`.
+    slug: str = Field(min_length=1, pattern=r"^[a-z0-9-]+$")
+    #: The AUTHORITATIVE membership signal: SFU classification families (``ITP``)
+    #: matched against a role's source filenames. Measured as the only signal that
+    #: finds the IT *analysts*, whose duty text carries no technology vocabulary —
+    #: which is why the signals are UNIONED and never intersected.
+    classification_families: tuple[str, ...] = ()
+    #: Reviewed additions: cluster ids a human confirmed the signals missed.
+    include: tuple[UUID, ...] = ()
+    #: Reviewed removals: cluster ids a human rejected. A rejection is evidence too.
+    exclude: tuple[UUID, ...] = ()
+    #: Duty-text terms, word-boundary matched. **Ordering only** — see the class note.
+    duty_terms: tuple[str, ...] = ()
+    #: Title terms, word-boundary matched. **Ordering only.**
+    title_terms: tuple[str, ...] = ()
+    #: What this family must publish about its own recall. Pure copy, and NOT on the
+    #: decision surface — but required, because a family that does not state how it
+    #: under-recalls is the failure this whole file exists to stop recurring.
+    recall_note: str = Field(min_length=1)
+
+
+class FunctionalFamilies(_RuleFile):
+    """Functional role families (``functional_families.yaml``, Phase A2).
+
+    **On the register, but NOT in the content hash** (:data:`_UNHASHED_FILES`) — the
+    eighth file in that category. Gathering roles into "the IT roles" decides what a
+    BROWSE surface shows; it can never change a JD's score, grade, gate or findings, so
+    retuning a term list must not make every previously stamped report look stale.
+
+    Keyed by family, so :func:`resolve_config_path` addresses a family by its stable
+    name — ``functional_families.information_technology.duty_terms`` — exactly as
+    ``gates.yaml`` is addressed by gate id, rather than by a list position the YAML
+    could reorder. Every family's decision knobs are enumerated onto the surface by
+    :func:`decision_surface`, so a family added tomorrow breaks the build until someone
+    says whether HR must ratify it.
+    """
+
+    #: How far down the ranked candidate list a reviewer is offered — **the length of a
+    #: review queue, and nothing else** (HR-215). The resolver does not read it.
+    #:
+    #: ⚠ It is NOT a membership test and must never become one. At the shipped value
+    #: the sweep's recall against the known-IT seed is 17.8%: were this ever used to
+    #: decide the family, it would discard three of every four roles SFU's own
+    #: classification calls IT.
+    review_queue_min_score: int = Field(ge=0)
+    families: Mapping[str, FunctionalFamily]
+
+    @property
+    def by_id(self) -> Mapping[str, FunctionalFamily]:
+        """Families by key — the route :func:`resolve_config_path` walks."""
+        return self.families
+
+    def by_slug(self, slug: str) -> FunctionalFamily | None:
+        """The family a collection URL names, or ``None``."""
+        return next((f for f in self.families.values() if f.slug == slug), None)
 
 
 class Patterns(_RuleFile):
@@ -3168,6 +3256,9 @@ class Rules(BaseModel):
     #: On the register, but NOT in the content hash — see :class:`QualityAuditRules`
     #: (Phase 4.2b).
     quality: QualityAuditRules
+    #: On the register, but NOT in the content hash — see :class:`FunctionalFamilies`
+    #: (Phase A2).
+    functional_families: FunctionalFamilies
     decision_register: DecisionRegister
 
     def thresholds_for(self, template: JDTemplate) -> Thresholds:
@@ -3265,8 +3356,7 @@ class Rules(BaseModel):
         )
         if unknown:
             raise ValueError(
-                f"titles.yaml names rule_id(s) absent from rule_catalog.yaml: "
-                f"{unknown}"
+                f"titles.yaml names rule_id(s) absent from rule_catalog.yaml: {unknown}"
             )
         return self
 
@@ -3626,8 +3716,7 @@ def normalize_config_value(value: Any, path: str) -> Any:
             )
         return items
     raise RulesError(  # pragma: no cover - defensive
-        f"config path {path!r} resolves to an unsupported type "
-        f"{type(value).__name__}"
+        f"config path {path!r} resolves to an unsupported type {type(value).__name__}"
     )
 
 
@@ -3829,6 +3918,25 @@ def decision_surface(rules: Rules) -> frozenset[str]:
     # 29 per-rule flags) pins 100% of that decision's content in one entry: flip any
     # flag and this set moves, and `check_register` breaks the build.
     paths.add("rule_catalog.unevaluable_rule_ids")
+
+    # Functional families (Phase A2), enumerated per family exactly as the gates are
+    # enumerated per gate — a family added tomorrow is on the surface the moment it is
+    # declared, rather than hiding inside a mapping nothing walks.
+    #
+    # `label`, `slug` and `recall_note` are deliberately absent: they are pure copy,
+    # and pure copy is not on the surface. Everything that decides WHO IS IN A FAMILY
+    # (`classification_families`, `include`, `exclude`) and everything that decides
+    # WHAT A REVIEWER IS SHOWN FIRST (`duty_terms`, `title_terms`, and the queue depth)
+    # is.
+    paths.add("functional_families.review_queue_min_score")
+    for key in rules.functional_families.families:
+        paths |= {
+            f"functional_families.{key}.classification_families",
+            f"functional_families.{key}.include",
+            f"functional_families.{key}.exclude",
+            f"functional_families.{key}.duty_terms",
+            f"functional_families.{key}.title_terms",
+        }
     return frozenset(paths)
 
 
@@ -3907,6 +4015,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     (HARMONIZATION_FILE, "harmonization", Harmonization),
     (REWRITE_FILE, "rewrite", Rewrite),
     (QUALITY_FILE, "quality", QualityAuditRules),
+    (FUNCTIONAL_FAMILIES_FILE, "functional_families", FunctionalFamilies),
     (REGISTER_FILE, "decision_register", DecisionRegister),
 )
 
@@ -3938,6 +4047,7 @@ _UNHASHED_FILES: Final[frozenset[str]] = frozenset(
         HARMONIZATION_FILE,
         REWRITE_FILE,
         QUALITY_FILE,
+        FUNCTIONAL_FAMILIES_FILE,
     }
 )
 
@@ -3973,8 +4083,7 @@ def _parse_yaml(name: str, text: str) -> dict[str, Any]:
         raise RulesError(f"Malformed YAML in rule file {name!r}: {exc}") from exc
     if not isinstance(data, dict):
         raise RulesError(
-            f"Rule file {name!r} must contain a YAML mapping, "
-            f"got {type(data).__name__}"
+            f"Rule file {name!r} must contain a YAML mapping, got {type(data).__name__}"
         )
     return data
 

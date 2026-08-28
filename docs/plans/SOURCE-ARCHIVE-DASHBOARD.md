@@ -28,7 +28,7 @@ That sentence is the demo. It needs the source side to be visible to land.
 
 🔴 **This section previously read "1,420 documents → ~166 roles (8.5:1)". That is not
 reproducible** — it came from the term list measured to miss 38 of 45 known IT roles, and no
-cut point of the corrected sweep yields either number (the real ratio is a stable ~6.1:1).
+cut point of the corrected sweep yields either number (the real ratio is a stable ~6.2:1).
 The figures above use the **ITP classification family**, which is authoritative and needs no
 review. The embedded-IT claim stays, as a **reviewed ranked list rather than a total**. See
 [`IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](IT-FUNCTIONAL-SWEEP-MEASUREMENT.md) §4–§5.

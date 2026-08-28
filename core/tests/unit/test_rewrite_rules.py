@@ -95,6 +95,8 @@ def test_rewrite_is_an_unhashed_file(rules: Rules) -> None:
         "rewrite.yaml",
         # 4.2b added `quality.yaml` — the seventh unhashed file (test_quality_rules).
         "quality.yaml",
+        # A2 added `functional_families.yaml` — the eighth unhashed file.
+        "functional_families.yaml",
     }
     assert "rewrite" not in loader._HASHED_FIELDS
 

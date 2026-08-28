@@ -17,11 +17,12 @@ and it has now been taken.
 
 | | |
 |---|---:|
-| ITP source documents | **469** |
+| source documents behind the IT roles | **451** |
 | harmonized IT roles they produce | **45** |
 | of those **approvable right now** | **32 (71%)** |
+| ITP-named files in the archive (47 behind no role) | 469 |
 
-**469 documents → 45 roles** (10.4:1) is the value proposition in one screen, and it needs
+**451 documents → 45 roles** (10.0:1) is the value proposition in one screen, and it needs
 no new work to *show*. Plan: [`docs/plans/IT-SUBSET-DEMO-AND-FACETS.md`](docs/plans/IT-SUBSET-DEMO-AND-FACETS.md)
 (design only, no code, deliberately additive — no schema change, nothing touching scoring).
 
@@ -73,31 +74,38 @@ Not carry-through, not scores, not test counts.
 today, they have lead time.**
 
 ### 🟢 TRACK A — the demo
-**Lead with the number that needs no review:** *469 IT source documents → 45 harmonized
-roles (10.4:1), 32 approvable today.* Then the embedded finding as a **reviewed** claim —
+**Lead with the number that needs no review:** *451 IT source documents → 45 harmonized
+roles (10.0:1), 32 approvable today* — the figure the collection page shows and a
+stakeholder can click through. (469 ITP files exist in the archive; 47 sit behind no
+current role, and 29 non-ITP files were clustered in. `469 → 45` does not reconcile.) Then the embedded finding as a **reviewed** claim —
 IT roles sit in Library Systems, Linguistics, Facilities, Mechatronics, Earth Sciences,
 Beedie, Education and Health Sciences.
 
 🔴 **The old headline "1,420 documents → ~166 roles (8.5:1)" is NOT reproducible** and must
 not be said in the room — it came from the term list measured to miss 38 of 45 seed roles.
-The corrected sweep's ratio is a stable ~6.1:1 at every cut, and no cut yields 166/1,420.
+The corrected sweep's ratio is a stable ~6.2:1 at every cut, and no cut yields 166/1,420.
 See [`docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md).
 
 - ✅ **A1 — the duplicate-title question. DONE** —
   [`docs/plans/IT-DUPLICATE-TITLE-ANSWER.md`](docs/plans/IT-DUPLICATE-TITLE-ANSWER.md).
   **20** roles carry the title (not 8) and they are **distinct** — 15 specialisation ×
   ITP-level cells, 18 of 20 level-homogeneous, a 4.1% tail. No merge warranted.
-- 🟡 **A2 — IT functional family. MEASURED; build remains** —
+- ✅ **A2 — IT functional family. BUILT** — `functional_families.yaml`, registered
+  HR-215…HR-220 (`open`, `hr_informed`) and unhashed. Measured first, and the
+  measurement changed the design:
   [`docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md).
-  The recall validation ran and **failed usefully: there is no threshold.** 98% recall
-  costs 1,141 candidates (46% of the corpus); at the ~166 the plan assumed, recall is
-  **48.9%** — half the *known* IT roles missed. **So the score ranks a review queue; it
-  never decides membership.** Remaining: `functional_families.yaml` + the ranked queue.
-  🔴 The bias failure recurred in the opposite direction — the new list nearly misses the
-  **analyst** half (Business/Systems/Security Analyst), because analysts write about
-  processes, not technologies. **That is why the union with the ITP family is load-bearing.**
-  ⚠ Word-boundary matching is mandatory: `lan` as a substring matched **1,568 roles** (63%).
-- **A3 — collection page.** The screen the CIO sees. **A1–A3 alone are a complete demo.**
+  **There is no threshold** — 98% recall costs 1,141 candidates (46% of the corpus), and
+  at the ~166 the plan assumed recall is **48.9%**. So membership is SFU's own ITP
+  classification ∪ reviewed `include` − reviewed `exclude`, and **the duty terms only
+  rank a review queue**. An integration test pins it: a role stuffed with every IT term
+  is *not* a member; a role with none of them but an ITP filename *is*.
+  🔴 The bias failure recurred in the opposite direction — the corrected list nearly
+  misses the **analyst** half, found only by the ITP family, so the union is load-bearing.
+- ✅ **A3 — collection page. BUILT** — `/jd-bank/ui/collection/it`.
+  **451 documents → 45 roles (10.0:1), 32 approvable**, each role clicking through to its
+  JD and sources; `?queue=1` shows the **72** ranked candidates as a separate surface,
+  labelled questions rather than members, with match **counts** — never a percentage.
+  The page publishes the family's own recall note. **A1–A3 are a complete demo.**
 - **A4 — live funnel panel**, **A5 — facets** (each showing its own coverage).
 
 ⚠ **Function ≠ department, and it is measured.** IT is central *and* embedded across a dozen
@@ -212,6 +220,8 @@ Distilled from six weeks; the full set is in the archive.
 | **The IT demo + facets plan** | [`docs/plans/IT-SUBSET-DEMO-AND-FACETS.md`](docs/plans/IT-SUBSET-DEMO-AND-FACETS.md) |
 | **A1 answered — the duplicate-title question** | [`docs/plans/IT-DUPLICATE-TITLE-ANSWER.md`](docs/plans/IT-DUPLICATE-TITLE-ANSWER.md) |
 | **A2 measured — the sweep has no threshold** | [`docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md) |
+| **The IT collection page (A3)** | `/jd-bank/ui/collection/it` · `core/src/jd_bank/library/families.py` |
+| **Functional families rulebook** | `core/src/jd_core/rules/functional_families.yaml` (HR-215…HR-220) |
 | **Functional role taxonomy (the sweep)** | [`docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md`](docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md) |
 | **Source-archive dashboard (the 14,565)** | [`docs/plans/SOURCE-ARCHIVE-DASHBOARD.md`](docs/plans/SOURCE-ARCHIVE-DASHBOARD.md) |
 | Department taxonomy (a *filter*; demoted) | [`docs/plans/DEPARTMENT-TAXONOMY.md`](docs/plans/DEPARTMENT-TAXONOMY.md) |

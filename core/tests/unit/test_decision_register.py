@@ -479,6 +479,12 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         # Unhashed like rewrite: it decides how a JD is AUDITED (advisory), never how a
         # JD is scored/approved.
         "quality",
+        # `functional_families.yaml` (Phase A2) — which roles are gathered into a named
+        # FUNCTION ("the IT roles"). Unhashed like the rest: it decides what a BROWSE
+        # surface shows, never how a JD is scored/approved. Its knobs reach the surface
+        # through a per-family enumerator, the way each gate reaches it by gate id — so
+        # a family added later is on the surface the moment it is declared.
+        "functional_families",
     }
     # ...and that is every rule file there is, bar the register itself.
     described = {name.removesuffix(".yaml") for name in RULE_FILES}
@@ -499,8 +505,9 @@ def test_the_unhashed_files_are_the_ones_that_cannot_change_a_jds_score() -> Non
     model; ``dedup.yaml`` (Phase 3.3) decides which DOCUMENTS are similar to each
     other; ``harmonization.yaml`` (Phase 4.1) decides HOW a cluster is merged into a
     draft; ``rewrite.yaml`` (Phase 4.2a) decides how a draft is WORDED; ``quality.yaml``
-    (Phase 4.2b) decides how a JD is AUDITED (advisory). None of them can move a score,
-    a grade or a gate.
+    (Phase 4.2b) decides how a JD is AUDITED (advisory); ``functional_families.yaml``
+    (Phase A2) decides which roles are gathered into a named FUNCTION for browsing. None
+    of them can move a score, a grade or a gate.
     """
     assert loader._UNHASHED_FILES == {
         REGISTER_FILE,
@@ -510,6 +517,7 @@ def test_the_unhashed_files_are_the_ones_that_cannot_change_a_jds_score() -> Non
         "harmonization.yaml",
         "rewrite.yaml",
         "quality.yaml",
+        "functional_families.yaml",
     }
     hashed = set(loader._HASHED_FIELDS)
     assert "segmentation" not in hashed

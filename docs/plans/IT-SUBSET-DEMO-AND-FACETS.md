@@ -16,14 +16,18 @@ SFU's IT job family is **ITP** (Information Technology Practitioner), identifiab
 
 | | |
 |---|---:|
-| ITP source documents in the archive | **469** |
+| source documents behind the IT roles | **451** |
 | harmonized roles they produce | **45** |
 | of those, **approvable right now** | **32 (71%)** |
 | departments they span | 15 |
+| ITP-named files in the archive (47 behind no role) | 469 |
 
-The compression is the story: **469 documents → 45 roles** (10.4:1). Individual roles absorb 43, 36,
-31, 30, 29 near-identical source JDs each. That is the value proposition in one screen, and
-it is real today — no new work required to *show* it.
+The compression is the story: **451 documents → 45 roles** (10.0:1) — the figure the
+collection page shows; 469 ITP files exist in the archive but 47 are behind no current
+role, and 29 non-ITP files were clustered in, so `469 → 45` does not reconcile.
+Individual roles absorb 43, 36, 31, 30, 29 near-identical source JDs each. That is the
+value proposition in one screen, and it is real today — the page exists.
+
 
 ✅ **RESOLVED 2026-08-27 — [`IT-DUPLICATE-TITLE-ANSWER.md`](IT-DUPLICATE-TITLE-ANSWER.md).**
 **Twenty** of the 45 roles are titled *"Information Technology Professional"* (this section
@@ -132,9 +136,9 @@ A **named, curated set of roles** — the IT collection is the first one.
   collection is *reviewed*; a facet silently inherits whatever the department string says.
   For a demo, reviewed beats clever.
 
-**Deliverable:** one page showing 45 IT roles, 32 approvable, 469 source documents behind
-them (**422** of which sit behind a current draft — show both, not just the larger), each
-role clicking through to the JD and its sources.
+**Deliverable:** ✅ **BUILT** — `/jd-bank/ui/collection/it` shows 45 IT roles, 32
+approvable, and the **451** source documents behind them, each role clicking through to
+the JD and its sources. `?queue=1` adds the ranked candidate list.
 
 ### Layer 2 — facets on the library
 

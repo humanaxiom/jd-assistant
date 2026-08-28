@@ -1,0 +1,153 @@
+# Functional role families (Phase A2) — rulebook-as-data (CLAUDE.md §2).
+#
+# WHAT THIS FILE DECIDES
+# ----------------------
+# Which harmonized roles are gathered into a named FUNCTION ("the IT roles"), for
+# browsing and for a demo collection page. It changes NOTHING the validator computes
+# about a JD — no score, no grade, no gate, no finding — so it is registered, on the
+# decision surface, drift-checked against the register, but excluded from
+# `rules_version` (`loader._UNHASHED_FILES`). Retuning a term list cannot make a single
+# JD's ValidationReport look stale.
+#
+# THE MEASUREMENT THAT SHAPED IT — docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md
+# -----------------------------------------------------------------------------
+# 1. THERE IS NO THRESHOLD. Scoring roles by how many distinct duty terms they contain
+#    and validating against the 45-role ITP seed: 98% recall costs 1,141 candidates
+#    (46% of the whole archive); at ~166 candidates recall is 48.9% — more than half
+#    the roles we ALREADY KNOW are IT. No cut point is both precise and complete.
+#    => `duty_terms` NEVER decides membership. It ORDERS a review queue. That is why
+#       `review_queue_min_score` is documented as an ordering cutoff and is read only
+#       by the candidate queue, never by the membership resolver.
+#
+# 2. A TERM LIST IS A HYPOTHESIS, AND IT FAILS DIFFERENTLY EACH TIME IT IS REWRITTEN.
+#    The first IT list missed the ENGINEERS (it encoded "IT = desktop support"). The
+#    corrected list below nearly misses the ANALYSTS — Business Analyst, Business
+#    Systems Analyst, IT Business Analyst, Information Security Analyst all score 0
+#    or 1 — because analysts write duties about processes and requirements, not about
+#    servers and operating systems.
+#    => `classification_families` is NOT a convenience. For those nine roles it is the
+#       only signal that works. UNION the signals; NEVER intersect them.
+#
+# 3. MATCH ON WORD BOUNDARIES, NEVER SUBSTRINGS. As a substring, `lan` matches "plan",
+#    "planning" and "Langara": 1,568 of 2,493 roles, 63% of the corpus, from one
+#    three-letter term. Every term below is matched with word boundaries by
+#    `src/jd_bank/library/families.py`. A substring sweep produces a confident, wrong
+#    and plausible-looking cohort — 63% is not obviously absurd when you are expecting
+#    "IT is bigger than you think".
+#
+# HOW MEMBERSHIP IS RESOLVED (and why it is not a list of UUIDs)
+# -------------------------------------------------------------
+# resolved members = (roles whose SOURCE FILENAMES carry a classification family)
+#                    ∪ include  −  exclude
+#
+# The classification family resolves against the live Bank at query time. Freezing 45
+# cluster UUIDs here would rot the moment the Bank is rebuilt — cluster ids are not
+# stable across a re-clustering run, and a rulebook that silently points at nothing is
+# worse than one that points at the wrong thing. `include` / `exclude` are the human
+# overrides the demo plan requires, so a mis-sort is fixed by editing a line rather
+# than by tuning a term list and re-running everything downstream.
+#
+# NOTHING HERE IS SFU's. Every value is `our_invention` and PROVISIONAL — SFU publishes
+# no functional job-family taxonomy. See HR-215…HR-220; all `open`.
+
+version: jd_rules_sfu_v4
+
+# Rank cutoff for the CANDIDATE REVIEW QUEUE — how far down the ranked list a reviewer
+# is offered, and NOTHING else (HR-215). Measured: score >= 7 yields 68 roles, of which
+# 8 are already seed members, so ~60 to review — a tractable human pass that contains
+# every role in the measurement's top table.
+#
+# ⚠ THIS IS NOT A MEMBERSHIP TEST AND MUST NEVER BECOME ONE. At this value the sweep's
+# recall against the known-IT seed is 17.8%. Raising or lowering it changes how long the
+# review queue is; it does not change who is in the family. The resolver does not read
+# it. See finding 1 above.
+review_queue_min_score: 7
+
+families:
+  information_technology:
+    # Pure copy — NOT on the decision surface and deliberately not registered. The key
+    # `information_technology` is the stable identifier.
+    label: Information Technology
+    slug: it
+
+    # HR-216 — the AUTHORITATIVE membership signal. SFU's IT job family is ITP
+    # (Information Technology Practitioner) and it is carried in the source filename
+    # (`20060503_30181_ITP_III_Gr_12.doc`). 469 documents -> 45 roles, 32 approvable.
+    # This is the only signal that finds the IT ANALYSTS (finding 2).
+    classification_families:
+      - ITP
+
+    # HR-217 (`include`) / HR-218 (`exclude`) — human overrides. `include` adds a
+    # reviewed role the signals miss;
+    # `exclude` removes a false positive. Both are cluster ids, and BOTH ARE EMPTY
+    # UNTIL A HUMAN REVIEWS: the ranked queue exists to be worked, and pre-filling it
+    # from a score would be exactly the auto-assignment finding 1 forbids.
+    include: []
+    exclude: []
+
+    # HR-219 — the duty-text terms that ORDER the candidate review queue. Word-boundary
+    # matched, case-insensitive, over title + position_summary + duties.
+    # ⚠ ORDERING ONLY. See finding 1. A term added here lengthens or reorders a review
+    # queue; it can never put a role in the family.
+    duty_terms:
+      - network
+      - servers?
+      - hardware
+      - software
+      - troubleshooting
+      - troubleshoot
+      - operating systems?
+      - architecture
+      - identity management
+      - application development
+      - data centre
+      - databases?
+      - systems analyst
+      - programming
+      - programmer
+      - cybersecurity
+      - information security
+      - help ?desk
+      - workstations?
+      - lan
+      - wan
+      - firewall
+      - virtualization
+      - api
+      - sql
+      - linux
+      - unix
+      - active directory
+      - technical support
+      - web application
+      - middleware
+      - information technology
+      - computing
+      - desktop
+      - encryption
+      - scripting
+      - debugging
+
+    # HR-220 — title terms, a second weak ordering signal. Same rule: ORDERING ONLY.
+    # "Technical Support Specialist" is IT; "Research Technician" may or may not be,
+    # and the measurement caught exactly that role as the one false positive.
+    title_terms:
+      - systems analyst
+      - network
+      - computer
+      - technical support
+      - developer
+      - information technology
+      - programmer
+      - web
+
+    # The recall statement this family must publish about itself. Pure copy, so NOT
+    # registered and NOT on the decision surface — but REQUIRED by the model. Not
+    # decoration: it is the only defence against finding 2 recurring silently in the
+    # next family somebody defines. Rendered verbatim on the collection page.
+    recall_note: >-
+      Membership comes from the ITP classification family, which is authoritative and
+      needs no review. The duty-text sweep is used only to rank a review queue: on its
+      own it reaches 98% recall only by returning 46% of the archive, and it nearly
+      misses every IT analyst role, because analysts write about processes rather than
+      technologies.
