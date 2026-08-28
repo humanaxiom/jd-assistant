@@ -70,8 +70,10 @@ Not carry-through, not scores, not test counts.
 
 ## ▶ WHAT TO WORK ON — full detail in [`docs/plan.md`](docs/plan.md)
 
-**Track A (demo) and B1 (TLS) are ours and can run in parallel. B2–B4 are asks — make them
-today, they have lead time.**
+**Track A (demo) is ours. B2–B4 are asks — make them today, they have lead time.**
+
+⏸ **TLS is no longer here.** It moved to **BEFORE GOING LIVE** (BGL-1) by decision on
+2026-08-27: suppressed until feature development is complete. It still blocks B2.
 
 ### 🟢 TRACK A — the demo
 **Lead with the number that needs no review:** *451 IT source documents → 45 harmonized
@@ -116,16 +118,34 @@ live one is needed, and why they should be retired rather than run alongside.
 
 ### 🔴 TRACK B — the pilot (the actual deliverable)
 
-- **B1 — TLS at the edge.** `sfuai.ca:7000` is plain HTTP carrying CAS cookies. **Any demo
-  or pilot puts a real person on it.** Ours alone; do it before either.
 - **B2 — run the pilot.** ~20 approvable drafts reviewed for real.
   **Success = 20 PUBLISHED JDs + the reviewer's written objections.**
+  ⛔ **Blocked on BGL-1 (TLS)** — this is the step that puts other people's credentials
+  on the wire.
 - **B3 — ratify two gates.** `SFU-APPROVE-QUAL-EQUIVALENT` (620 CUPE drafts) and
   `SFU-APPROVE-KSA-ORDER` (564). One ruling beats every engineering change made in August,
   at zero GPU cost.
 - **B4 — book the HR ratification session.** **79 decisions need an HR ruling**, 0 ratified.
   (The register holds more, but the rest are engineering settings or shape what a reviewer
   sees — they are not HR's to sign. The ask is 79, and that is a bookable meeting.)
+
+## ⏸ BEFORE GOING LIVE — deferred until feature development is complete
+
+**Decided 2026-08-27.** Not now, and not "soon" — these are held until the feature work is
+done. They are listed here rather than in Track C because Track C items may never be built;
+**these must be, before the system carries anyone but us.**
+
+**The trigger is a person, not a date: BGL items must close before anyone outside the
+development team signs in.** A demo we drive ourselves exposes only our own session, so it
+is not the trigger. **B2 is.**
+
+- **BGL-1 — TLS at the edge.** `sfuai.ca:7000` is plain HTTP carrying CAS session cookies.
+  Anyone signing in over it hands their SFU session to whatever is on the path. Ours alone
+  to close; no HR dependency. ⛔ **Blocks B2.**
+
+⚠ **This is a suppression, not a resolution.** The exposure is unchanged and unmitigated —
+what changed is only that we are not working on it yet. If a pilot, a hands-on session, or
+any non-developer login gets scheduled, **BGL-1 comes back to the top of the list that day**.
 
 ## ⛔ NOT NEXT — real, registered, and deliberately deferred
 
