@@ -414,3 +414,96 @@ async def test_the_cutoff_moves_the_queue_not_the_membership(
 
     assert len(long_queue) > len(short_queue) == 0
     assert before == after, "the cutoff must not move membership in either direction"
+
+
+async def test_a_department_match_also_raises_a_candidate(
+    session_maker: async_sessionmaker[AsyncSession], it_family: FunctionalFamily
+) -> None:
+    """A role in the unit's DEPARTMENT reaches the queue even with no family vocabulary.
+
+    Measured before this existed: 47 roles carried an ITS department without the ITP
+    classification, and **45 of them were surfaced nowhere at all** — not members, not
+    candidates. They included *Systems Administrator*, *Senior Systems Engineer* and
+    *PeopleSoft Developer*: titles no IT director would accept as "not IT". The
+    duty-term sweep missed them because they score below the queue cutoff, which is
+    the same recall
+    failure the sweep has now shown three times.
+
+    ⚠ This raises a CANDIDATE, never a member. Department is evidence for a human
+    to rule
+    on — the measured reason being that a unit's own name matches a fraction of its
+    portfolio, and academic units (`School of Computing Science`) look exactly like the
+    real thing to any matcher.
+    """
+    async with session_maker() as session:
+        by_department = await _seed_role(
+            session,
+            # No IT vocabulary anywhere: the duty sweep alone cannot see this role.
+            jd=_jd(
+                "Office Assistant", summary="Coordinates schedules and correspondence"
+            ),
+            filenames=["1_CUPE.doc"],
+        )
+        elsewhere = await _seed_role(
+            session,
+            jd=_jd(
+                "Office Assistant", summary="Coordinates schedules and correspondence"
+            ),
+            filenames=["2_CUPE.doc"],
+        )
+        await session.execute(
+            text(
+                "UPDATE canonical_jds SET content = jsonb_set("
+                "  content, '{department}', '\"IT Services\"') WHERE cluster_id = :c"
+            ),
+            {"c": by_department},
+        )
+        await session.execute(
+            text(
+                "UPDATE canonical_jds SET content = jsonb_set("
+                "  content, '{department}', '\"Faculty of Education\"')"
+                " WHERE cluster_id = :c"
+            ),
+            {"c": elsewhere},
+        )
+        await session.commit()
+
+        with_dept = it_family.model_copy(update={"department_terms": ("IT Services",)})
+        queue = await rank_candidates(session, with_dept, rules=get_rules())
+
+    ids = [c.cluster_id for c in queue]
+    assert (
+        by_department in ids
+    ), "a role in the unit's department must reach the queue even with no IT vocabulary"
+    assert elsewhere not in ids, "an unrelated department does not raise a candidate"
+    hit = next(c for c in queue if c.cluster_id == by_department)
+    assert hit.department_match is True
+    assert hit.duty_matches == 0, "it got here on department alone — say so honestly"
+
+
+async def test_a_department_match_does_not_confer_membership(
+    session_maker: async_sessionmaker[AsyncSession], it_family: FunctionalFamily
+) -> None:
+    """⚠ The whole design in one assertion. Department is a CANDIDATE signal only.
+
+    A unit's own name matches a fraction of its portfolio (VPFA: 2 roles against ~55+),
+    and `School of Computing Science` looks exactly like ITS to any matcher. Letting a
+    department string decide membership would be the department-taxonomy error the
+    functional plan was written to avoid.
+    """
+    async with session_maker() as session:
+        cluster = await _seed_role(
+            session, jd=_jd("Systems Administrator"), filenames=["1_CUPE.doc"]
+        )
+        await session.execute(
+            text(
+                "UPDATE canonical_jds SET content = jsonb_set("
+                "  content, '{department}', '\"IT Services\"') WHERE cluster_id = :c"
+            ),
+            {"c": cluster},
+        )
+        await session.commit()
+        with_dept = it_family.model_copy(update={"department_terms": ("IT Services",)})
+        members = await resolve_members(session, with_dept)
+
+    assert cluster not in members, "department raises candidates, never members"

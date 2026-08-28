@@ -1,0 +1,84 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — the funnel ({{ funnel.scope_label }}){% endblock %}
+{% block header %}🏦 JD Bank — archive to published{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <h2>{{ funnel.scope_label }}</h2>
+  <p>
+    Every number on this page is read from the database <strong>now</strong>. The other
+    archive dashboards render a committed file written by a batch run — when they disagree
+    with this page, this page is the Bank and they are a snapshot.
+  </p>
+  {% if funnel.scope_key != 'all' %}
+  <p class="meta"><a href="/jd-bank/ui/funnel">← the whole Bank</a></p>
+  {% endif %}
+</div>
+
+<div class="panel">
+  <h3>The funnel</h3>
+  {# Each stage names what it LOST. A funnel that shows only its own counts lets a real
+     gap hide inside an expected one — measured: 52% of the biggest drop is ordinary
+     de-duplication, and 1,204 documents in it have no near-duplicate link at all. #}
+  <table>
+    <thead>
+      <tr><th>Stage</th><th>Count</th><th>Not carried forward</th></tr>
+    </thead>
+    <tbody>
+      {% for stage in funnel.stages %}
+      <tr>
+        <td><strong>{{ stage.label }}</strong>
+          {% if stage.note %}<br><span class="meta">{{ stage.note }}</span>{% endif %}
+        </td>
+        <td>{{ "{:,}".format(stage.count) }}</td>
+        <td>{% if stage.lost %}−{{ "{:,}".format(stage.lost) }}{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if funnel.documents_note %}
+  <p class="meta">⚠ {{ funnel.documents_note }}</p>
+  {% endif %}
+</div>
+
+{# Every facet states its own coverage and keeps a (not stated) bucket. A facet that
+   silently drops the roles it has no value for is the archive-claim error in UI form. #}
+{% for facet in facets %}
+<div class="panel">
+  <h3>{{ facet.label }}</h3>
+  <p class="meta">
+    Known for <strong>{{ facet.known }}</strong> of {{ facet.total }} roles
+    ({{ facet.coverage_pct }}%){% if facet.not_stated %} · <strong>{{ facet.not_stated }}</strong>
+    not stated{% endif %}{% if facet.other %} · {{ facet.other }} in smaller buckets{% endif %}.
+    {% if facet.note %}<br>{{ facet.note }}{% endif %}
+  </p>
+  {% if facet.buckets %}
+  <table>
+    <thead><tr><th>{{ facet.label }}</th><th>Roles</th></tr></thead>
+    <tbody>
+      {% for bucket in facet.buckets %}
+      <tr><td>{{ bucket.value }}</td><td>{{ bucket.count }}</td></tr>
+      {% endfor %}
+      {% if facet.other %}
+      <tr><td class="meta">…{{ facet.other }} more in smaller buckets</td><td>{{ facet.other }}</td></tr>
+      {% endif %}
+      {% if facet.not_stated %}
+      <tr><td class="meta">(not stated)</td><td>{{ facet.not_stated }}</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No values recorded for this dimension in this scope.</p>
+  {% endif %}
+</div>
+{% endfor %}
+
+<div class="panel">
+  <p class="meta">
+    <a href="/jd-bank/ui/library">All roles</a> ·
+    <a href="/jd-bank/ui/collection/it">The IT collection</a> ·
+    <a href="/jd-bank/ui/archive">The source archive</a>
+  </p>
+</div>
+
+{% endblock %}

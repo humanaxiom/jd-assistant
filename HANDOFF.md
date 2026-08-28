@@ -108,6 +108,32 @@ See [`docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](docs/plans/IT-FUNCTIONAL-S
   JD and sources; `?queue=1` shows the **72** ranked candidates as a separate surface,
   labelled questions rather than members, with match **counts** — never a percentage.
   The page publishes the family's own recall note. **A1–A3 are a complete demo.**
+
+🔴 **BEFORE THE ITS DIRECTOR SESSIONS — the collection answers a different question than
+a director will ask.** It shows roles SFU *classifies* as IT (the ITP code). A director
+asks which roles are in *their department*. Measured, those barely overlap:
+
+| | |
+|---|---:|
+| roles in the collection (ITP-classified) | 45 |
+| …with an ITS-looking department | 10 |
+| …with **no department recorded at all** | 23 |
+| ITS-department roles **not** ITP-classified | 47 |
+| …of those, **surfaced nowhere** (not even as candidates) | 🔴 **45** |
+
+✅ **FIXED** — `department_terms` (HR-222) now raises a role as a **candidate** when it
+sits in an IT department, whatever its duty score. **The collection is unchanged (45
+roles, 32 approvable)**; the queue went 72 → **129**, and **11 roles are visible only
+because of this** — *Solutions Architect*, *Director, Infrastructure Services*, *Senior
+Director, Application Services*, *Service Desk Team Lead*. Their duty text has no
+technology vocabulary, so no ranking signal could have found them.
+⚠ The 33-string alias list is exact-match and **provisional — the sessions are where it
+gets vetted**. See [`docs/plans/SCOPES-AND-ORG-ROLLUP.md`](docs/plans/SCOPES-AND-ORG-ROLLUP.md) §9.
+
+**Unit priority (set 2026-08-27):** 1. **ITS** (in flight) · 2. **VPFA** — ITS rolls up
+into it · 3. **Facilities Services** (queued: 23 roles by exact name, 39 across 14
+strings, 57 if security/grounds/parking are in — *where the unit ends is a curation call,
+not a query*). **Units 2–3 change nothing about unit 1.**
 - **A4 — live funnel panel**, **A5 — facets** (each showing its own coverage).
   🔴 **Both take a SCOPE, never a hardcoded family** —
   [`docs/plans/SCOPES-AND-ORG-ROLLUP.md`](docs/plans/SCOPES-AND-ORG-ROLLUP.md). The IT view

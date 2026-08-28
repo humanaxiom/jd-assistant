@@ -199,6 +199,9 @@ EXPECTED_ACCESS: dict[tuple[str, str], Rule] = {
     ("GET", "/jd-bank/ui/collection/{slug}"): Rule(
         Access.ANY_AUTHENTICATED, Surface.UI
     ),
+    # The live funnel + facets (Phase A4/A5). Read-only aggregate counts over the same
+    # roles the library already shows, scope-parameterised. Same class as its siblings.
+    ("GET", "/jd-bank/ui/funnel"): Rule(Access.ANY_AUTHENTICATED, Surface.UI),
     # ── My drafts (src/api/routes/drafts.py) — P0.0 ──────────────────────────────
     # Any signed-in user, because it is where the Builder lands whoever just submitted,
     # and `author` is the default new-user role. It shows each reader only their OWN

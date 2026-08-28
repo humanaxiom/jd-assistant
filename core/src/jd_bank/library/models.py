@@ -187,8 +187,81 @@ class FamilyCandidate(_Frozen):
     duty_matches: int
     #: How many distinct family title terms the role's TITLE contains.
     title_matches: int
+    #: Whether the role sits in one of the family's DEPARTMENTS. A candidate signal
+    #: only — shown so a reviewer can see a role reached the queue on its department
+    #: rather than on its duty text, which for 45 real roles is the only reason it did.
+    department_match: bool = False
 
     @property
     def matches(self) -> int:
         """The rank key — the ordering of the worklist, and nothing more."""
         return self.duty_matches + self.title_matches
+
+
+class FunnelStage(_Frozen):
+    """One step of the archive → published funnel (Phase A4).
+
+    ``lost`` and ``note`` exist together, and that pairing is the point. A stage
+    reporting only its own count lets a real gap hide inside an expected one: the drop
+    from parsed documents to documents behind a role looks like ordinary
+    de-duplication, and measured, 52% of it is — while 1,204 documents have no
+    near-duplicate link at all and are simply unaccounted for. **Every stage names what
+    it lost.**
+    """
+
+    key: str
+    label: str
+    count: int
+    #: How many did not reach this stage from the previous one.
+    lost: int
+    #: What became of them, in words. ``None`` when nothing was lost.
+    note: str | None = None
+
+
+class Funnel(_Frozen):
+    """The archive → published funnel for one scope (Phase A4)."""
+
+    scope_key: str
+    scope_label: str
+    stages: tuple[FunnelStage, ...]
+    #: Set when the scope has no archive-side definition, so the document-side stages
+    #: are absent. Stated rather than silently omitted: a funnel starting at "roles" for
+    #: one scope and at "documents" for another, unexplained, is one nobody can compare.
+    documents_note: str | None = None
+
+
+class FacetBucket(_Frozen):
+    """One value of a facet, and how many roles carry it."""
+
+    value: str
+    count: int
+
+
+class Facet(_Frozen):
+    """One dimension of the roles in a scope, WITH its own coverage (Phase A5).
+
+    ⚠ :attr:`not_stated` is never folded into the buckets and never dropped. A facet
+    that silently omits the roles it has no value for is the archive-claim error in UI
+    form, and this project has made that error before. For ``department`` the blind spot
+    is 27.8% of the Bank.
+    """
+
+    key: str
+    label: str
+    buckets: tuple[FacetBucket, ...]
+    #: Roles in buckets beyond the display limit — counted, never discarded.
+    other: int
+    #: Roles with no value for this dimension at all.
+    not_stated: int
+    total: int
+    note: str | None = None
+
+    @property
+    def known(self) -> int:
+        """Roles this facet can actually say something about."""
+        return self.total - self.not_stated
+
+    @property
+    def coverage_pct(self) -> float:
+        """The share of the scope this facet covers, for the page to state plainly."""
+        return round(100.0 * self.known / self.total, 1) if self.total else 0.0

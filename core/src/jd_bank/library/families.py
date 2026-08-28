@@ -228,12 +228,22 @@ async def rank_candidates(
     ``review_queue_min_score`` truncates the list. It is a queue depth: at the shipped
     value the sweep finds only 17.8% of the roles SFU itself classifies as IT, so using
     it to *decide* the family would discard three of every four of them.
+
+    **A DEPARTMENT match reaches the queue regardless of score**, and that is
+    deliberate.
+    Measured: 47 roles carried an ITS department without the ITP classification, and 45
+    of them were surfaced nowhere at all — *Systems Administrator*, *Senior Systems
+    Engineer*, *PeopleSoft Developer*, *Research Computing Analyst*. Their duty text
+    scores below any usable cutoff, so ranking alone could never have found them, and an
+    IT director looking for their own staff would not have seen them. Union the signals;
+    never intersect them. ⚠ It raises a **candidate**, never a member.
     """
     resolved = rules if rules is not None else get_rules()
     cutoff = resolved.functional_families.review_queue_min_score
     duty = postgres_patterns(family.duty_terms)
     title = postgres_patterns(family.title_terms)
-    if not duty and not title:
+    departments = list(family.department_terms)
+    if not duty and not title and not departments:
         return ()
     members = await resolve_members(session, family)
     # An EMPTY term list must contribute 0, not match everything. `unnest` over an
@@ -254,20 +264,30 @@ async def rank_candidates(
                         WHERE {_BODY} ~ t)::int AS duty_hits,
                      (SELECT count(*) FROM unnest(CAST(:title AS text[])) t
                         WHERE lower(coalesce(c.content->>'title','')) ~ t)::int
-                        AS title_hits
+                        AS title_hits,
+                     -- Department is compared case-INSENSITIVELY and whole-string:
+                     -- `FACILITIES SERVICES` and `Facilities Services` are two distinct
+                     -- strings in this archive, and a substring match would sweep in
+                     -- `School of Computing Science`, an academic unit that is not ITS.
+                     EXISTS (
+                       SELECT 1 FROM unnest(CAST(:departments AS text[])) d
+                       WHERE lower(trim(coalesce(c.content->>'department',''))) =
+                             lower(trim(d))
+                     ) AS department_match
               FROM cur c
               WHERE NOT (c.cluster_id = ANY(CAST(:members AS uuid[])))
             )
             SELECT cluster_id, canonical_id, title, status, sources, department,
-                   duty_hits, title_hits
+                   duty_hits, title_hits, department_match
             FROM scored
-            WHERE duty_hits + title_hits >= :cutoff
+            WHERE duty_hits + title_hits >= :cutoff OR department_match
             ORDER BY duty_hits + title_hits DESC, sources DESC, title ASC
             LIMIT :limit
         """),
         {
             "duty": duty,
             "title": title,
+            "departments": departments,
             "members": [str(m) for m in members],
             "cutoff": cutoff,
             "limit": max(1, min(limit, MAX_CANDIDATES)),
@@ -283,6 +303,7 @@ async def rank_candidates(
             department=row.department,
             duty_matches=int(row.duty_hits or 0),
             title_matches=int(row.title_hits or 0),
+            department_match=bool(row.department_match),
         )
         for row in rows
     )

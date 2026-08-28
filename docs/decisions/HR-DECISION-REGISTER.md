@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+76baba29cfeb` · **220 decisions** (220 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 280 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+76baba29cfeb` · **221 decisions** (221 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 281 parameters on the decision surface, all accounted for.
 
-**Of those 220, 79 need an HR ruling.** The other 141 are recorded for the same build check but are not yours to sign: 56 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 221, 79 need an HR ruling.** The other 142 are recorded for the same build check but are not yours to sign: 57 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -853,6 +853,7 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-218](#hr-218) | Should a person be able to remove a role from a job family when our signals wrongly include it, and which roles have been removed that way? | *(empty)* | we chose it |
 | [HR-219](#hr-219) | Which words in a job description's duties should make it rank higher on a reviewer's "might be IT" worklist? | *37 entries — see below* | we chose it |
 | [HR-220](#hr-220) | Which words in a job TITLE should make it rank higher on a reviewer's "might be IT" worklist? | *8 entries — see below* | we chose it |
+| [HR-222](#hr-222) | Should a job description sitting in one of a unit's departments be put in front of a reviewer as a possible member of that job family, even when its duties never mention the family's vocabulary? | *33 entries — see below* | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -1135,6 +1136,14 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** we chose it
 - **Why it matters:** Titles are fast to read and unreliable on their own, which is why they only contribute to the ordering of a worklist alongside HR-219. "Technical Support Specialist" is IT; "Research Technician" may or may not be, and the measurement caught precisely that title as the sweep's one clear false positive. A separate knob from the duty terms because a title is different evidence from a duty statement: changing what we believe about titles should not silently change what we believe about duties.
 - **If it changes:** Does NOT move `rules_version` and does NOT change who is in any family. It reorders a reviewer's worklist. The same word-boundary caution as HR-219 applies.
+
+##### HR-222 — Should a job description sitting in one of a unit's departments be put in front of a reviewer as a possible member of that job family, even when its duties never mention the family's vocabulary?
+
+- **We ship:** `Information Technology`, `Information Technology Services`, `Information Technology Services, SFU Vancouver Campus`, `IT Services`, `IT Services (ITS) – SFU Surrey Campus`, `IT Services - Infrastructure`, `IT Services Infrastructure Services`, `IT Services – Application Services`, `IT Services – Audio Visual`, `IT Services – CaRS Client Services Innovations`, `IT Services – High Performance Computing`, `IT Services, Application Services`, `IT Services, AV Services`, `IT Services, Client Services`, `IT Services, Learning and Community Systems`, `IT Services, Strategic Services`, `IT Client Services`, `IT Client Services – AV Services`, `IT Service Desk (11-8246)`, `Application Services, IT Services`, `Application Services, Information Technology Services`, `Business Solutions, IT Services`, `Client Services, IT Services`, `Learning and Community Systems, IT Services`, `Research Computing, IT Services`, `Science – IT Services`, `Enterprise Systems`, `Enterprise Systems - Application Services`, `ESPM Enterprise Systems`, `Academic Computing Services`, `Advanced Research Computing`, `Research Computing`, `Library Systems`
+- **Configured in:** `functional_families.yaml` → `functional_families.information_technology.department_terms`
+- **Where the default came from:** we chose it
+- **Why it matters:** Without this list a whole population of real IT staff is invisible, and the measurement is blunt. Forty-seven job descriptions record an IT department but do not carry SFU's ITP classification, and forty-five of them appeared NOWHERE — not in the IT collection, and not even in the list of possible members a reviewer is offered. Among them are Systems Administrator, Senior Systems Engineer, PeopleSoft Developer, Research Computing Analyst and Audio-Visual and Computing Support Technician: roles nobody would accept as "not IT". They were missed because the only signal in use read the DUTIES, and these particular descriptions are written in language that scores too low to reach the list. This adds a second, independent way in. It matters most in the room: an IT director reviewing their own function and not finding their own staff concludes, reasonably, that the system does not have them.
+- **If it changes:** Does NOT move `rules_version`, and — the important part — does NOT decide who is in the family. A department match puts a role on a reviewer's list of QUESTIONS; a human still rules on it, and that ruling is recorded under HR-217 or HR-218. It cannot be allowed to confer membership, because a unit's own name matches only a fraction of its people (for Finance and Administration, two job descriptions against a portfolio of roughly fifty-five), and because "School of Computing Science" is an ACADEMIC department that looks identical to IT Services to any automatic matcher. Adding a department here lengthens a worklist. Removing one hides those roles from review again.
 
 #### An earlier version of this tool chose it — also unratified
 

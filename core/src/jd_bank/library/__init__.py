@@ -15,9 +15,14 @@ from src.jd_bank.library.families import (
     resolve_members,
     score_text,
 )
+from src.jd_bank.library.funnel import build_facets, build_funnel
 from src.jd_bank.library.models import (
     CollectionStats,
+    Facet,
+    FacetBucket,
     FamilyCandidate,
+    Funnel,
+    FunnelStage,
     MemberJD,
     RoleListItem,
     RolePage,
@@ -27,6 +32,7 @@ from src.jd_bank.library.models import (
     SourceListItem,
     SourcePage,
 )
+from src.jd_bank.library.scopes import WHOLE_BANK, Scope, scope_for
 from src.jd_bank.library.service import (
     DEFAULT_PAGE_SIZE,
     get_role,
@@ -38,7 +44,13 @@ from src.jd_bank.library.service import (
 __all__ = [
     "DEFAULT_PAGE_SIZE",
     "MAX_CANDIDATES",
+    "WHOLE_BANK",
     "CollectionStats",
+    "Facet",
+    "FacetBucket",
+    "Funnel",
+    "FunnelStage",
+    "Scope",
     "FamilyCandidate",
     "MemberJD",
     "RoleListItem",
@@ -48,6 +60,8 @@ __all__ = [
     "SourceJDView",
     "SourceListItem",
     "SourcePage",
+    "build_facets",
+    "build_funnel",
     "collection_stats",
     "family_for",
     "get_role",
@@ -56,5 +70,6 @@ __all__ = [
     "list_source_jds",
     "rank_candidates",
     "resolve_members",
+    "scope_for",
     "score_text",
 ]
