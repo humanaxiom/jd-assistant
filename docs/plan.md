@@ -45,7 +45,7 @@ a stable ~6.2:1, and no cut point yields either number.
 | **B1** | 🔴 **TLS at the edge** | eng | `sfuai.ca:7000` is plain HTTP carrying CAS cookies. **Any demo or pilot puts a real person on it.** The only critical-path item engineering closes alone. |
 | **B2** | 🔴 **Run the pilot** | needs HR | ~20 of the 1,292 approvable drafts, reviewed for real. **Success = 20 PUBLISHED JDs + the reviewer's written objections.** |
 | **B3** | 🔴 **Ratify two gates** | needs HR | `SFU-APPROVE-QUAL-EQUIVALENT` (blocks 620 CUPE) · `SFU-APPROVE-KSA-ORDER` (564). One ruling beats every engineering change made in August, at zero GPU cost. |
-| **B4** | **Book HR ratification** | needs HR | 214 decisions, 0 ratified. The matrix needs a calendar invitation, not another revision. |
+| **B4** | **Book HR ratification** | needs HR | **79 decisions need an HR ruling**, 0 ratified — the register holds more, but the rest are engineering settings or shape what a reviewer sees and are not HR's to sign. The matrix needs a calendar invitation, not another revision. |
 
 **B1 can run in parallel with Track A. B2–B4 are asks, not tasks — make them now.**
 
