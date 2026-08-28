@@ -11,18 +11,27 @@ Companion to [`FUNCTIONAL-ROLE-TAXONOMY.md`](FUNCTIONAL-ROLE-TAXONOMY.md) and
 Everything the Bank shows today is **after** harmonization: 2,489 roles. The archive it came
 from is invisible. **The gap between those two numbers is the product**, and right now
 nobody can see it.
-
 Measured for the IT function:
 
 | | |
 |---|---:|
-| IT **source documents** in the archive | **1,420** |
-| IT **harmonized roles** they become | **~166** |
-| compression | **8.5 : 1** |
+| ITP **source documents** in the archive | **469** |
+| ITP **harmonized roles** they become | **45** |
+| compression | **10.4 : 1** |
+| of those, approvable today | **32 (71%)** |
 
-> *"Your IT function is 1,420 job description documents. It is actually 166 roles.
-> And 121 of them are outside your own department."*
+> *"Your central IT job descriptions are 469 documents. They are actually 45 roles, and 32
+> can go to a reviewer today. And your IT function does not stop at your department — it is
+> in Library Systems, Linguistics, Facilities, Mechatronics and Earth Sciences too."*
 
+That sentence is the demo. It needs the source side to be visible to land.
+
+🔴 **This section previously read "1,420 documents → ~166 roles (8.5:1)". That is not
+reproducible** — it came from the term list measured to miss 38 of 45 known IT roles, and no
+cut point of the corrected sweep yields either number (the real ratio is a stable ~6.1:1).
+The figures above use the **ITP classification family**, which is authoritative and needs no
+review. The embedded-IT claim stays, as a **reviewed ranked list rather than a total**. See
+[`IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](IT-FUNCTIONAL-SWEEP-MEASUREMENT.md) §4–§5.
 That sentence is the demo. It needs the source side to be visible to land.
 
 ## 2. What already exists, and what does not
@@ -127,6 +136,6 @@ someone deciding that it should be.
   project has twice designed something that measurement showed was undeliverable.
 - ⚠ **Two sources of truth.** If the static baseline pages stay alongside this one they will
   disagree, and the wrong one will be quoted. **Retire them (step 5), do not leave both.**
-- ⚠ **The funnel invites a "why so few?" question.** 1,420 → 166 is the *value*, but it can be
+- ⚠ **The funnel invites a "why so few?" question.** 469 → 45 is the *value*, but it can be
   misread as loss. Label it *compression*, and make one role's source list one click away so
   the answer is visible rather than argued.
