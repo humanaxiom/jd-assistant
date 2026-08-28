@@ -31,8 +31,17 @@ a stable ~6.2:1, and no cut point yields either number.
 | ✅ **A1** | ~~Answer the duplicate-title question~~ **DONE** | **20** roles (not 8) are titled *"Information Technology Professional"* and they are **distinct** — 15 specialisation × ITP-level cells, 18 of 20 level-homogeneous, a 5-role / 13-document (4.1%) tail whose examined members are real sub-specialisations. **No merge warranted.** Also corrected: ITP 368→**469** docs, APSA 3,351→**3,442**. → [`plans/IT-DUPLICATE-TITLE-ANSWER.md`](plans/IT-DUPLICATE-TITLE-ANSWER.md) | — |
 | ✅ **A2** | ~~IT functional family~~ **BUILT** | `functional_families.yaml`, registered **HR-215…HR-220** (`open`, `hr_informed` — they change what a reviewer is *shown*, never whether a JD passes) and **unhashed**. Measured first, and the measurement changed the design: **there is no threshold** (98% recall = 1,141 candidates = 46% of the corpus; at ~166, recall is **48.9%**). Membership = SFU's ITP classification ∪ reviewed `include` − reviewed `exclude`; **duty terms only rank a review queue**. An integration test pins it — a role stuffed with every IT term is *not* a member. 🔴 The bias failure recurred in the opposite direction (the **analyst** half, found only by the ITP family), so the union is load-bearing. → [`plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md) | — |
 | ✅ **A3** | ~~Collection page~~ **BUILT** | `/jd-bank/ui/collection/it` — **451 documents → 45 roles (10.0:1), 32 approvable**, each clicking through to its JD and sources, and the family's own recall note published on the page. `?queue=1` shows the **72** ranked candidates as a **separate** surface, labelled questions rather than members, with match **counts** — never a percentage, because the sweep is wrong at every cutoff. | — |
-| **A4** | **Live funnel panel** | source → parsed → clustered → roles → approvable, filterable, every stage reconciling (the 43 unreadable named, not dropped). | small–med |
-| **A5** | **Facets** | functional family · classification family · form · approvable. **Each shows its own coverage + a `(not stated)` bucket.** | medium |
+| **A4** | **Live funnel panel** | source → parsed → clustered → roles → approvable, filterable, every stage reconciling (the 43 unreadable named, not dropped). 🔴 **Takes a SCOPE, not a hardcoded family** — see below. | small–med |
+| **A5** | **Facets** | functional family · classification family · form · approvable. **Each shows its own coverage + a `(not stated)` bucket.** 🔴 **Scope-parameterised.** A unit facet's blind spot is **27.8%** — the drafts with no department at all. | medium |
+
+🔴 **A4/A5 must be scope-parameterised — [`plans/SCOPES-AND-ORG-ROLLUP.md`](plans/SCOPES-AND-ORG-ROLLUP.md).**
+The IT view is **instance #1 of a general unit view**; **VPFA is next, and ITS rolls up into
+it**. The IT collection resolves by **classification** (the ITP code) and **VPFA has none** —
+so a unit needs a different resolver, and the seam has to exist before two dashboards and an
+API learn the wrong shape. Measured: filtering on VPFA's own name returns **2 roles against a
+~55+ portfolio** (27× under), because a vice-presidency is never the string written on a JD.
+**The seam goes in with A4/A5; the org tree and the 739-string alias map do not — they need a
+person, and inferring them is how you hand a VP a confident wrong number.**
 
 ⚠ **A1–A3 alone are a complete demo.** If time runs short, stop there.
 

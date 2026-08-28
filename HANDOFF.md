@@ -109,6 +109,12 @@ See [`docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](docs/plans/IT-FUNCTIONAL-S
   labelled questions rather than members, with match **counts** — never a percentage.
   The page publishes the family's own recall note. **A1–A3 are a complete demo.**
 - **A4 — live funnel panel**, **A5 — facets** (each showing its own coverage).
+  🔴 **Both take a SCOPE, never a hardcoded family** —
+  [`docs/plans/SCOPES-AND-ORG-ROLLUP.md`](docs/plans/SCOPES-AND-ORG-ROLLUP.md). The IT view
+  is instance #1 of a general unit view; **VPFA is next, and ITS rolls up into it**. The IT
+  collection resolves by CLASSIFICATION (the ITP code) and **VPFA has none**, so a unit
+  needs a different resolver — the seam goes in now, the org data later. Measured: a naive
+  filter on VPFA's own name returns **2 roles against a ~55+ portfolio**.
 
 ⚠ **Function ≠ department, and it is measured.** IT is central *and* embedded across a dozen
 faculties. No org chart gathers a function; the taxonomy is functional, from duty text.
@@ -242,6 +248,7 @@ Distilled from six weeks; the full set is in the archive.
 | **The IT demo + facets plan** | [`docs/plans/IT-SUBSET-DEMO-AND-FACETS.md`](docs/plans/IT-SUBSET-DEMO-AND-FACETS.md) |
 | **A1 answered — the duplicate-title question** | [`docs/plans/IT-DUPLICATE-TITLE-ANSWER.md`](docs/plans/IT-DUPLICATE-TITLE-ANSWER.md) |
 | **A2 measured — the sweep has no threshold** | [`docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md) |
+| **Scopes + org rollup (VPFA next)** | [`docs/plans/SCOPES-AND-ORG-ROLLUP.md`](docs/plans/SCOPES-AND-ORG-ROLLUP.md) |
 | **The IT collection page (A3)** | `/jd-bank/ui/collection/it` · `core/src/jd_bank/library/families.py` |
 | **Functional families rulebook** | `core/src/jd_core/rules/functional_families.yaml` (HR-215…HR-220) |
 | **Functional role taxonomy (the sweep)** | [`docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md`](docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md) |
