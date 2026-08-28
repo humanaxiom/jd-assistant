@@ -89,10 +89,21 @@ School of Interactive Arts and Technology     4
 Faculty of Communication, Art and Technology  6
 ```
 
-**A raw department facet is a demo that misleads.** What is needed is a small
+**A raw department facet is a demo that misleads.** What is needed is a
 **department → canonical unit** map: rulebook data, registered like every other non-trivial
-default, reviewed by someone who knows SFU's org chart. Roughly 1,799 drafts across an
-estimated 150–250 distinct department strings — an afternoon of curation, not a project.
+default, reviewed by someone who knows SFU's org chart.
+
+🔴 **CORRECTION (2026-08-27).** This section originally estimated "150–250 strings, an
+afternoon of curation". **The full sweep says 739 distinct department strings across 1,799
+drafts (1,483 across all parses), 65% of them appearing exactly once, and mechanical
+normalisation collapses only 7.4%.** It is a day or two of human curation against an
+authoritative org list we do not yet have — not an afternoon, and not something to guess at.
+
+**The full design is [`DEPARTMENT-TAXONOMY.md`](DEPARTMENT-TAXONOMY.md).** It matters
+beyond IT: every unit has this problem.
+
+⚠ **None of it blocks this demo.** The ITP cohort comes from source filenames, not
+departments.
 
 ### 3c. ✅ No schema change is required
 
@@ -153,7 +164,7 @@ new thing is grouping by canonical unit, which Layer 2's map provides.
 |---|---|---|---|
 | 1 | **Answer the duplicate-title question** | it will be asked in the room | 15 min |
 | 2 | **Layer 1 collection** | this *is* the demo — filename family, no dependencies | small–medium |
-| 3 | **Department → canonical unit map** (3b) | needs human curation, not code; start early so it is not the long pole | afternoon of curation |
+| 3 | **Department taxonomy** — [`DEPARTMENT-TAXONOMY.md`](DEPARTMENT-TAXONOMY.md) | 739 strings; blocked on SFU's authoritative org list, which is not engineering | 1–2 days curation, after the list |
 | 4 | **Layer 2 facets** | needs 3 | medium |
 | 5 | **Layer 3 stats** | needs 3 | medium |
 | — | **`classification` carry-through** (3a) | ⛔ **not on this path.** A real defect, fixed on its own merits, whenever | small, merge-layer |
