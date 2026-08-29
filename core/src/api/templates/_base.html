@@ -70,6 +70,11 @@
     {% if "reviewer" in nav_roles or "admin" in nav_roles %}
     <a href="/jd-bank/ui/queue">📋 Review queue</a>
     {% endif %}
+    {# The LIVE funnel, computed from the database at request time — it comes BEFORE
+       Dashboards on purpose. "Dashboards" renders committed JSON artifacts, so it is a
+       snapshot; when the funnel shipped (2026-08-27) nothing linked to it at all, and
+       for a day clicking "Dashboards" served stale numbers that read as current. #}
+    <a href="/jd-bank/ui/funnel">📈 Funnel</a>
     <a href="/jd-bank/ui/dashboard">📊 Dashboards</a>
     <a href="/jd-bank/ui/guide" target="_blank" rel="noopener">📖 Guide</a>
     {% if "admin" in nav_roles %}

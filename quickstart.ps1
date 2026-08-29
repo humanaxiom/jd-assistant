@@ -279,8 +279,13 @@ $casOn = "$casEnv".Trim() -eq 'true'
 
 Write-Host "`n  Open:" -ForegroundColor Cyan
 Write-Info "  App          $apiUrl                        (lands in the JD Bank library)"
+# The LIVE funnel first. This block used to name ONLY the baseline dashboard, which
+# renders a COMMITTED ARTIFACT — so following it after the funnel shipped (2026-08-27)
+# showed stale numbers that looked current, and the new page appeared never to have
+# landed. Lead with the page that reads the database.
+Write-Info "  Funnel       $apiUrl/jd-bank/ui/funnel      🥇 LIVE — computed from the DB"
 Write-Info "  Review queue $apiUrl/jd-bank/ui/queue"
-Write-Info "  Dashboards   $apiUrl/jd-bank/ui/dashboard/baseline"
+Write-Info "  Dashboards   $apiUrl/jd-bank/ui/dashboard   (snapshots of committed artifacts)"
 Write-Info "  Neo4j        http://localhost:$Neo4jPort  (neo4j / harnesspass)"
 Write-Info "  Postgres     localhost:$PgPort  ·  Redis localhost:$RedisPort"
 if ($casOn) {
