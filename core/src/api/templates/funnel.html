@@ -22,7 +22,7 @@
      de-duplication, and 1,204 documents in it have no near-duplicate link at all. #}
   <table>
     <thead>
-      <tr><th>Stage</th><th>Count</th><th>Not carried forward</th></tr>
+      <tr><th>Stage</th><th>Count</th><th>Counting</th><th>Not carried forward</th></tr>
     </thead>
     <tbody>
       {% for stage in funnel.stages %}
@@ -31,6 +31,10 @@
           {% if stage.note %}<br><span class="meta">{{ stage.note }}</span>{% endif %}
         </td>
         <td>{{ "{:,}".format(stage.count) }}</td>
+        {# The unit is on EVERY row. A funnel that switches from documents to roles
+           halfway without saying so reads as one series, and a reader concludes the
+           last number is documents. That happened in review. #}
+        <td class="meta">{{ stage.unit }}</td>
         <td>{% if stage.lost %}−{{ "{:,}".format(stage.lost) }}{% else %}—{% endif %}</td>
       </tr>
       {% endfor %}
@@ -40,6 +44,35 @@
   <p class="meta">⚠ {{ funnel.documents_note }}</p>
   {% endif %}
 </div>
+
+{# The single answer to "where did the missing documents go?". Every one accounted for,
+   and each bucket labelled as a normal outcome or a defect — because reported as one
+   number ("3,653 de-duplicated") this drop read as routine, and half of it is not. #}
+{% if gap %}
+<div class="panel">
+  <h3>Where the {{ "{:,}".format(gap.total) }} documents that never reached a role went</h3>
+  <p class="meta">
+    Every one accounted for. {% if gap.reconciles %}The buckets sum to the total.{% else %}
+    <strong>⚠ The buckets do not sum to the total — this is a bug in the accounting.</strong>{% endif %}
+  </p>
+  <table>
+    <thead><tr><th>Bucket</th><th>Documents</th><th>What it means</th></tr></thead>
+    <tbody>
+      {% for b in gap.buckets %}
+      <tr>
+        <td>{% if b.benign %}✅{% else %}🔴{% endif %} {{ b.label }}</td>
+        <td>{{ "{:,}".format(b.count) }}</td>
+        <td class="meta">{{ b.detail }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="meta">
+    ✅ = the system working as intended · 🔴 = content the Bank is missing and could recover.
+  </p>
+</div>
+{% endif %}
+
 
 {# Every facet states its own coverage and keeps a (not stated) bucket. A facet that
    silently drops the roles it has no value for is the archive-claim error in UI form. #}

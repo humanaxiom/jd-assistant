@@ -9,7 +9,7 @@
 # `rules_version` (`loader._UNHASHED_FILES`). Retuning a term list cannot make a single
 # JD's ValidationReport look stale.
 #
-# THE MEASUREMENT THAT SHAPED IT — docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md
+# THE MEASUREMENT THAT SHAPED IT — docs/FINDINGS.md §4a
 # -----------------------------------------------------------------------------
 # 1. THERE IS NO THRESHOLD. Scoring roles by how many distinct duty terms they contain
 #    and validating against the 45-role ITP seed: 98% recall costs 1,141 candidates
@@ -102,8 +102,9 @@ families:
 
     # HR-219 — the duty-text terms that ORDER the candidate review queue. Word-boundary
     # matched, case-insensitive, over title + position_summary + duties.
-    # ⚠ ORDERING ONLY. See finding 1. A term added here lengthens or reorders a review
-    # queue; it can never put a role in the family.
+    # ⚠ ORDERING ONLY — the one signal that still cannot confer membership, because it
+    # is a SCORE and finding 1 measured that no cutoff of it works. A term added here
+    # lengthens or reorders the review queue; it can never put a role in the family.
     duty_terms:
       - network
       - servers?
@@ -143,9 +144,12 @@ families:
       - scripting
       - debugging
 
-    # HR-220 — title terms, a second weak ordering signal. Same rule: ORDERING ONLY.
-    # "Technical Support Specialist" is IT; "Research Technician" may or may not be,
-    # and the measurement caught exactly that role as the one false positive.
+    # HR-220 — title terms. 🔴 A MEMBERSHIP signal since 2026-08-28 (word-boundary
+    # matched against the role title). Reversed from "ordering only" after the filename
+    # code was measured blind to 65% of the archive and the collection reported 45 IT
+    # roles where the archive holds ~211. Recall first: a false positive is rejected in
+    # review; a missing role is invisible. "Research Technician" stays OUT of this list
+    # for exactly that precision reason — every term here confers membership.
     title_terms:
       - systems analyst
       - network
@@ -156,14 +160,14 @@ families:
       - programmer
       - web
 
-    # HR-222 — DEPARTMENT strings that raise a role as a CANDIDATE for review.
-    # ⚠ CANDIDATES ONLY. A department can never confer membership: measured, a unit's
-    # own name matches a fraction of its portfolio, and `School of Computing Science` is
-    # an ACADEMIC unit that looks exactly like ITS to any matcher.
-    # Why it exists: 47 roles carry an ITS department without the ITP classification, and
-    # 45 of them were surfaced nowhere at all — Systems Administrator, Senior Systems
-    # Engineer, PeopleSoft Developer, Research Computing Analyst. The duty sweep scores
-    # them below the queue cutoff, so only this signal finds them.
+    # HR-222 — DEPARTMENT strings. 🔴 A MEMBERSHIP signal since 2026-08-28 (exact
+    # string, case-insensitive, trimmed). Reversed from "candidates only" for the same
+    # measured reason as HR-220: recall first. The precision worry is handled by
+    # CURATION, not by demotion — `School of Computing Science` is deliberately absent
+    # below, and `exclude` (HR-218) removes any false positive with one line.
+    # Why it exists: 47 roles carry an ITS department without the ITP classification —
+    # Systems Administrator, Senior Systems Engineer, PeopleSoft Developer — and under
+    # filename-only membership every one of them was invisible.
     department_terms:
       # ⚠ EXACT strings, case-insensitive and whitespace-trimmed — NOT prefixes. The
       # archive writes this unit ~25 different ways, and a loose match would sweep in

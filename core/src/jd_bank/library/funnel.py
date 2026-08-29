@@ -1,4 +1,4 @@
-"""The live funnel and facets — archive to published, from the DB (Phase A4/A5).
+"""The live funnel and facets â archive to published, from the DB (Phase A4/A5).
 
 **Live, not an artifact.** Every other archive-side dashboard reads a committed JSON
 file written by a batch run, which is why they disagree with the Bank the moment
@@ -6,16 +6,16 @@ anything is reprocessed. These read the database at request time.
 
 **Scope-parameterised throughout** (:mod:`src.jd_bank.library.scopes`). Nothing here
 knows what "IT" is; the IT view is one scope key. See
-``docs/plans/SCOPES-AND-ORG-ROLLUP.md``.
+``docs/FINDINGS.md §5``.
 
 ## Why every stage names what it lost
 
-A funnel showing 14,565 → 2,493 and saying nothing about the difference reads as loss
+A funnel showing 14,565 â 2,493 and saying nothing about the difference reads as loss
 and invites "why so few?". Worse, it lets a real gap hide inside an expected one.
 Measured 2026-08-27, the archive-wide drop from 14,522 parsed documents to the 10,869
 behind a role is **not** one thing:
 
-* **1,900** are near-duplicates of a document that *is* in a role — represented;
+* **1,900** are near-duplicates of a document that *is* in a role â represented;
 * **549** are near-duplicates only of each other, so their group reached no role;
 * **1,204 have no near-duplicate edge at all** and are simply unaccounted for.
 
@@ -31,21 +31,28 @@ from __future__ import annotations
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.jd_bank.library.models import Facet, FacetBucket, Funnel, FunnelStage
+from src.jd_bank.library.models import (
+    ArchiveGap,
+    Facet,
+    FacetBucket,
+    Funnel,
+    FunnelStage,
+    GapBucket,
+)
 from src.jd_bank.library.scopes import Scope
 
-#: The current canonical per cluster — every count here is over CURRENT versions only.
+#: The current canonical per cluster â every count here is over CURRENT versions only.
 _CURRENT = """
     SELECT DISTINCT ON (cluster_id) *
     FROM canonical_jds ORDER BY cluster_id, version DESC
 """
 
-#: Approvability lives ONLY here — `validation_reports` is empty and answers 0 just as
+#: Approvability lives ONLY here â `validation_reports` is empty and answers 0 just as
 #: convincingly.
 _APPROVED = "(change_log->'validator'->'gate_decision'->>'approved')::boolean"
 
 #: Roles in scope. A scope with an empty membership must select NOTHING, never
-#: everything — the wrong direction shows a stakeholder the entire archive under their
+#: everything â the wrong direction shows a stakeholder the entire archive under their
 #: own unit's name.
 _IN_SCOPE = "(:all_scopes OR c.cluster_id = ANY(CAST(:ids AS uuid[])))"
 
@@ -58,11 +65,11 @@ def _scope_params(scope: Scope) -> dict[str, object]:
 
 
 async def build_funnel(session: AsyncSession, scope: Scope) -> Funnel:
-    """Archive → parsed → in a role → roles → approvable → published, for ``scope``.
+    """Archive â parsed â in a role â roles â approvable â published, for ``scope``.
 
     The document-side stages need an archive-side definition of the scope
-    (:attr:`Scope.source_filename_pattern`). A scope without one — an org unit, whose
-    ``department`` comes from a parse rather than a filename — reports its role-side
+    (:attr:`Scope.source_filename_pattern`). A scope without one â an org unit, whose
+    ``department`` comes from a parse rather than a filename â reports its role-side
     stages and says so, rather than inventing a document total it cannot defend.
     """
     params = _scope_params(scope)
@@ -130,7 +137,7 @@ async def build_funnel(session: AsyncSession, scope: Scope) -> Funnel:
         total, parsed, in_role, dup_of_kept, no_edge = (int(v or 0) for v in docs)
         orphans = parsed - in_role
         # Whatever is neither "duplicate of a kept document" nor "no edge at all" is a
-        # near-duplicate of another orphan — its whole group reached no role.
+        # near-duplicate of another orphan â its whole group reached no role.
         dup_of_orphan = max(0, orphans - dup_of_kept - no_edge)
         unreadable = total - parsed
         stages.append(
@@ -138,6 +145,7 @@ async def build_funnel(session: AsyncSession, scope: Scope) -> Funnel:
                 key="documents",
                 label="Source documents in the archive",
                 count=total,
+                unit="documents",
                 lost=0,
                 note=None,
             )
@@ -145,13 +153,14 @@ async def build_funnel(session: AsyncSession, scope: Scope) -> Funnel:
         stages.append(
             FunnelStage(
                 key="parsed",
-                label="Readable — a parse succeeded",
+                label="Readable â a parse succeeded",
                 count=parsed,
+                unit="documents",
                 lost=unreadable,
                 note=(
                     (
                         f"{unreadable} could not be read at all. They are named, not "
-                        "dropped — an unreadable file is a finding, not a "
+                        "dropped â an unreadable file is a finding, not a "
                         "rounding error."
                     )
                     if unreadable
@@ -164,12 +173,13 @@ async def build_funnel(session: AsyncSession, scope: Scope) -> Funnel:
                 key="in_role",
                 label="Behind a current role",
                 count=in_role,
+                unit="documents",
                 lost=orphans,
                 note=(
                     (
                         f"{dup_of_kept} are near-duplicates of a document that IS in a "
-                        f"role — represented, not lost. {dup_of_orphan} are "
-                        f"near-duplicates only of each other. ⚠ {no_edge} have no "
+                        f"role â represented, not lost. {dup_of_orphan} are "
+                        f"near-duplicates only of each other. â  {no_edge} have no "
                         "near-duplicate link at all and are unaccounted for."
                     )
                     if orphans
@@ -179,8 +189,8 @@ async def build_funnel(session: AsyncSession, scope: Scope) -> Funnel:
         )
     else:
         documents_note = (
-            "This scope has no archive-side definition — its roles are identified from "
-            "parsed content, not from filenames — so the document stages cannot be "
+            "This scope has no archive-side definition â its roles are identified from "
+            "parsed content, not from filenames â so the document stages cannot be "
             "computed for it without overstating them."
         )
 
@@ -191,6 +201,7 @@ async def build_funnel(session: AsyncSession, scope: Scope) -> Funnel:
             key="roles",
             label="Harmonized roles",
             count=roles,
+            unit="roles",
             lost=0,
             note="Compression, not loss: many documents describe one job.",
         )
@@ -200,10 +211,11 @@ async def build_funnel(session: AsyncSession, scope: Scope) -> Funnel:
             key="approvable",
             label="Passing every gate today",
             count=approvable,
+            unit="roles",
             lost=roles - approvable,
             note=(
                 (
-                    f"{roles - approvable} are blocked by at least one gate — most of "
+                    f"{roles - approvable} are blocked by at least one gate â most of "
                     "them on policy nobody has ratified yet, not on content."
                 )
                 if roles - approvable
@@ -216,9 +228,10 @@ async def build_funnel(session: AsyncSession, scope: Scope) -> Funnel:
             key="published",
             label="Published",
             count=published,
+            unit="roles",
             lost=approvable - published,
             note=(
-                "⚠ This is the count of roles whose CURRENT version is published. "
+                "â  This is the count of roles whose CURRENT version is published. "
                 "Editing a published role mints a new draft and leaves the count "
                 "lower than the number ever published."
             ),
@@ -244,10 +257,10 @@ async def _facet(
 ) -> Facet:
     """One facet over the roles in ``scope``, with its own coverage.
 
-    ⚠ **Coverage is not decoration.** Every facet reports how many roles it can
+    â  **Coverage is not decoration.** Every facet reports how many roles it can
     actually say anything about, and keeps a ``(not stated)`` bucket for the rest. A
     facet that silently drops the roles it has no value for is the archive-claim error
-    in UI form — and for ``department`` that blind spot is 27.8% of the Bank.
+    in UI form â and for ``department`` that blind spot is 27.8% of the Bank.
     """
     params = _scope_params(scope)
     rows = await session.execute(
@@ -300,9 +313,10 @@ async def build_facets(session: AsyncSession, scope: Scope) -> tuple[Facet, ...]
             label="Department (as written on the JD)",
             expression="c.content->>'department'",
             note=(
-                "⚠ Raw strings, NOT an org rollup. The same unit appears under several "
+                "⚠ Raw strings, NOT an org rollup. The same unit appears under "
+                "several "
                 "spellings, and a vice-presidency is never the string written on a "
-                "JD — so this filters, it does not total a unit. See the scopes plan."
+                "JD â so this filters, it does not total a unit. See the scopes plan."
             ),
         ),
         await _facet(
@@ -311,7 +325,7 @@ async def build_facets(session: AsyncSession, scope: Scope) -> tuple[Facet, ...]
             key="grade",
             label="Quality grade",
             expression="c.change_log->'validator'->>'grade'",
-            note="The validator's quality grade A–D. NOT a pay grade.",
+            note="The validator's quality grade AâD. NOT a pay grade.",
         ),
         await _facet(
             session,
@@ -319,5 +333,155 @@ async def build_facets(session: AsyncSession, scope: Scope) -> tuple[Facet, ...]
             key="status",
             label="Status",
             expression="c.status::text",
+        ),
+    )
+
+
+#: The title the parser emits when it found nothing usable. ⚠ A PLACEHOLDER, not an
+#: empty string — so `title <> ''` reports 100% coverage and is wrong. That false
+#: all-clear was
+#: produced during the very investigation that later found it.
+_NO_TITLE = "Untitled Position"
+
+
+async def build_gap(session: AsyncSession, scope: Scope) -> ArchiveGap:
+    """Every parsed document that never reached a role, accounted for (Phase A4).
+
+    The buckets are the point. Reported as one number â "3,653 de-duplicated" â the
+    archive's largest drop reads as routine, and roughly half of it is not: 1,204
+    documents have no near-duplicate link to anything, and 378 of those are
+    one-of-a-kind
+    jobs the pipeline cannot represent, because it only builds a role from a GROUP of
+    near-duplicates.
+
+    Computed live, so it cannot go stale the way a committed artifact does.
+    """
+    row = (
+        await session.execute(
+            text(f"""
+                WITH cur AS ({_CURRENT}),
+                indraft AS (
+                  SELECT DISTINCT (s.value->>'source_id')::uuid AS sid
+                  FROM cur c, jsonb_array_elements(c.source_document_ids) s
+                ),
+                parsed AS (SELECT DISTINCT source_document_id AS sid FROM parsed_jds),
+                orphan AS (
+                  SELECT sid FROM parsed WHERE sid NOT IN (SELECT sid FROM indraft)
+                ),
+                latest AS (
+                  SELECT DISTINCT ON (source_document_id) source_document_id AS sid,
+                         parsed AS doc
+                  FROM parsed_jds ORDER BY source_document_id, created_at DESC
+                ),
+                noedge AS (
+                  SELECT o.sid FROM orphan o WHERE NOT EXISTS (
+                    SELECT 1 FROM dedup_edges e
+                    WHERE e.source_a_id = o.sid OR e.source_b_id = o.sid)
+                ),
+                titles AS (
+                  SELECT doc->>'title' AS t, count(*) AS n FROM latest GROUP BY 1
+                ),
+                classified AS (
+                  SELECT n.sid, l.doc->>'title' AS t,
+                    CASE
+                      WHEN l.doc->>'title' = :notitle THEN 'no_title'
+                      WHEN l.doc->>'title' ~ '^[-=_═─· ]{{5,}}'
+                        OR l.doc->>'title' LIKE '%[pic]%'
+                        OR (upper(l.doc->>'title') = l.doc->>'title'
+                            AND length(l.doc->>'title') > 4) THEN 'furniture'
+                      ELSE 'real'
+                    END AS bucket
+                  FROM noedge n JOIN latest l ON l.sid = n.sid
+                )
+                SELECT
+                  (SELECT count(*) FROM orphan),
+                  (SELECT count(DISTINCT o.sid) FROM orphan o JOIN dedup_edges e
+                     ON (e.source_a_id = o.sid
+                         AND e.source_b_id IN (SELECT sid FROM indraft))
+                     OR (e.source_b_id = o.sid
+                         AND e.source_a_id IN (SELECT sid FROM indraft))),
+                  (SELECT count(*) FROM noedge),
+                  (SELECT count(*) FROM classified WHERE bucket = 'no_title'),
+                  (SELECT count(*) FROM classified WHERE bucket = 'furniture'),
+                  (SELECT count(*) FROM classified c JOIN titles t ON t.t = c.t
+                     WHERE c.bucket = 'real' AND t.n = 1),
+                  (SELECT count(*) FROM classified c JOIN titles t ON t.t = c.t
+                     WHERE c.bucket = 'real' AND t.n > 1)
+            """),
+            {"notitle": _NO_TITLE},
+        )
+    ).one()
+    orphans, dup_of_kept, no_edge, no_title, furniture, unique_t, shared_t = (
+        int(v or 0) for v in row
+    )
+    dup_of_orphan = max(0, orphans - dup_of_kept - no_edge)
+    return ArchiveGap(
+        total=orphans,
+        buckets=(
+            GapBucket(
+                key="dup_of_kept",
+                label="Near-duplicate of a document that IS in a role",
+                count=dup_of_kept,
+                benign=True,
+                detail=(
+                    "Represented by its twin. This is the system working — the "
+                    "same job "
+                    "described twice, kept once."
+                ),
+            ),
+            GapBucket(
+                key="dup_of_orphan",
+                label="Near-duplicate only of other dropped documents",
+                count=dup_of_orphan,
+                benign=False,
+                detail=(
+                    "A group of similar documents where none reached a role, so the "
+                    "whole group is absent rather than merged into one."
+                ),
+            ),
+            GapBucket(
+                key="no_title",
+                label="No title could be extracted",
+                count=no_title,
+                benign=False,
+                detail=(
+                    "The parser wrote its placeholder instead of a title. A parser "
+                    "defect, not a property of the document."
+                ),
+            ),
+            GapBucket(
+                key="furniture",
+                label="A page header or separator captured as the title",
+                count=furniture,
+                benign=False,
+                detail=(
+                    "Letterhead, an all-caps banner, a row of dashes or an image "
+                    "placeholder ended up in the title field. A parser defect."
+                ),
+            ),
+            GapBucket(
+                key="one_off",
+                label="A one-of-a-kind job the pipeline cannot represent",
+                count=unique_t,
+                benign=False,
+                detail=(
+                    "Parsed cleanly, with a title appearing exactly once in the "
+                    "archive. "
+                    "A role is built from a GROUP of near-duplicates, so a job with no "
+                    "duplicate anywhere never enters clustering and produces no "
+                    "role. It "
+                    "is not rejected â it is never considered."
+                ),
+            ),
+            GapBucket(
+                key="should_have_clustered",
+                label="Shares a title with documents that did cluster",
+                count=shared_t,
+                benign=False,
+                detail=(
+                    "Parsed cleanly and resembles documents that became roles, but no "
+                    "near-duplicate link was found. A recall miss."
+                ),
+            ),
         ),
     )

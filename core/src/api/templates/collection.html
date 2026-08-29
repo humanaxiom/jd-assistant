@@ -28,6 +28,51 @@
    failure this taxonomy has already committed twice: the first IT term list missed
    every engineer, the corrected one nearly misses every analyst, and neither was
    visible until checked against a known-good set of roles. #}
+
+{# 🔴 The panel that makes the collection falsifiable. A collection reporting only its own
+   size cannot be checked: a reader has no way to tell a genuinely small function from a
+   blind filter. This one reported a third of ITS and looked entirely correct doing it,
+   because nothing on the page described what its signal could not see. #}
+<div class="panel">
+  <h3>How this collection is assembled — and what it cannot see</h3>
+  <p>
+    A role is included if <strong>any</strong> signal matches it. Recall comes first: a
+    wrong role gets rejected in review, a <em>missing</em> one is invisible.
+  </p>
+  <table>
+    <thead>
+      <tr><th>Signal</th><th>Roles it finds</th><th>Roles it cannot judge at all</th></tr>
+    </thead>
+    <tbody>
+      {% for s in coverage.signals %}
+      <tr>
+        <td>{{ s.label }}</td>
+        <td>{{ s.roles }}</td>
+        <td>{% if s.unevaluable %}<strong>{{ s.unevaluable }}</strong>{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <td><strong>In this collection (all signals unioned)</strong></td>
+        <td><strong>{{ coverage.members }}</strong></td>
+        <td class="meta">of {{ coverage.total_roles }} roles in the Bank</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="meta">
+    “Cannot judge at all” means the field that signal reads is missing or is a parser
+    placeholder — <strong>not</strong> that it looked and found nothing. A department
+    signal says nothing whatever about a role with no department recorded, and reporting
+    those two as one number is how a filter stops being checkable.
+    {% if coverage.included_by_hand or coverage.excluded_by_hand %}
+    <br>Human rulings applied: {{ coverage.included_by_hand }} added,
+    {{ coverage.excluded_by_hand }} removed.
+    {% else %}
+    <br>⚠ <strong>No human has reviewed this membership yet</strong> — no roles added or
+    removed by hand.
+    {% endif %}
+  </p>
+</div>
+
 <div class="panel">
   <h3>How this collection is assembled</h3>
   <p>{{ stats.recall_note }}</p>

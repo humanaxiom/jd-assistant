@@ -38,12 +38,14 @@ from src.api.main import get_session
 from src.jd_bank.library import (
     build_facets,
     build_funnel,
+    build_gap,
     collection_stats,
     family_for,
     get_role,
     get_source_jd,
     list_roles,
     list_source_jds,
+    membership_coverage,
     rank_candidates,
     resolve_members,
     scope_for,
@@ -194,6 +196,7 @@ async def collection_view(
             status_code=404,
         )
     stats = await collection_stats(session, family)
+    coverage = await membership_coverage(session, family)
     candidates = await rank_candidates(session, family) if queue else ()
     members = await resolve_members(session, family)
     page = await list_roles(
@@ -209,6 +212,7 @@ async def collection_view(
         "collection.html",
         {
             "stats": stats,
+            "coverage": coverage,
             "page": page,
             "candidates": candidates,
             "showing_queue": queue,
@@ -250,6 +254,9 @@ async def funnel_view(
         {
             "funnel": await build_funnel(session, resolved),
             "facets": await build_facets(session, resolved),
+            "gap": (
+                await build_gap(session, resolved) if resolved.is_whole_bank else None
+            ),
             "scope": resolved,
         },
     )

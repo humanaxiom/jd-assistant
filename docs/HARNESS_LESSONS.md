@@ -399,6 +399,24 @@ at all that nobody had explained** — 8% of the corpus, invisible while it was 
 - Pick the buckets so that one of them is "unaccounted for". If that bucket cannot be
   computed, the reconciliation is not a reconciliation.
 
+### 8f-bis. 🔴 A filter must publish what it cannot see, or it is unfalsifiable
+
+A collection defined membership by a code present on **35% of the corpus**, then reported
+the result as the whole population. It said "45 roles" where the true figure was ~211 — and
+nothing on the page let a reader tell a genuinely small set from a blind filter.
+
+- **Every filter reports three numbers, not one:** what it matched, what it did not match,
+  and **what it could not evaluate at all** because the attribute it reads is absent.
+- The third is the one that matters and the one always omitted. "Looked and found nothing"
+  and "had nothing to look at" are different facts; reported as one number, a filter
+  becomes unfalsifiable.
+- **Recall first for anything a human will review.** A false positive costs one rejection;
+  a false negative is invisible, and invisible errors are the ones that destroy trust in
+  the whole system when a domain expert spots them.
+- ⚠ **Validating against a seed does not help if the seed shares the filter's blind
+  spot.** This sweep was validated against a seed drawn from the same 35%, and scored 98%
+  recall against it while missing two-thirds of the population.
+
 ### 8g. Ask what the audience will look for, not only what the system computes
 
 A feature was correct, complete, and would still have failed in front of its users: it

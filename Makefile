@@ -2,7 +2,7 @@
 # DOCKER-ONLY (ADR-006): no host Python. `make` is a task-runner that invokes Docker;
 # all project code, tests, and linters run INSIDE the `api` container (source is
 # bind-mounted at /app, so no rebuild is needed after edits). Run `make up` first.
-.PHONY: up down gates gates-fast gates-integration gates-live migrate logs shell \
+.PHONY: up down gates gates-fast gates-integration gates-live smoke migrate logs shell \
         hook-install register register-check baseline dedup ingest embed embed-roles \
         near-dup dedup-role cluster harmonize-measure canonical-drafts rewrite-golden \
         quality-golden bank-audit
@@ -76,6 +76,16 @@ gates-integration: ## Integration tests only (testcontainers), in the gates runn
 # unreachable (e.g. off-VPN), so it is honest in both environments.
 gates-live:       ## Opt-in, LOCAL-ONLY live embedding golden tests (never in CI/gates)
 	docker compose run --rm gates pytest tests/live -m live --timeout=300 -q
+
+# END-TO-END SMOKE against the LIVE Bank (2026-08-28, after review). Asserts the four
+# basics on the REAL data — parsing, dedup, categorize, filterable: every document is
+# unreadable, behind a role, or in a named gap bucket (exactly); the gap buckets sum;
+# collection membership is a true union of its signals (the filename-only regression
+# cannot silently return); and a random sample is findable by exact filename through
+# the archive browser query. Needs the live stack (`make up`); never CI.
+smoke:            ## END-TO-END SMOKE against the LIVE Bank: parsing, dedup, categorize, filterable
+	docker compose run --rm gates pytest tests/live/test_smoke_live_bank.py -m live --timeout=300 -q
+	@echo "✅ SMOKE GREEN — every document in the live Bank is accounted for and findable"
 
 # Opt-in, LOCAL-ONLY live LLM REWRITE golden (Phase 4.2a) against the real chat model on
 # `aria-gb10-2` (ADR-003). NEVER part of `make gates` / CI — same live-endpoint guard as

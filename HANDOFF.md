@@ -1,44 +1,26 @@
 # JD Bank — Session Handoff
 
-Read this first every session. **Forward-looking only** — the 6-week build record lives in
-[`docs/archive/HANDOFF-ARCHIVE-2026-07-10-to-08-24.md`](docs/archive/HANDOFF-ARCHIVE-2026-07-10-to-08-24.md)
-and is not required reading. Rewritten 2026-08-24 after the re-evaluation in
-[`docs/STATUS-2026-08-24.md`](docs/STATUS-2026-08-24.md).
+Read this first every session. **Forward-looking only** — the build record lives in
+[`docs/archive/`](docs/archive/).
 
----
-## 🟢 CIO SUPPORT — 2026-08-27. The pilot is no longer the hard part.
+## 🔴 WHERE THE NUMBERS LIVE — read this before quoting any figure
 
-The system was demoed to the CIO, who is **fully supportive** and asked for an **IT-services
-subset** as the compelling showcase. That changes the situation this file has described
-since 2026-08-24: the blocker was never engineering, it was a decision nobody had taken —
-and it has now been taken.
+This project has shipped wrong numbers that were **consistent across several documents**,
+which is precisely why nobody caught them. Agreement between documents sharing one
+unchecked source is a *correlated* failure, not corroboration. So:
 
-**The demo cohort exists today and is healthy** (measured 2026-08-27):
+| what | where |
+|---|---|
+| **Live counts** — documents, roles, approvable, published, the gap | 🥇 **`/jd-bank/ui/funnel`** — computed from the DB at request time |
+| **Measured findings** — what we know about the archive and why | [`docs/FINDINGS.md`](docs/FINDINGS.md) |
+| **What we do next** | [`docs/plan.md`](docs/plan.md) |
 
-| | |
-|---|---:|
-| source documents behind the IT roles | **451** |
-| harmonized IT roles they produce | **45** |
-| of those **approvable right now** | **32 (71%)** |
-| ITP-named files in the archive (47 behind no role) | 469 |
+**This file restates no counts.** If you find a number here or in `plan.md`, it is a bug —
+delete it and link instead.
 
-**451 documents → 45 roles** (10.0:1) is the value proposition in one screen, and it needs
-no new work to *show*. Plan: [`docs/plans/IT-SUBSET-DEMO-AND-FACETS.md`](docs/plans/IT-SUBSET-DEMO-AND-FACETS.md)
-(design only, no code, deliberately additive — no schema change, nothing touching scoring).
-
-**✅ The duplicate-title question is answered** —
-[`docs/plans/IT-DUPLICATE-TITLE-ANSWER.md`](docs/plans/IT-DUPLICATE-TITLE-ANSWER.md).
-**Twenty** roles (not eight) are titled *"Information Technology Professional"*, and they
-are **distinct**: ITP is SFU's generic classification title, and the 20 resolve to **15
-specialisation × ITP-level cells**, 18 of 20 level-homogeneous. No merge warranted.
-
-🔴 **That pass also mis-stated two document counts** — ITP 368→**469**, APSA 3,351→**3,442** —
-while the figures derived from them (45 roles, 32 approvable) were right. **Re-derive a
-headline number before it is said out loud.**
-
-**⚠ The demo is still not the deliverable.** Published JDs are. A compelling showcase that
-produces zero approvals has moved exactly as far as the six weeks before it. **The demo's
-job is to get the pilot booked.**
+⚠ **Documents and roles are different units.** The funnel labels the unit on every row
+because a reader following 14,565 → 2,493 → 129 will take the last for documents. It is a
+count of *roles*.
 
 ---
 
@@ -46,162 +28,47 @@ job is to get the pilot booked.**
 
 **The system works. It has no output. The constraint was never engineering.**
 
-| | |
-|---|---:|
-| Canonical drafts | 2,489 |
-| **Approvable right now** | **1,292** |
-| **Published — CURRENT versions** | **4** |
-| Clusters ever published | 5 (one was edited; an edit mints a new draft) |
-| Human review actions, ever | **8** (in six weeks) |
-| HR decisions **needing an HR ruling** / ratified | 79 / **0** |
+Thousands of drafts pass every gate today and a handful have ever been shown to a reviewer.
+They are blocked on nothing we build — see [`docs/FINDINGS.md`](docs/FINDINGS.md) for the
+current figures and `/jd-bank/ui/funnel` for the live ones.
 
-**1,292 JDFN drafts pass every gate today and not one has been shown to a reviewer.**
-They are blocked on nothing we build.
-
-**CUPE is 0.5% approvable (3 of 649) for reasons content cannot fix** —
-`SFU-APPROVE-QUAL-EQUIVALENT` blocks 620 (95.5%) and `SFU-APPROVE-KSA-ORDER` blocks 564
-(86.9%), both *unratified HR policy decisions*. A week of content fixes and 19.4
-GPU-hours moved CUPE approvable **6 → 3**.
+**CUPE is near-zero approvable for reasons content cannot fix** — two *unratified HR policy
+decisions* block almost all of it. A week of content fixes and 19.4 GPU-hours moved the CUPE
+approvable count *down*.
 
 > **Before any engineering task, ask: does this change the number of PUBLISHED JDs?**
 > If not, it is not next — however real the defect.
 
-**Done is measured in published JDs. Today: 5. Next: 20. Then 100.**
-Not carry-through, not scores, not test counts.
+**Done is measured in published JDs.** Not carry-through, not scores, not test counts.
 
-## ▶ WHAT TO WORK ON — full detail in [`docs/plan.md`](docs/plan.md)
+---
 
-**Track A (demo) is ours. B2–B4 are asks — make them today, they have lead time.**
+## ▶ CURRENT STATE — 2026-08-28
 
-⏸ **TLS is no longer here.** It moved to **BEFORE GOING LIVE** (BGL-1) by decision on
-2026-08-27: suppressed until feature development is complete. It still blocks B2.
+**Track A (the demo) is COMPLETE.** A1–A5 built and merged; `make gates` green; CI green.
 
-### 🟢 TRACK A — the demo
-**Lead with the number that needs no review:** *451 IT source documents → 45 harmonized
-roles (10.0:1), 32 approvable today* — the figure the collection page shows and a
-stakeholder can click through. (469 ITP files exist in the archive; 47 sit behind no
-current role, and 29 non-ITP files were clustered in. `469 → 45` does not reconcile.) Then the embedded finding as a **reviewed** claim —
-IT roles sit in Library Systems, Linguistics, Facilities, Mechatronics, Earth Sciences,
-Beedie, Education and Health Sciences.
-
-🔴 **The old headline "1,420 documents → ~166 roles (8.5:1)" is NOT reproducible** and must
-not be said in the room — it came from the term list measured to miss 38 of 45 seed roles.
-The corrected sweep's ratio is a stable ~6.2:1 at every cut, and no cut yields 166/1,420.
-See [`docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md).
-
-- ✅ **A1 — the duplicate-title question. DONE** —
-  [`docs/plans/IT-DUPLICATE-TITLE-ANSWER.md`](docs/plans/IT-DUPLICATE-TITLE-ANSWER.md).
-  **20** roles carry the title (not 8) and they are **distinct** — 15 specialisation ×
-  ITP-level cells, 18 of 20 level-homogeneous, a 4.1% tail. No merge warranted.
-- ✅ **A2 — IT functional family. BUILT** — `functional_families.yaml`, registered
-  HR-215…HR-220 (`open`, `hr_informed`) and unhashed. Measured first, and the
-  measurement changed the design:
-  [`docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md).
-  **There is no threshold** — 98% recall costs 1,141 candidates (46% of the corpus), and
-  at the ~166 the plan assumed recall is **48.9%**. So membership is SFU's own ITP
-  classification ∪ reviewed `include` − reviewed `exclude`, and **the duty terms only
-  rank a review queue**. An integration test pins it: a role stuffed with every IT term
-  is *not* a member; a role with none of them but an ITP filename *is*.
-  🔴 The bias failure recurred in the opposite direction — the corrected list nearly
-  misses the **analyst** half, found only by the ITP family, so the union is load-bearing.
-- ✅ **A3 — collection page. BUILT** — `/jd-bank/ui/collection/it`.
-  **451 documents → 45 roles (10.0:1), 32 approvable**, each role clicking through to its
-  JD and sources; `?queue=1` shows the **72** ranked candidates as a separate surface,
-  labelled questions rather than members, with match **counts** — never a percentage.
-  The page publishes the family's own recall note. **A1–A3 are a complete demo.**
-
-🔴 **BEFORE THE ITS DIRECTOR SESSIONS — the collection answers a different question than
-a director will ask.** It shows roles SFU *classifies* as IT (the ITP code). A director
-asks which roles are in *their department*. Measured, those barely overlap:
+Two live surfaces, both reading the database at request time:
 
 | | |
-|---|---:|
-| roles in the collection (ITP-classified) | 45 |
-| …with an ITS-looking department | 10 |
-| …with **no department recorded at all** | 23 |
-| ITS-department roles **not** ITP-classified | 47 |
-| …of those, **surfaced nowhere** (not even as candidates) | 🔴 **45** |
+|---|---|
+| `/jd-bank/ui/collection/it` | the IT collection · `?queue=1` for the review queue |
+| `/jd-bank/ui/funnel` | archive → published, scope-parameterised, **with the full gap accounting** |
 
-✅ **FIXED** — `department_terms` (HR-222) now raises a role as a **candidate** when it
-sits in an IT department, whatever its duty score. **The collection is unchanged (45
-roles, 32 approvable)**; the queue went 72 → **129**, and **11 roles are visible only
-because of this** — *Solutions Architect*, *Director, Infrastructure Services*, *Senior
-Director, Application Services*, *Service Desk Team Lead*. Their duty text has no
-technology vocabulary, so no ranking signal could have found them.
-⚠ The 33-string alias list is exact-match and **provisional — the sessions are where it
-gets vetted**. See [`docs/plans/SCOPES-AND-ORG-ROLLUP.md`](docs/plans/SCOPES-AND-ORG-ROLLUP.md) §9.
+`PARSER_VERSION` `jd_segmenter_v5` · `rules_version` `jd_rules_sfu_v4+76baba29cfeb`
+(unmoved — the A2/A4/A5 rule files are unhashed by design).
 
-**Unit priority (set 2026-08-27):** 1. **ITS** (in flight) · 2. **VPFA** — ITS rolls up
-into it · 3. **Facilities Services** (queued: 23 roles by exact name, 39 across 14
-strings, 57 if security/grounds/parking are in — *where the unit ends is a curation call,
-not a query*). **Units 2–3 change nothing about unit 1.**
-- **A4 — live funnel panel**, **A5 — facets** (each showing its own coverage).
-  🔴 **Both take a SCOPE, never a hardcoded family** —
-  [`docs/plans/SCOPES-AND-ORG-ROLLUP.md`](docs/plans/SCOPES-AND-ORG-ROLLUP.md). The IT view
-  is instance #1 of a general unit view; **VPFA is next, and ITS rolls up into it**. The IT
-  collection resolves by CLASSIFICATION (the ITP code) and **VPFA has none**, so a unit
-  needs a different resolver — the seam goes in now, the org data later. Measured: a naive
-  filter on VPFA's own name returns **2 roles against a ~55+ portfolio**.
+### The three things that actually need a person
 
-⚠ **Function ≠ department, and it is measured.** IT is central *and* embedded across a dozen
-faculties. No org chart gathers a function; the taxonomy is functional, from duty text.
+1. **B3 / B4 — the HR asks.** The only work that moves the published count. Pure lead time.
+2. **A6 / A7 — the ITS director sessions.** Work the review queue and vet the department
+   alias list; their rulings land in HR-217/218.
+3. **D1 — decide what happens to a one-of-a-kind job.** The pipeline builds a role from a
+   GROUP of near-duplicates, so a unique job produces nothing. **The only open item that
+   raises the ceiling on what can ever be published.** [`docs/FINDINGS.md`](docs/FINDINGS.md) §2a.
 
-⚠ **The archive-side dashboards are STATIC** (committed JSON, not the DB). That is why a
-live one is needed, and why they should be retired rather than run alongside.
+Everything else, including the rest of the archive gap, is in [`docs/plan.md`](docs/plan.md).
 
-### 🔴 TRACK B — the pilot (the actual deliverable)
-
-- **B2 — run the pilot.** ~20 approvable drafts reviewed for real.
-  **Success = 20 PUBLISHED JDs + the reviewer's written objections.**
-- **B3 — ratify two gates.** `SFU-APPROVE-QUAL-EQUIVALENT` (620 CUPE drafts) and
-  `SFU-APPROVE-KSA-ORDER` (564). One ruling beats every engineering change made in August,
-  at zero GPU cost.
-- **B4 — book the HR ratification session.** **79 decisions need an HR ruling**, 0 ratified.
-  (The register holds more, but the rest are engineering settings or shape what a reviewer
-  sees — they are not HR's to sign. The ask is 79, and that is a bookable meeting.)
-
-## ⏸ BEFORE GOING LIVE — deferred until feature development is complete
-
-**Decided 2026-08-27.** Not now, and not "soon" — these are held until the feature work is
-done. They are listed here rather than in Track C because Track C items may never be built;
-**these must be, before the system carries anyone but us.**
-
-**These items block nothing** (decided 2026-08-28). They are the known list to close
-before the system goes live in the ordinary sense; they do not gate the pilot, the demo, or
-any other work. The exposure they describe is unchanged — what is recorded here is that we
-are not treating it as a stop.
-
-- **BGL-1 — TLS at the edge.** `sfuai.ca:7000` is plain HTTP carrying CAS session cookies.
-  Anyone signing in over it hands their SFU session to whatever is on the path. Ours alone
-  to close; no HR dependency.
-  **It blocks NOTHING** (decided 2026-08-28). It is recorded here as a known exposure to
-  close before going live, not as a gate on the pilot or anything else.
-
-⚠ **This is a suppression, not a resolution.** The exposure is unchanged and unmitigated;
-what changed is that we are not working on it yet and it stops nothing. Recorded so that
-when it is picked up, it is picked up deliberately rather than discovered.
-
-## ⛔ NOT NEXT — real, registered, and deliberately deferred
-
-Each is a genuine finding. **None changes the published-JD count.** Detail and reasoning in
-[`docs/plan.md`](docs/plan.md) Track C.
-
-- 🔴 **The 1,204 — diagnosed, three defects.** 519 title-extraction failures · **378
-  genuine one-off roles the pipeline cannot represent** (a job with no near-duplicate makes
-  no role — 2,489 of 2,493 clusters have 2+ members) · ~307 dedup recall misses. The
-  structural one **caps what the Bank can ever publish**. →
-  [`docs/plans/THE-1204-UNACCOUNTED-DOCUMENTS.md`](docs/plans/THE-1204-UNACCOUNTED-DOCUMENTS.md)
-- **Duty-frequency matching** (27.7% vs 92.3% merge-only) — naive fix *measured* unsafe.
-- **`classification` carry-through** — 21% of parses, 0% of drafts. Not on the demo path.
-- **Document date at ingest** — unlocks the 1967–2026 era cut. Label it *derived*.
-- **Department taxonomy** — 739 strings; demoted to a *filter*, no longer org-list blocked.
-- **HR-214 compression question** — **do not close with a threshold**; HR's call.
-- **JDFN `problem_solving`** — 228.2% fabricated (1,084 / 475).
-- **Retire the static dashboards** — two sources of truth will disagree.
-- **Phase F**, **Phase G**, **overlap graph** — unchanged.
-- ⛔ **No further producer runs.** ~19 GPU-hours each; zero published JDs each.
-- ⛔ **`make bank-audit` is not progress.** It measures draft FIDELITY, not DELIVERY.
-
+---
 ## ▶ IF YOU ARE STARTING COLD
 
 ```bash
@@ -215,23 +82,12 @@ docker ps --filter "name=canonical"               # MUST be empty; do not start 
 ⚠ **The box runs other Docker projects.** Random `postgres:16-alpine` /
 `neo4j:5-community` containers are `recruiter-assistant`'s testcontainers, not ours.
 
-**Current state (2026-08-28):** `main` at `625bd69` · gates **2,934 passing, 93.46%** ·
-CI green · `PARSER_VERSION` `jd_segmenter_v5` · `rules_version` `jd_rules_sfu_v4+76baba29cfeb`
-(unmoved — the A2/A4/A5 rule files are unhashed) · CUPE content chain **complete** (every
-WJQ carry-through 100%, fabricated duties 0).
+**Then open `/jd-bank/ui/funnel`.** It is the fastest way to see the state of the archive,
+and it is the only place those numbers are authoritative.
 
-**Track A is COMPLETE (A1–A5).** Two live surfaces: `/jd-bank/ui/collection/it` (45 roles,
-32 approvable, 451 documents, 129 candidates) and `/jd-bank/ui/funnel` (scope-parameterised,
-every stage naming what it lost). Both read the DB at request time.
-
-🔴 **The 1,204 unaccounted documents are now diagnosed** —
-[`docs/plans/THE-1204-UNACCOUNTED-DOCUMENTS.md`](docs/plans/THE-1204-UNACCOUNTED-DOCUMENTS.md).
-**Three defects, not one:** 519 are title-extraction failures (`Untitled Position`, page
-headers and separator rows captured as titles); **378 are genuine one-off roles that the
-pipeline cannot represent at all** — 2,489 of 2,493 clusters have 2+ members, so a job with
-no near-duplicate produces no role; ~307 share a title with documents that did cluster and
-look like a Tier-2 recall miss. **The structural one caps what the Bank can ever publish**
-and needs a decision before code.
+**Then run `make smoke`.** The end-to-end check against the live Bank — parsing, dedup,
+categorize, filterable — fails if a single document is unaccounted for or unfindable.
+Trust it over any document, including this one.
 
 ---
 
@@ -296,6 +152,12 @@ Distilled from six weeks; the full set is in the archive.
   derived were correct, because they came from the right query and only the document count
   was mis-transcribed. **Re-derive a headline number before saying it out loud**, and keep
   the query next to it.
+- 🔴 **A filter must publish what it CANNOT SEE, or it is unfalsifiable.** The IT
+  collection defined membership by a code present on 35% of the archive and reported the
+  result as the whole function — 45 roles against a true ~211. Nothing on the page let a
+  reader tell a small set from a blind filter. **Report three numbers: matched, not
+  matched, and could-not-evaluate.** ⚠ And note the trap: validating against a seed drawn
+  from the same 35% scored 98% recall while missing two-thirds of the population.
 - 🔴 **A PLACEHOLDER is not a null, and a null check will not find it.** The parser writes
   `Untitled Position` when it finds no title, so `title <> ''` reports **100% title
   coverage** — while 2,050 of 14,522 documents (14%) have no real title, 1,395 of them
@@ -326,27 +188,22 @@ Distilled from six weeks; the full set is in the archive.
 
 ---
 
+
+---
+
 ## ▶ AUTHORITATIVE REFERENCES
 
 | what | where |
 |---|---|
-| **The re-evaluation — read first** | [`docs/STATUS-2026-08-24.md`](docs/STATUS-2026-08-24.md) |
-| **The IT demo + facets plan** | [`docs/plans/IT-SUBSET-DEMO-AND-FACETS.md`](docs/plans/IT-SUBSET-DEMO-AND-FACETS.md) |
-| **A1 answered — the duplicate-title question** | [`docs/plans/IT-DUPLICATE-TITLE-ANSWER.md`](docs/plans/IT-DUPLICATE-TITLE-ANSWER.md) |
-| **A2 measured — the sweep has no threshold** | [`docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`](docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md) |
-| **Scopes + org rollup (VPFA next)** | [`docs/plans/SCOPES-AND-ORG-ROLLUP.md`](docs/plans/SCOPES-AND-ORG-ROLLUP.md) |
-| **The 1,204 unaccounted — diagnosed** | [`docs/plans/THE-1204-UNACCOUNTED-DOCUMENTS.md`](docs/plans/THE-1204-UNACCOUNTED-DOCUMENTS.md) |
-| **The IT collection page (A3)** | `/jd-bank/ui/collection/it` · `core/src/jd_bank/library/families.py` |
-| **Functional families rulebook** | `core/src/jd_core/rules/functional_families.yaml` (HR-215…HR-220) |
-| **Functional role taxonomy (the sweep)** | [`docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md`](docs/plans/FUNCTIONAL-ROLE-TAXONOMY.md) |
-| **Source-archive dashboard (the 14,565)** | [`docs/plans/SOURCE-ARCHIVE-DASHBOARD.md`](docs/plans/SOURCE-ARCHIVE-DASHBOARD.md) |
-| Department taxonomy (a *filter*; demoted) | [`docs/plans/DEPARTMENT-TAXONOMY.md`](docs/plans/DEPARTMENT-TAXONOMY.md) |
-| Remaining work | [`docs/plan.md`](docs/plan.md) |
+| 🥇 **Live counts — the system itself** | `/jd-bank/ui/funnel` |
+| **Everything we have measured** | [`docs/FINDINGS.md`](docs/FINDINGS.md) |
+| **What we do next** | [`docs/plan.md`](docs/plan.md) |
 | Project invariants | [`CLAUDE.md`](CLAUDE.md) |
 | Onboarding, traps, `PARSER_VERSION` | [`DEVELOPER_GUIDE_1.md`](DEVELOPER_GUIDE_1.md) |
 | Operating the system | [`docs/OPERATOR-GUIDE.md`](docs/OPERATOR-GUIDE.md) |
 | What HR must decide | [`docs/decisions/HR-DECISION-MATRIX.md`](docs/decisions/HR-DECISION-MATRIX.md) |
 | Every registered default (the file's own header is the count of record) | [`docs/decisions/HR-DECISION-REGISTER.md`](docs/decisions/HR-DECISION-REGISTER.md) |
-| Archive baseline (all 14,565) | [`docs/baseline/README.md`](docs/baseline/README.md) |
-| Build record, phases 0–9 + A–G | [`docs/archive/BUILD-RECORD-phases-0-9-A-G.md`](docs/archive/BUILD-RECORD-phases-0-9-A-G.md) |
-| Session history, Jul 10 – Aug 24 | [`docs/archive/HANDOFF-ARCHIVE-2026-07-10-to-08-24.md`](docs/archive/HANDOFF-ARCHIVE-2026-07-10-to-08-24.md) |
+| Archive baseline | [`docs/baseline/README.md`](docs/baseline/README.md) |
+| Portable harness lessons | [`docs/HARNESS_LESSONS.md`](docs/HARNESS_LESSONS.md) |
+| The re-evaluation that reset priorities | [`docs/STATUS-2026-08-24.md`](docs/STATUS-2026-08-24.md) |
+| Build record + full working for each finding | [`docs/archive/`](docs/archive/) |
