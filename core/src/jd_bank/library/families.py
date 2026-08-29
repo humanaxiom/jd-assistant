@@ -3,17 +3,24 @@
 The read side of ``functional_families.yaml``. Two operations, and the distinction
 between them is the whole point of this module:
 
-* :func:`resolve_members` — **who is in the family.** SFU's own classification family
-  (``ITP``, carried in the source filename) plus the reviewed ``include``, minus the
-  reviewed ``exclude``. Nothing else. It does not read a single duty word.
-* :func:`rank_candidates` — **who a reviewer should look at next.** A ranked worklist,
-  ordered by how many distinct family terms a role's text contains.
+* :func:`resolve_members` — **who is in the family.** Every DIRECT signal unioned —
+  the classification code in the filename, the role's title, the department it names —
+  plus reviewed ``include``, minus reviewed ``exclude``. It reads no duty text.
+* :func:`rank_candidates` — **who a reviewer should look at next.** A ranked worklist.
+* :func:`membership_coverage` — **what the signals could NOT see.** Never optional.
 
-**The score never decides membership, and that is measured rather than cautious.**
-Scored against the 45 roles SFU's ITP classification already calls IT: keeping 98% of
-them requires returning 1,141 roles (46% of the archive), and trimming to a plausible
-~166 keeps only 48.9%. No cut point is both precise and complete, so a term list can
-only ever ORDER a queue. See ``docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md`` §1.
+**Recall first, and it is the correction to a measured failure.** Membership was once
+the filename code alone, and 9,481 of 14,565 documents (65%) carry no code in their
+filename — so the IT collection reported 45 roles where the archive holds ~211, and
+presented that as "the IT function". A false positive is rejected in review; a false
+negative is invisible. See ``docs/FINDINGS.md`` §3.
+
+**A score still cannot decide membership.** Scored against the ITP seed, 98% recall
+costs
+46% of the archive and a plausible-sized cohort keeps 48.9% — no cut point works, so
+``duty_terms`` ranks the queue and never confers membership. A direct attribute is
+different evidence from a similarity score. ⚠ And that seed shared the filter's blind
+spot, which is why 98% recall against it meant so little (``FINDINGS.md`` §4a).
 
 Read-only (NN #1): nothing here mutates a row, publishes, or touches a gate.
 """
@@ -30,6 +37,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.jd_bank.library.models import (
     CollectionStats,
     FamilyCandidate,
+    MembershipCoverage,
+    SignalCoverage,
 )
 from src.jd_core.rules import FunctionalFamily, Rules, get_rules
 
@@ -135,33 +144,92 @@ def _classification_regex(family: FunctionalFamily) -> str | None:
 # --- membership: the authority ----------------------------------------------------
 
 
+def _membership_predicates(
+    family: FunctionalFamily,
+) -> tuple[list[str], dict[str, object]]:
+    """The SQL for each membership signal, and its bound parameters.
+
+    Returned as a list so :func:`membership_coverage` can evaluate them one at a time
+    and report what each contributes. **A signal nobody can see the contribution of is a
+    signal nobody can check.**
+    """
+    predicates: list[str] = []
+    params: dict[str, object] = {}
+    classification = _classification_regex(family)
+    if classification is not None:
+        predicates.append("filename ~ :classification")
+        params["classification"] = classification
+    if family.title_terms:
+        predicates.append(
+            "EXISTS (SELECT 1 FROM unnest(CAST(:title_terms AS text[])) t"
+            " WHERE lower(coalesce(title,'')) ~ t)"
+        )
+        params["title_terms"] = postgres_patterns(family.title_terms)
+    if family.department_terms:
+        predicates.append(
+            "EXISTS (SELECT 1 FROM unnest(CAST(:department_terms AS text[])) d"
+            " WHERE lower(trim(coalesce(department,''))) = lower(trim(d)))"
+        )
+        params["department_terms"] = list(family.department_terms)
+    return predicates, params
+
+
 async def resolve_members(
     session: AsyncSession, family: FunctionalFamily
 ) -> frozenset[UUID]:
-    """The cluster ids in ``family``: classification family ∪ include − exclude.
+    """The cluster ids in ``family`` — **every signal unioned**, minus reviewed
+    removals.
 
-    **Resolved against the live Bank, never frozen into the rulebook.** Cluster ids are
-    not stable across a re-clustering run, so a rulebook holding 45 of them would rot
-    silently into a family pointing at nothing.
+    🔴 **Recall first. A filter that cannot see a document is worse than a wrong one**,
+    because a missing role is invisible and a wrong one gets rejected in review.
 
-    ``exclude`` is applied last and beats every other signal on purpose: a human ruling
-    always wins over a rule.
+    That is not a preference; it is the correction to a measured failure. Membership was
+    once the classification code in the source FILENAME alone — and **9,481 of 14,565
+    documents (65%) carry no code in their filename at all**. The IT collection
+    therefore
+    reported 45 roles when the archive holds ~210, and reported it as "the IT function"
+    with no statement of what the signal could not see. For an employer the size of ITS
+    that is not a rounding error, it is a credibility failure.
 
-    Reads no duty text. **The term lists cannot put a role in a family** (module note).
+    Three signals, each a DIRECT ATTRIBUTE of the document rather than a score:
+
+    * ``classification_families`` — SFU's own job-family code in the filename;
+    * ``title_terms`` — the role's title;
+    * ``department_terms`` — the unit the JD names.
+
+    ``duty_terms`` is deliberately **absent**: it is a score, and no cut point of it was
+    both precise and complete (see ``docs/FINDINGS.md`` §4a). It ranks the review queue
+    and never decides membership. A direct attribute match is a different kind of
+    evidence from a similarity score, which is why these three may decide and it may
+    not.
+
+    ``include`` adds, ``exclude`` removes, and ``exclude`` is applied last so a human
+    ruling beats every rule. **False positives are the reviewer's job; false negatives
+    are invisible and therefore ours.**
+
+    Use :func:`membership_coverage` to report what this did NOT match. A count without
+    its blind spot stated is the defect this docstring exists to prevent.
     """
+    predicates, params = _membership_predicates(family)
     matched: set[UUID] = set()
-    pattern = _classification_regex(family)
-    if pattern is not None:
+    if predicates:
         rows = await session.execute(
             text(f"""
-                WITH cur AS ({_CURRENT})
-                SELECT DISTINCT c.cluster_id
-                FROM cur c, jsonb_array_elements(c.source_document_ids) s
-                JOIN source_documents d
-                  ON d.id = (s.value->>'source_id')::uuid
-                WHERE d.filename ~ :pattern
+                WITH cur AS ({_CURRENT}),
+                doc AS (
+                  SELECT c.cluster_id,
+                         d.filename,
+                         c.content->>'title' AS title,
+                         c.content->>'department' AS department
+                  FROM cur c
+                  LEFT JOIN LATERAL jsonb_array_elements(c.source_document_ids) s
+                    ON TRUE
+                  LEFT JOIN source_documents d
+                    ON d.id = (s.value->>'source_id')::uuid
+                )
+                SELECT DISTINCT cluster_id FROM doc WHERE {" OR ".join(predicates)}
             """),
-            {"pattern": pattern},
+            params,
         )
         matched.update(row[0] for row in rows)
     matched.update(family.include)
@@ -306,4 +374,97 @@ async def rank_candidates(
             department_match=bool(row.department_match),
         )
         for row in rows
+    )
+
+
+async def membership_coverage(
+    session: AsyncSession, family: FunctionalFamily
+) -> MembershipCoverage:
+    """What each membership signal found, and **what none of them could see**.
+
+    🔴 **The point of this function is the last number.** A collection that reports "45
+    roles" without reporting the population it could not evaluate is unfalsifiable: a
+    reader cannot tell a small function from a blind filter. That is precisely how
+    the IT
+    collection reported a third of ITS and looked correct doing it.
+
+    Every role in the Bank lands in exactly one of: a member, a candidate for review, or
+    unmatched by any signal. The three sum to the whole Bank — and the page shows all
+    three, so the claim can be checked rather than believed.
+    """
+    predicates, params = _membership_predicates(family)
+    #: Where each signal cannot be evaluated AT ALL — the attribute it reads is absent,
+    #: or is the parser's placeholder. This is the signal's honest blind spot, and it is
+    #: not the same as "did not match": a department signal says nothing whatever
+    #: about a
+    #: role with no department recorded, and reporting the two as one number is how a
+    #: filter becomes unfalsifiable.
+    blind_conditions = (
+        "filename IS NULL",
+        "coalesce(title, '') = '' OR title = 'Untitled Position'",
+        "coalesce(department, '') = ''",
+    )
+    doc_cte = f"""
+        WITH cur AS ({_CURRENT}),
+        doc AS (
+          SELECT c.cluster_id, d.filename,
+                 c.content->>'title' AS title,
+                 c.content->>'department' AS department
+          FROM cur c
+          LEFT JOIN LATERAL jsonb_array_elements(c.source_document_ids) s ON TRUE
+          LEFT JOIN source_documents d ON d.id = (s.value->>'source_id')::uuid
+        )
+    """
+    per_signal: list[SignalCoverage] = []
+    for label, predicate, blind in zip(
+        ("classification code in the filename", "the role's title", "the department"),
+        predicates,
+        blind_conditions,
+        strict=False,
+    ):
+        matched = int(
+            (
+                await session.execute(
+                    text(
+                        f"{doc_cte} SELECT count(DISTINCT cluster_id) FROM doc "
+                        f"WHERE {predicate}"
+                    ),
+                    params,
+                )
+            ).scalar()
+            or 0
+        )
+        # A role is unevaluable for this signal only when NONE of its documents carries
+        # the attribute — one usable filename or department is enough to speak for it.
+        unevaluable = int(
+            (
+                await session.execute(
+                    text(
+                        f"{doc_cte} SELECT count(DISTINCT cluster_id) FROM doc "
+                        f"WHERE cluster_id NOT IN "
+                        f"(SELECT cluster_id FROM doc WHERE NOT ({blind}))"
+                    )
+                )
+            ).scalar()
+            or 0
+        )
+        per_signal.append(
+            SignalCoverage(label=label, roles=matched, unevaluable=unevaluable)
+        )
+
+    total = int(
+        (
+            await session.execute(
+                text(f"WITH cur AS ({_CURRENT}) SELECT count(*) FROM cur")
+            )
+        ).scalar()
+        or 0
+    )
+    members = await resolve_members(session, family)
+    return MembershipCoverage(
+        total_roles=total,
+        members=len(members),
+        signals=tuple(per_signal),
+        included_by_hand=len(family.include),
+        excluded_by_hand=len(family.exclude),
     )

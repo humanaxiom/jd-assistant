@@ -212,6 +212,11 @@ class FunnelStage(_Frozen):
     key: str
     label: str
     count: int
+    #: What is being counted — ``"documents"`` or ``"roles"``. Stated on every row
+    #: because a funnel that switches unit halfway without saying so is read as one
+    #: series: a reader seeing 14,565 then 2,493 then 129 concludes the last is
+    #: documents. It is not. This defect was hit in review by someone reading the page.
+    unit: str
     #: How many did not reach this stage from the previous one.
     lost: int
     #: What became of them, in words. ``None`` when nothing was lost.
@@ -265,3 +270,88 @@ class Facet(_Frozen):
     def coverage_pct(self) -> float:
         """The share of the scope this facet covers, for the page to state plainly."""
         return round(100.0 * self.known / self.total, 1) if self.total else 0.0
+
+
+class GapBucket(_Frozen):
+    """One accounted-for slice of the documents that never reached a role (Phase A4).
+
+    The buckets exist so the funnel's largest drop can be READ rather than trusted.
+    Reported as a single "de-duplicated" figure it looked benign; split, roughly half of
+    it is documents nobody has explained. Every bucket carries whether it is a **known**
+    outcome or an open **defect**, so the page can say which is which instead of leaving
+    a reader to infer it from the wording.
+    """
+
+    key: str
+    label: str
+    count: int
+    #: True when this bucket is a normal, expected outcome (a duplicate represented by
+    #: its twin). False when it is a defect that costs the Bank real content.
+    benign: bool
+    detail: str
+
+
+class ArchiveGap(_Frozen):
+    """The full accounting of documents that never became part of a role (Phase A4).
+
+    ``total`` must equal the sum of :attr:`buckets`. A gap analysis whose arithmetic
+    does not close is the thing it was built to prevent.
+    """
+
+    total: int
+    buckets: tuple[GapBucket, ...]
+
+    @property
+    def reconciles(self) -> bool:
+        return self.total == sum(b.count for b in self.buckets)
+
+
+class SignalCoverage(_Frozen):
+    """How many roles one membership signal finds on its own (Phase A2).
+
+    Reported per signal because the signals are wildly unequal and that is invisible in
+    a union: for IT, the filename code finds 45 roles, the title 151, the department 90.
+    A reader who cannot see that cannot tell which signal is carrying the collection —
+    or notice when one of them stops working.
+    """
+
+    label: str
+    roles: int
+    #: Roles where this signal could not be evaluated AT ALL — the attribute it reads is
+    #: missing or is a parser placeholder. **This is the signal's real blind spot**, and
+    #: it is not the same as "did not match": a department signal cannot speak for a
+    #: role with no department recorded, and saying so is the difference between a
+    #: filter that
+    #: is checkable and one that is merely confident.
+    unevaluable: int = 0
+
+
+class MembershipCoverage(_Frozen):
+    """What a family's signals matched, and **what none of them could see**.
+
+    🔴 :attr:`unmatched` is the reason this model exists. A collection reporting only
+    its
+    own size is unfalsifiable — a reader cannot distinguish a genuinely small function
+    from a blind filter. The IT collection reported a third of ITS and looked entirely
+    correct doing so, because nothing on the page described the population it had not
+    evaluated.
+    """
+
+    total_roles: int
+    members: int
+    signals: tuple[SignalCoverage, ...]
+    included_by_hand: int
+    excluded_by_hand: int
+
+    @property
+    def unmatched(self) -> int:
+        """Roles no signal matched. **The blind spot, stated as a number.**"""
+        return self.total_roles - self.members
+
+    @property
+    def matched_pct(self) -> float:
+        return (
+            round(100.0 * self.members / self.total_roles, 1)
+            if self.total_roles
+            else 0.0
+        )

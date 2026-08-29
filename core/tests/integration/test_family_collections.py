@@ -37,7 +37,12 @@ from src.jd_bank.db.models import (
     DocumentFormat,
     SourceDocument,
 )
-from src.jd_bank.library import collection_stats, family_for, rank_candidates
+from src.jd_bank.library import (
+    collection_stats,
+    family_for,
+    membership_coverage,
+    rank_candidates,
+)
 from src.jd_bank.library.families import resolve_members
 from src.jd_core.models.parsed_jd import SFUDuty, SFUJobDescription
 from src.jd_core.rules import FunctionalFamily, get_rules
@@ -148,8 +153,12 @@ async def test_membership_is_the_classification_family_not_the_duty_terms(
     async with session_maker() as session:
         saturated = await _seed_role(
             session,
+            # ⚠ A DELIBERATELY non-IT title and department. The duty text is
+            # stuffed with
+            # every family term; only the duty score is testable here, because title and
+            # department are now membership signals in their own right.
             jd=_jd(
-                "Network Systems Developer",
+                "Gardener",
                 summary=(
                     "Maintains the network, servers, firewall, linux and unix hosts, "
                     "active directory, sql databases and web application middleware"
@@ -317,8 +326,10 @@ async def test_queue_ranks_non_members_and_shows_its_evidence(
         )
         strong = await _seed_role(
             session,
+            # A candidate is now specifically: IT DUTY TEXT, but no IT title and no IT
+            # department — otherwise it would be a member outright.
             jd=_jd(
-                "Computer Systems Administrator",
+                "Records Officer",
                 summary=(
                     "Maintains network, servers, firewall, linux, unix, sql databases, "
                     "active directory and desktop workstations"
@@ -340,7 +351,7 @@ async def test_queue_ranks_non_members_and_shows_its_evidence(
     assert weak not in ids, "a role with no family vocabulary does not reach the queue"
     assert strong in ids
     top = next(c for c in queue if c.cluster_id == strong)
-    assert top.duty_matches > 0 and top.title_matches > 0
+    assert top.duty_matches > 0
     assert top.matches == top.duty_matches + top.title_matches
 
 
@@ -383,8 +394,9 @@ async def test_the_cutoff_moves_the_queue_not_the_membership(
         await _seed_role(session, jd=_jd("An ITP role"), filenames=["1_ITP_I.doc"])
         await _seed_role(
             session,
+            # Duty text only — an IT title would make this a member, not a candidate.
             jd=_jd(
-                "Computer Technician",
+                "Records Officer",
                 summary="Supports desktop workstations, network and servers",
                 duty="Provides technical support and troubleshooting",
             ),
@@ -416,75 +428,21 @@ async def test_the_cutoff_moves_the_queue_not_the_membership(
     assert before == after, "the cutoff must not move membership in either direction"
 
 
-async def test_a_department_match_also_raises_a_candidate(
+async def test_a_department_match_now_confers_membership(
     session_maker: async_sessionmaker[AsyncSession], it_family: FunctionalFamily
 ) -> None:
-    """A role in the unit's DEPARTMENT reaches the queue even with no family vocabulary.
+    """🔴 REVERSED 2026-08-28, and the reversal is the fix.
 
-    Measured before this existed: 47 roles carried an ITS department without the ITP
-    classification, and **45 of them were surfaced nowhere at all** — not members, not
-    candidates. They included *Systems Administrator*, *Senior Systems Engineer* and
-    *PeopleSoft Developer*: titles no IT director would accept as "not IT". The
-    duty-term sweep missed them because they score below the queue cutoff, which is
-    the same recall
-    failure the sweep has now shown three times.
+    Department was a candidate-only signal, on the reasoning that a unit's own name
+    matches a fraction of its portfolio. True — but the conclusion was wrong. Under
+    filename-only membership the IT collection reported 45 roles against ~211, because
+    65% of documents carry no classification code at all. A signal that is imprecise
+    is a
+    reason for a human to review, not a reason to make roles invisible.
 
-    ⚠ This raises a CANDIDATE, never a member. Department is evidence for a human
-    to rule
-    on — the measured reason being that a unit's own name matches a fraction of its
-    portfolio, and academic units (`School of Computing Science`) look exactly like the
-    real thing to any matcher.
-    """
-    async with session_maker() as session:
-        by_department = await _seed_role(
-            session,
-            # No IT vocabulary anywhere: the duty sweep alone cannot see this role.
-            jd=_jd(
-                "Office Assistant", summary="Coordinates schedules and correspondence"
-            ),
-            filenames=["1_CUPE.doc"],
-        )
-        elsewhere = await _seed_role(
-            session,
-            jd=_jd(
-                "Office Assistant", summary="Coordinates schedules and correspondence"
-            ),
-            filenames=["2_CUPE.doc"],
-        )
-        await session.execute(
-            text(
-                "UPDATE canonical_jds SET content = jsonb_set("
-                "  content, '{department}', '\"IT Services\"') WHERE cluster_id = :c"
-            ),
-            {"c": by_department},
-        )
-        await session.execute(
-            text(
-                "UPDATE canonical_jds SET content = jsonb_set("
-                "  content, '{department}', '\"Faculty of Education\"')"
-                " WHERE cluster_id = :c"
-            ),
-            {"c": elsewhere},
-        )
-        await session.commit()
-
-        with_dept = it_family.model_copy(update={"department_terms": ("IT Services",)})
-        queue = await rank_candidates(session, with_dept, rules=get_rules())
-
-    ids = [c.cluster_id for c in queue]
-    assert (
-        by_department in ids
-    ), "a role in the unit's department must reach the queue even with no IT vocabulary"
-    assert elsewhere not in ids, "an unrelated department does not raise a candidate"
-    hit = next(c for c in queue if c.cluster_id == by_department)
-    assert hit.department_match is True
-    assert hit.duty_matches == 0, "it got here on department alone — say so honestly"
-
-
-async def test_a_department_match_does_not_confer_membership(
-    session_maker: async_sessionmaker[AsyncSession], it_family: FunctionalFamily
-) -> None:
-    """⚠ The whole design in one assertion. Department is a CANDIDATE signal only.
+    ⚠ The precision concerns are unchanged and still handled: `School of Computing
+    Science` is kept OUT of the alias list, and `exclude` (HR-218) removes a false
+    positive with one line.
 
     A unit's own name matches a fraction of its portfolio (VPFA: 2 roles against ~55+),
     and `School of Computing Science` looks exactly like ITS to any matcher. Letting a
@@ -506,4 +464,100 @@ async def test_a_department_match_does_not_confer_membership(
         with_dept = it_family.model_copy(update={"department_terms": ("IT Services",)})
         members = await resolve_members(session, with_dept)
 
-    assert cluster not in members, "department raises candidates, never members"
+    assert cluster in members, (
+        "a department match confers membership — recall first, and a false positive is "
+        "the reviewer's job while a missing role is invisible"
+    )
+
+
+async def test_membership_unions_every_signal_not_just_the_filename(
+    session_maker: async_sessionmaker[AsyncSession], it_family: FunctionalFamily
+) -> None:
+    """🔴 Recall first. A role reachable by ANY signal is a member.
+
+    The correction to a measured, serious failure: membership was the classification
+    code
+    in the source FILENAME alone, and 9,481 of 14,565 documents (65%) carry no code in
+    their filename. The IT collection reported 45 roles where the archive holds ~211,
+    and
+    presented that as "the IT function" with no statement of what the signal could not
+    see. For an employer the size of ITS that is a credibility failure, not a rounding
+    error.
+    """
+    async with session_maker() as session:
+        by_filename = await _seed_role(
+            session, jd=_jd("Something"), filenames=["1_ITP_II.doc"]
+        )
+        by_title = await _seed_role(
+            session, jd=_jd("Network Administrator"), filenames=["2_CUPE.doc"]
+        )
+        by_department = await _seed_role(
+            session, jd=_jd("Office Assistant"), filenames=["3_CUPE.doc"]
+        )
+        unrelated = await _seed_role(
+            session, jd=_jd("Gardener"), filenames=["4_CUPE.doc"]
+        )
+        await session.execute(
+            text(
+                "UPDATE canonical_jds SET content = jsonb_set("
+                "  content, '{department}', '\"IT Services\"') WHERE cluster_id = :c"
+            ),
+            {"c": by_department},
+        )
+        await session.commit()
+        members = await resolve_members(session, it_family)
+
+    assert by_filename in members, "the classification code still confers membership"
+    assert by_title in members, "a title signal must confer membership too"
+    assert by_department in members, "a department signal must confer membership too"
+    assert unrelated not in members, "and something with no signal at all must not"
+
+
+async def test_coverage_reports_where_each_signal_is_blind(
+    session_maker: async_sessionmaker[AsyncSession], it_family: FunctionalFamily
+) -> None:
+    """🔴 The number that makes the collection falsifiable.
+
+    "Cannot judge at all" is not "looked and found nothing". A department signal says
+    nothing whatever about a role with no department recorded — and on the live Bank
+    that
+    is 692 roles. Reporting those two as one figure is exactly how a filter reports a
+    third of a function and looks correct doing it.
+    """
+    async with session_maker() as session:
+        await _seed_role(
+            session, jd=_jd("Network Administrator"), filenames=["1_CUPE.doc"]
+        )
+        no_dept = await _seed_role(
+            session, jd=_jd("Gardener"), filenames=["2_CUPE.doc"]
+        )
+        await session.commit()
+        coverage = await membership_coverage(session, it_family)
+
+    dept = next(s for s in coverage.signals if "department" in s.label)
+    assert dept.unevaluable == 2, (
+        "neither seeded role records a department, so the department signal can judge "
+        "neither of them — and the page must say so"
+    )
+    assert coverage.total_roles == 2
+    assert coverage.members == 1
+    assert coverage.unmatched == 1
+    assert no_dept is not None
+
+
+async def test_a_placeholder_title_makes_the_title_signal_blind(
+    session_maker: async_sessionmaker[AsyncSession], it_family: FunctionalFamily
+) -> None:
+    """⚠ `Untitled Position` is a placeholder, so the title signal cannot judge the
+    role.
+
+    Counting it as "looked and found nothing" would overstate the signal's reach — the
+    same class of false all-clear that `title <> ''` produces.
+    """
+    async with session_maker() as session:
+        await _seed_role(session, jd=_jd("Untitled Position"), filenames=["1_CUPE.doc"])
+        await session.commit()
+        coverage = await membership_coverage(session, it_family)
+
+    title = next(s for s in coverage.signals if "title" in s.label)
+    assert title.unevaluable == 1

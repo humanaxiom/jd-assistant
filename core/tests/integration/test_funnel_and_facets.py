@@ -32,7 +32,7 @@ from src.jd_bank.db.models import (
     ParsedJDRow,
     SourceDocument,
 )
-from src.jd_bank.library import build_facets, build_funnel, scope_for
+from src.jd_bank.library import build_facets, build_funnel, build_gap, scope_for
 from src.jd_bank.library.scopes import WHOLE_BANK, Scope
 from src.jd_core.models.parsed_jd import SFUDuty, SFUJobDescription
 from src.jd_core.parser import PARSER_VERSION
@@ -326,3 +326,92 @@ async def test_facets_keep_a_not_stated_bucket_and_report_coverage(
     assert dept.coverage_pct == 50.0
     assert [b.value for b in dept.buckets] == ["Financial Services"]
     assert "not an org rollup" in (dept.note or "").lower()
+
+
+async def test_the_gap_buckets_account_for_every_dropped_document(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """Every document that never reached a role lands in exactly one bucket.
+
+    This is the property the page's credibility rests on. Reported as a single
+    "de-duplicated" figure, the archive's largest drop read as routine while roughly
+    half of it was content nobody had explained. If the buckets stop summing to the
+    total, the
+    accounting is lying and the page says so.
+    """
+    async with session_maker() as session:
+        kept = await _doc(session, "a_ITP_I.doc")
+        dup = await _doc(session, "b_ITP_I.doc")
+        await _doc(session, "c_ITP_I.doc")  # no edge at all
+        await _role(session, jd=_jd("Role"), doc_ids=[kept])
+        await session.execute(
+            text(
+                "INSERT INTO dedup_edges (id, source_a_id, source_b_id, tier, score,"
+                " method) VALUES (:i, :a, :b, 'NEAR_DUPLICATE', 0.9, 'test')"
+            ),
+            {"i": uuid.uuid4(), "a": dup, "b": kept},
+        )
+        await session.commit()
+        gap = await build_gap(session, WHOLE_BANK)
+
+    assert gap.total == 2
+    assert (
+        gap.reconciles
+    ), "the buckets must sum to the total or the accounting is a lie"
+    by_key = {b.key: b for b in gap.buckets}
+    assert by_key["dup_of_kept"].count == 1
+    assert by_key["dup_of_kept"].benign is True
+    assert sum(b.count for b in gap.buckets if not b.benign) == 1
+
+
+async def test_the_placeholder_title_is_counted_as_a_defect_not_a_title(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """⚠ `Untitled Position` is a PLACEHOLDER, not an empty string.
+
+    A `title <> ''` check reports 100% title coverage and is wrong — a false all-clear
+    that was actually produced during the investigation that later found it. The gap
+    analysis must bucket the placeholder as a parser defect, never as a real title.
+    """
+    async with session_maker() as session:
+        doc = await _doc(session, "a_ITP_I.doc")
+        await session.execute(
+            text(
+                "UPDATE parsed_jds SET parsed = jsonb_set("
+                "  parsed, '{title}', '\"Untitled Position\"')"
+                " WHERE source_document_id = :d"
+            ),
+            {"d": doc},
+        )
+        await session.commit()
+        gap = await build_gap(session, WHOLE_BANK)
+
+    by_key = {b.key: b for b in gap.buckets}
+    assert by_key["no_title"].count == 1
+    assert by_key["no_title"].benign is False
+    assert by_key["one_off"].count == 0, "a placeholder is not a real one-off role"
+
+
+async def test_every_funnel_stage_states_what_it_counts(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """Documents and roles are different units, and the page must say which is which.
+
+    A funnel that switches unit halfway without labelling it reads as one series: a
+    reader seeing 14,565 then 2,493 then 129 concludes the last figure is documents. It
+    is not. That misreading happened in review, which is why this is asserted.
+    """
+    async with session_maker() as session:
+        doc = await _doc(session, "a_ITP_I.doc")
+        await _role(session, jd=_jd("Role"), doc_ids=[doc])
+        await session.commit()
+        funnel = await build_funnel(session, WHOLE_BANK)
+
+    units = {s.key: s.unit for s in funnel.stages}
+    assert units["documents"] == "documents"
+    assert units["parsed"] == "documents"
+    assert units["in_role"] == "documents"
+    assert units["roles"] == "roles"
+    assert units["approvable"] == "roles"
+    assert units["published"] == "roles"
+    assert all(s.unit in {"documents", "roles"} for s in funnel.stages)

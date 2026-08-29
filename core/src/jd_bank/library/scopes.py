@@ -7,7 +7,7 @@ Today the only resolver is the classification family that ``functional_families.
 ships. The next one is an **org unit** (VPFA, into which ITS rolls up), and a unit has
 **no classification code at all**, so it needs a different resolver. The argument every
 query accepts has to be general *before* two dashboards and an API learn the narrow
-shape. See ``docs/plans/SCOPES-AND-ORG-ROLLUP.md``.
+shape. See ``docs/FINDINGS.md §5``.
 
 The measured reason, in one line: filtering ``department`` on VPFA's own name returns
 **2 roles against a ~55+ portfolio**, because a vice-presidency is never the string

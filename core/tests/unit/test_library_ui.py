@@ -28,10 +28,12 @@ from src.jd_bank.library import (
     Funnel,
     FunnelStage,
     MemberJD,
+    MembershipCoverage,
     RoleListItem,
     RolePage,
     RoleRef,
     RoleView,
+    SignalCoverage,
     SourceJDView,
     SourceListItem,
     SourcePage,
@@ -347,6 +349,17 @@ def _collection_stats(**update: object) -> CollectionStats:
     return CollectionStats(**{**base, **update})
 
 
+def _coverage(**update: object) -> MembershipCoverage:
+    base: dict[str, object] = {
+        "total_roles": 2493,
+        "members": 211,
+        "signals": (SignalCoverage(label="the department", roles=73, unevaluable=692),),
+        "included_by_hand": 0,
+        "excluded_by_hand": 0,
+    }
+    return MembershipCoverage(**{**base, **update})
+
+
 def _candidate(title: str, *, duty: int = 9, title_hits: int = 2) -> FamilyCandidate:
     return FamilyCandidate(
         cluster_id=uuid.uuid4(),
@@ -369,6 +382,9 @@ def test_collection_leads_with_the_compression_not_a_bare_count(
     )
     monkeypatch.setattr(
         library_route, "collection_stats", AsyncMock(return_value=_collection_stats())
+    )
+    monkeypatch.setattr(
+        library_route, "membership_coverage", AsyncMock(return_value=_coverage())
     )
     monkeypatch.setattr(
         library_route, "resolve_members", AsyncMock(return_value=frozenset())
@@ -418,6 +434,9 @@ def test_queue_shows_match_counts_never_a_percentage(
         library_route, "collection_stats", AsyncMock(return_value=_collection_stats())
     )
     monkeypatch.setattr(
+        library_route, "membership_coverage", AsyncMock(return_value=_coverage())
+    )
+    monkeypatch.setattr(
         library_route, "resolve_members", AsyncMock(return_value=frozenset())
     )
     monkeypatch.setattr(
@@ -463,6 +482,9 @@ def test_queue_names_an_unstated_department_rather_than_leaving_it_blank(
         library_route, "collection_stats", AsyncMock(return_value=_collection_stats())
     )
     monkeypatch.setattr(
+        library_route, "membership_coverage", AsyncMock(return_value=_coverage())
+    )
+    monkeypatch.setattr(
         library_route, "resolve_members", AsyncMock(return_value=frozenset())
     )
     monkeypatch.setattr(
@@ -497,15 +519,28 @@ def _funnel() -> Funnel:
         scope_key="all",
         scope_label="The whole Bank",
         stages=(
-            FunnelStage(key="documents", label="Source documents", count=14565, lost=0),
+            FunnelStage(
+                key="documents",
+                label="Source documents",
+                count=14565,
+                unit="documents",
+                lost=0,
+            ),
             FunnelStage(
                 key="parsed",
                 label="Readable",
                 count=14522,
+                unit="documents",
                 lost=43,
                 note="43 could not be read at all.",
             ),
-            FunnelStage(key="roles", label="Harmonized roles", count=2493, lost=0),
+            FunnelStage(
+                key="roles",
+                label="Harmonized roles",
+                count=2493,
+                unit="roles",
+                lost=0,
+            ),
         ),
     )
 
@@ -532,6 +567,7 @@ def test_funnel_page_names_what_each_stage_lost(
         library_route, "build_funnel", AsyncMock(return_value=_funnel())
     )
     monkeypatch.setattr(library_route, "build_facets", AsyncMock(return_value=()))
+    monkeypatch.setattr(library_route, "build_gap", AsyncMock(return_value=None))
     response = make_client().get("/jd-bank/ui/funnel")
 
     assert response.status_code == 200
@@ -553,6 +589,7 @@ def test_funnel_facet_shows_coverage_and_the_not_stated_bucket(
     monkeypatch.setattr(
         library_route, "build_facets", AsyncMock(return_value=(_facet(),))
     )
+    monkeypatch.setattr(library_route, "build_gap", AsyncMock(return_value=None))
     response = make_client().get("/jd-bank/ui/funnel")
 
     body = response.text

@@ -1582,7 +1582,7 @@ class FunctionalFamily(BaseModel):
     recall costs 1,141 candidates (46% of the archive) and the ~166 candidates the
     plan assumed carry 48.9% recall — more than half of the roles we already know are
     IT. No cut point is both precise and complete, so the terms cannot decide
-    membership. See ``docs/plans/IT-FUNCTIONAL-SWEEP-MEASUREMENT.md``.
+    membership. See ``docs/FINDINGS.md §4a``.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
