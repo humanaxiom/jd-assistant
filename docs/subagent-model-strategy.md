@@ -2,7 +2,20 @@
 
 How we pick a model tier for each subagent, and why it does not cost us quality.
 
-Status: **active** — applies to every subagent dispatched in this repo.
+Status: ⚠ **DORMANT for Claude Code sessions, as of 2026-08-29.** It described "every
+subagent dispatched in this repo", and today no session dispatches any: the definitions in
+`harness-claude-code/.claude/agents/` are vendored, not installed at the repo root, so
+Claude Code never loads them — and the standing session rule is not to dispatch an agent
+unless the user asks. See CLAUDE.md § *Two different things are called "agents" here*.
+
+**Keep it, for two reasons.** The evidence below is a real record of what a merge-blocking
+reviewer caught, and the principle survives the mechanism: **downgrade the writer, never
+the checker.** When one model does the writing AND the checking, the checker half is a
+separate, adversarial *pass* — re-run the gates, break the guard, read the diff — not a
+separate model. That is the form the CLAUDE.md verification rules now take.
+
+It applies as written the moment the definitions are installed, or to the `run_pipeline`
+pipeline in `core/src/agents/`, which IS live.
 
 ---
 

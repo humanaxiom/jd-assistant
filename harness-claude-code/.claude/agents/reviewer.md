@@ -57,7 +57,10 @@ prior review all missed on this project.
 
 ## And one question that is not about the code
 
-12. **Does this change move the deliverable?** This project spent six weeks producing
-    1,292 gate-passing drafts and 5 published JDs, because correctness work is always
-    available and delivery work needs someone else. A diff can be perfect and still be the
-    wrong thing to have built. **Not a blocking finding — but say it if it applies.**
+12. **Does this change move the deliverable?** A diff can be perfect and still be the
+    wrong thing to have built. ⚠ **But check what the deliverable IS before saying so** —
+    on 2026-08-29 the owner ruled that nothing is blocked on policy and that publishing
+    happens in the FINAL DEPLOYMENT, so the measure here is **drafts**, not published JDs.
+    This very question, aimed at the old measure, is what made three sessions of correct
+    archive work read as avoidance. Read `HANDOFF.md`, not this line. **Not a blocking
+    finding — but say it if it applies.**

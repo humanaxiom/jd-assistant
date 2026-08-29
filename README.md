@@ -1,14 +1,23 @@
 # JD Bank
 
 > Dedup + harmonization + composer over the SFU Job Description archive. Offline-first Python
-> stack (FastAPI · Neo4j · Postgres · Redis/arq) driven by AI subagents through
-> **Claude Code**. Inference runs on **Ollama on bare metal**; **everything else runs in Docker**.
+> stack (FastAPI · Neo4j · Postgres · Redis/arq), built with **Claude Code**. Inference runs
+> on **Ollama on bare metal**; **everything else runs in Docker**.
 
 Built on the v2 agent harness (upstream `C:\repos\agent-harnesses-v2`, vendored here — ADR-004).
 
-**Start here:** [`DEVELOPER_GUIDE_1.md`](DEVELOPER_GUIDE_1.md) (onboarding + workflow) ·
-[`docs/plan.md`](docs/plan.md) (build plan) · [`CLAUDE.md`](CLAUDE.md) (project invariants) ·
-[`docs/adr/`](docs/adr/) (decisions).
+⚠ The harness's **Claude Code subagent definitions are vendored, not installed**, so no
+session dispatches them — see [`CLAUDE.md`](CLAUDE.md) § *Two different things are called
+"agents" here*. The `core/src/agents/` **`run_pipeline`** pipeline is a separate thing,
+and it is live.
+
+**Start here:** [`HANDOFF.md`](HANDOFF.md) (what is true NOW) ·
+[`DEVELOPER_GUIDE_1.md`](DEVELOPER_GUIDE_1.md) (onboarding + workflow) ·
+[`docs/plan.md`](docs/plan.md) (what we do next) · [`CLAUDE.md`](CLAUDE.md) (invariants) ·
+[`docs/FINDINGS.md`](docs/FINDINGS.md) (everything measured) · [`docs/adr/`](docs/adr/).
+
+🥇 **Live counts are at `/jd-bank/ui/funnel`**, computed from the database at request time.
+No document here restates them — that is how five wrong numbers once agreed with each other.
 
 ---
 

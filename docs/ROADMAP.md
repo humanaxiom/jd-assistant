@@ -1,5 +1,22 @@
 # JD Bank — Roadmap & Backlog
 
+> ## ⚠️ SUPERSEDED (2026-08-29) — read [`docs/plan.md`](plan.md) instead
+>
+> This page last tracked reality on **2026-08-13** and is kept as the record of that
+> review, not as the order of work. Everything in its "order of work" block is either
+> done, renumbered, or overtaken — and its framing predates two rulings that changed what
+> the work IS:
+>
+> * **2026-08-24** re-evaluation ([`STATUS-2026-08-24.md`](STATUS-2026-08-24.md)) reset priorities.
+> * **2026-08-29 owner ruling**: nothing is blocked on policy, and publishing happens in the
+>   FINAL DEPLOYMENT — so the measure here is **drafts**, not published JDs.
+>
+> ⚠ Its counts are stale by construction: it says the HR ask is "65 settings". The count of
+> record is the [register](decisions/HR-DECISION-REGISTER.md)'s own header, which now
+> separates still-outstanding from ratified. **Do not quote a number from this page.**
+>
+> Still live from here: the **TLS at the edge** exposure (plan.md § BEFORE GOING LIVE).
+
 **Updated:** 2026-07-28; **revised 2026-08-05** against the seven commits from `650828b` to
 `46a9443` plus the Phase-5.9 authoring guard; **revised 2026-08-13** to absorb the triaged
 findings of an external "SFU site coverage" gap analysis

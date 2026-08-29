@@ -39,6 +39,9 @@ Output the plan table plus a one-paragraph reasoning section. Do not write any c
 
 ## The question that outranks the plan
 
-**Does this move the deliverable?** (For JD Bank: PUBLISHED JDs — see `HANDOFF.md`.) If the
-task does not, say so in the reasoning paragraph and name what would. Planning good work on
-the wrong thing is the most expensive failure available to this role.
+**Does this move the deliverable?** ⚠ For JD Bank the deliverable CHANGED on 2026-08-29 by
+owner ruling: **nothing is blocked on policy, and publishing happens in the FINAL
+DEPLOYMENT.** The measure in pilot/dev/MVP is **drafts** — does this give a role a draft,
+or make an existing draft truer to its sources? It is NOT "published JDs"; that framing
+made correct engineering look like a distraction for weeks. Always re-read `HANDOFF.md`
+rather than trusting this line. If the task moves nothing, say so and name what would.

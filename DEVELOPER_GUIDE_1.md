@@ -1,7 +1,7 @@
 # Developer Guide — JD Bank (on Agent Harness v2)
 
 > From `git clone` to your first agent-built feature merged to `main`. Self-hosted Python
-> stack (FastAPI · **Neo4j** · Postgres · Redis · arq) driven by AI subagents through
+> stack (FastAPI · **Neo4j** · Postgres · Redis · arq), built with
 > Claude Code. **Everything runs in Docker — there is no host Python.**
 >
 > **Two corrections to what this guide used to say, both verified against the running
@@ -167,10 +167,15 @@ The six subagents in `harness-claude-code/.claude/agents/` (planner, tester, cod
 security, docs) plus `.claude/settings.json` (blocks commits to `main`; auto-runs
 `ruff --fix` **in the api container** after every write) are the Claude Code layer.
 
-> **Activation note:** to make those subagent definitions and hooks active for sessions run
-> from the **repo root**, the `.claude/` directory must be at the root. Point it at the harness
-> layer once: `ln -s harness-claude-code/.claude .claude`. Until then the defs are vendored but
-> inert at root — confirm with `/agents` inside a session. (Do not run a `make use-*` symlink of
+> 🔴 **Activation note — STILL INERT, and the step is no longer a bare symlink (2026-08-29).**
+> Claude Code loads subagents from `<repo>/.claude/agents/`, so nothing under
+> `harness-claude-code/` is ever read. **A root `.claude/` now EXISTS** — holding only
+> `settings.local.json` and a lock file — so `ln -s harness-claude-code/.claude .claude`
+> would now fail on the existing directory rather than activate anything. To actually turn
+> them on, symlink or copy the *contents* (`.claude/agents/`, and a `settings.json` for the
+> hooks) into the existing root `.claude/`. **Confirm with `/agents` in a session** — do not
+> assume. Today no session dispatches these, and the standing rule is not to dispatch any
+> agent unless the user asks. (Do not run a `make use-*` symlink of
 > `CLAUDE.md` — the root `CLAUDE.md` here is the project invariants file, not the harness base
 > rules, which it references.)
 
@@ -234,6 +239,13 @@ CI re-runs every gate (same in-container commands). Green → merge to `main`. T
 ---
 
 ## 6. The subagent pipeline in practice
+
+⚠ **Aspirational as of 2026-08-29 — the definitions are inert (see the activation note in
+§5), so no session runs this today.** It is kept because the DISCIPLINE is the point and it
+still binds when one model does every role: write the failing test first, break the guard to
+prove it can go red, re-run the gates yourself, read the diff. The `run_pipeline` pipeline in
+`core/src/agents/` is a DIFFERENT thing and IS live — see CLAUDE.md § *Two different things
+are called "agents" here*.
 
 This is the harness's core capability — use it for every non-trivial task.
 
@@ -461,7 +473,20 @@ Two things that make this less alarming than it sounds, both worth knowing:
 `PARSER_VERSION` changes what the *running* service reports immediately — before you have
 re-parsed anything. Expect that window and close it.
 
-**Current version: `jd_segmenter_v5`** — the WJQ heading match tolerates antiword's
+**Current version: `jd_segmenter_v7`** — the WJQ identification labels. antiword's
+fixed-width render puts a label and its VALUE in ONE cell while `_extract_label` read the
+NEXT one, so **2,046 of 4,300 CUPE documents (47.6%) carried no title** — the `Untitled
+Position` sentinel — against 0.0% for every other bargaining unit. **805 titles recovered
+(placeholders 2,050 -> 1,245), position numbers +593** (HR-147, #166).
+
+**v6** — the employee group. A job was called CUPE because it *mentioned* the word: APSA
+managers who supervise CUPE staff. `employee_group` had TWO provenances — READ from the
+text for APSA/APEX/POLY, SET by routing for CUPE — with nothing recording which (HR-226,
+#165). The 24 drafts built from the mislabelled documents were deleted (#163).
+
+⚠ **Each of v6 and v7 shipped WITH its re-parse**, as this constant's contract requires.
+
+**v5** — the WJQ heading match tolerates antiword's
 fixed-width layout (#137). A heading printed beside the next column, or with its own
 words stretched apart, matched nothing, so the section never opened: **719 of 4,440 CUPE
 documents (16.2%) parsed to ZERO duties**, against 2.2% on the APSA form. That silence is
