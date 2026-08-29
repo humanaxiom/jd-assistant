@@ -34,6 +34,7 @@ from src.jd_core.models.parsed_jd import (
     SFUQualification,
     SFURelationships,
 )
+from src.jd_core.models.quality import WJQ_TEMPLATE
 
 
 def _clean_jd() -> SFUJobDescription:
@@ -934,3 +935,90 @@ def test_the_clone_route_serializes_the_whole_answer_contract() -> None:
         r for r in compose_routes.router.routes if getattr(r, "name", "") == "clone"
     )
     assert route.response_model is None
+
+
+# --- The Builder's form choice must scope the search (reported 2026-08-28) ------------
+
+
+async def test_wjq_search_returns_cupe_and_only_cupe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pick CUPE (WJQ) in the Builder and the clone sources must BE CUPE.
+
+    Reported 2026-08-28: selecting CUPE and searching returned JDFN documents, and
+    cloning one then landed the author back in the APSA/JDFN form. The clone was
+    behaving correctly — ``_render_clone`` derives the form from the SOURCE — so the
+    real defect was here: the search excluded CUPE unconditionally, and the form
+    choice never reached it at all.
+    """
+    apsa, cupe, none_group = (uuid.uuid4() for _ in range(3))
+    parsed = {
+        apsa: _jd("Analyst", "apsa"),
+        cupe: _jd("Clerk", "cupe"),
+        none_group: _jd("Assistant", None),
+    }
+
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
+        return [(apsa, 0.99), (cupe, 0.98), (none_group, 0.97)]
+
+    async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
+        return parsed
+
+    _no_title_matches(monkeypatch)
+    monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
+    monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
+    monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
+
+    hits = await search_mod.search_similar_jds(
+        "clerk",
+        embed_client=_FakeEmbed([0.1] * 768),
+        neo4j_driver=object(),
+        session=object(),
+        form=WJQ_TEMPLATE,
+    )
+
+    assert [h.employee_group for h in hits] == ["cupe"]
+
+
+async def test_jdfn_search_still_keeps_documents_with_no_group_recorded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The JDFN side must stay an EXCLUDE rule, never an include-list.
+
+    ``employee_group`` is recorded on only about half the archive, so scoping JDFN to
+    ``jdfn_employee_groups`` (apsa/apex/poly) would silently drop every document whose
+    group was never parsed — a large, invisible loss of search recall. JDFN therefore
+    means "not the WJQ group", which is what it has always meant.
+    """
+    apsa, cupe, none_group = (uuid.uuid4() for _ in range(3))
+    parsed = {
+        apsa: _jd("Analyst", "apsa"),
+        cupe: _jd("Clerk", "cupe"),
+        none_group: _jd("Assistant", None),
+    }
+
+    async def fake_nearest(
+        driver: Any, vector: Any, k: int, *, live_stamp: str
+    ) -> list[Any]:
+        return [(apsa, 0.99), (cupe, 0.98), (none_group, 0.97)]
+
+    async def fake_load(session: Any, ids: Any) -> dict[Any, Any]:
+        return parsed
+
+    _no_title_matches(monkeypatch)
+    monkeypatch.setattr(search_mod, "_nearest_source_ids", fake_nearest)
+    monkeypatch.setattr(search_mod, "_load_latest_parsed", fake_load)
+    monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
+
+    hits = await search_mod.search_similar_jds(
+        "analyst",
+        embed_client=_FakeEmbed([0.1] * 768),
+        neo4j_driver=object(),
+        session=object(),
+    )
+
+    groups = [h.employee_group for h in hits]
+    assert "cupe" not in groups
+    assert None in groups, "a document with no group recorded must remain searchable"

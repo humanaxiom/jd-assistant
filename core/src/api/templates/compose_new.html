@@ -34,6 +34,11 @@
     Or <strong>start from an existing JD</strong>:
   </p>
   <form method="get" action="/jd-bank/ui/compose/search">
+    {# Carry the instrument. Without this the form choice died at the first click:
+       searching from the CUPE (WJQ) page returned JDFN sources, so cloning one
+       correctly opened a JDFN draft and the Builder appeared to "reset to APSA".
+       HR-225. #}
+    <input type="hidden" name="form" value="{{ form_spec.template }}">
     <input name="q" placeholder="search the archive — e.g. financial analyst">
     <button type="submit">🔎 Search to clone</button>
   </form>

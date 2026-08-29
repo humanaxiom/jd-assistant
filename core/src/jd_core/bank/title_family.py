@@ -80,6 +80,35 @@ def _first_match(
     return None
 
 
+def _role_scope(norm: str, markers: Sequence[str]) -> str:
+    """The part of a normalized title that describes THE ROLE, not its context.
+
+    A title frequently names the role and then whose office it sits in — "Executive
+    Assistant to the Vice-President", "Manager, Office of the Vice-President,
+    Academic". Everything from the first marker onward is somebody ELSE'S job, so
+    matching seniority keywords against it classifies people by who they work for.
+
+    🔴 This is not hypothetical. The clusters dashboard reported 136 VPs; measured
+    across all 14,522 parsed titles on 2026-08-28, 40 matched the ``vp`` keywords and
+    **not one was a Vice-President** — ``vp`` leads ``family_match_order``, so
+    "Executive Assistant to the Vice-President" beat ``assistant`` outright.
+
+    Truncates at the EARLIEST marker, not the first one listed, so the result cannot
+    depend on the order of a list that reads as a set. An empty ``markers`` returns
+    ``norm`` unchanged, which is the pre-HR-224 behaviour.
+    """
+    cut = len(norm)
+    for marker in markers:
+        found = norm.find(marker)
+        if found != -1:
+            cut = min(cut, found)
+    if cut == len(norm):
+        return norm
+    # Re-pad: keywords are space-wrapped (" vp "), so a truncated head must still end
+    # in a space or " manager" would stop matching "manager".
+    return norm[:cut] + " "
+
+
 def classify_title_family(
     title: str,
     *,
@@ -94,7 +123,9 @@ def classify_title_family(
     """
     titles = _titles(rules)
     hit = _first_match(
-        _normalize(title), titles.family_match_order, titles.family_keywords
+        _role_scope(_normalize(title), titles.family_context_markers),
+        titles.family_match_order,
+        titles.family_keywords,
     )
     if hit is None:
         return TitleFamilyResult(

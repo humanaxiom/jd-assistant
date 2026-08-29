@@ -55,6 +55,7 @@ from src.jd_bank.composer.answers import AnswerContract
 from src.jd_bank.db.models import CanonicalJD, Cluster, ParsedJDRow
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_core.models.parsed_jd import SFUJobDescription
+from src.jd_core.models.quality import DEFAULT_TEMPLATE, WJQ_TEMPLATE, JDTemplate
 from src.jd_core.rules import Rules, get_rules
 
 logger = logging.getLogger(__name__)
@@ -62,9 +63,11 @@ logger = logging.getLogger(__name__)
 #: The Neo4j vector index built in ``core/db/migrations/002_jd_vectors.cypher``.
 _DOCUMENT_INDEX = "jd_document_embeddings"
 
-#: The employee group whose JDs are NOT JDFN (CUPE uses the WJQ instrument, HR-143) —
-#: excluded from Builder search results, which only ever start a JDFN draft.
-_NON_JDFN_GROUP = "cupe"
+#: RETIRED — the WJQ bargaining unit is `segmentation.wjq_employee_groups` (HR-225),
+#: read through :func:`_scope_groups`. It was a CONSTANT here, excluded unconditionally,
+#: which is why picking the CUPE form in the Builder still returned JDFN documents
+#: (reported 2026-08-28). It was also mis-cited to HR-143, which governs the approval
+#: COHORT and says nothing about search scope.
 
 #: Over-fetch factor: the vector index may return CUPE/WJQ hits or documents whose
 #: parsed JD has since been pruned, so fetch more than ``limit`` and filter down.
@@ -407,6 +410,25 @@ async def _title_matches(
     )
 
 
+def _out_of_scope(
+    group: str | None, wjq_groups: frozenset[str], form: JDTemplate
+) -> bool:
+    """Is a hit outside the scope the author's chosen FORM can clone into?
+
+    The two directions are NOT symmetric, and that is the point:
+
+    * **WJQ** is an INCLUDE list — only the WJQ bargaining unit(s) can seed a WJQ draft.
+    * **JDFN** is "not the WJQ unit(s)" — NOT an include-list of
+      ``jdfn_employee_groups``.
+      ``employee_group`` is recorded on only ~48% of the archive, so an include-list
+      would silently drop every document whose group was never parsed. Pinned by
+      ``test_jdfn_search_still_keeps_documents_with_no_group_recorded``.
+    """
+    if form == WJQ_TEMPLATE:
+        return group not in wjq_groups
+    return group in wjq_groups
+
+
 async def search_similar_jds(
     query_text: str,
     *,
@@ -414,6 +436,7 @@ async def search_similar_jds(
     neo4j_driver: AsyncDriver,
     session: AsyncSession,
     limit: int = 10,
+    form: JDTemplate = DEFAULT_TEMPLATE,
     rules: Rules | None = None,
 ) -> list[SearchHit]:
     """Search for a JD to start from — **four passes, titles before vectors**.
@@ -446,6 +469,8 @@ async def search_similar_jds(
     ``embed_client`` / ``neo4j_driver`` / ``session`` (all mockable).
     """
     rulebook = rules if rules is not None else get_rules()
+    # The author's chosen form decides the clone-source scope (HR-225).
+    wjq_groups = frozenset(rulebook.segmentation.wjq_employee_groups)
     if not query_text.strip():
         return []
 
@@ -459,7 +484,7 @@ async def search_similar_jds(
     for cluster_id, role_title, group in await _role_title_matches(
         session, query_text, limit=limit
     ):
-        if group == _NON_JDFN_GROUP:
+        if _out_of_scope(group, wjq_groups, form):
             continue
         seen_clusters.add(cluster_id)
         hits.append(
@@ -482,7 +507,7 @@ async def search_similar_jds(
     titled = await _title_matches(session, query_text, limit=limit)
     doc_clusters = await _clusters_for_sources(session, list(titled))
     for source_id, jd in titled.items():
-        if jd.employee_group == _NON_JDFN_GROUP:
+        if _out_of_scope(jd.employee_group, wjq_groups, form):
             continue  # the title pass is under the SAME JDFN scope as the vector pass
         doc_cluster = doc_clusters.get(source_id)
         if doc_cluster is not None and doc_cluster in seen_clusters:
@@ -512,7 +537,7 @@ async def search_similar_jds(
     for cluster_id, role_title, group, score in await _nearest_role_ids(
         neo4j_driver, vector, limit * _OVERFETCH, live_stamp=rulebook.embeddings.stamp
     ):
-        if group == _NON_JDFN_GROUP or cluster_id in seen_clusters:
+        if _out_of_scope(group, wjq_groups, form) or cluster_id in seen_clusters:
             continue
         seen_clusters.add(cluster_id)
         hits.append(
@@ -539,7 +564,7 @@ async def search_similar_jds(
         neighbour = parsed.get(source_id)
         if (
             neighbour is None
-            or neighbour.employee_group == _NON_JDFN_GROUP
+            or _out_of_scope(neighbour.employee_group, wjq_groups, form)
             or source_id in seen
         ):
             continue  # pruned/unparsed, CUPE/WJQ, or already listed as a title match

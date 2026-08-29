@@ -1854,6 +1854,45 @@ decisions:
       reads it.
     status: open
 
+  - id: HR-224
+    question: >-
+      A title often names the role and then whose office it sits in — "Executive
+      Assistant to the Vice-President". Where does the ROLE stop and its CONTEXT begin?
+    config:
+      file: titles.yaml
+      path: titles.family_context_markers
+    current_default: [" to ", " office of "]
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The seniority family was matched against the WHOLE title, so a title was classified
+      by WHO SOMEONE WORKS FOR. 🔴 REPORTED 2026-08-28 (the clusters dashboard showed 136
+      VPs) and then MEASURED across all 14,522 parsed titles: 40 titles matched the `vp`
+      keywords and NOT ONE WAS A VICE-PRESIDENT — every one was an assistant, secretary,
+      manager or director working for one ("Executive Assistant to the Vice-President" ×8,
+      "Manager, Office of the Vice-President, Academic", "Director, Office of the
+      Vice-President, Research"). `vp` leads `family_match_order` (HR-060), so it beat
+      `assistant` and `manager` outright. The same shape hit `director`: "Assistant to the
+      Director of X" classified as a director. With these markers the family is read only
+      from the text BEFORE the first one. MEASURED EFFECT: 88 of 14,522 documents (0.6%)
+      change family — vp 40→0, director 1,249→1,225, assistant 1,225→1,268, unmapped
+      9,286→9,316; the commonest moves are director→assistant (24), vp→assistant (20),
+      vp→manager (8). ⚠ vp→0 is the honest answer, not a broken filter: this archive is
+      APSA/CUPE/APEX/Poly staff JDs and SFU's vice-presidents are executive appointments
+      that are not in it. A test pins that a real "Vice-President, Research" STILL
+      classifies as vp, so "classify nothing as vp" cannot pass.
+    impact_if_changed: >-
+      Config only, and advisory — no gate reads the family; it shapes the clusters/dedup
+      dashboards and the cohesion flags a reviewer sees. EMPTYING the list restores the
+      old whole-title match exactly, which is the rollback. Adding a marker moves every
+      title carrying it toward `unmapped` unless its role word comes first, so a marker
+      that appears mid-role ("head of") would cut a real title short — the two shipped
+      are both unambiguously relational. Deliberately scoped to the SENIORITY family and
+      NOT to `function_keywords` (HR-063): the functional Application Table has the same
+      theoretical exposure but no measured defect, and changing it would move a
+      classification nobody has questioned. Measure before extending it there.
+    status: open
+
   - id: HR-062
     question: >-
       SFU writes a supervisory title as "Manager, Laboratory Operations" and a
@@ -5887,6 +5926,41 @@ decisions:
       the dropdown equals this list and excludes `cupe`).
     status: open
 
+
+  - id: HR-225
+    question: >-
+      When an author picks the CUPE (WJQ) form in the Builder, which existing JDs may
+      they search and clone from?
+    config:
+      file: segmentation.yaml
+      path: segmentation.wjq_employee_groups
+    current_default: [cupe]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      🔴 REPORTED 2026-08-28: selecting CUPE (WJQ) and searching "start from an existing
+      JD" returned JDFN documents, and cloning one landed the author back in the APSA
+      form. The clone was behaving correctly — `_render_clone` derives the form from the
+      SOURCE — so the visible "it resets to APSA" was a SYMPTOM: the search excluded CUPE
+      unconditionally, so every result was JDFN and every clone correctly opened a JDFN
+      draft. The exclusion was `_NON_JDFN_GROUP = "cupe"`, A CONSTANT IN PYTHON
+      (`composer/search.py`), invisible to this register and mis-cited in its own comment
+      to HR-143 — which governs the approval COHORT and says nothing about search scope.
+      So the Builder offered a WJQ flow it could not find a single source for. The form
+      now scopes the search, and the form choice is carried from the picker through search
+      to clone.
+    impact_if_changed: >-
+      Scope only — no score, grade or gate reads it. ⚠ THE TWO DIRECTIONS ARE
+      DELIBERATELY NOT SYMMETRIC and this is the trap to preserve: WJQ scope is an INCLUDE
+      list (only these groups may seed a WJQ draft), while JDFN scope is "NOT in this
+      list" — it is NOT an include-list of `jdfn_employee_groups` (HR-194). MEASURED:
+      `employee_group` is recorded on only ~48% of the archive, so making JDFN an
+      include-list would silently drop every document whose group was never parsed, a
+      large and invisible loss of search recall. Pinned by
+      `test_jdfn_search_still_keeps_documents_with_no_group_recorded`. Adding a group here
+      makes it clonable in the WJQ flow AND removes it from the JDFN flow in the same
+      edit, so this is the one list where an addition is also a subtraction elsewhere.
+    status: open
   # ── How much of `additional_context` the parser keeps (CUPE support, Phase A). ──
   - id: HR-200
     question: >-

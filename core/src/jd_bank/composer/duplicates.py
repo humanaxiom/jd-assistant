@@ -75,6 +75,7 @@ from src.jd_bank.db.models import CanonicalJD
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_core.bank.embed_text import serialize_document
 from src.jd_core.models.parsed_jd import SFUJobDescription
+from src.jd_core.models.quality import DEFAULT_TEMPLATE, JDTemplate
 from src.jd_core.rules import Rules, get_rules
 
 logger = logging.getLogger(__name__)
@@ -192,7 +193,11 @@ def _current_rows_query(cluster_ids: Sequence[UUID] | None = None) -> Select[Any
 
 
 async def _title_collision_matches(
-    session: AsyncSession, title: str
+    session: AsyncSession,
+    title: str,
+    *,
+    wjq_groups: frozenset[str],
+    form: JDTemplate,
 ) -> list[tuple[UUID, str, str | None, str]]:
     """Roles whose CURRENT canonical carries ``title`` exactly (case-insensitive) —
     ``(cluster_id, title, department, status)``.
@@ -219,7 +224,7 @@ async def _title_collision_matches(
     matches: list[tuple[UUID, str, str | None, str]] = []
     for row in rows:
         content = row.content or {}
-        if content.get("employee_group") == search._NON_JDFN_GROUP:
+        if search._out_of_scope(content.get("employee_group"), wjq_groups, form):
             continue
         status = row.status.value
         if status == _ARCHIVED_STATUS:
@@ -286,6 +291,8 @@ async def _related_by_vector(
     neo4j_driver: AsyncDriver | None,
     rules: Rules,
     already_listed: set[UUID],
+    wjq_groups: frozenset[str],
+    form: JDTemplate,
 ) -> list[RelatedRole]:
     """The semantic pass: the harmonized roles nearest the draft, ranked, capped.
 
@@ -328,8 +335,8 @@ async def _related_by_vector(
     ranked: list[tuple[UUID, str]] = []
     seen = set(already_listed)
     for cluster_id, node_title, group, _score in neighbours:
-        if group == search._NON_JDFN_GROUP:
-            continue  # the Builder authors the JDFN template only (HR-143)
+        if search._out_of_scope(group, wjq_groups, form):
+            continue  # a different instrument's role cannot seed this draft (HR-225)
         if cluster_id in seen:
             continue  # the cloned-from role, or already listed as a title collision
         seen.add(cluster_id)
@@ -382,6 +389,7 @@ async def find_related_roles(
     neo4j_driver: AsyncDriver | None,
     rules: Rules | None = None,
     exclude_cluster_id: UUID | None = None,
+    form: JDTemplate = DEFAULT_TEMPLATE,
 ) -> DuplicateGuard:
     """The existing harmonized roles that look like ``draft`` — ranked, never scored.
 
@@ -395,9 +403,14 @@ async def find_related_roles(
     """
     rulebook = rules if rules is not None else get_rules()
     cap = rulebook.dedup.authoring_guard.max_matches
+    # The guard compares against roles on the SAME instrument (HR-225): a JDFN role is
+    # not a duplicate warning for a CUPE draft, and vice versa.
+    wjq_groups = frozenset(rulebook.segmentation.wjq_employee_groups)
 
     try:
-        matches = await _title_collision_matches(session, draft.title or "")
+        matches = await _title_collision_matches(
+            session, draft.title or "", wjq_groups=wjq_groups, form=form
+        )
     except Exception:  # noqa: BLE001 — advisory panel: never cost the compliance check
         logger.exception("near-duplicate title pass failed; reporting no collisions")
         matches = []
@@ -433,6 +446,8 @@ async def find_related_roles(
             neo4j_driver=neo4j_driver,
             rules=rulebook,
             already_listed=already_listed,
+            wjq_groups=wjq_groups,
+            form=form,
         )
     except Exception:  # noqa: BLE001 — Ollama down / no role index: lose only `related`
         logger.exception("near-duplicate semantic pass failed; reporting no matches")

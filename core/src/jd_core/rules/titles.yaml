@@ -73,6 +73,23 @@ family_match_order:
 # space-normalised and wrapped in single spaces (" vp finance "). Short
 # abbreviations are therefore SPACE-PADDED so they match whole tokens only —
 # without the padding, "direc[tor]" would spuriously contain "cto".
+# WHERE THE ROLE STOPS AND ITS CONTEXT BEGINS. A title says what someone IS and
+# then, often, whose office they sit in — "Executive Assistant to the
+# Vice-President", "Manager, Office of the Vice-President, Academic". The keywords
+# below are matched only against the text BEFORE the first marker here, because the
+# words after it name SOMEBODY ELSE'S job.
+#
+# 🔴 MEASURED 2026-08-28 against all 14,522 parsed titles, after the clusters
+# dashboard reported 136 VPs: 40 titles matched the `vp` keywords and NOT ONE was a
+# Vice-President — every one was an assistant, secretary, manager or director working
+# FOR one. `vp` is first in `family_match_order`, so it beat `assistant` outright.
+#
+# Applies to the SENIORITY family only, not to `function_keywords`: the functional
+# Application Table has the same theoretical exposure but no measured defect, and
+# changing it would move a classification nothing has asked about (measure first).
+# Empty this list and the old whole-title behaviour returns. HR-224.
+family_context_markers: [" to ", " office of "]
+
 family_keywords:
   vp: ["vice president", "associate vice", " avp ", " vp "]
   chief: ["chief", " cio ", " cfo ", " cto ", " ceo ", " coo "]

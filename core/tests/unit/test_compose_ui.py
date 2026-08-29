@@ -1750,3 +1750,56 @@ def test_a_tampered_answers_json_cannot_submit_onto_the_other_forms_bar(
     assert resp.status_code == 200  # the error page, not a 303
     submit_mock.assert_not_awaited()
     session.commit.assert_not_awaited()
+
+
+# --- The Builder's instrument survives the search (reported 2026-08-28) ---------------
+
+
+def test_search_passes_the_chosen_form_through_and_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Picking CUPE (WJQ) must reach ``search_similar_jds`` AND be visible on the page.
+
+    Reported 2026-08-28: choosing CUPE, searching, and cloning a result put the author
+    back in the APSA/JDFN form. The clone was right — it derives the form from the
+    source — so the defect was that the form choice never left the picker: the search
+    link carried no ``form``, and the search itself excluded CUPE outright, so every
+    result was JDFN and every clone correctly opened a JDFN draft.
+    """
+    from src.jd_bank.composer import SearchHit
+
+    seen: dict[str, object] = {}
+
+    async def fake_search(query: str, **kwargs: object) -> list[SearchHit]:
+        seen.update(kwargs)
+        return []
+
+    monkeypatch.setattr(compose_ui, "search_similar_jds", fake_search)
+    embed, neo = _FakeClose(), _FakeClose()
+    app.dependency_overrides[compose.get_embed_client] = lambda: embed
+    app.dependency_overrides[compose.get_neo4j_driver] = lambda: neo
+    _override_session_object()
+
+    resp = _client().get("/jd-bank/ui/compose/search?q=clerk&form=wjq")
+
+    assert resp.status_code == 200
+    assert seen["form"] == "wjq", "the chosen instrument never reached the search"
+    html = resp.text
+    # The scope must be STATED. A search silently returning the other instrument's
+    # documents is what made this read as a clone bug rather than a search bug.
+    assert "CUPE (WJQ)" in html
+    # ...and a second search from this page must keep it.
+    assert 'name="form" value="wjq"' in html
+
+
+def test_the_new_page_search_box_carries_the_form(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The "Search to clone" box on the form itself must carry the instrument — this is
+    the exact click where the choice used to be dropped."""
+    _override_session_object()
+
+    resp = _client().get("/jd-bank/ui/compose/new?form=wjq")
+
+    assert resp.status_code == 200
+    assert 'name="form" value="wjq"' in resp.text
