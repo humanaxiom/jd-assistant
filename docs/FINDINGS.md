@@ -334,14 +334,31 @@ could-not-evaluate bucket.** Any facet over this field must report matched / not
 and **every one of those drafts is entirely stale** — not mixed. **None is PUBLISHED.**
 They are CUPE roles built from APSA managers.
 
-⚠ **`make smoke` did not catch this and is now RED because of it.** The old guard asked
-only *"is a CUPE document behind a non-CUPE draft?"* and was structurally blind to the
-inverse. `test_no_draft_claims_a_template_its_documents_do_not` now asserts both
-directions. **Agreement in the direction you tested says nothing about the other.**
+⚠ **`make smoke` did not catch this.** The old guard asked only *"is a CUPE document
+behind a non-CUPE draft?"* and was structurally blind to the inverse.
+`test_no_draft_claims_a_template_its_documents_do_not` now asserts both directions.
+**Agreement in the direction you tested says nothing about the other.**
 
-The repair is a **decision, not a cleanup**: `src.jd_bank.canonical` has `--only-template`
-but no per-cluster filter, so re-composing exactly those 24 is not currently expressible,
-and a producer run is under a standing ⛔ in `CLAUDE.md`.
+✅ **RESOLVED 2026-08-29 — the 24 drafts were DELETED**, on the project owner's ruling.
+`core/db/repairs/001_drop_mislabelled_cupe_drafts.sql`: selects by the derived condition
+rather than hardcoded ids, refuses to run if anything non-`DRAFT` or reviewer-touched is
+in scope, and is idempotent (a second run deletes 0). `make smoke` is **green — 6 passed**.
+
+**Deleted rather than re-composed, deliberately.** A cluster with no draft reads as
+*un-drafted*, which the funnel already accounts for; a cluster with a WRONG draft reads as
+a finished role. The next producer run regenerates them on the template their documents
+actually are.
+
+| after the repair | |
+|---|---:|
+| clusters | 2,493 |
+| clusters with a current draft | **2,469** |
+| clusters now un-drafted | **24** |
+| drafts still claiming cupe (the genuine ones) | 625 |
+
+⚠ **The `audit_log` was NOT written to.** It is hash-chained (`audit_chain_tail`), so
+hand-forging an entry the application did not make would corrupt the chain. The repair is
+recorded in git and here instead.
 
 ---
 
