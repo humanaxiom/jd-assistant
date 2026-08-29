@@ -148,6 +148,15 @@ no department at all, while **47 roles carry an ITS department without the ITP
 classification**.
 ### 3c. 🔴 The filename signal is unusable as a primary identifier — audited
 
+**And CUPE was traced document-by-document to confirm the blind spot does not leak**
+(asked in review, measured 2026-08-28): of 4,440 CUPE documents, **3,446 sit behind
+cupe-labelled drafts, 0 behind any other label, 0 behind ungrouped drafts**, 994 in the
+known orphan gap. Template routing and every CUPE count read the PARSED
+`employee_group`, never filenames. The ungrouped drafts hide only APSA/APEX/POLY
+documents — all JDFN-template groups, so the default judges them correctly. **Pinned by
+`make smoke`**: a single CUPE document behind a non-cupe draft fails the run.
+
+
 Measured 2026-08-28 after the §3 correction, across every employee group:
 
 | parsed group | documents | findable by a filename code | |
