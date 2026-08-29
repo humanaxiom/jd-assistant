@@ -187,3 +187,45 @@ async def test_no_document_is_judged_under_the_wrong_template(session) -> None: 
         f"{misrouted} CUPE documents sit behind a draft not labelled cupe — they are "
         "being judged by the wrong template's gates"
     )
+
+
+@pytest.mark.live
+async def test_no_draft_claims_a_template_its_documents_do_not(session) -> None:  # type: ignore[no-untyped-def]
+    """The INVERSE of the test above, and the one that was missing.
+
+    ``test_no_document_is_judged_under_the_wrong_template`` asks "is a CUPE document
+    behind a non-CUPE draft?". It cannot see the opposite: a draft labelled cupe whose
+    documents are NOT cupe. That draft is a CUPE role built out of JDFN documents —
+    scored on the WJQ profile, excluded from the JDFN cohort, and counted as CUPE in
+    every facet.
+
+    🔴 It was not hypothetical. The v6 parser fix (HR-226) found that ~140 documents had
+    been labelled cupe by a passing MENTION — "Directly supervises CUPE employees" — and
+    61 of them were already inside 24 cupe-labelled drafts, every one of which was
+    ENTIRELY built from such documents. The one-directional guard stayed green through
+    all of it, which is why a guard has to be asserted in both directions before it can
+    be trusted: agreement in the direction you tested says nothing about the other.
+
+    Ungrouped drafts are NOT a violation — a draft with no group recorded defaults to
+    the JDFN gates, which is the documented behaviour and is checked above. This asks
+    only about drafts that positively CLAIM cupe.
+    """
+    rows = await session.execute(text(f"""
+            WITH cur AS ({_CURRENT}),
+            latest AS (
+              SELECT DISTINCT ON (source_document_id)
+                     source_document_id AS sid, parsed->>'employee_group' AS grp
+              FROM parsed_jds ORDER BY source_document_id, created_at DESC
+            )
+            SELECT count(DISTINCT c.cluster_id) FROM cur c,
+                   jsonb_array_elements(c.source_document_ids) s
+            JOIN latest l ON l.sid = (s.value->>'source_id')::uuid
+            WHERE c.content->>'employee_group' = 'cupe'
+              AND coalesce(l.grp, '') <> 'cupe'
+        """))
+    stale = int(rows.scalar() or 0)
+    assert stale == 0, (
+        f"{stale} drafts claim the cupe template while holding documents the parser "
+        "does not call cupe — they are scored on the WJQ profile and counted as CUPE "
+        "wrongly. Re-compose them on the template their documents actually are."
+    )

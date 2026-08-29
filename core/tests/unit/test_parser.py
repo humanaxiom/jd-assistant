@@ -252,8 +252,12 @@ def test_parser_version_constant() -> None:
     **v5 = the WJQ heading match tolerates antiword's fixed-width layout** (#137): a
     heading printed beside the next column, or with its own words stretched apart,
     matched nothing, so 16.2% of CUPE documents parsed to ZERO duties — the silence the
-    rewrite filled with 1,219 invented duties (HR-213)."""
-    assert parse_jd("anything").parser_version == "jd_segmenter_v5"
+    rewrite filled with 1,219 invented duties (HR-213).
+    **v6 = the employee-group read is evidence-ranked** (HR-226): a BARE MENTION can no
+    longer establish `cupe`. Measured against the raw archive, 2.2% of the 4,440
+    cupe-labelled documents (~98) were never routed to the WJQ segmenter — APSA managers
+    who merely supervise CUPE staff — and each was scored on the wrong instrument."""
+    assert parse_jd("anything").parser_version == "jd_segmenter_v6"
 
 
 # ── End-to-end on the real legacy .doc ───────────────────────────────────────
@@ -272,3 +276,93 @@ def test_legacy_doc_end_to_end() -> None:
     assert result.jd.about_sfu_present is False
     assert len(result.jd.duties) >= 1
     assert 0.0 < result.parse_confidence < 1.0
+
+
+# ── Employee group: recovered from the body when the ID block is silent ──────
+#
+# MEASURED 2026-08-29 over the raw archive (probe against all 14,522 v5 parses):
+# 4,630 documents (31.9%) carry NO employee_group. Reading the SOURCE FILES for a
+# 400-document sample: 92% state no group token anywhere — the archive is genuinely
+# silent — but ~4% DO name their group in the body, outside the identification block,
+# and `_extract_employee_group` only ever scanned that block.
+
+
+def _parse(text: str) -> ParseResult:
+    return parse_jd(text)
+
+
+_BODY_ONLY = """\
+SIMON FRASER UNIVERSITY
+Job Title: Research Coordinator
+Department: Chemistry
+
+POSITION SUMMARY
+This position is part of the APSA employee group and reports to the Director.
+
+DUTIES
+1. Coordinates the research programme.
+"""
+
+
+def test_a_group_named_only_in_the_body_is_recovered() -> None:
+    """The identification block names no group; the body says APSA. Before this, the
+    document landed in the 4,630 'no group recorded' bucket and was then counted as
+    JDFN by default — an assumption presented as a measurement."""
+    assert _parse(_BODY_ONLY).jd.employee_group == "apsa"
+
+
+_INCIDENTAL_CUPE = """\
+SIMON FRASER UNIVERSITY
+Job Title: Manager, Custodial Services
+Department: Facilities
+
+POSITION SUMMARY
+Supervises staff and liaises with CUPE stewards on scheduling matters.
+
+DUTIES
+1. Manages the custodial programme.
+"""
+
+
+def test_an_incidental_cupe_mention_never_makes_a_document_cupe() -> None:
+    """🔴 The reason the body fallback is NOT a plain whole-document token scan.
+
+    A document that reached the JDFN segmenter was, by construction, NOT routed as WJQ
+    — `is_wjq` already looked at it and said no. MEASURED: of 400 ungrouped documents,
+    22 (5.5%) mention "CUPE" in passing ("liaise with CUPE stewards") and `is_wjq`
+    rejects every one. Recovering `cupe` from the body would therefore mislabel roughly
+    one in eighteen ungrouped documents AND route them to the wrong template — worse
+    than the silence it set out to fix. `cupe` is decided by ROUTING, never by the word.
+    """
+    jd = _parse(_INCIDENTAL_CUPE).jd
+    assert jd.employee_group != "cupe"
+    assert jd.employee_group is None
+
+
+def test_the_identification_block_still_wins_over_the_body() -> None:
+    """The fallback is a fallback: an explicit label outranks a passing mention."""
+    text = (
+        "SIMON FRASER UNIVERSITY\n"
+        "Job Title: Analyst\n"
+        "Employee Group: APEX\n"
+        "Department: Finance\n\n"
+        "POSITION SUMMARY\n"
+        "Works alongside the APSA group on shared services.\n\n"
+        "DUTIES\n1. Analyses things.\n"
+    )
+    assert _parse(text).jd.employee_group == "apex"
+
+
+def test_a_genuinely_silent_document_stays_silent() -> None:
+    """92% of the ungrouped say nothing. They must stay `None` — NOT be defaulted to a
+    group — so that every surface can report them as 'could not evaluate' rather than
+    silently counting them as JDFN."""
+    text = (
+        "SIMON FRASER UNIVERSITY\n"
+        "Job Title: Departmental Assistant\n"
+        "Department: Biology\n\n"
+        "POSITION SUMMARY\n"
+        "Provides administrative support to the department.\n\n"
+        "DUTIES\n1. Maintains records.\n"
+    )
+    assert _parse(text).jd.employee_group is None

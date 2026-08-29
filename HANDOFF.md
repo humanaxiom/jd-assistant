@@ -65,6 +65,29 @@ approvable count *down*.
 
 ---
 
+## 🔴 `make smoke` IS RED, AND IT IS RIGHT TO BE — 2026-08-29
+
+**Do not "fix" it by relaxing the guard.** It is reporting a real inconsistency in the
+Bank, and it is the first thing to resolve.
+
+The v6 parser fix (HR-226) established that a job description was being called CUPE
+because it *mentioned* the word — APSA managers who supervise CUPE staff. Some of those
+documents had already been harmonized into **drafts that claim the CUPE template**. Those
+drafts are scored on the wrong instrument. Counts, and the full working:
+[`docs/FINDINGS.md`](docs/FINDINGS.md) §7.
+
+- **None is PUBLISHED**; every affected draft is `DRAFT` and *entirely* stale, not mixed.
+- The old guard asked only "is a CUPE document behind a non-CUPE draft?" and was blind to
+  the inverse. It is now asserted **both ways**. *Agreement in the direction you tested
+  says nothing about the other.*
+- **The repair is a DECISION, not a cleanup.** `src.jd_bank.canonical` has
+  `--only-template` but **no per-cluster filter**, so re-composing exactly these is not
+  currently expressible — and a producer run is under a standing ⛔ in `CLAUDE.md`. Two
+  options: add a cluster filter and re-compose just those, or delete the drafts (a cluster
+  with no draft reads as un-drafted, which is honest; a later run regenerates it).
+
+---
+
 ## ▶ CURRENT STATE — 2026-08-28
 
 **Track A (the demo) is COMPLETE.** A1–A5 built and merged; `make gates` green; CI green.
@@ -76,8 +99,9 @@ Two live surfaces, both reading the database at request time:
 | `/jd-bank/ui/collection/it` | the IT collection · `?queue=1` for the review queue |
 | `/jd-bank/ui/funnel` | archive → published, scope-parameterised, **with the full gap accounting** |
 
-`PARSER_VERSION` `jd_segmenter_v5` · `rules_version` `jd_rules_sfu_v4+76baba29cfeb`
-(unmoved — the A2/A4/A5 rule files are unhashed by design).
+`PARSER_VERSION` **`jd_segmenter_v6`** (bumped 2026-08-29 for HR-226; the archive was
+re-parsed in the same change, as that constant's contract requires — a bump without a
+re-parse leaves every layer querying a version with no rows).
 
 ### The three things that actually need a person
 
@@ -246,6 +270,23 @@ Distilled from six weeks; the full set is in the archive.
 - **In a REVIEW queue, over-inclusion is cheap and under-inclusion is not.** A wrong
   candidate costs one "no" in the room; a missing one costs the reviewer's confidence in
   the whole list. Bias a worklist wide — and only a worklist, never a membership rule.
+- 🔴 **A one-directional guard is decoration.** The template-routing check asked only "is
+  a CUPE document behind a non-CUPE draft?" and stayed green while the inverse — drafts
+  claiming CUPE over documents that are not — accumulated. **Agreement in the direction
+  you tested says nothing about the other.** Assert both ways, or do not claim the
+  property is pinned.
+- 🔴 **A field can have two provenances and admit to neither.** `employee_group` was READ
+  from the text for APSA/APEX/POLY and SET by routing for CUPE — one column, two meanings,
+  nothing recording which. That is what let a passing mention ("supervises CUPE staff")
+  become a bargaining unit. **When a value can arrive two ways, the difference is data,
+  not a footnote.**
+- **A CONTROL is what tells a finding from a broken probe.** A token scan "proved" 92% of
+  ungrouped documents name no group — and its control scored 49%, which should have read
+  as *the probe cannot see groups*. Splitting the control by group explained it exactly
+  (100% for the read-from-text groups, 2.5% for the routed one) and only then was the
+  finding trustworthy. **Run the control before believing the result.**
+- **Check the source, not the database, when the database is the thing in question.** Both
+  employee-group defects were invisible in `parsed_jds` and obvious in the archive files.
 - **EVERY CLAIM ABOUT THE ARCHIVE MUST BE CHECKED AGAINST THE ARCHIVE.** A sample of the
   newest files is not a sample of the corpus. This rule has caught the Phase 0 census, two
   coders, a reviewer *and* the orchestrator.

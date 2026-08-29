@@ -723,6 +723,11 @@ class Segmentation(_RuleFile):
     position_id_pattern: Regex
     revision_date_pattern: Regex
     employee_group_pattern: Regex
+    #: Groups a BARE MENTION may never establish — they need the explicit
+    #: "Employee Group:" label. `cupe` is here because it is set by ROUTING, not by
+    #: reading, and a passing mention ("supervises CUPE staff") was labelling APSA
+    #: managers CUPE and scoring them on the wrong instrument. HR-226.
+    employee_group_label_only: frozenset[str] = Field(default=frozenset())
 
     #: A JDFN filename carries two dates. ``true`` = the trailing REVISION date decides
     #: which file is a position's current version (HR-112).

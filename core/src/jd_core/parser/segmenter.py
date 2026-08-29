@@ -79,7 +79,15 @@ from src.jd_core.parser.headings import Era, SectionKey
 #: invented duties across 153 drafts (HR-213). The gap also let the form's checkbox
 #: scaffolding bleed UPWARD into the duty list, so it was starving duties and polluting
 #: them at once.
-PARSER_VERSION = "jd_segmenter_v5"
+#: v6 = the employee-group read is evidence-ranked (HR-226). MEASURED against the raw
+#: archive: 2.2% of the 4,440 `cupe` documents (~98) were never routed to the WJQ
+#: segmenter — they are APSA managers who merely MENTION the word ("Directly supervises
+#: CUPE employees"), and the label made `template_of` score them on the WJQ profile and
+#: drop them from the JDFN cohort. Of 24 examined, ZERO declared "Employee Group: CUPE".
+#: A bare token can no longer establish `cupe`; an explicit label still can. The same
+#: change adds a whole-body fallback for the other groups, which the identification-only
+#: scan was missing (~4% of the 4,630 ungrouped name their group outside that block).
+PARSER_VERSION = "jd_segmenter_v6"
 
 #: Which SFU document template ``parse_jd`` read: the APSA/APEX/POLY "JDFN" form (the
 #: original segmenter), the CUPE/WJQ questionnaire, or neither recognisably.
@@ -183,12 +191,47 @@ def _logical_lines(block: str, starter: re.Pattern[str] | None = None) -> list[s
 # ── Identification ───────────────────────────────────────────────────────────
 
 
-def _extract_employee_group(id_text: str) -> SFUEmployeeGroup | None:
-    m = hd.EMPLOYEE_GROUP_LABEL_RX.search(id_text)
-    scan = m.group(1).lower() if m else id_text.lower()
-    for token in hd.EMPLOYEE_GROUP_TOKENS:
-        if re.search(rf"\b{token}\b", scan):
-            return token  # type: ignore[return-value]
+def _extract_employee_group(
+    id_text: str, body: str = "", *, label_only: frozenset[str] = frozenset()
+) -> SFUEmployeeGroup | None:
+    """The bargaining unit this JD names, or ``None`` when it names none.
+
+    Three passes, strongest evidence first: an explicit ``Employee Group:`` LABEL, then
+    a bare token in the identification block, then a bare token in the whole ``body``.
+
+    ``label_only`` names the groups a BARE TOKEN may never establish — they need the
+    explicit label. 🔴 MEASURED 2026-08-29 against the raw archive: 2.2% of the 4,440
+    documents labelled ``cupe`` (~98) were never routed to the WJQ segmenter at all;
+    they are JDFN documents that merely MENTION the word — "Directly supervises CUPE
+    employees", "administers the collective agreement between the University and CUPE,
+    Local 3338". Of 24 examined, **0 declared** ``Employee Group: CUPE`` and 24 were
+    passing mentions. They are APSA managers who supervise CUPE staff, and the label
+    made ``template_of`` judge each one on the WJQ profile and drop it from the JDFN
+    cohort. A job is not CUPE because its staff are — the same error as calling an
+    Executive Assistant a VP (HR-224).
+
+    The ``body`` fallback is the other half: the identification block is not always
+    where the group is written, and a document that names its group in the summary was
+    landing in the "no group recorded" bucket, which every surface then counted as JDFN
+    by default.
+    """
+    for scope in (id_text, body):
+        if not scope:
+            continue
+        m = hd.EMPLOYEE_GROUP_LABEL_RX.search(scope)
+        if m:
+            # An explicit label is a DECLARATION: every group is readable from it,
+            # including the ones a bare mention may not establish.
+            value = m.group(1).lower()
+            for token in hd.EMPLOYEE_GROUP_TOKENS:
+                if re.search(rf"\b{token}\b", value):
+                    return token  # type: ignore[return-value]
+        lowered = scope.lower()
+        for token in hd.EMPLOYEE_GROUP_TOKENS:
+            if token in label_only:
+                continue
+            if re.search(rf"\b{token}\b", lowered):
+                return token  # type: ignore[return-value]
     return None
 
 
@@ -384,8 +427,8 @@ def parse_jd(text: str) -> ParseResult:
     text = text or ""
 
     # Import lazily so `segmenter` (which `wjq` imports for its helpers + `ParseResult`)
-    # stays import-cycle-free; `get_rules` is imported here too because the router is
-    # the only part of the JDFN path that consults the rulebook.
+    # stays import-cycle-free. `get_rules` is imported here for the router AND for
+    # `employee_group_label_only` (HR-226), which the identification pass below reads.
     from src.jd_core.parser.wjq import is_wjq, segment_wjq  # noqa: PLC0415
     from src.jd_core.rules import get_rules  # noqa: PLC0415
 
@@ -413,7 +456,11 @@ def parse_jd(text: str) -> ParseResult:
         id_text, hd.POSITION_NO_LABEL_RX
     ) or _extract_field(collapsed, hd.POSITION_NO_LABEL_RX)
     grade = _extract_field(id_text, hd.GRADE_LABEL_RX)
-    employee_group = _extract_employee_group(id_text)
+    employee_group = _extract_employee_group(
+        id_text,
+        collapsed,
+        label_only=frozenset(get_rules().segmentation.employee_group_label_only),
+    )
     classification = extract_classification(id_text, employee_group)
     title = title_label or _fallback_title(lines, heading_lines)
 

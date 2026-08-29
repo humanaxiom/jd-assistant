@@ -157,9 +157,13 @@ documents — all JDFN-template groups, so the default judges them correctly. **
 `make smoke`**: a single CUPE document behind a non-cupe draft fails the run.
 
 
+⚠ **The document counts below are the v5 parse.** They were re-measured at v6 — see
+§7, which supersedes them; the filename-coverage percentages are unaffected because
+they are a property of the filenames, not of the group read.
+
 Measured 2026-08-28 after the §3 correction, across every employee group:
 
-| parsed group | documents | findable by a filename code | |
+| parsed group | documents (v5) | findable by a filename code | |
 |---|---:|---:|---:|
 | APSA | 4,946 | 3,289 | 66.5% |
 | **CUPE** | 4,440 | 787 | **17.7%** |
@@ -253,10 +257,91 @@ facet therefore publishes its own coverage.
 |---|---:|---|
 | `title` | 100% | ⚠ **but 14% is the `Untitled Position` placeholder** (§2b) |
 | `department` | 72.2% | ⚠ raw strings, 739 of them — filters, does not total a unit |
-| `employee_group` | 47.9% | ⚠ partial; the rest default to JDFN |
+| `employee_group` | **68.8%** (v6) | ⚠ the other 31.2% is **unrecorded**, and defaults to JDFN — see §7 |
 | `grade` / `status` | 100% | ✅ (quality grade A–D, **not** a pay grade) |
 | `classification` | **0% of drafts** | 🔴 parsed on 21% of documents, lost before the draft |
 | `position_number` | 1 of 2,489 | 🔴 unusable |
+
+---
+
+
+## 7. 🔴 The employee group had two provenances, and one of them was a mention
+
+**Measured 2026-08-29 against the RAW ARCHIVE FILES** — not the database — after
+"there should be more CUPE than APSA, the numbers don't add up". The instinct was right
+that something was wrong; the fault was the opposite of what the page suggested.
+
+### 7a. `cupe` could be established by a passing mention
+
+Of the 4,440 documents the Bank labelled `cupe`, **2.2% of a 600-document sample were
+never routed to the WJQ segmenter at all**. Of 24 examined, **ZERO declared
+`Employee Group: CUPE`** and all 24 were passing mentions:
+
+> *"Directly supervises CUPE employees"* · *"administers the collective agreement between
+> the University and CUPE, Local 3338"* · *"supervises temporary CUPE staff and volunteers"*
+
+They are **APSA managers who supervise CUPE staff** — `Manager`, `Director, Advancement`,
+`Student Recruiter`. `template_of` reads this field, so each was scored on the **WJQ
+profile instead of JDFN**, dropped from the JDFN current-practice cohort (HR-143), and
+counted as CUPE everywhere. The same error as HR-224 inverted: a job is not a VP because
+its boss is; **a job is not CUPE because its staff are.**
+
+**The control is what made the fix safe** — does a document contain its own recorded token?
+
+| group | sampled | token present | |
+|---|---:|---:|---:|
+| apsa · apex · poly · excluded | 326 | 326 | **100%** |
+| **cupe** | 120 | 3 | **2.5%** |
+
+`cupe` is set by **routing** (`is_wjq`), never by reading the word — so removing it from
+the bare-token scan costs no genuine detection. An explicit label still establishes any
+group. Registered as **HR-226**; fixed in `PARSER_VERSION` **v6**.
+
+### 7b. The corrected split, and it reconciles exactly
+
+| group | v5 | **v6** | Δ |
+|---|---:|---:|---:|
+| apsa | 4,946 | **5,121** | +175 |
+| (none recorded) | 4,630 | **4,534** | −96 |
+| **cupe** | 4,440 | **4,300** | **−140** |
+| apex | 420 | **420** | 0 |
+| poly | 50 | **76** | +26 |
+| excluded | 36 | **71** | +35 |
+
+373 documents changed group. apsa+poly+excluded gained 236 = cupe −140 + none −96.
+**Nothing is unaccounted for.** Coverage rose 47.9% → **68.8%**.
+
+> **Is CUPE bigger than APSA? No — and the correction widens the gap: 5,121 vs 4,300.**
+> Re-running the real `is_wjq` detector over 500 ungrouped documents found **0 missed
+> CUPE**, and 96.2% of the ungrouped carry a Decision Making section (CUPE documents are
+> 96.9% *without* one). The remaining unknowns are JDFN-family, so APSA's true lead is
+> larger still. ⚠ This is a count of **documents on file**, not of SFU headcount.
+
+### 7c. The archive is silent on a third of its own documents
+
+Reading the source files for 400 ungrouped documents: **92% contain no group token
+anywhere**. This is not a parse failure — SFU did not record a bargaining unit on them.
+
+🔴 **The defect is that the system presents that silence as JDFN.** `template_of` returns
+`wjq` only for `cupe` and defaults everything else, so 4,534 documents with *no recorded
+group* are counted as JDFN. That is the IT-collection failure again: **no
+could-not-evaluate bucket.** Any facet over this field must report matched / not-matched /
+**unrecorded**, never two numbers.
+
+### 7d. 24 drafts claim a template their documents are not
+
+61 of the corrected documents sit inside **24 DRAFT canonical JDs still labelled `cupe`**,
+and **every one of those drafts is entirely stale** — not mixed. **None is PUBLISHED.**
+They are CUPE roles built from APSA managers.
+
+⚠ **`make smoke` did not catch this and is now RED because of it.** The old guard asked
+only *"is a CUPE document behind a non-CUPE draft?"* and was structurally blind to the
+inverse. `test_no_draft_claims_a_template_its_documents_do_not` now asserts both
+directions. **Agreement in the direction you tested says nothing about the other.**
+
+The repair is a **decision, not a cleanup**: `src.jd_bank.canonical` has `--only-template`
+but no per-cluster filter, so re-composing exactly those 24 is not currently expressible,
+and a producer run is under a standing ⛔ in `CLAUDE.md`.
 
 ---
 

@@ -102,6 +102,28 @@ employee_group_pattern:
   pattern: 'JDFN_([A-Z]+)'
   ignore_case: false
 
+# --- which groups a BARE MENTION may not establish ----------------------------
+# The parser reads the bargaining unit three ways, strongest first: an explicit
+# "Employee Group:" LABEL, then a bare token in the identification block, then a bare
+# token anywhere in the body. The groups listed here may ONLY come from the explicit
+# label — never from a bare mention.
+#
+# 🔴 MEASURED 2026-08-29 against the raw archive files. Of the 4,440 documents labelled
+# `cupe`, 2.2% (~98) were NEVER ROUTED to the WJQ segmenter: they are JDFN documents that
+# merely say the word. Of 24 examined, ZERO declared "Employee Group: CUPE" and all 24
+# were passing mentions — "Directly supervises CUPE employees", "administers the
+# collective agreement between the University and CUPE, Local 3338", "supervises
+# temporary CUPE staff". They are APSA MANAGERS WHO SUPERVISE CUPE STAFF, and the label
+# made `template_of` score each of them on the WJQ profile and drop it from the JDFN
+# current-practice cohort. A job is not CUPE because its staff are.
+#
+# CUPE is the one group that never needs the token anyway: it is set by ROUTING, not by
+# reading — the WJQ segmenter assigns it unconditionally when `is_wjq` matches. MEASURED
+# control: apsa/apex/poly/excluded documents contain their own token 100% of the time,
+# cupe only 2.5%. So removing it from the bare-token scan costs nothing and stops the
+# leak. HR-226.
+employee_group_label_only: [cupe]
+
 # --- dedup populations --------------------------------------------------------
 # Census §7a: ~13.5% of the archive is byte-for-byte duplicate. §7b: ~8,160 files are a
 # non-first version of an already-seen position id. An un-deduplicated approval rate is

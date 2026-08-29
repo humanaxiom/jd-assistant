@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+323484eb435e` · **223 decisions** (223 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 283 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+323484eb435e` · **224 decisions** (224 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 284 parameters on the decision surface, all accounted for.
 
-**Of those 223, 80 need an HR ruling.** The other 143 are recorded for the same build check but are not yours to sign: 58 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 224, 81 need an HR ruling.** The other 143 are recorded for the same build check but are not yours to sign: 58 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -112,6 +112,7 @@ Two of the three mean *nobody at SFU has agreed to this yet.* That is the honest
 | [HR-213](#hr-213) | When the tool rewords a harmonized job description whose source documents list NO duties at all, may it write some? Today it may not: it returns none, and the draft is reported as incomplete rather than filled in. | `true` | we chose it |
 | [HR-214](#hr-214) | When the tool rewords a harmonized job description, may it return a whole SECTION empty that the source documents did state — for example the internal and external contacts a role works with? Today it may not: the harmonized version is put back. | `true` | we chose it |
 | [HR-225](#hr-225) | When an author picks the CUPE (WJQ) form in the Builder, which existing JDs may they search and clone from? | `cupe` | we chose it |
+| [HR-226](#hr-226) | Is a job description CUPE because it says the word "CUPE" somewhere, or only when it declares CUPE as its employee group? | `cupe` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -436,6 +437,14 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 - **Where the default came from:** we chose it
 - **Why it matters:** 🔴 REPORTED 2026-08-28: selecting CUPE (WJQ) and searching "start from an existing JD" returned JDFN documents, and cloning one landed the author back in the APSA form. The clone was behaving correctly — `_render_clone` derives the form from the SOURCE — so the visible "it resets to APSA" was a SYMPTOM: the search excluded CUPE unconditionally, so every result was JDFN and every clone correctly opened a JDFN draft. The exclusion was `_NON_JDFN_GROUP = "cupe"`, A CONSTANT IN PYTHON (`composer/search.py`), invisible to this register and mis-cited in its own comment to HR-143 — which governs the approval COHORT and says nothing about search scope. So the Builder offered a WJQ flow it could not find a single source for. The form now scopes the search, and the form choice is carried from the picker through search to clone.
 - **If it changes:** Scope only — no score, grade or gate reads it. ⚠ THE TWO DIRECTIONS ARE DELIBERATELY NOT SYMMETRIC and this is the trap to preserve: WJQ scope is an INCLUDE list (only these groups may seed a WJQ draft), while JDFN scope is "NOT in this list" — it is NOT an include-list of `jdfn_employee_groups` (HR-194). MEASURED: `employee_group` is recorded on only ~48% of the archive, so making JDFN an include-list would silently drop every document whose group was never parsed, a large and invisible loss of search recall. Pinned by `test_jdfn_search_still_keeps_documents_with_no_group_recorded`. Adding a group here makes it clonable in the WJQ flow AND removes it from the JDFN flow in the same edit, so this is the one list where an addition is also a subtraction elsewhere.
+
+##### HR-226 — Is a job description CUPE because it says the word "CUPE" somewhere, or only when it declares CUPE as its employee group?
+
+- **We ship:** `cupe`
+- **Configured in:** `segmentation.yaml` → `segmentation.employee_group_label_only`
+- **Where the default came from:** we chose it
+- **Why it matters:** 🔴 MEASURED 2026-08-29 against the RAW ARCHIVE FILES, after "there should be more CUPE than APSA — the numbers don't add up". Of the 4,440 documents the Bank labels `cupe`, **2.2% (~98) were never routed to the WJQ segmenter at all** — they are JDFN documents that merely MENTION the word. Of 24 examined, **ZERO declared "Employee Group: CUPE"** and all 24 were passing mentions: "Directly supervises CUPE employees", "administers the collective agreement between the University and CUPE, Local 3338", "supervises temporary CUPE staff and volunteers". They are APSA MANAGERS WHO SUPERVISE CUPE STAFF — Manager, Director Advancement, Student Recruiter. A job is not CUPE because its staff are, exactly as an Executive Assistant is not a VP because their boss is (HR-224). The cost was not cosmetic: `template_of` reads this field, so each of those ~98 was scored on the WJQ profile instead of the JDFN one, dropped from the JDFN current-practice cohort (HR-143), and counted as CUPE in every facet. CONTROL, measured the same day: apsa/apex/poly/ excluded documents contain their own token 100% of the time, `cupe` only 2.5% — because CUPE is set by ROUTING (`is_wjq`), never by reading the word. So excluding it from the bare-token scan costs no genuine detection at all.
+- **If it changes:** Parser behaviour, and it moves `PARSER_VERSION` (v5 -> v6), so changing it REQUIRES an archive re-parse in the same change — every layer filters `parsed_jds` on that literal, and a bump without a re-parse leaves them querying a version with no rows, i.e. an apparently empty Bank. An explicit "Employee Group: X" label still establishes ANY group including cupe, so a genuine declaration is never lost; emptying this list restores the old bare-token behaviour and the ~98 mislabels with it. Adding a group here makes it undetectable except by an explicit label — safe for `cupe`, which routing already covers, and WRONG for apsa/apex/poly, which are read from the text and have no other source.
 
 #### An earlier version of this tool chose it — also unratified
 
