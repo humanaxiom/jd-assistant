@@ -68,6 +68,11 @@ def test_global_nav_links_every_ui_feature() -> None:
     assert 'href="/jd-bank/ui/queue"' in body  # Review queue
     assert 'href="/jd-bank/ui/dashboard"' in body  # Dashboards
     assert 'href="/jd-bank/ui/guide"' in body  # Operator guide
+    # The LIVE funnel (A4/A5, shipped 2026-08-27). It was reachable only by typing the
+    # URL for a day: nothing in the nav pointed at it, so clicking "Dashboards" served
+    # the STATIC artifact pages and the new page looked like it had never shipped. A
+    # feature nothing links to has not been delivered.
+    assert 'href="/jd-bank/ui/funnel"' in body  # The live funnel
 
 
 # --- GET /jd-bank/ui/dashboard/baseline (the read-only baseline dashboard) -----------
@@ -192,3 +197,29 @@ def test_baseline_page_unreadable_artifact_is_graceful(tmp_path: Path) -> None:
 
     assert resp.status_code == 200
     assert "make baseline" in resp.text
+
+
+# --- The static dashboards must not be mistaken for the live numbers ------------------
+
+
+def test_static_dashboards_point_at_the_live_funnel() -> None:
+    """These pages render COMMITTED ARTIFACTS, not the database — which is exactly how
+    a reader quotes a stale number with total confidence.
+
+    ``docs/plan.md`` (Track C) records the risk as "two sources of truth will disagree,
+    and the wrong one gets quoted"; on 2026-08-28 it did, costing a day: the live funnel
+    had shipped the day before, nothing linked to it, and the artifact dashboards were
+    read as current. So every one of these pages must carry a pointer to the funnel.
+    """
+    client = _client(_SENTINEL)
+
+    for path in (
+        "/jd-bank/ui/dashboard",
+        "/jd-bank/ui/dashboard/baseline",
+        "/jd-bank/ui/dashboard/dedup",
+        "/jd-bank/ui/dashboard/clusters",
+    ):
+        resp = client.get(path)
+        assert resp.status_code == 200, path
+        assert "/jd-bank/ui/funnel" in resp.text, f"{path} has no link to the funnel"
+        assert "snapshot" in resp.text.lower(), f"{path} does not say it is a snapshot"
