@@ -166,11 +166,23 @@ JD-Assistant/
 
 **One command, from a cold machine:**
 
+Three scripts, one job each — **build → launch → teardown**:
+
 ```powershell
-.\quickstart.ps1            # build → start → wait for healthy → migrate → status
-.\quickstart.ps1 -NoCas     # ...and skip the SFU CAS login (dev-admin mode)
-.\quickstart.ps1 -Down      # stop; named volumes (your parsed rows) are kept
+.\build.ps1                 # build the images, and prove they are deployable
+.\launch.ps1                # start → wait for healthy → migrate → verify → status
+.\launch.ps1 -NoCas         # ...and skip the SFU CAS login (dev-admin mode)
+.\teardown.ps1              # stop; named volumes (your parsed rows) are KEPT
 ```
+
+| | |
+|---|---|
+| `.\build.ps1 -NoCache` | after a `requirements*.txt` or Dockerfile change |
+| `.\build.ps1 -Bundle` | ...and cut the offline deploy bundle (stack must be up) |
+| `.\teardown.ps1 -Orphans` | also clear the one-shot containers compose leaves behind |
+| `.\teardown.ps1 -Volumes` | also **discard the Bank** — asks first |
+
+`quickstart.ps1` still works and forwards to `launch.ps1`, with a deprecation notice.
 
 It starts postgres, neo4j, redis, api and worker, applies the Postgres (alembic) and
 Neo4j (cypher) migrations, and then tells you what you actually woke up to: row counts

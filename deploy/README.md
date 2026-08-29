@@ -33,7 +33,7 @@ database.
 
 | where | command | needs internet |
 |---|---|---|
-| **connected box** | `make bundle` | yes — it builds images and pulls base images |
+| **connected box** | `make bundle`, or `.\build.ps1 -Bundle` | yes — it builds images and pulls base images |
 | **target box** | `.\deploy\install.ps1 -BundleDir <bundle>` | **no** |
 
 That is the whole workflow. `install.ps1` passes `--no-build --pull never` to every

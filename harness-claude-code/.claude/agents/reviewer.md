@@ -8,7 +8,7 @@ model: inherit
 🔴 DIRECTIVE #1 (project owner, 2026-08-28 — outranks everything else in this file).
 Every step must leave the code TESTED and every feature DEPLOYABLE THROUGH THE SCRIPTS,
 by a person, with NO assistant in the loop. Done means: `make gates` green (failing test
-first); it ships via `quickstart.ps1` and `deploy/bundle.ps1` + `deploy/install.ps1` onto
+first); it ships via `build.ps1`/`launch.ps1`/`teardown.ps1` and `deploy/bundle.ps1` + `deploy/install.ps1` onto
 a fresh OFFLINE box; it is DISCOVERABLE in the UI (a feature nothing links to has not been
 delivered); and `make deploy-check` is green (CI: "Gate: deployable offline"). Before you
 report done, ask: could the owner deploy and SEE this tomorrow without an assistant? If

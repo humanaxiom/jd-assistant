@@ -34,7 +34,7 @@ count of *roles*.
 | | done means |
 |---|---|
 | **tested** | `make gates` green · failing test written FIRST · the guard broken once to prove it can go red |
-| **deployable** | works via `quickstart.ps1` (dev) and `deploy/bundle.ps1` + `deploy/install.ps1` (fresh, offline box) |
+| **deployable** | works via `build.ps1` / `launch.ps1` / `teardown.ps1` (dev) and `deploy/bundle.ps1` + `deploy/install.ps1` (fresh, offline box) |
 | **discoverable** | reachable from the UI — *a feature nothing links to has not been delivered* |
 | **enforced** | `make deploy-check`, run in CI as *"Gate: deployable offline"* |
 
@@ -130,9 +130,31 @@ the RETIRE action (no retire path exists today), stewards, and `currency.yaml`.
 git fetch && git log --oneline origin/main -1
 gh pr list                                        # never trust a table for this
 docker ps --format '{{.Names}}' | grep jd-bank    # ⚠ the stack does NOT self-restart
-docker compose up -d                              # ...if that came up empty
+.\launch.ps1                                      # ...if that came up empty or short
 docker ps --filter "name=canonical"               # MUST be empty; do not start a run
 ```
+
+**Three scripts, one job each — `build.ps1` → `launch.ps1` → `teardown.ps1`.**
+
+| | |
+|---|---|
+| `.\build.ps1` | build the images **and prove they are deployable** (`-NoCache`, `-Bundle`) |
+| `.\launch.ps1` | start → healthy → migrate → **verify** → status (`-NoCas`, `-Rebuild`) |
+| `.\teardown.ps1` | stop, data KEPT (`-Orphans`, `-Volumes`, `-ProjectName jd-bank-test`) |
+
+⚠ **`launch.ps1` now fails loudly if any service is not RUNNING.** `up --wait` only
+proves the services it started came up; it says nothing about one that started and then
+died. Editing `docker-compose.yml` makes the next `docker compose run` recreate
+dependencies, which drops the worker's Redis connection and arq exits — on 2026-08-28
+the worker sat `Exited (1)` for **nine hours** with the stack otherwise green and nobody
+noticed. Do not read the status table; read the verdict under it.
+
+⚠ **`teardown.ps1 -Orphans` clears what compose will not.** One-shot `docker run` jobs
+are not compose services, so `down` leaves them forever — three sat exited for a week,
+making every compose command print an orphan warning everyone had learned to ignore.
+That is how a real warning gets missed.
+
+`quickstart.ps1` still works; it forwards to `launch.ps1` with a deprecation notice.
 
 ⚠ **The box runs other Docker projects.** Random `postgres:16-alpine` /
 `neo4j:5-community` containers are `recruiter-assistant`'s testcontainers, not ours.
