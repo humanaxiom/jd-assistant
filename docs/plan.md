@@ -133,6 +133,40 @@ the pilot reviewer is the first steward candidate. Stale is **advisory on every 
 nothing auto-unpublishes, mirroring NN #1.
 
 
+
+# TRACK G — upload a JD into the Builder (designed, backlog)
+
+**Design:** [`plans/BUILDER-UPLOAD-AND-CHECK.md`](plans/BUILDER-UPLOAD-AND-CHECK.md) —
+written 2026-08-29 against the live code, so the reuse/new split is fact, not memory.
+
+A manager with a JD in a Word file or a PDF cannot currently ask the Bank the one question
+they have: *is this any good?* Upload → parse → compliance panel → optionally seed a draft.
+It turns the Builder from an authoring form for people already inside the Bank into a **JD
+assistant anyone with a document can use**.
+
+**Mostly reuse.** Upload is a new front door onto the clone chain that already runs:
+`extract_text → parse_jd → jd_to_answers → _render_clone → assess_draft` is exactly what
+`compose/clone/{id}` does today, and the composer already persists drafts with no archive
+lineage (`source_document_ids=[]` — one of the four PUBLISHED JDs is such a role).
+
+| genuinely new | note |
+|---|---|
+| multipart intake | 🔴 `python-multipart` is **deliberately absent** (`routes/_forms.py`), and the CSRF check reads the body *before* the handler — which buffers the whole file. Settle this first. |
+| PDF extraction | `DocumentFormat` routes PDF to `other` → `UnsupportedFormatError`. New dependency, and it must vendor into the **offline** image. |
+| provenance + retention | an uploaded file has no `source_documents` row and must never inflate the archive counts |
+
+**Sequencing:** **U1** the existing formats, in memory, no persistence (zero new extraction
+code — the honest MVP) → **U2** PDF, text-layer only, **gated on a measured section-recall
+number over real non-archive JDs** → **U3** persistence and draft creation.
+
+⚠ **The risk to design against:** a confident wrong parse. `Untitled Position` is a
+placeholder that reads as success, and parse quality varies wildly *on documents the
+parser was tuned for*. The panel must report **matched / not-matched / could-not-evaluate**
+— a silently empty parse that then gets scored is worse than a refusal.
+
+⚠ **Does this move the published count? Not directly.** It changes *who can use the Bank*.
+It does not displace B3/B4.
+
 # ⏸ BEFORE GOING LIVE — blocks nothing
 
 **Decided 2026-08-28.** The known list to close before the system goes live in the ordinary

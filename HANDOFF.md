@@ -65,26 +65,25 @@ approvable count *down*.
 
 ---
 
-## 🔴 `make smoke` IS RED, AND IT IS RIGHT TO BE — 2026-08-29
-
-**Do not "fix" it by relaxing the guard.** It is reporting a real inconsistency in the
-Bank, and it is the first thing to resolve.
+## ✅ `make smoke` IS GREEN — the mislabelled CUPE drafts were deleted (2026-08-29)
 
 The v6 parser fix (HR-226) established that a job description was being called CUPE
-because it *mentioned* the word — APSA managers who supervise CUPE staff. Some of those
-documents had already been harmonized into **drafts that claim the CUPE template**. Those
-drafts are scored on the wrong instrument. Counts, and the full working:
-[`docs/FINDINGS.md`](docs/FINDINGS.md) §7.
+because it *mentioned* the word — APSA managers who supervise CUPE staff. Some had already
+been harmonized into drafts claiming the CUPE template. **On the owner's ruling those
+drafts were DELETED**, not re-composed: a cluster with no draft reads as *un-drafted*,
+which the funnel already accounts for, while a cluster with a WRONG draft reads as a
+finished role. The next producer run regenerates them correctly.
 
-- **None is PUBLISHED**; every affected draft is `DRAFT` and *entirely* stale, not mixed.
-- The old guard asked only "is a CUPE document behind a non-CUPE draft?" and was blind to
-  the inverse. It is now asserted **both ways**. *Agreement in the direction you tested
-  says nothing about the other.*
-- **The repair is a DECISION, not a cleanup.** `src.jd_bank.canonical` has
-  `--only-template` but **no per-cluster filter**, so re-composing exactly these is not
-  currently expressible — and a producer run is under a standing ⛔ in `CLAUDE.md`. Two
-  options: add a cluster filter and re-compose just those, or delete the drafts (a cluster
-  with no draft reads as un-drafted, which is honest; a later run regenerates it).
+The repair is `core/db/repairs/001_drop_mislabelled_cupe_drafts.sql` — selected by the
+derived condition rather than hardcoded ids, refuses to run if anything non-`DRAFT` or
+reviewer-touched is in scope, idempotent. Counts and full working:
+[`docs/FINDINGS.md`](docs/FINDINGS.md) §7d.
+
+- ⚠ **`audit_log` was deliberately NOT written.** It is hash-chained
+  (`audit_chain_tail`); forging an entry the application never made would corrupt it. A
+  manual repair belongs in git and in FINDINGS, not in the audit chain.
+- **The guard that missed it now asserts BOTH directions.** *Agreement in the direction
+  you tested says nothing about the other.*
 
 ---
 
@@ -114,14 +113,25 @@ re-parse leaves every layer querying a version with no rows).
 
 Everything else, including the rest of the archive gap, is in [`docs/plan.md`](docs/plan.md).
 
-**Queued next features** (design done, build later): Track E units (VPFA → Facilities),
-then **Track F — JD currency after publishing**
-([`docs/plans/JD-CURRENCY-ATTESTATION.md`](docs/plans/JD-CURRENCY-ATTESTATION.md)):
-steward attestation on a cadence, REAFFIRM / REVISE / RETIRE, stale advisory on every
-axis, nothing auto-unpublishes. Designed 2026-08-28 against the verified base —
-`rules_version` is already stamped and publish dates derive from APPROVE rows, so drift
-detection needs no new fields; the genuinely new pieces are the `attestations` table,
-the RETIRE action (no retire path exists today), stewards, and `currency.yaml`.
+**Queued next features** — design done, build later, in this order:
+
+1. **Track E — the next units** (VPFA → Facilities). Blocked on the org tree and a
+   curated alias map, not on code.
+2. **Track F — JD currency after publishing**
+   ([`docs/plans/JD-CURRENCY-ATTESTATION.md`](docs/plans/JD-CURRENCY-ATTESTATION.md)):
+   steward attestation on a cadence, REAFFIRM / REVISE / RETIRE, stale advisory on every
+   axis, nothing auto-unpublishes. Designed 2026-08-28 against the verified base —
+   `rules_version` is already stamped and publish dates derive from APPROVE rows, so
+   drift detection needs no new fields; the genuinely new pieces are the `attestations`
+   table, the RETIRE action (no retire path exists today), stewards, and `currency.yaml`.
+3. **Track G — upload a JD into the Builder**
+   ([`docs/plans/BUILDER-UPLOAD-AND-CHECK.md`](docs/plans/BUILDER-UPLOAD-AND-CHECK.md)):
+   upload a Word file or PDF → parse → compliance panel → optionally seed a draft, turning
+   the Builder into a JD assistant anyone with a document can use. Designed 2026-08-29
+   against the live code. **Mostly reuse** — it is a new front door onto the clone chain
+   that already runs. ⚠ Two things bite first: `python-multipart` is *deliberately* absent
+   and the CSRF check reads the body before the handler; and PDF has no extraction backend
+   at all. Neither moves the published count directly — it changes *who can use the Bank*.
 
 ---
 ## ▶ IF YOU ARE STARTING COLD
