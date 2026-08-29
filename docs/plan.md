@@ -41,7 +41,7 @@ What is unblocked is that we are no longer waiting to be told where the bar sits
 | # | what | gate to start | why here |
 |---|---|---|---|
 | **MVP-0** | **B2 — run the pilot** | needs HR only | Runs *beside* everything below; it is pure lead time and it is the only work that moves the published count. Do not sequence anything behind it. |
-| **MVP-1** | **Core: finish Track P** | nothing — start now | **P3b** first (audit `department`, `grade`, `classification`, `position_number` against the raw archive), then **P3c** and **P4**. Every field ever checked this way produced a defect immediately, and E1 depends on `department` being trustworthy — see the note below. |
+| **MVP-1** | **Core: finish Track P** | nothing — start now | ✅ **P3b is DONE** and produced a defect like the two audits before it — **726 CUPE departments the archive states and the Bank does not** (§9). Now **P3d** (fix the department read, scope-matched number FIRST), **P3e**, **P3f**, then **P3c** and **P4**. E1 depends on `department` being trustworthy, and it is now measurably not — see the note below. |
 | **MVP-2** | **E1 VPFA → E2 Facilities** | the org tree + curated alias map | The scope seam is built; adding a unit is configuration. The **people-work can start today** and does not wait for MVP-1. |
 | **MVP-3** | **Track G — upload into the Builder** | MVP-1 landed | Changes *who can use the Bank*. Its two hard blockers are verified below, and one of them re-cuts the offline bundle. |
 | **MVP-4** | **Track F — currency after publishing** | E2 + a real pilot | With four published JDs a currency loop is ceremony; the pilot's twenty make it real. |
@@ -74,7 +74,10 @@ in place.
 | ~~**P1**~~ | ✅ **The drafts claiming a template their documents are not — DELETED 2026-08-29** | done | Owner ruled delete over re-compose. `core/db/repairs/001_drop_mislabelled_cupe_drafts.sql` — derived condition not hardcoded ids, idempotent, refuses to touch anything non-`DRAFT` or reviewer-touched. `make smoke` **green**. §7d. |
 | **P2** | ⚠ **Report `employee_group` as matched / not-matched / UNRECORDED** | small | **The next parse task.** `template_of` defaults every unknown to JDFN, so a third of the archive is *counted* as JDFN with no evidence — the funnel, the baseline "By template" facet and every CUPE/APSA comparison inherit it. Same defect as the IT collection: no could-not-evaluate bucket. Every facet over this field must publish all three numbers. §7c. |
 | ~~**P3a**~~ | ✅ **`title` audited against the source files — 2026-08-29** | done | 47.6% of CUPE documents had NO title against 0.0% everywhere else; antiword's render puts label and value in ONE cell. **805 titles recovered, CUPE placeholders 47.6% → 28.9%**, position numbers +593. `PARSER_VERSION` v7. §8. |
-| **P3b** | **Audit the fields nobody has checked yet** | med | `title` and `employee_group` are the ONLY two ever compared against the raw archive, and each produced defects immediately. `department` (72.2% populated), `grade`, `classification` (parsed on 21%, reaches 0% of drafts) and `position_number` have never been checked at all. |
+| ~~**P3b**~~ | ✅ **AUDITED 2026-08-29 — and it produced a defect, like the two before it** | done | `make field-audit`, all 14,518 parsed documents, five columns per field per unit. 🔴 **726 CUPE departments the archive states and the Bank does not.** Three causes, all read at source: the `Department Name/Section` variant is unregistered, antiword **wraps the label across a line break**, and some documents carry it only on the cover page. ⚠ **726 is an UPPER BOUND** — the probe reads the whole document, the parser reads only the identification block. [`FINDINGS.md`](FINDINGS.md) §9. |
+| **P3d** | 🔴 **Fix the department read — but MEASURE THE SCOPE-MATCHED NUMBER FIRST** | med | The three causes need different fixes and no single one recovers all 726. **Do not add `Department Name/Section` to `id_labels` and call it done** — that addresses one cause, and the first P3a fix passed its tests and recovered exactly zero for precisely this reason. Register the label change; a parser bump ships WITH its re-parse. |
+| **P3e** | **Collapse repeated internal spaces in the label match** | small | `_extract_label` strips and lower-cases but never collapses, so `Position  Title`, `Department  Name`, `IDENTIFICATION   Position Number` match nothing. Small, real, spans every field. §9d. |
+| **P3f** | ⚠ **`classification` is read by HARDCODED REGEX, not rulebook data** | small, needs a register entry | `_CUPE_GRADE_RX` / `_JDFN_GRADE_APPROVED_RX` / `_JDFN_GRADE_FIELD_RX` in `parser/classification.py`. The field audit cannot see it at all, so it is reported unevaluated rather than clean. Same shape as the `employee_group` two-provenances defect. §9e. |
 | **P3c** | ⚠ **One recovered title contains an incumbent's name** | small, needs a decision | `Leigh McGregor. Departmental Assistant`. Detecting a personal name needs a measurement and a registered rule, not a regex invented on a sample of one — and NN #5 makes incumbent-name removal a rulebook quality step. §8d. |
 | **P4** | ⚠ **24 clusters now have no draft** | small, after a decision | The consequence of P1, and it is the honest state — but nothing regenerates them today. `src.jd_bank.canonical` has `--only-template` and **no per-cluster filter**, so re-drafting just those is not expressible; a full producer run is under a standing ⛔. Either add the filter, or accept them as un-drafted until the next run. |
 
@@ -147,9 +150,10 @@ The scope seam is built, so adding a unit is configuration rather than a rewrite
 by review; see [`FINDINGS.md`](FINDINGS.md) §5 for why a unit is a rollup.
 
 🔴 **Starts after MVP-1, and the reason is `department`.** A unit is defined by department,
-and `department` has NEVER been checked against the source files (P3b). Both fields that
-have been produced defects on first contact. The alias/org-tree work is people-work and can
-begin today; the BUILD waits on the audit.
+and `department` is now MEASURED as unreliable: 726 CUPE documents state a department the
+Bank does not hold (§9, P3b). That is no longer a precaution — a VPFA rollup built on this
+column today would be wrong, and wrong confidently. The alias/org-tree work is people-work
+and can begin now; the BUILD waits on P3d.
 
 | # | unit | blocked on |
 |---|---|---|

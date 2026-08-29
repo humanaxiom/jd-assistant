@@ -580,6 +580,29 @@ services:
       postgres: { condition: service_healthy }
     command: ["python", "-u", "-m", "src.jd_bank.singletons"]
 
+  # ─── P3b: identification fields vs the RAW ARCHIVE (read-only) ─────────────
+  # `title` and `employee_group` are the only two fields ever compared against the source
+  # files, and EACH produced defects on first contact. This audits the ones read from a
+  # LABEL — department, position_number, grade — with `title` as the CONTROL, since its
+  # answer is already known (P3a recovered 805 of them).
+  #
+  # Needs BOTH the archive bind and Postgres: the whole point is comparing what the
+  # document says against what the parser stored. Writes no Bank row.
+  field-audit:
+    profiles: ["tools"]
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    environment:
+      <<: *app_env
+    volumes:
+      - ./core:/app
+      - ./docs:/app/docs
+      - ${JD_ARCHIVE_PATH:-./archive}:/archive:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: ["python", "-u", "-m", "src.jd_bank.field_audit"]
+
   # ─── Phase-4.2a LLM rewrite golden (opt-in, LOCAL-ONLY) ────────────────────
   # Runs the live rewrite golden against the REAL chat model on `aria-gb10-2`
   # (OLLAMA_BASE_URL, ADR-003) — NEVER part of `make gates` / CI (a cloud runner cannot
