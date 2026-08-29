@@ -68,6 +68,15 @@ Two live surfaces, both reading the database at request time:
 
 Everything else, including the rest of the archive gap, is in [`docs/plan.md`](docs/plan.md).
 
+**Queued next features** (design done, build later): Track E units (VPFA → Facilities),
+then **Track F — JD currency after publishing**
+([`docs/plans/JD-CURRENCY-ATTESTATION.md`](docs/plans/JD-CURRENCY-ATTESTATION.md)):
+steward attestation on a cadence, REAFFIRM / REVISE / RETIRE, stale advisory on every
+axis, nothing auto-unpublishes. Designed 2026-08-28 against the verified base —
+`rules_version` is already stamped and publish dates derive from APPROVE rows, so drift
+detection needs no new fields; the genuinely new pieces are the `attestations` table,
+the RETIRE action (no retire path exists today), stewards, and `currency.yaml`.
+
 ---
 ## ▶ IF YOU ARE STARTING COLD
 
