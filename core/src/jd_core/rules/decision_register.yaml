@@ -5961,6 +5961,45 @@ decisions:
       makes it clonable in the WJQ flow AND removes it from the JDFN flow in the same
       edit, so this is the one list where an addition is also a subtraction elsewhere.
     status: open
+
+  - id: HR-226
+    question: >-
+      Is a job description CUPE because it says the word "CUPE" somewhere, or only when
+      it declares CUPE as its employee group?
+    config:
+      file: segmentation.yaml
+      path: segmentation.employee_group_label_only
+    current_default: [cupe]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      🔴 MEASURED 2026-08-29 against the RAW ARCHIVE FILES, after "there should be more
+      CUPE than APSA — the numbers don't add up". Of the 4,440 documents the Bank labels
+      `cupe`, **2.2% (~98) were never routed to the WJQ segmenter at all** — they are JDFN
+      documents that merely MENTION the word. Of 24 examined, **ZERO declared "Employee
+      Group: CUPE"** and all 24 were passing mentions: "Directly supervises CUPE
+      employees", "administers the collective agreement between the University and CUPE,
+      Local 3338", "supervises temporary CUPE staff and volunteers". They are APSA
+      MANAGERS WHO SUPERVISE CUPE STAFF — Manager, Director Advancement, Student
+      Recruiter. A job is not CUPE because its staff are, exactly as an Executive
+      Assistant is not a VP because their boss is (HR-224). The cost was not cosmetic:
+      `template_of` reads this field, so each of those ~98 was scored on the WJQ profile
+      instead of the JDFN one, dropped from the JDFN current-practice cohort (HR-143), and
+      counted as CUPE in every facet. CONTROL, measured the same day: apsa/apex/poly/
+      excluded documents contain their own token 100% of the time, `cupe` only 2.5% —
+      because CUPE is set by ROUTING (`is_wjq`), never by reading the word. So excluding
+      it from the bare-token scan costs no genuine detection at all.
+    impact_if_changed: >-
+      Parser behaviour, and it moves `PARSER_VERSION` (v5 -> v6), so changing it REQUIRES
+      an archive re-parse in the same change — every layer filters `parsed_jds` on that
+      literal, and a bump without a re-parse leaves them querying a version with no rows,
+      i.e. an apparently empty Bank. An explicit "Employee Group: X" label still
+      establishes ANY group including cupe, so a genuine declaration is never lost;
+      emptying this list restores the old bare-token behaviour and the ~98 mislabels with
+      it. Adding a group here makes it undetectable except by an explicit label — safe for
+      `cupe`, which routing already covers, and WRONG for apsa/apex/poly, which are read
+      from the text and have no other source.
+    status: open
   # ── How much of `additional_context` the parser keeps (CUPE support, Phase A). ──
   - id: HR-200
     question: >-
