@@ -29,7 +29,23 @@
 .PARAMETER ProjectName
     Compose project name. Default `jd-bank`. Override to REHEARSE an install beside a
     live stack — a different name means different volumes and containers, so nothing
-    existing is touched. Combine with the JD_*_PORT variables to avoid port collisions.
+    existing is touched. See -Isolated, which sets the ports for you.
+
+.PARAMETER Isolated
+    Install a COMPLETE second stack beside the live one, on its own ports and volumes,
+    touching nothing that already exists. This is how you test the deploy on a box that
+    is already running JD Bank.
+
+    Sets the project name to `jd-bank-test` (unless -ProjectName says otherwise) and
+    claims the 259xx port block:
+
+        API 25900 · Postgres 25932 · Neo4j 25974/25987 · Redis 25979
+
+    It exists because the alternative was exporting five JD_*_PORT variables by hand
+    before every run — a setup step you have to be TOLD, which is exactly what
+    Directive #1 says a deploy must not require.
+
+    Tear it down with:  docker compose --project-name jd-bank-test down -v
 
 .PARAMETER SkipImages
     Do not `docker load`. For a re-run on a box whose images are already loaded.
@@ -45,13 +61,15 @@
     The normal fresh-box install.
 
 .EXAMPLE
-    .\deploy\install.ps1 -BundleDir .\dist\jd-bank-bundle -ProjectName jd-bank-verify
-    Rehearse the whole install beside the live stack, touching none of its data.
+    .\deploy\install.ps1 -BundleDir .\dist\jd-bank-bundle -Isolated -NoCas
+    Test the deploy on a box already running JD Bank: a whole second stack on its own
+    ports and volumes, live stack untouched. Opens on http://localhost:25900.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$BundleDir,
-    [string]$ProjectName = 'jd-bank',
+    [string]$ProjectName,
+    [switch]$Isolated,
     [switch]$SkipImages,
     [switch]$Force,
     [switch]$NoCas
@@ -73,6 +91,32 @@ function Invoke-Checked {
     if ($LASTEXITCODE -ne 0) { throw "$What failed (exit $LASTEXITCODE)" }
 }
 
+# -Isolated claims a whole alternate port block so a second stack can run beside the live
+# one. This MUST resolve before $ComposeBase below, which bakes the project name in — an
+# earlier cut set the ports here and left $ComposeBase holding a null name.
+#
+# The ports are set as PROCESS env vars because that is how docker compose interpolates
+# `${JD_*_PORT}` out of docker-compose.yml. An already-exported variable wins: the block
+# is a default, not an override.
+if ($Isolated) {
+    if (-not $ProjectName) { $ProjectName = 'jd-bank-test' }
+    $isolatedPorts = [ordered]@{
+        JD_API_PORT        = '25900'
+        JD_PG_PORT         = '25932'
+        JD_NEO4J_HTTP_PORT = '25974'
+        JD_NEO4J_BOLT_PORT = '25987'
+        JD_REDIS_PORT      = '25979'
+    }
+    foreach ($name in $isolatedPorts.Keys) {
+        if (-not [Environment]::GetEnvironmentVariable($name)) {
+            [Environment]::SetEnvironmentVariable($name, $isolatedPorts[$name])
+        }
+    }
+}
+if (-not $ProjectName) { $ProjectName = 'jd-bank' }
+
+$ApiPort = if ($env:JD_API_PORT) { $env:JD_API_PORT } else { '25800' }
+
 # Every compose call in this script goes through here, so the offline flags cannot be
 # forgotten on one of them. `--pull never` + `--no-build` is what makes "offline" a
 # property of the run rather than a hope about the network.
@@ -82,8 +126,6 @@ function Invoke-Compose {
     & docker compose @ComposeBase @ComposeArgs
     if ($LASTEXITCODE -ne 0) { throw "docker compose $($ComposeArgs -join ' ') failed (exit $LASTEXITCODE)" }
 }
-
-$ApiPort = if ($env:JD_API_PORT) { $env:JD_API_PORT } else { '25800' }
 
 # ── Preflight ───────────────────────────────────────────────────────────────
 Write-Step 'Preflight'
@@ -305,8 +347,16 @@ if ($problems) {
 Write-Ok 'Installed and verified — the Bank is present, not merely running.'
 Write-Host "`n  Open:" -ForegroundColor Cyan
 Write-Info "  App          $apiUrl"
-Write-Info "  Funnel       $apiUrl/jd-bank/ui/funnel"
+Write-Info "  Funnel       $apiUrl/jd-bank/ui/funnel      🥇 LIVE — computed from the DB"
 Write-Info "  Review queue $apiUrl/jd-bank/ui/queue"
+if ($ProjectName -ne 'jd-bank') {
+    Write-Host "`n  This is a SEPARATE stack — the '$ProjectName' project, its own volumes." -ForegroundColor Cyan
+    Write-Info '  Nothing belonging to the live stack was touched. Tear it down (and drop its'
+    Write-Info '  data) with:'
+    Write-Info ''
+    Write-Info "    docker compose --project-name $ProjectName down -v"
+}
+
 Write-Host "`n  Note:" -ForegroundColor Cyan
 Write-Info '  Ollama is NOT part of this bundle — it runs on aria-gb10-2 over the internal'
 Write-Info '  network. The app, the dashboards and the funnel do not need it; `make embed`'
