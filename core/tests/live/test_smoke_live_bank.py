@@ -155,3 +155,35 @@ async def test_random_documents_are_findable_in_the_archive_browser(session) -> 
             f"{filename!r} exists in the archive but the browser search cannot find "
             "it — a document the UI cannot reach is missing in every way that matters"
         )
+
+
+async def test_no_document_is_judged_under_the_wrong_template(session) -> None:  # type: ignore[no-untyped-def]
+    """A CUPE document behind a non-CUPE draft would be scored by the wrong form's
+    gates. Zero exist today, and this keeps it that way.
+
+    Asked directly in review ("what about the CUPE blind spot?"). The filename signal
+    finds only 17.7% of CUPE — but nothing CUPE-facing reads filenames: template
+    routing and every CUPE count come from the PARSED employee_group. Traced
+    2026-08-28: of 4,440 CUPE documents, 3,446 sit behind cupe-labelled drafts, 0
+    behind any other label, 0 behind ungrouped drafts, 994 in the known orphan gap.
+    The ungrouped drafts (defaulted to JDFN gates) hide only apsa/apex/poly/excluded
+    documents — all JDFN-template groups, so the default judges them correctly.
+    """
+    rows = await session.execute(text(f"""
+            WITH cur AS ({_CURRENT}),
+            latest AS (
+              SELECT DISTINCT ON (source_document_id)
+                     source_document_id AS sid, parsed->>'employee_group' AS grp
+              FROM parsed_jds ORDER BY source_document_id, created_at DESC
+            )
+            SELECT count(*) FROM cur c,
+                   jsonb_array_elements(c.source_document_ids) s
+            JOIN latest l ON l.sid = (s.value->>'source_id')::uuid
+            WHERE l.grp = 'cupe'
+              AND coalesce(c.content->>'employee_group', '') <> 'cupe'
+        """))
+    misrouted = int(rows.scalar() or 0)
+    assert misrouted == 0, (
+        f"{misrouted} CUPE documents sit behind a draft not labelled cupe — they are "
+        "being judged by the wrong template's gates"
+    )
