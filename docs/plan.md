@@ -27,15 +27,22 @@ tomorrow, without me?* Full statement in [`CLAUDE.md`](../CLAUDE.md); runbook in
 
 # 🔴 TRACK P — the parse, and making archive → harmonized verifiable
 
-**New 2026-08-29, and it comes first**: features were being stacked on a parse that could
-call a job CUPE because it *mentioned* the word. `PARSER_VERSION` is now **v6** (HR-226)
-and the archive has been re-parsed. The working is in [`FINDINGS.md`](FINDINGS.md) §7.
+**Opened 2026-08-29, and it still comes before new features**: they were being stacked on
+a parse that could call a job CUPE because it *mentioned* the word. `PARSER_VERSION` is
+now **v6** (HR-226), the archive has been re-parsed, and the drafts built from the
+mislabelled documents are gone. The working is in [`FINDINGS.md`](FINDINGS.md) §7.
+
+**P1 is done. P2 is the live one** — and it is the defect that made the CUPE/APSA numbers
+look wrong in the first place: a third of the archive is *counted* as JDFN on no evidence.
+Fixing the parse without fixing how the result is REPORTED leaves the misleading surface
+in place.
 
 | # | task | size | notes |
 |---|---|---|---|
-| **P1** | 🔴 **Decide what happens to the drafts that claim a template their documents are not** | decision, then small | `make smoke` is RED on this and must stay red until it is resolved. All `DRAFT`, none published, each entirely stale. **Two options:** add a per-cluster filter to `src.jd_bank.canonical` and re-compose just those, or delete them (a cluster with no draft reads as *un-drafted*, which is honest). A producer run is under a standing ⛔ — this is a ruling, not a cleanup. §7d. |
-| **P2** | ⚠ **Report `employee_group` as matched / not-matched / UNRECORDED** | small | `template_of` defaults every unknown to JDFN, so a third of the archive is *counted* as JDFN with no evidence. Same defect as the IT collection: no could-not-evaluate bucket. Every facet over this field must publish all three numbers. §7c. |
-| **P3** | **Audit the remaining fields the same way** | med | The group was checked against the source files and two defects fell out. `title` is the known next one (§2b — the `Untitled Position` placeholder, and it reaches into drafts). Nothing else has been checked against the raw archive at all. |
+| ~~**P1**~~ | ✅ **The drafts claiming a template their documents are not — DELETED 2026-08-29** | done | Owner ruled delete over re-compose. `core/db/repairs/001_drop_mislabelled_cupe_drafts.sql` — derived condition not hardcoded ids, idempotent, refuses to touch anything non-`DRAFT` or reviewer-touched. `make smoke` **green**. §7d. |
+| **P2** | ⚠ **Report `employee_group` as matched / not-matched / UNRECORDED** | small | **The next parse task.** `template_of` defaults every unknown to JDFN, so a third of the archive is *counted* as JDFN with no evidence — the funnel, the baseline "By template" facet and every CUPE/APSA comparison inherit it. Same defect as the IT collection: no could-not-evaluate bucket. Every facet over this field must publish all three numbers. §7c. |
+| **P3** | **Audit the remaining fields against the SOURCE FILES** | med | The group was checked against the raw archive and two defects fell out immediately. `title` is the known next one (§2b — `Untitled Position` is a placeholder that reads as success, and it reaches into drafts). **No other field has ever been checked against the source files at all.** |
+| **P4** | ⚠ **24 clusters now have no draft** | small, after a decision | The consequence of P1, and it is the honest state — but nothing regenerates them today. `src.jd_bank.canonical` has `--only-template` and **no per-cluster filter**, so re-drafting just those is not expressible; a full producer run is under a standing ⛔. Either add the filter, or accept them as un-drafted until the next run. |
 
 ⚠ **The lesson that generalises:** the old routing guard asked one direction and stayed
 green through ~140 mislabels. **Assert both directions, or the guard is decoration.**
