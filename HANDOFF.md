@@ -65,42 +65,39 @@ approvable count *down*.
 
 ---
 
-## ✅ `make smoke` IS GREEN — the mislabelled CUPE drafts were deleted (2026-08-29)
+## ▶ CURRENT STATE — 2026-08-29
 
-The v6 parser fix (HR-226) established that a job description was being called CUPE
-because it *mentioned* the word — APSA managers who supervise CUPE staff. Some had already
-been harmonized into drafts claiming the CUPE template. **On the owner's ruling those
-drafts were DELETED**, not re-composed: a cluster with no draft reads as *un-drafted*,
-which the funnel already accounts for, while a cluster with a WRONG draft reads as a
-finished role. The next producer run regenerates them correctly.
+**Everything is green and `main` is clean.** `make gates` (2,972 · 93.5%), `make smoke`
+(6), `make deploy-check`, CI, no open PRs. Nothing is half-finished in the tree.
 
-The repair is `core/db/repairs/001_drop_mislabelled_cupe_drafts.sql` — selected by the
-derived condition rather than hardcoded ids, refuses to run if anything non-`DRAFT` or
-reviewer-touched is in scope, idempotent. Counts and full working:
-[`docs/FINDINGS.md`](docs/FINDINGS.md) §7d.
-
-- ⚠ **`audit_log` was deliberately NOT written.** It is hash-chained
-  (`audit_chain_tail`); forging an entry the application never made would corrupt it. A
-  manual repair belongs in git and in FINDINGS, not in the audit chain.
-- **The guard that missed it now asserts BOTH directions.** *Agreement in the direction
-  you tested says nothing about the other.*
-
----
-
-## ▶ CURRENT STATE — 2026-08-28
-
-**Track A (the demo) is COMPLETE.** A1–A5 built and merged; `make gates` green; CI green.
-
-Two live surfaces, both reading the database at request time:
+**Track A (the demo) is COMPLETE.** Three live surfaces, all reading the DB at request time:
 
 | | |
 |---|---|
+| `/jd-bank/ui/funnel` | 🥇 archive → published, scope-parameterised, full gap accounting |
 | `/jd-bank/ui/collection/it` | the IT collection · `?queue=1` for the review queue |
-| `/jd-bank/ui/funnel` | archive → published, scope-parameterised, **with the full gap accounting** |
+| `/jd-bank/ui/compose/new` | the Builder — search, clone, live compliance |
 
-`PARSER_VERSION` **`jd_segmenter_v6`** (bumped 2026-08-29 for HR-226; the archive was
-re-parsed in the same change, as that constant's contract requires — a bump without a
-re-parse leaves every layer querying a version with no rows).
+`PARSER_VERSION` **`jd_segmenter_v6`** · the archive was re-parsed in the same change, as
+that constant's contract requires (a bump without a re-parse leaves every layer querying a
+version with no rows, i.e. an apparently empty Bank).
+
+### What changed on 2026-08-28/29, and what it left behind
+
+- **The parse was the root problem, and it is fixed (HR-226).** A job was being called
+  CUPE because it *mentioned* the word — APSA managers who supervise CUPE staff. Two more
+  defects fell out of the same investigation: the title family called an Executive
+  Assistant a VP (HR-224), and the Builder's CUPE form searched JDFN documents (HR-225).
+  All measured against the **raw archive files**, not the database. [`FINDINGS.md`](docs/FINDINGS.md) §7.
+- **The 24 drafts built from mislabelled documents were DELETED**, on the owner's ruling —
+  a cluster with no draft reads as *un-drafted*; one with a wrong draft reads as finished.
+  `core/db/repairs/001_drop_mislabelled_cupe_drafts.sql`. ⚠ **`audit_log` was deliberately
+  not written**: it is hash-chained (`audit_chain_tail`) and forging an entry the app never
+  made would corrupt it. **24 clusters now have no draft** and nothing regenerates them —
+  that is plan.md **P4**.
+- **Offline deployment exists and was verified end to end** (bundle → install on separate
+  volumes/ports → row counts matched). See below.
+- **The operator scripts are now `build.ps1` → `launch.ps1` → `teardown.ps1`.**
 
 ### The three things that actually need a person
 
@@ -110,6 +107,14 @@ re-parse leaves every layer querying a version with no rows).
 3. **D1 — decide what happens to a one-of-a-kind job.** The pipeline builds a role from a
    GROUP of near-duplicates, so a unique job produces nothing. **The only open item that
    raises the ceiling on what can ever be published.** [`docs/FINDINGS.md`](docs/FINDINGS.md) §2a.
+
+### If you are picking up engineering, start here
+
+| | |
+|---|---|
+| **P2** | **Report `employee_group` as matched / not-matched / UNRECORDED.** `template_of` defaults every unknown to JDFN, so a third of the archive is *counted* as JDFN with no evidence — the funnel and the baseline "By template" facet both inherit it. This is the same no-could-not-evaluate-bucket defect as the IT collection, and it is what made the CUPE/APSA numbers look wrong in the first place. Small. |
+| **P3** | **Audit the remaining fields against the SOURCE FILES.** Checking `employee_group` that way produced two defects immediately. `title` is next (`Untitled Position` is a placeholder that reads as success). **No other field has ever been checked against the raw archive.** |
+| **D1** | Measurement is **already done** and an HR-223 entry drafted — parked in `git stash` (`stash@{0}`, `WIP D1/HR-223…`). Recover it rather than re-deriving; the archive work is finished, the register entry is not. |
 
 Everything else, including the rest of the archive gap, is in [`docs/plan.md`](docs/plan.md).
 
