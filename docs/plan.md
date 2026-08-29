@@ -24,6 +24,38 @@ tomorrow, without me?* Full statement in [`CLAUDE.md`](../CLAUDE.md); runbook in
 [`deploy/README.md`](../deploy/README.md).
 
 ---
+---
+
+# ▶ THE MVP RUN ORDER — set 2026-08-29
+
+**The dev/test iteration is closed.** The policy questions that gated it are ratified
+(B3 — HR-042, HR-052), the parse defects that made the numbers untrustworthy are fixed
+(Track P1–P3a), and the decision that caps the ceiling is registered (D1 → HR-223). What
+follows is build order, not a backlog.
+
+⚠ **One correction before anything is sequenced off it.** "The blockers are removed" is
+true of the *process* and not of the *content*: B3 was ratified **as shipped**, so the two
+gates block exactly what they blocked before. Nothing about CUPE approvability changed.
+What is unblocked is that we are no longer waiting to be told where the bar sits.
+
+| # | what | gate to start | why here |
+|---|---|---|---|
+| **MVP-0** | **B2 — run the pilot** | needs HR only | Runs *beside* everything below; it is pure lead time and it is the only work that moves the published count. Do not sequence anything behind it. |
+| **MVP-1** | **Core: finish Track P** | nothing — start now | **P3b** first (audit `department`, `grade`, `classification`, `position_number` against the raw archive), then **P3c** and **P4**. Every field ever checked this way produced a defect immediately, and E1 depends on `department` being trustworthy — see the note below. |
+| **MVP-2** | **E1 VPFA → E2 Facilities** | the org tree + curated alias map | The scope seam is built; adding a unit is configuration. The **people-work can start today** and does not wait for MVP-1. |
+| **MVP-3** | **Track G — upload into the Builder** | MVP-1 landed | Changes *who can use the Bank*. Its two hard blockers are verified below, and one of them re-cuts the offline bundle. |
+| **MVP-4** | **Track F — currency after publishing** | E2 + a real pilot | With four published JDs a currency loop is ceremony; the pilot's twenty make it real. |
+
+🔴 **MVP-1 before MVP-2, and this is not sequencing hygiene.** Track E defines a unit by
+**department**, and `department` is one of the four fields **nobody has ever checked
+against the source files**. The two fields that *have* been checked each produced defects
+on first contact — `employee_group` two, `title` one. Seeding VPFA off an unaudited
+`department` column is how a vice-president is handed a confident wrong number about their
+own portfolio, and no test will catch it because nothing is broken.
+
+⚠ **Do not seed the org tree or the aliases by inference** — that constraint is unchanged
+and it is why MVP-2's gate is people, not code.
+
 
 # 🔴 TRACK P — the parse, and making archive → harmonized verifiable
 
@@ -80,12 +112,18 @@ A1–A5 are built and merged. Two live surfaces, both reading the database at re
 
 | # | task | who | notes |
 |---|---|---|---|
-| **B2** | 🔴 **Run the pilot** | needs HR | ~20 approvable drafts reviewed for real. **Success = 20 PUBLISHED JDs + the reviewer's written objections.** |
-| **B3** | 🔴 **Ratify two gates** | needs HR | `SFU-APPROVE-QUAL-EQUIVALENT` and `SFU-APPROVE-KSA-ORDER` between them block most CUPE drafts. **One ruling beats every engineering change made in August, at zero GPU cost.** |
-| **B4** | **Book HR ratification** | needs HR | **None ratified.** The count of decisions needing an HR ruling is in the [register](decisions/HR-DECISION-REGISTER.md)'s own header, which is the record — this page said **79** while the register said **81**, and had done since before HR-223 was added. The rest are engineering settings or shape only what a reviewer sees. The matrix needs a calendar invitation, not another revision. |
+| **B2** | 🔴 **Run the pilot** | needs HR | ~20 approvable drafts reviewed for real. **Success = 20 PUBLISHED JDs + the reviewer's written objections.** **This is now the whole ask** — B3 is settled and B4 is down to the remainder. |
+| ~~**B3**~~ | ✅ **RATIFIED 2026-08-29 — HR-042 + HR-052** | done | `SFU-APPROVE-QUAL-EQUIVALENT` and `SFU-APPROVE-KSA-ORDER`, ratified **as shipped**. ⚠ **Read what that does.** It settles who is answerable for the bar; it does **not** move the bar. No value changed, `rules_version` is unchanged, nothing re-validates — **CUPE did not become approvable.** A draft failing these gates is now non-compliant with a *signed* standard, so the remedy is rewording the JD, not waiting on a ruling that might relax the rule. |
+| **B4** | **Book the remaining ratifications** | needs HR | The count still outstanding is in the [register](decisions/HR-DECISION-REGISTER.md)'s own header, which is the record and now separates **still-outstanding** from **ratified**. ⚠ A count of the `hr_policy` tier is *not* a count of what HR still owes — the header used to conflate them and told HR they owed rulings they had already given. |
 
-**B2–B4 are asks, not tasks — make them now.** They are the only work that moves the
-published-JD count, and they are pure lead time.
+**B2 is the only remaining ask, and it is the only work that moves the published-JD
+count.** Pure lead time.
+
+> ⚠ **The B3 ruling did not remove the CUPE blockage — it made it policy.** The plan
+> previously read as though a ruling would unblock CUPE. Ratifying as shipped does the
+> opposite of relaxing: those drafts still fail, and the path to publishing them now runs
+> through *rewriting them to comply*, which is content work with a signed target rather
+> than an open question. Do not quote B3 as "the blocker is gone".
 
 ---
 
@@ -103,10 +141,15 @@ so none displaces Track B — but D1 changes what the Bank can *ever* publish.
 
 ---
 
-# TRACK E — the next units (queued, blocked on people not code)
+# TRACK E — the next units (**MVP-2**, blocked on people not code)
 
 The scope seam is built, so adding a unit is configuration rather than a rewrite. Order set
 by review; see [`FINDINGS.md`](FINDINGS.md) §5 for why a unit is a rollup.
+
+🔴 **Starts after MVP-1, and the reason is `department`.** A unit is defined by department,
+and `department` has NEVER been checked against the source files (P3b). Both fields that
+have been produced defects on first contact. The alias/org-tree work is people-work and can
+begin today; the BUILD waits on the audit.
 
 | # | unit | blocked on |
 |---|---|---|
@@ -119,7 +162,7 @@ vice-president a confident wrong number about their own portfolio.
 ---
 ---
 
-# TRACK F — JD currency after publishing (designed, queued after E2)
+# TRACK F — JD currency after publishing (**MVP-4**, designed)
 
 *(Unrelated to the archived "Phase F" in Track C — the letters collide, the work does not.)*
 
@@ -144,7 +187,7 @@ nothing auto-unpublishes, mirroring NN #1.
 
 
 
-# TRACK G — upload a JD into the Builder (designed, backlog)
+# TRACK G — upload a JD into the Builder (**MVP-3**, designed)
 
 **Design:** [`plans/BUILDER-UPLOAD-AND-CHECK.md`](plans/BUILDER-UPLOAD-AND-CHECK.md) —
 written 2026-08-29 against the live code, so the reuse/new split is fact, not memory.
@@ -161,8 +204,9 @@ lineage (`source_document_ids=[]` — one of the four PUBLISHED JDs is such a ro
 
 | genuinely new | note |
 |---|---|
-| multipart intake | 🔴 `python-multipart` is **deliberately absent** (`routes/_forms.py`), and the CSRF check reads the body *before* the handler — which buffers the whole file. Settle this first. |
-| PDF extraction | `DocumentFormat` routes PDF to `other` → `UnsupportedFormatError`. New dependency, and it must vendor into the **offline** image. |
+| multipart intake | 🔴 VERIFIED 2026-08-29, and the failure mode is sharper than "it will not parse". `python-multipart` is **deliberately absent** — `routes/_forms.py` records why: on Starlette 1.3.x `Request.form()` asserts the module is importable *regardless of content type*, so the app hand-parses with `parse_qsl` to stay dependency-free. The CSRF dependency reads the body FIRST via `read_form_pairs`, which does `body.decode("utf-8")`; a multipart body carrying binary bytes raises `UnicodeDecodeError`, the CSRF check catches it, finds no token — and **an upload is refused with a 403**. It also buffers the whole file via `request.body()`. Settle this first. |
+| PDF extraction | VERIFIED: `_EXTRACTORS` covers DOCX/DOC/RTF/TXT only, so PDF falls to `DocumentFormat.OTHER` with no backend at all. New dependency, and it must vendor into the **offline** image. |
+| ⚠ an offline bundle re-cut | **Both fixes move `requirements*.txt`**, which per `deploy/README.md` is exactly when the bundle must be re-cut. Track G is NOT a code-only change, and Directive #1 makes that a delivery step, not an afterthought. |
 | provenance + retention | an uploaded file has no `source_documents` row and must never inflate the archive counts |
 
 **Sequencing:** **U1** the existing formats, in memory, no persistence (zero new extraction

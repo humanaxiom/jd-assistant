@@ -1208,7 +1208,25 @@ decisions:
       "equivalent combination" is being blocked by it. Note this is AFTER the line-wrap
       fix of PR #17, which already removed ~50% of this rule's legacy false positives —
       so these 42 are not an extraction artefact.
-    status: open
+    status: ratified
+    decided_by: ITS (captured and logged the ruling)
+    decided_on: 2026-08-29
+    decision_note: >-
+      RATIFIED AS SHIPPED — the literal-phrase requirement STANDS and no value changed.
+      ⚠ Read what that does and does not do. It settles WHO IS ANSWERABLE for this bar,
+      not where the bar sits: the gate blocks exactly the JDs it blocked yesterday, so no
+      count moves and CUPE does not become approvable. What changes is the remedy — a
+      draft failing this gate is now non-compliant with a signed standard, to be fixed by
+      rewording the JD, rather than evidence of an unratified rule that might yet be
+      relaxed. `SFU-APPROVE-QUAL-EQUIVALENT` was the #3 operative approval bar
+      (42 of 246 unapprovable current-practice JDs, 17.1%) and that is now deliberate.
+      ⚠ THIS ENTRY IS ATTRIBUTION-LIGHT BY INSTRUCTION, NOT BY ACCIDENT. ITS captured
+      and logged the decision; the ruling's wording, the individuals and the rationale
+      were withheld from this repository. So this records the FACT of ratification and
+      not its substance — a later reader can see THAT the bar was signed and cannot see
+      WHY. Do not cite it as precedent for a related call, and do not let its existence
+      imply the reasoning was reviewed here. If the detail is ever released, replace this
+      note rather than adding a side file.
 
   - id: HR-043
     question: >-
@@ -1457,7 +1475,25 @@ decisions:
     impact_if_changed: >-
       Changing a rank re-points a blocking gate. Ranking education/experience too
       would extend the gate to items it ignores today.
-    status: open
+    status: ratified
+    decided_by: ITS (captured and logged the ruling)
+    decided_on: 2026-08-29
+    decision_note: >-
+      RATIFIED AS SHIPPED — the Knowledge -> Skills -> Abilities order STANDS and no value
+      changed. This is the one entry where the VALUES of a config mapping are the policy,
+      so ratifying it pins the ranks themselves: permuting them would silently invert what
+      `SFU-APPROVE-KSA-ORDER` enforces, and that is now a signed order rather than a
+      transcription of Part 5.4 nobody had confirmed. ⚠ It settles who is answerable, not
+      where the bar sits — the gate blocks exactly what it blocked yesterday and no count
+      moves. It still says nothing about education or experience items, which are unranked
+      and therefore never out of order.
+      ⚠ THIS ENTRY IS ATTRIBUTION-LIGHT BY INSTRUCTION, NOT BY ACCIDENT. ITS captured
+      and logged the decision; the ruling's wording, the individuals and the rationale
+      were withheld from this repository. So this records the FACT of ratification and
+      not its substance — a later reader can see THAT the bar was signed and cannot see
+      WHY. Do not cite it as precedent for a related call, and do not let its existence
+      imply the reasoning was reviewed here. If the detail is ever released, replace this
+      note rather than adding a side file.
 
   - id: HR-053
     question: Are BASIC / INTERMEDIATE / ADVANCED / EXPERT the only accepted skill levels?

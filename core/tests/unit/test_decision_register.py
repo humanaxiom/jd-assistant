@@ -1444,15 +1444,36 @@ def test_the_surface_grows_when_the_rules_grow(tmp_path: Path) -> None:
 # --- 4. the register cannot lie about itself ----------------------------------
 
 
-def test_the_shipped_register_records_no_decision_as_made(rules: Rules) -> None:
-    """The honest current state: SFU HR has ratified nothing yet. Every entry is
-    `open`, and no entry claims a decider."""
+def test_the_shipped_register_records_only_the_ratifications_it_has(
+    rules: Rules,
+) -> None:
+    """A ratification cannot appear unnoticed, and an `open` entry cannot claim one.
+
+    This test used to read "SFU HR has ratified nothing yet", and that was the honest
+    state until 2026-08-29, when the two B3 approval gates were ratified as shipped. The
+    guard is not deleted with the claim it made — **the property worth pinning was never
+    "nothing is ratified"**, it was that the register cannot quietly acquire a decision
+    nobody made. So the ratified set is pinned by id: adding one means editing this
+    line, which is exactly the visibility a signed approval bar deserves.
+
+    ⚠ Ratifying a default AS SHIPPED changes no value and therefore no count. It settles
+    who is answerable for the bar, not where the bar sits.
+    """
+    ratified = {d.id for d in rules.decision_register.by_status("ratified")}
+    assert ratified == {"HR-042", "HR-052"}
+
     for decision in rules.decision_register.decisions:
-        assert decision.status == "open", decision.id
-        assert decision.decided_by is None
-        assert decision.decided_on is None
-        assert decision.decision_note is None
-    assert rules.decision_register.by_status("ratified") == ()
+        if decision.status == "ratified":
+            # Enforced at load too; asserted here so the suite states the rule rather
+            # than relying on a loader error nobody reads.
+            assert decision.decided_by, decision.id
+            assert decision.decided_on, decision.id
+            assert decision.decision_note, decision.id
+        else:
+            assert decision.status == "open", decision.id
+            assert decision.decided_by is None, decision.id
+            assert decision.decided_on is None, decision.id
+            assert decision.decision_note is None, decision.id
 
 
 def test_decision_ids_are_unique_and_well_formed(rules: Rules) -> None:
@@ -2016,12 +2037,28 @@ def test_the_rendered_register_groups_the_open_decisions_by_tier(
     ), "the technical tier is rendered above the decisions HR must actually make"
 
 
-def test_the_rendered_header_states_the_hr_policy_count(rules: Rules) -> None:
-    """The count of record. CLAUDE.md forbids restating it anywhere else, so the
-    generated header has to carry the tier breakdown or it is not stated at all."""
+def test_the_rendered_header_states_what_is_still_outstanding(rules: Rules) -> None:
+    """The count of record, and it must count what is still ASKED FOR.
+
+    🔴 The header used to state the whole `hr_policy` tier as "need an HR ruling". That
+    was true for as long as nothing was ratified, and it became a lie the moment
+    something was: it told HR they owed 81 rulings while holding two they had already
+    given. **A count of a tier is not a count of an outstanding ask** — the tier says
+    who a decision belongs to, the status says whether it has been made.
+
+    CLAUDE.md forbids restating the count anywhere else, so this header is the only
+    place it is stated and it has to be right.
+    """
     document = render_register(rules)
     header = document.split("## What this is")[0]
-    policy = len(rules.decision_register.by_tier("hr_policy"))
+    policy = rules.decision_register.by_tier("hr_policy")
+    outstanding = [d for d in policy if d.status == "open"]
+    ratified = [d for d in policy if d.status == "ratified"]
+
     assert (
-        f"{policy} need an HR ruling" in header
-    ), "the header does not state how many decisions HR is actually asked for"
+        f"{len(outstanding)} still need an HR ruling" in header
+    ), "the header does not state how many decisions HR is still asked for"
+    if ratified:
+        assert (
+            f"{len(ratified)} ratified" in header
+        ), "a ruling HR has already given is invisible in the header"
