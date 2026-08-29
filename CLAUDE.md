@@ -110,7 +110,7 @@ A change is not done when it works on this box. It is done when:
 
 1. **It is tested** — `make gates` green, the failing test written FIRST, and the guard
    broken once to prove it can go red. A subagent's claim of green is not evidence.
-2. **It ships through the scripts** — `quickstart.ps1` (dev) and `deploy/bundle.ps1` +
+2. **It ships through the scripts** — `build.ps1` / `launch.ps1` / `teardown.ps1` (dev) and `deploy/bundle.ps1` +
    `deploy/install.ps1` (fresh, offline box). If a human needs a session with an
    assistant to reproduce it, the step is NOT finished.
 3. **It is discoverable** — a feature nothing links to has not been delivered. That is

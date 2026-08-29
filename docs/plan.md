@@ -13,7 +13,7 @@ five wrong ones that agreed with each other.
 **Set by the project owner 2026-08-28.** No task below is complete until it is:
 
 1. **tested** — `make gates` green, failing test first, the guard broken once;
-2. **deployable through the scripts** — `quickstart.ps1`, and `deploy/bundle.ps1` +
+2. **deployable through the scripts** — `build.ps1` / `launch.ps1` / `teardown.ps1`, and `deploy/bundle.ps1` +
    `deploy/install.ps1` onto a fresh, offline box, **with no assistant in the loop**;
 3. **discoverable** — reachable from the UI, because *a feature nothing links to has not
    been delivered*;
@@ -39,6 +39,13 @@ and the archive has been re-parsed. The working is in [`FINDINGS.md`](FINDINGS.m
 
 ⚠ **The lesson that generalises:** the old routing guard asked one direction and stayed
 green through ~140 mislabels. **Assert both directions, or the guard is decoration.**
+
+**Tooling that landed alongside it (2026-08-29):** the operator scripts are now
+`build.ps1` → `launch.ps1` → `teardown.ps1`, one job each, per Directive #1.
+`launch.ps1` fails loudly when a service is not RUNNING — written because the worker sat
+`Exited (1)` for nine hours behind an otherwise-green stack — and `teardown.ps1
+-Orphans` clears the one-shot containers compose leaves behind, which had been making
+every compose command print a warning everybody had learned to ignore.
 
 ---
 
