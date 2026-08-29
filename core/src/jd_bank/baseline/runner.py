@@ -194,6 +194,7 @@ def evaluate_file(
         byte_size=len(data),
         body_era=parsed.era,
         template=parsed.template,
+        parsed_employee_group=parsed.jd.employee_group,
         parse_confidence=parsed.parse_confidence,
         char_count=len(text),
         score=report.overall_score,

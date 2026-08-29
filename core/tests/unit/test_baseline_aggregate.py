@@ -153,3 +153,90 @@ def test_template_is_reported_as_its_own_facet() -> None:
         seg.value for seg in summary.segments if seg.dimension == "template"
     }
     assert {"jdfn", "wjq"} <= template_values
+
+
+# --- The bargaining unit is its own facet, and silence is its own bucket --------------
+
+
+def _group_row(*, name: str, parsed_group: str | None) -> BaselineRow:
+    return BaselineRow(
+        path=f"archive/{name}",
+        filename=name,
+        extension="docx",
+        format="DOCX",
+        era="current",
+        template_token=True,
+        status="scored",
+        template="jdfn",
+        parsed_employee_group=parsed_group,
+        score=80.0,
+        grade="B",
+        issue_count=0,
+        approved=True,
+        rules_version="jd_rules_sfu_v4+deadbeefcafe",
+        parser_version="jd_segmenter_v6",
+        config_stamp="stamp",
+    )
+
+
+def test_the_employee_group_facet_names_the_unrecorded_instead_of_hiding_them() -> None:
+    """🔴 A third of the archive records no bargaining unit, and the Bank was counting
+    every one of them as JDFN.
+
+    `template_of` returns `wjq` only for `cupe` and defaults everything else, so the
+    "By template" facet reported jdfn ~10,222 vs wjq ~4,300 — read, reasonably, as an
+    APSA-vs-CUPE split. It is not one: that jdfn bucket contains APSA, APEX, POLY,
+    `excluded` AND ~4,534 documents that state no group at all. Measured 2026-08-29 by
+    reading the SOURCE FILES: 92% of the unrecorded genuinely name no group anywhere, so
+    the silence is real and must be REPORTED, not defaulted away.
+
+    The rule this enforces is the one the IT collection cost us: report matched,
+    not-matched, and **could-not-evaluate** — never two numbers where there are three.
+    """
+    rows = [
+        _group_row(name="a.docx", parsed_group="apsa"),
+        _group_row(name="b.docx", parsed_group="apsa"),
+        _group_row(name="c.docx", parsed_group="cupe"),
+        _group_row(name="d.docx", parsed_group=None),
+        _group_row(name="e.docx", parsed_group=None),
+        _group_row(name="f.docx", parsed_group=None),
+    ]
+
+    summary = summarise(
+        rows, archive_root="archive", generated_at=dt.datetime(2026, 8, 29)
+    )
+    by_group = {
+        seg.value: seg.n_files
+        for seg in summary.segments
+        if seg.dimension == "employee_group"
+    }
+
+    assert by_group["apsa"] == 2
+    assert by_group["cupe"] == 1
+    # The load-bearing assertion: the three silent documents are their OWN bucket,
+    # under a name that cannot be mistaken for a group SFU actually recognises.
+    assert by_group["(unrecorded)"] == 3
+    assert "jdfn" not in by_group, "the unit facet must not repeat the TEMPLATE facet"
+
+
+def test_the_unit_facet_is_not_the_filename_signal() -> None:
+    """The row already had an `employee_group`, and it is FILENAME-derived
+    (`JDFN_([A-Z]+)`). FINDINGS §3c measured that signal finding only 17.7% of CUPE and
+    12.9% of the ungrouped population — faceting on it would publish a NEW wrong number
+    with an authoritative-looking name. The unit facet reads the PARSE.
+    """
+    # The filename carries APSA and the PARSED content says cupe. They disagree on
+    # purpose: the facet must follow the content.
+    row = _group_row(name="20200101_JDFN_APSA_x.docx", parsed_group="cupe")
+    row = row.model_copy(update={"employee_group": "APSA"})
+    assert row.employee_group == "APSA", "the filename-derived field is still populated"
+
+    summary = summarise(
+        [row], archive_root="archive", generated_at=dt.datetime(2026, 8, 29)
+    )
+    by_group = {
+        seg.value: seg.n_files
+        for seg in summary.segments
+        if seg.dimension == "employee_group"
+    }
+    assert by_group == {"cupe": 1}

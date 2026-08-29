@@ -252,7 +252,27 @@ _DIMENSIONS: tuple[tuple[SegmentDimension, Callable[[BaselineRow], str]], ...] =
     # WJQ number, never quoted inside the current-practice cohort — see
     # `current_practice_cohort` and HR-143.
     ("template", lambda row: row.template or "unknown"),
+    # The BARGAINING UNIT, read from the document's CONTENT — a different question from
+    # `template`, and the one readers were answering with it.
+    #
+    # 🔴 `template_of` returns `wjq` only for `cupe` and defaults everything else,
+    # so the template facet reads as an APSA-vs-CUPE split and is not one: its `jdfn`
+    # bucket
+    # holds APSA, APEX, POLY, `excluded` AND every document stating no group at all —
+    # about a third of the archive. Measured 2026-08-29 by reading the SOURCE FILES, 92%
+    # of those genuinely name no group anywhere, so the silence is real and is REPORTED
+    # here rather than defaulted away: matched, not-matched, and could-not-evaluate, the
+    # rule the IT collection cost us.
+    #
+    # ⚠ Reads `parsed_employee_group` (content), never `employee_group` (FILENAME):
+    # FINDINGS §3c measured the filename signal finding 17.7% of CUPE and 12.9% of
+    # the ungrouped, so faceting on it would publish a confident wrong number.
+    ("employee_group", lambda row: row.parsed_employee_group or _UNRECORDED_GROUP),
 )
+
+#: What a document that names no bargaining unit is called. Punctuated so it
+#: can never be mistaken for a group SFU recognises, nor collide with a real token.
+_UNRECORDED_GROUP = "(unrecorded)"
 
 #: The eras the JDFN approval bar is judged against — the two current-template bands.
 _CURRENT_PRACTICE_ERAS: frozenset[str] = frozenset({"new", "current"})

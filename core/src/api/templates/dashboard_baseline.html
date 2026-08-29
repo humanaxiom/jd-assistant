@@ -186,5 +186,60 @@
     </tbody>
   </table>
 </div>
+
+{% if groups %}
+<div class="panel">
+  <h2>By bargaining unit</h2>
+  <div class="note">
+    <strong>This is not the table above.</strong> <em>Template</em> is which SFU form the
+    document uses; <em>bargaining unit</em> is who the job belongs to. They are not the
+    same split, and reading one as the other is what made the archive look far more JDFN
+    than it is: <code>template_of</code> returns <code>wjq</code> only for CUPE and
+    defaults <strong>everything else</strong> to <code>jdfn</code> &mdash; including every
+    document that names no unit at all.
+    <br><br>
+    <strong>(unrecorded) is a real answer, not a gap to round away.</strong> Reading the
+    source files for a sample of them, <strong>92% name no bargaining unit anywhere</strong>:
+    SFU simply did not record one. They are counted here rather than folded into a unit
+    they were never shown to belong to. Read from the document&rsquo;s
+    <em>content</em>, never the filename &mdash; a filename code finds only 17.7% of CUPE.
+    <br><br>
+    ⚠ <strong>Two different silences share that row, and the columns separate them.</strong>
+    <em>Files</em> counts every document with no unit recorded; <em>Scored</em> counts only
+    those that could be read and parsed. The difference is the handful of files with no
+    extractable text at all &mdash; <em>could not evaluate</em>, which is not the same as
+    <em>evaluated and found nothing</em>.
+  </div>
+  <table>
+    <thead>
+      <tr><th>Bargaining unit</th><th class="num">Files</th><th class="num">Scored</th>
+          <th class="num">Median</th><th class="num">Approval permitted</th></tr>
+    </thead>
+    <tbody>
+      {% for g in groups %}
+      <tr>
+        <td>{{ g.value }}</td>
+        <td class="num">{{ g.n_files }}</td>
+        <td class="num">{{ g.n_scored }}</td>
+        <td class="num">{% if g.median is not none %}{{ "%.1f"|format(g.median) }}{% else %}&mdash;{% endif %}</td>
+        <td class="num">{% if g.approval_rate is not none %}{{ "%.1f"|format(g.approval_rate * 100) }}%{% else %}&mdash;{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="meta">
+    ⚠ A unit&rsquo;s approval rate is only meaningful against the bar it is judged by. CUPE
+    is scored on the JDFN gates it was never written for (HR-143), so its rate is a
+    category error, not a quality verdict.
+    <br><br>
+    ⚠ <strong>(unrecorded) scores low because it is OLD, not because it is bad.</strong>
+    Measured by era, 88% of it is <em>old</em> or <em>transition</em> and <strong>not one
+    document is current-era</strong> &mdash; recording the unit is a property of the modern
+    template. That is why counting these as <code>jdfn</code> was doubly misleading: it
+    blended thousands of modern APSA JDs with thousands of pre-2019 ones and reported the
+    average as the JDFN population.
+  </p>
+</div>
+{% endif %}
   {% endif %}
 {% endblock %}

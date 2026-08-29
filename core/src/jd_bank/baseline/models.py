@@ -50,7 +50,9 @@ RowStatus = Literal["scored", "skipped"]
 #: ``dimension="cohort", value="current_practice"`` so the population the approval bar
 #: is actually ratified against is IN the artifact rather than only derivable from
 #: ``rows.jsonl``. Not iterated over distinct values the way format/era/template are.
-SegmentDimension = Literal["all", "format", "era", "template", "cohort"]
+SegmentDimension = Literal[
+    "all", "format", "era", "template", "employee_group", "cohort"
+]
 
 
 class BaselineFinding(BaseModel):
@@ -117,6 +119,16 @@ class BaselineRow(BaseModel):
     #: scored on the JDFN bar is a category error, and whether CUPE gets its own bar
     #: is a deferred HR decision (HR-143), not one to make by omission.
     template: str | None = None
+    #: The bargaining unit read from the DOCUMENT'S CONTENT (``None`` on a skipped
+    #: row, and ``None`` when the document names none — about a third of the archive).
+    #:
+    #: ⚠ **Not** :attr:`employee_group`, which is FILENAME-derived
+    #: (``segmentation.employee_group_pattern``, ``JDFN_([A-Z]+)``). FINDINGS §3c
+    #: measured that signal finding only 17.7% of CUPE and 12.9% of the ungrouped
+    #: population, so it is unusable as a unit identifier and must never be faceted on.
+    #: The two are kept apart, and named apart, because folding them would produce an
+    #: authoritative-looking wrong number.
+    parsed_employee_group: str | None = None
     parse_confidence: float | None = None
     char_count: int | None = None
 

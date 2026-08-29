@@ -328,6 +328,43 @@ group* are counted as JDFN. That is the IT-collection failure again: **no
 could-not-evaluate bucket.** Any facet over this field must report matched / not-matched /
 **unrecorded**, never two numbers.
 
+✅ **FIXED 2026-08-29 (P2).** The baseline now carries a `employee_group` facet read from
+the document's **content** — deliberately not the existing `employee_group` row field,
+which is FILENAME-derived (§3c: that signal finds 17.7% of CUPE). `(unrecorded)` is its
+own bucket, on the dashboard, punctuated so it cannot read as a group SFU recognises:
+
+| unit | files | scored | median | approval permitted |
+|---|---:|---:|---:|---:|
+| apsa | 5,121 | 5,121 | 70.3 | 11.9% |
+| **(unrecorded)** | **4,577** | **4,534** | **42.4** | **0.1%** |
+| cupe | 4,300 | 4,300 | 75.3 | 59.2% |
+| apex | 420 | 420 | 70.3 | 17.1% |
+| poly | 76 | 76 | 68.3 | 1.3% |
+| excluded | 71 | 71 | 42.1 | 0.0% |
+
+Files 14,565 = the whole archive; **files vs scored** separates the two silences (nothing
+recorded, vs 43 files with no extractable text — *could not evaluate* is not *evaluated
+and found nothing*).
+
+### 7c-i. 🔴 The unrecorded are not a random third — they are the OLD archive
+
+Measured over `rows.jsonl`, era by unit:
+
+| unit | old | transition | new | current |
+|---|---:|---:|---:|---:|
+| apsa | 3% | 13% | **69%** | 15% |
+| cupe | 37% | 41% | 19% | 3% |
+| **(unrecorded)** | **35%** | **53%** | 12% | **0%** |
+
+**Not one of the 4,577 unrecorded documents is `current`-era.** Recording the bargaining
+unit is a property of the MODERN template; the silence is an artefact of age, not of
+parsing.
+
+⚠ **So folding them into `jdfn` was doubly wrong.** It did not merely mislabel them — it
+mixed 5,121 modern APSA documents with 4,534 mostly pre-2019 ones (median 42.4 against
+70.3) and reported the blend as the JDFN population. The era facet and the unit facet were
+each individually fine; the harm was in reading one bucket as the other.
+
 ### 7d. 24 drafts claim a template their documents are not
 
 61 of the corrected documents sit inside **24 DRAFT canonical JDs still labelled `cupe`**,
