@@ -5,7 +5,7 @@
 .PHONY: up down gates gates-fast gates-integration gates-live smoke migrate logs shell \
         hook-install register register-check baseline dedup ingest embed embed-roles \
         near-dup dedup-role cluster harmonize-measure canonical-drafts rewrite-golden \
-        quality-golden bank-audit
+        quality-golden bank-audit bundle deploy-check
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -290,6 +290,19 @@ migrate:          ## Postgres (alembic) + Neo4j (cypher: 001 core, 002 JD vector
 		docker compose exec -T neo4j cypher-shell -u neo4j -p harnesspass
 	cat core/db/migrations/003_jd_role_vectors.cypher | \
 		docker compose exec -T neo4j cypher-shell -u neo4j -p harnesspass
+
+# ── Offline deployment (fresh box, no internet) ────────────────────────────
+# GOAL: after any change, this repo can be deployed to a fresh box that has Docker and
+# NO internet. `bundle` cuts the artifact on a connected box; `deploy/install.ps1` runs
+# on the target and never touches the network (`--no-build --pull never`).
+#
+# A CODE change does not need a new bundle — api/worker bind-mount ./core, so copying
+# the repo is enough. Re-cut only when requirements*.txt or the Dockerfile moves.
+bundle:           ## Cut the offline deploy bundle (images + Postgres + Neo4j) -> dist/
+	pwsh -NoProfile -File deploy/bundle.ps1 $(BUNDLE_ARGS)
+
+deploy-check:     ## Prove the offline bundle would be COMPLETE (no network, no build)
+	@bash deploy/deploy-check.sh
 
 # ── Git pre-commit hook (Docker-only; replaces the host pre-commit framework) ─
 hook-install:     ## Install a .git pre-commit hook that runs gates-fast in Docker

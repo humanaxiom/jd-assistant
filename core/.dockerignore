@@ -1,0 +1,34 @@
+# Build context for the api/worker image (context: ./core).
+#
+# WHY THIS FILE EXISTS: without it the context was 63 MB and included .mypy_cache,
+# .pytest_cache, .ruff_cache and every __pycache__ — directories that change on EVERY
+# local lint or test run. That busted the `COPY . .` layer constantly, so an image
+# rebuild happened when nothing shippable had changed, and the offline bundle
+# (deploy/bundle.ps1) got a new 650 MB images.tar for no reason.
+#
+# WHAT MUST NOT BE EXCLUDED: `tests/` and `alembic/` stay in the image on purpose.
+# `make gates` runs the full CI-identical suite INSIDE this image (ADR-006, Docker-only)
+# and `alembic upgrade head` runs from the api container — excluding either would break
+# testing and migrations, which is a far worse trade than a slightly larger context.
+
+# Python bytecode and tool caches — regenerated, never shipped.
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Coverage artifacts — written by `make gates` on the host bind-mount.
+.coverage
+.coverage.*
+htmlcov/
+
+# A host virtualenv must never reach the image: ADR-006 says there is no host Python,
+# and copying one in would shadow the container's site-packages.
+.venv/
+venv/
+
+# Editor/OS noise.
+.DS_Store
+*.swp

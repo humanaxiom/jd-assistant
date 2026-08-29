@@ -45,3 +45,8 @@ core/tests/fixtures/__scratch.*
 GH-Copilot/*.html
 GH-Copilot/*.zip
 GH-Copilot/*_files/
+
+# Offline deploy bundles (deploy/bundle.ps1 -> dist/). ~1.4 GB of images.tar,
+# postgres.dump and neo4j.dump: a BUILD ARTIFACT cut from the repo, never an input to
+# it. It is reproducible with `make bundle` and would otherwise be committed whole.
+dist/

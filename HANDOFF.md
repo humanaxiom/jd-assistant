@@ -100,6 +100,39 @@ Trust it over any document, including this one.
 
 ---
 
+## ▶ DEPLOYING TO A FRESH BOX, OFFLINE
+
+**Built and verified 2026-08-28.** The repo can be put on a box with Docker and **no
+internet** and come up as a working Bank with the archive already in it.
+
+```bash
+make bundle                                          # on a CONNECTED box -> dist/ (~1.4 GB)
+.\deploy\install.ps1 -BundleDir <bundle>             # on the TARGET — never touches the network
+make deploy-check                                    # cheap standing check; run after compose/Dockerfile edits
+```
+
+Full runbook: [`deploy/README.md`](deploy/README.md).
+
+- **A code change does NOT need a new bundle.** `api`/`worker` bind-mount `./core`, so
+  copying the repo is enough. Re-cut only when `requirements*.txt` or the `Dockerfile`
+  moves.
+- **`install.ps1` passes `--no-build --pull never`**, so a missing image fails loudly
+  instead of quietly pulling — an install that silently pulls has proved nothing about
+  the offline box.
+- **It refuses to restore over a populated database.** `pg_restore --data-only` into a
+  migrated DB silently destroys the Bank and exits 0; the bundle carries a full `-Fc`
+  dump and the target must be empty (or `-Force`).
+- **Verification is part of the install** — row counts are compared against the bundle's
+  manifest and the Neo4j vector nodes counted; it exits non-zero if anything disagrees.
+- ⚠ **Only the internet is optional.** Ollama on `aria-gb10-2` is still needed for
+  `make embed` and the LLM jobs; the app, funnel and dashboards do not touch it.
+
+Validated by rehearsing a full install beside the live stack under a second project name
+— all five row counts and both Neo4j labels matched, and the funnel rendered from the
+restored database.
+
+---
+
 ## ▶ HOW WE WORK
 
 - **Docker-only (ADR-006).** No host Python/venv/pip. `make gates` runs the full suite

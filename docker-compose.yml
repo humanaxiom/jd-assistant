@@ -59,6 +59,11 @@ services:
     build:
       context: ./core
       dockerfile: Dockerfile
+    # PINNED, not left to compose's `<project>-<service>` default. The offline bundle
+    # (deploy/bundle.ps1) ships images by NAME, and the default name embeds the compose
+    # PROJECT — so a target box installing under any other project name would look for an
+    # image the bundle does not contain. Naming it here makes the bundle portable.
+    image: jd-bank-api:latest
     command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
     ports: ["${JD_API_PORT:-25800}:8000"]
     environment: &app_env
@@ -155,6 +160,8 @@ services:
     build:
       context: ./core
       dockerfile: Dockerfile
+    # Pinned for the same reason as `api` — see the note there.
+    image: jd-bank-worker:latest
     command: arq src.worker.main.WorkerSettings
     environment: *app_env
     extra_hosts:
