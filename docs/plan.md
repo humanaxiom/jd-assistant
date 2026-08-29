@@ -68,6 +68,31 @@ by review; see [`FINDINGS.md`](FINDINGS.md) §5 for why a unit is a rollup.
 vice-president a confident wrong number about their own portfolio.
 
 ---
+---
+
+# TRACK F — JD currency after publishing (designed, queued after E2)
+
+*(Unrelated to the archived "Phase F" in Track C — the letters collide, the work does not.)*
+
+**Design:** [`plans/JD-CURRENCY-ATTESTATION.md`](plans/JD-CURRENCY-ATTESTATION.md) —
+written 2026-08-28 with the base system verified live, so the reuse/new split is fact,
+not memory. A published JD currently has no owner, no review date and no re-validation;
+this adds the **review / update / attestation loop**: due by cadence → steward attests →
+**REAFFIRM** (row only) / **REVISE** (the existing edit→draft→approve path) / **RETIRE**
+(new, reviewer-gated PUBLISHED → ARCHIVED).
+
+| verified: reused from the base | genuinely new |
+|---|---|
+| publish/supersede lifecycle, untouched | `attestations` table (append-only) |
+| `rules_version` already stamped on every draft → rulebook-drift flag needs no field | **RETIRE** review action (no retire path exists today) |
+| publish date derivable from the APPROVE row → no `published_at` column | `role_stewards` (default = approver; by-unit lands on Track E's tree) |
+| validator re-run (advisory), Scope seam, audit chain, queue UI pattern | `currency.yaml` + HR register entries, all `open` — **cadence is HR's number, not ours** |
+
+**Sequencing:** after **E2 (Facilities)**; only worth *building* alongside **B2** — with a
+handful of published JDs a currency loop is ceremony, the pilot's twenty make it real, and
+the pilot reviewer is the first steward candidate. Stale is **advisory on every axis** —
+nothing auto-unpublishes, mirroring NN #1.
+
 
 # ⏸ BEFORE GOING LIVE — blocks nothing
 
