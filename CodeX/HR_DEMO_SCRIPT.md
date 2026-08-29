@@ -1,5 +1,24 @@
 # JD Assistant HR Demonstration Script
 
+> ## ⚠️ SUPERSEDED IN ITS NUMBERS AND ITS CRITICAL PATH (2026-08-29)
+>
+> Kept as the record of a **2026-08-07** read-only review — its architectural reading is
+> still sound and its seven improvements largely still stand. **Do not quote a figure or a
+> priority from it.** What has moved since:
+>
+> | it says | as of 2026-08-29 |
+> |---|---|
+> | "197 decisions, all open and none ratified" | **225** decisions · **223 open, 2 RATIFIED** (HR-042 + HR-052, the B3 approval gates, ratified *as shipped*). The count of record is the [register](../docs/decisions/HR-DECISION-REGISTER.md)'s own header. |
+> | "4 of roughly 1,802 canonical roles are published" | **2,500** roles hold a current version — 2,496 drafts, 4 published. The live count is `/jd-bank/ui/funnel`, never a document. |
+> | "CUPE WJQs are readable/searchable but are not evaluated or authored" | **WJQ is an authoring form.** `harmonization.templates_harmonized` is a priority order and the producer authors on it; `--only-template wjq` scopes a run to that cohort. |
+> | "the principal critical path is governance and pilot validation" | 🔴 **Void.** Owner ruling 2026-08-29: **nothing is blocked on policy**, and publishing happens in the FINAL DEPLOYMENT. The measure in pilot/dev/MVP is **drafts** — coverage and fidelity — not published JDs. |
+>
+> Also note the parser has moved **v3 → v7** since this was written, and three archive
+> audits have each found a defect on first contact ([`FINDINGS.md`](../docs/FINDINGS.md)
+> §7, §8, §9). Current state: [`HANDOFF.md`](../HANDOFF.md) · next work:
+> [`docs/plan.md`](../docs/plan.md).
+
+
 Suggested length: 35–45 minutes plus discussion.  
 Audience: HR policy owners, experienced JD reviewers, HR systems/privacy representatives, and pilot users.
 

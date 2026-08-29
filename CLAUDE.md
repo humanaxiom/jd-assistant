@@ -71,16 +71,44 @@ abuse this section exists to stop.
 - If a doc change and a code change belong together (a rulebook knob and its register
   entry), they ship in the SAME PR — never split to dodge a branch.
 
-## Subagents subsystem (from the harness)
-`core/src/agents/` provides a Planner→Tester→Coder(loop)→Reviewer→Security→Docs pipeline
-(`orchestrator.py`, dispatched via the `run_pipeline` arq job). Reviewer approval + security
-pass are merge-blocking. Claude Code subagent definitions live in
-`harness-claude-code/.claude/agents/`. To activate them (and the `.claude/settings.json`
-hooks: no-commit-to-main, ruff auto-fix) for sessions run from the repo root, a root
-`.claude/` is required — not yet set up.
+## Two different things are called "agents" here — do not conflate them
 
-## Coordinating subagents — trust & verification (harness lessons; see docs/HARNESS_LESSONS.md)
-- **A subagent's claim of green is not evidence of green.** Require the pasted command and its
+**Corrected 2026-08-29 after this section was found describing an activation that never
+happened.** They share vocabulary and nothing else.
+
+**1. `core/src/agents/` — a Python pipeline inside the app. LIVE.**
+Planner→Tester→Coder(loop)→Reviewer→Security→Docs (`orchestrator.py`), dispatched via the
+`run_pipeline` arq job and exercised by the suite. Reviewer approval + security pass are
+merge-blocking *within that pipeline*. All six modules exist. This is application code and
+runs on the worker; it has nothing to do with the assistant editing this repo.
+
+**2. `harness-claude-code/.claude/agents/*.md` — Claude Code subagent definitions. NOT
+ACTIVE.**
+Six definitions (planner, tester, coder, reviewer, security, docs) sit in a **vendored**
+directory. Claude Code discovers subagents in `<repo>/.claude/agents/` and `~/.claude/`,
+so nothing under `harness-claude-code/` is loaded — **no session dispatches them.**
+
+⚠ A root `.claude/` now EXISTS and contains only `settings.local.json` (two permission
+entries) and a lock file. **No `agents/`, and no `settings.json`** — so the hooks this
+section used to promise (no-commit-to-main, ruff auto-fix) are **not installed either**.
+The earlier wording ("a root `.claude/` is required — not yet set up") reads as though
+creating the directory were the remaining step. It is not: the definitions and hooks would
+still have to be placed in it.
+
+🔴 **So do not write instructions that assume a Tester or Reviewer subagent will run.** A
+session here has the stock Claude Code agent types (`general-purpose`, `Explore`, `Plan`,
+…), and the standing session rule is not to dispatch any agent unless the user asks. The
+verification lessons below still apply in full — **you are the reviewer**, and every
+"require the pasted command and its real output" rule binds the same way when the second
+opinion is a re-run rather than another agent.
+
+## Verification — trust nothing's claim of green (harness lessons; docs/HARNESS_LESSONS.md)
+
+⚠ Written when subagents did the work. **Every rule below binds the same way when YOU did
+it** — the claim to distrust is then your own, and the second opinion is a re-run rather
+than another agent. Read "a subagent" as "whoever or whatever produced this diff".
+
+- **A claim of green is not evidence of green.** Require the pasted command and its
   real output; if a report only summarizes a diff, treat the work as UNVERIFIED and re-run the
   gate yourself before committing. This is cheap and has already caught real defects.
 - **Re-run `make gates` yourself before committing subagent work** — and pick the gate by what
