@@ -8,6 +8,21 @@ five wrong ones that agreed with each other.
 > **Before any engineering task, ask: does this change the number of PUBLISHED JDs?**
 > If not, it is not next — however real the defect.
 
+## 🔴 DIRECTIVE #1 — applies to EVERY item on this page
+
+**Set by the project owner 2026-08-28.** No task below is complete until it is:
+
+1. **tested** — `make gates` green, failing test first, the guard broken once;
+2. **deployable through the scripts** — `quickstart.ps1`, and `deploy/bundle.ps1` +
+   `deploy/install.ps1` onto a fresh, offline box, **with no assistant in the loop**;
+3. **discoverable** — reachable from the UI, because *a feature nothing links to has not
+   been delivered*;
+4. **green on `make deploy-check`** — CI gate *"Gate: deployable offline"*.
+
+⚠ **"It works on the dev box" is not done.** Ask: *could the owner deploy and see this,
+tomorrow, without me?* Full statement in [`CLAUDE.md`](../CLAUDE.md); runbook in
+[`deploy/README.md`](../deploy/README.md).
+
 ---
 
 # TRACK A — the demo ✅ COMPLETE

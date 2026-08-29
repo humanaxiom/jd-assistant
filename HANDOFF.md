@@ -24,6 +24,28 @@ count of *roles*.
 
 ---
 
+## 🔴 DIRECTIVE #1 — TESTED, AND DEPLOYABLE WITHOUT THE ASSISTANT
+
+**Set by the project owner 2026-08-28. It applies to every task on this page.**
+
+> **Every step must leave the code TESTED and every feature DEPLOYABLE THROUGH THE
+> SCRIPTS, by a person, with no assistant in the loop.**
+
+| | done means |
+|---|---|
+| **tested** | `make gates` green · failing test written FIRST · the guard broken once to prove it can go red |
+| **deployable** | works via `quickstart.ps1` (dev) and `deploy/bundle.ps1` + `deploy/install.ps1` (fresh, offline box) |
+| **discoverable** | reachable from the UI — *a feature nothing links to has not been delivered* |
+| **enforced** | `make deploy-check`, run in CI as *"Gate: deployable offline"* |
+
+⚠ **Ask at the end of every task: "could the owner deploy and see this, tomorrow, without
+me?"** If not, the task has one more step. This is not hypothetical — the live funnel
+shipped 2026-08-27 with no nav entry, and for a day it read as "still the old dashboard".
+
+Full statement in [`CLAUDE.md`](CLAUDE.md) · runbook in [`deploy/README.md`](deploy/README.md).
+
+---
+
 ## 🔴 THE ONE THING TO UNDERSTAND
 
 **The system works. It has no output. The constraint was never engineering.**

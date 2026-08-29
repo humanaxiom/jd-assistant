@@ -99,6 +99,32 @@ hooks: no-commit-to-main, ruff auto-fix) for sessions run from the repo root, a 
   lag; `git fetch` + a PR status check costs seconds. Record ratified decisions in the register/ADR,
   not just in chat — conversation state is lost at session end.
 
+## 🔴 DIRECTIVE #1 — TESTED, AND DEPLOYABLE WITHOUT THE ASSISTANT
+
+**Set by the project owner, 2026-08-28. It outranks everything below it.**
+
+> **Every step must leave the code TESTED and every feature DEPLOYABLE THROUGH THE
+> SCRIPTS, by a person, with no assistant in the loop.**
+
+A change is not done when it works on this box. It is done when:
+
+1. **It is tested** — `make gates` green, the failing test written FIRST, and the guard
+   broken once to prove it can go red. A subagent's claim of green is not evidence.
+2. **It ships through the scripts** — `quickstart.ps1` (dev) and `deploy/bundle.ps1` +
+   `deploy/install.ps1` (fresh, offline box). If a human needs a session with an
+   assistant to reproduce it, the step is NOT finished.
+3. **It is discoverable** — a feature nothing links to has not been delivered. That is
+   not a slogan: the live funnel shipped 2026-08-27 with no nav entry and read as
+   "still the old dashboard" for a day.
+4. **`make deploy-check` is green** — enforced in CI as *"Gate: deployable offline"*, so
+   this is a build failure, not a good intention.
+
+⚠ **The trap this exists to stop:** work that is real, correct and green *here*, and
+unreachable to anyone else. Ask at the end of every task: **"could the owner deploy and
+see this, tomorrow, without me?"** If not, the task has one more step.
+
+Runbook: [`deploy/README.md`](deploy/README.md).
+
 ## Non-negotiables
 1. HUMAN APPROVAL: canonical JDs are drafts until an HR reviewer explicitly approves.
    Nothing auto-publishes. Gate overrides require a written reason in the audit log.

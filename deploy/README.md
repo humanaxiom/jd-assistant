@@ -1,5 +1,24 @@
 # Deploying JD Bank to a fresh box, offline
 
+## 🔴 DIRECTIVE #1 — why this directory exists
+
+**Set by the project owner, 2026-08-28:**
+
+> **Every step must leave the code TESTED and every feature DEPLOYABLE THROUGH THE
+> SCRIPTS, by a person, with no assistant in the loop.**
+
+Done is not "it works on the dev box". Done is **tested** (`make gates` green, failing
+test first), **deployable** (through the two scripts below), **discoverable** (reachable
+in the UI — a feature nothing links to has not been delivered), and **green on
+`make deploy-check`**, which CI enforces as *"Gate: deployable offline"*.
+
+The question to ask at the end of every task: **could the owner deploy and see this,
+tomorrow, without me?**
+
+Full statement in [`../CLAUDE.md`](../CLAUDE.md).
+
+---
+
 **Goal:** after any change, this repo can be put on a box that has Docker and **no
 internet**, and come up as a working JD Bank with the archive already in it.
 
