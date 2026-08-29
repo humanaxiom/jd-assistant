@@ -25,6 +25,23 @@ tomorrow, without me?* Full statement in [`CLAUDE.md`](../CLAUDE.md); runbook in
 
 ---
 
+# 🔴 TRACK P — the parse, and making archive → harmonized verifiable
+
+**New 2026-08-29, and it comes first**: features were being stacked on a parse that could
+call a job CUPE because it *mentioned* the word. `PARSER_VERSION` is now **v6** (HR-226)
+and the archive has been re-parsed. The working is in [`FINDINGS.md`](FINDINGS.md) §7.
+
+| # | task | size | notes |
+|---|---|---|---|
+| **P1** | 🔴 **Decide what happens to the drafts that claim a template their documents are not** | decision, then small | `make smoke` is RED on this and must stay red until it is resolved. All `DRAFT`, none published, each entirely stale. **Two options:** add a per-cluster filter to `src.jd_bank.canonical` and re-compose just those, or delete them (a cluster with no draft reads as *un-drafted*, which is honest). A producer run is under a standing ⛔ — this is a ruling, not a cleanup. §7d. |
+| **P2** | ⚠ **Report `employee_group` as matched / not-matched / UNRECORDED** | small | `template_of` defaults every unknown to JDFN, so a third of the archive is *counted* as JDFN with no evidence. Same defect as the IT collection: no could-not-evaluate bucket. Every facet over this field must publish all three numbers. §7c. |
+| **P3** | **Audit the remaining fields the same way** | med | The group was checked against the source files and two defects fell out. `title` is the known next one (§2b — the `Untitled Position` placeholder, and it reaches into drafts). Nothing else has been checked against the raw archive at all. |
+
+⚠ **The lesson that generalises:** the old routing guard asked one direction and stayed
+green through ~140 mislabels. **Assert both directions, or the guard is decoration.**
+
+---
+
 # TRACK A — the demo ✅ COMPLETE
 
 A1–A5 are built and merged. Two live surfaces, both reading the database at request time:
@@ -63,7 +80,7 @@ so none displaces Track B — but D1 changes what the Bank can *ever* publish.
 
 | # | task | size | notes |
 |---|---|---|---|
-| **D1** | 🔴 **Decide what happens to a one-of-a-kind job** | decision, then small | A role is built from a GROUP of near-duplicates, so a job with no duplicate anywhere produces nothing. **Register the decision; do not quietly patch it.** This is the only item that raises the ceiling. |
+| **D1** | 🔴 **Decide what happens to a one-of-a-kind job** | decision, then small | A role is built from a GROUP of near-duplicates, so a job with no duplicate anywhere produces nothing. **Register the decision; do not quietly patch it.** This is the only item that raises the ceiling. ⚠ **Measurement done and a draft HR-223 entry written 2026-08-28** — parked mid-flight in `git stash` (`WIP D1/HR-223…`) when Track P took priority. Recover it rather than re-deriving: the archive work is finished, the register entry is not. |
 | **D2** | 🔴 **Fix title extraction** | small–med | The parser emits a placeholder or captures letterhead, banners, separator rows and `[pic]`. ⚠ Its reach is far wider than the gap — most affected documents are already in drafts. |
 | **D3** | ⚠ **Near-duplicate recall miss** | med | Documents sharing a title with others that did cluster. **Measure before tuning** — adjusting `jaccard_min` until the number improves is how this gets worse. |
 
