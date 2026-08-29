@@ -48,20 +48,35 @@ Full statement in [`CLAUDE.md`](CLAUDE.md) · runbook in [`deploy/README.md`](de
 
 ## 🔴 THE ONE THING TO UNDERSTAND
 
-**The system works. It has no output. The constraint was never engineering.**
+**Owner ruling, 2026-08-29 — this REPLACES the "published JDs" measure that stood here,
+and that measure is now wrong. Do not restore it.**
 
-Thousands of drafts pass every gate today and a handful have ever been shown to a reviewer.
-They are blocked on nothing we build — see [`docs/FINDINGS.md`](docs/FINDINGS.md) for the
-current figures and `/jd-bank/ui/funnel` for the live ones.
+> **Nothing is blocked on policy. Proceed with drafts. Publishing happens in the FINAL
+> DEPLOYMENT, not in pilot / dev / MVP.**
 
-**CUPE is near-zero approvable for reasons content cannot fix** — two *unratified HR policy
-decisions* block almost all of it. A week of content fixes and 19.4 GPU-hours moved the CUPE
-approvable count *down*.
+**So the measure here is DRAFTS — their coverage and their fidelity.** Not published JDs.
+`published` sits at 4 and is *expected* to: publishing is a deployment-phase activity and
+the review queue is not the bottleneck this phase is judged on.
 
-> **Before any engineering task, ask: does this change the number of PUBLISHED JDs?**
-> If not, it is not next — however real the defect.
+⚠ **What this voids, explicitly**, because it had accumulated into three documents and
+several standing blocks:
 
-**Done is measured in published JDs.** Not carry-through, not scores, not test counts.
+- **"Done is measured in published JDs"** — gone. It made every correct engineering task
+  look like a distraction, and it is what let three sessions run past the real work.
+- **"Before any task, ask: does this change the number of PUBLISHED JDs?"** — gone. Ask
+  instead: **does this give a role a draft, or make an existing draft truer to its
+  sources?**
+- **"B2/B3/B4 are the only work that matters"** — no. They are deployment-phase asks.
+  B3 is ratified, and the rest do not gate anything built here.
+- **⛔ "No further producer runs — zero published JDs each"** — the *reason* is void.
+  The cost (~44 hours for a full pass) is real and unchanged, so scope the run
+  (`--only-undrafted`, `--only-template`) rather than avoid it.
+- **HR-223 `drop`** still ships, but it is no longer "the ceiling cannot move until HR
+  rules". A one-of-a-kind job producing no draft is now an ENGINEERING gap (plan.md D1a).
+
+**What has NOT changed:** a draft is still a draft. Nothing auto-publishes, human approval
+still gates PUBLISHED, and the rulebook gates still say what they say. Ratifying B3 *as
+shipped* did not move any gate — see the register.
 
 ---
 

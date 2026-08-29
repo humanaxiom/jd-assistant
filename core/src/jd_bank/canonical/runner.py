@@ -796,6 +796,7 @@ async def run_canonical_producer(
     allow_downgrade: bool = False,
     skip_llm_written: bool = False,
     only_template: str | None = None,
+    only_undrafted: bool = False,
 ) -> CanonicalProducerResult:
     """Produce persisted DRAFT ``canonical_jds`` over the real role clusters.
 
@@ -893,6 +894,20 @@ async def run_canonical_producer(
     total = len(clustering.clusters)
     started_at = time.monotonic()
 
+    #: Clusters that ALREADY hold a canonical row, for `only_undrafted`. ONE query
+    #: rather than one per cluster — on the live Bank that is 1 instead of 2,493.
+    #:
+    #: ⚠ Efficiency ONLY, and this comment used to claim otherwise. It said reading
+    #: per-cluster would see this run's own writes and quietly stop filtering; breaking
+    #: it that way on purpose left the suite GREEN, because each cluster is visited
+    #: exactly once and its own row cannot pre-exist its visit. A rationale nothing can
+    #: falsify is decoration, so it is written down as what it is.
+    already_drafted: set[UUID] = set()
+    if only_undrafted:
+        already_drafted = set(
+            (await session.scalars(select(CanonicalJD.cluster_id))).all()
+        )
+
     # Deterministic cluster order (content-derived id); member order by source_id.
     for record in sorted(clustering.clusters, key=lambda r: str(r.cluster_id)):
         member_ids_sorted = sorted((m.source_id for m in record.members), key=str)
@@ -909,6 +924,13 @@ async def run_canonical_producer(
         # counter, any row and any model call. A cluster excluded here is not a
         # rulebook outcome and must not colour the per-form aggregates.
         if only_template is not None and template != only_template:
+            out_of_scope += 1
+            continue
+        # Same class of operational scope: draft ONLY what has no draft. A cluster with
+        # no draft reads as un-drafted; one with a wrong draft reads as finished — and
+        # being unable to express this is what left 24 clusters in the first state after
+        # the P1 repair, since re-drafting them otherwise costs a full ~44-hour pass.
+        if only_undrafted and record.cluster_id in already_drafted:
             out_of_scope += 1
             continue
         wjq_members = [jd for _, jd in by_form.get(WJQ_TEMPLATE, ())]
