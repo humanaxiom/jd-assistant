@@ -5,8 +5,11 @@ restate counts**: live numbers are at **`/jd-bank/ui/funnel`**, measured finding
 [`FINDINGS.md`](FINDINGS.md). Numbers repeated in a fourth place is how this project shipped
 five wrong ones that agreed with each other.
 
-> **Before any engineering task, ask: does this change the number of PUBLISHED JDs?**
-> If not, it is not next — however real the defect.
+> **Owner ruling 2026-08-29: nothing is blocked on policy, and publishing happens in the
+> FINAL DEPLOYMENT — not here.** The measure in pilot/dev/MVP is **drafts**: their
+> coverage and their fidelity. The old question ("does this change the number of PUBLISHED
+> JDs?") is VOID — it made correct engineering look like a distraction. Ask instead:
+> **does this give a role a draft, or make an existing draft truer to its sources?**
 
 ## 🔴 DIRECTIVE #1 — applies to EVERY item on this page
 
@@ -40,11 +43,12 @@ What is unblocked is that we are no longer waiting to be told where the bar sits
 
 | # | what | gate to start | why here |
 |---|---|---|---|
-| **MVP-0** | **B2 — run the pilot** | needs HR only | Runs *beside* everything below; it is pure lead time and it is the only work that moves the published count. Do not sequence anything behind it. |
-| **MVP-1** | **Core: finish Track P** | nothing — start now | ✅ **P3b is DONE** and produced a defect like the two audits before it — **726 CUPE departments the archive states and the Bank does not** (§9). Now **P3d** (fix the department read, scope-matched number FIRST), **P3e**, **P3f**, then **P3c** and **P4**. E1 depends on `department` being trustworthy, and it is now measurably not — see the note below. |
+| ~~**MVP-0**~~ | **B2 — the pilot: DEPLOYMENT PHASE, not this one** | — | Owner ruling 2026-08-29: publishing happens in the final deployment. It is not a gate on anything here and it is not the measure of this phase. |
+| **MVP-0** | 🔴 **P4 — draft the 24 clusters that have none** | nothing — start now | The measure here is DRAFTS, and 24 roles have none. `--only-undrafted` makes it a scoped run of minutes. |
+| **MVP-1** | **Core: finish Track P** | nothing — start now | ✅ **P3b is DONE** and produced a defect like the two audits before it — **726 CUPE departments the archive states and the Bank does not** (§9). Now **P3d** (fix the department read, scope-matched number FIRST), **P3e**, **P3f**, then **P3c**. (P4 moved up to MVP-0 — it is drafts, and it is unblocked.) E1 depends on `department` being trustworthy, and it is now measurably not — see the note below. |
 | **MVP-2** | **E1 VPFA → E2 Facilities** | the org tree + curated alias map | The scope seam is built; adding a unit is configuration. The **people-work can start today** and does not wait for MVP-1. |
 | **MVP-3** | **Track G — upload into the Builder** | MVP-1 landed | Changes *who can use the Bank*. Its two hard blockers are verified below, and one of them re-cuts the offline bundle. |
-| **MVP-4** | **Track F — currency after publishing** | E2 + a real pilot | With four published JDs a currency loop is ceremony; the pilot's twenty make it real. |
+| **MVP-4** | **Track F — currency after publishing** | E2, and the deployment phase | A currency loop acts on PUBLISHED JDs, which is deployment-phase work by the owner ruling. Design is done; building it here would be ceremony. |
 
 🔴 **MVP-1 before MVP-2, and this is not sequencing hygiene.** Track E defines a unit by
 **department**, and `department` is one of the four fields **nobody has ever checked
@@ -79,7 +83,7 @@ in place.
 | **P3e** | **Collapse repeated internal spaces in the label match** | small | `_extract_label` strips and lower-cases but never collapses, so `Position  Title`, `Department  Name`, `IDENTIFICATION   Position Number` match nothing. Small, real, spans every field. §9d. |
 | **P3f** | ⚠ **`classification` is read by HARDCODED REGEX, not rulebook data** | small, needs a register entry | `_CUPE_GRADE_RX` / `_JDFN_GRADE_APPROVED_RX` / `_JDFN_GRADE_FIELD_RX` in `parser/classification.py`. The field audit cannot see it at all, so it is reported unevaluated rather than clean. Same shape as the `employee_group` two-provenances defect. §9e. |
 | **P3c** | ⚠ **One recovered title contains an incumbent's name** | small, needs a decision | `Leigh McGregor. Departmental Assistant`. Detecting a personal name needs a measurement and a registered rule, not a regex invented on a sample of one — and NN #5 makes incumbent-name removal a rulebook quality step. §8d. |
-| **P4** | ⚠ **24 clusters now have no draft** | small, after a decision | The consequence of P1, and it is the honest state — but nothing regenerates them today. `src.jd_bank.canonical` has `--only-template` and **no per-cluster filter**, so re-drafting just those is not expressible; a full producer run is under a standing ⛔. Either add the filter, or accept them as un-drafted until the next run. |
+| **P4** | 🔴 **Draft the 24 clusters that have none — UNBLOCKED, and now expressible** | small | It needed a ruling and it has one: *nothing is blocked on policy*. `--only-undrafted` makes "draft what has no draft" a scoped run — minutes, not the ~44-hour full pass that made this impossible to justify. **Idempotent**: a second run over a fully-drafted Bank writes nothing and pays for no model call. Verified against the live Bank: **2,493 clusters, 2,469 with a version, 24 with none.** |
 
 ⚠ **The lesson that generalises:** the old routing guard asked one direction and stayed
 green through ~140 mislabels. **Assert both directions, or the guard is decoration.**
@@ -111,34 +115,35 @@ A1–A5 are built and merged. Two live surfaces, both reading the database at re
 
 ---
 
-# TRACK B — the pilot (the actual deliverable)
+# TRACK B — the pilot ⏸ DEPLOYMENT PHASE, not this one
+
+**Owner ruling 2026-08-29: publishing happens in the FINAL DEPLOYMENT.** Track B is not a
+gate on anything built here, and it is not the measure of this phase. It is parked, not
+abandoned.
 
 | # | task | who | notes |
 |---|---|---|---|
-| **B2** | 🔴 **Run the pilot** | needs HR | ~20 approvable drafts reviewed for real. **Success = 20 PUBLISHED JDs + the reviewer's written objections.** **This is now the whole ask** — B3 is settled and B4 is down to the remainder. |
-| ~~**B3**~~ | ✅ **RATIFIED 2026-08-29 — HR-042 + HR-052** | done | `SFU-APPROVE-QUAL-EQUIVALENT` and `SFU-APPROVE-KSA-ORDER`, ratified **as shipped**. ⚠ **Read what that does.** It settles who is answerable for the bar; it does **not** move the bar. No value changed, `rules_version` is unchanged, nothing re-validates — **CUPE did not become approvable.** A draft failing these gates is now non-compliant with a *signed* standard, so the remedy is rewording the JD, not waiting on a ruling that might relax the rule. |
-| **B4** | **Book the remaining ratifications** | needs HR | The count still outstanding is in the [register](decisions/HR-DECISION-REGISTER.md)'s own header, which is the record and now separates **still-outstanding** from **ratified**. ⚠ A count of the `hr_policy` tier is *not* a count of what HR still owes — the header used to conflate them and told HR they owed rulings they had already given. |
+| **B2** | **Run the pilot** | deployment phase | ~20 approvable drafts reviewed for real. Still the right thing to do eventually; it gates nothing here. |
+| ~~**B3**~~ | ✅ **RATIFIED 2026-08-29 — HR-042 + HR-052** | done | Ratified **as shipped**: no value changed, `rules_version` unmoved, nothing re-validated. It settled who is answerable for the bar, not where the bar sits. |
+| **B4** | **Book the remaining ratifications** | deployment phase | The count outstanding is in the [register](decisions/HR-DECISION-REGISTER.md)'s own header, which now separates still-outstanding from ratified. ⚠ A count of the `hr_policy` tier is *not* a count of what HR still owes. |
 
-**B2 is the only remaining ask, and it is the only work that moves the published-JD
-count.** Pure lead time.
-
-> ⚠ **The B3 ruling did not remove the CUPE blockage — it made it policy.** The plan
-> previously read as though a ruling would unblock CUPE. Ratifying as shipped does the
-> opposite of relaxing: those drafts still fail, and the path to publishing them now runs
-> through *rewriting them to comply*, which is content work with a signed target rather
-> than an open question. Do not quote B3 as "the blocker is gone".
+> 🔴 **This track used to say "B2–B4 are the only work that moves the published-JD count,
+> and that is the only measure".** That framing made every correct engineering task look
+> like a distraction and is what let three sessions of real work read as avoidance. The
+> measure here is **drafts** — coverage and fidelity.
 
 ---
 
 # TRACK D — the archive gap (new, and one item changes the ceiling)
 
-From [`FINDINGS.md`](FINDINGS.md) §2. **None of these changes the published count today**,
-so none displaces Track B — but D1 changes what the Bank can *ever* publish.
+From [`FINDINGS.md`](FINDINGS.md) §2. **D1a is the largest DRAFT-COVERAGE gap in the
+archive** — 462 singular jobs that produce nothing at all — and under the 2026-08-29
+owner ruling that makes it engineering work, not a decision to wait on.
 
 | # | task | size | notes |
 |---|---|---|---|
-| ~~**D1**~~ | ✅ **REGISTERED as HR-223 — 2026-08-29** | done, but the ruling is not | The decision is on the record and the population is measured by code anyone can re-run (`make singletons`, `docs/singletons/`). ⚠ **The parked draft's numbers did not survive re-derivation** — three buckets moved and the qualification comparison *inverted*; [`FINDINGS.md`](FINDINGS.md) §2a has the before/after. **`drop` still ships**, so the ceiling is unchanged until HR rules: it is registered `open`, not fixed. |
-| **D1a** | **Enact whichever policy HR chooses** | med, after the ruling | `mint_role` needs two independent `ge=2` floors relaxed (`comparison.min_cluster_size` and `ClusterRecord.member_count`); `queue_for_authoring` needs no clustering change at all, because the Builder already mints roles from no source documents. ⚠ **Not before D3.** Applied to the whole no-twin pool, `mint_role` would also mint a role for each of the 497 recall misses — duplicating roles that already exist. |
+| ~~**D1**~~ | ✅ **REGISTERED as HR-223 — 2026-08-29** | done, but the ruling is not | The decision is on the record and the population is measured by code anyone can re-run (`make singletons`, `docs/singletons/`). ⚠ **The parked draft's numbers did not survive re-derivation** — three buckets moved and the qualification comparison *inverted*; [`FINDINGS.md`](FINDINGS.md) §2a has the before/after. **`drop` still ships** and stays registered `open` — but under the 2026-08-29 owner ruling it no longer BLOCKS: closing the gap is D1a, and it is engineering. |
+| **D1a** | 🔴 **Give the one-of-a-kind jobs a draft — an ENGINEERING gap now, not a ruling** | med | Owner ruling 2026-08-29: nothing is blocked on policy. **462 documents carry a title appearing exactly once** and produce no draft at all, because clustering takes EDGES as its only input. HR-223 still ships `drop` and is still registered `open` — but that is now a thing to BUILD past, not to wait on. `queue_for_authoring` is the cheaper route and needs NO clustering change — the Builder already mints roles from no source documents (`source_document_ids=[]`). `mint_role` needs two independent `ge=2` floors relaxed (`comparison.min_cluster_size`, `ClusterRecord.member_count`). ⚠ **Not before D3:** over the whole no-twin pool it would also mint a role for each of the **497 recall misses**, duplicating roles that already exist. |
 | **D2** | 🔴 **Fix title extraction** | small–med | The parser emits a placeholder or captures letterhead, banners, separator rows and `[pic]`. ⚠ Its reach is far wider than the gap — most affected documents are already in drafts. |
 | **D3** | ⚠ **Near-duplicate recall miss — now MEASURED at 497** | med | Documents sharing a title with others that did cluster: **497** of the 1,204 no-twin documents, from `make singletons` (§2a). That is the measurement D1 was waiting on, and it is larger than the 462 genuinely singular jobs beside it. **Measure again before tuning** — adjusting `jaccard_min` until the number improves is how this gets worse, and a shared title is evidence of a miss, not proof of one. |
 
@@ -253,5 +258,5 @@ Real, registered, and **none of it changes the published-JD count.**
 | **JDFN `problem_solving`** | Fabrication rate measured well above 100%. Untouched by the CUPE work. |
 | **Retire the static dashboards** | Two sources of truth will disagree, and the wrong one gets quoted. The live funnel replaces them. |
 | **Phase F · Phase G · overlap graph** | Unchanged. |
-| ⛔ **No further producer runs** | ~19 GPU-hours each; zero published JDs each. |
-| ⛔ **`make bank-audit` is not progress** | It measures draft FIDELITY, not DELIVERY. |
+| ~~⛔ **No further producer runs**~~ | **LIFTED 2026-08-29.** Its stated reason — "zero published JDs each" — is void under the owner ruling. The COST is unchanged and real (~44 hours for a full pass), so **scope the run**: `--only-undrafted`, `--only-template`, `--limit`. An unscoped pass still needs a reason. |
+| ~~⛔ **`make bank-audit` is not progress**~~ | **LIFTED.** It measures draft FIDELITY — which is now half the measure, not a distraction from it. |

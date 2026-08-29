@@ -94,6 +94,16 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "harmonization.templates_harmonized, an HR-registered decision.",
     )
     parser.add_argument(
+        "--only-undrafted",
+        action="store_true",
+        help="process ONLY clusters that have NO canonical row at all — draft what has "
+        "no draft. Operational scoping in the same class as --only-template: it "
+        "changes no rulebook decision. Written because the P1 repair left 24 clusters "
+        "un-drafted and regenerating exactly those otherwise cost a full pass over "
+        "2,493 clusters (~44 hours) to do minutes of work. Idempotent: a second run "
+        "over a fully-drafted Bank writes nothing and pays for no model call.",
+    )
+    parser.add_argument(
         "--commit-every",
         type=int,
         default=25,
@@ -174,6 +184,7 @@ async def _run(args: argparse.Namespace) -> CanonicalProducerResult:
                 allow_downgrade=args.allow_downgrade,
                 skip_llm_written=args.resume,
                 only_template=args.only_template,
+                only_undrafted=args.only_undrafted,
             )
             # The producer may checkpoint-commit between clusters (``--commit-every``);
             # this final commit is the backstop for the remainder after the last one.

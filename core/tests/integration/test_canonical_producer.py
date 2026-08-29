@@ -1804,3 +1804,111 @@ async def test_a_mixed_cluster_is_counted_mixed_whichever_form_wins(
             )
             await session.commit()
         assert result.clusters_mixed_jdfn_wjq == 1
+
+
+# --- operational scoping: --only-undrafted -------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_only_undrafted_drafts_the_clusters_that_have_none(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """🔴 WHY THIS EXISTS. Deleting the 24 mislabelled CUPE drafts (P1) left 24 clusters
+    with NO draft at all, and nothing could regenerate exactly those: the only scoping
+    was ``--only-template`` (a whole cohort) and ``--limit`` (a smoke test). Re-drafting
+    24 clusters therefore cost a full pass over 2,493 — about 44 hours — to do a few
+    minutes of work.
+
+    A cluster with no draft reads as *un-drafted*; one with a wrong draft reads as
+    *finished*. Being unable to express "draft what has no draft" is what kept those 24
+    in the first state indefinitely.
+
+    ⚠ **Operational scoping, exactly like ``--only-template``** — it filters which
+    clusters THIS INVOCATION processes and changes no rulebook decision, so it is a CLI
+    flag in the same class as ``--limit`` and carries no register entry.
+
+    The assertion that matters is the third: the already-drafted cluster is not merely
+    uncounted, its existing row is **untouched**.
+    """
+    async with session_maker() as session:
+        a1 = await _seed_jd(
+            session, storage_ref="a1", sha256=_sha("a1"), parsed=_analyst()
+        )
+        a2 = await _seed_jd(
+            session, storage_ref="a2", sha256=_sha("a2"), parsed=_analyst()
+        )
+        await _role_edge(session, a1.id, a2.id)
+        b1 = await _seed_jd(
+            session, storage_ref="b1", sha256=_sha("b1"), parsed=_analyst(group="cupe")
+        )
+        b2 = await _seed_jd(
+            session, storage_ref="b2", sha256=_sha("b2"), parsed=_analyst(group="cupe")
+        )
+        await _role_edge(session, b1.id, b2.id)
+        await session.commit()
+
+        # A full pass drafts both...
+        first = await run_canonical_producer(session, rewrite_client=None)
+        await session.commit()
+        assert first.drafts_persisted == 2
+
+    async with session_maker() as session:
+        # ...now delete ONE draft, exactly as the P1 repair did.
+        rows = (await session.scalars(select(CanonicalJD))).all()
+        dropped_cluster = rows[0].cluster_id
+        kept_id = rows[1].id
+        kept_created = rows[1].created_at
+        await session.delete(rows[0])
+        await session.commit()
+
+    async with session_maker() as session:
+        scoped = await run_canonical_producer(
+            session, rewrite_client=None, only_undrafted=True
+        )
+        await session.commit()
+
+        assert scoped.drafts_persisted == 1, "the un-drafted cluster is re-drafted"
+        assert scoped.drafts_refreshed == 0, "the drafted one is not rewritten"
+        assert scoped.clusters_out_of_scope == 1
+
+    async with session_maker() as session:
+        rows = (await session.scalars(select(CanonicalJD))).all()
+        assert len(rows) == 2, "the gap is closed"
+        assert {r.cluster_id for r in rows} >= {dropped_cluster}
+        # The already-drafted row was not touched — not merely uncounted.
+        kept = next(r for r in rows if r.id == kept_id)
+        assert kept.created_at == kept_created
+
+
+@pytest.mark.asyncio
+async def test_only_undrafted_does_nothing_when_every_cluster_has_a_draft(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """The idempotence that makes it safe to run unattended.
+
+    ⚠ **Prove the flag can produce a NON-zero first**, or a zero here says nothing —
+    the test above is that proof. Here the same flag over a fully-drafted Bank must be a
+    no-op: no row written, no model call paid for, every cluster counted out of scope so
+    the run says out loud what it did not look at.
+    """
+    async with session_maker() as session:
+        a1 = await _seed_jd(
+            session, storage_ref="a1", sha256=_sha("a1"), parsed=_analyst()
+        )
+        a2 = await _seed_jd(
+            session, storage_ref="a2", sha256=_sha("a2"), parsed=_analyst()
+        )
+        await _role_edge(session, a1.id, a2.id)
+        await session.commit()
+
+        await run_canonical_producer(session, rewrite_client=None)
+        await session.commit()
+
+        again = await run_canonical_producer(
+            session, rewrite_client=None, only_undrafted=True
+        )
+        await session.commit()
+
+        assert again.drafts_persisted == 0
+        assert again.drafts_refreshed == 0
+        assert again.clusters_out_of_scope == 1
