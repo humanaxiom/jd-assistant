@@ -399,6 +399,73 @@ recorded in git and here instead.
 
 ---
 
+
+## 8. 🔴 Half the CUPE archive had no title, and it was one line of the WJQ parser
+
+**Measured 2026-08-29 against the raw source files (P3).** `title` is the second field
+ever checked this way; the first (`employee_group`, §7) produced two defects immediately.
+
+### 8a. It was never a general title problem
+
+| bargaining unit | documents | with NO title (`Untitled Position`) |
+|---|---:|---:|
+| **cupe** | 4,300 | **2,046 — 47.6%** |
+| apsa · apex · poly · excluded | 5,688 | **0 — 0.0%** |
+
+`Untitled Position` is a **sentinel, not an empty string**, so `title <> ''` reported 100%
+coverage over all of it (§2b). 1,395 of those placeholders were already inside drafts.
+
+### 8b. The cause: label and value in ONE cell
+
+antiword's fixed-width render of the WJQ form puts them together, while `_extract_label`
+reads the value from the **next** cell. Verbatim from the archive:
+
+```
+Department Position Title: Program Assistant
+Department Position Title: Budget Assistant Department Name/Section:
+```
+
+**Result: 805 titles recovered · CUPE placeholders 47.6% → 28.9% · position numbers
+2,416 → 3,009** (same code path). `PARSER_VERSION` v6 → v7.
+
+### 8c. ⚠ Three corrections to our own work, in one investigation
+
+1. **The first fix passed its tests and recovered ZERO.** It added the possessive
+   spelling `Department's Position Title`, found by a probe that scanned the WHOLE
+   document — but that occurrence is in the form's *blank template header*, and the
+   parser reads only the identification section, where the spelling is the one already
+   supported. **A probe whose scope does not match the parser's scope measures a
+   different question and answers it confidently.**
+2. **The risk assessment was wrong too.** The `'Lisa Buckley'` / `'Phil McCloy'` values
+   that made us defer this came from the same whole-body scan. *Inside* the
+   identification section the neighbouring text is other **labels**, which can be cut
+   deterministically.
+3. **A filename oracle nearly killed the fix.** It reported 73.7% of recoveries
+   "suspect" — an artefact of a tokenizer that could not split `00001726Clerk`, so
+   CORRECT recoveries scored as mismatches. With the tokenizer fixed and a CONTROL added,
+   the oracle's ceiling is **40.4%** (agreement on titles the parser already accepts) and
+   recoveries reach **45.1%** — *better than the status quo*. A flat metric is a question.
+
+### 8d. What is refused, and what remains
+
+Recovering more titles must not mean inventing them. A value whose last token is a
+connector was cut off by the column width — `Housing &`, `Research and` — and is
+**refused back to the sentinel**: a fragment is a confident wrong value, while the
+sentinel announces its own failure and every surface already reports it as a gap. Form
+furniture (the underscore fill-in rule, the `Approved by` sign-off column) is stripped.
+
+Final residual on the 805: **0 dangling, 0 underscores, 0 sign-off bleed.**
+
+⚠ **Known and NOT fixed: one recovered title contains an incumbent's name**
+(`Leigh McGregor. Departmental Assistant`). Detecting a personal name needs a decision and
+a measurement, not a regex invented on a sample of one — and NN #5 makes incumbent-name
+removal a rulebook quality step.
+
+⚠ **The remaining ~1,241 CUPE placeholders are genuine gaps**, not a fixable parse: about
+half the placeholder population has no title label anywhere in the document.
+
+---
+
 ## Full working
 
 The original per-topic documents are in **`docs/archive/plans/`** — kept for the reasoning

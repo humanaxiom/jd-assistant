@@ -4626,7 +4626,12 @@ decisions:
       file: wjq.yaml
       path: wjq.id_labels
     current_default:
-      title: [Department Position Title, Position Title]
+      title:
+        - Department's Position Title
+        - Department’s Position Title
+        - Departments Position Title
+        - Department Position Title
+        - Position Title
       department: [Department Name]
       position_number: [Position Number(s), Position Number]
       grade: [Classification & Grade Approved, Classification and Grade Approved]
@@ -4634,15 +4639,34 @@ decisions:
     tier: technical
     why_it_matters: >-
       These inline labels are read to populate `title` / `department` / `position_number`
-      / `grade`. ✅ MEASURED: the `.docx` template carries `Department Position Title`;
-      many `.doc` renders omit it, so `title` falls back to `Untitled Position` rather
-      than misreading the SFU/CUPE banner line (the base parser's WJQ title misread was
-      one of the finding's symptoms). Reading the label — not a hardcoded column — is
-      what makes the extraction data-driven.
+      / `grade`. `_extract_label` matches a cell EXACTLY (case-insensitive,
+      colon-stripped), so a spelling missing from this list matches NOTHING — the field
+      is not degraded, it is absent.
+      🔴 CORRECTED 2026-08-29, and the correction was large. This entry previously said
+      "many `.doc` renders omit it, so `title` falls back to `Untitled Position`". That
+      was an ASSUMPTION about the archive and it was wrong. MEASURED against the raw
+      source files: **47.6% of CUPE documents (2,046 of 4,300) had no title at all**,
+      against **0.0% for every other bargaining unit** — so it was never a general title
+      problem, it was this list. The label was not omitted; it was spelled POSSESSIVELY
+      ("Department's Position Title", plus the curly-apostrophe and apostrophe-less
+      variants), which this list did not carry. Of 500 placeholder documents read from
+      disk, 17.4% carry a title under a spelling now listed, with the value correctly in
+      its own next cell. ⚠ 1,395 of those placeholders were ALREADY inside drafts.
     impact_if_changed: >-
-      Moves `rules_version`. Pinned by mutation (`test_parser_wjq.py`: rename the title
-      label and `title` becomes `Untitled Position` — proving it reads the data, not a
-      hardcode).
+      Moves `rules_version` AND `PARSER_VERSION`, so it requires an archive re-parse in
+      the same change. Pinned by mutation (`test_parser_wjq.py`: rename the title label
+      and `title` becomes `Untitled Position` — proving it reads the data, not a
+      hardcode), and by a spelling-matrix test over all five accepted forms.
+      ⚠ ADDING a spelling is not free. A further 26.2% of placeholders carry the label
+      and its value in ONE cell (antiword's fixed-width render), which `_extract_label`
+      cannot read because it takes the value from the NEXT cell — and that population is
+      where the risk lives: the adjacent column is sometimes a department, a bled
+      neighbouring label, or an INCUMBENT'S NAME. It is deliberately NOT fixed here.
+      Measured with the filename as an independent oracle, recovered values agree with
+      the filename 45.1% of the time against a CONTROL of 40.4% on titles the parser
+      already accepts — i.e. as good as the status quo on aggregate, but not safe
+      value-by-value. Recovering that half needs a guard and a decision, not a bigger
+      label list.
     status: open
 
   - id: HR-148

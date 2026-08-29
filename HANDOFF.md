@@ -78,9 +78,10 @@ approvable count *down*.
 | `/jd-bank/ui/collection/it` | the IT collection · `?queue=1` for the review queue |
 | `/jd-bank/ui/compose/new` | the Builder — search, clone, live compliance |
 
-`PARSER_VERSION` **`jd_segmenter_v6`** · the archive was re-parsed in the same change, as
-that constant's contract requires (a bump without a re-parse leaves every layer querying a
-version with no rows, i.e. an apparently empty Bank).
+`PARSER_VERSION` **`jd_segmenter_v7`** — bumped twice on 2026-08-29 (v6 = the employee
+group, HR-226; v7 = the WJQ title). **Each bump shipped WITH its re-parse**, as that
+constant's contract requires: a bump without one leaves every layer querying a version
+with no rows, i.e. an apparently empty Bank.
 
 ### What changed on 2026-08-28/29, and what it left behind
 
@@ -95,6 +96,16 @@ version with no rows, i.e. an apparently empty Bank).
   not written**: it is hash-chained (`audit_chain_tail`) and forging an entry the app never
   made would corrupt it. **24 clusters now have no draft** and nothing regenerates them —
   that is plan.md **P4**.
+- **The bargaining unit is now its own facet** with `(unrecorded)` named (P2). The
+  "By template" table was being read as an APSA-vs-CUPE split and is not one — its `jdfn`
+  bucket also held every document naming no unit. ⚠ Measured while fixing it: the
+  unrecorded are **the OLD archive** (88% old/transition, **not one current-era
+  document**), so counting them as JDFN blended thousands of modern APSA JDs with
+  thousands of pre-2019 ones. §7c-i.
+- **Half the CUPE archive had no title, and now does (P3a).** 47.6% of CUPE documents
+  carried the `Untitled Position` sentinel against **0.0% everywhere else** — antiword's
+  render puts the label and its value in ONE cell while the parser read the next one.
+  **805 titles recovered, 47.6% → 28.9%**, position numbers +593. §8.
 - **Offline deployment exists and was verified end to end** (bundle → install on separate
   volumes/ports → row counts matched). See below.
 - **The operator scripts are now `build.ps1` → `launch.ps1` → `teardown.ps1`.**
@@ -112,9 +123,17 @@ version with no rows, i.e. an apparently empty Bank).
 
 | | |
 |---|---|
-| **P2** | **Report `employee_group` as matched / not-matched / UNRECORDED.** `template_of` defaults every unknown to JDFN, so a third of the archive is *counted* as JDFN with no evidence — the funnel and the baseline "By template" facet both inherit it. This is the same no-could-not-evaluate-bucket defect as the IT collection, and it is what made the CUPE/APSA numbers look wrong in the first place. Small. |
-| **P3** | **Audit the remaining fields against the SOURCE FILES.** Checking `employee_group` that way produced two defects immediately. `title` is next (`Untitled Position` is a placeholder that reads as success). **No other field has ever been checked against the raw archive.** |
+| **P3b** | **Audit the fields nobody has checked yet.** `employee_group` and `title` are the ONLY two ever compared against the raw archive, and **each produced defects immediately** — two and one respectively. `department`, `grade`, `classification` and `position_number` have never been checked at all. This is the highest-yield engineering seam we have found. |
+| **P4** | **24 clusters have no draft** and nothing regenerates them. `src.jd_bank.canonical` has `--only-template` but no per-cluster filter, so re-drafting exactly those is not expressible; a full producer run is under a standing ⛔. Needs a ruling, not code. |
+| **P3c** | ⚠ **One recovered title contains an incumbent's name** (`Leigh McGregor. Departmental Assistant`). Needs a measurement and a registered rule — NOT a name-shaped regex invented on a sample of one (NN #5). |
 | **D1** | Measurement is **already done** and an HR-223 entry drafted — parked in `git stash` (`stash@{0}`, `WIP D1/HR-223…`). Recover it rather than re-deriving; the archive work is finished, the register entry is not. |
+
+⚠ **The method is the finding.** Every defect this session came from reading the SOURCE
+FILES and running a CONTROL first — never from the database, and never from an aggregate.
+Three times the first answer was wrong: a probe whose scope did not match the parser's, a
+tokenizer that could not split `00001726Clerk`, and a facet of my own that blurred "could
+not evaluate" with "evaluated and found nothing". **Run the control before believing the
+result.** [`FINDINGS.md`](docs/FINDINGS.md) §8c.
 
 Everything else, including the rest of the archive gap, is in [`docs/plan.md`](docs/plan.md).
 
