@@ -6,15 +6,25 @@
 <div class="panel">
   <h2>Find a JD to start from</h2>
   <p class="meta">
-    Semantic search over the SFU archive (JDFN scope — CUPE/WJQ excluded, HR-143).
-    Pick a close match to pre-fill the Builder, then edit and re-check. Nothing is
-    published; cloning just seeds a draft.
+    Semantic search over the SFU archive, scoped to the form you are authoring on
+    (HR-225). Pick a close match to pre-fill the Builder, then edit and re-check.
+    Nothing is published; cloning just seeds a draft.
   </p>
   <form method="get" action="/jd-bank/ui/compose/search">
+    {# Keep the instrument across a second search on this page (HR-225). #}
+    <input type="hidden" name="form" value="{{ form_spec.template }}">
     <label for="q">Describe the role</label>
     <input id="q" name="q" value="{{ query }}" placeholder="e.g. financial analyst, research coordinator">
     <button type="submit">Search</button>
   </form>
+  {# Say what the results are scoped to. A search that silently returns the OTHER
+     instrument's documents is what made this look like a clone bug rather than a
+     search bug — the scope must be visible, not inferred from the results. #}
+  <p class="meta">
+    Searching <strong>{{ form_spec.label }}</strong> job descriptions only.
+    Cloning one starts a {{ form_spec.label }} draft.
+    <a href="/jd-bank/ui/compose/new?form={{ form_spec.template }}">← back to the form</a>
+  </p>
 </div>
 
 {% if message %}

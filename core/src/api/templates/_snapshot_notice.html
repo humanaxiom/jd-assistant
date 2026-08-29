@@ -1,0 +1,23 @@
+{# Shown at the top of EVERY read-only artifact dashboard.
+
+   These pages render committed JSON under docs/ (baseline / dedup / cluster summaries),
+   not the database — so their numbers are as old as the last pipeline run. The live
+   funnel computes from Postgres at request time.
+
+   This exists because the risk was recorded and then happened anyway: docs/plan.md
+   (Track C) says of the static dashboards "two sources of truth will disagree, and the
+   wrong one gets quoted", and on 2026-08-28 that is exactly what occurred — the funnel
+   had shipped the day before, the nav did not link to it, and the artifact pages were
+   read as the current state. Pinned by tests/unit/test_dashboard.py. #}
+<div class="panel warn">
+  <strong>📸 Snapshot, not live.</strong>
+  <span class="meta">
+    This page renders a <em>committed artifact</em> from the last pipeline run, so its
+    figures are only as current as that run. For counts computed from the database at
+    request time — documents, roles, approvable, published and the gap — use the live
+    funnel.
+  </span>
+  <div style="margin-top:.5rem">
+    <a href="/jd-bank/ui/funnel"><strong>📈 Open the live funnel &rarr;</strong></a>
+  </div>
+</div>

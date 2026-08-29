@@ -207,7 +207,7 @@ async def test_title_collision_pass_needs_no_embed_client_or_driver(
 ) -> None:
     advising, science = uuid.uuid4(), uuid.uuid4()
 
-    async def fake_collisions(session: Any, title: str) -> list[Any]:
+    async def fake_collisions(session: Any, title: str, **kwargs: Any) -> list[Any]:
         assert title == "Academic Advisor"
         return [
             (advising, "Academic Advisor", "Student Advising", "published"),
@@ -326,7 +326,7 @@ async def test_a_raising_neo4j_driver_degrades_the_related_pass_only(
 ) -> None:
     collision = uuid.uuid4()
 
-    async def fake_collisions(session: Any, title: str) -> list[Any]:
+    async def fake_collisions(session: Any, title: str, **kwargs: Any) -> list[Any]:
         return [(collision, "Academic Advisor", "Student Advising", "published")]
 
     monkeypatch.setattr(duplicates_mod, "_title_collision_matches", fake_collisions)
@@ -351,7 +351,7 @@ async def test_a_raising_embed_client_degrades_the_related_pass_only(
     """The Builder must never lose its compliance panel because the GPU is down."""
     collision = uuid.uuid4()
 
-    async def fake_collisions(session: Any, title: str) -> list[Any]:
+    async def fake_collisions(session: Any, title: str, **kwargs: Any) -> list[Any]:
         return [(collision, "Academic Advisor", "Student Advising", "published")]
 
     monkeypatch.setattr(duplicates_mod, "_title_collision_matches", fake_collisions)
@@ -543,7 +543,7 @@ async def test_exclude_cluster_id_is_never_offered_back(
     you cloned."""
     cloned_from, other_collision, other_related = (uuid.uuid4() for _ in range(3))
 
-    async def fake_collisions(session: Any, title: str) -> list[Any]:
+    async def fake_collisions(session: Any, title: str, **kwargs: Any) -> list[Any]:
         return [
             (cloned_from, "Academic Advisor", "Student Advising", "published"),
             (other_collision, "Academic Advisor", "Faculty of Science", "published"),
@@ -592,7 +592,7 @@ async def test_the_same_title_count_is_the_true_total_not_the_listed_rows(
     cloning one of SFU's 9 "Academic Advisor" roles must be told there are 9."""
     ids = [uuid.uuid4() for _ in range(9)]
 
-    async def fake_collisions(session: Any, title: str) -> list[Any]:
+    async def fake_collisions(session: Any, title: str, **kwargs: Any) -> list[Any]:
         return [
             (cluster_id, "Academic Advisor", f"Department {i % 6}", "published")
             for i, cluster_id in enumerate(ids)
@@ -622,7 +622,7 @@ async def test_a_role_in_title_collisions_is_not_repeated_in_related(
 ) -> None:
     shared, only_related = uuid.uuid4(), uuid.uuid4()
 
-    async def fake_collisions(session: Any, title: str) -> list[Any]:
+    async def fake_collisions(session: Any, title: str, **kwargs: Any) -> list[Any]:
         return [(shared, "Academic Advisor", "Student Advising", "published")]
 
     async def fake_nearest(

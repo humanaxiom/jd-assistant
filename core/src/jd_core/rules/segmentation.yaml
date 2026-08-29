@@ -170,6 +170,25 @@ wjq_excluded_from_current_practice: true
 # (CLAUDE.md §2). Read by `api/routes/compose_ui.py` (the employee-group dropdown).
 jdfn_employee_groups: [apsa, apex, poly]
 
+# The bargaining unit(s) whose JDs are written on the WJQ instrument rather than the
+# JDFN. This is the SEARCH SCOPE for the Builder's "start from an existing JD": pick the
+# CUPE (WJQ) form and the clone sources are these groups; pick JDFN and they are
+# everything else. HR-225.
+#
+# 🔴 Reported 2026-08-28: selecting CUPE and searching returned JDFN documents, so
+# cloning one landed the author back in the APSA form. The value was `_NON_JDFN_GROUP =
+# "cupe"`, a CONSTANT IN PYTHON (composer/search.py) that excluded CUPE unconditionally
+# — invisible to this register, and mis-cited to HR-143, which is about the approval
+# COHORT and says nothing about search.
+#
+# ⚠ The two directions are deliberately NOT symmetric. WJQ scope is an INCLUDE list;
+# JDFN scope is "not in this list", NOT an include-list of `jdfn_employee_groups`.
+# `employee_group` is recorded on only ~48% of the archive, so an include-list would
+# silently drop every document whose group was never parsed — a large, invisible loss of
+# search recall. Pinned by
+# `test_jdfn_search_still_keeps_documents_with_no_group_recorded`.
+wjq_employee_groups: [cupe]
+
 # --- aggregation / reporting --------------------------------------------------
 # Presentation, not policy: neither changes any file's score, grade, gate decision or
 # segment. Both are explicitly exempted as `trivial` in the register, with reasons.

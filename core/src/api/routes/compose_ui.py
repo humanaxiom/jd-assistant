@@ -84,7 +84,12 @@ from src.jd_bank.composer.wjq_answers import WJQAnswers
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.llm.client import ChatClient
 from src.jd_core.models.parsed_jd import SFUJobDescription
-from src.jd_core.models.quality import DEFAULT_TEMPLATE, WJQ_TEMPLATE, SFUSection
+from src.jd_core.models.quality import (
+    DEFAULT_TEMPLATE,
+    WJQ_TEMPLATE,
+    JDTemplate,
+    SFUSection,
+)
 from src.jd_core.rules import get_rules
 from src.jd_export import render_sfu_docx
 
@@ -649,6 +654,7 @@ async def _related_roles_panel(
     embed_client: EmbedClient | None,
     neo4j_driver: AsyncDriver | None,
     exclude_cluster_id: UUID | None,
+    form: JDTemplate = DEFAULT_TEMPLATE,
 ) -> DuplicateGuard:
     """The near-duplicate authoring guard for one Check — best effort, bounded in time,
     and it never costs the compliance panel.
@@ -680,6 +686,7 @@ async def _related_roles_panel(
         return await asyncio.wait_for(
             find_related_roles(
                 jd,
+                form=form,
                 session=session,
                 embed_client=embed_client,
                 neo4j_driver=neo4j_driver,
@@ -752,6 +759,7 @@ async def check_draft(
             embed_client=embed_client,
             neo4j_driver=neo4j_driver,
             exclude_cluster_id=answers.cloned_from_cluster_id,
+            form=spec.template,
         )
         return templates.TemplateResponse(
             request,
@@ -869,6 +877,7 @@ async def assist_draft(
 async def search_page(
     request: Request,
     q: str = "",
+    form: str | None = None,
     embed_client: EmbedClient = Depends(get_embed_client),
     neo4j_driver: AsyncDriver = Depends(get_neo4j_driver),
     session: AsyncSession = Depends(get_session),
@@ -877,6 +886,10 @@ async def search_page(
     the hits, each linking to :func:`clone_draft`. An empty query just shows the search
     box — no embed/vector round-trip. JDFN-scoped (CUPE/WJQ excluded, HR-143); the
     injected embed + Neo4j clients are closed after use."""
+    # The author's chosen instrument scopes the results (HR-225). Picking CUPE and
+    # being shown JDFN sources is what made the Builder look like it "reset to APSA"
+    # on clone: every hit WAS JDFN, so every clone correctly opened a JDFN draft.
+    spec = form_from_request(form)
     query = q.strip()
     hits: list[SearchHit] = []
     message: str | None = None
@@ -893,6 +906,7 @@ async def search_page(
                     embed_client=embed_client,
                     neo4j_driver=neo4j_driver,
                     session=session,
+                    form=spec.template,
                 ),
                 timeout=budget,
             )
@@ -929,6 +943,9 @@ async def search_page(
             "hits": hits,
             "role_clusters": role_clusters,
             "message": message,
+            # Carried so a second search from this page keeps the instrument, and so
+            # the page can say which one it is scoped to.
+            "form_spec": spec,
         },
     )
 

@@ -749,6 +749,13 @@ class Segmentation(_RuleFile):
     #: this UNHASHED file's charter.
     jdfn_employee_groups: tuple[str, ...] = Field(min_length=1)
 
+    #: The bargaining unit(s) written on the WJQ instrument — the Builder's clone-search
+    #: scope for the CUPE form. ⚠ Used as an INCLUDE list for WJQ and as an EXCLUDE list
+    #: for JDFN, deliberately not symmetrically: ``employee_group`` is recorded on only
+    #: ~48% of the archive, so scoping JDFN to :attr:`jdfn_employee_groups` would drop
+    #: every document whose group was never parsed. HR-225.
+    wjq_employee_groups: tuple[str, ...] = Field(min_length=1)
+
     #: Presentation only — neither can move a score, a grade, a gate or a segment.
     score_histogram_bin: float = Field(gt=0.0, le=100.0)
     evidence_max_chars: int = Field(gt=0)
@@ -1764,6 +1771,11 @@ class Titles(_RuleFile):
     ]
     #: family -> human label. Copy, not a decision. Covers ``"unmapped"`` too.
     family_labels: Annotated[Mapping[TitleFamily, str], AfterValidator(_freeze)]
+    #: Normalized substrings after which a title stops describing the ROLE and starts
+    #: describing its CONTEXT — whose office it sits in, who it reports to. The
+    #: seniority family is read from the text BEFORE the first one. Empty tuple
+    #: restores the old whole-title match. HR-224.
+    family_context_markers: tuple[str, ...] = Field(default=())
     #: The families for which the "Role, Descriptor" comma format (Part 3.4)
     #: signals supervision.
     comma_supervisory_families: frozenset[TitleFamily] = Field(min_length=1)
@@ -3912,6 +3924,7 @@ def decision_surface(rules: Rules) -> frozenset[str]:
         "titles.families",
         "titles.family_match_order",
         "titles.family_keywords",
+        "titles.family_context_markers",
         "titles.comma_supervisory_families",
         "titles.functions",
         "titles.function_match_order",

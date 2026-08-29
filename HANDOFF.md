@@ -24,6 +24,28 @@ count of *roles*.
 
 ---
 
+## 🔴 DIRECTIVE #1 — TESTED, AND DEPLOYABLE WITHOUT THE ASSISTANT
+
+**Set by the project owner 2026-08-28. It applies to every task on this page.**
+
+> **Every step must leave the code TESTED and every feature DEPLOYABLE THROUGH THE
+> SCRIPTS, by a person, with no assistant in the loop.**
+
+| | done means |
+|---|---|
+| **tested** | `make gates` green · failing test written FIRST · the guard broken once to prove it can go red |
+| **deployable** | works via `quickstart.ps1` (dev) and `deploy/bundle.ps1` + `deploy/install.ps1` (fresh, offline box) |
+| **discoverable** | reachable from the UI — *a feature nothing links to has not been delivered* |
+| **enforced** | `make deploy-check`, run in CI as *"Gate: deployable offline"* |
+
+⚠ **Ask at the end of every task: "could the owner deploy and see this, tomorrow, without
+me?"** If not, the task has one more step. This is not hypothetical — the live funnel
+shipped 2026-08-27 with no nav entry, and for a day it read as "still the old dashboard".
+
+Full statement in [`CLAUDE.md`](CLAUDE.md) · runbook in [`deploy/README.md`](deploy/README.md).
+
+---
+
 ## 🔴 THE ONE THING TO UNDERSTAND
 
 **The system works. It has no output. The constraint was never engineering.**
@@ -97,6 +119,39 @@ and it is the only place those numbers are authoritative.
 **Then run `make smoke`.** The end-to-end check against the live Bank — parsing, dedup,
 categorize, filterable — fails if a single document is unaccounted for or unfindable.
 Trust it over any document, including this one.
+
+---
+
+## ▶ DEPLOYING TO A FRESH BOX, OFFLINE
+
+**Built and verified 2026-08-28.** The repo can be put on a box with Docker and **no
+internet** and come up as a working Bank with the archive already in it.
+
+```bash
+make bundle                                          # on a CONNECTED box -> dist/ (~1.4 GB)
+.\deploy\install.ps1 -BundleDir <bundle>             # on the TARGET — never touches the network
+make deploy-check                                    # cheap standing check; run after compose/Dockerfile edits
+```
+
+Full runbook: [`deploy/README.md`](deploy/README.md).
+
+- **A code change does NOT need a new bundle.** `api`/`worker` bind-mount `./core`, so
+  copying the repo is enough. Re-cut only when `requirements*.txt` or the `Dockerfile`
+  moves.
+- **`install.ps1` passes `--no-build --pull never`**, so a missing image fails loudly
+  instead of quietly pulling — an install that silently pulls has proved nothing about
+  the offline box.
+- **It refuses to restore over a populated database.** `pg_restore --data-only` into a
+  migrated DB silently destroys the Bank and exits 0; the bundle carries a full `-Fc`
+  dump and the target must be empty (or `-Force`).
+- **Verification is part of the install** — row counts are compared against the bundle's
+  manifest and the Neo4j vector nodes counted; it exits non-zero if anything disagrees.
+- ⚠ **Only the internet is optional.** Ollama on `aria-gb10-2` is still needed for
+  `make embed` and the LLM jobs; the app, funnel and dashboards do not touch it.
+
+Validated by rehearsing a full install beside the live stack under a second project name
+— all five row counts and both Neo4j labels matched, and the funnel rendered from the
+restored database.
 
 ---
 

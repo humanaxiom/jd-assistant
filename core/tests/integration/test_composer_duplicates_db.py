@@ -38,7 +38,13 @@ from src.jd_bank.composer.duplicates import (
 )
 from src.jd_bank.db.models import CanonicalJD, CanonicalStatus, Cluster
 from src.jd_core.models.parsed_jd import SFUJobDescription
+from src.jd_core.models.quality import DEFAULT_TEMPLATE
+from src.jd_core.rules import get_rules
 from tests.integration.test_dedup_tier1 import ALEMBIC_INI
+
+#: The WJQ scope the production code resolves from the rulebook (HR-225). Read from the
+#: rulebook rather than written as {"cupe"} so this cannot drift from the shipped value.
+_WJQ_GROUPS = frozenset(get_rules().segmentation.wjq_employee_groups)
 
 
 @pytest.fixture(scope="module")
@@ -149,7 +155,12 @@ async def test_the_title_pass_is_case_insensitive_current_version_and_jdfn_scope
 ) -> None:
     async with session_maker() as session:
         ids = await _seed(session)
-        matches = await _title_collision_matches(session, "  ACADEMIC ADVISOR  ")
+        matches = await _title_collision_matches(
+            session,
+            "  ACADEMIC ADVISOR  ",
+            wjq_groups=_WJQ_GROUPS,
+            form=DEFAULT_TEMPLATE,
+        )
 
     by_cluster = {row[0]: row for row in matches}
     # The renamed role does NOT collide on the title it no longer carries, the CUPE
@@ -173,9 +184,22 @@ async def test_a_title_nobody_holds_collides_with_nothing(
 ) -> None:
     async with session_maker() as session:
         await _seed(session)
-        assert await _title_collision_matches(session, "Underwater Basket Weaver") == []
+        assert (
+            await _title_collision_matches(
+                session,
+                "Underwater Basket Weaver",
+                wjq_groups=_WJQ_GROUPS,
+                form=DEFAULT_TEMPLATE,
+            )
+            == []
+        )
         # ...and a blank title never reaches the database at all.
-        assert await _title_collision_matches(session, "   ") == []
+        assert (
+            await _title_collision_matches(
+                session, "   ", wjq_groups=_WJQ_GROUPS, form=DEFAULT_TEMPLATE
+            )
+            == []
+        )
 
 
 async def test_the_batched_resolution_returns_the_current_title_and_status(
@@ -242,7 +266,9 @@ async def test_an_archived_role_is_never_a_title_collision(
     count in "SFU already has N roles with this title"."""
     async with session_maker() as session:
         ids = await _seed(session)
-        matches = await _title_collision_matches(session, "Academic Advisor")
+        matches = await _title_collision_matches(
+            session, "Academic Advisor", wjq_groups=_WJQ_GROUPS, form=DEFAULT_TEMPLATE
+        )
 
     assert ids["archived"] not in {row[0] for row in matches}
     assert "Archives" not in {row[2] for row in matches}

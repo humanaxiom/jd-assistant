@@ -328,3 +328,72 @@ def test_an_inconsistent_title_table_fails_to_load(
     with pytest.raises(RulesError) as exc:
         _rules_with_titles(tmp_path, mutation)
     assert expected in str(exc.value)
+
+
+# --- The title says whose OFFICE you are in, not what you are ------------------------
+
+
+@pytest.mark.parametrize(
+    ("title", "expected"),
+    [
+        # Reported 2026-08-28: the clusters dashboard showed 136 VPs. Measured against
+        # the live archive, 40 titles matched the `vp` keywords and NOT ONE was a
+        # Vice-President — every one was somebody working FOR one. `vp` is first in
+        # `family_match_order`, so it beat `assistant` and `manager` outright.
+        ("Executive Assistant to the Vice-President", "assistant"),
+        ("Executive Secretary to the Vice-President, Academic", "unmapped"),
+        ("Assistant to the Vice-President, Research", "assistant"),
+        ("Administrative Assistant to the Vice-President,", "assistant"),
+        (
+            "Confidential Secretary to the Associate Vice President, Students",
+            "unmapped",
+        ),
+        ("Assistant to the Dean of Associate VP Student &", "assistant"),
+        # ...and the same shape for the office-of construction, which is context too.
+        ("Manager, Office of the Vice-President, Academic", "manager"),
+        ("Director, Office of the Vice-President, Research", "director"),
+        ("Communications Manager, Office of Vice President Research", "manager"),
+        ("Executive Director, Office of the Vice Provost & AVP, Students", "director"),
+        ("Financial Manager, Office of the Vice-President,", "manager"),
+    ],
+)
+def test_a_role_reporting_to_a_vp_is_not_a_vp(title: str, expected: str) -> None:
+    """Seniority is what the title CALLS the role, never who it names afterwards."""
+    assert classify_title_family(title).family == expected
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "Vice-President, Research",
+        "Vice President, Finance & Administration",
+        "Associate Vice-President, Academic",
+        "Associate Vice President, Students",
+        "AVP, Facilities",
+    ],
+)
+def test_an_actual_vp_is_still_a_vp(title: str) -> None:
+    """The other half of the guard: narrowing the match must not stop finding real VPs.
+
+    Without this, "classify nothing as vp" would pass the test above.
+    """
+    assert classify_title_family(title).family == "vp"
+
+
+@pytest.mark.parametrize(
+    ("title", "expected"),
+    [
+        # Titles with no context marker are untouched — the trailing-role-word form
+        # (SFU's non-supervisory convention) must keep working.
+        ("Laboratory Operations Manager", "manager"),
+        ("Manager, Laboratory Operations", "manager"),
+        ("Associate Director, Advancement", "manager"),
+        ("Executive Assistant", "assistant"),
+        ("Chief Information Officer", "chief"),
+        ("Software Developer, Platform", "unmapped"),
+    ],
+)
+def test_titles_without_a_context_marker_are_unchanged(
+    title: str, expected: str
+) -> None:
+    assert classify_title_family(title).family == expected

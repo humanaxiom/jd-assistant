@@ -75,7 +75,26 @@ jobs:
             mypy src --strict && \
             pytest tests/unit tests/integration -m "not live" --cov=src --cov-fail-under=80 --timeout=300 -q'
 
-  # ─── Gate 7: the HR decision register's Markdown view is not stale ────────
+  # ─── Gate 7: DIRECTIVE #1 — it is still deployable to a fresh, offline box ─
+  # Every feature must be deployable through deploy/ WITHOUT a person reconstructing
+  # anything by hand. `make bundle` takes minutes and >1 GB, so CI cannot cut one per
+  # push; this runs the same cheap invariants `make deploy-check` does — above all that
+  # image names do not depend on the compose PROJECT name, which is what silently makes a
+  # bundle un-installable on the target (found 2026-08-28 by rehearsing an install).
+  # See deploy/README.md.
+  deploy-check:
+    name: "Gate: deployable offline (Directive #1)"
+    runs-on: ubuntu-latest
+    needs: branch-name
+    steps:
+      - uses: actions/checkout@v4
+
+      # No image build needed: every check is about compose metadata and the deploy kit,
+      # so this gate stays seconds rather than minutes.
+      - name: The offline deploy contract still holds
+        run: bash deploy/deploy-check.sh
+
+  # ─── Gate 8: the HR decision register's Markdown view is not stale ────────
   # docs/decisions/HR-DECISION-REGISTER.md is RENDERED from
   # core/src/jd_core/rules/decision_register.yaml — never hand-edited. The gate
   # suite already proves the register matches the live rules; this proves the
