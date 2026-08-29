@@ -63,6 +63,20 @@ _ERA_ORDER: tuple[str, ...] = ("old", "transition", "new", "current")
 #: Template facets in report order; ``unknown`` (never-parsed) last.
 _TEMPLATE_ORDER: tuple[str, ...] = ("jdfn", "wjq", "unknown")
 
+#: Bargaining units in report order, with the UNRECORDED bucket LAST and named
+#: so it can
+#: never read as a group SFU recognises. It is listed, not omitted, because a
+#: of the archive lands in it — and the whole point of the facet is that the silence is
+#: reported rather than defaulted into `jdfn`.
+_GROUP_ORDER: tuple[str, ...] = (
+    "apsa",
+    "cupe",
+    "apex",
+    "poly",
+    "excluded",
+    "(unrecorded)",
+)
+
 #: Percentile keys in ascending order (the artifacts store them unordered).
 _PCTL_ORDER: tuple[str, ...] = ("p10", "p50", "p90", "p99", "max")
 
@@ -155,6 +169,15 @@ def _dashboard_context(summary: BaselineSummary) -> dict[str, Any]:
         for value in _TEMPLATE_ORDER
         if (view := _segment_view(_segment(summary, dimension="template", value=value)))
     ]
+    groups_facet = [
+        view
+        for value in _GROUP_ORDER
+        if (
+            view := _segment_view(
+                _segment(summary, dimension="employee_group", value=value)
+            )
+        )
+    ]
     return {
         "summary": summary,
         # The current-practice cohort is the HEADLINE — the population the approval bar
@@ -168,6 +191,7 @@ def _dashboard_context(summary: BaselineSummary) -> dict[str, Any]:
         "overall": _segment_view(_segment(summary, dimension="all", value="all")),
         "eras": eras,
         "templates": templates_facet,
+        "groups": groups_facet,
     }
 
 
