@@ -526,6 +526,104 @@ half the placeholder population has no title label anywhere in the document.
 
 ---
 
+## 9. 🔴 The third field checked against the archive, and it produced a defect too
+
+**P3b, 2026-08-29.** `make field-audit`, over all 14,565 files (14,518 read, 47 skipped —
+unreadable, or not parsed at `jd_segmenter_v7`). `docs/field-audit/`.
+
+`title` and `employee_group` were the only fields ever compared against the SOURCE FILES.
+Each produced defects immediately. **So did the third.**
+
+### 9a. The gap: 726 CUPE departments the archive states and the Bank does not
+
+`readable − parser` per bargaining unit — the archive states a value under a name a
+registered mechanism can read, and the parser stored nothing:
+
+| group | field | parser | readable | gap |
+|---|---|---:|---:|---:|
+| **cupe** | **department** | 2,958 | 3,684 | **+726** |
+| (unrecorded) | department | 3,923 | 4,173 | +250 |
+| apsa | department | 1,780 | 1,854 | +74 |
+| apsa | position_number | 4,753 | 4,817 | +64 |
+| apex | position_number | 390 | 408 | +18 |
+
+**The 726 is stable across three full runs** and every correction to the probe, which is
+what makes it credible. It was verified by opening the files, not by trusting the count.
+
+### 9b. Three causes, not one — and the value is usually on the COVER PAGE
+
+Three documents from the gap, read at source. In **all three** the department is present
+on the **cover page** under the exact registered spelling `Department Name:` — and the
+parser reads only the **identification block**:
+
+| document | in the identification block | cause |
+|---|---|---|
+| `20011001_00030128Clerk.doc` | `Department Name/Section:  Centre for Distance` | the **variant spelling** is unregistered, *and* the value is truncated by column width |
+| `20000411_00031217Clerk.doc` | `Name/Section:   Bookstore` | the label is **wrapped across a line break** — `Department` ends the previous line |
+| `19930519_00000991Library_assistant.doc` | *(no department label at all)* | the field exists **only on the cover page** |
+
+```
+  2 [   COVER]  Department Name: Bookstore
+ 20            1. POSITION IDENTIFICATION
+ 21 [ID-BLOCK]  Department Position Title:  Shipper/Receiver Department
+ 22 [ID-BLOCK]  Name/Section:        Bookstore
+```
+
+⚠ **`Department Name/Section` is genuinely unregistered** — `wjq.id_labels.department`
+holds one spelling, `Department Name`, and `_extract_label` matches a whole cell. The
+asymmetry was visible in the code before it was measured: `name/section` **is** in
+`_NEXT_LABEL_RX`, so the parser already knows it is a label to *stop at* while having no
+way to *read from* it. It is the top unreadable department name at 29.
+
+### 9c. ⚠ 726 is an UPPER BOUND, and the reason is the P3a trap wearing new clothes
+
+**The probe reads the whole document; the parser reads only the identification block.**
+So the gap counts "the archive states a department", not "the parser could have read one
+from its own scope". Which of the three causes dominates is **not yet measured**, and no
+single fix recovers all 726.
+
+This is the same scope mismatch that made the *first* P3a fix pass its tests and recover
+exactly zero — there the whole-document probe found the label in the blank template
+header. It is not a false positive this time (the values are real, and they agree with
+the identification block where that block has one), but the count still answers a
+different question from "what would a fix recover". **Measure the scope-matched number
+before choosing a fix.**
+
+### 9d. A second defect, small and cross-cutting: repeated internal spaces
+
+`_extract_label` strips and lower-cases but never **collapses** internal whitespace, so
+these match nothing at all:
+
+`Position  Title` (8) · `Position   Title` (8) · `Position  Number(s)` (8) ·
+`Department  Name` (7) · `IDENTIFICATION   Position Number` (3) ·
+`Department's   Position Title` (3) · `Classification  &  Grade Approved`
+
+Small, real, and it spans every field. One `.split()`/`join` in the label comparison.
+
+### 9e. What this audit CANNOT see, and where the honest zeroes are
+
+- **`classification` is not evaluated at all** — pulled by hardcoded regex, not a label,
+  so a label probe says nothing about it. ⚠ Those regexes being hardcoded is itself a
+  rulebook-as-data gap.
+- **`grade` is under-counted for CUPE** (parser 465, readable 98): `_CUPE_GRADE_RX` finds
+  grades in prose like `Secretary, Grade 6`. A negative gap is the probe's blind spot.
+- **`grade` is genuinely absent almost everywhere**: 4,292 of 5,121 APSA and 4,517 of
+  4,530 unrecorded documents carry no grade label. That corroborates the separate finding
+  that grade is missing or unreliable across the archive.
+- **2,604 CUPE `grade` and 1,260 CUPE `position_number` labels are present and EMPTY** —
+  blank form fields, not defects, and counted separately for exactly that reason.
+
+### 9f. The control, and why it is trusted
+
+`title` is the control: its answer was already known. Parser 3,059 against readable 3,085
+for CUPE and 5,121 against 5,085 for APSA — agreement, not a gap. And independently, the
+probe finds **1,210 CUPE documents with no title available** (340 blank + 869 no label)
+against P3a's separately-measured *"the remaining ~1,241 CUPE placeholders are GENUINE
+gaps"*. **Two unrelated methods, the same answer.**
+
+*The probe was wrong three times before it was right, and each time the CONTROL is what
+said so — never the finding itself.* Full working in `docs/field-audit/README.md`.
+
 ## Full working
 
 The original per-topic documents are in **`docs/archive/plans/`** — kept for the reasoning

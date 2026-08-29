@@ -336,6 +336,7 @@ docker compose -f docker-compose.prod.yml up -d
 | Cluster roles | `make cluster` | Phase-3.5 clustering report. |
 | Produce draft canonicals | `make canonical-drafts` | Phase-4.4a: one DRAFT per JDFN cluster into the review queue. Add the LLM rewrite/audit pass when Ollama is free; `--no-llm` for a deterministic run. |
 | Archive baseline (measurement) | `make baseline JD_ARCHIVE_PATH=<SFU JDs>` | Scores the whole archive; writes `docs/baseline/`. |
+| Identification fields vs the archive | `make field-audit JD_ARCHIVE_PATH=<SFU JDs>` | **P3b.** What the parser stored against what the SOURCE FILES say, per field per bargaining unit — five columns, never one percentage. `FIELD_AUDIT_ARGS="--sample 1200 --evidence 20"` prints the gap file by file. Needs the archive AND Postgres; writes no Bank row. Reports what it cannot see (`classification` is unevaluated). See `docs/field-audit/`. |
 | One-of-a-kind jobs (measurement) | `make singletons` | How many SFU jobs exist exactly ONCE — the population `comparison.singleton_role_policy` drops today (HR-223). **Read-only, Postgres only**, safe at any time. Four buckets plus a control, never one total; writes `docs/singletons/`. Re-run it after any re-parse rather than quoting the last numbers — every bucket is title-based. |
 
 > ### ⚠ If a release bumps `parser_version`, the re-parse is not optional

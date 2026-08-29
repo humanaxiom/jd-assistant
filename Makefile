@@ -5,7 +5,7 @@
 .PHONY: up down gates gates-fast gates-integration gates-live smoke migrate logs shell \
         hook-install register register-check baseline dedup ingest embed embed-roles \
         near-dup dedup-role cluster harmonize-measure canonical-drafts rewrite-golden \
-        quality-golden bank-audit singletons bundle deploy-check
+        quality-golden bank-audit singletons field-audit bundle deploy-check
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -293,6 +293,21 @@ bank-audit:       ## Read-only: per-form content carry-through of the live Bank
 singletons:       ## Read-only: measure the one-of-a-kind population (HR-223)
 	docker compose run --rm -T singletons python -u -m src.jd_bank.singletons $(SINGLETON_ARGS)
 	@echo "✅ singleton summary written to docs/singletons/singleton-summary.json"
+
+# ── P3b: identification fields vs the RAW ARCHIVE ──────────────────────────
+# `title` and `employee_group` are the ONLY two fields ever compared against the source
+# files, and each produced defects immediately. This audits the label-read fields —
+# department, position_number, grade — with `title` as the CONTROL.
+#
+# Needs the archive AND Postgres. Reports exact / VARIANT / blank / no-label per field
+# per bargaining unit — never one archive-wide percentage, because `title` was never a
+# general problem and the aggregate hid that completely.
+#
+#   make field-audit JD_ARCHIVE_PATH=/path/to/SFU_JDs
+#   make field-audit JD_ARCHIVE_PATH=... FIELD_AUDIT_ARGS="--sample 500"
+field-audit:      ## Read-only: identification fields vs the raw archive (P3b)
+	docker compose run --rm -T field-audit python -u -m src.jd_bank.field_audit $(FIELD_AUDIT_ARGS)
+	@echo "✅ field audit written to docs/field-audit/field-audit.json"
 
 # ── Migrations (already Docker) ────────────────────────────────────────────
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).

@@ -141,7 +141,7 @@ with no rows, i.e. an apparently empty Bank.
 
 | | |
 |---|---|
-| **P3b** 🔴 | **MVP-1, and E1 VPFA waits on it.** **Audit the fields nobody has checked yet.** `employee_group` and `title` are the ONLY two ever compared against the raw archive, and **each produced defects immediately** — two and one respectively. `department`, `grade`, `classification` and `position_number` have never been checked at all. This is the highest-yield engineering seam we have found — and `department` is the one Track E defines a UNIT by, so seeding VPFA off it unaudited is how a vice-president gets a confident wrong number about their own portfolio. |
+| ~~**P3b**~~ ✅ | **AUDITED 2026-08-29 — the third field checked, the third to produce a defect.** `make field-audit`. 🔴 **726 CUPE departments the archive states and the Bank does not**, from three distinct causes read at source. ⚠ Upper bound: the probe reads the whole document, the parser only the identification block. Now **P3d/P3e/P3f** in plan.md, and **E1 VPFA waits on P3d** — a rollup on this column today would be confidently wrong. §9. |
 | **P4** | **24 clusters have no draft** and nothing regenerates them. `src.jd_bank.canonical` has `--only-template` but no per-cluster filter, so re-drafting exactly those is not expressible; a full producer run is under a standing ⛔. Needs a ruling, not code. |
 | **P3c** | ⚠ **One recovered title contains an incumbent's name** (`Leigh McGregor. Departmental Assistant`). Needs a measurement and a registered rule — NOT a name-shaped regex invented on a sample of one (NN #5). |
 | ~~**D1**~~ | ✅ **Landed 2026-08-29 as HR-223** — the parked stash was recovered onto current `main` and its numbers RE-DERIVED before commit. ⚠ **They had not survived the week:** three of four buckets moved and the qualification comparison inverted outright (the draft called the pool qualification-poor at 1.46 vs 8.84; it measures 9.54 vs 8.89, with medians 0.0 and 1.0 that make both means meaningless). **The stale half was identified because the OTHER half reproduced exactly.** §2a. |
@@ -161,8 +161,8 @@ which is the order of record. It is **E → G → F**, and this page used to say
 
 1. **MVP-2 · Track E — the next units** (VPFA → Facilities). Blocked on the org tree and a
    curated alias map, not on code — so the *people-work starts today*. 🔴 The **build**
-   waits on **P3b**: a unit is defined by `department`, and `department` has never been
-   checked against the source files.
+   waits on **P3d**: a unit is defined by `department`, and P3b MEASURED that column as
+   unreliable — 726 CUPE documents state a department the Bank does not hold.
 2. **MVP-3 · Track G — upload a JD into the Builder**
    ([`docs/plans/BUILDER-UPLOAD-AND-CHECK.md`](docs/plans/BUILDER-UPLOAD-AND-CHECK.md)):
    upload a Word file or PDF → parse → compliance panel → optionally seed a draft, turning
@@ -308,6 +308,22 @@ Distilled from six weeks; the full set is in the archive.
   verbatim list showed `#01246` and `.....Televis` sitting in it. One case was
   definitional and fixed; the rest were published as an upper bound rather than
   classified away on a sample of sixty.
+- 🔴 **A probe that disagrees with the parser IN THE PARSER'S FAVOUR is broken.** The
+  field audit reported "no label found" for 129 of 129 APSA documents while the parser
+  held a department for 52 of them — because identification labels have TWO provenances
+  (rulebook `id_labels` for the WJQ form, hardcoded regexes for the modern one) and the
+  probe knew only the first. Later, a `\b` fix made APSA `position_number` fall from
+  4,836 to 310 against a parser holding 4,753. **Both times the direction of the
+  disagreement was the tell**, long before the number was.
+- **Fixing a substring bug with `\b` can be worse than the bug.** `\b` asserts a
+  word/non-word *transition*, so `\bposition #\b` never matches `Position #:`. What was
+  actually meant is "not butted against a letter or digit" — lookarounds, not `\b`.
+- **Print the sample and READ it — the false positives are in the strings, not the
+  counts.** `grade` matching *upgrade*, and the TITLE label `Department Position Title`
+  being claimed as an unreadable DEPARTMENT 31 times, were both invisible in the totals
+  and obvious in the verbatim list.
+- ⚠ **`perl -0pi -e` turns `\b` in a replacement into a literal BACKSPACE byte.** It
+  silently made every word-boundary match fail. Use the Edit tool for regex bodies.
 - **A rising score is a question too.** Three separate defects this project made scores go
   *up*: invented sections, compressed duty lists, dropped point-factor content.
 - **Verify state against the remote before trusting any doc.** `gh pr list` costs seconds;
