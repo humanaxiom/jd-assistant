@@ -16,8 +16,11 @@ Two docs to know:
   subagent at. Reviewers are always Opus; never downgrade a faithful port, rulebook/policy
   semantics, a security-touching diff, or anything changing a decision parameter.
 - `docs/decisions/HR-DECISION-REGISTER.md` — generated register of every non-trivial rulebook
-  default — **all entries `open`**; SFU HR has ratified nothing yet. **Do not restate the entry
-  count here: the generated register's own header is the count of record.** (This line used to
+  default. **The first two ratifications landed 2026-08-29** (HR-042, HR-052 — the two B3
+  approval gates, ratified AS SHIPPED, so no value moved and no count changed); everything
+  else is still `open`. **Do not restate any count here: the generated register's own header
+  is the count of record, and it now distinguishes STILL-OUTSTANDING from ratified —
+  a count of the `hr_policy` tier is NOT a count of what HR still owes you.** (This line used to
   hardcode "192 entries"; it went stale twice, and was behind both the register header and
   `decision_register.yaml` when it was removed on 2026-08-05.) **Standing rule: any
   non-trivial metric/rule must be YAML-configurable and registered in the same PR; if a default

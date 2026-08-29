@@ -67,8 +67,20 @@ approvable count *down*.
 
 ## ▶ CURRENT STATE — 2026-08-29
 
-**Everything is green and `main` is clean.** `make gates` (2,972 · 93.5%), `make smoke`
+**Everything is green and `main` is clean.** `make gates` (3,017 · 93.30%), `make smoke`
 (6), `make deploy-check`, CI, no open PRs. Nothing is half-finished in the tree.
+
+🔴 **THE DEV/TEST ITERATION IS CLOSED — the MVP run order is [`docs/plan.md`](docs/plan.md)
+§ THE MVP RUN ORDER.** Read that before picking anything up; the track tables below it are
+now slotted MVP-0 … MVP-4.
+
+**The first HR ratifications landed 2026-08-29: HR-042 and HR-052** (B3 — the two approval
+gates), ratified **AS SHIPPED** and logged by ITS. ⚠ **This did not unblock CUPE.** No
+value changed and `rules_version` is unchanged, so nothing re-validates and no count moved;
+what changed is that the bar is now signed, so a failing draft is non-compliant with a
+standard rather than blocked by an open question. The remedy became content work. ⚠ The
+two entries are **attribution-light by instruction** — they record THAT the ruling happened
+and not its substance; the register says so in each `decision_note`.
 
 **Track A (the demo) is COMPLETE.** Three live surfaces, all reading the DB at request time:
 
@@ -112,7 +124,10 @@ with no rows, i.e. an apparently empty Bank.
 
 ### The three things that actually need a person
 
-1. **B3 / B4 — the HR asks.** The only work that moves the published count. Pure lead time.
+1. **B2 / B4 — the HR asks.** B3 is RATIFIED (see above). **B2, the pilot, is now the only
+   work that moves the published count** — pure lead time, and nothing should be sequenced
+   behind it. B4 is the remainder of the register; the count outstanding is in the
+   register's own header, which now separates still-outstanding from ratified.
 2. **A6 / A7 — the ITS director sessions.** Work the review queue and vet the department
    alias list; their rulings land in HR-217/218.
 3. **D1 — rule on the one-of-a-kind job (HR-223).** The pipeline builds a role from a
@@ -126,7 +141,7 @@ with no rows, i.e. an apparently empty Bank.
 
 | | |
 |---|---|
-| **P3b** | **Audit the fields nobody has checked yet.** `employee_group` and `title` are the ONLY two ever compared against the raw archive, and **each produced defects immediately** — two and one respectively. `department`, `grade`, `classification` and `position_number` have never been checked at all. This is the highest-yield engineering seam we have found. |
+| **P3b** 🔴 | **MVP-1, and E1 VPFA waits on it.** **Audit the fields nobody has checked yet.** `employee_group` and `title` are the ONLY two ever compared against the raw archive, and **each produced defects immediately** — two and one respectively. `department`, `grade`, `classification` and `position_number` have never been checked at all. This is the highest-yield engineering seam we have found — and `department` is the one Track E defines a UNIT by, so seeding VPFA off it unaudited is how a vice-president gets a confident wrong number about their own portfolio. |
 | **P4** | **24 clusters have no draft** and nothing regenerates them. `src.jd_bank.canonical` has `--only-template` but no per-cluster filter, so re-drafting exactly those is not expressible; a full producer run is under a standing ⛔. Needs a ruling, not code. |
 | **P3c** | ⚠ **One recovered title contains an incumbent's name** (`Leigh McGregor. Departmental Assistant`). Needs a measurement and a registered rule — NOT a name-shaped regex invented on a sample of one (NN #5). |
 | ~~**D1**~~ | ✅ **Landed 2026-08-29 as HR-223** — the parked stash was recovered onto current `main` and its numbers RE-DERIVED before commit. ⚠ **They had not survived the week:** three of four buckets moved and the qualification comparison inverted outright (the draft called the pool qualification-poor at 1.46 vs 8.84; it measures 9.54 vs 8.89, with medians 0.0 and 1.0 that make both means meaningless). **The stale half was identified because the OTHER half reproduced exactly.** §2a. |
@@ -141,25 +156,34 @@ result.** [`FINDINGS.md`](docs/FINDINGS.md) §8c.
 
 Everything else, including the rest of the archive gap, is in [`docs/plan.md`](docs/plan.md).
 
-**Queued next features** — design done, build later, in this order:
+**Queued next features** — slotted in [`docs/plan.md`](docs/plan.md) § THE MVP RUN ORDER,
+which is the order of record. It is **E → G → F**, and this page used to say E → F → G:
 
-1. **Track E — the next units** (VPFA → Facilities). Blocked on the org tree and a
-   curated alias map, not on code.
-2. **Track F — JD currency after publishing**
+1. **MVP-2 · Track E — the next units** (VPFA → Facilities). Blocked on the org tree and a
+   curated alias map, not on code — so the *people-work starts today*. 🔴 The **build**
+   waits on **P3b**: a unit is defined by `department`, and `department` has never been
+   checked against the source files.
+2. **MVP-3 · Track G — upload a JD into the Builder**
+   ([`docs/plans/BUILDER-UPLOAD-AND-CHECK.md`](docs/plans/BUILDER-UPLOAD-AND-CHECK.md)):
+   upload a Word file or PDF → parse → compliance panel → optionally seed a draft, turning
+   the Builder into a JD assistant anyone with a document can use. Designed 2026-08-29
+   against the live code. **Mostly reuse** — a new front door onto the clone chain that
+   already runs. ⚠ **Three things bite first, all verified against the code 2026-08-29:**
+   `python-multipart` is *deliberately* absent and the CSRF check reads the body before the
+   handler — which means an upload does not fail to parse, it is **refused with a 403**
+   (`body.decode("utf-8")` raises on binary, the check catches it and finds no token); PDF
+   has no extraction backend at all; and both fixes move `requirements*.txt`, which is
+   exactly when the **offline bundle must be re-cut**. Does not move the published count —
+   it changes *who can use the Bank*.
+3. **MVP-4 · Track F — JD currency after publishing**
    ([`docs/plans/JD-CURRENCY-ATTESTATION.md`](docs/plans/JD-CURRENCY-ATTESTATION.md)):
    steward attestation on a cadence, REAFFIRM / REVISE / RETIRE, stale advisory on every
    axis, nothing auto-unpublishes. Designed 2026-08-28 against the verified base —
    `rules_version` is already stamped and publish dates derive from APPROVE rows, so
    drift detection needs no new fields; the genuinely new pieces are the `attestations`
    table, the RETIRE action (no retire path exists today), stewards, and `currency.yaml`.
-3. **Track G — upload a JD into the Builder**
-   ([`docs/plans/BUILDER-UPLOAD-AND-CHECK.md`](docs/plans/BUILDER-UPLOAD-AND-CHECK.md)):
-   upload a Word file or PDF → parse → compliance panel → optionally seed a draft, turning
-   the Builder into a JD assistant anyone with a document can use. Designed 2026-08-29
-   against the live code. **Mostly reuse** — it is a new front door onto the clone chain
-   that already runs. ⚠ Two things bite first: `python-multipart` is *deliberately* absent
-   and the CSRF check reads the body before the handler; and PDF has no extraction backend
-   at all. Neither moves the published count directly — it changes *who can use the Bank*.
+   **Last on purpose:** with four published JDs a currency loop is ceremony; B2's twenty
+   make it real.
 
 ---
 ## ▶ IF YOU ARE STARTING COLD

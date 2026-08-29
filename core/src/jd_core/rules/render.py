@@ -266,6 +266,19 @@ def render_register(rules: Rules) -> str:
     decisions = tuple(sorted(register.decisions, key=lambda d: d.id))
     counts = {status: len(register.by_status(status)) for status in _STATUS_ORDER}
     tiers = {tier: len(register.by_tier(tier)) for tier in _TIER_ORDER}
+    # 🔴 A COUNT OF A TIER IS NOT A COUNT OF AN OUTSTANDING ASK. The tier says whose
+    # decision it is; the status says whether it has been made. The header stated the
+    # whole `hr_policy` tier as "need an HR ruling", which was true only while nothing
+    # was ratified — the first ratification turned it into a request for rulings HR had
+    # already given.
+    policy = register.by_tier("hr_policy")
+    outstanding = sum(1 for d in policy if d.status == "open")
+    policy_ratified = sum(1 for d in policy if d.status == "ratified")
+    settled = (
+        f" **{policy_ratified} of them are already ratified** and are shown as settled."
+        if policy_ratified
+        else ""
+    )
 
     out: list[str] = [
         "# SFU HR Decision Register",
@@ -281,8 +294,9 @@ def render_register(rules: Rules) -> str:
         f"{len(decision_surface(rules))} parameters on the decision surface, all "
         "accounted for.",
         "",
-        f"**Of those {len(decisions)}, {tiers['hr_policy']} need an HR ruling.** The "
-        f"other {tiers['hr_informed'] + tiers['technical']} are recorded for the same "
+        f"**Of those {len(decisions)}, {outstanding} still need an HR ruling.**"
+        f"{settled} The other {tiers['hr_informed'] + tiers['technical']} are"
+        " recorded for the same "
         f"build check but are not yours to sign: {tiers['hr_informed']} shape what a "
         f"reviewer sees without deciding whether a job description passes, and "
         f"{tiers['technical']} are engineering settings. **Read *Your decisions* "

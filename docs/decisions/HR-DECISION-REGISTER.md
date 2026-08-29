@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+5892bd702fa9` · **225 decisions** (225 open · 0 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 285 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+5892bd702fa9` · **225 decisions** (223 open · 2 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 285 parameters on the decision surface, all accounted for.
 
-**Of those 225, 81 need an HR ruling.** The other 144 are recorded for the same build check but are not yours to sign: 59 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 225, 79 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 144 are recorded for the same build check but are not yours to sign: 59 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -71,7 +71,6 @@ Two of the three mean *nobody at SFU has agreed to this yet.* That is the honest
 | [HR-039](#hr-039) | Is the territorial acknowledgement's WORDING correct — and is a missing territorial acknowledgement really only a `low` finding? | `low` | an earlier version of this tool |
 | [HR-040](#hr-040) | SFU's knowledge tiers are EXCELLENT / WORKING / [NO MODIFIER]. We encode the third as the literal word "none". Is that the right representation? | `excellent`, `none`, `working` | an earlier version of this tool |
 | [HR-041](#hr-041) | Should the banned-phrase check ("may include", "assets", "preferences") search the WHOLE document, or only the Qualifications section? | `may include`, `assets`, `preferences` | SFU's published standard |
-| [HR-042](#hr-042) | Must a JD contain the literal phrase "equivalent combination" — or is any equivalency wording acceptable? | `equivalent combination` | SFU's published standard |
 | [HR-043](#hr-043) | SFU's action-verb glossary lists "accountable" — an adjective, not a verb. Should a duty be allowed to start with it? | `true` | SFU's published standard |
 | [HR-044](#hr-044) | Same for "responsible" — an adjective in SFU's action-verb glossary. | `true` | SFU's published standard |
 | [HR-045](#hr-045) | Should only PARENTHESIZED percentages — "(40%)" — count as duty time allocations? | *a text pattern — see below* | we chose it |
@@ -79,7 +78,6 @@ Two of the three mean *nobody at SFU has agreed to this yet.* That is the honest
 | [HR-047](#hr-047) | Should the phrase "action verb" appearing anywhere in a JD un-waivably block it as an unfinished draft? | *7 entries — see below* | we chose it |
 | [HR-048](#hr-048) | A JD is blocked for "incumbent-focused language" if its summary contains "my", "myself" or "I am". Is that the right test? | *a text pattern — see below* | we chose it |
 | [HR-049](#hr-049) | A "Senior" title with no stated supervisory scope is blocked. Should the test be the bare word "senior" anywhere in the title? | *a text pattern — see below* | we chose it |
-| [HR-052](#hr-052) | Qualifications must run Knowledge -> Skills -> Abilities. This mapping IS that order. Is it right? | `knowledge` → 0; `skill` → 1; `ability` → 2 | SFU's published standard |
 | [HR-053](#hr-053) | Are BASIC / INTERMEDIATE / ADVANCED / EXPERT the only accepted skill levels? | `advanced`, `basic`, `expert`, `intermediate` | SFU's published standard |
 | [HR-054](#hr-054) | Must an ability literally start with "Ability to" / "Able to" to count as observable behaviour? | `ability to`, `able to` | an earlier version of this tool |
 | [HR-055](#hr-055) | Is SFU's 116-verb action-verb glossary the right list — and should a duty that starts with a good verb NOT on it be flagged? | *116 entries — see below* | SFU's published standard |
@@ -711,14 +709,6 @@ The value is SFU's own, from the JD Toolkit or the official template — but *wh
 - **Why it matters:** The phrases are SFU's (they signal *desired* rather than the *minimum* needed). The SCOPE is ours, and it is wrong in a knowable way: the match runs over the whole raw document, so a DUTY that mentions "capital assets" or "manages physical assets" raises a QUALIFICATIONS gate and BLOCKS APPROVAL. Every facilities, finance and property JD in the archive is a candidate. The gate is overridable for exactly this reason — but a reviewer has to waive it by hand, with a written reason, every time.
 - **If it changes:** Narrowing the scope to the Qualifications section removes a large class of false blocks. Removing "assets" from the list would diverge from SFU's text. This is the highest-frequency false block we know of. ⚠⚠ MEASURED (Phase 2.5) — AND IT IS WORSE THAN THIS ENTRY GUESSED. This rule is the **#2 OPERATIVE APPROVAL BAR IN THE SYSTEM**. On the current-practice cohort (874 JDs — definition in HR-001), 246 cannot be approved, and SFU-APPROVE-QUAL-MINIMUM blocks **104 of them (42.3%)** — and **all 104 are raised by this rule alone** (SFU-QUAL-BANNED-PHRASE is that gate's only member). For comparison, the score floor blocks 5. So the second-largest thing standing between SFU's current JDs and approval is a qualifications rule **whose scope is a known bug** — it matches "may include" / "assets" / "preferences" anywhere in the document, including in DUTIES prose, which this entry already documented and which the project backlog already tracks. We do not yet know how many of the 104 are genuine; what is now certain is that the population is large enough that the answer matters, and that fixing the scope is no longer a tidy-up — it is a change to the approval bar. ✅ FIXED IN PHASE 2.6, AND RE-MEASURED. The scope is now rulebook data — HR-120, `qualifications.banned_phrase_scope`, shipping as `qualifications` — so the rule finally does what this entry's own question describes, and the whole-document scan remains selectable in one YAML word if HR wants it. THE PHRASE LIST ITSELF (this entry) IS UNCHANGED and stays `open`: "may include" / "assets" / "preferences" are SFU's words, and whether "assets" belongs among them is still HR's call. What changed is only WHERE we look for them. MEASURED, full-archive re-run: this rule now fires on **10 of 14,522 files (0.1%)**, down from 1,600 (11.0%) — and on **ZERO of the 874 current-practice JDs**, down from 104. Read that again: *all 104 blocks were matches outside the Qualifications*. SFU-APPROVE-QUAL-MINIMUM, the #2 gate in the bar, now blocks nothing at all in current practice, and approval rises 628 -> 687 (71.9% -> 78.6%) — exactly the 59 JDs it was the SOLE blocker of. ⚠ AND THE FINDING THAT REPLACES IT: correctly scoped, this list is now **nearly inert**. "may include" / "assets" / "preferences" essentially do not appear in the Qualifications sections SFU actually writes (10 files in 14,522). Either the list is right and simply not binding — fine, but then HR should know it is decorative — or it is missing the phrases SFU's authors really use. That question is now the live one, and it cannot be answered from a rule whose 104 hits were all in the wrong section.
 
-##### HR-042 — Must a JD contain the literal phrase "equivalent combination" — or is any equivalency wording acceptable?
-
-- **We ship:** `equivalent combination`
-- **Configured in:** `qualifications.yaml` → `qualifications.equivalent_combination`
-- **Where the default came from:** SFU's published standard (Part 2H)
-- **Why it matters:** SFU requires an equivalency path so the bar does not exclude equivalently-qualified applicants — a genuine equity requirement, and it BLOCKS approval. But the check is a literal case-folded substring: a JD that says "or an equivalent mix of education and experience" is blocked despite satisfying the requirement in substance.
-- **If it changes:** Accepting more wordings means either a list of accepted phrases or a regex — both are config, no code change. Leaving it strict means reviewers waive it by hand on correctly-written JDs. ⚠ NEW IN 2.6, AND IT IS A QUESTION FOR HR ABOUT THE *OTHER* QUALIFICATIONS GATE: `SFU-APPROVE-QUAL-MINIMUM` was made **waivable** for one stated reason — its rule matched the whole document, so it falsely blocked JDs whose DUTIES mentioned "capital assets". HR-120 fixed that scope, and the gate now blocks ZERO current-practice JDs (was 104). **The justification for its waivability has therefore evaporated.** We did NOT quietly harden it — tightening a gate off the back of a bug fix, with nobody's ratification, is exactly what this register exists to stop — so it still ships `overridable: true` (the un-waivable set is pinned by HR-005). But HR should now decide deliberately whether a JD whose QUALIFICATIONS genuinely advertise desired extras may still be waived through, because that — and no longer a false positive — is all the override now buys. ✅ MEASURED (Phase 2.5): the **#3 operative approval bar**. On the current-practice cohort (HR-001), SFU-APPROVE-QUAL-EQUIVALENT blocks 42 of the 246 unapprovable JDs (17.1%) — again more than eight times what the score floor (HR-001) turns away. A literal-substring test for one phrase is therefore a real gate on real JDs, not a formality, and every wording SFU's own authors chose that is not the exact words "equivalent combination" is being blocked by it. Note this is AFTER the line-wrap fix of PR #17, which already removed ~50% of this rule's legacy false positives — so these 42 are not an extraction artefact.
-
 ##### HR-043 — SFU's action-verb glossary lists "accountable" — an adjective, not a verb. Should a duty be allowed to start with it?
 
 - **We ship:** `true`
@@ -734,14 +724,6 @@ The value is SFU's own, from the JD Toolkit or the official template — but *wh
 - **Where the default came from:** SFU's published standard (Glossary)
 - **Why it matters:** As HR-043. "Responsible for…" is the single most common opening in the legacy archive, and SFU's glossary blesses it — while the same rulebook asks for action-verb-led duties. Decide the pair with HR-043. The same provenance caveat applies: the glossary is not among the sources shipped in this repo, so the citation cannot be verified from them.
 - **If it changes:** Removing it would fire the action-verb rule on a very large share of the archive at once.
-
-##### HR-052 — Qualifications must run Knowledge -> Skills -> Abilities. This mapping IS that order. Is it right?
-
-- **We ship:** `knowledge` → 0; `skill` → 1; `ability` → 2
-- **Configured in:** `qualifications.yaml` → `qualifications.ksa_rank`
-- **Where the default came from:** SFU's published standard (Part 5.4)
-- **Why it matters:** The order is SFU's (Part 5.4) and it BLOCKS approval (SFU-APPROVE-KSA-ORDER). Registered because it is the one place where the *values* of a config mapping are the policy: permuting the ranks would silently invert what a blocking gate enforces. Note it says nothing about education or experience items, which are unranked and therefore never out of order.
-- **If it changes:** Changing a rank re-points a blocking gate. Ranking education/experience too would extend the gate to items it ignores today.
 
 ##### HR-053 — Are BASIC / INTERMEDIATE / ADVANCED / EXPERT the only accepted skill levels?
 
@@ -2151,6 +2133,39 @@ Numbers an earlier version of this software already used, which we kept. SFU has
 - **Where the default came from:** an earlier version of this tool
 - **Why it matters:** The first small integer ANYWHERE in the supervisory statement. "Supervises 4 coordinators" -> 4; "manages a team of 8" -> 8; "supervises 2 FTE across 3 campuses" -> 2 (right, by luck); "supervises staff in 3 buildings" -> 3 (wrong). the earlier build documented it as a heuristic and so do we. It feeds HR-101's escalation, which is the drift signal that maps most directly to an SFU re-evaluation trigger — so its false positives matter.
 - **If it changes:** Config only; advisory. A qualitative statement ("supervises the comms team") names no number and never escalates, which is the conservative half of the design.
+
+## Ratified by SFU HR
+
+### Your decisions — these set the bar a job description must meet
+
+**This is the ask.** Every entry below changes whether a job description passes, fails, is blocked or is scored — or it is SFU's own published wording. Until you rule on these, the approval bar is unsigned. If you read one section of this document, read this one.
+
+| ID | Decision | Default | Where the default came from |
+|---|---|---|---|
+| [HR-042](#hr-042) | Must a JD contain the literal phrase "equivalent combination" — or is any equivalency wording acceptable? | `equivalent combination` | SFU's published standard |
+| [HR-052](#hr-052) | Qualifications must run Knowledge -> Skills -> Abilities. This mapping IS that order. Is it right? | `knowledge` → 0; `skill` → 1; `ability` → 2 | SFU's published standard |
+
+#### SFU's published standard — but read the caveats
+
+The value is SFU's own, from the JD Toolkit or the official template — but *what we do about a breach* (whether it merely costs points or actually blocks approval, and how widely we search for it) is still ours. Each entry says which part is which.
+
+##### HR-042 — Must a JD contain the literal phrase "equivalent combination" — or is any equivalency wording acceptable?
+
+- **We ship:** `equivalent combination`
+- **Configured in:** `qualifications.yaml` → `qualifications.equivalent_combination`
+- **Where the default came from:** SFU's published standard (Part 2H)
+- **Why it matters:** SFU requires an equivalency path so the bar does not exclude equivalently-qualified applicants — a genuine equity requirement, and it BLOCKS approval. But the check is a literal case-folded substring: a JD that says "or an equivalent mix of education and experience" is blocked despite satisfying the requirement in substance.
+- **If it changes:** Accepting more wordings means either a list of accepted phrases or a regex — both are config, no code change. Leaving it strict means reviewers waive it by hand on correctly-written JDs. ⚠ NEW IN 2.6, AND IT IS A QUESTION FOR HR ABOUT THE *OTHER* QUALIFICATIONS GATE: `SFU-APPROVE-QUAL-MINIMUM` was made **waivable** for one stated reason — its rule matched the whole document, so it falsely blocked JDs whose DUTIES mentioned "capital assets". HR-120 fixed that scope, and the gate now blocks ZERO current-practice JDs (was 104). **The justification for its waivability has therefore evaporated.** We did NOT quietly harden it — tightening a gate off the back of a bug fix, with nobody's ratification, is exactly what this register exists to stop — so it still ships `overridable: true` (the un-waivable set is pinned by HR-005). But HR should now decide deliberately whether a JD whose QUALIFICATIONS genuinely advertise desired extras may still be waived through, because that — and no longer a false positive — is all the override now buys. ✅ MEASURED (Phase 2.5): the **#3 operative approval bar**. On the current-practice cohort (HR-001), SFU-APPROVE-QUAL-EQUIVALENT blocks 42 of the 246 unapprovable JDs (17.1%) — again more than eight times what the score floor (HR-001) turns away. A literal-substring test for one phrase is therefore a real gate on real JDs, not a formality, and every wording SFU's own authors chose that is not the exact words "equivalent combination" is being blocked by it. Note this is AFTER the line-wrap fix of PR #17, which already removed ~50% of this rule's legacy false positives — so these 42 are not an extraction artefact.
+- **Decided by:** ITS (captured and logged the ruling) on 2026-08-29 — RATIFIED AS SHIPPED — the literal-phrase requirement STANDS and no value changed. ⚠ Read what that does and does not do. It settles WHO IS ANSWERABLE for this bar, not where the bar sits: the gate blocks exactly the JDs it blocked yesterday, so no count moves and CUPE does not become approvable. What changes is the remedy — a draft failing this gate is now non-compliant with a signed standard, to be fixed by rewording the JD, rather than evidence of an unratified rule that might yet be relaxed. `SFU-APPROVE-QUAL-EQUIVALENT` was the #3 operative approval bar (42 of 246 unapprovable current-practice JDs, 17.1%) and that is now deliberate. ⚠ THIS ENTRY IS ATTRIBUTION-LIGHT BY INSTRUCTION, NOT BY ACCIDENT. ITS captured and logged the decision; the ruling's wording, the individuals and the rationale were withheld from this repository. So this records the FACT of ratification and not its substance — a later reader can see THAT the bar was signed and cannot see WHY. Do not cite it as precedent for a related call, and do not let its existence imply the reasoning was reviewed here. If the detail is ever released, replace this note rather than adding a side file.
+
+##### HR-052 — Qualifications must run Knowledge -> Skills -> Abilities. This mapping IS that order. Is it right?
+
+- **We ship:** `knowledge` → 0; `skill` → 1; `ability` → 2
+- **Configured in:** `qualifications.yaml` → `qualifications.ksa_rank`
+- **Where the default came from:** SFU's published standard (Part 5.4)
+- **Why it matters:** The order is SFU's (Part 5.4) and it BLOCKS approval (SFU-APPROVE-KSA-ORDER). Registered because it is the one place where the *values* of a config mapping are the policy: permuting the ranks would silently invert what a blocking gate enforces. Note it says nothing about education or experience items, which are unranked and therefore never out of order.
+- **If it changes:** Changing a rank re-points a blocking gate. Ranking education/experience too would extend the gate to items it ignores today.
+- **Decided by:** ITS (captured and logged the ruling) on 2026-08-29 — RATIFIED AS SHIPPED — the Knowledge -> Skills -> Abilities order STANDS and no value changed. This is the one entry where the VALUES of a config mapping are the policy, so ratifying it pins the ranks themselves: permuting them would silently invert what `SFU-APPROVE-KSA-ORDER` enforces, and that is now a signed order rather than a transcription of Part 5.4 nobody had confirmed. ⚠ It settles who is answerable, not where the bar sits — the gate blocks exactly what it blocked yesterday and no count moves. It still says nothing about education or experience items, which are unranked and therefore never out of order. ⚠ THIS ENTRY IS ATTRIBUTION-LIGHT BY INSTRUCTION, NOT BY ACCIDENT. ITS captured and logged the decision; the ruling's wording, the individuals and the rationale were withheld from this repository. So this records the FACT of ratification and not its substance — a later reader can see THAT the bar was signed and cannot see WHY. Do not cite it as precedent for a related call, and do not let its existence imply the reasoning was reviewed here. If the detail is ever released, replace this note rather than adding a side file.
 
 ## Trivial — on the decision surface, deliberately not a decision
 
