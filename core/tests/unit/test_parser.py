@@ -253,11 +253,13 @@ def test_parser_version_constant() -> None:
     heading printed beside the next column, or with its own words stretched apart,
     matched nothing, so 16.2% of CUPE documents parsed to ZERO duties — the silence the
     rewrite filled with 1,219 invented duties (HR-213).
+    **v7 = the WJQ title label is read in the spellings the archive uses** (HR-147):
+    47.6% of CUPE documents had NO title — the label is spelled possessively.
     **v6 = the employee-group read is evidence-ranked** (HR-226): a BARE MENTION can no
     longer establish `cupe`. Measured against the raw archive, 2.2% of the 4,440
     cupe-labelled documents (~98) were never routed to the WJQ segmenter — APSA managers
     who merely supervise CUPE staff — and each was scored on the wrong instrument."""
-    assert parse_jd("anything").parser_version == "jd_segmenter_v6"
+    assert parse_jd("anything").parser_version == "jd_segmenter_v7"
 
 
 # ── End-to-end on the real legacy .doc ───────────────────────────────────────

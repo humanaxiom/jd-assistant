@@ -87,7 +87,13 @@ from src.jd_core.parser.headings import Era, SectionKey
 #: A bare token can no longer establish `cupe`; an explicit label still can. The same
 #: change adds a whole-body fallback for the other groups, which the identification-only
 #: scan was missing (~4% of the 4,630 ungrouped name their group outside that block).
-PARSER_VERSION = "jd_segmenter_v6"
+#: v7 = the WJQ title label is read in the spellings the archive actually uses (HR-147).
+#: MEASURED: 47.6% of CUPE documents (2,046 of 4,300) carried NO title — the
+#: `Untitled Position` sentinel — against 0.0% for every other unit. The label
+#: was not missing from the documents; it was spelled POSSESSIVELY ("Department's
+#: Position Title") and `_extract_label` matches a cell exactly, so it matched nothing.
+#: 1,395 of those placeholders were already inside drafts.
+PARSER_VERSION = "jd_segmenter_v7"
 
 #: Which SFU document template ``parse_jd`` read: the APSA/APEX/POLY "JDFN" form (the
 #: original segmenter), the CUPE/WJQ questionnaire, or neither recognisably.

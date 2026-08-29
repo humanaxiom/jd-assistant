@@ -98,7 +98,22 @@ continued_marker: (CONTINUED)
 # Position Title`; many `.doc` renders omit it, leaving `title` to fall back to
 # `Untitled Position` rather than misreading the SFU/CUPE banner line.
 id_labels:
-  title: [Department Position Title, Position Title]
+  # 🔴 THE POSSESSIVE SPELLINGS ARE LOAD-BEARING, not tidying. `_extract_label` matches a
+  # cell EXACTLY (case-insensitive, colon-stripped), so a spelling absent from this list
+  # matches nothing at all. MEASURED 2026-08-29 against the raw archive: **47.6% of CUPE
+  # documents (2,046 of 4,300) carried no title** — the `Untitled Position` sentinel —
+  # against 0.0% for every other bargaining unit. The archive's DOMINANT spelling is the
+  # possessive "Department's Position Title", which this list did not have. Reading the
+  # source files for 500 of them, 17.4% carry a title under a spelling listed here now,
+  # with the value correctly in its own next cell. 1,395 of the placeholders were already
+  # inside drafts, so the silence did not stay in the archive.
+  # Both apostrophes appear in the corpus: the straight ' and the curly ’ Word inserts.
+  title:
+    - Department's Position Title
+    - Department’s Position Title
+    - Departments Position Title
+    - Department Position Title
+    - Position Title
   department: [Department Name]
   position_number: [Position Number(s), Position Number]
   grade: [Classification & Grade Approved, Classification and Grade Approved]

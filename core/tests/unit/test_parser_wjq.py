@@ -379,3 +379,161 @@ def test_a_heading_with_internal_whitespace_and_a_column_beside_it_matches() -> 
         == "minor_functions"
     )
     assert _match_heading("MAJOR   FUNCTIONS   (CONTINUED)", wjq) == "major_functions"
+
+
+# --- The form's own spelling of its title label ---------------------------------------
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        "Department's Position Title",  # straight apostrophe — the archive's commonest
+        "Department’s Position Title",  # the curly one Word inserts
+        "Departments Position Title",  # and the apostrophe-less spelling
+        "Department Position Title",  # the spelling already shipped
+        "Position Title",
+    ],
+)
+def test_every_spelling_of_the_title_label_is_read(label: str) -> None:
+    """🔴 MEASURED 2026-08-29 against the raw archive: **47.6% of CUPE documents (2,046
+    of 4,300) have no title at all** — they carry the sentinel `Untitled Position` —
+    while every other bargaining unit is at 0.0%. It is not a general title problem; it
+    is this form.
+
+    `_extract_label` matches a cell EXACTLY (case-insensitive, colon-stripped), and
+    `wjq.id_labels.title` listed only "Department Position Title" / "Position Title".
+    The archive's dominant spelling is the POSSESSIVE — "Department's Position Title" —
+    which therefore matched nothing. Reading the source files for 500 placeholder
+    documents, 17.4% carry a title under a spelling the rulebook did not know, with the
+    value correctly in its own next cell.
+
+    ⚠ 1,395 of those placeholders are ALREADY inside drafts, so this silence did not
+    stay in the archive.
+    """
+    doc = _WJQ.replace("Department Position Title:", f"{label}:")
+    assert parse_jd(doc).jd.title == "Program Assistant"
+
+
+def test_a_title_label_with_no_value_still_yields_the_sentinel() -> None:
+    """The other half: recovering MORE titles must not start inventing them.
+
+    A label whose next cell is another label has no value, and the document must keep
+    saying so. `Untitled Position` is an honest placeholder; a wrong title is not, and
+    the archive contains cells where the neighbouring column is a person's name.
+    """
+    doc = _WJQ.replace(
+        "Department Position Title:\nProgram Assistant",
+        "Department's Position Title:\nDepartment Name:",
+    )
+    assert parse_jd(doc).jd.title == "Untitled Position"
+
+
+# --- Label and value in ONE cell (antiword's fixed-width render) ----------------------
+
+
+def test_an_inline_label_and_value_in_one_cell_is_read() -> None:
+    """🔴 THE ACTUAL CAUSE of 47.6% of CUPE documents having no title.
+
+    `_extract_label` takes the value from the NEXT cell, which is right for the
+    python-docx render. antiword's fixed-width render of the same form puts the label
+    and its value in ONE cell, so there is no next cell and the title fell through to
+    the sentinel. Verbatim from the archive's identification sections:
+
+        'Department Position Title: Program Assistant'
+        'Department Position Title: Budget Assistant Department Name/Section:'
+        'Department Position Title: Clinical Office Assistant Department'
+
+    ⚠ Found only by re-measuring after the FIRST fix recovered ZERO. The earlier probe
+    scanned the whole document and saw the possessive spelling in the form's blank
+    template header; the parser reads the identification SECTION, where the spelling is
+    the one already supported. A probe whose scope does not match the parser's scope
+    measures a different question and answers it confidently.
+    """
+    doc = _WJQ.replace(
+        "Department Position Title:\nProgram Assistant",
+        "Department Position Title: Program Assistant",
+    )
+    assert parse_jd(doc).jd.title == "Program Assistant"
+
+
+@pytest.mark.parametrize(
+    ("cell", "expected"),
+    [
+        ("Department Position Title: Program Assistant", "Program Assistant"),
+        # The neighbouring column bleeds in; it must be cut at the next label, not kept.
+        (
+            "Department Position Title: Budget Assistant Department Name/Section:",
+            "Budget Assistant",
+        ),
+        (
+            "Department Position Title: Clinical Office Assistant Department",
+            "Clinical Office Assistant",
+        ),
+    ],
+)
+def test_an_inline_value_is_cut_at_the_next_label(cell: str, expected: str) -> None:
+    """Recovering the value must not swallow the column printed beside it.
+
+    In the fixed-width render the next field's LABEL lands in the same cell. Keeping it
+    would write "Budget Assistant Department Name/Section:" into the Bank as a job title
+    — a confident wrong value, which is worse than the honest sentinel it replaced.
+    """
+    doc = _WJQ.replace("Department Position Title:\nProgram Assistant", cell)
+    assert parse_jd(doc).jd.title == expected
+
+
+@pytest.mark.parametrize(
+    ("cell", "expected"),
+    [
+        # Trailing punctuation is noise from the render, not part of the title.
+        ("Department Position Title: Helpdesk Technician,", "Helpdesk Technician"),
+        ("Department Position Title: Cashier /", "Cashier"),
+        # ...but a dangling CONNECTOR means the value was cut off by the column width.
+        # "Housing &" is not a job title; the honest answer is the sentinel.
+        ("Department Position Title: Housing &", "Untitled Position"),
+        ("Department Position Title: Acquisitions Approvals &", "Untitled Position"),
+        ("Department Position Title: Research and", "Untitled Position"),
+    ],
+)
+def test_a_truncated_inline_value_is_refused_not_stored(
+    cell: str, expected: str
+) -> None:
+    """MEASURED on the 811 titles the inline fix recovered: 3.5% ended mid-phrase, and
+    ~22 of them were fragments left by antiword's column width — "Housing &",
+    "Research &", "Acquisitions Approvals &".
+
+    A fragment is a CONFIDENT WRONG VALUE. `Untitled Position` announces its own
+    failure, and every surface already reports it as a gap; "Housing &" would be read as
+    a job title. Recovering more titles must not mean inventing them, so a value whose
+    last token is a connector is refused and the sentinel stands.
+    """
+    doc = _WJQ.replace("Department Position Title:\nProgram Assistant", cell)
+    assert parse_jd(doc).jd.title == expected
+
+
+@pytest.mark.parametrize(
+    ("cell", "expected"),
+    [
+        # Underscores are the form's fill-in rule, not part of the title.
+        (
+            "Department Position Title: _Departmental Assistant_____",
+            "Departmental Assistant",
+        ),
+        # "Approved by" is the sign-off column printed beside this one.
+        (
+            "Department Position Title: Departmental Assistant Approved by",
+            "Departmental Assistant",
+        ),
+    ],
+)
+def test_form_furniture_is_stripped_from_a_recovered_title(
+    cell: str, expected: str
+) -> None:
+    """Found by reading the 807 recovered titles rather than trusting the count.
+
+    The fixed-width render leaves the blank form's own furniture in the cell: the
+    underscore fill-in rule, and the sign-off column's "Approved by". Both are in
+    the archive and neither belongs in a job title.
+    """
+    doc = _WJQ.replace("Department Position Title:\nProgram Assistant", cell)
+    assert parse_jd(doc).jd.title == expected

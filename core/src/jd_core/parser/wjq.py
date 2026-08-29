@@ -268,13 +268,76 @@ def _extract_label(
     cell is itself a label) yields ``None``."""
     wanted = {label.rstrip(":").strip().lower() for label in labels}
     for i, cell in enumerate(cells):
-        if cell.rstrip(":").strip().lower() not in wanted:
+        stripped = cell.rstrip(":").strip().lower()
+
+        # INLINE: antiword's fixed-width render puts "Label: value" in ONE cell, so
+        # there is no next cell. 🔴 This made 47.6% of CUPE documents (2,046 of
+        # 4,300) have no title at all while every other bargaining unit sat at 0.0% —
+        # measured 2026-08-29 against the raw archive.
+        if inline := _inline_value(cell, wanted):
+            return inline[:cap]
+
+        if stripped not in wanted:
             continue
         if i + 1 >= len(cells) or _is_label_cell(cells[i + 1]):
             return None
         value = _clean(cells[i + 1])
         return value[:cap] if value else None
     return None
+
+
+#: Where an inline value STOPS. In the fixed-width render the next field's label is
+#: printed beside this one and lands in the same cell, so the raw remainder reads
+#: "Budget Assistant Department Name/Section:". Keeping that would write a confident
+#: wrong job title into the Bank — worse than the honest sentinel it replaces.
+_NEXT_LABEL_RX = re.compile(
+    r"\s+(?:department\b|position\s+number|total\s+number|evaluating\b|"
+    r"classification\b|for\s+use\s+by\b|effective\s+date\b|name\s*/\s*section\b|"
+    # The sign-off column of section 14, which prints beside the identification
+    # table in the fixed-width render ("Departmental Assistant Approved by").
+    r"approved\s+by\b|reviewed\s+by\b|signature\b)",
+    re.I,
+)
+
+
+#: A value whose last token is one of these was CUT OFF by the render's column
+#: width — "Housing &", "Acquisitions Approvals &", "Research and". MEASURED on
+#: the 811 titles this recovered: 3.5% ended mid-phrase and ~22 were fragments.
+#:
+#: They are REFUSED rather than stored. A fragment is a confident wrong value,
+#: and `Untitled Position` at least announces its own failure — every surface
+#: already reports the sentinel as a gap, whereas "Housing &" reads as a job
+#: title. Recovering more titles must not mean inventing them.
+_TRUNCATED_TAIL_RX = re.compile(
+    r"(?:&|/|\+|\b(?:and|or|of|for|to|the|in|with)\b)$", re.I
+)
+
+#: Punctuation and form furniture the fixed-width render leaves around an otherwise
+#: complete value: "Helpdesk Technician," and the blank form's underscore fill-in rule,
+#: "_Departmental Assistant_____". Noise, not truncation — trimmed, not refused. Both
+#: were found by READING the 807 recovered titles rather than trusting the count.
+_TRAILING_NOISE = " \t,;:-–—/|._"
+
+
+def _inline_value(cell: str, wanted: set[str]) -> str | None:
+    """``"Department Position Title: Program Assistant"`` -> ``"Program Assistant"``.
+
+    Returns ``None`` when the cell is not one of ``wanted`` with a usable inline value,
+    so the caller falls through to the next-cell reading python-docx needs.
+    Both renders of the same SFU form are in the archive; neither is the odd one out.
+
+    ``None`` is also the answer when the recovered value is a TRUNCATED FRAGMENT
+    (:data:`_TRUNCATED_TAIL_RX`). Refusing there is deliberate: it hands the
+    document back to the sentinel, which is honest, instead of storing half a
+    title that reads as a whole one.
+    """
+    head, sep, tail = cell.partition(":")
+    if not sep or head.strip().lower().lstrip("|").strip() not in wanted:
+        return None
+    value = _clean(_NEXT_LABEL_RX.split(tail, maxsplit=1)[0]).strip(_TRAILING_NOISE)
+    if not value or _TRUNCATED_TAIL_RX.search(value):
+        return None
+    return value
 
 
 def _summary_text(block: str, wjq: Wjq) -> str | None:
