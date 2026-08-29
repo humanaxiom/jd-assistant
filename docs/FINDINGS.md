@@ -89,6 +89,66 @@ rejected by any rule — it is never considered.
 > document is already the role"*, and that **caps what can ever be published**. It needs a
 > registered decision, not a patch.
 
+**Registered as HR-223, and the population is now measured by code you can re-run** —
+`make singletons`, over all 14,522 current-version parses (2026-08-29, `jd_segmenter_v7`).
+Numbers below and in `docs/singletons/`; the register entry is the decision.
+
+#### The size of it — four buckets, never one total
+
+1,222 documents carry no `dedup_edges` row at either end, and **1,204** of those are in no
+role. (18 reached one anyway, through the Builder, which mints roles from no source
+documents at all — which is why the pool is "no edge **and** no role", not the edge check
+alone.) Split so the could-not-evaluate bucket is visible:
+
+| the 1,204 | | what it means |
+|---|---:|---|
+| title appears exactly ONCE in the archive | **462** | a genuinely singular SFU job — the population HR-223 is about |
+| shares a title with a document that DID reach a role | **497** | a dedup recall miss (**D3**), not a unique job — the role already exists |
+| shares a title only with other orphans | **163** | a group the dedup never linked |
+| 🔴 **could not evaluate** | **82** | the parser recovered no usable title; neither answer is available |
+
+**The control** — the same split over the 10,808 documents that *did* reach a role — is
+484 / 9,311 / 0 / 1,013. The could-not-evaluate rate is **6.8% in the pool against 9.4% in
+the control**, so the probe is reading the archive rather than the parser. Separately the
+clustering report calls **3,658** documents `singletons` (coverage 74.81%): a *different
+unit*, counting every document that ends in a component of one, vetoed edges included.
+
+⚠ **462 is an upper bound.** Only the definitional case is excluded — a title with no
+letter in it (`#01246`) is not a title in any language SFU writes JDs in. A 60-title sample
+read verbatim still contains banner text (`ADMINIISTRATIVE AND PROFESSIONAL STAFF
+ASSOCIATION POSITION`), truncations (`Assistant to the Director, External Programs and`), a
+label bleed (`Accreditation Manager Position#: 00110757`) and one incumbent's name
+(`Leigh McGregor. Departmental Assistant`, §8d / plan.md P3c) — all counted as unique
+because they *are* unique strings. A junk-title classifier invented on a 60-document sample
+is the failure mode the register exists to prevent, so the bound is published instead.
+
+#### ⚠ Two of our own numbers were wrong, and re-deriving them is what caught it
+
+The first measurement of this population (2026-08-28, by hand, at `jd_segmenter_v6`) was
+stale within a day. Every bucket here is title-based, and v6→v7 recovered 805 titles:
+
+| | measured 08-28 | re-derived 08-29 |
+|---|---:|---:|
+| unique title | 386 | **462** |
+| shares a title with a clustered document | 305 | **497** |
+| could not evaluate | 513 | **82** |
+| the clustering report's `singletons` | 3,620 | **3,658** |
+
+🔴 **And the qualification comparison inverted.** The draft entry said the pool averages
+**1.46** parsed qualifications against **8.84** for documents that reached a role, and used
+it to discount the headline: most would mint a role and fail the gates anyway. Re-derived,
+the same probe returns **8.89** for the in-role population — reproducing that half almost
+exactly — and **9.54** for the pool. On this measure the one-of-a-kind documents are not
+poorer at all.
+
+The medians say why neither mean means much: **0.0 for the pool and 1.0 for the in-role
+population.** Over half of *both* populations have no parsed qualifications, and the means
+are driven by a minority carrying many. **The qualification evidence neither supports nor
+discounts the 462, and must not be quoted as if it did.**
+
+*One half of a two-number comparison reproducing exactly is what identified which half was
+broken. A mean alone could not have.*
+
 ### 2b. ⚠ `Untitled Position` is a placeholder, not an empty string
 
 `title <> ''` reports **100% title coverage** and is wrong. **2,050 of 14,522 documents

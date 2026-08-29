@@ -112,7 +112,16 @@ _MAX_DUTIES = 12
 _MAX_QUALS = 40
 _MAX_BULLETS = 20
 
-_FALLBACK_TITLE = "Untitled Position"
+#: The title the parser writes when it recovered none. 🔴 **A PLACEHOLDER, NOT A
+#: NULL** — `title <> ''` reports 100% coverage over documents that have no title
+#: at all, and that false all-clear was produced during the very investigation that
+#: then found 2,050 titleless documents. Exported so a reader counting titles checks
+#: for the sentinel the writer actually uses rather than re-typing the string — it
+#: had already been re-typed in two other modules.
+FALLBACK_TITLE = "Untitled Position"
+
+#: Internal alias; the segmenter refers to it throughout.
+_FALLBACK_TITLE = FALLBACK_TITLE
 
 _BULLET_RE = re.compile(r"^\s*(?:[-•*·▪‣◦]|\(?\d{1,2}[.)]|[ivx]{1,4}[.)])\s+", re.I)
 _PERCENT_RE = re.compile(r"\(\s*\d{1,3}\s*%\s*\)")

@@ -336,6 +336,7 @@ docker compose -f docker-compose.prod.yml up -d
 | Cluster roles | `make cluster` | Phase-3.5 clustering report. |
 | Produce draft canonicals | `make canonical-drafts` | Phase-4.4a: one DRAFT per JDFN cluster into the review queue. Add the LLM rewrite/audit pass when Ollama is free; `--no-llm` for a deterministic run. |
 | Archive baseline (measurement) | `make baseline JD_ARCHIVE_PATH=<SFU JDs>` | Scores the whole archive; writes `docs/baseline/`. |
+| One-of-a-kind jobs (measurement) | `make singletons` | How many SFU jobs exist exactly ONCE — the population `comparison.singleton_role_policy` drops today (HR-223). **Read-only, Postgres only**, safe at any time. Four buckets plus a control, never one total; writes `docs/singletons/`. Re-run it after any re-parse rather than quoting the last numbers — every bucket is title-based. |
 
 > ### ⚠ If a release bumps `parser_version`, the re-parse is not optional
 >

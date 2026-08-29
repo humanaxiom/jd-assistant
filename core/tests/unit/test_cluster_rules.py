@@ -33,6 +33,7 @@ _CLUSTER_PATHS = (
     "comparison.cluster_group_homogeneous",
     "comparison.cluster_max_size",
     "comparison.cluster_representative_policy",
+    "comparison.singleton_role_policy",
 )
 
 
@@ -123,4 +124,74 @@ def test_the_dead_knob_resolution_is_registered(rules: Rules) -> None:
         text = (by_id[hid].impact_if_changed + by_id[hid].why_it_matters).lower()
         assert "retired" in text and "cluster_role_equiv_min" in (
             by_id[hid].impact_if_changed + by_id[hid].why_it_matters
+        )
+
+
+# ── HR-223: what the Bank does with a job that has no twin ───────────────────
+
+
+def test_the_singleton_role_policy_ships_as_drop(rules: Rules) -> None:
+    """Today a one-of-a-kind job produces NOTHING, and that is now stated as data.
+
+    Measured by ``make singletons`` against the live Bank (2026-08-29, v7): 1,222 parsed
+    documents carry no ``dedup_edges`` row at either end and 1,204 of them are in no
+    role, so clustering — which takes EDGES as its only input — never considers them.
+    462 of those carry a title appearing exactly once in the archive. The behaviour is
+    deliberate and unratified, so it is registered rather than patched (HR-223).
+
+    ⚠ The numbers live in :mod:`src.jd_bank.singletons`, not here. This asserts the
+    POLICY, because a test that pinned the counts would go red on every re-parse — and
+    the first measurement of this population was stale within a day.
+    """
+    assert rules.comparison.singleton_role_policy == "drop"
+
+
+def test_an_unimplemented_singleton_policy_fails_to_load(tmp_path: Path) -> None:
+    """A closed set like ``cluster_algo``: naming a policy nothing implements is a LOAD
+    error, not a silently ignored setting.
+
+    ``mint_role`` and ``queue_for_authoring`` are the two alternatives HR-223 puts to
+    HR. Neither is built, so neither may be selectable — a data-only switch to an
+    unimplemented policy would drop every one-of-a-kind job exactly as ``drop`` does
+    while *reporting* that it had minted roles.
+    """
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "comparison.yaml",
+        lambda d: d.__setitem__("singleton_role_policy", "mint_role"),
+    )
+    with pytest.raises(RulesError):
+        load_rules(tmp_path)
+
+
+def test_dropping_a_singleton_is_enforced_by_the_models_not_only_the_policy(
+    rules: Rules,
+) -> None:
+    """The WHY behind ``drop``: two independent ``ge=2`` floors, not one knob.
+
+    ``comparison.min_cluster_size`` (HR-097) is validated ``ge=2`` in the loader and
+    ``ClusterRecord.member_count`` is validated ``ge=2`` in the cluster models. So
+    flipping HR-097 to 1 does NOT make a one-of-a-kind job into a role — it fails to
+    load. Enacting HR-223 is a code change in both places, which is precisely why the
+    decision is registered before anything is built.
+    """
+    from pydantic import ValidationError
+
+    from src.jd_bank.cluster.models import ClusterRecord
+
+    assert rules.comparison.min_cluster_size == 2
+    with pytest.raises(ValidationError):
+        ClusterRecord.model_validate(
+            {
+                "cluster_id": "00000000-0000-0000-0000-000000000001",
+                "label": "a job with no twin",
+                "member_count": 1,
+                "titles": (),
+                "departments": (),
+                "employee_groups": (),
+                "distinct_titles": 0,
+                "cross_department": False,
+                "cross_group": False,
+            }
         )

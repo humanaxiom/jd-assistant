@@ -82,7 +82,7 @@ A1–A5 are built and merged. Two live surfaces, both reading the database at re
 |---|---|---|---|
 | **B2** | 🔴 **Run the pilot** | needs HR | ~20 approvable drafts reviewed for real. **Success = 20 PUBLISHED JDs + the reviewer's written objections.** |
 | **B3** | 🔴 **Ratify two gates** | needs HR | `SFU-APPROVE-QUAL-EQUIVALENT` and `SFU-APPROVE-KSA-ORDER` between them block most CUPE drafts. **One ruling beats every engineering change made in August, at zero GPU cost.** |
-| **B4** | **Book HR ratification** | needs HR | **79 decisions need an HR ruling**, none ratified. The register holds more, but the rest are engineering settings or shape only what a reviewer sees. The matrix needs a calendar invitation, not another revision. |
+| **B4** | **Book HR ratification** | needs HR | **None ratified.** The count of decisions needing an HR ruling is in the [register](decisions/HR-DECISION-REGISTER.md)'s own header, which is the record — this page said **79** while the register said **81**, and had done since before HR-223 was added. The rest are engineering settings or shape only what a reviewer sees. The matrix needs a calendar invitation, not another revision. |
 
 **B2–B4 are asks, not tasks — make them now.** They are the only work that moves the
 published-JD count, and they are pure lead time.
@@ -96,9 +96,10 @@ so none displaces Track B — but D1 changes what the Bank can *ever* publish.
 
 | # | task | size | notes |
 |---|---|---|---|
-| **D1** | 🔴 **Decide what happens to a one-of-a-kind job** | decision, then small | A role is built from a GROUP of near-duplicates, so a job with no duplicate anywhere produces nothing. **Register the decision; do not quietly patch it.** This is the only item that raises the ceiling. ⚠ **Measurement done and a draft HR-223 entry written 2026-08-28** — parked mid-flight in `git stash` (`WIP D1/HR-223…`) when Track P took priority. Recover it rather than re-deriving: the archive work is finished, the register entry is not. |
+| ~~**D1**~~ | ✅ **REGISTERED as HR-223 — 2026-08-29** | done, but the ruling is not | The decision is on the record and the population is measured by code anyone can re-run (`make singletons`, `docs/singletons/`). ⚠ **The parked draft's numbers did not survive re-derivation** — three buckets moved and the qualification comparison *inverted*; [`FINDINGS.md`](FINDINGS.md) §2a has the before/after. **`drop` still ships**, so the ceiling is unchanged until HR rules: it is registered `open`, not fixed. |
+| **D1a** | **Enact whichever policy HR chooses** | med, after the ruling | `mint_role` needs two independent `ge=2` floors relaxed (`comparison.min_cluster_size` and `ClusterRecord.member_count`); `queue_for_authoring` needs no clustering change at all, because the Builder already mints roles from no source documents. ⚠ **Not before D3.** Applied to the whole no-twin pool, `mint_role` would also mint a role for each of the 497 recall misses — duplicating roles that already exist. |
 | **D2** | 🔴 **Fix title extraction** | small–med | The parser emits a placeholder or captures letterhead, banners, separator rows and `[pic]`. ⚠ Its reach is far wider than the gap — most affected documents are already in drafts. |
-| **D3** | ⚠ **Near-duplicate recall miss** | med | Documents sharing a title with others that did cluster. **Measure before tuning** — adjusting `jaccard_min` until the number improves is how this gets worse. |
+| **D3** | ⚠ **Near-duplicate recall miss — now MEASURED at 497** | med | Documents sharing a title with others that did cluster: **497** of the 1,204 no-twin documents, from `make singletons` (§2a). That is the measurement D1 was waiting on, and it is larger than the 462 genuinely singular jobs beside it. **Measure again before tuning** — adjusting `jaccard_min` until the number improves is how this gets worse, and a shared title is evidence of a miss, not proof of one. |
 
 ---
 
