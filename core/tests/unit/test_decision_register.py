@@ -1151,9 +1151,11 @@ def test_the_comparison_defaults_are_registered_as_nobodys_standard(
     inherited. Phase 3.4b added six more (the Tier-3 role-equivalence knobs,
     HR-155..HR-160): hris had no Tier-3 role-equivalence pass to inherit. Phase 3.5
     added six more (the clustering knobs, HR-161..HR-166): hris had no report-only
-    clustering over a mixed-tier edge graph either. The set below is what stops the 22
-    genuinely-inherited numbers from being quietly relabelled ``our_invention`` (or vice
-    versa) on the way past.
+    clustering over a mixed-tier edge graph either. HR-223 (``singleton_role_policy``)
+    is the newest: what becomes of a job with no near-duplicate anywhere is not an
+    inherited number at all — it is what the pipeline DOES today, written down so it can
+    be ruled on. The set below is what stops the 22 genuinely-inherited numbers from
+    being quietly relabelled ``our_invention`` (or vice versa) on the way past.
     """
     register = rules.decision_register
     comparison = [d for d in register.decisions if d.config.file == "comparison.yaml"]
@@ -1191,6 +1193,7 @@ def test_the_comparison_defaults_are_registered_as_nobodys_standard(
         "HR-164",
         "HR-165",
         "HR-166",
+        "HR-223",
     }
 
 

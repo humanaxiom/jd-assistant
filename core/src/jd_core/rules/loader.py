@@ -2105,6 +2105,29 @@ ClusterTier = Literal["exact", "near_duplicate", "role_equivalent"]
 #: rather than stamping a report with an anchor the runner never used.
 ClusterRepresentativePolicy = Literal["max_parse_confidence"]
 
+#: What the Bank does with a signed JD that lands in NO cluster of size >=
+#: ``min_cluster_size`` — a job with no near-duplicate anywhere in the archive
+#: (``singleton_role_policy``, HR-223). A closed set of ONE, exactly like
+#: :data:`ClusterAlgorithm`, and for the same reason: **the alternatives are not
+#: implemented, so they must not be selectable.**
+#:
+#: ``drop``  the document produces nothing. This is what the pipeline does today, and
+#:           it is not a rule anyone wrote — clustering takes EDGES as its only input
+#:           (:func:`~src.jd_core.bank.clustering.build_clusters`), so a document with
+#:           no edge is never *considered*, let alone rejected.
+#:
+#: The two alternatives HR-223 puts to SFU HR, neither built:
+#:   * ``mint_role``          — a one-of-a-kind document becomes a single-member role,
+#:                              drafted and gated like any other.
+#:   * ``queue_for_authoring`` — it is surfaced to the Builder as a seed for a human to
+#:                              author, mirroring the ``origin: composed`` path.
+#:
+#: Enacting either is a code change in two more places — ``min_cluster_size`` is
+#: ``Field(ge=2)`` here and ``ClusterRecord.member_count`` is ``Field(ge=2)`` in
+#: ``jd_bank.cluster.models`` — which is why the decision is REGISTERED before
+#: anything is built rather than settled by a knob.
+SingletonRolePolicy = Literal["drop"]
+
 
 class Comparison(_RuleFile):
     """Calibration for similarity, clustering and drift (``comparison.yaml``).
@@ -2257,6 +2280,9 @@ class Comparison(_RuleFile):
     #: How a cluster picks its drift/report anchor (``ClusterRepresentativePolicy``).
     #: HR-166.
     cluster_representative_policy: ClusterRepresentativePolicy
+    #: What becomes of a signed JD landing in NO cluster of size >= `min_cluster_size` —
+    #: the one-of-a-kind job. Today: nothing at all. HR-223.
+    singleton_role_policy: SingletonRolePolicy
 
     @field_validator("family_band_ladder")
     @classmethod

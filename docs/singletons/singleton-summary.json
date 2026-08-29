@@ -1,0 +1,40 @@
+{
+  "parser_version": "jd_segmenter_v7",
+  "parsed_documents": 14522,
+  "documents_in_a_role": 10808,
+  "orphans": 3714,
+  "documents_with_no_edge": 1222,
+  "documents_with_no_edge_in_a_role": 18,
+  "buckets": {
+    "pool": {
+      "unique_title": 462,
+      "shares_title_with_role_document": 497,
+      "shares_title_with_other_orphan": 163,
+      "title_unjudgeable": 82
+    },
+    "control": {
+      "unique_title": 484,
+      "shares_title_with_role_document": 9311,
+      "shares_title_with_other_orphan": 0,
+      "title_unjudgeable": 1013
+    }
+  },
+  "mean_qualifications_pool": 9.54,
+  "mean_qualifications_in_role": 8.89,
+  "median_qualifications_pool": 0.0,
+  "median_qualifications_in_role": 1.0,
+  "unique_title_examples": [
+    ".....................................................................Televis",
+    "Assistant Wrestling Coach Position #: 01224",
+    "Cashier",
+    "Coordinator, Goethe Zentrum (German Language",
+    "Development Officer, Annual Campaign",
+    "EBMS Business Account Associate",
+    "Financial Policy Analyst",
+    "LABORATORY COORDINATOR",
+    "Manager, International Student Advising and Programs",
+    "Microcomputer Technical Support Specialist",
+    "Project Planner",
+    "Sexual Violence Prevention Educator"
+  ]
+}

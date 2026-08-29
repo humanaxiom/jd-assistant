@@ -557,6 +557,29 @@ services:
       postgres: { condition: service_healthy }
     command: ["python", "-u", "-m", "src.jd_bank.bank_audit"]
 
+  # ─── HR-223: the one-of-a-kind population (read-only) ──────────────────────
+  # How many SFU jobs exist exactly ONCE — the population `comparison.
+  # singleton_role_policy` governs (`make singletons`). Reads; writes no Bank row.
+  # Postgres only: no Neo4j, no Ollama, no archive bind, so it is safe and cheap at any
+  # time.
+  #
+  # It exists so the numbers in the HR-223 register entry can be RE-DERIVED by a person
+  # rather than trusted. The first set was measured by hand on 2026-08-28 and was stale
+  # within a day — v6→v7 recovered 805 titles, and this measurement is title-based.
+  singletons:
+    profiles: ["tools"]
+    build:
+      context: ./core
+      dockerfile: Dockerfile
+    environment:
+      <<: *app_env
+    volumes:
+      - ./core:/app
+      - ./docs:/app/docs
+    depends_on:
+      postgres: { condition: service_healthy }
+    command: ["python", "-u", "-m", "src.jd_bank.singletons"]
+
   # ─── Phase-4.2a LLM rewrite golden (opt-in, LOCAL-ONLY) ────────────────────
   # Runs the live rewrite golden against the REAL chat model on `aria-gb10-2`
   # (OLLAMA_BASE_URL, ADR-003) — NEVER part of `make gates` / CI (a cloud runner cannot

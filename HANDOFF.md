@@ -115,9 +115,12 @@ with no rows, i.e. an apparently empty Bank.
 1. **B3 / B4 — the HR asks.** The only work that moves the published count. Pure lead time.
 2. **A6 / A7 — the ITS director sessions.** Work the review queue and vet the department
    alias list; their rulings land in HR-217/218.
-3. **D1 — decide what happens to a one-of-a-kind job.** The pipeline builds a role from a
+3. **D1 — rule on the one-of-a-kind job (HR-223).** The pipeline builds a role from a
    GROUP of near-duplicates, so a unique job produces nothing. **The only open item that
-   raises the ceiling on what can ever be published.** [`docs/FINDINGS.md`](docs/FINDINGS.md) §2a.
+   raises the ceiling on what can ever be published.** The decision is now REGISTERED and
+   the population MEASURED by code anyone can re-run — `make singletons`, four buckets and
+   a control, [`docs/singletons/`](docs/singletons/). `drop` still ships, so nothing has
+   changed until HR rules. [`docs/FINDINGS.md`](docs/FINDINGS.md) §2a.
 
 ### If you are picking up engineering, start here
 
@@ -126,7 +129,8 @@ with no rows, i.e. an apparently empty Bank.
 | **P3b** | **Audit the fields nobody has checked yet.** `employee_group` and `title` are the ONLY two ever compared against the raw archive, and **each produced defects immediately** — two and one respectively. `department`, `grade`, `classification` and `position_number` have never been checked at all. This is the highest-yield engineering seam we have found. |
 | **P4** | **24 clusters have no draft** and nothing regenerates them. `src.jd_bank.canonical` has `--only-template` but no per-cluster filter, so re-drafting exactly those is not expressible; a full producer run is under a standing ⛔. Needs a ruling, not code. |
 | **P3c** | ⚠ **One recovered title contains an incumbent's name** (`Leigh McGregor. Departmental Assistant`). Needs a measurement and a registered rule — NOT a name-shaped regex invented on a sample of one (NN #5). |
-| **D1** | Measurement is **already done** and an HR-223 entry drafted — parked in `git stash` (`stash@{0}`, `WIP D1/HR-223…`). Recover it rather than re-deriving; the archive work is finished, the register entry is not. |
+| ~~**D1**~~ | ✅ **Landed 2026-08-29 as HR-223** — the parked stash was recovered onto current `main` and its numbers RE-DERIVED before commit. ⚠ **They had not survived the week:** three of four buckets moved and the qualification comparison inverted outright (the draft called the pool qualification-poor at 1.46 vs 8.84; it measures 9.54 vs 8.89, with medians 0.0 and 1.0 that make both means meaningless). **The stale half was identified because the OTHER half reproduced exactly.** §2a. |
+| **D1a** | **Enact whichever policy HR rules for.** Not before D3 — `mint_role` over the whole pool would also mint a role for each of the 497 recall misses. plan.md D1a. |
 
 ⚠ **The method is the finding.** Every defect this session came from reading the SOURCE
 FILES and running a CONTROL first — never from the database, and never from an aggregate.
@@ -265,6 +269,21 @@ Distilled from six weeks; the full set is in the archive.
   reading was misread as progress when the transaction was parked.
 - **A flat metric is a question, not a verdict** — compare against a control (the
   not-yet-processed population) before acting on it. That is what caught HR-214.
+- 🔴 **A measurement has a shelf life, and a parked one has already expired.** The HR-223
+  numbers were measured on 2026-08-28 and recovered from `git stash` on 2026-08-29. Three
+  of four buckets had moved (513 could-not-evaluate → 82) because v6→v7 recovered 805
+  titles and every bucket was title-based. **Recovering parked work means re-deriving its
+  numbers, not just replaying its diff.**
+- 🔴 **When two numbers disagree with their re-run, the one that REPRODUCES tells you
+  which is broken.** The draft claimed the no-twin pool averages 1.46 qualifications
+  against 8.84 in-role. The same probe returned 8.89 in-role — reproducing that half
+  almost exactly — and 9.54 for the pool, so the pool figure was the broken one, not the
+  probe. **A comparison is two measurements; check them separately before believing the
+  contrast.** (And the medians, 0.0 and 1.0, then showed neither mean meant anything.)
+- **Print the sample, and read it.** The unique-title count looked clean until the
+  verbatim list showed `#01246` and `.....Televis` sitting in it. One case was
+  definitional and fixed; the rest were published as an upper bound rather than
+  classified away on a sample of sixty.
 - **A rising score is a question too.** Three separate defects this project made scores go
   *up*: invented sections, compressed duty lists, dropped point-factor content.
 - **Verify state against the remote before trusting any doc.** `gh pr list` costs seconds;

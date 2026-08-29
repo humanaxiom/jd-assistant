@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from src.jd_core.parser.headings import Era, SectionKey
 from src.jd_core.parser.segmenter import (
+    FALLBACK_TITLE,
     PARSER_VERSION,
     ParseResult,
     Template,
@@ -17,6 +18,7 @@ from src.jd_core.parser.segmenter import (
 )
 
 __all__ = [
+    "FALLBACK_TITLE",
     "PARSER_VERSION",
     "Era",
     "ParseResult",

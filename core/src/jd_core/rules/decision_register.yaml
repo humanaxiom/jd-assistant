@@ -2838,6 +2838,74 @@ decisions:
       Coordinator role).
     status: open
 
+  - id: HR-223
+    question: >-
+      When a job exists exactly once at SFU — no near-duplicate anywhere in the archive —
+      should it become a role in the Bank, or produce nothing?
+    config:
+      file: comparison.yaml
+      path: comparison.singleton_role_policy
+    current_default: drop
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Today it produces nothing, and NOBODY DECIDED THAT. `build_clusters` takes EDGES as
+      its only input, so a document with no near-duplicate is never CONSIDERED — it is not
+      rejected by any rule, it simply never enters clustering. The Bank's contract is
+      "many documents become one role"; it has no answer for "one document is already the
+      role". This is the only registered decision that changes the CEILING on what the
+      Bank can ever publish, which is why it is registered before anything is built.
+      MEASURED over all 14,522 current-version parses by `make singletons` (2026-08-29,
+      `jd_segmenter_v7`; `docs/singletons/singleton-summary.json`): 1,222 documents carry
+      no `dedup_edges` row at either end, and 1,204 of those are in no role — 18 reached
+      one anyway, through the Builder, which mints roles from no source documents at all.
+      Split so the could-not-evaluate bucket is VISIBLE rather than folded into an answer:
+      **462 have a title appearing exactly once** in the archive (Manager, Health Data
+      Research Network · Sexual Violence Prevention Educator · Director, 4D LABS ·
+      Coordinator, Web Content), **497 share a title with a document that DID reach a
+      role** — a dedup recall miss (plan.md D3), not a unique job, since the role already
+      exists — **163 share a title only with other orphans**, and **82 CANNOT BE JUDGED**
+      because the parser recovered no usable title. The same split over the 10,808
+      documents that did reach a role is reported beside it as a CONTROL (484 / 9,311 / 0
+      / 1,013): the could-not-evaluate rate is 6.8% in the pool against 9.4% in the
+      control, so the probe is measuring the archive rather than the parser. Separately,
+      the clustering report calls 3,658 documents `singletons` (coverage 74.81%) — a
+      DIFFERENT unit, counting every document that ends in a component of one, including
+      those whose edges were vetoed. ⚠ **462 is an UPPER BOUND.** A 60-title sample read
+      verbatim contains banner text (`ADMINIISTRATIVE AND PROFESSIONAL STAFF ASSOCIATION
+      POSITION`), truncations (`Assistant to the Director, External Programs and`), a
+      label bleed (`Accreditation Manager Position#: 00110757`) and one incumbent's name
+      (`Leigh McGregor. Departmental Assistant`, plan.md P3c) — all counted as unique
+      because they ARE unique strings. Only the definitional case is excluded (a title
+      with no letter in it, e.g. `#01246`); the judgement calls are deliberately not made
+      here, because a junk-title classifier invented on a 60-document sample is the
+      failure mode this register exists to prevent.
+    impact_if_changed: >-
+      NOT config only — this is the one entry here whose alternatives need code. `drop` is
+      a closed set of one on purpose (the `cluster_algo` rule: a knob whose alternative is
+      unimplemented is a provenance lie), so selecting another value fails at load until it
+      is built. Enacting `mint_role` means relaxing TWO independent `ge=2` floors —
+      `comparison.min_cluster_size` in the loader (HR-097) and `ClusterRecord.member_count`
+      in `jd_bank.cluster.models` — and deciding what a "cluster" of one is called in a
+      report whose whole vocabulary is redundancy; no approval gate reads cluster size, so
+      a single-member role would be judged purely on its content. `queue_for_authoring`
+      needs no clustering change at all: the Builder ALREADY mints roles with no source
+      documents (`composer/persist.py` writes `source_document_ids=[]`, `origin: composed`,
+      and one of the four currently PUBLISHED JDs is such a role), so this option routes the
+      462 to a human author instead of inventing a one-member cluster. ⚠ Whichever is
+      chosen, `mint_role` applied to all 1,204 would also mint a role for each of the 497
+      recall misses — duplicating roles that already exist — so it should not be enacted
+      before D3 is measured. ⚠ **The draft of this entry (2026-08-28) claimed the pool is
+      qualification-poor — "mean 1.46 against 8.84" — and used it to discount the headline.
+      RE-DERIVED, IT DOES NOT HOLD.** The same probe returns 8.89 for the in-role
+      population, reproducing that half almost exactly, and **9.54 for the pool**: on this
+      measure the one-of-a-kind documents are not poorer at all. The medians say why
+      neither mean means much — **0.0 for the pool and 1.0 for the in-role population** —
+      so over half of BOTH populations have no parsed qualifications and the means are
+      driven by a minority with many. The qualification evidence therefore neither
+      supports nor discounts the 462, and it must not be quoted as if it did.
+    status: open
+
   - id: HR-098
     question: >-
       How much can a posting's skill set diverge from its canonical role before the drift

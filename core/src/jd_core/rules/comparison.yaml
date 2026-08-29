@@ -25,6 +25,12 @@
 #     veto", the `group_conflict_veto`, the candidate-generation `candidate_k`, and
 #     `seed_from_near_dup`. The earlier build had no Tier-3 role-equivalence pass to inherit; these are
 #     JD Bank's own, MEASURED on the real archive (see each key's comment + register entry).
+#   * the clustering knobs (HR-161 … HR-166, Phase 3.5): the earlier build had no
+#     report-only clustering over a mixed-tier edge graph to inherit either.
+#   * `singleton_role_policy` (HR-223): what becomes of a job with no near-duplicate
+#     anywhere. Not inherited and not decided — it is what the pipeline DOES today,
+#     written down. It caps what the Bank can ever publish, so it is registered rather
+#     than patched, and the population it governs is measured by `make singletons`.
 # Pinned by `test_the_comparison_defaults_are_registered_as_nobodys_standard`.
 #
 # Two of the inherited numbers come closest to an SFU source and STILL do not clear the
@@ -432,3 +438,25 @@ cluster_max_size: 50
 # anchors on the best-parsed member. A closed set (a data-only switch to an unimplemented
 # policy fails at load). HR-166.
 cluster_representative_policy: max_parse_confidence
+
+# ── The one-of-a-kind job ────────────────────────────────────────────────────
+# What becomes of a signed JD that lands in NO cluster of size >= `min_cluster_size`.
+# Today: NOTHING — and that is not a rule anyone wrote. `build_clusters` takes EDGES as
+# its only input, so a document with no near-duplicate is never CONSIDERED, let alone
+# rejected.
+#
+# MEASURED by `make singletons` over all 14,522 current-version parses (2026-08-29,
+# `jd_segmenter_v7`): 1,222 documents carry no `dedup_edges` row at either end and 1,204
+# of those are in no role. Of those 1,204 — reported in four buckets, never one total —
+# 462 have a title appearing exactly ONCE in the archive (Manager, Health Data Research
+# Network · Sexual Violence Prevention Educator · Director, 4D LABS), 497 share a title
+# with a document that DID reach a role (a recall miss, not a unique job), 163 share one
+# only with other orphans, and 82 CANNOT BE JUDGED. ⚠ Re-run it rather than quoting these:
+# the first measurement of this population was stale within a day, because v6→v7 recovered
+# 805 titles and every bucket here is title-based.
+#
+# `drop` is what we ship, because it is what we do today — NOT because it is right. It
+# caps what the Bank can EVER publish, so it is HR's call, not a quiet patch. A closed
+# set (a data-only switch to an unimplemented policy fails at load): `mint_role` and
+# `queue_for_authoring` are named in HR-223 and neither is built. HR-223.
+singleton_role_policy: drop

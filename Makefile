@@ -5,7 +5,7 @@
 .PHONY: up down gates gates-fast gates-integration gates-live smoke migrate logs shell \
         hook-install register register-check baseline dedup ingest embed embed-roles \
         near-dup dedup-role cluster harmonize-measure canonical-drafts rewrite-golden \
-        quality-golden bank-audit bundle deploy-check
+        quality-golden bank-audit singletons bundle deploy-check
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -278,6 +278,21 @@ canonical-drafts: ## Phase-4.4a: produce DRAFT canonical_jds over real clusters 
 #   make bank-audit AUDIT_ARGS="--min-retention 95"     # loosen the verdict
 bank-audit:       ## Read-only: per-form content carry-through of the live Bank
 	docker compose run --rm -T bank-audit python -u -m src.jd_bank.bank_audit $(AUDIT_ARGS)
+
+# ── HR-223: the one-of-a-kind population (read-only) ───────────────────────
+# How many SFU jobs exist exactly ONCE at SFU — the population governed by
+# `comparison.singleton_role_policy`, which ships as `drop` because that is what the
+# pipeline does today, NOT because anyone decided it. Postgres only; writes no Bank row.
+#
+# Reports FOUR buckets, never a total: a unique title, a title shared with a document
+# that DID reach a role (a dedup recall miss, not a unique job), a title shared only with
+# other orphans, and COULD-NOT-EVALUATE. Plus the same split over documents that did
+# cluster, as a control.
+#
+#   make singletons
+singletons:       ## Read-only: measure the one-of-a-kind population (HR-223)
+	docker compose run --rm -T singletons python -u -m src.jd_bank.singletons $(SINGLETON_ARGS)
+	@echo "✅ singleton summary written to docs/singletons/singleton-summary.json"
 
 # ── Migrations (already Docker) ────────────────────────────────────────────
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).
