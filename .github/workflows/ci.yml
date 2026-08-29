@@ -51,8 +51,13 @@ jobs:
           BRANCH="${{ github.head_ref || github.ref_name }}"
           echo "Branch: $BRANCH"
           if [[ "$BRANCH" == "main" ]]; then exit 0; fi
-          if [[ ! "$BRANCH" =~ ^(agent|feat|fix|chore)/[a-zA-Z0-9._-]+$ ]]; then
-            echo "::error::Branch '$BRANCH' must match (agent|feat|fix|chore)/<slug>"
+          # `docs` added 2026-08-29: it is a standard conventional-commit type and this
+          # repo actively encourages documentation work (CLAUDE.md § Change workflow),
+          # but the gate rejected it — so a doc-only branch had to be renamed `chore/`
+          # to land, twice. The gate is here to stop UNPREFIXED branches, not to make
+          # people mislabel the change they are actually making.
+          if [[ ! "$BRANCH" =~ ^(agent|feat|fix|chore|docs)/[a-zA-Z0-9._-]+$ ]]; then
+            echo "::error::Branch '$BRANCH' must match (agent|feat|fix|chore|docs)/<slug>"
             exit 1
           fi
 
