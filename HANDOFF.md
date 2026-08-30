@@ -159,7 +159,7 @@ with no rows, i.e. an apparently empty Bank.
 
 | | |
 |---|---|
-| ~~**P3b**~~ ✅ | **AUDITED 2026-08-29 — the third field checked, the third to produce a defect.** `make field-audit`. 🔴 **726 CUPE departments the archive states and the Bank does not**, from three distinct causes read at source. ⚠ Upper bound: the probe reads the whole document, the parser only the identification block. Now **P3d/P3e/P3f** in plan.md, and **E1 VPFA waits on P3d** — a rollup on this column today would be confidently wrong. §9. |
+| ~~**P3b**~~ ✅ | **AUDITED 2026-08-29 — the third field checked, the third to produce a defect.** `make field-audit`. 🔴 **726 CUPE departments the archive states and the Bank does not.** ⚠ Re-probed in the PARSER'S scope (`--identification-only`) the diagnosis INVERTED: it is not a read failure but **one unregistered label, `Department Name/Section`, ~667 of 680** (§9g — and §9b/§9c record the wrong turn). **P3d is now a bounded fix**; **E1 VPFA waits on it** — a rollup on this column today would be confidently wrong. |
 | **P4** | **24 clusters have no draft** and nothing regenerates them. `src.jd_bank.canonical` has `--only-template` but no per-cluster filter, so re-drafting exactly those is not expressible; a full producer run is under a standing ⛔. Needs a ruling, not code. |
 | **P3c** | ⚠ **One recovered title contains an incumbent's name** (`Leigh McGregor. Departmental Assistant`). Needs a measurement and a registered rule — NOT a name-shaped regex invented on a sample of one (NN #5). |
 | ~~**D1**~~ | ✅ **Landed 2026-08-29 as HR-223** — the parked stash was recovered onto current `main` and its numbers RE-DERIVED before commit. ⚠ **They had not survived the week:** three of four buckets moved and the qualification comparison inverted outright (the draft called the pool qualification-poor at 1.46 vs 8.84; it measures 9.54 vs 8.89, with medians 0.0 and 1.0 that make both means meaningless). **The stale half was identified because the OTHER half reproduced exactly.** §2a. |
@@ -397,6 +397,17 @@ Distilled from six weeks; the full set is in the archive.
   unrelated files in a style `black` — the actual gate — then rejected. And an
   auto-rewrapper for long lines mangled docstrings into orphan fragments. Both had to be
   reverted, and the second cost more than fixing 33 lines by hand would have.
+- 🔴 **A PROBE AND THE THING IT AUDITS MUST ANSWER THE SAME QUESTION — and the way to
+  check is to make the probe REPRODUCE the audited number.** The field audit read whole
+  documents; the parser reads only the identification block. So it kept finding the WJQ
+  cover page's readable `Department Name:`, which the parser never sees, and reported a
+  726-document READ FAILURE. Re-scoped, `readable` (2,956) lands on `parser_has` (2,958)
+  and the real defect is ONE unregistered label, `Department Name/Section`, on ~667.
+  **The wrong diagnosis survived three probe fixes and a full write-up** because every
+  number in it was internally consistent. `readable ≈ parser_has` was the check that
+  would have caught it on day one, and it costs one query. Third time this project has
+  been bitten by a probe scoped differently from the code it audits (P3a's first fix,
+  the employee-group token scan, this).
 - 🔴 **CHECK THE BANK, NOT THE COUNTER.** A run's counters report what the RUN DID; the
   Bank holds what is TRUE. They are not the same reading and they drift apart silently.
   The rewrite pass printed `refreshed=95`, and the Bank had gained prose on **84** — the

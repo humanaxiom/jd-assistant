@@ -1,0 +1,423 @@
+{
+  "parser_version": "jd_segmenter_v7",
+  "documents_read": 4226,
+  "sampled": null,
+  "documents_skipped": 10339,
+  "by_group": {
+    "(unrecorded)": {
+      "employee_group": "(unrecorded)",
+      "documents": 9,
+      "fields": {
+        "title": {
+          "wjq_labels": [
+            "Department's Position Title",
+            "Department\u2019s Position Title",
+            "Departments Position Title",
+            "Department Position Title",
+            "Position Title"
+          ],
+          "key_words": [
+            "title"
+          ],
+          "excluded_terms": [
+            "supervisor",
+            "reports to",
+            "report to",
+            "incumbent"
+          ],
+          "documents": 9,
+          "parser_has_value": 9,
+          "unreadable_with_value": 0,
+          "readable_with_value": 6,
+          "label_present_no_value": 3,
+          "no_label_found": 0
+        },
+        "department": {
+          "wjq_labels": [
+            "Department Name"
+          ],
+          "key_words": [
+            "department",
+            "unit"
+          ],
+          "excluded_terms": [
+            "title"
+          ],
+          "documents": 9,
+          "parser_has_value": 1,
+          "unreadable_with_value": 3,
+          "readable_with_value": 1,
+          "label_present_no_value": 0,
+          "no_label_found": 5
+        },
+        "position_number": {
+          "wjq_labels": [
+            "Position Number(s)",
+            "Position Number"
+          ],
+          "key_words": [
+            "position number",
+            "position no",
+            "position #"
+          ],
+          "excluded_terms": [],
+          "documents": 9,
+          "parser_has_value": 2,
+          "unreadable_with_value": 0,
+          "readable_with_value": 4,
+          "label_present_no_value": 4,
+          "no_label_found": 1
+        },
+        "grade": {
+          "wjq_labels": [
+            "Classification & Grade Approved",
+            "Classification and Grade Approved"
+          ],
+          "key_words": [
+            "grade"
+          ],
+          "excluded_terms": [],
+          "documents": 9,
+          "parser_has_value": 0,
+          "unreadable_with_value": 0,
+          "readable_with_value": 1,
+          "label_present_no_value": 3,
+          "no_label_found": 5
+        }
+      }
+    },
+    "cupe": {
+      "employee_group": "cupe",
+      "documents": 4216,
+      "fields": {
+        "title": {
+          "wjq_labels": [
+            "Department's Position Title",
+            "Department\u2019s Position Title",
+            "Departments Position Title",
+            "Department Position Title",
+            "Position Title"
+          ],
+          "key_words": [
+            "title"
+          ],
+          "excluded_terms": [
+            "supervisor",
+            "reports to",
+            "report to",
+            "incumbent"
+          ],
+          "documents": 4216,
+          "parser_has_value": 3059,
+          "unreadable_with_value": 15,
+          "readable_with_value": 3136,
+          "label_present_no_value": 214,
+          "no_label_found": 851
+        },
+        "department": {
+          "wjq_labels": [
+            "Department Name"
+          ],
+          "key_words": [
+            "department",
+            "unit"
+          ],
+          "excluded_terms": [
+            "title"
+          ],
+          "documents": 4216,
+          "parser_has_value": 2958,
+          "unreadable_with_value": 680,
+          "readable_with_value": 2956,
+          "label_present_no_value": 30,
+          "no_label_found": 550
+        },
+        "position_number": {
+          "wjq_labels": [
+            "Position Number(s)",
+            "Position Number"
+          ],
+          "key_words": [
+            "position number",
+            "position no",
+            "position #"
+          ],
+          "excluded_terms": [],
+          "documents": 4216,
+          "parser_has_value": 3009,
+          "unreadable_with_value": 12,
+          "readable_with_value": 2914,
+          "label_present_no_value": 1107,
+          "no_label_found": 183
+        },
+        "grade": {
+          "wjq_labels": [
+            "Classification & Grade Approved",
+            "Classification and Grade Approved"
+          ],
+          "key_words": [
+            "grade"
+          ],
+          "excluded_terms": [],
+          "documents": 4216,
+          "parser_has_value": 465,
+          "unreadable_with_value": 7,
+          "readable_with_value": 88,
+          "label_present_no_value": 2594,
+          "no_label_found": 1527
+        }
+      }
+    },
+    "excluded": {
+      "employee_group": "excluded",
+      "documents": 1,
+      "fields": {
+        "title": {
+          "wjq_labels": [
+            "Department's Position Title",
+            "Department\u2019s Position Title",
+            "Departments Position Title",
+            "Department Position Title",
+            "Position Title"
+          ],
+          "key_words": [
+            "title"
+          ],
+          "excluded_terms": [
+            "supervisor",
+            "reports to",
+            "report to",
+            "incumbent"
+          ],
+          "documents": 1,
+          "parser_has_value": 1,
+          "unreadable_with_value": 0,
+          "readable_with_value": 0,
+          "label_present_no_value": 1,
+          "no_label_found": 0
+        },
+        "department": {
+          "wjq_labels": [
+            "Department Name"
+          ],
+          "key_words": [
+            "department",
+            "unit"
+          ],
+          "excluded_terms": [
+            "title"
+          ],
+          "documents": 1,
+          "parser_has_value": 0,
+          "unreadable_with_value": 0,
+          "readable_with_value": 0,
+          "label_present_no_value": 0,
+          "no_label_found": 1
+        },
+        "position_number": {
+          "wjq_labels": [
+            "Position Number(s)",
+            "Position Number"
+          ],
+          "key_words": [
+            "position number",
+            "position no",
+            "position #"
+          ],
+          "excluded_terms": [],
+          "documents": 1,
+          "parser_has_value": 0,
+          "unreadable_with_value": 0,
+          "readable_with_value": 0,
+          "label_present_no_value": 0,
+          "no_label_found": 1
+        },
+        "grade": {
+          "wjq_labels": [
+            "Classification & Grade Approved",
+            "Classification and Grade Approved"
+          ],
+          "key_words": [
+            "grade"
+          ],
+          "excluded_terms": [],
+          "documents": 1,
+          "parser_has_value": 0,
+          "unreadable_with_value": 0,
+          "readable_with_value": 0,
+          "label_present_no_value": 0,
+          "no_label_found": 1
+        }
+      }
+    }
+  },
+  "unreadable_examples": {
+    "department": [
+      [
+        "Department Name/Section",
+        654
+      ],
+      [
+        "Department Name/ Section",
+        9
+      ],
+      [
+        "Department Name /Section",
+        3
+      ],
+      [
+        "Assistant Department Name/Section",
+        3
+      ],
+      [
+        "Department Mane/Section",
+        2
+      ],
+      [
+        "Department Position Tide",
+        2
+      ],
+      [
+        "Admissions Department Name/Section",
+        2
+      ],
+      [
+        "Department name/Section",
+        1
+      ],
+      [
+        "BusinessPrograms Department Name/Section",
+        1
+      ],
+      [
+        "Facilities Technician Department Name/Section",
+        1
+      ]
+    ],
+    "title": [
+      [
+        "Department   Position Title",
+        6
+      ],
+      [
+        "Department  Position  Title",
+        4
+      ],
+      [
+        "Course Production Department Position Title",
+        2
+      ],
+      [
+        "Department  Position Title",
+        2
+      ],
+      [
+        "Graduate Program Department Position Title",
+        1
+      ]
+    ],
+    "grade": [
+      [
+        "Grade Approved",
+        4
+      ],
+      [
+        "Classification  and Grade Approved",
+        1
+      ],
+      [
+        "Classification  &  Grade Approved",
+        1
+      ],
+      [
+        "Classification  & Grade Approved",
+        1
+      ]
+    ],
+    "position_number": [
+      [
+        "Position Number (s)",
+        10
+      ],
+      [
+        "Position   Number(s)",
+        2
+      ]
+    ]
+  },
+  "gap_examples": [
+    {
+      "filename": "19920508_00030993Secretary.doc",
+      "employee_group": "cupe",
+      "field": "title",
+      "field_name": "Title",
+      "document_value": "Secretary"
+    },
+    {
+      "filename": "19960624_00000115Programmer_analyst.doc",
+      "employee_group": "(unrecorded)",
+      "field": "position_number",
+      "field_name": "Position Number(s)",
+      "document_value": "00115"
+    },
+    {
+      "filename": "19970501_00062587Secretary.doc",
+      "employee_group": "cupe",
+      "field": "title",
+      "field_name": "Department Position Title",
+      "document_value": "Departmental Secretary"
+    },
+    {
+      "filename": "20000810_00000838Library_assistant.doc",
+      "employee_group": "(unrecorded)",
+      "field": "position_number",
+      "field_name": "Position Number(s)",
+      "document_value": "00838"
+    },
+    {
+      "filename": "20000810_00000838Library_assistant.doc",
+      "employee_group": "(unrecorded)",
+      "field": "grade",
+      "field_name": "Classification & Grade Approved",
+      "document_value": "Effective Date: August 10, 2000"
+    },
+    {
+      "filename": "20010301_00000972Secretary.doc",
+      "employee_group": "cupe",
+      "field": "title",
+      "field_name": "Title",
+      "document_value": "Services Assistant"
+    },
+    {
+      "filename": "20010401_00001008Technician.doc",
+      "employee_group": "cupe",
+      "field": "position_number",
+      "field_name": "Position Number(s)",
+      "document_value": "Technical Support Specialist Co-operative Education"
+    },
+    {
+      "filename": "20010625_00000865Library_assistant.doc",
+      "employee_group": "cupe",
+      "field": "title",
+      "field_name": "Department Position Title",
+      "document_value": "Acquisitions Approvals &"
+    },
+    {
+      "filename": "20010625_00030406Library_assistant.doc",
+      "employee_group": "cupe",
+      "field": "title",
+      "field_name": "Department Position Title",
+      "document_value": "Acquisitions Approvals &"
+    },
+    {
+      "filename": "20010815_00000834Library_assistant.doc",
+      "employee_group": "cupe",
+      "field": "title",
+      "field_name": "Position Title",
+      "document_value": "Staff"
+    }
+  ],
+  "not_evaluated": {
+    "classification": "Not read from a label at all: `parser/classification.py` pulls it with hardcoded regexes (`_CUPE_GRADE_RX`, `_JDFN_GRADE_APPROVED_RX`, `_JDFN_GRADE_FIELD_RX`) that are not rulebook data. A label probe says NOTHING about it, so it is reported as unevaluated rather than as clean. \u26a0 Those regexes being hardcoded is itself a rulebook-as-data gap."
+  }
+}

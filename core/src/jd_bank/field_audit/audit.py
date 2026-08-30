@@ -23,7 +23,12 @@ from src.jd_bank.field_audit.models import (
     GapExample,
     GroupAudit,
 )
-from src.jd_bank.field_audit.probe import FieldSpec, Readability, probe_field
+from src.jd_bank.field_audit.probe import (
+    FieldSpec,
+    Readability,
+    identification_block,
+    probe_field,
+)
 from src.jd_bank.ingest.extract import extract_text_from_path
 from src.jd_bank.ingest.ingest import walk_archive
 from src.jd_core.parser import PARSER_VERSION
@@ -160,6 +165,7 @@ async def run_field_audit(
     rules: Rules,
     sample: int | None = None,
     evidence: int = 0,
+    identification_only: bool = False,
 ) -> FieldAuditSummary:
     """Audit every labelled identification field against the raw archive."""
     stored = {
@@ -186,6 +192,14 @@ async def run_field_audit(
             # finding out of a file we never opened.
             skipped += 1
             continue
+        # 🔴 P3d: the PARSER reads only the identification block. Probing the whole
+        # document counts fields the parser had no access to — "the archive states it"
+        # is a different question from "a fix would recover it".
+        if identification_only:
+            body = identification_block(body, rules=rules)
+            if not body:
+                skipped += 1  # could not scope: no WJQ identification heading
+                continue
         read += 1
         group = str(row["employee_group"])
         group_documents[group] += 1

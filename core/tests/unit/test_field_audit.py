@@ -22,6 +22,7 @@ from src.jd_bank.field_audit import (
     FieldSpec,
     Readability,
     ValuePlacement,
+    identification_block,
     probe_field,
 )
 from src.jd_core.parser import headings as hd
@@ -269,3 +270,40 @@ def test_a_key_word_ending_in_punctuation_still_matches() -> None:
     assert probe_field("Position Number(s): 01167", spec) is not None
     # ...and the substring trap stays closed.
     assert probe_field("Superposition numbers: many", spec) is None
+
+
+# --- P3d: the parser's scope, not the document's -----------------------------------
+
+
+def test_the_identification_scope_ignores_a_label_on_the_cover_page() -> None:
+    """🔴 The measurement P3d needs, and the reason 726 is only an UPPER BOUND.
+
+    The WJQ cover page carries `Department Name: Bookstore` under the exact registered
+    spelling, and the parser never looks there — it reads only the block after
+    `1. POSITION IDENTIFICATION`. A whole-document probe therefore counts departments
+    the parser could not have read from its own scope, which answers a different
+    question from "what would a fix recover".
+
+    This is the same scope mismatch that made the FIRST P3a fix pass its tests and
+    recover exactly zero.
+    """
+    text = (
+        "Department Name: Bookstore\n"
+        "1. POSITION IDENTIFICATION\n"
+        "Department Position Title: Shipper/Receiver Department\n"
+        "Name/Section: Bookstore\n"
+    )
+
+    assert identification_block(text) == (
+        "Department Position Title: Shipper/Receiver Department\n"
+        "Name/Section: Bookstore"
+    )
+
+
+def test_a_document_with_no_identification_heading_yields_nothing() -> None:
+    """Reported as could-not-scope, never as "the field is absent".
+
+    A modern-template document has no WJQ identification heading, so this returns
+    empty — and empty must not be read as evidence that the document states nothing.
+    """
+    assert identification_block("Department: Graduate Studies\nGrade: 8\n") == ""

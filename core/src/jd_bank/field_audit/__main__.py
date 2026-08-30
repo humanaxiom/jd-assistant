@@ -94,6 +94,16 @@ async def main(argv: list[str] | None = None) -> int:
             "parser stored none — the gap, file by file (default: %(default)s)"
         ),
     )
+    parser.add_argument(
+        "--identification-only",
+        action="store_true",
+        help=(
+            "probe only the WJQ IDENTIFICATION BLOCK — the parser's own scope (P3d). "
+            "The whole-document default counts fields stated on the cover page, which "
+            "the parser never reads, so it is an UPPER BOUND on what a fix recovers. "
+            "Documents with no WJQ identification heading are skipped: could not scope."
+        ),
+    )
     args = parser.parse_args(argv)
 
     engine = create_async_engine(get_settings().database_url)
@@ -105,6 +115,7 @@ async def main(argv: list[str] | None = None) -> int:
                 rules=get_rules(),
                 sample=args.sample,
                 evidence=args.evidence,
+                identification_only=args.identification_only,
             )
     finally:
         await engine.dispose()
