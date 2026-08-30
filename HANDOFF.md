@@ -85,8 +85,13 @@ shipped* did not move any gate — see the register.
 
 ## ▶ CURRENT STATE — 2026-08-29
 
-**Everything is green and `main` is clean.** `make gates` (3,017 · 93.30%), `make smoke`
+**Everything is green and `main` is clean.** `make gates` (3,040 · 92.18%), `make smoke`
 (6), `make deploy-check`, CI, no open PRs. Nothing is half-finished in the tree.
+
+**The measure is DRAFTS, and they moved:** every cluster now has one (the 24-gap closed by
+`--only-undrafted`), 2,483 of 2,500 hold rewritten prose, and **approvable rose 1,299 →
+1,327** off the v8 re-parse. Published stays at 4 — correct; that is deployment-phase.
+⚠ Live counts: `/jd-bank/ui/funnel`. Never this page.
 
 🔴 **THE DEV/TEST ITERATION IS CLOSED — the MVP run order is [`docs/plan.md`](docs/plan.md)
 § THE MVP RUN ORDER.** Read that before picking anything up; the track tables below it are
@@ -108,10 +113,29 @@ and not its substance; the register says so in each `decision_note`.
 | `/jd-bank/ui/collection/it` | the IT collection · `?queue=1` for the review queue |
 | `/jd-bank/ui/compose/new` | the Builder — search, clone, live compliance |
 
-`PARSER_VERSION` **`jd_segmenter_v7`** — bumped twice on 2026-08-29 (v6 = the employee
-group, HR-226; v7 = the WJQ title). **Each bump shipped WITH its re-parse**, as that
+`PARSER_VERSION` **`jd_segmenter_v8`** — bumped THREE times on 2026-08-29 (v6 = the
+employee group, HR-226; v7 = the WJQ title; v8 = `Department Name/Section`, unreadable
+department labels 680 -> 16, +607 in the Bank). **Each bump shipped WITH its re-parse**, as that
 constant's contract requires: a bump without one leaves every layer querying a version
 with no rows, i.e. an apparently empty Bank.
+
+
+### ⚠ Before you demo or test: two things `launch.ps1` does NOT do
+
+1. **The vector index is stale, and it is silent about it.** `(:JDDocument)` nodes carry
+   `parser_version = jd_segmenter_v2` — **six bumps ago**. Search still WORKS (the query
+   is `db.index.vector.queryNodes` with no version filter), so nothing errors; it is
+   ranking on text the parser no longer produces. Refresh with `make embed`
+   (skip-first; needs Ollama on `aria-gb10-2`).
+2. 🔴 **`(:JDRole)` held 1,797 vectors against 2,500 roles — 703 roles were INVISIBLE to
+   Builder search**, with no error anywhere. Neo4j is a DERIVED index: nothing rebuilds it
+   when the Bank grows, and no gate notices. `make embed-roles` after any producer run —
+   ⚠ **but it ABORTS on one over-long role** (`input length exceeds the context length`),
+   so it currently stops at **2,152 of 2,500**. plan.md P3g.
+
+⚠ **The port is not fixed at 25800.** `launch.ps1` defaults to it, but `JD_API_PORT` in the
+launching shell wins — this box has been running on **25900** for that reason.
+`docker compose port api 8000` prints the truth.
 
 ### What changed on 2026-08-28/29, and what it left behind
 

@@ -473,7 +473,14 @@ Two things that make this less alarming than it sounds, both worth knowing:
 `PARSER_VERSION` changes what the *running* service reports immediately — before you have
 re-parsed anything. Expect that window and close it.
 
-**Current version: `jd_segmenter_v7`** — the WJQ identification labels. antiword's
+**Current version: `jd_segmenter_v8`** — the department label the archive actually uses.
+`id_labels.department` held ONE spelling, `Department Name`, while **654 CUPE documents
+say `Department Name/Section`**. Measured in the PARSER'S OWN scope, unreadable department
+labels went **680 -> 16** and the Bank gained **+607 departments** (8,837 -> 9,444). The 16
+left are the antiword line-wrap and two source typos — deliberately not encoded (HR-147,
+#178).
+
+**v7** — the WJQ identification labels. antiword's
 fixed-width render puts a label and its VALUE in ONE cell while `_extract_label` read the
 NEXT one, so **2,046 of 4,300 CUPE documents (47.6%) carried no title** — the `Untitled
 Position` sentinel — against 0.0% for every other bargaining unit. **805 titles recovered
