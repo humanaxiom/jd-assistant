@@ -93,7 +93,7 @@ from src.jd_core.parser.headings import Era, SectionKey
 #: was not missing from the documents; it was spelled POSSESSIVELY ("Department's
 #: Position Title") and `_extract_label` matches a cell exactly, so it matched nothing.
 #: 1,395 of those placeholders were already inside drafts.
-PARSER_VERSION = "jd_segmenter_v7"
+PARSER_VERSION = "jd_segmenter_v8"
 
 #: Which SFU document template ``parse_jd`` read: the APSA/APEX/POLY "JDFN" form (the
 #: original segmenter), the CUPE/WJQ questionnaire, or neither recognisably.

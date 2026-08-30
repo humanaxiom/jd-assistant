@@ -259,7 +259,7 @@ def test_parser_version_constant() -> None:
     longer establish `cupe`. Measured against the raw archive, 2.2% of the 4,440
     cupe-labelled documents (~98) were never routed to the WJQ segmenter — APSA managers
     who merely supervise CUPE staff — and each was scored on the wrong instrument."""
-    assert parse_jd("anything").parser_version == "jd_segmenter_v7"
+    assert parse_jd("anything").parser_version == "jd_segmenter_v8"
 
 
 # ── End-to-end on the real legacy .doc ───────────────────────────────────────

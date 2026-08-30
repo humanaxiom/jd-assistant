@@ -4736,7 +4736,11 @@ decisions:
         - Departments Position Title
         - Department Position Title
         - Position Title
-      department: [Department Name]
+      department:
+        - Department Name
+        - Department Name/Section
+        - Department Name/ Section
+        - Department Name /Section
       position_number: [Position Number(s), Position Number]
       grade: [Classification & Grade Approved, Classification and Grade Approved]
     provenance: our_invention
@@ -4756,6 +4760,20 @@ decisions:
       variants), which this list did not carry. Of 500 placeholder documents read from
       disk, 17.4% carry a title under a spelling now listed, with the value correctly in
       its own next cell. ⚠ 1,395 of those placeholders were ALREADY inside drafts.
+      🔴 EXTENDED 2026-08-29 (P3d), and the same shape a second time — a field absent
+      because its spelling was missing, not because the archive is silent. MEASURED in
+      the PARSER'S OWN SCOPE (`--identification-only`, FINDINGS §9g): of 680 unreadable
+      department labels inside the identification block, **~667 are `Department
+      Name/Section`** in some spacing — 654 exactly, plus 9 `Name/ Section`, 3 `Name
+      /Section`, 1 lower-cased. `id_labels.department` held ONE spelling. ⚠ A
+      whole-document probe had reported this as a READ FAILURE on 726 documents, because
+      the WJQ cover page repeats `Department Name:` where the parser never looks;
+      re-scoped, `readable` (2,956) lands on `parser_has` (2,958) and the real defect is
+      this list. ⚠ `Department Mane/Section` (a TYPO, 2 documents) is deliberately NOT
+      listed: encoding a source typo makes this a record of the archive's mistakes
+      rather than its form. The 7 prefixed names are the antiword LINE-WRAP, not
+      spellings. Comparison now also COLLAPSES internal whitespace (P3e), which the
+      render stretches apart across every field.
     impact_if_changed: >-
       Moves `rules_version` AND `PARSER_VERSION`, so it requires an archive re-parse in
       the same change. Pinned by mutation (`test_parser_wjq.py`: rename the title label

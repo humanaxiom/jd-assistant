@@ -537,3 +537,95 @@ def test_form_furniture_is_stripped_from_a_recovered_title(
     """
     doc = _WJQ.replace("Department Position Title:\nProgram Assistant", cell)
     assert parse_jd(doc).jd.title == expected
+
+
+# --- P3d/P3e: the identification labels the archive actually uses -------------------
+
+
+def _wjq_with(identification: str) -> str:
+    """The real WJQ fixture with its identification block replaced.
+
+    ⚠ Written after my first attempt used a bare `1. POSITION IDENTIFICATION` header and
+    every case routed to JDFN — so the tests exercised the wrong parser entirely and two
+    of them PASSED anyway. A fixture that does not reach the code under test is worse
+    than no test.
+    """
+    head, _, rest = _WJQ.partition("1.  POSITION IDENTIFICATION")
+    tail = rest.split("2.", 1)[1]
+    return f"{head}1.  POSITION IDENTIFICATION\n{identification}\n2.{tail}"
+
+
+def test_department_name_section_is_read() -> None:
+    """🔴 654 CUPE documents state the department as `Department Name/Section` and the
+    Bank held none of them.
+
+    MEASURED 2026-08-29 in the PARSER'S OWN SCOPE (`--identification-only`): of 680
+    unreadable department labels in the identification block, **~667 are this one**.
+    `_extract_label` compares the whole cell, so `Department Name/Section` was not
+    `Department Name` and matched nothing — the field was not degraded, it was absent.
+
+    ⚠ The asymmetry was visible in the code before it was measured: `name/section` was
+    already in `_NEXT_LABEL_RX` as a label to STOP AT, while nothing could READ FROM it.
+    """
+    text = _wjq_with(
+        "Department Position Title: Clerk\nDepartment Name/Section: Bookstore"
+    )
+
+    assert parse_jd(text).template == "wjq", "the fixture must reach the WJQ parser"
+    assert parse_jd(text).jd.department == "Bookstore"
+
+
+@pytest.mark.parametrize(
+    "label",
+    ["Department Name/ Section", "Department Name /Section", "Department name/Section"],
+)
+def test_the_spacing_variants_measured_in_the_archive_are_read(label: str) -> None:
+    """Only the spellings the archive actually contains (9, 3 and 1 documents).
+
+    ⚠ `Department Mane/Section` — a TYPO, in 2 documents — is deliberately NOT here.
+    Fitting a rulebook list to a source typo is how a term list starts lying.
+    """
+    text = _wjq_with(f"Department Position Title: Clerk\n{label}: Bookstore")
+
+    assert parse_jd(text).jd.department == "Bookstore"
+
+
+def test_a_stretched_label_is_already_handled_by_ordered_cells() -> None:
+    """🔴 PINS A PROPERTY I ALMOST "FIXED" THAT WAS NEVER BROKEN.
+
+    The field audit reported `Department  Name`, `Position  Number(s)` and
+    `Department   Position Title` as UNREADABLE, and I wrote a whitespace-collapsing
+    normaliser into `_extract_label` for it (planned as P3e). **Breaking that normaliser
+    on purpose left the suite GREEN** — because `_ordered_cells` ALREADY collapses runs
+    of whitespace before `_extract_label` ever sees a cell. The normaliser fixed nothing
+    and was reverted.
+
+    Those names were the PROBE's view of the raw text; the parser never sees them
+    stretched. This test pins the real property — the collapse in `_ordered_cells` — so
+    that if it is ever removed, the reason it matters is written down here.
+    """
+    text = _wjq_with(
+        "Department   Position Title: Clerk\n"
+        "Department  Name: Bookstore\n"
+        "Position  Number(s): 01234"
+    )
+    jd = parse_jd(text).jd
+
+    assert jd.title == "Clerk"
+    assert jd.department == "Bookstore"
+    assert jd.position_number == "01234"
+
+
+def test_a_source_typo_is_not_matched() -> None:
+    """The inverse guard — a one-directional rule is decoration.
+
+    `Department Mane/Section` appears in 2 documents. It must stay unread: encoding a
+    typo makes the label list a record of the archive's mistakes rather than its form.
+    """
+    text = (
+        "1. POSITION IDENTIFICATION\n"
+        "Department Position Title: Clerk\n"
+        "Department Mane/Section: Bookstore\n"
+    )
+
+    assert parse_jd(text).jd.department is None

@@ -114,7 +114,19 @@ id_labels:
     - Departments Position Title
     - Department Position Title
     - Position Title
-  department: [Department Name]
+  # 🔴 MEASURED 2026-08-29 in the parser's own scope (`--identification-only`): of 680
+  # unreadable department labels inside the identification block, ~667 are
+  # `Department Name/Section` in some spacing. `id_labels` held only `Department Name`,
+  # and `_extract_label` compares the WHOLE cell — so 654 documents stated a department
+  # the Bank could not see. ⚠ `Department Mane/Section` (a TYPO, 2 documents) is
+  # deliberately absent: encoding a source typo makes this a record of the archive's
+  # mistakes rather than its form. The 7 prefixed names (`Assistant Department
+  # Name/Section`) are the antiword LINE-WRAP, not spellings — they need wrap handling.
+  department:
+    - Department Name
+    - Department Name/Section
+    - Department Name/ Section
+    - Department Name /Section
   position_number: [Position Number(s), Position Number]
   grade: [Classification & Grade Approved, Classification and Grade Approved]
 
