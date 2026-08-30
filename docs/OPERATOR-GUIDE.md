@@ -3,6 +3,9 @@
 A practical guide to running and using JD Bank: what the system is, who does what, every
 feature, and exactly where **admin rights** (or server/operator access) are required.
 
+🥇 **Live counts are on 📈 Funnel (§5), never in this guide.** `CURRENT.md` in the repo
+root indexes where every other fact lives and how to check it.
+
 <!--
 MAINTAINER NOTE (not rendered): this Markdown is the source of truth. Run `make guide`
 after editing to re-render docs/operator-guide.html (the app serves it at the "📖 Guide"

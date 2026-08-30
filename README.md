@@ -11,7 +11,8 @@ session dispatches them — see [`CLAUDE.md`](CLAUDE.md) § *Two different thing
 "agents" here*. The `core/src/agents/` **`run_pipeline`** pipeline is a separate thing,
 and it is live.
 
-**Start here:** [`HANDOFF.md`](HANDOFF.md) (what is true NOW) ·
+**Start here:** 🥇 [`CURRENT.md`](CURRENT.md) — **the authoritative index: where every fact
+lives and how to check it** · [`HANDOFF.md`](HANDOFF.md) (state + traps) ·
 [`DEVELOPER_GUIDE_1.md`](DEVELOPER_GUIDE_1.md) (onboarding + workflow) ·
 [`docs/plan.md`](docs/plan.md) (what we do next) · [`CLAUDE.md`](CLAUDE.md) (invariants) ·
 [`docs/FINDINGS.md`](docs/FINDINGS.md) (everything measured) · [`docs/adr/`](docs/adr/).

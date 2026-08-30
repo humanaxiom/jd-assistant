@@ -3,6 +3,9 @@
 **One place for every measured claim.** Written 2026-08-28, consolidating eight separate
 plan documents that had scattered the same numbers across ten files.
 
+🥇 **[`../CURRENT.md`](../CURRENT.md)** indexes where every fact lives and how to check it.
+Each finding here names the command that produced it — **re-run it rather than quoting it**.
+
 ---
 
 ## 🔴 Where numbers are allowed to live

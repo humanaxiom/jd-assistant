@@ -1,5 +1,7 @@
 # Plan — what we do next
 
+🥇 **[`../CURRENT.md`](../CURRENT.md) is the index of where every fact lives.**
+
 **Forward-looking only.** This file says what we intend to do. It deliberately **does not
 restate counts**: live numbers are at **`/jd-bank/ui/funnel`**, measured findings are in
 [`FINDINGS.md`](FINDINGS.md). Numbers repeated in a fourth place is how this project shipped
