@@ -27,7 +27,7 @@ truth, and helps staff **author new, standards-compliant JDs**. Two halves:
 - **The pipeline (back office).** Every JD in the archive is parsed, de-duplicated
   (exact / near-duplicate / role-equivalent), clustered by role, and harmonized into one
   **draft canonical JD** per role — scored against SFU's published standards by a
-  deterministic validator. This runs on the server via `make` tasks (§8).
+  deterministic validator. This runs on the server via `make` tasks (§9).
 - **The app (front office).** A web UI at **http://localhost:25800** (dev) where people
   **compose** a JD with live compliance feedback, **review & approve** drafts, browse
   **dashboards**, and (admins) **manage users**.
@@ -50,7 +50,7 @@ SFU's JD Toolkit is silent on that form, so every WJQ setting is one we chose (H
 3. **The validator is the oracle.** Scores/approvability come from the rulebook validator,
    never from the LLM's own claims about its output.
 4. **Append-only, tamper-evident audit.** Every review/approve/edit and every login is
-   recorded in a hash-chained `audit_log` (alteration or deletion is detectable, §8).
+   recorded in a hash-chained `audit_log` (alteration or deletion is detectable, §9).
 5. **The model may reword; it may not invent.** See below — this is the guardrail an
    author or reviewer is most likely to be asked about, and the one with the most measured
    history behind it.
@@ -81,7 +81,7 @@ a reason (deduplicated, over the duty cap, not merged). Nothing vanishes silentl
 ## 2. Personas & roles
 
 The app has **three roles**, held in any combination (a person can be both reviewer and
-admin). Roles are assigned in the **User management** screen (§7, admin-only).
+admin). Roles are assigned in the **User management** screen (§8, admin-only).
 
 | Persona | Role | Can do |
 |---|---|---|
@@ -99,15 +99,18 @@ admin). Roles are assigned in the **User management** screen (§7, admin-only).
 ## 3. Access & sign-in
 
 - **URL:** http://localhost:25800 (dev). Typing the bare address takes you to the JD Bank
-  library; every UI page lives under `/jd-bank/ui/…`.
+  library; every UI page lives under `/jd-bank/ui/…`. ⚠ **That is the DEFAULT port** — the
+  operator can override it with `JD_API_PORT`, and if the stack was launched with one set,
+  the app is on that port instead. `docker compose port api 8000` prints the real one.
 - **Sign-in:** SFU **CAS SSO**. Click **Sign in with SFU CAS** on the login page; you are
   redirected to `cas.sfu.ca` and back. Your identity is your SFU computing ID.
-- **The nav bar** shows who you are and your primary controls: **🏦 JD Bank · 🧱 Builder ·
-  📝 My drafts · 📋 Review queue** *(reviewers and admins)* · **📊 Dashboards · 📖 Guide ·
-  👤 Users** *(admins only)* · *your name* · **Sign out**.
+- **The nav bar** shows who you are and your primary controls, in menu order: **🏦 JD Bank ·
+  🧱 Builder · 📝 My drafts · 📋 Review queue** *(reviewers and admins)* · **📈 Funnel ·
+  📊 Dashboards · 📖 Guide · 👤 Users** *(admins only)* · *your name* · **Sign out**.
+  **📈 Funnel comes before 📊 Dashboards deliberately** — see §5.
 - **The menu only shows what your role can open.** If you do not hold `reviewer` or
   `admin`, the **📋 Review queue** link is not there — the page is not yours to open, and
-  offering the link would only produce a refusal. Ask an admin (§7) if you need the role.
+  offering the link would only produce a refusal. Ask an admin (§8) if you need the role.
 - **If something goes wrong**, the app says so in a page rather than a machine error: a
   mistyped address, a page you do not have access to, or a form submitted from a tab that
   has been open a long time (that last one says **reload the page and submit it again** —
@@ -126,14 +129,14 @@ admin). Roles are assigned in the **User management** screen (§7, admin-only).
 
 **Where:** 🏦 JD Bank → `/jd-bank/ui/library`. **Who:** any signed-in user. **Admin
 required:** no. **Read-only** — nothing on these pages publishes, edits, or overrides a
-gate (guardrail #1); a reviewer approves/rejects/edits only from the Review queue (§6).
+gate (guardrail #1); a reviewer approves/rejects/edits only from the Review queue (§7).
 
 A reader finds and reads an existing JD before authoring a new one, so the library comes
 before the Builder in this guide too.
 
 | Task | How | Notes |
 |---|---|---|
-| Browse/search harmonized roles | Open **🏦 JD Bank**, optionally type a title into **Search roles by title** | Lists every **harmonized role** the Bank has distilled from the archive's 14,565 source files — each a draft awaiting HR review, or a published JD. |
+| Browse/search harmonized roles | Open **🏦 JD Bank**, optionally type a title into **Search roles by title** | Lists every **harmonized role** the Bank has distilled from the source archive — each a draft awaiting HR review, or a published JD. The counts are on 📈 Funnel (§5). |
 | Sort the list | Click a column heading (**Role · Sources · Score · Quality · Status**) | Toggles ascending/descending; sorting resets to the first page. |
 | Read a role | Click a role's title or **Open →** — `/jd-bank/ui/role/{cluster_id}` | Shows the harmonized JD text plus every source JD it was distilled from, each opening to its full text. |
 | Read a single source JD | **Read →** next to a source file | Renders that one archive document as text — `/jd-bank/ui/jd/{source_document_id}`. |
@@ -142,7 +145,72 @@ before the Builder in this guide too.
 
 ---
 
-## 5. Authoring a JD — the Builder  ·  [author] (any signed-in user)
+## 5. Seeing where the archive stands — the Funnel  ·  [any] (any signed-in user)
+
+**Where:** 📈 Funnel → `/jd-bank/ui/funnel`. **Who:** any signed-in user. **Admin
+required:** no. **Read-only.**
+
+🥇 **This page is the only authoritative source of counts in the whole system.** It is
+computed from the database *at the moment you load it*, so it cannot go stale. No
+document — not this guide, not the plan, not a status report — restates these numbers,
+because five figures that agreed with each other across four documents were all wrong
+once, and they agreed precisely *because* they came from one unchecked source.
+
+> **If a number you have been given disagrees with this page, this page is right.**
+
+### What it shows
+
+It follows the archive from end to end and **accounts for everything that drops out at
+each stage** — the gaps are the point, not a footnote:
+
+| stage | what it counts |
+|---|---|
+| **Documents** | every file in the source archive |
+| **Parsed** | those the parser could read; the remainder are named, not dropped |
+| **In a role** | documents a harmonized role actually cites as a source |
+| **Roles** | the harmonized roles themselves |
+| **Approvable** | roles whose draft currently passes every blocking gate |
+| **Published** | roles a reviewer has approved |
+
+⚠ **Documents and roles are different units, and the page labels the unit on every row**
+— a reader following the funnel downward will otherwise take the last number for
+documents. It is a count of *roles*.
+
+**The orphan accounting is the most useful part.** Documents that reached no role are
+split into *duplicate of a kept document*, *near-duplicate of another orphan*, and **no
+near-duplicate link at all** — because reported as one total ("N de-duplicated") those
+three are indistinguishable, and the third bucket was hiding documents nobody had
+explained.
+
+**Scope it** with the scope parameter to see the same funnel for one unit or cohort
+rather than the whole archive.
+
+### ⚠ Funnel vs Dashboards — they are not the same kind of thing
+
+Both are read-only and both are in the nav, and confusing them has already cost a day:
+
+| | **📈 Funnel** | **📊 Dashboards** |
+|---|---|---|
+| Source | the **database, at request time** | committed JSON artifacts on disk |
+| Freshness | always current | a **snapshot** from whenever the report was last generated |
+| Use it for | *what is true now* | the detail behind a past measurement run |
+
+**Prefer the Funnel for any question about the current state.** Dashboards render
+committed artifacts, so they are as old as the last pipeline run that wrote them — when
+the Funnel first shipped nothing linked to it, and for a day people clicked *Dashboards*
+and read stale numbers as though they were current. That is why **📈 Funnel comes before
+📊 Dashboards in the menu**, and why it should come first in your habits too.
+
+### ⚠ A low "Published" count is expected right now
+
+Publishing is a **final-deployment** activity, not a pilot/dev/MVP one (owner ruling,
+2026-08-29). During this phase the system is measured on its **drafts** — how many roles
+have one, and how faithful each is to its sources. A small published number on this page
+is the current design, not a fault to report.
+
+---
+
+## 6. Authoring a JD — the Builder  ·  [author] (any signed-in user)
 
 **Where:** 🧱 Builder → `/jd-bank/ui/compose/new`. **Who:** any signed-in user (authors by
 default). **Admin required:** no.
@@ -158,7 +226,7 @@ default). **Admin required:** no.
 | See what happened to what you sent | **📝 My drafts** → `/jd-bank/ui/my-drafts` | Every JD **you** have submitted, newest first, and where each one stands: *Waiting for HR review*, *Approved and published*, or *Closed*. Read any of them; you see only your own. |
 
 > **Where a draft goes after you submit it.** Into the same review queue as every other
-> draft — an HR reviewer approves, rejects or edits it (§6), and **nothing publishes
+> draft — an HR reviewer approves, rejects or edits it (§7), and **nothing publishes
 > without that** (guardrail #1). The score on **My drafts** is the check the Builder ran
 > when you submitted; HR re-runs it before approving, so treat it as a guide rather than a
 > decision. A row marked **Closed** means the draft was either rejected or replaced by a
@@ -226,7 +294,7 @@ default). **Admin required:** no.
 
 ---
 
-## 6. Reviewing & approving — the Review queue  ·  [reviewer] or [admin]
+## 7. Reviewing & approving — the Review queue  ·  [reviewer] or [admin]
 
 **Where:** 📋 Review queue → `/jd-bank/ui/queue`. **Who:** **reviewer or admin only** — an
 author who is not a reviewer does not see this link in the menu at all, and is refused if
@@ -261,7 +329,7 @@ they reach the address another way. **Admin required:** no (reviewer suffices).
 
 ---
 
-## 7. User management — assign roles, enable/disable  ·  [admin] 🔑 ONLY
+## 8. User management — assign roles, enable/disable  ·  [admin] 🔑 ONLY
 
 **Where:** 👤 Users → `/jd-bank/ui/admin/users`. **Who:** **admin only.** **Admin required:
 YES.** 🔑
@@ -278,7 +346,7 @@ YES.** 🔑
 
 ---
 
-## 8. Operator tasks — pipelines, deploy, config  ·  [operator] 🖥️
+## 9. Operator tasks — pipelines, deploy, config  ·  [operator] 🖥️
 
 These run on the **server shell** (Docker), not in the UI. They need **operator access**,
 not the app admin role. Everything runs in containers (Docker-only, ADR-006); the one
@@ -330,7 +398,7 @@ docker compose -f docker-compose.prod.yml up -d
 |---|---|---|
 | Ingest + parse the archive | `make ingest JD_ARCHIVE_PATH=<SFU JDs>` | Loads all files into Postgres. Incumbent names are scrubbed at ingest. **Idempotent and skip-first** on `(document, parser_version)`, so a re-run only does what is missing — safe to re-run after a partial or failed pass. |
 | Embed | `make embed` | Section + document vectors into Neo4j. Uses self-hosted Ollama (local-only). |
-| Embed harmonized roles | `make embed-roles` | Embeds the **harmonized roles** (`canonical_jds`) as one `(:JDRole)` vector per cluster into the `jd_role_embeddings` index — a separate label and index from the archive's `JDDocument`, so the Bank can search its own output (§5's search row). Idempotent and skip-first: a re-run costs nothing, and an edited role re-embeds automatically. Deliberately **not** wired into `approve` — publishing never depends on the GPU being up. |
+| Embed harmonized roles | `make embed-roles` | Embeds the **harmonized roles** (`canonical_jds`) as one `(:JDRole)` vector per cluster into the `jd_role_embeddings` index — a separate label and index from the archive's `JDDocument`, so the Bank can search its own output (§6's search row). Idempotent and skip-first: a re-run costs nothing, and an edited role re-embeds automatically. Deliberately **not** wired into `approve` — publishing never depends on the GPU being up. |
 | Near-duplicate dedup | `make near-dup` | Tier-2. |
 | Role-equivalence dedup | `make dedup-role` | Tier-3 (needs ingest + embed). |
 | Cluster roles | `make cluster` | Phase-3.5 clustering report. |
@@ -424,16 +492,17 @@ the numbers they printed:
 > left believing they enabled something they did not.
 
 > **Seeding users** (demo/data) is an operator task done directly against the DB; real
-> users appear automatically on first CAS login. Roles are then managed in the UI (§7).
+> users appear automatically on first CAS login. Roles are then managed in the UI (§8).
 
 ---
 
-## 9. "Who can do this?" — quick reference
+## 10. "Who can do this?" — quick reference
 
 | Task | any | author | reviewer | admin 🔑 | operator 🖥️ |
 |---|:--:|:--:|:--:|:--:|:--:|
 | Sign in / out | ✅ | ✅ | ✅ | ✅ | — |
-| Browse dashboards | ✅ | ✅ | ✅ | ✅ | — |
+| See live archive counts (**📈 Funnel**) | ✅ | ✅ | ✅ | ✅ | — |
+| Browse dashboards (snapshots) | ✅ | ✅ | ✅ | ✅ | — |
 | Browse/search the content library & archive (read-only) | ✅ | ✅ | ✅ | ✅ | — |
 | Author / clone / assist / export a JD (Builder) | ✅¹ | ✅ | ✅ | ✅ | — |
 | Submit a draft for review | ✅¹ | ✅ | ✅ | ✅ | — |
@@ -448,6 +517,11 @@ the numbers they printed:
 
 ---
 
-*Related docs:* `HANDOFF.md` (current state), `docs/adr/ADR-008-auth-cas-rbac.md` (auth/RBAC
-design), `docs/baseline/README.md` (the archive baseline), `docs/decisions/HR-DECISION-MATRIX.md`
-(what SFU HR must decide), `CLAUDE.md` (invariants).
+⚠ **Counts belong on 📈 Funnel, not in this guide.** If you find a figure here describing
+the archive's current state, treat it as a bug and check the Funnel instead.
+
+*Related docs:* `HANDOFF.md` (current state), `docs/FINDINGS.md` (everything measured
+about the archive, with its working), `docs/adr/ADR-008-auth-cas-rbac.md` (auth/RBAC
+design), `docs/baseline/README.md` (the archive baseline),
+`docs/decisions/HR-DECISION-MATRIX.md` (what SFU HR must decide), `CLAUDE.md`
+(invariants).
