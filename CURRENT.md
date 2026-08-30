@@ -26,6 +26,7 @@ leave the pointer.
 | How many decisions are open / ratified, and what HR still owes | the generated register's **own header** | `sed -n '5,7p' docs/decisions/HR-DECISION-REGISTER.md` |
 | Is the tree clean? Is anything unmerged? | git and GitHub, never a document | `git status && git fetch && gh pr list` |
 | Is the stack up? On which ports? | Docker, never a document | `docker ps` · `docker compose port api 8000` |
+| **Does the system actually WORK end to end?** | 🔴 the LIVE smoke — fixtures cannot be stale, so only this counts | `make smoke` ⚠ currently RED on two known gaps; see HANDOFF |
 | Is the archive itself as claimed? | **the source files** — `C:\repos\hris\fixtures\SFU_JDs` (read-only) | `make field-audit` · `make singletons` |
 | What we do next | [`docs/plan.md`](docs/plan.md) | — |
 | What is half-finished right now | [`HANDOFF.md`](HANDOFF.md) | verify against `gh pr list` before trusting it |
@@ -34,6 +35,11 @@ leave the pointer.
 the funnel is right and the doc is a bug.
 
 ### The loop
+
+⚠ **The loop ends at a LIVE check, not a green suite.** Directive #1 item 5: only claim
+completion after `make smoke` — and only if smoke actually covers what you changed. Unit
+and integration tests run on fixtures, and **a fixture cannot be stale**; that is exactly
+how 703 roles came to be missing from search while six smoke tests passed.
 
 **reflect → check the Bank → document → act → reflect.** Every real finding in this repo
 came out of that cycle, and every wrong one came from skipping a step — usually

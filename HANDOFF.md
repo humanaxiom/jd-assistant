@@ -86,7 +86,11 @@ shipped* did not move any gate — see the register.
 
 ## ▶ CURRENT STATE — 2026-08-29
 
-**Everything is green and `main` is clean.** `make gates` (3,040 · 92.18%), `make smoke`
+🔴 **`make smoke` is RED, deliberately, and that is the honest state** — see *What smoke
+now checks* below. `make gates` (3,046 · 92%), `make deploy-check`, CI and the register
+gate are green, `main` is clean and nothing is half-finished in the tree.
+
+**Formerly:** `make gates` (3,040 · 92.18%), `make smoke`
 (6), `make deploy-check`, CI, no open PRs. Nothing is half-finished in the tree.
 
 **The measure is DRAFTS, and they moved:** every cluster now has one (the 24-gap closed by
@@ -121,6 +125,32 @@ constant's contract requires: a bump without one leaves every layer querying a v
 with no rows, i.e. an apparently empty Bank.
 
 
+
+### 🔴 What `make smoke` now checks — and why it is RED
+
+**Owner ruling 2026-08-29: only claim completion after an end-to-end smoke test**
+(Directive #1 item 5). The rule exists because `make smoke: 6 passed` was quoted as
+end-to-end evidence for days while smoke was **database-only** — six Postgres
+reconciliation tests, no Neo4j, no HTTP, no search — under a docstring that called it
+"end to end".
+
+It now also checks the **derived index**, and fails on two real, open things:
+
+| red | why | fix |
+|---|---|---|
+| document vectors at `jd_segmenter_v2` | six parser bumps stale; the vector query has no version filter, so it silently ranks on text the parser no longer produces | `make embed` (long; needs Ollama) |
+| 1 embeddable role has no vector | the runner reports `2,500 seen = 8 empty + 2,491 unchanged` — which does not reconcile. A small accounting hole | plan.md **P3g** |
+
+⚠ **Leave it red until those are fixed.** A green smoke that does not cover the change is
+worse than a red one that does.
+
+**What was fixed getting here:** `make embed-roles` used to ABORT — one
+`EmbeddingBadRequestError` escaped the batch loop, stopping at 2,152 of 2,500 while the
+make target said only `Error 1`. Now isolated and counted, and role vectors went
+**1,797 → 2,491**. ⚠ The error named the symptom, not the cause: with isolation ZERO roles
+are rejected, so no single role is over-length — the **batch** exceeded the context in
+aggregate.
+
 ### ⚠ Before you demo or test: two things `launch.ps1` does NOT do
 
 1. **The vector index is stale, and it is silent about it.** `(:JDDocument)` nodes carry
@@ -128,11 +158,10 @@ with no rows, i.e. an apparently empty Bank.
    is `db.index.vector.queryNodes` with no version filter), so nothing errors; it is
    ranking on text the parser no longer produces. Refresh with `make embed`
    (skip-first; needs Ollama on `aria-gb10-2`).
-2. 🔴 **`(:JDRole)` held 1,797 vectors against 2,500 roles — 703 roles were INVISIBLE to
+2. ✅ **FIXED** — `(:JDRole)` held 1,797 vectors against 2,500 roles — 703 roles were INVISIBLE to
    Builder search**, with no error anywhere. Neo4j is a DERIVED index: nothing rebuilds it
    when the Bank grows, and no gate notices. `make embed-roles` after any producer run —
-   ⚠ **but it ABORTS on one over-long role** (`input length exceeds the context length`),
-   so it currently stops at **2,152 of 2,500**. plan.md P3g.
+   The abort is fixed and it now reaches **2,491**; `make smoke` checks the coverage.
 
 ⚠ **The port is not fixed at 25800.** `launch.ps1` defaults to it, but `JD_API_PORT` in the
 launching shell wins — this box has been running on **25900** for that reason.
