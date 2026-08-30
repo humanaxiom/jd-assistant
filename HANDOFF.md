@@ -397,6 +397,15 @@ Distilled from six weeks; the full set is in the archive.
   unrelated files in a style `black` — the actual gate — then rejected. And an
   auto-rewrapper for long lines mangled docstrings into orphan fragments. Both had to be
   reverted, and the second cost more than fixing 33 lines by hand would have.
+- 🔴 **CHECK THE BANK, NOT THE COUNTER.** A run's counters report what the RUN DID; the
+  Bank holds what is TRUE. They are not the same reading and they drift apart silently.
+  The rewrite pass printed `refreshed=95`, and the Bank had gained prose on **84** — the
+  other 11 rewrites had failed, kept their deterministic draft, and were still counted as
+  refreshed. A progress line's `failures=` counted CLUSTER failures, not rewrite failures,
+  so "0 failures" was reported four times while 11 were accumulating. **The counter was
+  not lying; it was answering a different question.** Query the Bank with the code's own
+  predicate (`draft_has_rewritten_prose`) and compare before/after — that is the receipt
+  against the balance, and only the balance is money.
 - **A watcher must match the signal, not a substring of the output.** A completion check
   looking for "passed" fired on ruff's *"All checks passed!"* and reported a test result
   that had not happened yet. Same shape as believing a zero.

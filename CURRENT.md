@@ -33,6 +33,53 @@ leave the pointer.
 ⚠ **A document is never the authority for a number.** If a doc and the funnel disagree,
 the funnel is right and the doc is a bug.
 
+### The loop
+
+**reflect → check the Bank → document → act → reflect.** Every real finding in this repo
+came out of that cycle, and every wrong one came from skipping a step — usually
+**document**, because writing the claim down is what exposes that it is two claims.
+
+**Reflect** is not optional politeness. It is the step where you ask *what would make this
+wrong*, and it belongs BOTH before acting and after.
+
+### 🔴 Check the Bank, not the counter
+
+**A run's output reports what the RUN DID. The Bank holds what is TRUE.** Those are
+different readings, and they drift apart silently — a receipt is not a balance, and only
+the balance is money.
+
+Measured 2026-08-29: a rewrite pass printed `refreshed=95` while the Bank gained prose on
+**84**. Eleven rewrites had failed, kept their deterministic draft, and were still counted
+as refreshed. Its progress line said `failures=0` — because that counter tracks CLUSTER
+failures, not rewrite failures — and "zero failures" was reported four times while eleven
+accumulated. **The counter was not lying. It was answering a different question.**
+
+> **So: never report an outcome from a run's summary.** Query the Bank for the property
+> you actually claim, using the code's own predicate rather than a hand-written one, and
+> compare before against after. If you cannot express the claim as a query, you do not yet
+> know what you are claiming.
+
+
+### 🔴 A failed measurement may be a failed MEASUREMENT
+
+When a result contradicts a **structural argument** — something you can point at in the
+code — the result is a suspect too, not automatically the winner.
+
+Measured 2026-08-29: `name/section` was in `_NEXT_LABEL_RX` (a label the parser stops
+*at*) and absent from `id_labels.department` (labels it reads *from*). That asymmetry is
+an argument from the code, not a hunch. The first probe said the spelling barely mattered;
+that was accepted and written up as *"the hypothesis did not survive"*. Re-scoped to the
+parser's own reading, it was **~667 of 680 — essentially the whole defect.**
+
+**The probe was wrong, not the argument.** A null result from a probe you have not
+validated is not evidence of absence.
+
+> **The validation that settles it: make the probe reproduce a number the system already
+> knows.** Here, `readable ≈ parser_has`. A probe that cannot reproduce the audited
+> quantity is not yet measuring the audited thing — whatever else it reports.
+
+⚠ This is not "trust your instinct over data". It is: when a measurement and a structural
+argument disagree, **you have two hypotheses and have tested one.**
 ---
 
 ## Which document is which
