@@ -600,7 +600,18 @@ the identification block where that block has one), but the count still answers 
 different question from "what would a fix recover". **Measure the scope-matched number
 before choosing a fix.**
 
-### 9d. A second defect, small and cross-cutting: repeated internal spaces
+### 9d. ~~A second defect: repeated internal spaces~~ 🔴 NOT A DEFECT — probe artifact
+
+> **RETRACTED 2026-08-29.** Everything below is the PROBE's view of the raw text. The
+> parser never sees these labels stretched: `_ordered_cells` collapses runs of whitespace
+> before `_extract_label` compares a cell, so `Department  Name:` reads fine today.
+>
+> I wrote a whitespace-collapsing normaliser for this (planned as P3e) — and **breaking it
+> on purpose left the suite green**, which is what exposed it as a fix for nothing. It was
+> reverted; the test now pins the collapse in `_ordered_cells` instead.
+>
+> ⚠ The general form: **a probe finding something the code already handles is a finding
+> about the probe.** Kept as the record of the wrong turn.
 
 `_extract_label` strips and lower-cases but never **collapses** internal whitespace, so
 these match nothing at all:

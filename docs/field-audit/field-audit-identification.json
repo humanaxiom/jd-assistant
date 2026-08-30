@@ -1,5 +1,5 @@
 {
-  "parser_version": "jd_segmenter_v7",
+  "parser_version": "jd_segmenter_v8",
   "documents_read": 4226,
   "sampled": null,
   "documents_skipped": 10339,
@@ -34,7 +34,10 @@
         },
         "department": {
           "wjq_labels": [
-            "Department Name"
+            "Department Name",
+            "Department Name/Section",
+            "Department Name/ Section",
+            "Department Name /Section"
           ],
           "key_words": [
             "department",
@@ -45,8 +48,8 @@
           ],
           "documents": 9,
           "parser_has_value": 1,
-          "unreadable_with_value": 3,
-          "readable_with_value": 1,
+          "unreadable_with_value": 0,
+          "readable_with_value": 4,
           "label_present_no_value": 0,
           "no_label_found": 5
         },
@@ -116,7 +119,10 @@
         },
         "department": {
           "wjq_labels": [
-            "Department Name"
+            "Department Name",
+            "Department Name/Section",
+            "Department Name/ Section",
+            "Department Name /Section"
           ],
           "key_words": [
             "department",
@@ -126,9 +132,9 @@
             "title"
           ],
           "documents": 4216,
-          "parser_has_value": 2958,
-          "unreadable_with_value": 680,
-          "readable_with_value": 2956,
+          "parser_has_value": 3565,
+          "unreadable_with_value": 16,
+          "readable_with_value": 3620,
           "label_present_no_value": 30,
           "no_label_found": 550
         },
@@ -198,7 +204,10 @@
         },
         "department": {
           "wjq_labels": [
-            "Department Name"
+            "Department Name",
+            "Department Name/Section",
+            "Department Name/ Section",
+            "Department Name /Section"
           ],
           "key_words": [
             "department",
@@ -252,48 +261,6 @@
     }
   },
   "unreadable_examples": {
-    "department": [
-      [
-        "Department Name/Section",
-        654
-      ],
-      [
-        "Department Name/ Section",
-        9
-      ],
-      [
-        "Department Name /Section",
-        3
-      ],
-      [
-        "Assistant Department Name/Section",
-        3
-      ],
-      [
-        "Department Mane/Section",
-        2
-      ],
-      [
-        "Department Position Tide",
-        2
-      ],
-      [
-        "Admissions Department Name/Section",
-        2
-      ],
-      [
-        "Department name/Section",
-        1
-      ],
-      [
-        "BusinessPrograms Department Name/Section",
-        1
-      ],
-      [
-        "Facilities Technician Department Name/Section",
-        1
-      ]
-    ],
     "title": [
       [
         "Department   Position Title",
@@ -313,6 +280,48 @@
       ],
       [
         "Graduate Program Department Position Title",
+        1
+      ]
+    ],
+    "department": [
+      [
+        "Assistant Department Name/Section",
+        3
+      ],
+      [
+        "Department Mane/Section",
+        2
+      ],
+      [
+        "Department Position Tide",
+        2
+      ],
+      [
+        "Admissions Department Name/Section",
+        2
+      ],
+      [
+        "BusinessPrograms Department Name/Section",
+        1
+      ],
+      [
+        "Facilities Technician Department Name/Section",
+        1
+      ],
+      [
+        "Clerk Department Name/Section",
+        1
+      ],
+      [
+        "Records Department Name/Section",
+        1
+      ],
+      [
+        "Education Consortium) Department Name/Section",
+        1
+      ],
+      [
+        "Department   Name/Section",
         1
       ]
     ],
@@ -354,6 +363,20 @@
       "document_value": "Secretary"
     },
     {
+      "filename": "19940401_00001202Clerk.doc",
+      "employee_group": "cupe",
+      "field": "department",
+      "field_name": "Department Name/Section",
+      "document_value": "Financial Services/Accounts Payable"
+    },
+    {
+      "filename": "19960624_00000115Programmer_analyst.doc",
+      "employee_group": "(unrecorded)",
+      "field": "department",
+      "field_name": "Department Name/Section",
+      "document_value": "Academic Computing Services"
+    },
+    {
       "filename": "19960624_00000115Programmer_analyst.doc",
       "employee_group": "(unrecorded)",
       "field": "position_number",
@@ -368,53 +391,11 @@
       "document_value": "Departmental Secretary"
     },
     {
-      "filename": "20000810_00000838Library_assistant.doc",
+      "filename": "19970506_00001106Clerk.doc",
       "employee_group": "(unrecorded)",
-      "field": "position_number",
-      "field_name": "Position Number(s)",
-      "document_value": "00838"
-    },
-    {
-      "filename": "20000810_00000838Library_assistant.doc",
-      "employee_group": "(unrecorded)",
-      "field": "grade",
-      "field_name": "Classification & Grade Approved",
-      "document_value": "Effective Date: August 10, 2000"
-    },
-    {
-      "filename": "20010301_00000972Secretary.doc",
-      "employee_group": "cupe",
-      "field": "title",
-      "field_name": "Title",
-      "document_value": "Services Assistant"
-    },
-    {
-      "filename": "20010401_00001008Technician.doc",
-      "employee_group": "cupe",
-      "field": "position_number",
-      "field_name": "Position Number(s)",
-      "document_value": "Technical Support Specialist Co-operative Education"
-    },
-    {
-      "filename": "20010625_00000865Library_assistant.doc",
-      "employee_group": "cupe",
-      "field": "title",
-      "field_name": "Department Position Title",
-      "document_value": "Acquisitions Approvals &"
-    },
-    {
-      "filename": "20010625_00030406Library_assistant.doc",
-      "employee_group": "cupe",
-      "field": "title",
-      "field_name": "Department Position Title",
-      "document_value": "Acquisitions Approvals &"
-    },
-    {
-      "filename": "20010815_00000834Library_assistant.doc",
-      "employee_group": "cupe",
-      "field": "title",
-      "field_name": "Position Title",
-      "document_value": "Staff"
+      "field": "department",
+      "field_name": "Department Name/Section",
+      "document_value": "Dean of Graduate Studies"
     }
   ],
   "not_evaluated": {
