@@ -1698,3 +1698,57 @@ def test_the_queue_says_score_sorting_stays_inside_a_form(
 
     assert "Score and Grade sort within each form" in body
     assert "never ranked against" in body
+
+
+def test_the_blocking_badge_links_to_the_gates_that_explain_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """🔴 Reported from the live app, 2026-08-30: the header shows a red
+    "2 blocking gate(s)" badge and nothing to click.
+
+    The page ALREADY carries a Blocking gates panel with per-gate "Fix this in ↓" links
+    — the reviewer just had no way to get there from the thing that told them there was
+    a problem. A count a reviewer cannot act on is a dead end, and the panel is below
+    the fold on a long draft.
+
+    Same rule as the per-gate links above: the target anchor must EXIST on the page, or
+    it is a control that looks right and goes nowhere.
+    """
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    packet = _packet(
+        canonical_id=canonical_id,
+        blocking=(_gate_with_rules("SFU-APPROVE-MANDATORY", ("SFU-COMP-SUMMARY",)),),
+        approved=False,
+    )
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+    monkeypatch.setattr(
+        ui.service, "get_structural_context", AsyncMock(return_value=None)
+    )
+
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}").text
+
+    assert 'href="#blocking-gates"' in body, "the badge must be clickable"
+    assert 'id="blocking-gates"' in body, "and the anchor must really be there"
+
+
+def test_an_approvable_draft_shows_no_blocking_badge_and_no_dead_anchor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The inverse — a guard asserted one way is decoration.
+
+    With nothing blocking, neither the badge nor the panel it points at may appear; a
+    link to an anchor that is not rendered is exactly the dead control this fixes.
+    """
+    canonical_id = uuid.uuid4()
+    client = make_client(FakeSession())
+    packet = _packet(canonical_id=canonical_id, blocking=(), approved=True)
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+    monkeypatch.setattr(
+        ui.service, "get_structural_context", AsyncMock(return_value=None)
+    )
+
+    body = client.get(f"/jd-bank/ui/review/{canonical_id}").text
+
+    assert "blocking gate(s)" not in body
+    assert 'href="#blocking-gates"' not in body

@@ -32,7 +32,13 @@
     {% if packet.decision.approved %}
     <span class="badge ok">approvable</span>
     {% else %}
-    <span class="badge blocked">{{ packet.decision.blocking | length }} blocking gate(s)</span>
+    {#
+      Linked to the panel that EXPLAINS it (reported from the live app 2026-08-30: the
+      badge stated a count with nothing to click, and the Blocking gates panel — which
+      already carries per-gate "Fix this in" links — is below the fold on a long draft).
+      A count a reviewer cannot act on is a dead end.
+    #}
+    <a class="badge blocked" href="#blocking-gates">{{ packet.decision.blocking | length }} blocking gate(s) ↓</a>
     {% endif %}
   </p>
   <p class="meta">
@@ -99,7 +105,7 @@
 {% endif %}
 
 {% if packet.decision.blocking %}
-<div class="panel">
+<div class="panel" id="blocking-gates">
   <h2>Blocking gates</h2>
   <p class="meta">
     These must be resolved before the draft can be published. An
