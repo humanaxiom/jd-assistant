@@ -33,6 +33,23 @@ leave the pointer.
 ⚠ **A document is never the authority for a number.** If a doc and the funnel disagree,
 the funnel is right and the doc is a bug.
 
+### 🔴 Check the Bank, not the counter
+
+**A run's output reports what the RUN DID. The Bank holds what is TRUE.** Those are
+different readings, and they drift apart silently — a receipt is not a balance, and only
+the balance is money.
+
+Measured 2026-08-29: a rewrite pass printed `refreshed=95` while the Bank gained prose on
+**84**. Eleven rewrites had failed, kept their deterministic draft, and were still counted
+as refreshed. Its progress line said `failures=0` — because that counter tracks CLUSTER
+failures, not rewrite failures — and "zero failures" was reported four times while eleven
+accumulated. **The counter was not lying. It was answering a different question.**
+
+> **So: never report an outcome from a run's summary.** Query the Bank for the property
+> you actually claim, using the code's own predicate rather than a hand-written one, and
+> compare before against after. If you cannot express the claim as a query, you do not yet
+> know what you are claiming.
+
 ---
 
 ## Which document is which

@@ -113,6 +113,11 @@ opinion is a re-run rather than another agent.
 it** — the claim to distrust is then your own, and the second opinion is a re-run rather
 than another agent. Read "a subagent" as "whoever or whatever produced this diff".
 
+- 🔴 **CHECK THE BANK, NOT THE COUNTER.** A run's counters say what the RUN DID; the Bank
+  says what is TRUE, and they drift apart silently. `refreshed=95` against 84 drafts that
+  actually gained prose; `failures=0` on a counter tracking a different kind of failure
+  than the one being claimed. **Query the Bank for the property you are claiming**, with
+  the code's own predicate, before and after. A receipt is not a balance. (CURRENT.md)
 - **A claim of green is not evidence of green.** Require the pasted command and its
   real output; if a report only summarizes a diff, treat the work as UNVERIFIED and re-run the
   gate yourself before committing. This is cheap and has already caught real defects.
