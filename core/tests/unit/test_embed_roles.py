@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 
 from src.jd_bank.embeddings import roles as roles_mod
+from src.jd_bank.embeddings.client import EmbeddingBadRequestError
 from src.jd_bank.embeddings.models import NodeKey
 from src.jd_core.models.parsed_jd import SFUDuty, SFUJobDescription
 from src.jd_core.rules import get_rules
@@ -191,3 +192,68 @@ async def test_prunes_role_nodes_whose_cluster_is_gone(
 
     assert captured["pruned"] == [ghost]
     assert summary.nodes_pruned == 1
+
+
+class _FakeEmbedRejectingLong(_FakeEmbed):
+    """400s on every batch containing ONE designated text — the real behaviour.
+
+    The API rejects the BATCH, not the offending item, which is exactly why a caller
+    that lets the error escape loses every innocent role in the same chunk.
+    """
+
+    def __init__(self, reject_index: int) -> None:
+        super().__init__()
+        self.reject_index = reject_index
+        self.doomed: str | None = None
+
+    async def embed_batch(self, texts: Any) -> list[list[float]]:
+        batch = list(texts)
+        self.batches.append(batch)
+        if self.doomed is None and len(batch) > self.reject_index:
+            self.doomed = batch[self.reject_index]
+        if self.doomed in batch:
+            raise EmbeddingBadRequestError(
+                "the input length exceeds the context length"
+            )
+        return [[0.1] * 768 for _ in batch]
+
+
+@pytest.mark.asyncio
+async def test_one_over_long_role_does_not_abort_the_whole_pass(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """🔴 MEASURED ON THE LIVE BANK, 2026-08-29. `make embed-roles` died with
+    `EmbeddingBadRequestError: the input length exceeds the context length` and stopped
+    at **2,152 of 2,500 roles** — every role after the offending one left unembedded and
+    invisible to Builder search, with the make target reporting only `Error 1`.
+
+    The DOCUMENT runner has isolated this since Phase 3.2 (`runner.py`: "isolate
+    instead — only the genuinely over-long text is skipped"). The role runner, added
+    later, never got the same treatment: it let the error escape the batch loop.
+
+    ⚠ It must not merely survive — it must SAY SO. A pass that silently skips a role
+    reports success while search stays incomplete, which is the failure this whole
+    session has been about.
+    """
+
+    def _distinct(word: str) -> dict[str, Any]:
+        # ⚠ The TITLE is not part of the serialized embedding text, so three roles
+        # differing only by title produce one identical string — which made an earlier
+        # version of this test reject all three. Vary the summary instead.
+        content = _content(word)
+        content["position_summary"] = " ".join([word] * 60)
+        return content
+
+    fine_one = _FakeCanonical(cluster_id=uuid.uuid4(), content=_distinct("alpha"))
+    poison = _FakeCanonical(cluster_id=uuid.uuid4(), content=_distinct("overlong"))
+    fine_two = _FakeCanonical(cluster_id=uuid.uuid4(), content=_distinct("gamma"))
+    _wire(monkeypatch, current=[fine_one, poison, fine_two])
+
+    summary = await roles_mod.run_role_embedding(
+        object(),  # type: ignore[arg-type]
+        embed_client=_FakeEmbedRejectingLong(1),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+    )
+
+    assert summary.roles_embedded == 2, "the innocent roles are still embedded"
+    assert summary.roles_rejected == 1, "and the over-long one is COUNTED, not hidden"

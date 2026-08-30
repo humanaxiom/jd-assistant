@@ -160,9 +160,28 @@ A change is not done when it works on this box. It is done when:
 4. **`make deploy-check` is green** — enforced in CI as *"Gate: deployable offline"*, so
    this is a build failure, not a good intention.
 
+5. 🔴 **`make smoke` is green — AND IT COVERS WHAT YOU CHANGED.** Added by the owner
+   2026-08-29 after a completion was claimed over a **half-built search index**. Never
+   claim done from unit or integration tests: they run on fixtures, and fixtures cannot
+   be stale. **Only an end-to-end check against the LIVE system counts.**
+
+   ⚠ **And check that smoke actually reaches your change.** It read *"the REAL Bank must
+   reconcile end to end"* while being **database-only** — six Postgres tests, no Neo4j,
+   no HTTP, no search. They all passed while `(:JDRole)` held 1,797 vectors for 2,500
+   roles (703 roles invisible to Builder search) and every document vector sat six
+   parser bumps stale. **A green smoke that does not touch your change is not evidence
+   about your change** — extend it, as `test_the_role_vector_index_covers_every_current_role`
+   now does, or say plainly that it was not covered.
+
 ⚠ **The trap this exists to stop:** work that is real, correct and green *here*, and
 unreachable to anyone else. Ask at the end of every task: **"could the owner deploy and
 see this, tomorrow, without me?"** If not, the task has one more step.
+
+🔴 **And the second trap, added 2026-08-29: green that does not mean what it sounds like.**
+"`make smoke`: 6 passed" was quoted as end-to-end evidence for days while smoke never
+exercised search, the vector index, or a single HTTP route. **Before quoting a suite as
+proof, say what it covers — and if it does not cover the change, either extend it or do not
+claim completion.**
 
 Runbook: [`deploy/README.md`](deploy/README.md).
 

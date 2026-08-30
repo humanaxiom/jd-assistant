@@ -22,7 +22,12 @@ five wrong ones that agreed with each other.
    `deploy/install.ps1` onto a fresh, offline box, **with no assistant in the loop**;
 3. **discoverable** — reachable from the UI, because *a feature nothing links to has not
    been delivered*;
-4. **green on `make deploy-check`** — CI gate *"Gate: deployable offline"*.
+4. **green on `make deploy-check`** — CI gate *"Gate: deployable offline"*;
+5. 🔴 **green on `make smoke`, AND smoke must cover the change** (owner, 2026-08-29).
+   Unit and integration tests run on fixtures, and a fixture cannot be stale — only an
+   end-to-end check against the LIVE system is evidence. ⚠ Smoke described itself as "end
+   to end" while being database-only: six Postgres tests passed throughout, while 703
+   roles had no vector and Builder search could not find them.
 
 ⚠ **"It works on the dev box" is not done.** Ask: *could the owner deploy and see this,
 tomorrow, without me?* Full statement in [`CLAUDE.md`](../CLAUDE.md); runbook in
