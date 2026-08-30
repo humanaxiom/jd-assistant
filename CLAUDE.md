@@ -6,6 +6,11 @@ Repo: C:\repos\JD-Assistant (standalone project repo — see docs/adr/ADR-004-re
 Plan: docs/plan.md. Rulebook: docs/rulebook/sfu-jd-standards.txt.
 
 ## Read on every session
+
+🥇 **[`CURRENT.md`](CURRENT.md) FIRST** — the authoritative index of where each fact lives
+and how to verify it, plus which documents are live, superseded, or dated records. **Do not
+repeat a fact you have not checked**; agreement between documents is a correlated failure,
+not corroboration.
 harness-claude-code/CLAUDE.md — base harness rules (gates, git workflow, TDD order, code
 rules) apply here in full. They are vendored in-repo; do not re-open inherited ADR-002
 (Postgres/Neo4j split) or ADR-003 (offline Ollama).

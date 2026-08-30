@@ -1,7 +1,10 @@
 # JD Bank — Session Handoff
 
-Read this first every session. **Forward-looking only** — the build record lives in
-[`docs/archive/`](docs/archive/).
+🥇 **Read [`CURRENT.md`](CURRENT.md) first** — it says where every fact lives and how to
+check it. This page is state and traps, **forward-looking only**; the build record lives in
+[`docs/archive/`](docs/archive/). ⚠ Verify anything here against `gh pr list` and the
+funnel before trusting it — a handoff that records intent as outcome is worse than one
+merely out of date.
 
 ## 🔴 WHERE THE NUMBERS LIVE — read this before quoting any figure
 
