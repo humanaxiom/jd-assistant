@@ -39,6 +39,7 @@ count of *roles*.
 | **tested** | `make gates` green · failing test written FIRST · the guard broken once to prove it can go red |
 | **deployable** | works via `build.ps1` / `launch.ps1` / `teardown.ps1` (dev) and `deploy/bundle.ps1` + `deploy/install.ps1` (fresh, offline box) |
 | **discoverable** | reachable from the UI — *a feature nothing links to has not been delivered* |
+| **smoke-tested** | 🔴 `make smoke` green **AND covering what you changed** — fixtures cannot be stale, so only a check against the LIVE system counts. ⚠ Smoke was database-only while calling itself "end to end"; it now checks the vector index too |
 | **enforced** | `make deploy-check`, run in CI as *"Gate: deployable offline"* |
 
 ⚠ **Ask at the end of every task: "could the owner deploy and see this, tomorrow, without

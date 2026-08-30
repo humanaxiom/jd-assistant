@@ -32,6 +32,8 @@ documents, so a re-run costs nothing and an edited role re-embeds automatically.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
+from typing import Any
 from uuid import UUID
 
 from neo4j import AsyncDriver
@@ -40,7 +42,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.jd_bank.db.models import CanonicalJD
-from src.jd_bank.embeddings.client import EmbedClient
+from src.jd_bank.embeddings.client import EmbedClient, EmbeddingBadRequestError
 from src.jd_bank.embeddings.models import NodeKey, RoleWrite
 from src.jd_bank.embeddings.store import (
     fetch_existing_role_keys,
@@ -70,6 +72,11 @@ class RoleEmbeddingSummary(BaseModel):
     roles_embedded: int = 0
     roles_unchanged: int = 0
     roles_empty: int = 0
+    #: 🔴 Roles the embedding API REFUSED (400 — over the model's context). Counted, not
+    #: swallowed: a pass that silently drops a role reports success while Builder search
+    #: stays incomplete. Measured 2026-08-29, one such role aborted the whole pass at
+    #: 2,152 of 2,500 and every role after it stayed invisible.
+    roles_rejected: int = 0
     nodes_pruned: int = 0
     model: str = ""
     dimensions: int = 0
@@ -152,7 +159,27 @@ async def run_role_embedding(
 
     for start in range(0, len(pending), _BATCH):
         chunk = pending[start : start + _BATCH]
-        vectors = await embed_client.embed_batch([s.text for _, s in chunk])
+        try:
+            vectors = await embed_client.embed_batch([s.text for _, s in chunk])
+        except EmbeddingBadRequestError:
+            # The server 400s the BATCH, not the offending role — so letting this
+            # escape loses every innocent role in the chunk AND every chunk after it.
+            # Measured on the live Bank 2026-08-29: one over-long role stopped the pass
+            # at 2,152 of 2,500, leaving 348 roles with no vector and invisible to
+            # Builder search, while `make embed-roles` reported only `Error 1`.
+            # The DOCUMENT runner has isolated this since Phase 3.2; this is the same
+            # rule for roles. Retry singly and COUNT what is still refused.
+            singles: list[tuple[CanonicalJD, SerializedText]] = []
+            single_vectors: list[list[float]] = []
+            for item in chunk:
+                try:
+                    single_vectors.append(
+                        (await embed_client.embed_batch([item[1].text]))[0]
+                    )
+                    singles.append(item)
+                except EmbeddingBadRequestError:
+                    summary.roles_rejected += 1
+            chunk, vectors = singles, single_vectors
         rows = [
             RoleWrite(
                 cluster_id=canonical.cluster_id,
@@ -181,3 +208,25 @@ async def run_role_embedding(
         neo4j_driver, [cid for cid in existing if cid not in planned]
     )
     return summary
+
+
+def _embeddable_roles(contents: Iterable[Mapping[str, Any] | None]) -> int:
+    """How many of these role contents this runner would actually embed.
+
+    Exported so the live smoke can assert vector COVERAGE without re-implementing the
+    rule — a check that carries its own copy of the logic agrees with itself, not with
+    the code. A role serializing to no text is never embedded (a zero-ish vector is a
+    nearest neighbour to everything), so the honest denominator excludes those.
+    """
+    embeddings = get_rules().embeddings
+    total = 0
+    for content in contents:
+        try:
+            jd = SFUJobDescription.model_validate(content or {})
+        except (
+            Exception
+        ):  # noqa: BLE001 — mirrors the runner: malformed is not embeddable
+            continue
+        if serialize_document(jd, embeddings).text:
+            total += 1
+    return total

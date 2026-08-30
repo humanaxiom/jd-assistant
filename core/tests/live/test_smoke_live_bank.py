@@ -229,3 +229,88 @@ async def test_no_draft_claims_a_template_its_documents_do_not(session) -> None:
         "does not call cupe — they are scored on the WJQ profile and counted as CUPE "
         "wrongly. Re-compose them on the template their documents actually are."
     )
+
+
+# ── 7-8. The DERIVED index — what the relational smoke could never see ──────────
+
+
+@pytest.fixture
+async def neo4j():  # type: ignore[no-untyped-def]
+    """The live Neo4j driver, or a skip. Separate from `session` on purpose: the
+    relational checks above must still run on a box with no graph."""
+    from src.settings import get_settings
+
+    settings = get_settings()
+    try:
+        from neo4j import AsyncGraphDatabase
+    except ImportError:  # pragma: no cover - the driver is a hard dependency
+        pytest.skip("neo4j driver unavailable")
+    driver = AsyncGraphDatabase.driver(
+        settings.neo4j_uri, auth=(settings.neo4j_user, settings.neo4j_password)
+    )
+    try:
+        yield driver
+    finally:
+        await driver.close()
+
+
+async def test_the_role_vector_index_covers_every_current_role(session, neo4j) -> None:  # type: ignore[no-untyped-def]
+    """🔴 THE GAP THAT MADE "make smoke: 6 passed" MEAN LESS THAN IT SOUNDED.
+
+    Neo4j is a DERIVED index and NOTHING rebuilds it — not `launch.ps1`, not a producer
+    run, not a parser bump. Measured 2026-08-29 while answering "is launch.ps1 all I
+    need?": `(:JDRole)` held **1,797 vectors against 2,500 roles**, so 703 roles were
+    invisible to Builder search — with no error anywhere, because the query is
+    `db.index.vector.queryNodes` with no coverage check.
+
+    The six relational tests above all passed throughout. They reconcile the LEDGER;
+    they cannot see a stale derived store, and calling that "end to end" is what let a
+    completion be claimed over a half-built search index.
+
+    ⚠ Expected to be RED until plan.md P3g lands: `make embed-roles` aborts on one role
+    whose text exceeds the embedding context, so it stops partway and every role after
+    it stays unembedded. That is the point — the gate should stay red while the system
+    is incomplete.
+    """
+    from src.jd_bank.embeddings.roles import _embeddable_roles
+
+    rows = (await session.execute(text(f"SELECT content FROM ({_CURRENT}) cur"))).all()
+    #: Roles the runner would actually embed — its OWN rule, not a re-implementation:
+    #: a role serializing to no text is never embedded, because a zero-ish vector is a
+    #: nearest neighbour to everything. Comparing against the raw role count would make
+    #: this gate permanently red by 8 and train everyone to ignore it.
+    embeddable = _embeddable_roles(r[0] for r in rows)
+    async with neo4j.session() as s:
+        record = await (await s.run("MATCH (r:JDRole) RETURN count(r) AS n")).single()
+        embedded = record["n"]
+
+    assert embedded >= embeddable, (
+        f"{embeddable - embedded} of {embeddable} embeddable roles have NO vector, so "
+        f"Builder search cannot find them. Run `make embed-roles` (plan.md P3g)."
+    )
+
+
+async def test_the_document_vector_index_is_at_the_current_parser_version(  # type: ignore[no-untyped-def]
+    neo4j,
+) -> None:
+    """A vector built from text the parser no longer produces ranks on fiction.
+
+    Measured 2026-08-29: every `(:JDDocument)` node carried
+    `parser_version = jd_segmenter_v2` — **six bumps stale** — while the Bank served v8
+    parses. Nothing failed, because the vector query does not filter on version.
+
+    `PARSER_VERSION`'s contract already says a bump ships WITH its re-parse. This
+    extends the same rule to the derived store: a bump also owes `make embed`.
+    """
+    from src.jd_core.parser import PARSER_VERSION
+
+    async with neo4j.session() as s:
+        result = await s.run(
+            "MATCH (d:JDDocument) RETURN DISTINCT d.parser_version AS v"
+        )
+        versions = sorted({r["v"] async for r in result})
+
+    assert versions == [PARSER_VERSION], (
+        f"document vectors are at {versions}, the Bank is at {PARSER_VERSION!r}. "
+        f"Run `make embed`."
+    )

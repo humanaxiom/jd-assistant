@@ -4,8 +4,9 @@
   "model": "nomic-embed-text",
   "nodes_pruned": 0,
   "roles_embedded": 0,
-  "roles_empty": 5,
-  "roles_seen": 1802,
-  "roles_unchanged": 1797,
+  "roles_empty": 8,
+  "roles_rejected": 1,
+  "roles_seen": 2500,
+  "roles_unchanged": 2491,
   "serializer_version": "embed_text_v1"
 }
