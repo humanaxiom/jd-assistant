@@ -555,6 +555,10 @@ what makes it credible. It was verified by opening the files, not by trusting th
 
 ### 9b. Three causes, not one — and the value is usually on the COVER PAGE
 
+> 🔴 **SUPERSEDED BY §9g (same day).** "Three causes, no single fix recovers all 726" is
+> WRONG. Scoped to the parser's own reading, one label — `Department Name/Section` —
+> accounts for ~667 of 680. Kept as the record of the wrong turn and what caused it.
+
 Three documents from the gap, read at source. In **all three** the department is present
 on the **cover page** under the exact registered spelling `Department Name:` — and the
 parser reads only the **identification block**:
@@ -579,6 +583,10 @@ asymmetry was visible in the code before it was measured: `name/section` **is** 
 way to *read from* it. It is the top unreadable department name at 29.
 
 ### 9c. ⚠ 726 is an UPPER BOUND, and the reason is the P3a trap wearing new clothes
+
+> 🔴 **SUPERSEDED BY §9g (same day).** The bound was right and the diagnosis below was
+> wrong: re-probed in the parser's own scope the gap is not a read failure but ONE
+> unregistered label. Read §9g before acting on anything in §9b or §9c.
 
 **The probe reads the whole document; the parser reads only the identification block.**
 So the gap counts "the archive states a department", not "the parser could have read one
@@ -626,6 +634,65 @@ gaps"*. **Two unrelated methods, the same answer.**
 
 *The probe was wrong three times before it was right, and each time the CONTROL is what
 said so — never the finding itself.* Full working in `docs/field-audit/README.md`.
+
+### 9g. 🔴 Scoping the probe to the PARSER'S scope inverted the conclusion (P3d)
+
+**Measured 2026-08-29, `make field-audit FIELD_AUDIT_ARGS="--identification-only"`.**
+`docs/field-audit/field-audit-identification.json`.
+
+The probe above reads the WHOLE document. The parser reads only the block after
+`1. POSITION IDENTIFICATION`. Re-probing in the parser's own scope changes the answer
+completely:
+
+| CUPE `department` | whole document | identification block |
+|---|---:|---:|
+| parser has | 2,958 | 2,958 |
+| readable | 3,684 | **2,956** |
+| 🔴 unreadable | 35 | **680** |
+
+**Inside its own scope the parser reads essentially everything it can** — readable 2,956
+against 2,958 held. The gap is not a read failure at all.
+
+**It is one unregistered label.** The verbatim names behind the 680:
+
+| count | field name in the document |
+|---:|---|
+| **654** | `Department Name/Section` |
+| 9 | `Department Name/ Section` |
+| 3 | `Department Name /Section` |
+| 1 | `Department name/Section` |
+| 7 | prefixed — `Assistant Department Name/Section`, `Admissions …`, `BusinessPrograms …` |
+| 2 | `Department Mane/Section` — a **typo in the source document** |
+
+**667 of 680 are `Department Name/Section` in some spacing.** `id_labels.department` holds
+one spelling, `Department Name`, and `_extract_label` compares the whole cell.
+
+⚠ **The 7 prefixed names are the antiword line-wrap, not spellings** — the previous field's
+VALUE runs into this label's cell. They need the wrap handled, not a label entry. And the
+2 `Department Mane/Section` are a typo in the archive: **report it, never encode it.**
+Adding a misspelling to a rulebook list is fitting the rule to noise.
+
+### 9h. ⚠ The correction this forced to §9b, and why it matters
+
+§9b named three causes and said "no single fix recovers all 726". **That was wrong, and it
+was wrong because the probe's scope did not match the parser's** — exactly the trap §9c
+warned about, committed while writing the warning. The whole-document probe kept finding
+the *cover page's* readable `Department Name:`, which the parser never reads, and
+attributed the shortfall to a read failure.
+
+Scoped correctly, one cause dominates and the fix is bounded: **register the
+`Department Name/Section` spelling (tolerating spacing around the slash) and expect up to
+~667.** P3e's whitespace collapse is visible here too — `Department   Position Title` (6),
+`Department  Position  Title` (4), `Position Number (s)` (10), `Classification  &  Grade
+Approved`.
+
+> **The lesson is not "scope the probe".** It is that a probe and the thing it audits must
+> answer the SAME question, and the way to find out is to make the probe reproduce the
+> parser's own number. Here that check is `readable ≈ parser_has` — and only in the
+> identification scope does it hold.
+
+⚠ **This scope covers WJQ only.** 4,226 documents carry a WJQ identification heading; the
+rest are skipped as *could not scope*, not as *states nothing*.
 
 ## Full working
 

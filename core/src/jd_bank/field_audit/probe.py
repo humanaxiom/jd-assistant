@@ -34,7 +34,9 @@ import enum
 import re
 from dataclasses import dataclass
 
-from src.jd_core.parser.wjq import _NEXT_LABEL_RX
+from src.jd_core.parser.wjq import _NEXT_LABEL_RX, _segment
+from src.jd_core.rules import get_rules
+from src.jd_core.rules.loader import Rules
 
 #: The longest a run of characters may be and still be a FIELD NAME rather than prose.
 #: A label is short by nature; a sentence that happens to contain a colon is not. It is
@@ -226,3 +228,21 @@ def probe_field(text: str, spec: FieldSpec, *, cells: bool = False) -> FieldHit 
         )
 
     return None
+
+
+def identification_block(text: str, *, rules: Rules | None = None) -> str:
+    """The WJQ **identification block** — the only place the parser reads these fields.
+
+    🔴 **This is the difference between "the archive states it" and "the parser could
+    have read it".** The WJQ cover page repeats `Department Name:` under the exact
+    registered spelling, and the parser never looks there: it reads the block after
+    `1. POSITION IDENTIFICATION`. A whole-document probe therefore counts fields the
+    parser had no access to, which answers a different question from *what would a fix
+    recover* — the same scope mismatch that made the first P3a fix pass its tests and
+    recover exactly zero.
+
+    Returns ``""`` when the document has no WJQ identification heading (a modern-
+    template document, say). ⚠ **Empty means COULD NOT SCOPE, never "states nothing".**
+    """
+    wjq = (rules if rules is not None else get_rules()).wjq
+    return _segment(text, wjq).get("position_identification", "").strip()

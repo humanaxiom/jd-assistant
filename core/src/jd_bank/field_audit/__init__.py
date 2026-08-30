@@ -18,6 +18,7 @@ from src.jd_bank.field_audit.probe import (
     FieldSpec,
     Readability,
     ValuePlacement,
+    identification_block,
     probe_field,
 )
 
@@ -26,5 +27,6 @@ __all__ = [
     "FieldSpec",
     "Readability",
     "ValuePlacement",
+    "identification_block",
     "probe_field",
 ]
