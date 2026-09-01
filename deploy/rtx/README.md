@@ -392,3 +392,34 @@ but `kernel.dmesg_restrict=1` and `asalah` is in neither `adm` nor `systemd-jour
 **Re-run `triage.sh` once the cards link.** The provisioning script still gets written
 against real `nvidia-smi` VRAM numbers, not against an assumption — which remains the
 whole point.
+
+### FAQ: "there's no NVIDIA because the OS is plain — don't we just need CUDA?"
+
+No. Reasonable question, and the answer is worth writing down because it is the natural
+first guess.
+
+**`lspci` enumerates the PCI bus, not drivers.** Measured on `rcg-asalah-1`: of **157** PCI
+devices, **112 have no kernel driver bound at all** — and `lspci` lists every one. Driver
+software is irrelevant to whether a device is enumerated.
+
+Four layers, and we fail at the first:
+
+| layer | what happens | when | CUDA involved? |
+|---|---|---|---|
+| 1. **PCIe link training** | card and slot negotiate electrically | power-on, in firmware — before the OS exists | **no** |
+| 2. **PCI enumeration** | kernel walks the bus; `lspci` reports it | boot | **no** |
+| 3. Driver binding | `nvidia.ko`, `/dev/nvidia*`, `nvidia-smi` | after install | yes |
+| 4. CUDA runtime + container toolkit | containers can use the GPU | after install | yes |
+
+`cur_bus_speed=Unknown` on every GPU slot is a **layer-1** failure: no link was trained, so
+layer 2 has nothing to enumerate. CUDA lives at layers 3–4 and cannot make a device appear
+on a bus it never joined.
+
+On a correctly-linked box with a bare OS and zero NVIDIA software, `lspci` still prints
+`NVIDIA Corporation AD102GL [RTX 6000 Ada Generation]` — merely with nothing under *Kernel
+driver in use*. The control case here is the onboard Matrox, which enumerates fine and has
+`mgag200` bound automatically, so driver loading works on these hosts in general.
+
+**The driver and container toolkit ARE required** — they are step one of the provisioning
+script. They are simply downstream of this problem: installing them today would fail at
+`nvidia-smi` with *no devices found*, because there is no device to find.
