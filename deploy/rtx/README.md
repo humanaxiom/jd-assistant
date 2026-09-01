@@ -423,3 +423,72 @@ driver in use*. The control case here is the onboard Matrox, which enumerates fi
 **The driver and container toolkit ARE required** — they are step one of the provisioning
 script. They are simply downstream of this problem: installing them today would fail at
 `nvidia-smi` with *no devices found*, because there is no device to find.
+
+---
+
+## ✅ RESOLVED (2026-09-01, with sudo) — the GPUs are NOT PHYSICALLY INSTALLED
+
+`sudo dmidecode -t slot` on `rcg-asalah-2` settles it from firmware's own slot inventory.
+Raw output: [`gpu-diag-rcg-asalah-2.txt`](gpu-diag-rcg-asalah-2.txt).
+
+**The chassis has exactly two general-purpose PCIe expansion slots, and both are empty:**
+
+| designation | type | current usage | length |
+|---|---|---|---|
+| **PCIe Slot 2** | PCI Express 5 | 🔴 **Available** (empty) | Short |
+| **PCIe Slot 7** | PCI Express 5 | 🔴 **Available** (empty) | Short |
+| NIC in Slot 10 | OCP NIC 3.0 SFF | In Use (`0000:01:00.0`) | Other |
+| NIC in Slot 4 | OCP NIC 3.0 SFF | Available | Other |
+| BOSS in Slot 6 | M.2 Socket 3 | In Use (`0000:81:00.0`) | Other |
+| PCIe SSD Bay 1 ×8 | EDSFF E3 | 2 In Use, 6 Available | Short |
+
+Every other slot is a NIC, boot-M.2 or NVMe bay. There is nowhere else a GPU could be.
+
+**It is not a BIOS problem.** `dmesg` (readable now) shows **no BAR-assignment failure, no
+`failed to assign`, no MMIO exhaustion** — every logged BAR belongs to the NIC, BOSS,
+Matrox or chipset. The `efi: Remove memNN: MMIO range=…` lines are ordinary boot-time e820
+map edits, not errors. So **Above 4G Decoding is a dead lead**: there is no enumeration
+failure to explain, because there is no device. BIOS is **1.5.3 (2025-10-29)**, current
+enough not to be suspect.
+
+### ⚠ Correction — `cur_bus_speed=Unknown` was NOT the proof I said it was
+
+The earlier section leaned on *"all five GPU-candidate slots report `cur_bus_speed=Unknown`,
+so no link is trained."* **That inference was unsound**, and the same command that resolved
+this shows why: slots **6** and **10** also report `Unknown` — and both are **populated**
+(BOSS M.2 and the OCP NIC, `In Use` with real bus addresses). Those `/sys/bus/pci/slots/*`
+entries describe *root ports*, not endpoint links, so `Unknown` there does not distinguish
+empty from occupied.
+
+The conclusion happened to be right; the reasoning behind it was not. The load-bearing
+evidence is SMBIOS type 9, not `cur_bus_speed`. Recorded rather than quietly edited,
+because "the number agreed with me" is exactly how the harness lessons say a wrong method
+survives.
+
+### 🟡 And a second problem to raise NOW, before cards are ordered into these chassis
+
+Both PCIe slots report **`Length: Short`**. An RTX 6000 Ada is a full-height, full-length,
+double-width card. A short/low-profile riser **cannot physically accept one** — so this
+looks like a chassis configured *without* the GPU riser package, not merely one with empty
+slots. Worth confirming with RCG before anyone tries to seat a card: the fix may be a
+riser/cage part, not just the GPUs.
+
+### Status of each blocker
+
+- **GPU** — root-caused: not installed, and the slots may be the wrong form factor. Needs
+  hardware, not configuration.
+- **sudo** — ✅ **RESOLVED. RCG was right and this README was wrong.** `asalah` has full
+  `ALL=(ALL:ALL)` sudo; it is password-required (not `NOPASSWD`), which is why the earlier
+  non-interactive `sudo -n true` probe failed and was misread as "no sudo". This is fine
+  and needs no change: per Directive #1 the provisioning script is meant to be run *by a
+  person* — `sudo bash provision.sh`.
+- **NVIDIA driver** — genuinely not installed (only `linux-firmware-nvidia-graphics`, an
+  Ubuntu firmware-blob package, is present; no `nvidia-driver-*`/`-dkms`/`-utils`, no
+  `cuda-*`, `modinfo nvidia` → not found). Moot until a card is in the box; it is step one
+  of the provisioning script.
+- **`aria-gb10-2` unreachable** from both hosts — unchanged, still needs a routing/firewall
+  ask.
+
+**`rcg-asalah-1` was down during this pass** (SSH timed out; `-2` had 24 h uptime). Re-run
+the diagnostic there once it is back — do not assume it matches, even though every earlier
+reading was identical.
