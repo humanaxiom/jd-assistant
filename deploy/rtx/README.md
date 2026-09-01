@@ -208,3 +208,109 @@ in `~/.ssh` and the Windows `ssh-agent` service is `Stopped / Disabled`.
 **No provisioning script has been written, and that is the correct state** — writing one
 against an assumed distro/driver/VRAM is the exact failure `triage.sh`'s header exists to
 prevent. It gets written against `rtx-1.txt` / `rtx-2.txt`.
+
+---
+
+# TRIAGE RESULT (2026-09-01) — 🔴 STOP. The build cannot proceed on these boxes.
+
+`triage.sh` ran to **exit 0** on both hosts. Raw output is committed beside this file:
+[`rtx-1.txt`](rtx-1.txt), [`rtx-2.txt`](rtx-2.txt). Read those, not this summary, if the two
+ever disagree.
+
+**The two boxes are byte-for-byte the same spec, and neither is an RTX host.** This is
+precisely the outcome triage exists to find, and it invalidates the premise of the plan
+above rather than any detail in it. **No provisioning script has been written.** Writing
+one now would mean scripting a CUDA install against hardware that is not there.
+
+## What they actually are
+
+| | `rcg-asalah-1` (206.12.17.82) | `rcg-asalah-2` (206.12.17.83) |
+|---|---|---|
+| OS | Ubuntu 26.04.1 LTS, kernel 7.0.0-30 | identical |
+| CPU | AMD EPYC 9135, 64 cores | identical |
+| RAM | **750 GiB** | identical |
+| **GPU** | 🔴 **NONE** | 🔴 **NONE** |
+| Docker | 🔴 absent | 🔴 absent |
+| sudo | 🔴 none (`uid=1001`, groups=`asalah` only) | 🔴 none |
+| Root disk | 100 G LVM on a 444 G partition | identical |
+| Unused NVMe | 2 × 1.7 TB, unpartitioned | identical |
+| Outbound | docker.com / huggingface.co / pypi.org all HTTP 200 | identical |
+| Listening on `0.0.0.0` | **only sshd:22** | **only sshd:22** |
+
+## 🔴 Blocker 1 — there is no GPU, of any vendor, in either box
+
+Not "no driver". **No device.** Checked four independent ways, both hosts:
+
+- `nvidia-smi` absent, `nvcc` absent, `nvidia-ctk` absent
+- `lspci` lists **157 devices** and the only display adapter is a **Matrox G200eW3** —
+  that is the BMC's onboard VGA on a server board, not a compute GPU
+- `/dev/nvidia*` does not exist
+- `modinfo nvidia` → **`Module nvidia not found`** — the driver is not merely unloaded, it
+  is not even available to this kernel
+
+There is no AMD Instinct or other accelerator either; the only AMD entries are Turin host
+bridges and root-complex event collectors. So "install the driver" is not the fix. Either
+the cards were never installed, these are not the machines that were meant, or the RCG
+allocation is CPU-only.
+
+## 🔴 Blocker 2 — no Docker, and no way to install it
+
+`docker` is absent and `asalah` is `uid=1001` with `groups=1001(asalah)` — no `docker`
+group, no `sudo` group, and `sudo -n true` fails with *interactive authentication is
+required* on both hosts. **Nothing can be installed by us.** ADR-006 makes the entire
+stack Docker-only with no host-Python fallback, so this blocks running the app here just
+as firmly as Blocker 1 blocks vLLM. Storage is emphatically *not* the constraint (344 G
+free in the VG plus 3.4 TB of untouched NVMe per box) — root privilege is.
+
+## 🔴 Blocker 3 — neither box can reach `aria-gb10-2`
+
+`http://aria-gb10-2:11434/v1/models` → **HTTP 000** from both. The staged migration the
+triage was checking for — stand vLLM up here while the existing Ollama keeps serving, cut
+over once vectors agree — **is not available**. Any cutover from these boxes is a hard one.
+
+## 🟡 A new security fact that outranks D1's framing
+
+The boxes are on public IPs **and have no host firewall at all**: `ufw` absent,
+`firewall-cmd` absent, and the `iptables` binary itself is absent. Nothing stands between a
+listening socket and the internet.
+
+The current posture is clean — the only `0.0.0.0` listener on either box is sshd, and
+everything else (systemd-resolved, chrony, and on `-1` a VS Code remote server plus one
+Python `MainThread`) is bound to loopback. But it is clean *by accident of nothing running
+yet*, not by enforcement.
+
+So D1's recommendation is no longer merely the safer shape — **on this hardware a
+`0.0.0.0` vLLM bind would be an unauthenticated inference endpoint on the public internet
+with no packet filter in front of it.** Loopback + tunnel is the only defensible option,
+and per the verification pass above it needs **no allowlist change at all**.
+
+## Where that leaves D1 / D2 / D3
+
+- **D1** — still owed, and now sharper. The FIPPA/ADR-003 question is unchanged, but the
+  *technical* half is settled by the evidence: bind loopback, no exceptions, no allowlist
+  edit. The firewall absence is worth naming in the ADR amendment.
+- **D2** — unchanged and still correct, but **not actionable**. Nothing about the re-embed
+  cost or the `nomic-v1.5` task-prefix gap moves until there is something to serve the
+  model on.
+- **D3** — **moot for now.** One-process-per-model is a GPU-scheduling decision and there
+  is no GPU to schedule.
+
+## 🔴 D0 — the decision that now comes first
+
+**Is this the right hardware, or the right plan?** Three ways out, and this is the owner's
+call, not an engineering one:
+
+1. **Get the GPUs.** If the RTX cards were meant to be in these chassis, this is an RCG
+   ticket. Everything in this README then applies as written, and the triage should be
+   re-run to capture the real VRAM before the provisioning script is written.
+2. **Get root, and run CPU-only.** Worth taking seriously and *only partly viable*: 64
+   cores and 750 GiB RAM will embed acceptably — `nomic-embed-text` is a ~137 M-parameter
+   model and the re-embed is a batch job that can take its time. But `Qwen2.5-Coder-14B`
+   for the 4.2a rewrite / 4.2b audit on CPU is single-digit tokens/sec, which is not a
+   usable interactive path. A **split** (embeddings here, chat stays on `aria-gb10-2`) is
+   coherent — except Blocker 3 says these boxes cannot reach `aria-gb10-2` today.
+3. **Stay on `aria-gb10-2`.** Nothing is broken there. This whole branch becomes a
+   documented dead end, which is a perfectly good outcome for two days of triage.
+
+**Whichever way D0 goes, root access on both boxes is a prerequisite** — no option above
+survives `uid=1001` with no sudo.
