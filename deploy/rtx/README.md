@@ -129,3 +129,82 @@ Two pleasant surprises from reading the code:
 
 The provisioning script (driver → NVIDIA container toolkit → vLLM containers → health
 check) and the compose wiring. Both get written against real triage output.
+
+---
+
+## Verification pass (2026-09-01) — the claims above, checked against the code
+
+Every factual claim in D1–D3 was re-read against the source rather than trusted. **All of
+them hold.** Three things the first pass did not say came out of it, and each one changes
+how a decision should be ruled — so they are recorded here, not just in a chat log.
+
+| claim | verdict |
+|---|---|
+| egress guard is exact-allowlist **or** loopback/RFC-1918 IP literal, before `AsyncOpenAI` exists | ✅ `security/egress.py` — `_is_internal_ip` + `assert_inference_host_allowed` |
+| the same check runs again at settings load in production | ✅ `settings.py:647` `_unsafe_inference_host`, reached from `_unsafe_for_production` (`:539`), gated on `environment == "production"` (`:427`) |
+| `embeddings.yaml` is content-hashed into `Embeddings.stamp` → `embed_stamp` | ✅ `rules/loader.py:995` (`stamp`) over `digest` (`:971`); "WHICH model sees it" is explicitly **in** the digest |
+| `dimensions: 768` must match three Neo4j indexes | ✅ `002_jd_vectors.cypher` (`jd_document_embeddings`, `jd_section_embeddings`) + `003_jd_role_vectors.cypher` (`jd_role_embeddings`) — three `vector.dimensions: 768` |
+| both clients are a plain `AsyncOpenAI(base_url=..., api_key="ollama")`, model from the rulebook | ✅ `embeddings/client.py:70`, `llm/client.py` — swap is genuinely config-only |
+| `install.ps1` is portable bar two error strings | ✅ no `C:\`, no `.exe`, no CIM/WMI anywhere in the file; the two strings are at `:134` and `:137` |
+
+### 🔴 New finding 1 — D1's recommendation needs **no allowlist change at all**
+
+`allowed_inference_hosts` already ships with `localhost`, `127.0.0.1`,
+`host.docker.internal` and `aria-gb10-2` (`settings.py:210`). So a loopback-bound vLLM is
+admitted **by the default allowlist**, with `localhost` working as well as the IP literal
+(it is an exact allowlist entry — the `_is_internal_ip` branch only ever sees IP literals,
+so a bare hostname would otherwise be rejected).
+
+That makes the recommended shape strictly stronger than the README argued: binding to
+loopback means **no edit to `ALLOWED_INFERENCE_HOSTS`, and no widening of the guard**.
+The ADR-003 amendment is still owed — it records *why* RCG is institutionally controlled —
+but the security surface does not move at all.
+
+### 🔴 New finding 2 — but loopback + Docker do not compose for free
+
+The app runs in containers (ADR-006). A vLLM bound to `127.0.0.1` **on the host** is not
+reachable at `127.0.0.1` **from a container** — that is the container's own loopback. The
+options, both already admitted by the guard:
+
+- `host.docker.internal` — on the allowlist already, but on Linux it needs
+  `extra_hosts: ["host.docker.internal:host-gateway"]` in compose (it is not automatic as
+  it is on Docker Desktop).
+- the bridge gateway literal (`172.17.0.1`) — RFC-1918, so the guard's `_is_internal_ip`
+  branch admits it directly, no allowlist entry.
+
+Neither is a decision, but D1 is not implementable without picking one, and the triage's
+*Docker* + *Listening sockets* sections are what says which is available.
+
+### 🟡 New finding 3 — D2's real risk is the task prefix, and it fails silently
+
+`nomic-embed-text-v1.5` expects task prefixes (`search_document: ` / `search_query: `) on
+its inputs; Ollama's packaged `nomic-embed-text` handles that itself. **`embeddings.yaml`
+has no prefix knob** — the serialized text goes to the model as-is.
+
+Serve the raw HF weights on vLLM without prefixes and nothing breaks loudly: the vectors
+are still 768-dim, they still MERGE onto the same nodes, `make embed` still reports
+success. Only retrieval quality degrades — which is exactly CLAUDE.md's *green that does
+not mean what it sounds like*. If D2 is ruled toward vLLM, the prefix belongs in
+`embeddings.yaml` as a registered knob (it changes WHAT is sent to the model, so it is in
+the digest by construction), and the cutover needs a retrieval check against known-good
+pairs, not just a completed re-embed.
+
+### 🟡 Refinement to D3 — constrained decoding is one caller, not the whole chat path
+
+`constrain_to_schema` defaults to **False**; the rewrite path uses loose JSON mode. The
+only production opt-in is the 4.2b quality audit (`quality/audit.py:106`), on a small
+schema. So vLLM's guided decoding needs to work for exactly one call site — a much
+smaller live-golden surface than "the chat client" implies.
+
+---
+
+## Blocked: the triage has not run
+
+`rcg-asalah-1` and `rcg-asalah-2` are **reachable** — TCP connects and the SSH handshake
+completes (both host keys are in `known_hosts`; `-2`'s was added on first contact). Auth is
+the blocker: both answer `Permission denied (publickey,password)`. There is no private key
+in `~/.ssh` and the Windows `ssh-agent` service is `Stopped / Disabled`.
+
+**No provisioning script has been written, and that is the correct state** — writing one
+against an assumed distro/driver/VRAM is the exact failure `triage.sh`'s header exists to
+prevent. It gets written against `rtx-1.txt` / `rtx-2.txt`.
