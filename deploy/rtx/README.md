@@ -314,3 +314,81 @@ call, not an engineering one:
 
 **Whichever way D0 goes, root access on both boxes is a prerequisite** — no option above
 survives `uid=1001` with no sudo.
+
+---
+
+## ⚠ CORRECTION (same day) — the cards are RTX 6000 Ada. They are not LINKING.
+
+The owner confirms both boxes are **RTX 6000 Ada** machines, "running Linux but nothing
+set up yet". The section above concluded "no GPU, of any vendor" — that was the right
+reading of the evidence available but **the wrong framing**, and it is corrected here
+rather than edited away.
+
+What is true is narrower and more useful: **the OS sees no PCIe link on any GPU slot.**
+The cause is *below* the operating system, so no amount of driver or software work on
+these hosts will change it.
+
+### Re-probed by numeric vendor ID, not by name
+
+The first pass grepped `lspci` output for the string `nvidia`, which a stale `pci.ids`
+database would defeat. It does not: `pci.ids` is dated **2026-02-12**, and the definitive
+check is numeric anyway —
+
+- `lspci -nn -d 10de:` → **no output**, both hosts (10de is NVIDIA's vendor ID; immune to
+  any name database)
+- `lspci -nn -d ::0300 / ::0302 / ::0380` (VGA / 3D / display class) → only the BMC's
+  Matrox G200eW3
+- `modinfo nvidia` → `Module nvidia not found`; no `/dev/nvidia*`; no `nouveau`/`vfio`
+
+### Not a VM — bare metal, and the right chassis
+
+Ruled out the obvious reconciliation (a VM without passthrough):
+`systemd-detect-virt` → **`none`**, and there is no `hypervisor` CPU flag. DMI reports
+**Dell PowerEdge R7725** (board `0KRFPX`, rack chassis) on both — a machine that does take
+these cards. So the hardware story is consistent; the cards simply are not on the bus.
+
+### The decisive measurement — no link training
+
+Firmware advertises 13 PCIe slots. For every GPU-candidate slot:
+
+| slot | root port | `cur_bus_speed` | downstream devices |
+|---|---|---|---|
+| 2 | `0001:c4:01` | **Unknown** | **0** |
+| 4 | `0001:88:01` | **Unknown** | **0** |
+| 6 | `0000:80:03` | **Unknown** | **0** |
+| 7 | `0000:88:01` | **Unknown** | **0** |
+| 10 | `0000:00:01` | **Unknown** | **0** |
+
+`cur_bus_speed=Unknown` means **no link is trained** — nothing is electrically negotiating
+on those slots — and each root port shows AMD's *Turin PCIe Dummy Host Bridge*, its marker
+for an unpopulated root complex. 157 PCI endpoints enumerate in total; none is NVIDIA.
+
+### What this evidence can and cannot distinguish
+
+It **cannot** tell these three apart, because all three produce exactly this signature:
+
+1. the cards are not physically installed yet;
+2. they are installed but have no link — unseated, GPU riser cage not cabled, or no
+   auxiliary power;
+3. the slots are disabled or powered down in BIOS.
+
+Reading `dmesg` would narrow it (BAR-assignment and link-training failures are logged),
+but `kernel.dmesg_restrict=1` and `asalah` is in neither `adm` nor `systemd-journal`.
+
+### Next steps, in order
+
+1. 🔴 **Check iDRAC hardware inventory** (out-of-band, *System → Inventory → PCIe*). This
+   is definitive and settles case 1 vs cases 2–3 in one look, independent of BIOS settings
+   and of the OS. It needs no Linux access at all.
+2. If the cards **are** listed as installed: check BIOS for **Above 4G Decoding** (a 48 GB
+   card needs large-BAR MMIO space and will fail to enumerate without it), plus slot
+   enable/disable and PCIe bifurcation on the riser.
+3. If they are **not** listed: physical install / re-seat / aux-power and riser cabling —
+   an RCG or Dell-support task.
+4. 🔴 **Independently: `asalah` needs root (or at minimum `adm` + `docker`) on both boxes.**
+   Blocker 2 stands regardless of how the GPU question resolves — nothing in this plan is
+   installable at `uid=1001` with no sudo.
+
+**Re-run `triage.sh` once the cards link.** The provisioning script still gets written
+against real `nvidia-smi` VRAM numbers, not against an assumption — which remains the
+whole point.
