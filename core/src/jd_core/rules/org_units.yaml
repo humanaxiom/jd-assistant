@@ -59,8 +59,43 @@ units:
       - finance and administration
       - avp finance administration
       - vp finance and
+      # Central IT (ITS). These were a sub-unit until 2026-09-09; the owner ruled it
+      # redundant because THE IT COLLECTION already serves "IT at SFU" as its own
+      # surface. The departments stay HERE rather than being dropped, because central
+      # IT genuinely is part of this portfolio and removing them would understate it by
+      # 54 roles.
+      #
+      # ⚠ AND THEY ARE NOT THE COLLECTION'S 213. MEASURED 2026-09-09: the ITS department
+      # is a strict SUBSET of the IT job family — 54 of 213, with 159 IT roles sitting in
+      # faculties and schools and ZERO ITS roles outside the family. Rolling this
+      # portfolio up via the collection instead would claim those 159 report into VPFA,
+      # which is precisely the confidently-wrong portfolio number this track exists to
+      # avoid. "Who works in central IT" and "who does IT work at SFU" are different
+      # questions with different right answers; the collection answers the second.
+      - information technology services
+      - it services
+      - information technology
+      - it services, application services
+      - it services, client services
+      - it services, strategic services
+      - it services - infrastructure
+      - it services infrastructure services
+      - it services - application services
+      - it services - audio visual
+      - it services - cars client services innovations
+      - it services - high performance computing
+      - it services, av services
+      - it services, learning and community systems
+      - it services (its) - sfu surrey campus
+      - information technology services, sfu vancouver campus
+      - application services, it services
+      - application services, information technology services
+      - learning and community systems, it services
+      - research computing, it services
+      - business solutions, it services
+      - client services, it services
     # Units that roll UP into this one. Their members are members of this unit too.
-    children: [facilities_services, finance, its, safety_risk, campus_services]
+    children: [facilities_services, finance, safety_risk, campus_services]
 
   facilities_services:
     label: Facilities Services
@@ -104,36 +139,6 @@ units:
       - finance - payroll
     children: []
 
-  its:
-    label: IT Services (ITS)
-    slug: its
-    # Every spelling read off the live Bank. `Science - IT Services` is deliberately
-    # ABSENT: it may be a faculty's own IT, and claiming it is exactly the false positive
-    # a phrase match would produce.
-    departments:
-      - information technology services
-      - it services
-      - information technology
-      - it services, application services
-      - it services, client services
-      - it services, strategic services
-      - it services - infrastructure
-      - it services infrastructure services
-      - it services - application services
-      - it services - audio visual
-      - it services - cars client services innovations
-      - it services - high performance computing
-      - it services, av services
-      - it services, learning and community systems
-      - it services (its) - sfu surrey campus
-      - information technology services, sfu vancouver campus
-      - application services, it services
-      - application services, information technology services
-      - learning and community systems, it services
-      - research computing, it services
-      - business solutions, it services
-      - client services, it services
-    children: []
 
   safety_risk:
     label: Safety & Risk Services

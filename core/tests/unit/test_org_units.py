@@ -106,12 +106,14 @@ def test_campus_security_is_in_facilities(rules: Rules) -> None:
     assert "campus security" in unit_departments("facilities_services", rules)
 
 
-def test_science_it_services_is_not_claimed_by_its(rules: Rules) -> None:
+def test_science_it_services_is_not_claimed_by_central_it(rules: Rules) -> None:
     """🔴 THE FALSE POSITIVE A PATTERN WOULD PRODUCE. `Science - IT Services` exists in
     the archive and may be a faculty's own IT. A phrase match on "IT Services" claims it
-    for the central ITS either way; the exact list does not."""
-    assert "science - it services" not in unit_departments("its", rules)
-    assert "it services" in unit_departments("its", rules)
+    for central IT either way; the exact list does not. Central IT lives in VPFA since
+    the ITS sub-unit was dropped on 2026-09-09 (the IT collection serves that surface).
+    """
+    assert "science - it services" not in unit_departments("vpfa", rules)
+    assert "it services" in unit_departments("vpfa", rules)
 
 
 def test_human_resources_is_not_in_vpfa_because_nobody_placed_it(rules: Rules) -> None:
@@ -241,7 +243,7 @@ def test_the_funnel_sends_a_reader_to_the_jobs_not_to_more_stats() -> None:
 
     funnel = Path("src/api/templates/funnel.html").read_text(encoding="utf-8")
     assert "/jd-bank/ui/funnel?scope=vpfa" not in funnel
-    for slug in ("vpfa", "facilities", "its", "finance", "safety-risk"):
+    for slug in ("vpfa", "facilities", "finance", "safety-risk"):
         assert f'/jd-bank/ui/unit/{slug}"' in funnel
 
     # ...and the unit page carries the return trip, so scoping the funnel is still one

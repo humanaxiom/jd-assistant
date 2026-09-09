@@ -6156,7 +6156,7 @@ decisions:
     config:
       file: org_units.yaml
       path: org_units.vpfa.departments
-    current_default: ["office of the vice-president, finance and administration", "vice president finance and administration", "vice-president finance and administration", "vice president finance", "finance and administration", "avp finance administration", "vp finance and"]
+    current_default: ["office of the vice-president, finance and administration", "vice president finance and administration", "vice-president finance and administration", "vice president finance", "finance and administration", "avp finance administration", "vp finance and", "information technology services", "it services", "information technology", "it services, application services", "it services, client services", "it services, strategic services", "it services - infrastructure", "it services infrastructure services", "it services - application services", "it services - audio visual", "it services - cars client services innovations", "it services - high performance computing", "it services, av services", "it services, learning and community systems", "it services (its) - sfu surrey campus", "information technology services, sfu vancouver campus", "application services, it services", "application services, information technology services", "learning and community systems, it services", "research computing, it services", "business solutions, it services", "client services, it services"]
     provenance: our_invention
     tier: hr_policy
     why_it_matters: >-
@@ -6216,33 +6216,6 @@ decisions:
       is the reason the rollup is a tree rather than a flat list.
     status: open
 
-  - id: HR-229
-    question: >-
-      Which departments make up IT Services (ITS)? It rolls up into VPFA.
-    config:
-      file: org_units.yaml
-      path: org_units.its.departments
-    current_default: ["information technology services", "it services", "information technology", "it services, application services", "it services, client services", "it services, strategic services", "it services - infrastructure", "it services infrastructure services", "it services - application services", "it services - audio visual", "it services - cars client services innovations", "it services - high performance computing", "it services, av services", "it services, learning and community systems", "it services (its) - sfu surrey campus", "information technology services, sfu vancouver campus", "application services, it services", "application services, information technology services", "learning and community systems, it services", "research computing, it services", "business solutions, it services", "client services, it services"]
-    provenance: our_invention
-    tier: hr_policy
-    why_it_matters: >-
-      TWENTY-TWO SPELLINGS OF ONE UNIT, read off the live Bank — `IT Services`,
-      `Information Technology`, `Information Technology Services`, plus sub-teams written
-      both ways round (`IT Services, Application Services` and `Application Services, IT
-      Services`), campus suffixes, and en-dash and comma variants of the same team. They
-      are enumerated rather than matched because of the specific false positive sitting in
-      the same data: `Science - IT Services` (1 role). A phrase match on "IT Services"
-      claims it for the central ITS whether or not it is the Faculty of Science's own IT
-      staff, and nothing downstream would object. It is deliberately EXCLUDED and renders
-      as an unassigned candidate. ⚠ The mechanical half of the aliasing is handled by a
-      normaliser rather than by listing every case: `&` becomes `and`, unicode dashes
-      become `-`, whitespace collapses and case is folded. Word ORDER is deliberately not
-      normalised — deciding that two orderings name the same team is a judgement, not a
-      spelling rule.
-    impact_if_changed: >-
-      Does NOT move `rules_version`. Adding a spelling moves its roles into ITS and
-      therefore into VPFA.
-    status: open
 
   - id: HR-230
     question: >-
@@ -7445,9 +7418,6 @@ trivial:
       Facilities Services has no sub-units; the list is empty and the rollup it belongs to
       is HR-227's.
     covered_by: HR-228
-  - config: {file: org_units.yaml, path: org_units.its.children}
-    reason: Empty — ITS has no configured sub-units. Its membership is HR-229's.
-    covered_by: HR-229
   - config: {file: org_units.yaml, path: org_units.finance.children}
     reason: Empty — Finance has no configured sub-units. Its membership is HR-230's.
     covered_by: HR-230
