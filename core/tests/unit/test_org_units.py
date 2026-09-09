@@ -188,3 +188,39 @@ def test_campus_services_ships_empty_and_that_is_deliberate(rules: Rules) -> Non
     while one quietly filled by inference is the confidently wrong number this whole
     track exists to avoid."""
     assert unit_departments("campus_services", rules) == frozenset()
+
+
+# --- a unit is a funnel SCOPE, not a nav item ---------------------------------------
+
+
+def test_a_unit_scope_carries_no_source_filename_pattern() -> None:
+    """🔴 THE HONEST DEGRADATION, and it is a property not an omission.
+
+    ``Scope.source_filename_pattern`` exists so a scoped funnel can start from the
+    ARCHIVE — the documents that never reached a role — which is where the drop-off the
+    funnel exists to show actually lives. A classification family HAS one, because SFU's
+    codes are in the filename. A unit resolves on ``department``, which is read from a
+    PARSE, so no pattern can recognise its documents before they are parsed.
+
+    Inventing one would fabricate the very number the funnel is for. ``None`` makes the
+    funnel degrade to "roles onward" and say so.
+    """
+    from src.jd_bank.library.scopes import Scope
+
+    unit_scope = Scope(key="vpfa", label="VPFA", cluster_ids=frozenset())
+    assert unit_scope.source_filename_pattern is None
+    assert unit_scope.is_whole_bank is False
+
+
+def test_units_are_not_promoted_into_the_top_level_nav() -> None:
+    """They are scopes, not surfaces — the same kind of thing as the IT collection, and
+    it is linked from the funnel rather than the menu. Promoting two portfolios to
+    top-level items would also imply the tree is complete, and it is not: Campus
+    Services has no departments and 655 are unassigned."""
+    from pathlib import Path
+
+    nav = Path("src/api/templates/_base.html").read_text(encoding="utf-8")
+    assert "/jd-bank/ui/unit/" not in nav
+    funnel = Path("src/api/templates/funnel.html").read_text(encoding="utf-8")
+    assert "/jd-bank/ui/funnel?scope=vpfa" in funnel
+    assert "/jd-bank/ui/unit/vpfa" in funnel
