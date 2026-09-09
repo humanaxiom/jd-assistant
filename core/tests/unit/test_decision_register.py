@@ -485,6 +485,7 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         # through a per-family enumerator, the way each gate reaches it by gate id — so
         # a family added later is on the surface the moment it is declared.
         "functional_families",
+        "org_units",
     }
     # ...and that is every rule file there is, bar the register itself.
     described = {name.removesuffix(".yaml") for name in RULE_FILES}
@@ -518,6 +519,7 @@ def test_the_unhashed_files_are_the_ones_that_cannot_change_a_jds_score() -> Non
         "rewrite.yaml",
         "quality.yaml",
         "functional_families.yaml",
+        "org_units.yaml",
     }
     hashed = set(loader._HASHED_FIELDS)
     assert "segmentation" not in hashed

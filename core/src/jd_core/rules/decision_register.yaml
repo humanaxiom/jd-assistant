@@ -6146,6 +6146,176 @@ decisions:
       `cupe`, which routing already covers, and WRONG for apsa/apex/poly, which are read
       from the text and have no other source.
     status: open
+
+  # ── The VPFA / Facilities org rollup (Track E, MVP-2, 2026-09-09). ──
+  - id: HR-227
+    question: >-
+      Which departments make up the Finance & Administration (VPFA) portfolio? The Bank
+      reports a role as VPFA's when the department written on its job description is on
+      this list, or on the list of a unit that rolls up into it.
+    config:
+      file: org_units.yaml
+      path: org_units.vpfa.departments
+    current_default: ["office of the vice-president, finance and administration", "vice president finance and administration", "vice-president finance and administration", "vice president finance", "finance and administration", "avp finance administration", "vp finance and"]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      🔴 THIS IS THE ONE SETTING THAT DECIDES WHAT A VICE-PRESIDENT IS TOLD ABOUT THEIR
+      OWN PORTFOLIO, and it cannot be derived from the archive. MEASURED 2026-09-09:
+      filtering on the portfolio's own name returns TWO roles, because a vice-presidency
+      is never the string written on a job description — the roles say "Finance", "IT
+      Services", "Facilities Services". So a portfolio is a ROLLUP of the units under it,
+      and the tree has to be supplied by someone who knows the organisation. The tree
+      shipped here was given by the project owner on 2026-09-09: Campus Services,
+      Facilities Services, Finance, IT Services and Safety & Risk Services roll up into
+      VPFA. ⚠ WHAT THIS ENTRY DOES NOT SETTLE, and the reader should know it: Human
+      Resources (52 roles — the largest single candidate either way) is NOT in the
+      portfolio as configured, because it was not named. Neither are Procurement Services
+      (7), Budget Office (4), Payroll (2) or Financial Aid & Awards (8) — "financial" in
+      a name is not evidence of a reporting line, and the same data has `Student Services
+      - Student Accounts` to prove it. Every one of those renders on the page as an
+      UNASSIGNED CANDIDATE rather than being guessed into the portfolio. ⚠ AND THE PAGE
+      PUBLISHES THREE NUMBERS, NOT ONE: 677 of 2,496 roles (27.1%) carry no department at
+      all and are invisible to any rollup. A page reporting only "N roles in VPFA" would
+      read as complete while blind to a quarter of the Bank — the defect the IT
+      collection shipped with once already.
+    impact_if_changed: >-
+      Does NOT move `rules_version` — this decides what a BROWSE surface shows, never how
+      a job description is scored, graded or approved. Adding a department adds its roles
+      to the portfolio and removes it from the unassigned list; removing one does the
+      reverse. Nothing is re-validated and no draft changes.
+    status: open
+
+  - id: HR-228
+    question: >-
+      Which departments make up Facilities Services? It rolls up into VPFA, so these
+      roles are counted in both.
+    config:
+      file: org_units.yaml
+      path: org_units.facilities_services.departments
+    current_default: ["facilities services", "facilities management", "facilities", "facilities capital projects", "facilities customer services", "facilities management - sfu surrey", "facilities operations", "facilities services surrey", "facilities services - major projects division", "facilities services, vancouver campus", "facilities strategic support", "facilities and capital planning", "sfu surrey facilities services", "campus security", "campus safety and security services", "operations and maintenance", "parking services", "occupational health and trades safety"]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      Owner ruling 2026-09-09, and it settles the boundary call Track E had flagged as
+      open: CAMPUS SECURITY IS IN FACILITIES (11 roles, plus 3 more written as `Campus
+      Safety & Security Services`), as are operations, maintenance, parking and trades
+      safety. The rest are the Facilities-named departments — and there are THIRTEEN
+      spellings of them in the archive, including `SFU Surrey Facilities Services`,
+      `Facilities Services, Vancouver Campus` and `Facilities Management - SFU Surrey`.
+      Each is listed EXACTLY rather than matched by pattern: matching the word
+      "Facilities" would also claim anything a future department happens to call itself,
+      and this repo has had a term list lie to it four times, most recently when the
+      substring `lan` claimed 63% of the archive. ⚠ NOT SETTLED: `Campus Public Safety`
+      (2 roles) was not named and is not included — it may be the same function under a
+      third spelling, which is a question for someone who knows the org, not for a
+      matcher.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Because Facilities rolls up into VPFA, a department
+      added here is added to BOTH units' counts — which is what "rolls up into" means and
+      is the reason the rollup is a tree rather than a flat list.
+    status: open
+
+  - id: HR-229
+    question: >-
+      Which departments make up IT Services (ITS)? It rolls up into VPFA.
+    config:
+      file: org_units.yaml
+      path: org_units.its.departments
+    current_default: ["information technology services", "it services", "information technology", "it services, application services", "it services, client services", "it services, strategic services", "it services - infrastructure", "it services infrastructure services", "it services - application services", "it services - audio visual", "it services - cars client services innovations", "it services - high performance computing", "it services, av services", "it services, learning and community systems", "it services (its) - sfu surrey campus", "information technology services, sfu vancouver campus", "application services, it services", "application services, information technology services", "learning and community systems, it services", "research computing, it services", "business solutions, it services", "client services, it services"]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      TWENTY-TWO SPELLINGS OF ONE UNIT, read off the live Bank — `IT Services`,
+      `Information Technology`, `Information Technology Services`, plus sub-teams written
+      both ways round (`IT Services, Application Services` and `Application Services, IT
+      Services`), campus suffixes, and en-dash and comma variants of the same team. They
+      are enumerated rather than matched because of the specific false positive sitting in
+      the same data: `Science - IT Services` (1 role). A phrase match on "IT Services"
+      claims it for the central ITS whether or not it is the Faculty of Science's own IT
+      staff, and nothing downstream would object. It is deliberately EXCLUDED and renders
+      as an unassigned candidate. ⚠ The mechanical half of the aliasing is handled by a
+      normaliser rather than by listing every case: `&` becomes `and`, unicode dashes
+      become `-`, whitespace collapses and case is folded. Word ORDER is deliberately not
+      normalised — deciding that two orderings name the same team is a judgement, not a
+      spelling rule.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Adding a spelling moves its roles into ITS and
+      therefore into VPFA.
+    status: open
+
+  - id: HR-230
+    question: >-
+      Which departments make up Finance? It rolls up into VPFA.
+    config:
+      file: org_units.yaml
+      path: org_units.finance.departments
+    current_default: ["finance", "financial services", "financial reporting", "finance - payroll"]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      DELIBERATELY CONSERVATIVE, and the omissions are the point. The owner named
+      "Finance" and did not place the neighbouring units, so `Procurement Services` (7),
+      `Budget Office` (4), `Payroll` standing alone (1), `Accounting Services` (1) and
+      `Research Accounting` (3) are NOT included, and neither is `Financial Aid & Awards`
+      (8 across two spellings). The word "financial" in a department name is not evidence
+      of a reporting line into Finance — the same archive contains `Student Services -
+      Student Accounts`, which is exactly the counter-example. All of them render as
+      unassigned candidates on the unit page, which is the question being asked where
+      someone can answer it rather than resolved by a matcher that cannot know.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. This is the entry most likely to grow once someone
+      rules on the five neighbouring units above.
+    status: open
+
+  - id: HR-231
+    question: >-
+      Which departments make up Safety & Risk Services? It rolls up into VPFA.
+    config:
+      file: org_units.yaml
+      path: org_units.safety_risk.departments
+    current_default: ["safety and risk services", "program and policy development, safety and risk services", "enterprise risk and resilience, safety and risk services"]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      Small and mostly mechanical: `Safety & Risk Services` (5) and `Safety and Risk
+      Services` (3) are one unit differing only by an ampersand, which the normaliser
+      resolves. ⚠ THE JUDGEMENT IS ELSEWHERE: `Enterprise Risk and Resilience` standing
+      ALONE (3 roles across two spellings) is NOT included — it names itself as its own
+      unit, and whether it reports into Safety & Risk is a fact about the organisation
+      that the archive does not record. The compound string `Enterprise Risk and
+      Resilience, Safety & Risk Services` IS included, because that one says so.
+    impact_if_changed: >-
+      Does NOT move `rules_version`.
+    status: open
+
+  - id: HR-232
+    question: >-
+      Which departments make up Campus Services? It was named as part of VPFA, and no job
+      description in the archive names it — so the unit currently contains nothing.
+    config:
+      file: org_units.yaml
+      path: org_units.campus_services.departments
+    current_default: []
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      🔴 THE EMPTINESS IS THE FINDING, AND IT SHIPS VISIBLE RATHER THAN QUIET. Campus
+      Services was named as a VPFA sub-unit on 2026-09-09, and NO DEPARTMENT STRING IN
+      THE ARCHIVE NAMES IT — not once in 742 distinct department strings. The plausible
+      constituents are all present under their own names: Ancillary Services (6),
+      Bookstore (17 across four spellings), Residence & Housing (32 across four),
+      Meeting/Event/Conference Services (7 spellings) and Parking Services (1). Which of
+      those constitute Campus Services is a question about how SFU is organised, not one
+      the parser can answer, so NONE is assigned. The unit ships empty and renders "0
+      roles, and here is why", because a unit that reports zero with its reason is
+      answerable while one quietly dropped from the tree is not — and one quietly FILLED
+      by inference is the confidently wrong number this whole track exists to avoid.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Assigning departments here adds them to Campus
+      Services and therefore to VPFA.
+    status: open
+
   # ── How much of `additional_context` the parser keeps (CUPE support, Phase A). ──
   - id: HR-200
     question: >-
@@ -7263,6 +7433,30 @@ decisions:
     status: open
 
 trivial:
+  # ── The tree shape: definitional given the rollups above. ──
+  - config: {file: org_units.yaml, path: org_units.vpfa.children}
+    reason: >-
+      WHICH units roll up into VPFA is the same decision as which departments do — it is
+      the portfolio, expressed one level up — and HR-227 states it in full, including who
+      was named and who was deliberately not. Listing it twice would let the two drift.
+    covered_by: HR-227
+  - config: {file: org_units.yaml, path: org_units.facilities_services.children}
+    reason: >-
+      Facilities Services has no sub-units; the list is empty and the rollup it belongs to
+      is HR-227's.
+    covered_by: HR-228
+  - config: {file: org_units.yaml, path: org_units.its.children}
+    reason: Empty — ITS has no configured sub-units. Its membership is HR-229's.
+    covered_by: HR-229
+  - config: {file: org_units.yaml, path: org_units.finance.children}
+    reason: Empty — Finance has no configured sub-units. Its membership is HR-230's.
+    covered_by: HR-230
+  - config: {file: org_units.yaml, path: org_units.safety_risk.children}
+    reason: Empty — no configured sub-units. Its membership is HR-231's.
+    covered_by: HR-231
+  - config: {file: org_units.yaml, path: org_units.campus_services.children}
+    reason: Empty — no configured sub-units. Its membership is HR-232's.
+    covered_by: HR-232
   # --- archive baseline: presentation ------------------------------------------
   - config: {file: segmentation.yaml, path: segmentation.score_histogram_bin}
     reason: >-

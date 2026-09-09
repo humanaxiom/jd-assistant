@@ -1,0 +1,118 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — {{ rollup.label }}{% endblock %}
+{% block header %}🏛️ {{ rollup.label }}{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <h2>What this unit holds</h2>
+
+  {#
+    THREE NUMBERS, NEVER ONE. `in_unit` alone reads as complete while being blind to the
+    roles whose department nobody recorded — 27.1% of the Bank when this shipped. The IT
+    collection went out without a could-not-evaluate bucket once already; doing it again
+    on a page a vice-president reads is the failure this template refuses to allow.
+  #}
+  <table>
+    <tr>
+      <th>In this unit</th>
+      <td><strong>{{ rollup.in_unit }}</strong> roles</td>
+      <td class="meta">department is assigned to {{ rollup.label }} or a unit rolling up into it</td>
+    </tr>
+    <tr>
+      <th>Not in this unit</th>
+      <td>{{ rollup.not_in_unit }} roles</td>
+      <td class="meta">department is known and belongs elsewhere</td>
+    </tr>
+    <tr>
+      <th>🔴 Department unrecorded</th>
+      <td><strong>{{ rollup.department_unrecorded }}</strong> roles</td>
+      <td class="meta">
+        <strong>no rollup can see these.</strong> Their job descriptions state no
+        department, so they are neither in this unit nor ruled out of it
+      </td>
+    </tr>
+    <tr>
+      <th>Population</th>
+      <td>{{ rollup.population }} drafts</td>
+      <td class="meta">the three rows above partition this exactly</td>
+    </tr>
+  </table>
+</div>
+
+{% if not rollup.departments %}
+<div class="panel">
+  <h2>⚠ This unit is configured with no departments</h2>
+  <p>
+    <strong>{{ rollup.label }} was named as part of the organisation, and no job
+    description in the archive names it.</strong> That is why this page reports zero
+    rather than being missing: a unit that shows nothing <em>and says why</em> is a
+    question someone can answer, and one quietly filled by guesswork is a confident
+    wrong number about somebody's portfolio.
+  </p>
+  <p class="meta">
+    The candidates below are departments assigned to no unit at all. Assigning them is a
+    rulebook edit (<code>org_units.yaml</code>), not a code change.
+  </p>
+</div>
+{% endif %}
+
+<div class="panel">
+  <h2>Roles</h2>
+  {% if roles %}
+  <table>
+    <tr><th>Title</th><th>Sources</th><th>Score</th><th>Grade</th><th>Status</th></tr>
+    {% for role in roles %}
+    <tr>
+      <td><a href="/jd-bank/ui/role/{{ role.cluster_id }}">{{ role.title }}</a></td>
+      <td class="meta">{{ role.source_count }}</td>
+      <td>{{ role.score if role.score is not none else "—" }}</td>
+      <td>{{ role.grade or "—" }}</td>
+      <td class="meta">{{ role.status }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p class="meta">Showing {{ roles | length }} of {{ rollup.in_unit }} in this unit.</p>
+  {% else %}
+  <p class="empty">No roles resolve to this unit yet.</p>
+  {% endif %}
+</div>
+
+<div class="panel">
+  <h2>Departments this unit claims</h2>
+  {% if rollup.departments %}
+  <p class="meta">
+    Listed so the rollup can be <em>checked</em> rather than trusted. Matching is on an
+    exact list, never a pattern — a phrase match on "IT Services" would claim
+    <code>Science - IT Services</code> whether or not it is a faculty's own IT.
+  </p>
+  <ul class="meta">
+    {% for dept in rollup.departments %}<li><code>{{ dept }}</code></li>{% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">None configured.</p>
+  {% endif %}
+</div>
+
+<div class="panel">
+  <h2>Unassigned departments — {{ rollup.candidates | length }} awaiting a decision</h2>
+  <p class="meta">
+    Every department in the Bank that belongs to <strong>no</strong> unit. These are not
+    a proposal and nothing has guessed at them: deciding whether a department reports into
+    a portfolio is a fact about the organisation, and the archive does not record it.
+    Commonest first.
+  </p>
+  {% if rollup.candidates %}
+  <table>
+    <tr><th>Department (normalised)</th><th>Roles</th></tr>
+    {% for c in rollup.candidates[:60] %}
+    <tr><td><code>{{ c.department }}</code></td><td>{{ c.roles }}</td></tr>
+    {% endfor %}
+  </table>
+  {% if rollup.candidates | length > 60 %}
+  <p class="meta">…and {{ rollup.candidates | length - 60 }} more.</p>
+  {% endif %}
+  {% else %}
+  <p class="empty">Every department in the Bank is assigned to a unit.</p>
+  {% endif %}
+</div>
+{% endblock %}
