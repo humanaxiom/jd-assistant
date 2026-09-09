@@ -222,5 +222,29 @@ def test_units_are_not_promoted_into_the_top_level_nav() -> None:
     nav = Path("src/api/templates/_base.html").read_text(encoding="utf-8")
     assert "/jd-bank/ui/unit/" not in nav
     funnel = Path("src/api/templates/funnel.html").read_text(encoding="utf-8")
-    assert "/jd-bank/ui/funnel?scope=vpfa" in funnel
     assert "/jd-bank/ui/unit/vpfa" in funnel
+
+
+def test_the_funnel_sends_a_reader_to_the_jobs_not_to_more_stats() -> None:
+    """🔴 THE DEFECT THIS PINS, reported from the running app.
+
+    The funnel footer first shipped leading with `?scope=<unit>` and buried the
+    browsable list under the word "rollup". The funnel is a COUNTS surface — for a unit
+    exactly as for IT, neither lists a single job — so every one of those links landed a
+    reader on more statistics when what they had asked for was the jobs.
+
+    The IT line beside it has always read "The IT collection" and goes to the list. The
+    unit links must do the same thing, and the funnel's own scope stays reachable from
+    each unit page rather than from here.
+    """
+    from pathlib import Path
+
+    funnel = Path("src/api/templates/funnel.html").read_text(encoding="utf-8")
+    assert "/jd-bank/ui/funnel?scope=vpfa" not in funnel
+    for slug in ("vpfa", "facilities", "its", "finance", "safety-risk"):
+        assert f'/jd-bank/ui/unit/{slug}"' in funnel
+
+    # ...and the unit page carries the return trip, so scoping the funnel is still one
+    # click away from the place a reader actually lands.
+    unit = Path("src/api/templates/unit.html").read_text(encoding="utf-8")
+    assert "/jd-bank/ui/funnel?scope=" in unit
