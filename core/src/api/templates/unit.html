@@ -39,6 +39,47 @@
   </table>
 </div>
 
+{#
+  TWO SURFACES ANSWER "IT", ON PURPOSE, and the difference is a live organisational
+  question (CIO / VPFA, raised 2026-09-09) rather than a duplication to tidy away. The
+  panel exists so that conversation starts from the numbers instead of re-deriving them,
+  and so nobody quietly "fixes" one page to match the other.
+#}
+{% if rollup.slug == 'its' %}
+<div class="panel">
+  <h2>⚠ This is the DEPARTMENT. The IT collection is the JOB FAMILY.</h2>
+  <p>
+    Both are correct and they answer different questions. Measured 2026-09-09 against
+    this Bank:
+  </p>
+  <table>
+    <tr>
+      <th>This page — IT Services (department)</th>
+      <td><strong>{{ rollup.in_unit }}</strong> roles</td>
+      <td class="meta">who works in <em>central IT</em>, by the department written on the JD</td>
+    </tr>
+    <tr>
+      <th><a href="/jd-bank/ui/collection/it">The IT collection</a> (job family)</th>
+      <td><strong>213</strong> roles</td>
+      <td class="meta">who does <em>IT work anywhere at SFU</em>, by SFU's own classification code</td>
+    </tr>
+  </table>
+  <p class="meta">
+    <strong>This department is a strict subset of that family</strong> — all
+    {{ rollup.in_unit }} appear in both, and <strong>159</strong> IT roles sit in
+    faculties and schools rather than in central IT. Not one role is in the department
+    but outside the family.
+  </p>
+  <p class="meta">
+    ⚠ <strong>The ITP/S classification the collection is built on is legacy</strong>, and
+    whether it should still define "IT at SFU" is with the CIO and VPFA. Until that is
+    settled both surfaces stay: rolling this portfolio up through the family instead
+    would add those 159 to a vice-president's portfolio, and dropping the family would
+    lose the 159 entirely.
+  </p>
+</div>
+{% endif %}
+
 {% if not rollup.departments %}
 <div class="panel">
   <h2>⚠ This unit is configured with no departments</h2>

@@ -248,3 +248,26 @@ def test_the_funnel_sends_a_reader_to_the_jobs_not_to_more_stats() -> None:
     # click away from the place a reader actually lands.
     unit = Path("src/api/templates/unit.html").read_text(encoding="utf-8")
     assert "/jd-bank/ui/funnel?scope=" in unit
+
+
+def test_the_its_page_explains_how_it_differs_from_the_it_collection() -> None:
+    """🔴 TWO SURFACES ANSWER "IT", ON PURPOSE — and the page has to say so.
+
+    The ITS unit (54 roles, by department) is a strict SUBSET of the IT collection
+    (213, by SFU's classification code): all 54 are in both, 159 IT roles sit in
+    faculties and schools, and none is in the department but outside the family.
+
+    Keeping both was an owner decision on 2026-09-09 pending a CIO/VPFA conversation,
+    because the ITP/S classification the collection rests on is legacy. Two pages
+    answering "IT" with 54 and 213 and no explanation is how one of them gets quietly
+    "fixed" to match the other, so the difference is rendered where the discussion will
+    happen rather than left in a commit message.
+    """
+    from pathlib import Path
+
+    unit = Path("src/api/templates/unit.html").read_text(encoding="utf-8")
+    assert "rollup.slug == 'its'" in unit
+    # Both populations named, the subset relation stated, and a link across.
+    assert "213" in unit and "159" in unit
+    assert "/jd-bank/ui/collection/it" in unit
+    assert "legacy" in unit
