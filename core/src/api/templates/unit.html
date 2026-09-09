@@ -57,24 +57,53 @@
 {% endif %}
 
 <div class="panel">
-  <h2>Roles</h2>
-  {% if roles %}
+  <h2>Roles in this unit</h2>
+  {% if page.items %}
+  <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }} · click a column heading to sort</p>
+  {% macro sorth(key, label) -%}
+    {%- set active = (page.sort == key) -%}
+    {%- set next_dir = 'desc' if (active and page.direction == 'asc') else 'asc' -%}
+    <th><a href="/jd-bank/ui/unit/{{ rollup.slug }}?sort={{ key }}&amp;dir={{ next_dir }}&amp;limit={{ page.limit }}">{{ label }}{% if active %} {{ '▲' if page.direction == 'asc' else '▼' }}{% endif %}</a></th>
+  {%- endmacro %}
   <table>
-    <tr><th>Title</th><th>Sources</th><th>Score</th><th>Grade</th><th>Status</th></tr>
-    {% for role in roles %}
-    <tr>
-      <td><a href="/jd-bank/ui/role/{{ role.cluster_id }}">{{ role.title }}</a></td>
-      <td class="meta">{{ role.source_count }}</td>
-      <td>{{ role.score if role.score is not none else "—" }}</td>
-      <td>{{ role.grade or "—" }}</td>
-      <td class="meta">{{ role.status }}</td>
-    </tr>
-    {% endfor %}
+    <thead>
+      <tr>
+        {{ sorth('title', 'Role') }}
+        {{ sorth('sources', 'Sources') }}
+        {{ sorth('score', 'Score') }}
+        {{ sorth('grade', 'Quality') }}
+        {{ sorth('status', 'Status') }}
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in page.items %}
+      <tr>
+        <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">{{ item.title }}</a></td>
+        <td>{{ item.source_count }}</td>
+        <td>{{ "%.1f"|format(item.score) if item.score is not none else "—" }}</td>
+        <td>{{ item.grade or "—" }}</td>
+        <td>{{ item.status }}</td>
+        <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">Open →</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
   </table>
-  <p class="meta">Showing {{ roles | length }} of {{ rollup.in_unit }} in this unit.</p>
+  <p class="meta">
+    {% if pagination.prev_offset is not none %}
+    <a href="/jd-bank/ui/unit/{{ rollup.slug }}?sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.prev_offset }}&amp;limit={{ pagination.limit }}">← Prev</a>
+    {% endif %}
+    {% if pagination.next_offset is not none %}
+    <a href="/jd-bank/ui/unit/{{ rollup.slug }}?sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.next_offset }}&amp;limit={{ pagination.limit }}">Next →</a>
+    {% endif %}
+  </p>
   {% else %}
   <p class="empty">No roles resolve to this unit yet.</p>
   {% endif %}
+  <p class="meta">
+    <a href="/jd-bank/ui/funnel?scope={{ rollup.slug }}">The funnel for this unit →</a>
+    · <a href="/jd-bank/ui/library">All roles in the Bank</a>
+  </p>
 </div>
 
 <div class="panel">

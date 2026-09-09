@@ -312,5 +312,11 @@ async def unit_view(
     return templates.TemplateResponse(
         request,
         "unit.html",
-        {"rollup": rollup, "roles": page.items, "page": page},
+        {
+            "rollup": rollup,
+            "page": page,
+            "pagination": _pagination(
+                total=page.total, limit=page.limit, offset=page.offset, q=""
+            ),
+        },
     )
