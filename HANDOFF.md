@@ -126,6 +126,61 @@ with no rows, i.e. an apparently empty Bank.
 
 
 
+### ▶ CONTENT CARRY-THROUGH — `make bank-audit`, measured 2026-09-09
+
+**The funnel counts DRAFTS; this counts CONTENT.** They answer different questions and
+the second one has caught every content-loss defect this project has had. For each
+section, per form: how many clusters' **sources offered** it vs how many **drafts keep
+it**. A producer summary cannot see any of this — `refreshed=649 failures=0` prints
+identically whether a run enriched every draft or gutted it.
+
+```bash
+make bank-audit                       # exits 2 on a verdict; run BEFORE and AFTER a pass
+make bank-audit AUDIT_ARGS="--json"   # two runs diff cleanly
+```
+
+Two readings worth knowing before you read the output:
+
+- **the merge-only CONTROL.** A rewrite *failure* falls back to the deterministic merge,
+  so those drafts are the same pipeline with the model removed — a controlled comparison
+  the Bank produces for free.
+- **carry-through ABOVE 100% is FABRICATION**, not an arithmetic bug. A draft can only
+  carry what its sources stated.
+
+**✅ CUPE IS REPAIRED — and this is the closed loop worth knowing about.** The WJQ parser
+recovered no duties from 16.2% of CUPE documents; the merge correctly produced nothing;
+and the rewrite filled the silence with **996 invented duties across 101 drafts**. Fixed
+end to end by the parser column-gap fix (#137) + HR-213 (`rewrite.duties_never_invented`)
++ the v8 re-parse + a producer pass. Measured today: **0 invented duties on CUPE**,
+`additional_context` and `relationships` both **100%**.
+
+🔴 **JDFN WAS NEVER RE-RUN, AND STILL CARRIES THE SAME DEFECT:**
+
+| JDFN, measured 2026-09-09 | |
+|---|---|
+| `problem_solving` | **232.8% — 635 drafts carry it with NO source** |
+| `relationships` / `decision_making` | **64.7% / 64.6%** — content the sources state, dropped |
+| invented duties | **51 drafts, 218 duties** (38 unclassified + 13 apsa) |
+
+A JDFN producer pass is what closes this, exactly as the CUPE one did. Until then **do not
+quote a JDFN content figure** from anywhere.
+
+🔴 **THE DUTY-FREQUENCY DEFECT IS OPEN, AND THE NAIVE FIX IS UNSAFE.** WJQ duty frequency
+survives on **28.5% of rewritten duties against 100% of merge-only ones** — the rewrite
+destroys a field the merge preserves, and frequency is an input to the CUPE point-factor
+evaluation, so a dropped one is a missing evaluation signal and not just missing text.
+
+The restore exists but sits *inside* the well-grounded branch, so a heavily-reworded duty
+keeps nothing. **Do not simply move it out.** Measured over 120 real clusters: duty counts
+align 91.7% of the time, but argmax and positional matching agree only **8–26%** — the
+model reorders heavily — and **62.4%** of duties share under 0.2 Jaccard with any merge
+duty. Both obvious rules would attach a **wrong** frequency, which is worse than a missing
+one. This needs a matching design with evidence behind it.
+
+⚠ **`flagged_duties` has become a constant** — 97.0% of JDFN drafts and 97.6% of WJQ ones
+carry at least one. A finding on nearly every draft is not a signal; `duty_flag_threshold`
+(HR-184) wants re-measuring rather than quietly re-tuning.
+
 ### 🔴 What `make smoke` now checks — and why it is RED
 
 **Owner ruling 2026-08-29: only claim completion after an end-to-end smoke test**
@@ -298,6 +353,11 @@ and it is the only place those numbers are authoritative.
 
 **Then run `make smoke`.** The end-to-end check against the live Bank — parsing, dedup,
 categorize, filterable — fails if a single document is unaccounted for or unfindable.
+
+**Then run `make bank-audit`.** Read-only, seconds, no GPU. The funnel says how many
+drafts exist; this says what is IN them, per form — and it is the only view that shows
+content being lost or invented. See *Content carry-through* above for what is currently
+open.
 Trust it over any document, including this one.
 
 ---
@@ -398,6 +458,20 @@ Distilled from six weeks; the full set is in the archive.
   silently made every word-boundary match fail. Use the Edit tool for regex bodies.
 - **A rising score is a question too.** Three separate defects this project made scores go
   *up*: invented sections, compressed duty lists, dropped point-factor content.
+- 🔴 **A SAMPLE IS NOT EVIDENCE ABOUT A COHORT, AND THAT IS HOW A FIX GETS REPORTED AS
+  LANDED WHEN IT DID NOT.** HR-209 measured duty-frequency retention over the five largest
+  CUPE clusters and reported it rising 27.8% → 43.8%. Over all 649 it was **24.1% —
+  *below* its own stated "before"**. The sample was not wrong about those five clusters; it
+  was never evidence about the rest. `make bank-audit` exists to make the cohort answer
+  cheap enough that nobody reaches for a sample again. **Quote the cohort or say
+  "sampled".**
+- **Measure before patching, even when the patch is one line.** The frequency restore looks
+  like moving one call out of a branch. Measuring first showed the model reorders duties so
+  heavily that both obvious matching rules would attach a **wrong** frequency to a field
+  the point-factor evaluation reads — a worse outcome than the bug. Twice this session a
+  confident one-line fix was refuted before it shipped: that one, and a whitespace
+  hypothesis about WJQ headings that `_clean` already handled. **The near-miss is the
+  useful part; write it down where the next person will look.**
 - **Verify state against the remote before trusting any doc.** `gh pr list` costs seconds;
   a handoff that records intent as outcome is worse than one merely out of date.
 - **A term list is a hypothesis, and it fails differently every time you rewrite it.**
