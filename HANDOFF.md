@@ -94,7 +94,7 @@ jd-canonical-jdfn-rerun
 **No `--resume` — it is a RE-BASELINE.** Check it BEFORE starting anything that writes
 drafts.
 
-🔴 **THE ~19-HOUR ESTIMATE IS WRONG. IT IS ~51 HOURS — MEASURED 2026-09-11 OVER FOUR
+🔴 **THE ~19-HOUR ESTIMATE IS WRONG. IT IS ~51 HOURS — MEASURED 2026-09-11 OVER SIX
 CHECKPOINTS.** The pass prints its own rate; don't estimate it, read it:
 
 ```
@@ -102,13 +102,17 @@ CHECKPOINTS.** The pass prints its own rate; don't estimate it, read it:
 [canonical-producer]  50/2453 clusters | ... | elapsed=3673.5s
 [canonical-producer]  75/2453 clusters | ... | elapsed=5558.9s
 [canonical-producer] 100/2453 clusters | ... | elapsed=7460.8s
+[canonical-producer] 125/2453 clusters | ... | elapsed=9354.7s
+[canonical-producer] 150/2453 clusters | ... | elapsed=11138.9s
 ```
 
-**Per-batch: 72.1 → 74.9 → 75.4 → 76.1 s/cluster.** The rate is NOT startup inflation —
-every batch after the first is *slower* than it, and the trend creeps mildly upward. At
-74.6 s/cluster overall, 2,453 clusters ≈ **51 hours**, landing ~**06:00–08:00 UTC on
-2026-09-13** — not 23:00 on 2026-09-11. The ~19 hours was carried over from the CUPE pass;
-this cohort is roughly 2.5× slower per cluster and nobody had re-measured it.
+**Per-batch: 72.1 · 74.9 · 75.4 · 76.1 · 75.8 · 71.4 s/cluster.** The rate is NOT startup
+inflation — five of the six batches are slower than the first. ⚠ **But it has NO TREND: an
+earlier draft of this note called it "still drifting up" on four points, and the sixth
+batch came back the FASTEST of all.** It fluctuates around ~74; do not read a direction
+into it. At **74.3 s/cluster overall**, 2,453 clusters ≈ **51 hours**, landing ~**06:00–08:00
+UTC on 2026-09-13** — not 23:00 on 2026-09-11. The ~19 hours was carried over from the CUPE
+pass; this cohort is roughly 2.5× slower per cluster and nobody had re-measured it.
 
 **Plan for more than two days, not one overnight**, and note what that implies: trap 5
 below (the stack has **no `restart:` policy**) now has two extra days to bite, and a
@@ -116,9 +120,9 @@ Docker Desktop restart mid-pass is exactly how a 52-minute pass was lost on 2026
 If it does die, **`--resume` continues it safely (#126)** — starting it WITHOUT `--resume`
 pays for every cluster again.
 
-⚠ **Re-read the rate rather than trusting this line.** It is four checkpoints out of 98,
-and the per-batch figure is still drifting up; the cohort could slow further.
-`docker logs --tail 2 jd-canonical-jdfn-rerun` and divide.
+⚠ **Re-read the rate rather than trusting this line.** It is six checkpoints out of 98, and
+the per-batch figure has no trend to extrapolate — only a mean to re-check.
+`docker logs --tail 2 jd-canonical-jdfn-rerun` and divide elapsed by clusters.
 
 ⚠ And `refreshed=25 failures=0` is a COUNTER, not the Bank. It says what the run did, not
 what is true — `make bank-audit` against `docs/canonical/bank-audit-before-jdfn.json` is
