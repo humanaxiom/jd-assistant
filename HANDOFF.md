@@ -432,6 +432,24 @@ one. This needs a matching design with evidence behind it.
 carry at least one. A finding on nearly every draft is not a signal; `duty_flag_threshold`
 (HR-184) wants re-measuring rather than quietly re-tuning.
 
+✅ **RE-MEASURED 2026-09-11 — and the draft rate was the WRONG UNIT (§10).** The draft
+figures reproduce exactly, but a draft with one flag counted the same as one where every
+duty was flagged. Per DUTY: **69.2% of all 15,530 duties in the Bank are flagged**, and
+**805 drafts (32%) have EVERY duty flagged** — inside those the flag distinguishes nothing.
+
+🔴 **AND IT IS ONE KNOB WEARING TWO HATS.** `duty_flag_threshold` also decides frequency
+carry-back: a duty below it is flagged **and** loses its frequency. So the duty-frequency
+item above and this one are **the same mechanism from two sides**, and they cannot be tuned
+independently — lowering it to rescue frequency floods the flag; raising it to sharpen the
+flag destroys more frequency. The CUPE arithmetic reconciles: 37.3% unflagged against 28.5%
+keeping a frequency, the 8.8-point gap being matched duties whose merge counterpart had no
+frequency of its own.
+
+⚠ **A threshold SWEEP is not possible from stored data** — only the boolean outcome at the
+shipped 0.2 survives in `change_log`, not the Jaccard values. Moving HR-184 honestly means
+re-running the deterministic merge per cluster and re-scoring. CPU-only (no GPU, no model),
+so it is feasible — but it is work, not a lookup.
+
 ### ✅ MVP-2 (VPFA · Facilities) — SHIPPED 2026-09-09 (#183), live behind CAS
 
 The org tree came from the owner, so the build is done and merged. Six units, each a
