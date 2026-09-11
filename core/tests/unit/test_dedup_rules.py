@@ -89,6 +89,9 @@ def test_dedup_is_the_fourth_unhashed_file(rules: Rules) -> None:
         "quality.yaml",
         # Phase A2 added an eighth: which roles a named FUNCTION gathers, for browsing.
         "functional_families.yaml",
+        # Track E added `org_units.yaml` — the ninth. Which roles roll up into a named
+        # ORG UNIT decides what a BROWSE surface shows, never how a JD is scored.
+        "org_units.yaml",
     }
     assert "dedup" not in loader._HASHED_FIELDS
 

@@ -1,0 +1,188 @@
+{% extends "_base.html" %}
+{% block title %}JD Bank — {{ rollup.label }}{% endblock %}
+{% block header %}🏛️ {{ rollup.label }}{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <h2>What this unit holds</h2>
+
+  {#
+    THREE NUMBERS, NEVER ONE. `in_unit` alone reads as complete while being blind to the
+    roles whose department nobody recorded — 27.1% of the Bank when this shipped. The IT
+    collection went out without a could-not-evaluate bucket once already; doing it again
+    on a page a vice-president reads is the failure this template refuses to allow.
+  #}
+  <table>
+    <tr>
+      <th>In this unit</th>
+      <td><strong>{{ rollup.in_unit }}</strong> roles</td>
+      <td class="meta">department is assigned to {{ rollup.label }} or a unit rolling up into it</td>
+    </tr>
+    <tr>
+      <th>Not in this unit</th>
+      <td>{{ rollup.not_in_unit }} roles</td>
+      <td class="meta">department is known and belongs elsewhere</td>
+    </tr>
+    <tr>
+      <th>🔴 Department unrecorded</th>
+      <td><strong>{{ rollup.department_unrecorded }}</strong> roles</td>
+      <td class="meta">
+        <strong>no rollup can see these.</strong> Their job descriptions state no
+        department, so they are neither in this unit nor ruled out of it
+      </td>
+    </tr>
+    <tr>
+      <th>Population</th>
+      <td>{{ rollup.population }} drafts</td>
+      <td class="meta">the three rows above partition this exactly</td>
+    </tr>
+  </table>
+</div>
+
+{#
+  TWO SURFACES ANSWER "IT", ON PURPOSE, and the difference is a live organisational
+  question (CIO / VPFA, raised 2026-09-09) rather than a duplication to tidy away. The
+  panel exists so that conversation starts from the numbers instead of re-deriving them,
+  and so nobody quietly "fixes" one page to match the other.
+#}
+{% if rollup.slug == 'its' %}
+<div class="panel">
+  <h2>⚠ This is the DEPARTMENT. The IT collection is the JOB FAMILY.</h2>
+  <p>
+    Both are correct and they answer different questions. Measured 2026-09-09 against
+    this Bank:
+  </p>
+  <table>
+    <tr>
+      <th>This page — IT Services (department)</th>
+      <td><strong>{{ rollup.in_unit }}</strong> roles</td>
+      <td class="meta">who works in <em>central IT</em>, by the department written on the JD</td>
+    </tr>
+    <tr>
+      <th><a href="/jd-bank/ui/collection/it">The IT collection</a> (job family)</th>
+      <td><strong>213</strong> roles</td>
+      <td class="meta">who does <em>IT work anywhere at SFU</em>, by SFU's own classification code</td>
+    </tr>
+  </table>
+  <p class="meta">
+    <strong>This department is a strict subset of that family</strong> — all
+    {{ rollup.in_unit }} appear in both, and <strong>159</strong> IT roles sit in
+    faculties and schools rather than in central IT. Not one role is in the department
+    but outside the family.
+  </p>
+  <p class="meta">
+    ⚠ <strong>The ITP/S classification the collection is built on is legacy</strong>, and
+    whether it should still define "IT at SFU" is with the CIO and VPFA. Until that is
+    settled both surfaces stay: rolling this portfolio up through the family instead
+    would add those 159 to a vice-president's portfolio, and dropping the family would
+    lose the 159 entirely.
+  </p>
+</div>
+{% endif %}
+
+{% if not rollup.departments %}
+<div class="panel">
+  <h2>⚠ This unit is configured with no departments</h2>
+  <p>
+    <strong>{{ rollup.label }} was named as part of the organisation, and no job
+    description in the archive names it.</strong> That is why this page reports zero
+    rather than being missing: a unit that shows nothing <em>and says why</em> is a
+    question someone can answer, and one quietly filled by guesswork is a confident
+    wrong number about somebody's portfolio.
+  </p>
+  <p class="meta">
+    The candidates below are departments assigned to no unit at all. Assigning them is a
+    rulebook edit (<code>org_units.yaml</code>), not a code change.
+  </p>
+</div>
+{% endif %}
+
+<div class="panel">
+  <h2>Roles in this unit</h2>
+  {% if page.items %}
+  <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }} · click a column heading to sort</p>
+  {% macro sorth(key, label) -%}
+    {%- set active = (page.sort == key) -%}
+    {%- set next_dir = 'desc' if (active and page.direction == 'asc') else 'asc' -%}
+    <th><a href="/jd-bank/ui/unit/{{ rollup.slug }}?sort={{ key }}&amp;dir={{ next_dir }}&amp;limit={{ page.limit }}">{{ label }}{% if active %} {{ '▲' if page.direction == 'asc' else '▼' }}{% endif %}</a></th>
+  {%- endmacro %}
+  <table>
+    <thead>
+      <tr>
+        {{ sorth('title', 'Role') }}
+        {{ sorth('sources', 'Sources') }}
+        {{ sorth('score', 'Score') }}
+        {{ sorth('grade', 'Quality') }}
+        {{ sorth('status', 'Status') }}
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in page.items %}
+      <tr>
+        <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">{{ item.title }}</a></td>
+        <td>{{ item.source_count }}</td>
+        <td>{{ "%.1f"|format(item.score) if item.score is not none else "—" }}</td>
+        <td>{{ item.grade or "—" }}</td>
+        <td>{{ item.status }}</td>
+        <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">Open →</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="meta">
+    {% if pagination.prev_offset is not none %}
+    <a href="/jd-bank/ui/unit/{{ rollup.slug }}?sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.prev_offset }}&amp;limit={{ pagination.limit }}">← Prev</a>
+    {% endif %}
+    {% if pagination.next_offset is not none %}
+    <a href="/jd-bank/ui/unit/{{ rollup.slug }}?sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.next_offset }}&amp;limit={{ pagination.limit }}">Next →</a>
+    {% endif %}
+  </p>
+  {% else %}
+  <p class="empty">No roles resolve to this unit yet.</p>
+  {% endif %}
+  <p class="meta">
+    <a href="/jd-bank/ui/funnel?scope={{ rollup.slug }}">The funnel for this unit →</a>
+    · <a href="/jd-bank/ui/library">All roles in the Bank</a>
+  </p>
+</div>
+
+<div class="panel">
+  <h2>Departments this unit claims</h2>
+  {% if rollup.departments %}
+  <p class="meta">
+    Listed so the rollup can be <em>checked</em> rather than trusted. Matching is on an
+    exact list, never a pattern — a phrase match on "IT Services" would claim
+    <code>Science - IT Services</code> whether or not it is a faculty's own IT.
+  </p>
+  <ul class="meta">
+    {% for dept in rollup.departments %}<li><code>{{ dept }}</code></li>{% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">None configured.</p>
+  {% endif %}
+</div>
+
+<div class="panel">
+  <h2>Unassigned departments — {{ rollup.candidates | length }} awaiting a decision</h2>
+  <p class="meta">
+    Every department in the Bank that belongs to <strong>no</strong> unit. These are not
+    a proposal and nothing has guessed at them: deciding whether a department reports into
+    a portfolio is a fact about the organisation, and the archive does not record it.
+    Commonest first.
+  </p>
+  {% if rollup.candidates %}
+  <table>
+    <tr><th>Department (normalised)</th><th>Roles</th></tr>
+    {% for c in rollup.candidates[:60] %}
+    <tr><td><code>{{ c.department }}</code></td><td>{{ c.roles }}</td></tr>
+    {% endfor %}
+  </table>
+  {% if rollup.candidates | length > 60 %}
+  <p class="meta">…and {{ rollup.candidates | length - 60 }} more.</p>
+  {% endif %}
+  {% else %}
+  <p class="empty">Every department in the Bank is assigned to a unit.</p>
+  {% endif %}
+</div>
+{% endblock %}

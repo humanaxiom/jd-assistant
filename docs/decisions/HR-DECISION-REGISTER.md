@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **225 decisions** (223 open · 2 ratified · 0 deferred) · 65 parameters explicitly exempted as trivial · 285 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **231 decisions** (229 open · 2 ratified · 0 deferred) · 71 parameters explicitly exempted as trivial · 297 parameters on the decision surface, all accounted for.
 
-**Of those 225, 79 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 144 are recorded for the same build check but are not yours to sign: 59 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 231, 85 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 144 are recorded for the same build check but are not yours to sign: 59 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -111,6 +111,12 @@ Two of the three mean *nobody at SFU has agreed to this yet.* That is the honest
 | [HR-214](#hr-214) | When the tool rewords a harmonized job description, may it return a whole SECTION empty that the source documents did state — for example the internal and external contacts a role works with? Today it may not: the harmonized version is put back. | `true` | we chose it |
 | [HR-225](#hr-225) | When an author picks the CUPE (WJQ) form in the Builder, which existing JDs may they search and clone from? | `cupe` | we chose it |
 | [HR-226](#hr-226) | Is a job description CUPE because it says the word "CUPE" somewhere, or only when it declares CUPE as its employee group? | `cupe` | we chose it |
+| [HR-227](#hr-227) | Which departments make up the Finance & Administration (VPFA) portfolio? The Bank reports a role as VPFA's when the department written on its job description is on this list, or on the list of a unit that rolls up into it. | *7 entries — see below* | we chose it |
+| [HR-228](#hr-228) | Which departments make up Facilities Services? It rolls up into VPFA, so these roles are counted in both. | *18 entries — see below* | we chose it |
+| [HR-229](#hr-229) | Which departments make up IT Services (ITS)? It rolls up into VPFA. | *22 entries — see below* | we chose it |
+| [HR-230](#hr-230) | Which departments make up Finance? It rolls up into VPFA. | `finance`, `financial services`, `financial reporting`, `finance - payroll` | we chose it |
+| [HR-231](#hr-231) | Which departments make up Safety & Risk Services? It rolls up into VPFA. | `safety and risk services`, `program and policy development, safety and risk services`, `enterprise risk and resilience, safety and risk services` | we chose it |
+| [HR-232](#hr-232) | Which departments make up Campus Services? It was named as part of VPFA, and no job description in the archive names it — so the unit currently contains nothing. | *(empty)* | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -443,6 +449,54 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 - **Where the default came from:** we chose it
 - **Why it matters:** 🔴 MEASURED 2026-08-29 against the RAW ARCHIVE FILES, after "there should be more CUPE than APSA — the numbers don't add up". Of the 4,440 documents the Bank labels `cupe`, **2.2% (~98) were never routed to the WJQ segmenter at all** — they are JDFN documents that merely MENTION the word. Of 24 examined, **ZERO declared "Employee Group: CUPE"** and all 24 were passing mentions: "Directly supervises CUPE employees", "administers the collective agreement between the University and CUPE, Local 3338", "supervises temporary CUPE staff and volunteers". They are APSA MANAGERS WHO SUPERVISE CUPE STAFF — Manager, Director Advancement, Student Recruiter. A job is not CUPE because its staff are, exactly as an Executive Assistant is not a VP because their boss is (HR-224). The cost was not cosmetic: `template_of` reads this field, so each of those ~98 was scored on the WJQ profile instead of the JDFN one, dropped from the JDFN current-practice cohort (HR-143), and counted as CUPE in every facet. CONTROL, measured the same day: apsa/apex/poly/ excluded documents contain their own token 100% of the time, `cupe` only 2.5% — because CUPE is set by ROUTING (`is_wjq`), never by reading the word. So excluding it from the bare-token scan costs no genuine detection at all.
 - **If it changes:** Parser behaviour, and it moves `PARSER_VERSION` (v5 -> v6), so changing it REQUIRES an archive re-parse in the same change — every layer filters `parsed_jds` on that literal, and a bump without a re-parse leaves them querying a version with no rows, i.e. an apparently empty Bank. An explicit "Employee Group: X" label still establishes ANY group including cupe, so a genuine declaration is never lost; emptying this list restores the old bare-token behaviour and the ~98 mislabels with it. Adding a group here makes it undetectable except by an explicit label — safe for `cupe`, which routing already covers, and WRONG for apsa/apex/poly, which are read from the text and have no other source.
+
+##### HR-227 — Which departments make up the Finance & Administration (VPFA) portfolio? The Bank reports a role as VPFA's when the department written on its job description is on this list, or on the list of a unit that rolls up into it.
+
+- **We ship:** `office of the vice-president, finance and administration`, `vice president finance and administration`, `vice-president finance and administration`, `vice president finance`, `finance and administration`, `avp finance administration`, `vp finance and`
+- **Configured in:** `org_units.yaml` → `org_units.vpfa.departments`
+- **Where the default came from:** we chose it
+- **Why it matters:** 🔴 THIS IS THE ONE SETTING THAT DECIDES WHAT A VICE-PRESIDENT IS TOLD ABOUT THEIR OWN PORTFOLIO, and it cannot be derived from the archive. MEASURED 2026-09-09: filtering on the portfolio's own name returns TWO roles, because a vice-presidency is never the string written on a job description — the roles say "Finance", "IT Services", "Facilities Services". So a portfolio is a ROLLUP of the units under it, and the tree has to be supplied by someone who knows the organisation. The tree shipped here was given by the project owner on 2026-09-09: Campus Services, Facilities Services, Finance, IT Services and Safety & Risk Services roll up into VPFA. ⚠ WHAT THIS ENTRY DOES NOT SETTLE, and the reader should know it: Human Resources (52 roles — the largest single candidate either way) is NOT in the portfolio as configured, because it was not named. Neither are Procurement Services (7), Budget Office (4), Payroll (2) or Financial Aid & Awards (8) — "financial" in a name is not evidence of a reporting line, and the same data has `Student Services - Student Accounts` to prove it. Every one of those renders on the page as an UNASSIGNED CANDIDATE rather than being guessed into the portfolio. ⚠ AND THE PAGE PUBLISHES THREE NUMBERS, NOT ONE: 677 of 2,496 roles (27.1%) carry no department at all and are invisible to any rollup. A page reporting only "N roles in VPFA" would read as complete while blind to a quarter of the Bank — the defect the IT collection shipped with once already.
+- **If it changes:** Does NOT move `rules_version` — this decides what a BROWSE surface shows, never how a job description is scored, graded or approved. Adding a department adds its roles to the portfolio and removes it from the unassigned list; removing one does the reverse. Nothing is re-validated and no draft changes.
+
+##### HR-228 — Which departments make up Facilities Services? It rolls up into VPFA, so these roles are counted in both.
+
+- **We ship:** `facilities services`, `facilities management`, `facilities`, `facilities capital projects`, `facilities customer services`, `facilities management - sfu surrey`, `facilities operations`, `facilities services surrey`, `facilities services - major projects division`, `facilities services, vancouver campus`, `facilities strategic support`, `facilities and capital planning`, `sfu surrey facilities services`, `campus security`, `campus safety and security services`, `operations and maintenance`, `parking services`, `occupational health and trades safety`
+- **Configured in:** `org_units.yaml` → `org_units.facilities_services.departments`
+- **Where the default came from:** we chose it
+- **Why it matters:** Owner ruling 2026-09-09, and it settles the boundary call Track E had flagged as open: CAMPUS SECURITY IS IN FACILITIES (11 roles, plus 3 more written as `Campus Safety & Security Services`), as are operations, maintenance, parking and trades safety. The rest are the Facilities-named departments — and there are THIRTEEN spellings of them in the archive, including `SFU Surrey Facilities Services`, `Facilities Services, Vancouver Campus` and `Facilities Management - SFU Surrey`. Each is listed EXACTLY rather than matched by pattern: matching the word "Facilities" would also claim anything a future department happens to call itself, and this repo has had a term list lie to it four times, most recently when the substring `lan` claimed 63% of the archive. ⚠ NOT SETTLED: `Campus Public Safety` (2 roles) was not named and is not included — it may be the same function under a third spelling, which is a question for someone who knows the org, not for a matcher.
+- **If it changes:** Does NOT move `rules_version`. Because Facilities rolls up into VPFA, a department added here is added to BOTH units' counts — which is what "rolls up into" means and is the reason the rollup is a tree rather than a flat list.
+
+##### HR-229 — Which departments make up IT Services (ITS)? It rolls up into VPFA.
+
+- **We ship:** `information technology services`, `it services`, `information technology`, `it services, application services`, `it services, client services`, `it services, strategic services`, `it services - infrastructure`, `it services infrastructure services`, `it services - application services`, `it services - audio visual`, `it services - cars client services innovations`, `it services - high performance computing`, `it services, av services`, `it services, learning and community systems`, `it services (its) - sfu surrey campus`, `information technology services, sfu vancouver campus`, `application services, it services`, `application services, information technology services`, `learning and community systems, it services`, `research computing, it services`, `business solutions, it services`, `client services, it services`
+- **Configured in:** `org_units.yaml` → `org_units.its.departments`
+- **Where the default came from:** we chose it
+- **Why it matters:** TWENTY-TWO SPELLINGS OF ONE UNIT, read off the live Bank — `IT Services`, `Information Technology`, `Information Technology Services`, plus sub-teams written both ways round (`IT Services, Application Services` and `Application Services, IT Services`), campus suffixes, and en-dash and comma variants of the same team. They are enumerated rather than matched because of the specific false positive sitting in the same data: `Science - IT Services` (1 role). A phrase match on "IT Services" claims it for the central ITS whether or not it is the Faculty of Science's own IT staff, and nothing downstream would object. It is deliberately EXCLUDED and renders as an unassigned candidate. ⚠ The mechanical half of the aliasing is handled by a normaliser rather than by listing every case: `&` becomes `and`, unicode dashes become `-`, whitespace collapses and case is folded. Word ORDER is deliberately not normalised — deciding that two orderings name the same team is a judgement, not a spelling rule.
+- **If it changes:** Does NOT move `rules_version`. Adding a spelling moves its roles into ITS and therefore into VPFA.
+
+##### HR-230 — Which departments make up Finance? It rolls up into VPFA.
+
+- **We ship:** `finance`, `financial services`, `financial reporting`, `finance - payroll`
+- **Configured in:** `org_units.yaml` → `org_units.finance.departments`
+- **Where the default came from:** we chose it
+- **Why it matters:** DELIBERATELY CONSERVATIVE, and the omissions are the point. The owner named "Finance" and did not place the neighbouring units, so `Procurement Services` (7), `Budget Office` (4), `Payroll` standing alone (1), `Accounting Services` (1) and `Research Accounting` (3) are NOT included, and neither is `Financial Aid & Awards` (8 across two spellings). The word "financial" in a department name is not evidence of a reporting line into Finance — the same archive contains `Student Services - Student Accounts`, which is exactly the counter-example. All of them render as unassigned candidates on the unit page, which is the question being asked where someone can answer it rather than resolved by a matcher that cannot know.
+- **If it changes:** Does NOT move `rules_version`. This is the entry most likely to grow once someone rules on the five neighbouring units above.
+
+##### HR-231 — Which departments make up Safety & Risk Services? It rolls up into VPFA.
+
+- **We ship:** `safety and risk services`, `program and policy development, safety and risk services`, `enterprise risk and resilience, safety and risk services`
+- **Configured in:** `org_units.yaml` → `org_units.safety_risk.departments`
+- **Where the default came from:** we chose it
+- **Why it matters:** Small and mostly mechanical: `Safety & Risk Services` (5) and `Safety and Risk Services` (3) are one unit differing only by an ampersand, which the normaliser resolves. ⚠ THE JUDGEMENT IS ELSEWHERE: `Enterprise Risk and Resilience` standing ALONE (3 roles across two spellings) is NOT included — it names itself as its own unit, and whether it reports into Safety & Risk is a fact about the organisation that the archive does not record. The compound string `Enterprise Risk and Resilience, Safety & Risk Services` IS included, because that one says so.
+- **If it changes:** Does NOT move `rules_version`.
+
+##### HR-232 — Which departments make up Campus Services? It was named as part of VPFA, and no job description in the archive names it — so the unit currently contains nothing.
+
+- **We ship:** *(empty)*
+- **Configured in:** `org_units.yaml` → `org_units.campus_services.departments`
+- **Where the default came from:** we chose it
+- **Why it matters:** 🔴 THE EMPTINESS IS THE FINDING, AND IT SHIPS VISIBLE RATHER THAN QUIET. Campus Services was named as a VPFA sub-unit on 2026-09-09, and NO DEPARTMENT STRING IN THE ARCHIVE NAMES IT — not once in 742 distinct department strings. The plausible constituents are all present under their own names: Ancillary Services (6), Bookstore (17 across four spellings), Residence & Housing (32 across four), Meeting/Event/Conference Services (7 spellings) and Parking Services (1). Which of those constitute Campus Services is a question about how SFU is organised, not one the parser can answer, so NONE is assigned. The unit ships empty and renders "0 roles, and here is why", because a unit that reports zero with its reason is answerable while one quietly dropped from the tree is not — and one quietly FILLED by inference is the confidently wrong number this whole track exists to avoid.
+- **If it changes:** Does NOT move `rules_version`. Assigning departments here adds them to Campus Services and therefore to VPFA.
 
 #### An earlier version of this tool chose it — also unratified
 
@@ -2202,6 +2256,12 @@ The build requires every parameter on the decision surface to be either a decisi
 | `gates.grade_order` | The ranking of the grade literals from worst to best. F < D < C < B < A is not a policy choice; where the floor sits on it is HR-002. | — |
 | `gates.severity_order` | The ranking of the severity literals from least to most severe. Any other order would be incoherent (it is not a policy choice that `high` outranks `low`); the choice of WHERE the floor sits on this ranking is HR-003. | — |
 | `hay_signals.evidence_cap` | How many evidence phrases one Hay factor's signal may CITE. Presentation only: the score is computed from every hit and the level is decided before the evidence list is truncated, so this cannot move a signal from low to high — it only shortens the "why". It is bounded by what `HayFactorSignal.evidence` accepts (the rulebook refuses to load if it exceeds that), and the substantive calls — which phrases count and what they are worth — are HR-066 … HR-081. | — |
+| `org_units.campus_services.children` | Empty — no configured sub-units. Its membership is HR-232's. | HR-232 |
+| `org_units.facilities_services.children` | Facilities Services has no sub-units; the list is empty and the rollup it belongs to is HR-227's. | HR-228 |
+| `org_units.finance.children` | Empty — Finance has no configured sub-units. Its membership is HR-230's. | HR-230 |
+| `org_units.its.children` | Empty — ITS has no configured sub-units. Its membership is HR-229's. | HR-229 |
+| `org_units.safety_risk.children` | Empty — no configured sub-units. Its membership is HR-231's. | HR-231 |
+| `org_units.vpfa.children` | WHICH units roll up into VPFA is the same decision as which departments do — it is the portfolio, expressed one level up — and HR-227 states it in full, including who was named and who was deliberately not. Listing it twice would let the two drift. | HR-227 |
 | `rule_catalog.SFU-AUTH-ABILITIES-OBSERVABLE.default_severity` | A `low` drafting nudge (an ability should read "Ability to <observable behaviour>"). The prefixes are HR-054; severity-floor promotion is pinned by HR-057. | HR-054 |
 | `rule_catalog.SFU-AUTH-SUMMARY-CONDITIONS.default_severity` | `medium`, and blocking by name (HR-004). The substantive question is the working-conditions word list (HR-046); severity-floor promotion is pinned by HR-057. | HR-046 |
 | `rule_catalog.SFU-AUTH-SUMMARY-INCUMBENT.default_severity` | `low`, but blocking by name (HR-004). The regex it fires on is HR-048; severity-floor promotion is pinned by HR-057. | HR-048 |

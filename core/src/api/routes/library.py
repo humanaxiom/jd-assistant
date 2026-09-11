@@ -50,6 +50,7 @@ from src.jd_bank.library import (
     resolve_members,
     scope_for,
 )
+from src.jd_bank.library.units import resolve_unit, unit_for
 
 router: APIRouter = APIRouter(prefix="/jd-bank/ui")
 
@@ -258,5 +259,64 @@ async def funnel_view(
                 await build_gap(session, resolved) if resolved.is_whole_bank else None
             ),
             "scope": resolved,
+        },
+    )
+
+
+@router.get("/unit/{slug}", response_class=HTMLResponse)
+async def unit_view(
+    request: Request,
+    slug: str,
+    limit: int | None = None,
+    offset: int = 0,
+    sort: str = "title",
+    dir: str = "asc",
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """One ORG UNIT as a rollup (Track E / MVP-2) — VPFA, Facilities, and their
+    children.
+
+    A unit is not a functional family. ``/collection/{slug}`` resolves membership from
+    SFU's classification codes in source filenames; a vice-presidency has no code, so
+    this resolves on ``department`` against an exact, human-assigned list.
+
+    🔴 **The page publishes THREE numbers** — in the unit, not in it, and department
+    unrecorded — because 27.1% of roles state no department and are invisible to any
+    rollup. Reporting only the first is how a page reads as complete while being blind
+    to
+    a quarter of the Bank, which is the defect the IT collection shipped with once.
+
+    It also renders every department assigned to NO unit, commonest first. That list is
+    the question the rulebook has not answered, put where somebody can answer it —
+    deliberately, rather than inferring a rollup and being confidently wrong about a
+    vice-president's own portfolio.
+    """
+    found = await unit_for(slug)
+    if found is None:
+        return templates.TemplateResponse(
+            request,
+            "library_not_found.html",
+            {"what": "unit", "id": slug},
+            status_code=404,
+        )
+    unit_key, unit = found
+    rollup = await resolve_unit(session, unit, unit_key=unit_key)
+    page = await list_roles(
+        session,
+        limit=limit,
+        offset=offset,
+        sort=sort,
+        direction=dir,
+        cluster_ids=rollup.member_cluster_ids,
+    )
+    return templates.TemplateResponse(
+        request,
+        "unit.html",
+        {
+            "rollup": rollup,
+            "page": page,
+            "pagination": _pagination(
+                total=page.total, limit=page.limit, offset=page.offset, q=""
+            ),
         },
     )

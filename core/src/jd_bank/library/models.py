@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.jd_core.models.parsed_jd import JobClassification
 
@@ -355,3 +355,50 @@ class MembershipCoverage(_Frozen):
             if self.total_roles
             else 0.0
         )
+
+
+class UnitCandidate(BaseModel):
+    """A department string assigned to NO org unit, and how many roles it holds.
+
+    The question the rulebook has not answered yet, carried to where somebody can answer
+    it. Inferring the assignment instead is what hands a vice-president a confident
+    wrong
+    number about their own portfolio — see ``org_units.yaml``.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    department: str
+    roles: int = Field(ge=0)
+
+
+class UnitRollup(BaseModel):
+    """One org unit's rollup — and it carries THREE numbers, never one.
+
+    A page that reports only ``in_unit`` reads as complete while being blind to the
+    27.1% of roles whose department is unrecorded (measured 2026-09-09). The IT
+    collection shipped that way once; this shape makes it unavailable rather than merely
+    discouraged, because the field a renderer would need does not exist alone.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    label: str
+    slug: str
+    #: Roles whose department is assigned to this unit or one rolling up into it.
+    in_unit: int = Field(ge=0)
+    #: Roles with a KNOWN department that belongs elsewhere.
+    not_in_unit: int = Field(ge=0)
+    #: Roles no rollup can see. Never folded into ``not_in_unit``: "elsewhere" and
+    #: "cannot tell" are different answers and only one of them is a finding.
+    department_unrecorded: int = Field(ge=0)
+    member_cluster_ids: tuple[UUID, ...] = ()
+    #: The normalised departments this unit claims, children included — so a reader can
+    #: check the rollup rather than trust it.
+    departments: tuple[str, ...] = ()
+    candidates: tuple[UnitCandidate, ...] = ()
+
+    @property
+    def population(self) -> int:
+        """Every DRAFT role the three numbers partition. They must sum to this."""
+        return self.in_unit + self.not_in_unit + self.department_unrecorded

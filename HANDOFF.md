@@ -181,6 +181,34 @@ one. This needs a matching design with evidence behind it.
 carry at least one. A finding on nearly every draft is not a signal; `duty_flag_threshold`
 (HR-184) wants re-measuring rather than quietly re-tuning.
 
+### ▶ MVP-2 (VPFA · Facilities) — the parse gate cleared; ONE input is missing
+
+**The build is no longer waiting on code.** Track E's stated blocker was `department`
+being unaudited; P3d shipped at `v8` (+607 departments), so that gate is closed. What is
+left is what the plan always said would be people-work — **the org tree and the alias
+map** — and it is now measured instead of anticipated.
+
+| measured 2026-09-09 | |
+|---|---|
+| DRAFT roles | 2,496 |
+| carrying a `department` | 1,819 (72.9%) |
+| **carrying none** | 🔴 **677 (27.1%)** |
+| **distinct department STRINGS** | 🔴 **742** |
+
+The 742 split into **mechanical** aliasing that is safe to automate (`&` vs `and`, word
+order, campus suffixes — `Facilities Services` has six spellings) and **organisational**
+questions that are not ours: is Human Resources (52) under VPFA? is Campus Security (11+3)
+in Facilities? where does Ancillary Services (6) sit? The full list with role counts is in
+[`docs/plan.md`](docs/plan.md) § TRACK E.
+
+⚠ **Do not seed the tree or the aliases by inference** — a wrong rollup hands a
+vice-president a confident wrong number about their own portfolio, and nothing will fail.
+
+⚠ **And the rollup must publish a COULD-NOT-EVALUATE bucket.** 27.1% of roles have no
+department; a VPFA page that silently omits 677 of them repeats the IT collection's first
+defect on a surface a vice-president reads. **Three numbers, always: in the unit · not in
+it · department unrecorded.**
+
 ### 🔴 What `make smoke` now checks — and why it is RED
 
 **Owner ruling 2026-08-29: only claim completion after an end-to-end smoke test**

@@ -3,11 +3,11 @@
 **The seam that stops the second unit being a rewrite.** Every aggregation takes a
 :class:`Scope` — never a family, a classification code, or a hardcoded ``IT``.
 
-Today the only resolver is the classification family that ``functional_families.yaml``
-ships. The next one is an **org unit** (VPFA, into which ITS rolls up), and a unit has
-**no classification code at all**, so it needs a different resolver. The argument every
-query accepts has to be general *before* two dashboards and an API learn the narrow
-shape. See ``docs/FINDINGS.md §5``.
+There are TWO resolvers. A classification family (``functional_families.yaml``) is
+recognised by SFU's own codes in source FILENAMES; an **org unit** (``org_units.yaml``
+— VPFA, into which ITS rolls up) has **no classification code at all** and resolves on
+``department`` instead. The argument every query accepts was made general *before* the
+second one existed, which is why adding it was configuration. See ``FINDINGS.md §5``.
 
 The measured reason, in one line: filtering ``department`` on VPFA's own name returns
 **2 roles against a ~55+ portfolio**, because a vice-presidency is never the string
@@ -38,6 +38,7 @@ from src.jd_bank.library.families import (
     family_for,
     resolve_members,
 )
+from src.jd_bank.library.units import resolve_unit, unit_for
 from src.jd_core.rules import Rules
 
 
@@ -74,11 +75,33 @@ async def scope_for(
     if key is None or key == WHOLE_BANK.key:
         return WHOLE_BANK
     family = family_for(key, rules)
-    if family is None:
+    if family is not None:
+        return Scope(
+            key=family.slug,
+            label=family.label,
+            cluster_ids=await resolve_members(session, family),
+            source_filename_pattern=_classification_regex(family),
+        )
+
+    # An ORG UNIT (Track E) — the second resolver this seam was built for, and the one
+    # this module's docstring predicted. A unit has no classification code, so it
+    # resolves on `department` instead.
+    #
+    # 🔴 `source_filename_pattern` IS NONE, AND THAT IS THE HONEST ANSWER, NOT AN
+    # OMISSION. The pattern exists so a scoped funnel can start from the ARCHIVE — the
+    # documents that never reached a role — and `department` is read from a parse, not
+    # from a filename, so no pattern can recognise a unit's documents before they are
+    # parsed. Inventing one would fabricate the very drop-off the funnel exists to show.
+    # The funnel degrades to "roles onward" for a unit and says so, which is what this
+    # field being optional is for.
+    found = await unit_for(key, rules)
+    if found is None:
         return None
+    unit_key, unit = found
+    rollup = await resolve_unit(session, unit, unit_key=unit_key, rules=rules)
     return Scope(
-        key=family.slug,
-        label=family.label,
-        cluster_ids=await resolve_members(session, family),
-        source_filename_pattern=_classification_regex(family),
+        key=unit.slug,
+        label=unit.label,
+        cluster_ids=frozenset(rollup.member_cluster_ids),
+        source_filename_pattern=None,
     )

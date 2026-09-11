@@ -53,7 +53,7 @@ What is unblocked is that we are no longer waiting to be told where the bar sits
 | ~~**MVP-0**~~ | **B2 — the pilot: DEPLOYMENT PHASE, not this one** | — | Owner ruling 2026-08-29: publishing happens in the final deployment. It is not a gate on anything here and it is not the measure of this phase. |
 | **MVP-0** | 🔴 **P4 — draft the 24 clusters that have none** | nothing — start now | The measure here is DRAFTS, and 24 roles have none. `--only-undrafted` makes it a scoped run of minutes. |
 | **MVP-1** | **Core: finish Track P** | nothing — start now | ✅ **P3b is DONE** and produced a defect like the two audits before it — **726 CUPE departments the archive states and the Bank does not** (§9). ✅ **P3d's measurement is DONE too** — scoped to the parser's reading it is ONE unregistered label, ~667 of 680 (§9g). ✅ **P3d SHIPPED at v8** — the label registered, +607 departments in the Bank — and **P3e WITHDRAWN** (never a defect). Now **P3f**, then **P3c**. (P4 moved up to MVP-0 — it is drafts, and it is unblocked.) E1 depends on `department` being trustworthy, and it is now measurably not — see the note below. |
-| **MVP-2** | **E1 VPFA → E2 Facilities** | the org tree + curated alias map | The scope seam is built; adding a unit is configuration. The **people-work can start today** and does not wait for MVP-1. |
+| **MVP-2** | **E1 VPFA → E2 Facilities** | the org tree + curated alias map — **now the ONLY blocker; the parse gate cleared at v8** | The scope seam is built; adding a unit is configuration. **MEASURED 2026-09-09:** 742 distinct department strings and 27.1% of roles carrying none — see Track E for the five org questions that are the entire remaining ask. |
 | **MVP-3** | **Track G — upload into the Builder** | MVP-1 landed | Changes *who can use the Bank*. Its two hard blockers are verified below, and one of them re-cuts the offline bundle. |
 | **MVP-4** | **Track F — currency after publishing** | E2, and the deployment phase | A currency loop acts on PUBLISHED JDs, which is deployment-phase work by the owner ruling. Design is done; building it here would be ceremony. |
 
@@ -168,13 +168,57 @@ Bank does not hold (§9, P3b). That is no longer a precaution — a VPFA rollup 
 column today would be wrong, and wrong confidently. The alias/org-tree work is people-work
 and can begin now; the BUILD waits on P3d.
 
+✅ **P3d SHIPPED at `jd_segmenter_v8` (+607 departments), so the PARSE gate is cleared.**
+What is left is the gate that was always people-work, and it is now measured rather than
+anticipated.
+
+### ▶ MEASURED 2026-09-09 — what a rollup would actually be standing on
+
+| | |
+|---|---|
+| DRAFT roles | 2,496 |
+| carrying a `department` | **1,819 (72.9%)** |
+| **carrying none** | 🔴 **677 (27.1%)** — invisible to any rollup, and no bucket says so |
+| distinct department STRINGS | 🔴 **742** |
+
+**742 strings is the alias map, stated as a number.** It splits into two kinds of work,
+and conflating them is how this goes wrong:
+
+**1. MECHANICAL, and safe to automate** — `&` vs `and` (`Safety & Risk Services` 5 ·
+`Safety and Risk Services` 3; `Financial Aid & Awards` 5 · `Financial Aid and Awards` 3),
+word order (`IT Services, Application Services` 3 · `Application Services, IT Services` 1),
+and campus/site qualifiers (`Facilities Services` 24 · `Facilities Services Surrey` 1 ·
+`SFU Surrey Facilities Services` 1 · `Facilities Services, Vancouver Campus` 1). None of
+this is an organisational judgement, all of it is measurable, and it must still be
+REGISTERED — a normaliser is a rule about what counts as the same unit.
+
+**2. ORGANISATIONAL, and NOT ours to decide** — the questions no amount of parsing
+answers. Live candidates, with role counts:
+
+| question | candidates |
+|---|---|
+| Is **Human Resources** (52) under VPFA? | the single largest candidate either way |
+| Is **Campus Security** (11 + `Campus Safety & Security Services` 3) in Facilities? | the boundary call this track already flagged |
+| Where does **Ancillary Services** (6) sit — VPFA or Facilities? | plausible in both |
+| Is **Financial Aid & Awards** (8) VPFA or Student Services? | "financial" in the name is not evidence |
+| Do **IT Services** / **Information Technology** / **Information Technology Services** (31 across three spellings) roll up to VPFA as ITS? | the track says ITS does; the spellings still need confirming as one unit |
+
+`Office of the Vice-President, Finance and Administration` exists in the data with **2**
+roles — the unit names itself, and that is the whole of what the archive volunteers.
+
 | # | unit | blocked on |
 |---|---|---|
-| **E1** | **VPFA** (Finance & Administration) — **ITS rolls up into it** | the org tree + curated alias map |
-| **E2** | **Facilities Services** | same, plus a boundary call (is Campus Security in it?) |
+| **E1** | **VPFA** (Finance & Administration) — **ITS rolls up into it** | the org tree + curated alias map — **the parse gate is cleared; this is the whole remaining blocker** |
+| **E2** | **Facilities Services** | same, plus the boundary call (is Campus Security in it?) |
 
 ⚠ **Do not seed the tree or the aliases by inference.** A wrong rollup hands a
-vice-president a confident wrong number about their own portfolio.
+vice-president a confident wrong number about their own portfolio. The five questions
+above are the entire ask, and each is a one-line answer from someone who knows the org.
+
+⚠ **AND THE ROLLUP MUST PUBLISH A COULD-NOT-EVALUATE BUCKET.** 27.1% of roles carry no
+department at all. A VPFA page that silently omits 677 roles repeats the IT collection's
+first defect (P2, §7c) on a surface a vice-president reads. **Three numbers, always: in
+the unit · not in it · department unrecorded.**
 
 ---
 ---

@@ -155,6 +155,12 @@ QUALITY_FILE: Final[str] = "quality.yaml"
 #: ``rules_version`` (:data:`_UNHASHED_FILES`).
 FUNCTIONAL_FAMILIES_FILE: Final[str] = "functional_families.yaml"
 
+#: Which harmonized roles roll up into a named ORG UNIT (Track E) — the same class of
+# : BROWSE-surface decision as the functional families, resolved on `department` because
+# a
+#: vice-presidency has no classification code. Registered, on the surface, NOT hashed.
+ORG_UNITS_FILE: Final[str] = "org_units.yaml"
+
 #: The content-bearing SFU sections an embedding may be built from — the subset of
 #: :data:`~src.jd_core.models.quality.SFUSection` that carries free text at all.
 #: ``identification`` is structured columns, not prose; ``about_sfu`` /
@@ -1669,6 +1675,77 @@ class FunctionalFamilies(_RuleFile):
     def by_slug(self, slug: str) -> FunctionalFamily | None:
         """The family a collection URL names, or ``None``."""
         return next((f for f in self.families.values() if f.slug == slug), None)
+
+
+class OrgUnit(BaseModel):
+    """One organizational unit and the departments that roll up into it."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    label: str = Field(min_length=1)
+    slug: str = Field(min_length=1)
+    #: The NORMALISED department strings whose roles belong to this unit — an exact
+    #: list, never a pattern. See ``org_units.yaml`` for why: a phrase match on
+    #: ``IT Services`` claims ``Science - IT Services`` whether or not it is a faculty's
+    #: own IT, which is the term-list failure this repo has had four times.
+    departments: tuple[str, ...] = ()
+    #: Units that roll UP into this one; their members are members of this one too.
+    children: tuple[str, ...] = ()
+
+
+class OrgUnits(_RuleFile):
+    """The org-unit rollup (``org_units.yaml``, Track E / MVP-2).
+
+    **On the register, but NOT in the content hash** (:data:`_UNHASHED_FILES`) — the
+    ninth file in that category, for the same reason as ``functional_families.yaml``:
+    gathering roles into "the VPFA roles" decides what a BROWSE surface shows and can
+    never change a JD's score, grade, gate or findings.
+
+    A unit is NOT a family. ``functional_families`` resolves from SFU's classification
+    codes in source filenames; a vice-presidency has no code, so this resolves on
+    ``department`` instead — measured: VPFA's own name matches 2 roles against a ~55+
+    portfolio, because a vice-presidency is never the string written on a JD.
+    """
+
+    units: Mapping[str, OrgUnit]
+
+    @property
+    def by_id(self) -> Mapping[str, OrgUnit]:
+        """Units by key — the route :func:`resolve_config_path` walks."""
+        return self.units
+
+    def by_slug(self, slug: str) -> OrgUnit | None:
+        """The unit a URL names, or ``None``."""
+        return next((u for u in self.units.values() if u.slug == slug), None)
+
+    @model_validator(mode="after")
+    def _children_exist_and_do_not_cycle(self) -> OrgUnits:
+        """Every child names a real unit, and the tree is a tree.
+
+        A child key with no unit is a rollup that silently contributes nothing — the
+        exact shape of "a confident wrong number about a portfolio". A cycle would hang
+        the resolver, and a rulebook that can hang a page is a rulebook that fails to
+        load instead.
+        """
+        for key, unit in self.units.items():
+            for child in unit.children:
+                if child not in self.units:
+                    raise ValueError(
+                        f"org_units.{key}.children names {child!r}, which is not a unit"
+                    )
+                if child == key:
+                    raise ValueError(f"org_units.{key} lists itself as a child")
+
+        def walk(key: str, seen: tuple[str, ...]) -> None:
+            if key in seen:
+                path = " -> ".join((*seen, key))
+                raise ValueError(f"org_units has a cycle: {path}")
+            for child in self.units[key].children:
+                walk(child, (*seen, key))
+
+        for key in self.units:
+            walk(key, ())
+        return self
 
 
 class Patterns(_RuleFile):
@@ -3313,6 +3390,7 @@ class Rules(BaseModel):
     #: On the register, but NOT in the content hash — see :class:`FunctionalFamilies`
     #: (Phase A2).
     functional_families: FunctionalFamilies
+    org_units: OrgUnits
     decision_register: DecisionRegister
 
     def thresholds_for(self, template: JDTemplate) -> Thresholds:
@@ -3993,6 +4071,15 @@ def decision_surface(rules: Rules) -> frozenset[str]:
             f"functional_families.{key}.title_terms",
             f"functional_families.{key}.department_terms",
         }
+    # Org units (Track E). `departments` and `children` are the rollup itself — WHO IS
+    # IN
+    # a vice-president's portfolio — so both are decisions and neither may be edited
+    # without the register noticing. `label`/`slug` are copy and routing, not decisions.
+    for key in rules.org_units.units:
+        paths |= {
+            f"org_units.{key}.departments",
+            f"org_units.{key}.children",
+        }
     return frozenset(paths)
 
 
@@ -4072,6 +4159,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     (REWRITE_FILE, "rewrite", Rewrite),
     (QUALITY_FILE, "quality", QualityAuditRules),
     (FUNCTIONAL_FAMILIES_FILE, "functional_families", FunctionalFamilies),
+    (ORG_UNITS_FILE, "org_units", OrgUnits),
     (REGISTER_FILE, "decision_register", DecisionRegister),
 )
 
@@ -4104,6 +4192,7 @@ _UNHASHED_FILES: Final[frozenset[str]] = frozenset(
         REWRITE_FILE,
         QUALITY_FILE,
         FUNCTIONAL_FAMILIES_FILE,
+        ORG_UNITS_FILE,
     }
 )
 

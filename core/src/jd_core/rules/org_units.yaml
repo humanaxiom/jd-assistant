@@ -1,0 +1,163 @@
+# Organizational units — the VPFA / Facilities rollup (Track E, MVP-2).
+# Rulebook-as-data (CLAUDE.md §2).
+#
+# WHAT THIS FILE DECIDES
+# ----------------------
+# Which harmonized roles roll up into a named ORG UNIT, for a unit page and a scoped
+# funnel. It changes NOTHING the validator computes about a JD — no score, no grade, no
+# gate, no finding — so it is registered, on the decision surface, drift-checked against
+# the register, and EXCLUDED from `rules_version` (`loader._UNHASHED_FILES`).
+#
+# A UNIT IS NOT A FAMILY, AND THAT IS WHY THIS FILE EXISTS
+# -------------------------------------------------------
+# `functional_families.yaml` resolves membership from SFU's own classification codes in
+# source FILENAMES. A vice-presidency has no classification code, so it needs a different
+# resolver keyed on `department`. MEASURED: filtering `department` on VPFA's own name
+# returns 2 roles against a ~55+ portfolio, because a vice-presidency is never the string
+# written on a JD. See `library/scopes.py` and docs/FINDINGS.md §5.
+#
+# 🔴 MEMBERSHIP IS AN EXACT LIST, NEVER A PATTERN — and that is the whole design
+# -----------------------------------------------------------------------------
+# This repo has had a term list lie to it four times, most recently when the substring
+# `lan` claimed 63% of the archive. A department is a small controlled vocabulary, so a
+# pattern is not needed and would be dangerous in exactly the same way: matching the
+# phrase `IT Services` would claim `Science - IT Services` for ITS whether or not it is a
+# faculty's own IT. Every string below was READ OFF THE LIVE BANK and assigned by a human.
+# A department nobody has assigned is reported as UNASSIGNED, never guessed into a unit.
+#
+# ⚠ DO NOT ADD A DEPARTMENT HERE BY INFERENCE. A wrong rollup hands a vice-president a
+# confident wrong number about their own portfolio, and nothing fails. If you are not sure
+# a department belongs, leave it out — the unit page renders it as an unassigned candidate,
+# which is the question being asked out loud instead of answered quietly.
+#
+# NORMALISATION (mechanical, and deliberately narrow)
+# --------------------------------------------------
+# Strings are compared after case-folding, `&` -> `and`, unicode dashes -> `-`, collapsing
+# whitespace and stripping trailing punctuation. That is the MECHANICAL half of the alias
+# problem — `Safety & Risk Services` and `Safety and Risk Services` are the same unit by
+# spelling, not by judgement — and it is why several archive spellings collapse to one
+# entry below. It deliberately does NOT normalise word order or separators: `IT Services,
+# Application Services` and `Application Services, IT Services` are listed separately
+# because deciding they are the same team is a judgement, not a spelling rule.
+#
+# NOTHING HERE IS SFU's PUBLISHED ORG CHART. The tree was supplied by the project owner
+# 2026-09-09; every value is `our_invention` and `open`. See HR-227…HR-229.
+
+version: jd_rules_sfu_v4
+
+units:
+  vpfa:
+    label: "Finance & Administration (VPFA)"
+    slug: vpfa
+    # The portfolio. Its own office is the only department that names it directly — two
+    # roles — which is the measurement that made a rollup necessary in the first place.
+    departments:
+      - office of the vice-president, finance and administration
+      - vice president finance and administration
+      - vice-president finance and administration
+      - vice president finance
+      - finance and administration
+      - avp finance administration
+      - vp finance and
+    # Units that roll UP into this one. Their members are members of this unit too.
+    children: [facilities_services, finance, its, safety_risk, campus_services]
+
+  facilities_services:
+    label: Facilities Services
+    slug: facilities
+    # Owner ruling 2026-09-09: the Facilities-named departments, PLUS Campus Security,
+    # PLUS operations / maintenance / parking / trades safety.
+    departments:
+      - facilities services
+      - facilities management
+      - facilities
+      - facilities capital projects
+      - facilities customer services
+      - facilities management - sfu surrey
+      - facilities operations
+      - facilities services surrey
+      - facilities services - major projects division
+      - facilities services, vancouver campus
+      - facilities strategic support
+      - facilities and capital planning
+      - sfu surrey facilities services
+      - campus security
+      - campus safety and security services
+      - operations and maintenance
+      - parking services
+      - occupational health and trades safety
+    children: []
+
+  finance:
+    label: Finance
+    slug: finance
+    # ⚠ CONSERVATIVE ON PURPOSE. `Procurement Services` (7), `Budget Office` (4),
+    # `Payroll` (1), `Accounting Services` (1), `Research Accounting` (2) and
+    # `Financial Aid & Awards` (8) are NOT here: the owner named "Finance" and did not
+    # place them, and "financial" appearing in a name is not evidence of a reporting
+    # line — `Student Services - Student Accounts` is the counter-example in the same
+    # data. They render as unassigned candidates until someone rules.
+    departments:
+      - finance
+      - financial services
+      - financial reporting
+      - finance - payroll
+    children: []
+
+  its:
+    label: IT Services (ITS)
+    slug: its
+    # Every spelling read off the live Bank. `Science - IT Services` is deliberately
+    # ABSENT: it may be a faculty's own IT, and claiming it is exactly the false positive
+    # a phrase match would produce.
+    departments:
+      - information technology services
+      - it services
+      - information technology
+      - it services, application services
+      - it services, client services
+      - it services, strategic services
+      - it services - infrastructure
+      - it services infrastructure services
+      - it services - application services
+      - it services - audio visual
+      - it services - cars client services innovations
+      - it services - high performance computing
+      - it services, av services
+      - it services, learning and community systems
+      - it services (its) - sfu surrey campus
+      - information technology services, sfu vancouver campus
+      - application services, it services
+      - application services, information technology services
+      - learning and community systems, it services
+      - research computing, it services
+      - business solutions, it services
+      - client services, it services
+    children: []
+
+  safety_risk:
+    label: Safety & Risk Services
+    slug: safety-risk
+    # ⚠ `Enterprise Risk and Resilience` standing ALONE (3 roles across two spellings) is
+    # not here — it names itself as its own unit, and whether it reports into Safety &
+    # Risk is a question the archive cannot answer. The compound string that names both
+    # IS here, because it says so.
+    departments:
+      - safety and risk services
+      - program and policy development, safety and risk services
+      - enterprise risk and resilience, safety and risk services
+    children: []
+
+  campus_services:
+    label: Campus Services
+    slug: campus-services
+    # 🔴 EMPTY, AND THE EMPTINESS IS THE FINDING. The owner named Campus Services as a
+    # VPFA sub-unit on 2026-09-09 and NO DEPARTMENT STRING IN THE ARCHIVE NAMES IT. The
+    # plausible constituents — Ancillary Services (6), Bookstore (17 across 4 spellings),
+    # Residence & Housing (32 across 4), Meeting/Event/Conference Services (7 spellings),
+    # Parking Services (1) — are an org question, not a parse one, so none is assigned.
+    # The unit ships empty and says so rather than being quietly dropped or quietly
+    # filled: a unit that renders "0 roles, and here is why" is answerable; one that is
+    # missing from the tree is not.
+    departments: []
+    children: []
