@@ -52,6 +52,7 @@ from src.jd_bank.embeddings.store import (
 from src.jd_core.bank.embed_text import (
     SERIALIZER_VERSION,
     SerializedText,
+    retruncate_within,
     serialize_document,
 )
 from src.jd_core.models.parsed_jd import SFUJobDescription
@@ -72,16 +73,49 @@ class RoleEmbeddingSummary(BaseModel):
     roles_embedded: int = 0
     roles_unchanged: int = 0
     roles_empty: int = 0
-    #: 🔴 Roles the embedding API REFUSED (400 — over the model's context). Counted, not
-    #: swallowed: a pass that silently drops a role reports success while Builder search
-    #: stays incomplete. Measured 2026-08-29, one such role aborted the whole pass at
-    #: 2,152 of 2,500 and every role after it stayed invisible.
+    #: 🔴 Roles the embedding API REFUSED even at the shortest fallback rung. Counted,
+    #: not swallowed: a pass that silently drops a role reports success while Builder
+    #: search stays incomplete. Measured 2026-08-29, one such role aborted the whole
+    #: pass at 2,152 of 2,500 and every role after it stayed invisible.
     roles_rejected: int = 0
+    #: Roles rescued by the HR-193 fallback ladder — embedded from a SHORTER re-cut of
+    #: their text after the full one 400'd. Declared rather than folded into
+    #: ``roles_embedded``, because such a role's vector describes less than the role
+    #: does, and a search ranking built on it is weaker in a way only this count shows.
+    roles_backed_off: int = 0
     nodes_pruned: int = 0
     model: str = ""
     dimensions: int = 0
     embed_stamp: str = ""
     serializer_version: str = ""
+
+
+async def _embed_within_ladder(
+    embed_client: EmbedClient, text: str, ladder: tuple[int, ...]
+) -> list[float] | None:
+    """The first vector the server accepts for a shorter cut of ``text``, or ``None``.
+
+    HR-193's ladder, shared in intent with the document runner: ``retruncate_within``
+    cuts on whole LINES, so each rung yields text the Bank could have produced itself.
+
+    An EMPTY ladder returns ``None`` immediately — the loop body never runs — which
+    restores the pre-HR-193 write-off exactly. That matters: the rungs are a registered
+    `open` decision, and a rescue that ignored an emptied list would take the decision
+    away from whoever emptied it. A rung that re-cuts to nothing, or to what the last
+    rung already produced, is skipped rather than spent on a round trip we know the
+    answer to.
+    """
+    attempted = text
+    for rung in ladder:
+        shorter = retruncate_within(text, rung)
+        if not shorter or shorter == attempted:
+            continue
+        attempted = shorter
+        try:
+            return (await embed_client.embed_batch([shorter]))[0]
+        except EmbeddingBadRequestError:
+            continue
+    return None
 
 
 async def _current_roles(session: AsyncSession) -> list[CanonicalJD]:
@@ -177,8 +211,27 @@ async def run_role_embedding(
                         (await embed_client.embed_batch([item[1].text]))[0]
                     )
                     singles.append(item)
+                    continue
                 except EmbeddingBadRequestError:
+                    pass
+                # `max_chars` truncation STILL 400'd — dense text past the model's
+                # window. Walk the fallback ladder (HR-193) exactly as the DOCUMENT
+                # runner does: re-cut the text to each shorter cap and embed the first
+                # the server accepts. Counted as a rescue, never as a clean embed.
+                #
+                # ⚠ Isolating alone was not enough. `ba196b9` stopped one such role
+                # aborting the pass, but a counted role is still an ABSENT role: it has
+                # no vector and Builder search cannot see it. A shorter vector ranks
+                # worse than a full one and infinitely better than none.
+                vector = await _embed_within_ladder(
+                    embed_client, item[1].text, embeddings.max_chars_fallback
+                )
+                if vector is None:
                     summary.roles_rejected += 1
+                    continue
+                single_vectors.append(vector)
+                singles.append(item)
+                summary.roles_backed_off += 1
             chunk, vectors = singles, single_vectors
         rows = [
             RoleWrite(
