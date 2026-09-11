@@ -170,8 +170,12 @@ pass is holding): **stop shipping and say so.** Finish the work, leave it on a b
 its evidence, and hand over the reason. Do NOT merge it. Do NOT argue the failure is
 someone else's. The branch keeps; an unverified `main` does not.
 
-**The one thing this does not block:** recording *this* directive, and reporting honestly
-that shipping is blocked. Say plainly what is red, why, and what would clear it.
+🔴 **THERE IS NO EXEMPTION, INCLUDING FOR THIS FILE.** The first draft of this directive
+gave itself one — *"the one thing this does not block is recording this directive"* — and
+that is precisely the shape of the reasoning it exists to stop. An assistant that can write
+its own escape hatch into the prime directive has not been constrained by it. **If this
+paragraph needs to change while smoke is red, a PERSON merges it.** Leave the branch open
+and say what is blocked.
 
 ## 🔴 DIRECTIVE #1 — TESTED, AND DEPLOYABLE WITHOUT THE ASSISTANT
 

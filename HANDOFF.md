@@ -44,6 +44,11 @@ system; piling changes onto it is how the state stops being explainable.
 leave it on a branch with its evidence, hand over the reason. The branch keeps; an
 unverified `main` does not.
 
+🔴 **NO EXEMPTION, INCLUDING FOR THE DIRECTIVE ITSELF.** Its first draft exempted "recording
+this directive" — an assistant writing its own escape hatch into the prime directive, which
+is the shape of reasoning it exists to stop. **If it must change while smoke is red, a
+PERSON merges it.**
+
 🔴 **AS OF 2026-09-11 SHIPPING IS BLOCKED.** `make smoke` is RED on two P3g failures —
 document vectors at `jd_segmenter_v2` against a `v8` Bank, and the role index not covering
 every role. Clearing them needs `make embed` + `make embed-roles`, which need
