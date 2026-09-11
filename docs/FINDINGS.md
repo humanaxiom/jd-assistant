@@ -624,11 +624,23 @@ Small, real, and it spans every field. One `.split()`/`join` in the label compar
 
 ### 9e. What this audit CANNOT see, and where the honest zeroes are
 
-- **`classification` is not evaluated at all** — pulled by hardcoded regex, not a label,
-  so a label probe says nothing about it. ⚠ Those regexes being hardcoded is itself a
-  rulebook-as-data gap.
-- **`grade` is under-counted for CUPE** (parser 465, readable 98): `_CUPE_GRADE_RX` finds
-  grades in prose like `Secretary, Grade 6`. A negative gap is the probe's blind spot.
+- **`classification` is not evaluated at all** — pulled by regex, not a label, so a label
+  probe says nothing about it. ~~⚠ Those regexes being hardcoded is itself a
+  rulebook-as-data gap.~~ ✅ **THE RULEBOOK HALF IS CLOSED (P3f, 2026-09-11.)** The three
+  matchers now live in `rules/classification.yaml`, registered as **HR-233 … HR-236** (all
+  `open`, all `technical`) and drift-checked, so a change to one breaks the build until
+  the register is updated. ⚠ **No value moved in the migration** — verified over 78,384
+  comparisons against real Bank text, 0 mismatches — so `PARSER_VERSION` did NOT bump and
+  no re-parse was owed. ⚠ **The FIRST half of this bullet still stands:** the field audit
+  reads LABELS, and a grade pulled by a matcher rather than a label is still invisible to
+  it. Registering the matchers did not make the probe able to see them.
+- **`grade` is under-counted for CUPE** (parser 465, readable 98): `classification.cupe_grade`
+  (then `_CUPE_GRADE_RX`) finds grades in prose like `Secretary, Grade 6`. A negative gap is
+  the probe's blind spot. ⚠ Probed from the other side during P3f, the matcher is loose in a
+  second way the label probe cannot show either: the leading `\b` correctly refuses
+  `upgrade 9` and `photograph 3`, but **no separator is required**, so the bare token `GR8`
+  reads as grade 8. Registered as HR-233 rather than tightened on a sample — it wants a
+  measurement over the archive first.
 - **`grade` is genuinely absent almost everywhere**: 4,292 of 5,121 APSA and 4,517 of
   4,530 unrecorded documents carry no grade label. That corroborates the separate finding
   that grade is missing or unreliable across the archive.

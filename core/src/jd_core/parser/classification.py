@@ -21,6 +21,23 @@ populated, mostly adjacent field text). This extracts a STRUCTURED, provenance-c
   header — the same audit reported it "not extracted anywhere", having looked only at
   body text.
 
+🔴 **THE MATCHERS ARE RULEBOOK DATA, NOT CONSTANTS (Track P, P3f).** They were three
+module-level ``re.compile`` calls, which is the gap FINDINGS §9e names outright: "those
+regexes being hardcoded is itself a rulebook-as-data gap". They now sit in
+``rules/classification.yaml``, registered as HR-233 … HR-236 (all ``open``) and
+drift-checked, so retuning one breaks the build until the register is updated.
+
+⚠ **No value changed in the move** — measured over 78,384 comparisons against real Bank
+text with 0 mismatches — so the parse is byte-identical, ``PARSER_VERSION`` did not bump
+and no re-parse was owed. Two of the matchers are known loose (HR-233 accepts the bare
+token ``GR8`` as grade 8) and that is now an HR question on the register rather than a
+constant nobody could see.
+
+⚠ **What P3f did NOT fix:** the field audit reads LABELS, and a grade pulled by a
+matcher is still not a labelled field, so ``classification`` stays invisible to it.
+Registering the matchers made them reviewable, not auditable — §9e's first sentence
+stands.
+
 Pure and total — never raises; returns ``None`` when no trustworthy grade is present
 (the common case), so a grade the document does not state is never manufactured. Call
 with the identification block (not the whole document) to avoid matching a "grade 12
@@ -30,46 +47,42 @@ elsewhere).
 
 from __future__ import annotations
 
-import re
-
 from src.jd_core.models.parsed_jd import JobClassification, SFUEmployeeGroup
-
-#: A numeric CUPE pay grade: "grade 8", "Gr. 6", "GRADE 10".
-_CUPE_GRADE_RX = re.compile(r"\b(?:gr\.?|grade)\s*[:#]?\s*(\d{1,2})\b", re.IGNORECASE)
-
-#: A JDFN "Classification & Grade Approved:" value that is ACTUALLY a grade — a 1–2
-#: digit number, optionally "PG"-prefixed — not another field label and not blank.
-_JDFN_GRADE_APPROVED_RX = re.compile(
-    r"grade\s+approved\s*[:#]?\s*((?:PG\s*)?\d{1,2})\b", re.IGNORECASE
-)
-
-#: The modern template's identification-block ``Grade:`` field. Line-anchored (see the
-#: module docstring): the whole point is that it is a labelled FIELD, not the word
-#: "grade" appearing somewhere in prose.
-_JDFN_GRADE_FIELD_RX = re.compile(
-    r"(?im)^[ \t]*(?:pay )?grade[ \t]*[:#][ \t]*((?:PG[ \t]*)?\d{1,2})\b"
-)
-
-_JDFN_SCHEMES = frozenset({"apsa", "apex", "poly"})
+from src.jd_core.rules import Classification, get_rules
 
 
 def extract_classification(
-    text: str, employee_group: SFUEmployeeGroup | None
+    text: str,
+    employee_group: SFUEmployeeGroup | None,
+    rules: Classification | None = None,
 ) -> JobClassification | None:
-    """Best-effort structured grade for a JD, or ``None`` when none is trustworthy."""
+    """Best-effort structured grade for a JD, or ``None`` when none is trustworthy.
+
+    ``rules`` defaults to the loaded rulebook. It is injectable for the same reason
+    :func:`~src.jd_core.parser.wjq.segment_wjq` takes its ``Wjq`` block: the suite shows
+    this reads the YAML by re-loading it retuned and watching the behaviour follow — a
+    module holding a constant would fail that.
+    """
     if not text:
         return None
+    rules = rules if rules is not None else get_rules().classification
     if employee_group == "cupe":
-        match = _CUPE_GRADE_RX.search(text)
+        match = rules.cupe_grade_pattern.search(text)
         if match is not None:
             return JobClassification(
                 scheme="cupe", value=match.group(1), source="parsed"
             )
         return None
     # JDFN / unknown group: only an explicit, filled grade FIELD.
-    match = _JDFN_GRADE_APPROVED_RX.search(text) or _JDFN_GRADE_FIELD_RX.search(text)
+    match = rules.jdfn_grade_approved_pattern.search(
+        text
+    ) or rules.jdfn_grade_field_pattern.search(text)
     if match is not None:
-        scheme = employee_group if employee_group in _JDFN_SCHEMES else "unknown"
+        scheme = (
+            employee_group
+            if employee_group is not None and employee_group in rules.jdfn_schemes
+            else "unknown"
+        )
         return JobClassification(
             scheme=scheme, value=match.group(1).strip(), source="parsed"
         )

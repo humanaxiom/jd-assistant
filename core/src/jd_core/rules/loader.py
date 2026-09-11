@@ -161,6 +161,14 @@ FUNCTIONAL_FAMILIES_FILE: Final[str] = "functional_families.yaml"
 #: vice-presidency has no classification code. Registered, on the surface, NOT hashed.
 ORG_UNITS_FILE: Final[str] = "org_units.yaml"
 
+#: How a position's PAY GRADE is read off a JD (Track P, P3f). No validator reads
+#: ``SFUJobDescription.classification``, so retuning a matcher here cannot move a JD's
+#: score — registered and on the surface but NOT hashed into ``rules_version``
+#: (:data:`_UNHASHED_FILES`). ⚠ It moves ``PARSER_VERSION`` instead, which is the
+#: STRONGER obligation: a change here changes what the parser WRITES and so requires an
+#: archive re-parse in the same change.
+CLASSIFICATION_FILE: Final[str] = "classification.yaml"
+
 #: The content-bearing SFU sections an embedding may be built from — the subset of
 #: :data:`~src.jd_core.models.quality.SFUSection` that carries free text at all.
 #: ``identification`` is structured columns, not prose; ``about_sfu`` /
@@ -1756,6 +1764,66 @@ class Patterns(_RuleFile):
     degree_mention: Regex
     related_discipline: Regex
     senior_title: Regex
+
+
+class Classification(_RuleFile):
+    """How a position's PAY GRADE is read off a JD (``classification.yaml``, P3f).
+
+    The mirror image of :class:`Wjq`: that file is hashed because a heading decides what
+    a JD's duties ARE. Nothing reads ``SFUJobDescription.classification`` to score, gate
+    or approve, so retuning a matcher here cannot move a single JD's score and this file
+    is **unhashed**. What it can do is make the parser write a grade the document never
+    stated — and grade is already measured as missing or unreliable across the archive,
+    so a manufactured one is strictly worse than an absent one.
+
+    ⚠ Unhashed is not unimportant. A change here moves ``PARSER_VERSION`` and owes an
+    archive re-parse in the same change, which is a heavier obligation than a hash bump.
+    """
+
+    #: The inline CUPE pay grade ("Secretary, grade 8"). Known loose — HR-233.
+    cupe_grade_pattern: Regex
+    #: The older JDFN "Classification & Grade Approved:" field.
+    jdfn_grade_approved_pattern: Regex
+    #: The modern JDFN identification-block ``Grade:`` field. Line-anchored.
+    jdfn_grade_field_pattern: Regex
+    #: The employee groups whose grade is recorded under the group's OWN scheme name;
+    #: any other group's grade is recorded as ``unknown`` rather than mis-attributed.
+    jdfn_schemes: tuple[str, ...]
+
+    @field_validator(
+        "cupe_grade_pattern", "jdfn_grade_approved_pattern", "jdfn_grade_field_pattern"
+    )
+    @classmethod
+    def _captures_the_grade(cls, pattern: re.Pattern[str]) -> re.Pattern[str]:
+        """Every matcher here is read via ``group(1)``, so it MUST capture.
+
+        A pattern edited down to no capturing group still compiles, still matches, and
+        then raises ``IndexError`` inside a parser that is contractually total — on
+        whichever archive document happens to state a grade first. That is a load error,
+        not a runtime surprise.
+        """
+        if pattern.groups < 1:
+            raise ValueError(
+                f"grade pattern {pattern.pattern!r} has no capturing group; the grade "
+                f"is read from group 1"
+            )
+        return pattern
+
+    @field_validator("jdfn_schemes")
+    @classmethod
+    def _are_real_employee_groups(cls, schemes: tuple[str, ...]) -> tuple[str, ...]:
+        """A scheme nobody can be parsed into is a table that silently does nothing."""
+        if not schemes:
+            raise ValueError("jdfn_schemes must name at least one employee group")
+        _no_repeats("jdfn_schemes", schemes)
+        known = set(get_args(SFUEmployeeGroup))
+        unknown = sorted(set(schemes) - known)
+        if unknown:
+            raise ValueError(
+                f"jdfn_schemes names {unknown}, which are not SFU employee groups "
+                f"({sorted(known)})"
+            )
+        return schemes
 
 
 class RestrictedTitle(BaseModel):
@@ -3391,6 +3459,9 @@ class Rules(BaseModel):
     #: (Phase A2).
     functional_families: FunctionalFamilies
     org_units: OrgUnits
+    #: On the register, but NOT in the content hash — see :class:`Classification`
+    #: (Track P, P3f). ⚠ It moves ``PARSER_VERSION`` instead.
+    classification: Classification
     decision_register: DecisionRegister
 
     def thresholds_for(self, template: JDTemplate) -> Thresholds:
@@ -3888,6 +3959,7 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "harmonization",
     "rewrite",
     "quality",
+    "classification",
 )
 
 
@@ -4160,23 +4232,28 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     (QUALITY_FILE, "quality", QualityAuditRules),
     (FUNCTIONAL_FAMILIES_FILE, "functional_families", FunctionalFamilies),
     (ORG_UNITS_FILE, "org_units", OrgUnits),
+    (CLASSIFICATION_FILE, "classification", Classification),
     (REGISTER_FILE, "decision_register", DecisionRegister),
 )
 
 #: Every YAML file that makes up the rulebook, in load order.
 RULE_FILES: Final[tuple[str, ...]] = tuple(name for name, _, _ in _FILE_MODELS)
 
-#: The rule files that are NOT part of the rulebook's content identity. All four are
-#: on the decision surface, all four are drift-checked against the register, and
+#: The rule files that are NOT part of the rulebook's content identity. Every one of
+#: them is on the decision surface, every one is drift-checked against the register, and
 #: **none can change what the validator computes about a JD** — which is the whole
-#: test:
+#: test. (This said "all four" while listing nine, so it is now written in a way a
+#: tenth cannot make wrong; the count of record is the set below.)
 #:
 #: * ``decision_register.yaml`` *describes* the rules;
 #: * ``segmentation.yaml`` decides which FILES a baseline number is computed over;
 #: * ``embeddings.yaml`` decides what text a JD becomes FOR AN EMBEDDING MODEL;
 #: * ``dedup.yaml`` decides which DOCUMENTS are similar to each other (Tier-2);
 #: * ``harmonization.yaml`` decides HOW a cluster's members are merged into a DRAFT
-#:   (Phase 4.1) — never how a JD is scored/approved.
+#:   (Phase 4.1) — never how a JD is scored/approved;
+#: * ``classification.yaml`` decides how a PAY GRADE is read off a JD (P3f). ⚠ The one
+#:   entry here that owes a re-parse: it cannot move ``rules_version``, but it DOES move
+#:   ``PARSER_VERSION``, because it changes what the parser writes.
 #:
 #: Hashing any of them would mean a copy-edit to an HR-facing paragraph, a re-banding of
 #: the archive's eras, retuning ``max_chars``, retuning ``jaccard_min``, or retuning a
@@ -4193,6 +4270,7 @@ _UNHASHED_FILES: Final[frozenset[str]] = frozenset(
         QUALITY_FILE,
         FUNCTIONAL_FAMILIES_FILE,
         ORG_UNITS_FILE,
+        CLASSIFICATION_FILE,
     }
 )
 

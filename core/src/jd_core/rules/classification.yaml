@@ -1,0 +1,119 @@
+# How a position's PAY GRADE is read off a JD — rulebook-as-data (CLAUDE.md §2).
+# Track P, P3f.
+#
+# WHAT THIS FILE DECIDES
+# ----------------------
+# Nothing here changes what the VALIDATOR computes about a JD. Nothing reads
+# `SFUJobDescription.classification` to score, gate or approve anything — it is captured
+# so that grade becomes recoverable data (`docs/audit/data-state-and-grade-2026-08-01.md`,
+# Phase A of the grade-capture plan), not because a gate consumes it.
+#
+# What it DOES decide is what the parser writes into that field, which is why it is on
+# the decision surface: a matcher that is too greedy MANUFACTURES a grade the document
+# never stated, and grade is one of the fields this project has already measured as
+# "missing or unreliable everywhere". Inventing one is strictly worse than leaving it
+# absent, so every default below is deliberately conservative.
+#
+# WHY IT IS A FILE AT ALL (the defect this closes)
+# ------------------------------------------------
+# These three matchers were HARDCODED in `parser/classification.py` as
+# `_CUPE_GRADE_RX` / `_JDFN_GRADE_APPROVED_RX` / `_JDFN_GRADE_FIELD_RX`. FINDINGS §9e:
+# "`classification` is not evaluated at all — pulled by hardcoded regex, not a label, so
+# a label probe says nothing about it. ⚠ Those regexes being hardcoded is itself a
+# rulebook-as-data gap." The field audit cannot see a constant, so `classification` was
+# reported UNEVALUATED rather than clean — the same shape as the `employee_group`
+# two-provenances defect.
+#
+# ⚠ NO VALUE CHANGED WHEN THEY MOVED HERE. This file ships the three patterns
+# CHARACTER-FOR-CHARACTER as they were compiled in Python, so the parse is byte-identical
+# and `PARSER_VERSION` did NOT move. That is deliberate: CLAUDE.md's standing rule is
+# "if a default looks wrong, register it as `open`, don't quietly patch it". Two of these
+# matchers are known to be loose (see HR-233's `why_it_matters`) and that is now an HR
+# question on the register instead of a constant nobody could see.
+#
+# ON THE REGISTER, NOT IN THE HASH
+# --------------------------------
+# Every knob below is registered (HR-233 … HR-236, all `open` — SFU HR has ratified
+# nothing) and drift-checked: change one without telling HR and `make gates` fails.
+#
+# But it is excluded from the rulebook's content hash (`loader._UNHASHED_FILES`), so it
+# does NOT move `rules_version`. That stamp means exactly one thing — "the rules that
+# produced this ValidationReport" — and no validator reads `classification`, so retuning
+# a matcher here cannot move a single JD's score. Hashing this file would make every
+# previously stamped report look stale on a change that changed no rule.
+#
+# 🔴 IT MOVES `PARSER_VERSION` INSTEAD, AND THAT IS THE STRONGER OBLIGATION. Changing a
+# pattern here changes what the parser WRITES, so it requires a `PARSER_VERSION` bump and
+# an archive re-parse IN THE SAME CHANGE — the contract that constant already carries
+# (segmenter.py). A bump without a re-parse leaves every layer querying a version with no
+# rows, i.e. an apparently empty Bank.
+#
+# WHY EVERY MATCHER KEY ENDS IN `_pattern`
+# ----------------------------------------
+# It is not decoration. `render._is_pattern_valued` decides whether a value is a REGEX —
+# and therefore whether the HR-facing summary table prints "*a text pattern — see below*"
+# instead of the raw source — from the config path alone: a `*_pattern` key, or any key
+# in `patterns.yaml`. Named `cupe_grade`, this file's matchers rendered their raw regex
+# straight into the register's table, which `test_no_raw_regex_reaches_the_summary_table`
+# refuses. The suffix keeps that rule TRUE rather than adding this file as a second
+# exception to it.
+#
+# WHY THE CASE FLAG IS INLINE AND NOT A KEY
+# -----------------------------------------
+# `patterns.yaml` writes `{pattern, ignore_case}`, and the loader compiles the pair. But
+# `normalize_config_value` renders a regex on the decision surface as its PATTERN SOURCE
+# ALONE — so an `ignore_case` written as a key is a behaviour-changing knob the register's
+# drift check CANNOT SEE. Flipping it on `cupe_grade` would silently stop matching
+# "GRADE 10" with the register none the wiser. So every flag these matchers need is
+# written INLINE in the pattern (`(?i)`, `(?im)`), where the drift check reads it, and
+# `ignore_case` is `false` throughout. Identical behaviour, one fewer invisible knob.
+#
+# provenance:
+#   ours: `parser/classification.py`, Phase A of the grade-capture plan. Measured
+#     against the real archive — see the module docstring and
+#     `docs/audit/data-state-and-grade-2026-08-01.md` (~64% of CUPE JDs carry a
+#     recoverable numeric grade; 876 archive documents state a JDFN grade in the header).
+#   sfu: the APSA/APEX/Poly template's "Grade:" and "Classification & Grade Approved:"
+#     identification fields; the CUPE 3338 classification line ("Secretary, grade 8").
+version: jd_rules_sfu_v4
+
+# --- CUPE: the pay grade IS printed on the JD ---------------------------------
+# A numeric CUPE pay grade: "grade 8", "Gr. 6", "GRADE 10". Deliberately NOT
+# line-anchored — CUPE prints the grade inline in a classification line, not as a
+# labelled field, so anchoring it would recover almost nothing.
+#
+# ⚠ KNOWN LOOSE, and registered as such (HR-233). FINDINGS §9e measured the cost from the
+# other direction: parser 465 against readable 98, because this finds grades in prose
+# like "Secretary, Grade 6". It is only ever applied to CUPE documents and only to the
+# identification block, which is what keeps it tolerable.
+cupe_grade_pattern:
+  pattern: '(?i)\b(?:gr\.?|grade)\s*[:#]?\s*(\d{1,2})\b'
+  ignore_case: false
+
+# --- JDFN: grade is usually ABSENT — never manufacture it ---------------------
+# The older "Classification & Grade Approved:" field, captured ONLY when it holds a
+# plausible grade token (1–2 digits, optionally "PG"-prefixed). The field is routinely
+# blank — a grade assigned post-authoring lives in the HRIS — and a blank must never be
+# invented.
+jdfn_grade_approved_pattern:
+  pattern: '(?i)grade\s+approved\s*[:#]?\s*((?:PG\s*)?\d{1,2})\b'
+  ignore_case: false
+
+# The modern template's identification-block `Grade:` field. LINE-ANCHORED, and that
+# anchor is load-bearing: the point is that this is a labelled FIELD, not the word
+# "grade" appearing somewhere in prose. Until the docx-header fix
+# (`_docx_identification_block`) these documents had no identification block at all,
+# `text` was the whole document, and an unanchored "grade" match there is what produced
+# the 430 garbage `grade` strings the audit found. `(?m)` is what makes `^` mean
+# start-of-line; drop it and this matcher stops finding the field on every document whose
+# identification block does not begin with it.
+jdfn_grade_field_pattern:
+  pattern: '(?im)^[ \t]*(?:pay )?grade[ \t]*[:#][ \t]*((?:PG[ \t]*)?\d{1,2})\b'
+  ignore_case: false
+
+# --- which groups get their OWN scheme name -----------------------------------
+# The employee groups whose grade is recorded under the group's own scheme. A JDFN grade
+# read for any group NOT listed here is recorded as `scheme: unknown` rather than
+# attributed to a scheme we cannot name — `excluded` is deliberately absent, because an
+# excluded position has no bargaining-unit grade ladder to belong to.
+jdfn_schemes: [apsa, apex, poly]
