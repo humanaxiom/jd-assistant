@@ -126,6 +126,26 @@ with no rows, i.e. an apparently empty Bank.
 
 
 
+### ▶ CAS IS ON — and it is a box-local `.env` value, not a repo setting
+
+**`CAS_ENABLED=true`** as of 2026-09-09, restored for the CIO AI task force demo. It
+lives in the repo-root **`.env`, which is gitignored**; the committed compose default is
+`false`, so this never shows in a diff and a fresh checkout does not inherit it.
+
+Verified end to end rather than by the flag: a protected page 303s to login, `/cas/login`
+302s to `https://cas.sfu.ca/cas/login?service=…`, and `cas.sfu.ca` answers 200. The
+service URL resolves to **the origin the request arrived on**, so both
+`http://localhost:25800` and `http://sfuai.ca:7000` work — that is `ALLOWED_SERVICE_ORIGINS`
+(P0.3) doing its job, not a coincidence.
+
+⚠ **With CAS on you cannot `curl` a page to check it** — every UI route 303s. Verify
+through the suite, or `launch.ps1 -NoCas` / flip the one line. A copy of the CAS-enabled
+file is at `C:\Users\adam\jd-bank-backups\env.cas-enabled-20260909.bak`.
+
+⚠ **The published port varies by box** (`${JD_API_PORT:-25800}`). It has been 25900 and
+25800 on this machine within a day. `docker port jd-bank-api-1` is the answer; the guide's
+25800 is the committed default and is not wrong.
+
 ### ▶ CONTENT CARRY-THROUGH — `make bank-audit`, measured 2026-09-09
 
 **The funnel counts DRAFTS; this counts CONTENT.** They answer different questions and
@@ -165,6 +185,14 @@ end to end by the parser column-gap fix (#137) + HR-213 (`rewrite.duties_never_i
 A JDFN producer pass is what closes this, exactly as the CUPE one did. Until then **do not
 quote a JDFN content figure** from anywhere.
 
+⚠ **AND IT IS NOW DEMO-VISIBLE.** The Bank went in front of the CIO AI task force on
+2026-09-10, and the unit pages link straight through to roles. A JDFN role opened from
+VPFA or Facilities can show a Problem Solving section **no source document wrote**. The
+CUPE cohort is clean; JDFN is not, and the difference is invisible on the page. The pass
+takes roughly the 19 hours the CUPE one did (`--only-template jdfn`), so it is an
+overnight job, not a pre-meeting one — but it should not keep slipping now that a
+stakeholder audience can reach it.
+
 🔴 **THE DUTY-FREQUENCY DEFECT IS OPEN, AND THE NAIVE FIX IS UNSAFE.** WJQ duty frequency
 survives on **28.5% of rewritten duties against 100% of merge-only ones** — the rewrite
 destroys a field the merge preserves, and frequency is an input to the CUPE point-factor
@@ -181,33 +209,47 @@ one. This needs a matching design with evidence behind it.
 carry at least one. A finding on nearly every draft is not a signal; `duty_flag_threshold`
 (HR-184) wants re-measuring rather than quietly re-tuning.
 
-### ▶ MVP-2 (VPFA · Facilities) — the parse gate cleared; ONE input is missing
+### ✅ MVP-2 (VPFA · Facilities) — SHIPPED 2026-09-09 (#183), live behind CAS
 
-**The build is no longer waiting on code.** Track E's stated blocker was `department`
-being unaudited; P3d shipped at `v8` (+607 departments), so that gate is closed. What is
-left is what the plan always said would be people-work — **the org tree and the alias
-map** — and it is now measured instead of anticipated.
+The org tree came from the owner, so the build is done and merged. Six units, each a
+funnel collection like the IT one — **not** nav items, which was a correction: a unit is
+a named subset of the Bank, and two portfolios in the menu imply a tree that is complete
+when it is not.
 
-| measured 2026-09-09 | |
-|---|---|
-| DRAFT roles | 2,496 |
-| carrying a `department` | 1,819 (72.9%) |
-| **carrying none** | 🔴 **677 (27.1%)** |
-| **distinct department STRINGS** | 🔴 **742** |
+| unit | roles | |
+|---|---:|---|
+| **VPFA** `/unit/vpfa` | **160** | the portfolio; Facilities, Finance, ITS, Safety & Risk and Campus Services roll up into it |
+| **Facilities** `/unit/facilities` | 57 | incl. Campus Security — the boundary call Track E had open, settled by the owner |
+| ITS `/unit/its` · Finance `/unit/finance` · Safety & Risk `/unit/safety-risk` | 54 · 31 · 10 | |
+| Campus Services `/unit/campus-services` | **0** | named as a sub-unit; **no department string in the archive names it** |
 
-The 742 split into **mechanical** aliasing that is safe to automate (`&` vs `and`, word
-order, campus suffixes — `Facilities Services` has six spellings) and **organisational**
-questions that are not ours: is Human Resources (52) under VPFA? is Campus Security (11+3)
-in Facilities? where does Ancillary Services (6) sit? The full list with role counts is in
-[`docs/plan.md`](docs/plan.md) § TRACK E.
+Linked from the **funnel footer** beside "The IT collection". `?scope=<slug>` also works
+on the funnel, but the footer deliberately links the LIST — the first cut led with the
+scope and landed every reader on more statistics.
 
-⚠ **Do not seed the tree or the aliases by inference** — a wrong rollup hands a
-vice-president a confident wrong number about their own portfolio, and nothing will fail.
+**Each page carries THREE numbers** — in the unit · not in it · **department unrecorded
+(677, 27.1%)**. `UnitRollup` has no single "other" field, so a template cannot collapse
+that distinction even by accident.
 
-⚠ **And the rollup must publish a COULD-NOT-EVALUATE bucket.** 27.1% of roles have no
-department; a VPFA page that silently omits 677 of them repeats the IT collection's first
-defect on a surface a vice-president reads. **Three numbers, always: in the unit · not in
-it · department unrecorded.**
+🔴 **MEMBERSHIP IS AN EXACT LIST, NEVER A PATTERN** (`org_units.yaml`, HR-227…HR-232, all
+`open`). `Science - IT Services` is in the archive and may be a faculty's own IT; a phrase
+match on "IT Services" claims it either way. Deliberately excluded, with a test. The
+MECHANICAL half of aliasing IS automated (`&`/`and`, unicode dashes, case, whitespace);
+word ORDER is not, because deciding two orderings name one team is a judgement.
+
+⚠ **SIX DEPARTMENTS ARE DELIBERATELY UNASSIGNED**, each a one-line rulebook edit and each
+rendered on the page as a candidate: **Human Resources (52)**, Procurement Services (7),
+Financial Aid & Awards (8), Budget Office (4), Enterprise Risk & Resilience (3), Campus
+Public Safety (2). None was named by the owner. "Financial" in a name is not evidence of
+a reporting line — `Student Services - Student Accounts` is the counter-example in the
+same data. 655 departments are unassigned in total.
+
+⚠ **TWO SURFACES ANSWER "IT" ON PURPOSE.** ITS the department is **54**; the IT collection
+is **213** — a strict SUPERSET (all 54 in both, 159 IT roles in faculties and schools,
+none in the department but outside the family). Kept apart pending a **CIO / VPFA**
+conversation, because the **ITP/S classification is legacy**. The ITS page renders the
+comparison so nobody "fixes" one to match the other: rolling the portfolio up through the
+family would add 159 faculty IT staff to a vice-president's total.
 
 ### 🔴 What `make smoke` now checks — and why it is RED
 
@@ -314,10 +356,11 @@ Everything else, including the rest of the archive gap, is in [`docs/plan.md`](d
 **Queued next features** — slotted in [`docs/plan.md`](docs/plan.md) § THE MVP RUN ORDER,
 which is the order of record. It is **E → G → F**, and this page used to say E → F → G:
 
-1. **MVP-2 · Track E — the next units** (VPFA → Facilities). Blocked on the org tree and a
-   curated alias map, not on code — so the *people-work starts today*. 🔴 The **build**
-   waits on **P3d**: a unit is defined by `department`, and P3b MEASURED that column as
-   unreliable — 726 CUPE documents state a department the Bank does not hold.
+1. ~~**MVP-2 · Track E — the next units**~~ ✅ **SHIPPED 2026-09-09 (#183).** Six units,
+   VPFA 160 · Facilities 57, as funnel collections. What is LEFT is not code: six named
+   departments still unassigned (Human Resources at 52 the significant one), each a
+   one-line edit to `org_units.yaml`, and each already rendered on the page as a
+   candidate. See the MVP-2 section above.
 2. **MVP-3 · Track G — upload a JD into the Builder**
    ([`docs/plans/BUILDER-UPLOAD-AND-CHECK.md`](docs/plans/BUILDER-UPLOAD-AND-CHECK.md)):
    upload a Word file or PDF → parse → compliance panel → optionally seed a draft, turning
