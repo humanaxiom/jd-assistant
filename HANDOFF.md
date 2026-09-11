@@ -445,10 +445,26 @@ flag destroys more frequency. The CUPE arithmetic reconciles: 37.3% unflagged ag
 keeping a frequency, the 8.8-point gap being matched duties whose merge counterpart had no
 frequency of its own.
 
-⚠ **A threshold SWEEP is not possible from stored data** — only the boolean outcome at the
-shipped 0.2 survives in `change_log`, not the Jaccard values. Moving HR-184 honestly means
-re-running the deterministic merge per cluster and re-scoring. CPU-only (no GPU, no model),
-so it is feasible — but it is work, not a lookup.
+✅ **THE SWEEP IS DONE (§10e).** ⚠ It was first written up as *"not possible from stored
+data"* — **wrong**: `merge_provenance.duty_coverage` holds the merge duty TEXTS, so every
+Jaccard recomputes in seconds. Validated by reproducing the pipeline's own answer exactly
+(4,570 CUPE duties flagged at 0.2, the number already in `change_log`).
+
+| CUPE flag rate | 0.05 | 0.10 | **0.20** | 0.30 | 0.50 |
+|---|---:|---:|---:|---:|---:|
+| | 2.7% | 20.6% | **62.7%** | 85.1% | 96.7% |
+
+🔴 **0.8% of CUPE duties have NO token overlap with any merge duty; 0.3% are identical.** The
+model rewords nearly everything and invents almost nothing — so 0.2 is not separating
+fabricated from grounded, it is separating lightly from heavily reworded, and the shipped
+value sits exactly where the curve is steepest.
+
+⚠ **DO NOT MOVE THE NUMBER ON THIS ALONE.** The sweep measures how many duties each threshold
+MATCHES, not whether the match is the RIGHT merge duty — and argmax/positional agree only
+8–26%. Because the same knob carries `frequency` back, a lower threshold attaches MORE
+frequencies from possibly-wrong matches, and a wrong frequency is worse than a missing one.
+**The open question is precision, not volume**, and it needs a labelled sample: read N
+rewritten duties against their argmax merge duty and count how often it is the same duty.
 
 ### ✅ MVP-2 (VPFA · Facilities) — SHIPPED 2026-09-09 (#183), live behind CAS
 

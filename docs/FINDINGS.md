@@ -862,14 +862,59 @@ threshold to rescue frequency also floods the flag, and raising it to sharpen th
 destroys more frequency. **They cannot be tuned independently, and the rulebook comment says
 so on purpose** (*"answering it twice is how two thresholds drift apart"*).
 
-### 10d. What this measurement CANNOT answer, and what it would take
+### 10d. ~~What this measurement cannot answer~~ 🔴 WRONG — and the sweep is below
 
-A threshold **sweep** — how flag rate and frequency survival move at 0.1, 0.3, 0.5 — needs
-the per-duty Jaccard **values**, and those are not stored: only the boolean outcome at the
-shipped 0.2 survives in `change_log`. Recomputing them means re-running the deterministic
-merge for each cluster and re-scoring against the stored rewritten duties. That is CPU-only
-(no GPU, no model), so it is **feasible but not free**, and it is the honest prerequisite
-for moving HR-184 rather than guessing at it.
+**This section said the sweep needed the merge re-run, because "only the boolean outcome at
+the shipped 0.2 survives in `change_log`". That is false, and it was false when written.**
+`change_log.merge_provenance.duty_coverage` stores **the merge duty TEXTS verbatim**, so
+every per-duty Jaccard is recomputable from stored data alone — no re-run, no CPU budget,
+seconds. Checking the column instead of asserting about it is what found this.
+
+### 10e. 🔴 The sweep — and the shipped 0.2 sits on the steepest part of the curve
+
+**Measured 2026-09-11 over 2,426 drafts** (72 skipped: no merge duties recorded). The
+scoring functions are **imported from `rewrite/harmonize.py`** (`_content_tokens`,
+`_closest`), never re-implemented — a sweep carrying its own copy of the arithmetic would
+agree with itself rather than with the code that ships.
+
+**The validation that makes it trustworthy:** at the shipped 0.2 the recomputation flags
+**4,570** CUPE duties — *exactly* the 4,570 recorded in `change_log` (§10a). It reproduces
+the pipeline's own answer before being asked anything new.
+
+| threshold | CUPE flagged | `(unrecorded)` | `apsa` |
+|---|---:|---:|---:|
+| 0.05 | **2.7%** | 16.4% | 11.8% |
+| 0.10 | **20.6%** | 36.5% | 33.1% |
+| 0.15 | 45.3% | 59.8% | 57.4% |
+| **0.20 (shipped)** | **62.7%** | **75.0%** | **73.9%** |
+| 0.25 | 76.1% | 85.6% | 84.2% |
+| 0.30 | 85.1% | 92.0% | 89.9% |
+| 0.50 | 96.7% | 98.3% | 96.1% |
+
+🔴 **Two numbers reframe the whole question:**
+
+| CUPE | |
+|---|---:|
+| duties with **NO token overlap at all** (J = 0.0) | **0.8%** (55 of 7,290) |
+| duties **identical** to a merge duty (J = 1.0) | **0.3%** (24) |
+
+**The model rewords essentially everything and invents almost nothing.** A 0.2 token-Jaccard
+bar is not separating "fabricated" from "grounded" — it is separating *lightly* reworded
+from *heavily* reworded, and at 0.2 the heavy majority lands on the wrong side. Between 0.10
+and 0.20 the CUPE flag rate triples (20.6% → 62.7%), so the shipped value sits exactly where
+the curve is steepest and a small move changes the answer most.
+
+⚠ **THIS IS EVIDENCE FOR A DECISION, NOT A RECOMMENDATION TO MOVE THE NUMBER.** HR-184 stays
+`open` at 0.2. The sweep says how many duties each threshold *matches*; it says **nothing
+about whether the match is the RIGHT merge duty** — and the separate 120-cluster measurement
+found argmax and positional matching agree only **8–26%**, because the model reorders. Since
+this one knob also carries `frequency` back (§10c), a lower threshold attaches **more**
+frequencies from matches that may be wrong, and a wrong frequency is worse than a missing
+one.
+
+**So the genuinely open question is precision, not volume**, and it needs a labelled sample —
+read N rewritten duties against their argmax merge duty and count how often it is the same
+duty. That is the one piece this sweep does not supply.
 
 ## Full working
 
