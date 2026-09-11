@@ -89,6 +89,8 @@ from src.jd_bank.embeddings.store import (
     fetch_existing_section_keys,
     prune_documents,
     prune_sections,
+    refresh_document_provenance,
+    refresh_section_provenance,
     write_documents,
     write_sections,
 )
@@ -351,6 +353,63 @@ async def run_embeddings(
         await write_documents(neo4j_driver, document_writes[start : start + batch])
     for start in range(0, len(section_writes), batch):
         await write_sections(neo4j_driver, section_writes[start : start + batch])
+
+    # THE PROVENANCE REPAIR — for the nodes we did NOT re-embed.
+    #
+    # 🔴 MEASURED ON THE LIVE BANK 2026-09-11. `NodeKey` is a CONTENT identity and
+    # `parser_version` is deliberately not in it (the vector depends on the TEXT, not on
+    # which parser produced it) — but the node CARRIES `parser_version` as a claim about
+    # itself, and skip-first skipped updating that too. A document whose serialized text
+    # is byte-identical across a parser bump kept the OLD label for ever: after a full,
+    # correct `make embed` the index read `['jd_segmenter_v2', 'jd_segmenter_v8']`, and
+    # `test_the_document_vector_index_is_at_the_current_parser_version` could never pass
+    # no matter how often the runner re-ran.
+    #
+    # ⚠ Label only — never the embedding. Re-embedding text that cannot have changed is
+    # exactly the cost skip-first exists to avoid, and the vector is already correct.
+    doc_refresh = [
+        DocumentWrite(
+            source_document_id=item.source_document_id,
+            parsed_jd_id=item.parsed_jd_id,
+            parser_version=item.parser_version,
+            text_sha256=item.serialized.text_sha256,
+            text_chars=item.serialized.text_chars,
+            truncated=item.serialized.truncated,
+            embedding=[],  # unread by the refresh query
+            model=model,
+            dimensions=embeddings_rules.dimensions,
+            embed_stamp=embed_stamp,
+            serializer_version=SERIALIZER_VERSION,
+        )
+        for item in doc_plan
+        if item not in set(doc_misses)
+    ]
+    section_refresh = [
+        SectionWrite(
+            source_document_id=item.source_document_id,
+            parsed_jd_id=item.parsed_jd_id,
+            parser_version=item.parser_version,
+            section=item.section,
+            text_sha256=item.serialized.text_sha256,
+            text_chars=item.serialized.text_chars,
+            truncated=item.serialized.truncated,
+            embedding=[],
+            model=model,
+            dimensions=embeddings_rules.dimensions,
+            embed_stamp=embed_stamp,
+            serializer_version=SERIALIZER_VERSION,
+        )
+        for item in section_plan
+        if item not in set(section_misses)
+    ]
+    for start in range(0, len(doc_refresh), batch):
+        await refresh_document_provenance(
+            neo4j_driver, doc_refresh[start : start + batch]
+        )
+    for start in range(0, len(section_refresh), batch):
+        await refresh_section_provenance(
+            neo4j_driver, section_refresh[start : start + batch]
+        )
 
     # THE RECONCILE — a MERGE-only pass leaves a stale vector live in the queryable
     # index (see the module docstring). Runs over the whole PLAN, not just the rows

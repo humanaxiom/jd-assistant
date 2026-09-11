@@ -218,11 +218,13 @@ async def _seed_parsed_jd(
 _DOC_PROPERTIES = (
     "d.id AS id, d.source_document_id AS source_document_id, "
     "d.parsed_jd_id AS parsed_jd_id, d.model AS model, d.embed_stamp AS embed_stamp, "
-    "d.text_sha256 AS text_sha256, d.embedding AS embedding"
+    "d.text_sha256 AS text_sha256, d.embedding AS embedding, "
+    "d.parser_version AS parser_version"
 )
 _SECTION_PROPERTIES = (
     "s.id AS id, s.section AS section, s.document_id AS document_id, "
-    "s.text_sha256 AS text_sha256, s.embedding AS embedding"
+    "s.text_sha256 AS text_sha256, s.embedding AS embedding, "
+    "s.parser_version AS parser_version"
 )
 
 
@@ -1032,3 +1034,68 @@ async def test_an_unchanged_pass_prunes_nothing(
     assert second.documents_unchanged == 1
     assert second.sections_unchanged == first.sections_embedded
     assert second.sections_embedded == 0
+
+
+@pytest.mark.asyncio
+async def test_an_unchanged_document_still_gets_its_parser_version_refreshed(
+    pg_sessionmaker: async_sessionmaker[AsyncSession], neo4j_driver: AsyncDriver
+) -> None:
+    """🔴 MEASURED ON THE LIVE BANK 2026-09-11, and it makes a smoke gate unpassable.
+
+    ``NodeKey`` is a CONTENT identity — ``(text_sha256, model, embed_stamp)`` — and
+    ``parser_version`` is deliberately not in it, correctly: the vector depends on
+    the TEXT, not on which parser produced it. But the node also *carries*
+    ``parser_version`` as a provenance claim, and skip-first skipped updating it too.
+
+    So a document whose serialized text is byte-identical across a parser bump keeps the
+    OLD label for ever. After a full, correct ``make embed`` the live index read
+    ``['jd_segmenter_v2', 'jd_segmenter_v8']`` — 11,787 nodes whose vectors are
+    perfectly current while claiming a parse six bumps old, and
+    current while claiming a parse six bumps old, and
+    ``test_the_document_vector_index_is_at_the_current_parser_version`` can never go
+    green no matter how many times the runner is re-run.
+
+    The vector must NOT be recomputed (that is the whole value of skip-first); only the
+    claim the node makes about itself is repaired.
+    """
+    rules = get_rules()
+    source_document_id, _ = await _seed_parsed_jd(pg_sessionmaker, _jd())
+    fake = _FakeEmbedClient(rules.embeddings.dimensions)
+    async with pg_sessionmaker() as session:
+        first = await run_embeddings(session, neo4j_driver, rules=rules, client=fake)
+    assert first.documents_embedded == 1
+
+    before = await _document_node(neo4j_driver, source_document_id)
+    assert before is not None
+    embedding_before = before["embedding"]
+
+    # The live situation: the node was written when an older parser was current, and
+    # the text it produced is identical to what the current one produces.
+    async with neo4j_driver.session() as session:
+        await session.run(
+            "MATCH (d:JDDocument {id: $id}) SET d.parser_version = 'jd_segmenter_v2' "
+            "WITH d MATCH (d)-[:HAS_SECTION]->(s) SET s.parser_version = "
+            "'jd_segmenter_v2'",
+            id=str(source_document_id),
+        )
+
+    fresh = _FakeEmbedClient(rules.embeddings.dimensions)
+    async with pg_sessionmaker() as session:
+        second = await run_embeddings(session, neo4j_driver, rules=rules, client=fresh)
+
+    # Nothing is re-embedded — the text did not change, and skip-first is the point.
+    assert second.documents_embedded == 0
+    assert second.documents_unchanged == 1
+    assert fresh.call_count == 0
+
+    after = await _document_node(neo4j_driver, source_document_id)
+    assert after is not None
+    assert after["parser_version"] == PARSER_VERSION, (
+        "an unchanged document kept a stale parser_version, so the live index stays "
+        "mixed and the smoke gate can never pass"
+    )
+    # ...and the vector is untouched, byte for byte.
+    assert after["embedding"] == embedding_before
+
+    for section in await _section_nodes(neo4j_driver, source_document_id):
+        assert section["parser_version"] == PARSER_VERSION

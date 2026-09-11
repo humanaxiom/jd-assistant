@@ -1,18 +1,18 @@
 {
   "bad_requests": 0,
   "dimensions": 768,
-  "documents_embedded": 14404,
-  "documents_empty": 118,
+  "documents_embedded": 0,
+  "documents_empty": 115,
   "documents_seen": 14522,
-  "documents_unchanged": 0,
-  "embed_calls": 1032,
+  "documents_unchanged": 14407,
+  "embed_calls": 0,
   "embed_stamp": "jd_rules_sfu_v4+b760ce00210a",
-  "embed_texts_reused_memo": 22124,
+  "embed_texts_reused_memo": 0,
   "model": "nomic-embed-text",
   "nodes_pruned": 0,
-  "sections_embedded": 36174,
-  "sections_skipped_short": 7392,
-  "sections_unchanged": 0,
+  "sections_embedded": 0,
+  "sections_skipped_short": 5896,
+  "sections_unchanged": 37670,
   "serializer_version": "embed_text_v1",
-  "texts_backed_off": 11
+  "texts_backed_off": 0
 }
