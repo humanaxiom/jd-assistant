@@ -522,7 +522,66 @@ Final residual on the 805: **0 dangling, 0 underscores, 0 sign-off bleed.**
 ⚠ **Known and NOT fixed: one recovered title contains an incumbent's name**
 (`Leigh McGregor. Departmental Assistant`). Detecting a personal name needs a decision and
 a measurement, not a regex invented on a sample of one — and NN #5 makes incumbent-name
-removal a rulebook quality step.
+removal a rulebook quality step. ✅ **That measurement is now done — §8e, and it says
+DO NOT BUILD THE REGEX.**
+
+### 8e. 🔴 P3c measured — the sample of one is a population of one, and every rule that would catch it is worse than the defect
+
+**Measured 2026-09-11 over all 14,522 titled documents at `jd_segmenter_v8`** (3,835
+distinct titles). The plan asked for a measurement before a rule. Here it is, and it
+argues against the rule.
+
+**First, the case is real and still live.** `Leigh McGregor. Departmental Assistant` is
+present at `jd_segmenter_v1`, `v7` **and `v8`** — one document each. It was not fixed by a
+re-parse and it has not gone away.
+
+**Second, it is the ONLY one.** Each structural shape that would catch it was counted
+against the whole corpus:
+
+| shape | distinct titles | documents | how many are actually names |
+|---|---:|---:|---|
+| `Firstname Lastname. Title` — *the observed shape* | 2 | 2 | 🔴 **ZERO.** `Program Assistant. Gr. 7` and `Assistant Director. Graduate Studies _____` |
+| `Firstname Lastname, Title` | 732 | **1,429** | zero — `Associate Director, Advancement`, `Senior Developer, PeopleSoft` … |
+| `Title (Firstname Lastname)` | 18 | 34 | zero — `(Advisory Services)`, `(Desktop Support)` … |
+| explicit cue (`incumbent`, `held by`) | 2 | 3 | zero — both are PROSE in the title field, see §8f |
+
+⚠ **The two-capitalised-words shape is how SFU titles are normally written.** A comma rule
+would flag **1,429 documents** to catch one, and the period rule catches the one real case
+only by also taking two false positives — a 33% precision on a population of three. There
+is no threshold to tune here: the signal and the noise are the same shape.
+
+**So the honest recommendation is to NOT ship a detector.** A rulebook list that fires on
+1,429 correct titles is not a quality gate, it is a new defect with a registered id. The
+one document is better handled as what it is — a single bad value — than as a rule
+pretending to generalise. ⚠ This is P3e's lesson a second time: *the defect was in the
+sample, not in the corpus.*
+
+### 8f. The defect the P3c probe tripped over, which is 53× bigger
+
+The `incumbent` cue matched two titles that are not names at all but **whole sentences**:
+*"Working under the guidance of the Director, the Program Manager, EHRS administers SFU's"*.
+That is a position summary in the `title` field. Counted properly:
+
+| | documents |
+|---|---:|
+| titles clipped at the model's **200-char cap** (`title: max_length=200`) — unambiguously a paragraph | **53** (15 distinct) |
+| titles opening with a prose word (`The`/`Reporting`/`Provides`/`Playing`/`Under`/`Working`/`Please`/`This position`) | **299** |
+| titles over 120 chars | 130 |
+| titles over 60 chars | 451 |
+
+The 200-char cases are not a judgement call: the value hit a pydantic `max_length` and was
+truncated mid-word, so the parser fed a paragraph into a field meant for a title. Samples:
+
+```
+Reporting to the Manager, Linguistics, and supervised by both the Managers, Linguistics …
+Provides comprehensive services to students, faculty, staff and external client of the a…
+Please connect with Strategic Business Partner or Director, Strategic Business Partner. …
+```
+
+⚠ **53 is the hard floor** (at the cap) and **299 the upper bound** (a prose opener could
+in principle be a real title). Unlike a personal name this needs no name detection at all
+— "the title field contains a sentence" is decidable from length and shape. **It is worth
+more than P3c and it was found by measuring P3c.**
 
 ⚠ **The remaining ~1,241 CUPE placeholders are genuine gaps**, not a fixable parse: about
 half the placeholder population has no title label anywhere in the document.
