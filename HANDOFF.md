@@ -94,17 +94,19 @@ jd-canonical-jdfn-rerun
 **No `--resume` — it is a RE-BASELINE.** Check it BEFORE starting anything that writes
 drafts.
 
-🔴 **THE ~19-HOUR ESTIMATE IS WRONG. IT IS ~50 HOURS — MEASURED 2026-09-11 OVER TWO
+🔴 **THE ~19-HOUR ESTIMATE IS WRONG. IT IS ~51 HOURS — MEASURED 2026-09-11 OVER FOUR
 CHECKPOINTS.** The pass prints its own rate; don't estimate it, read it:
 
 ```
-[canonical-producer] 25/2453 clusters | ... | elapsed=1802.1s
-[canonical-producer] 50/2453 clusters | ... | elapsed=3673.5s
+[canonical-producer]  25/2453 clusters | ... | elapsed=1802.1s
+[canonical-producer]  50/2453 clusters | ... | elapsed=3673.5s
+[canonical-producer]  75/2453 clusters | ... | elapsed=5558.9s
+[canonical-producer] 100/2453 clusters | ... | elapsed=7460.8s
 ```
 
-The **second** batch is the one that settles it: `(3673.5 − 1802.1) / 25` = **74.9
-s/cluster**, marginally *slower* than the first, so the rate is NOT startup inflation.
-At 73.5 s/cluster overall, 2,453 clusters ≈ **50 hours**, landing ~**06:00 UTC on
+**Per-batch: 72.1 → 74.9 → 75.4 → 76.1 s/cluster.** The rate is NOT startup inflation —
+every batch after the first is *slower* than it, and the trend creeps mildly upward. At
+74.6 s/cluster overall, 2,453 clusters ≈ **51 hours**, landing ~**06:00–08:00 UTC on
 2026-09-13** — not 23:00 on 2026-09-11. The ~19 hours was carried over from the CUPE pass;
 this cohort is roughly 2.5× slower per cluster and nobody had re-measured it.
 
@@ -114,8 +116,9 @@ Docker Desktop restart mid-pass is exactly how a 52-minute pass was lost on 2026
 If it does die, **`--resume` continues it safely (#126)** — starting it WITHOUT `--resume`
 pays for every cluster again.
 
-⚠ **Re-read the rate rather than trusting this line.** It is two checkpoints out of 98;
-the cohort could slow further. `docker logs --tail 2 jd-canonical-jdfn-rerun` and divide.
+⚠ **Re-read the rate rather than trusting this line.** It is four checkpoints out of 98,
+and the per-batch figure is still drifting up; the cohort could slow further.
+`docker logs --tail 2 jd-canonical-jdfn-rerun` and divide.
 
 ⚠ And `refreshed=25 failures=0` is a COUNTER, not the Bank. It says what the run did, not
 what is true — `make bank-audit` against `docs/canonical/bank-audit-before-jdfn.json` is
@@ -232,26 +235,66 @@ Verify through the suite, or `launch.ps1 -NoCas`.
 1. **Land the JDFN pass** — `make bank-audit`, diff the before file, confirm
    `problem_solving` ≤ 100%. If it did not finish, `--resume` continues it safely (#126);
    **do not** start it without `--resume` a second time or it pays for every cluster again.
-2. **Track P's remaining three: `P3c`, then `P2` / `P3g`** — ✅ **P3f landed 2026-09-11**
-   (the grade matchers are rulebook data, HR-233 … HR-236, **no value changed** — measured
-   identical over 78,384 comparisons, so `PARSER_VERSION` did not bump and nothing was
-   re-parsed). ⚠ **P3f did NOT make `classification` auditable** — `make field-audit` reads
-   LABELS and a matcher is not a label, so that field is still reported unevaluated; what
-   changed is that the three patterns are now reviewable and drift-checked instead of
-   invisible. Next is **P3c** (one recovered title contains an incumbent's name — needs a
-   measurement and a registered rule, not a regex invented on a sample of one). `P3g` is the
-   one to schedule around the GPU: it re-runs `make embed-roles`, so **do not start it while
-   a producer pass holds `aria-gb10-2`**.
-3. **The six unassigned departments** — one-line edits to `org_units.yaml`, each already
+2. **✅ ALL OF 2026-09-11's WORK IS MERGED.** Nothing from that session is left open.
+
+   | PR | what |
+   |---|---|
+   | #186 | **P3f** — the grade matchers are rulebook data (HR-233 … HR-236), no value changed |
+   | #187 | **P3g** — an over-long role gets a SHORTER vector, not a gap |
+   | #191 | **P3c measured** — *do not build the detector*; diagnoses **P3h** (replaced #188) |
+   | #189 | **funnel** — a false "Reliable." + 29 double-encoded characters |
+
+   🔴 **TWO STACKED-PR TRAPS, BOTH HIT ON THE SAME DAY. Read this before stacking again.**
+
+   - **#186 merged as a MERGE COMMIT**, so its branch survived, so GitHub did **not**
+     retarget the PR stacked on it. #187 kept pointing at a branch already contained in
+     `main` — and reported `MERGEABLE` throughout. Caught only by checking the base.
+   - **#187 was then merged with `--delete-branch`, which CLOSED #188 outright.** GitHub
+     does not retarget a PR whose base branch is deleted; it closes it. And a closed PR
+     whose base is gone **cannot be reopened or retargeted** — both API calls refuse. The
+     work was recovered by rebasing the two commits onto `main` and opening **#191**.
+
+   ⚠ **So: retarget the child FIRST, then merge the parent.** Neither failure mode announces
+   itself, and one of them silently closes work that was finished and green.
+
+3. 🔴 **THE LESSON OF 2026-09-11, and it cost most of the session: THIS PAGE AND `plan.md`
+   WERE STALE IN THREE PLACES, AND EACH STALE ROW HID THE REAL DEFECT.**
+
+   - **P3g** said *"`embed-roles` is not resumable past a bad row"*. That was fixed in
+     `ba196b9` **two weeks earlier**. The live defect was one row further on: an over-long
+     role was isolated and **counted**, and still got **no vector** — counted is not
+     embedded. Fixed in #187 by porting the HR-193 ladder the document runner already had.
+   - **P2** said *"the next parse task"*. Its baseline half shipped **2026-08-29** (§7c says
+     so). The live defect was on the FUNNEL, whose Form facet called itself **"Reliable."**
+     while knowing the field for **48.0% of roles**. Fixed in #189.
+   - **P3c** said *"needs a measurement"*. The measurement (#188) says **do not build the
+     rule**: one case in 14,522, and every shape that catches it flags up to 1,429 correct
+     titles. It also **diagnosed P3h**.
+
+   **So: re-derive a row before working it.** Every one of these was answerable in minutes
+   against the live Bank, and each stale row had already misdirected somebody.
+
+4. **`P3h` — 53 titles are a PARAGRAPH, and it is BLOCKED until the pass lands.** The
+   residual of the v2→v3 `_fallback_title` defect (**not** new — the first draft of that row
+   said so and was wrong). Diagnosed in #188: **zero CUPE**, all 53 on the JDFN path, every
+   one also carrying `department = None`, so the identification block was not recovered at
+   all. 🔴 **It bumps `PARSER_VERSION`, whose contract requires the archive re-parse in the
+   SAME change — and a re-parse must not run while a producer pass is reading
+   `parsed_jds`.** Queue it behind the pass.
+
+5. **When the pass lands, `make embed` + `make embed-roles` are OWED** — that is what turns
+   `make smoke` green again, and it is the whole of P3g's remaining half. They need
+   `aria-gb10-2`, which the pass holds, so **do not start them concurrently**.
+6. **The six unassigned departments** — one-line edits to `org_units.yaml`, each already
    rendered as a candidate on its unit page: **Human Resources (52)**, Financial Aid &
    Awards (8), Procurement Services (7), Budget Office (4), Enterprise Risk & Resilience
    (3), Campus Public Safety (2). None was named by the owner; none may be inferred.
-4. **`ITP/S` is legacy** — the IT collection (213) vs the ITS department (54) is with the
+7. **`ITP/S` is legacy** — the IT collection (213) vs the ITS department (54) is with the
    **CIO and VPFA**. Both surfaces ship deliberately and the ITS page explains why. Do not
    "fix" one to match the other.
-5. **Duty-frequency matching** — 28.5% rewritten vs 100% merge-only. The one-line fix is
+8. **Duty-frequency matching** — 28.5% rewritten vs 100% merge-only. The one-line fix is
    UNSAFE (the model reorders; argmax and positional agree 8–26%). Needs a design.
-6. **677 roles (27.1%) carry no department** — every unit page says so. It is a
+9. **677 roles (27.1%) carry no department** — every unit page says so. It is a
    parse-coverage gap, and it is the first thing a stakeholder asks about.
 
 ## ▶ CURRENT STATE — 2026-08-29
