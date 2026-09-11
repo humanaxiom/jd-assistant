@@ -94,22 +94,28 @@ jd-canonical-jdfn-rerun
 **No `--resume` — it is a RE-BASELINE.** Check it BEFORE starting anything that writes
 drafts.
 
-🔴 **THE ~19-HOUR ESTIMATE IS WRONG — MEASURED 2026-09-11 04:40 UTC AT THE FIRST
-CHECKPOINT.** The pass prints its own rate, and it reads:
+🔴 **THE ~19-HOUR ESTIMATE IS WRONG. IT IS ~50 HOURS — MEASURED 2026-09-11 OVER TWO
+CHECKPOINTS.** The pass prints its own rate; don't estimate it, read it:
 
 ```
-[canonical-producer] 25/2453 clusters | persisted=0 refreshed=25 skipped=0 failures=0 | elapsed=1802.1s
+[canonical-producer] 25/2453 clusters | ... | elapsed=1802.1s
+[canonical-producer] 50/2453 clusters | ... | elapsed=3673.5s
 ```
 
-**72 s/cluster × 2,453 clusters ≈ 49 hours**, landing ~**05:00 UTC on 2026-09-13** — not
-23:00 on 2026-09-11. The ~19 hours was carried over from the CUPE pass and this cohort is
-slower. ⚠ **This is ONE checkpoint and it includes process startup**, so treat 49 h as the
-order of magnitude, not a promise — read the next `25/` line and recompute. But plan for
-**more than two days**, not one overnight, and note what that implies: trap 5 below (the
-stack has no `restart:` policy) now has **two extra days** to bite, and a Docker Desktop
-restart mid-pass is exactly how a 52-minute pass was lost on 2026-08-20. If it does die,
-**`--resume` continues it safely (#126)** — starting it WITHOUT `--resume` pays for every
-cluster again.
+The **second** batch is the one that settles it: `(3673.5 − 1802.1) / 25` = **74.9
+s/cluster**, marginally *slower* than the first, so the rate is NOT startup inflation.
+At 73.5 s/cluster overall, 2,453 clusters ≈ **50 hours**, landing ~**06:00 UTC on
+2026-09-13** — not 23:00 on 2026-09-11. The ~19 hours was carried over from the CUPE pass;
+this cohort is roughly 2.5× slower per cluster and nobody had re-measured it.
+
+**Plan for more than two days, not one overnight**, and note what that implies: trap 5
+below (the stack has **no `restart:` policy**) now has two extra days to bite, and a
+Docker Desktop restart mid-pass is exactly how a 52-minute pass was lost on 2026-08-20.
+If it does die, **`--resume` continues it safely (#126)** — starting it WITHOUT `--resume`
+pays for every cluster again.
+
+⚠ **Re-read the rate rather than trusting this line.** It is two checkpoints out of 98;
+the cohort could slow further. `docker logs --tail 2 jd-canonical-jdfn-rerun` and divide.
 
 ⚠ And `refreshed=25 failures=0` is a COUNTER, not the Bank. It says what the run did, not
 what is true — `make bank-audit` against `docs/canonical/bank-audit-before-jdfn.json` is
