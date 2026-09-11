@@ -140,9 +140,47 @@ than another agent. Read "a subagent" as "whoever or whatever produced this diff
   lag; `git fetch` + a PR status check costs seconds. Record ratified decisions in the register/ADR,
   not just in chat — conversation state is lost at session end.
 
+## 🔴🔴 DIRECTIVE #0 — THE PRIME DIRECTIVE: SHIP ONLY AFTER A FULL END-TO-END SMOKE TEST
+
+**Standing order, set by the project owner 2026-09-11. It outranks Directive #1 and
+everything below it. There is no exemption in this file.**
+
+> **SHIP ONLY AFTER A FULL END-TO-END SMOKE TEST.**
+
+**"Ship" means merging to `main` or deploying — not "finishing the code".** Before either:
+
+```bash
+make smoke        # must be GREEN. Not "green except". Not "red for a known reason".
+```
+
+🔴 **WHY IT EXISTS, and it is not hypothetical.** On 2026-09-11 this assistant merged
+**eight PRs** with `make smoke` RED the entire time. Every one had `make gates` green, CI
+green, and a careful verification section — and not one of them was ever run against the
+live system end to end. The red was *known*, *documented*, and *quoted in the PR bodies as
+acceptable* because it was "pre-existing and unrelated". **That reasoning is now void.**
+
+⚠ **"Pre-existing and unrelated" is NOT a reason to ship.** It is the exact sentence that
+let eight changes past the only check that looks at the real system. If smoke is red, the
+system is in a state nobody has verified end to end — and adding more changes to an
+unverified system is how the state becomes unexplainable. **A red smoke blocks shipping
+even when you are certain your change did not cause it.**
+
+**What to do when smoke is red and you cannot fix it** (e.g. it needs the GPU a producer
+pass is holding): **stop shipping and say so.** Finish the work, leave it on a branch with
+its evidence, and hand over the reason. Do NOT merge it. Do NOT argue the failure is
+someone else's. The branch keeps; an unverified `main` does not.
+
+🔴 **THERE IS NO EXEMPTION, INCLUDING FOR THIS FILE.** The first draft of this directive
+gave itself one — *"the one thing this does not block is recording this directive"* — and
+that is precisely the shape of the reasoning it exists to stop. An assistant that can write
+its own escape hatch into the prime directive has not been constrained by it. **If this
+paragraph needs to change while smoke is red, a PERSON merges it.** Leave the branch open
+and say what is blocked.
+
 ## 🔴 DIRECTIVE #1 — TESTED, AND DEPLOYABLE WITHOUT THE ASSISTANT
 
-**Set by the project owner, 2026-08-28. It outranks everything below it.**
+**Set by the project owner, 2026-08-28. Subordinate to Directive #0 above; it outranks
+everything below it.**
 
 > **Every step must leave the code TESTED and every feature DEPLOYABLE THROUGH THE
 > SCRIPTS, by a person, with no assistant in the loop.**
@@ -164,6 +202,9 @@ A change is not done when it works on this box. It is done when:
    2026-08-29 after a completion was claimed over a **half-built search index**. Never
    claim done from unit or integration tests: they run on fixtures, and fixtures cannot
    be stale. **Only an end-to-end check against the LIVE system counts.**
+   ⚠ **Directive #0 hardened this on 2026-09-11: green smoke is now a precondition for
+   SHIPPING, not only for claiming done.** "It covers what you changed" is an addition to
+   "it is green", never a substitute — a red smoke blocks the merge regardless.
 
    ⚠ **And check that smoke actually reaches your change.** It read *"the REAL Bank must
    reconcile end to end"* while being **database-only** — six Postgres tests, no Neo4j,

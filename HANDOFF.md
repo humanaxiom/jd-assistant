@@ -27,9 +27,38 @@ count of *roles*.
 
 ---
 
+## 🔴🔴 DIRECTIVE #0 — THE PRIME DIRECTIVE (owner, 2026-09-11)
+
+> **SHIP ONLY AFTER A FULL END-TO-END SMOKE TEST.**
+
+**"Ship" = merging to `main` or deploying.** `make smoke` must be **GREEN** first — not
+"green except", not "red for a known reason". Full statement in
+[`CLAUDE.md`](CLAUDE.md) § DIRECTIVE #0.
+
+🔴 **It exists because on 2026-09-11 this assistant merged EIGHT PRs with smoke RED**, each
+with `make gates` green, CI green, and the red quoted in the PR body as "pre-existing and
+unrelated". **That reasoning is void.** A red smoke means nobody has verified the live
+system; piling changes onto it is how the state stops being explainable.
+
+⚠ **If smoke is red and you cannot fix it, STOP SHIPPING AND SAY SO.** Finish the work,
+leave it on a branch with its evidence, hand over the reason. The branch keeps; an
+unverified `main` does not.
+
+🔴 **NO EXEMPTION, INCLUDING FOR THE DIRECTIVE ITSELF.** Its first draft exempted "recording
+this directive" — an assistant writing its own escape hatch into the prime directive, which
+is the shape of reasoning it exists to stop. **If it must change while smoke is red, a
+PERSON merges it.**
+
+🔴 **AS OF 2026-09-11 SHIPPING IS BLOCKED.** `make smoke` is RED on two P3g failures —
+document vectors at `jd_segmenter_v2` against a `v8` Bank, and the role index not covering
+every role. Clearing them needs `make embed` + `make embed-roles`, which need
+`aria-gb10-2` — **which the JDFN producer pass is holding until ~2026-09-13.** Nothing
+merges until those run and smoke is green.
+
 ## 🔴 DIRECTIVE #1 — TESTED, AND DEPLOYABLE WITHOUT THE ASSISTANT
 
-**Set by the project owner 2026-08-28. It applies to every task on this page.**
+**Set by the project owner 2026-08-28. Subordinate to Directive #0 above; it applies to
+every task on this page.**
 
 > **Every step must leave the code TESTED and every feature DEPLOYABLE THROUGH THE
 > SCRIPTS, by a person, with no assistant in the loop.**
