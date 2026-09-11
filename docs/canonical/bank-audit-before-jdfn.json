@@ -1,0 +1,144 @@
+{
+  "documents_parsed": 14522,
+  "forms": [
+    {
+      "approvable": 1321,
+      "blocking_gates": [
+        {
+          "drafts": 341,
+          "gate_id": "SFU-APPROVE-KSA-ORDER"
+        },
+        {
+          "drafts": 177,
+          "gate_id": "SFU-APPROVE-QUAL-EQUIVALENT"
+        },
+        {
+          "drafts": 94,
+          "gate_id": "SFU-APPROVE-GRADE-FLOOR"
+        },
+        {
+          "drafts": 94,
+          "gate_id": "SFU-APPROVE-SCORE-FLOOR"
+        },
+        {
+          "drafts": 92,
+          "gate_id": "SFU-APPROVE-MANDATORY-SECTIONS"
+        },
+        {
+          "drafts": 92,
+          "gate_id": "SFU-APPROVE-SEVERITY-FLOOR"
+        }
+      ],
+      "carry_through": [
+        {
+          "kept": 0,
+          "offered": 20,
+          "policy": "drop",
+          "section": "additional_context"
+        },
+        {
+          "kept": 1177,
+          "offered": 1819,
+          "policy": "longest",
+          "section": "relationships"
+        },
+        {
+          "kept": 1171,
+          "offered": 1812,
+          "policy": "union",
+          "section": "decision_making"
+        },
+        {
+          "kept": 1114,
+          "offered": 478,
+          "policy": "union",
+          "section": "problem_solving"
+        }
+      ],
+      "drafts": 1872,
+      "mean_duties": 4.38,
+      "mean_score": 78.2,
+      "rewrite": {
+        "drafts": 1872,
+        "drafts_with_a_flagged_duty": 1814,
+        "duties_flagged": 6130,
+        "duties_total": 8192,
+        "merge_only_duties": 49,
+        "merge_only_with_frequency": 0,
+        "rewritten_duties": 8143,
+        "rewritten_with_frequency": 0
+      },
+      "template": "jdfn"
+    },
+    {
+      "approvable": 3,
+      "blocking_gates": [
+        {
+          "drafts": 596,
+          "gate_id": "SFU-APPROVE-QUAL-EQUIVALENT"
+        },
+        {
+          "drafts": 563,
+          "gate_id": "SFU-APPROVE-KSA-ORDER"
+        },
+        {
+          "drafts": 111,
+          "gate_id": "SFU-APPROVE-NO-PLACEHOLDERS"
+        },
+        {
+          "drafts": 42,
+          "gate_id": "SFU-APPROVE-SUMMARY-CONDITIONS"
+        },
+        {
+          "drafts": 14,
+          "gate_id": "SFU-APPROVE-MANDATORY-SECTIONS"
+        },
+        {
+          "drafts": 14,
+          "gate_id": "SFU-APPROVE-SEVERITY-FLOOR"
+        }
+      ],
+      "carry_through": [
+        {
+          "kept": 622,
+          "offered": 622,
+          "policy": "longest",
+          "section": "additional_context"
+        },
+        {
+          "kept": 549,
+          "offered": 549,
+          "policy": "longest",
+          "section": "relationships"
+        },
+        {
+          "kept": 0,
+          "offered": 0,
+          "policy": "union",
+          "section": "decision_making"
+        },
+        {
+          "kept": 0,
+          "offered": 0,
+          "policy": "union",
+          "section": "problem_solving"
+        }
+      ],
+      "drafts": 625,
+      "mean_duties": 11.66,
+      "mean_score": 76.09,
+      "rewrite": {
+        "drafts": 625,
+        "drafts_with_a_flagged_duty": 610,
+        "duties_flagged": 4570,
+        "duties_total": 7290,
+        "merge_only_duties": 24,
+        "merge_only_with_frequency": 24,
+        "rewritten_duties": 7266,
+        "rewritten_with_frequency": 2071
+      },
+      "template": "wjq"
+    }
+  ],
+  "published": 5
+}

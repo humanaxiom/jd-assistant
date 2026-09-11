@@ -84,6 +84,139 @@ shipped* did not move any gate — see the register.
 
 ---
 
+## 🔴🔴 A JDFN PRODUCER PASS IS IN FLIGHT — started 2026-09-11 04:04:58 UTC
+
+```
+jd-canonical-jdfn-rerun
+  python -u -m src.jd_bank.canonical --only-template jdfn --commit-every 25
+```
+
+**No `--resume` — it is a RE-BASELINE.** ~19 hours by the CUPE pass's measured rate, so
+it lands ~23:00 UTC on 2026-09-11. Check it BEFORE starting anything that writes drafts:
+
+```bash
+docker ps --filter "name=canonical"          # non-empty => a pass is running
+docker logs --tail 5 jd-canonical-jdfn-rerun # progress every 25 clusters
+```
+
+⚠ **Silence is not failure for the first ~40 minutes.** The first progress line and the
+first commit both land at 25 clusters. Zero log lines and 0.00% CPU is what a HEALTHY
+pass looks like while it waits on the model — a run was nearly killed as hung for exactly
+this reason on 2026-08-20. To tell alive from stuck, ask something other than the log:
+
+```bash
+docker compose exec -T postgres psql -U app -d harness -c \
+  "SELECT state, to_char(query_start,'HH24:MI:SS') FROM pg_stat_activity \
+   WHERE datname='harness' AND pid<>pg_backend_pid() AND state<>'idle';"
+```
+
+`idle in transaction` on a `review_actions` count, with `query_start` ADVANCING every
+1–3 minutes, is a working pass. It is not `--rm`, so if it dies the container survives
+for `docker inspect`.
+
+⚠ **Never `--remove-orphans`** while it runs: it is a compose one-off, so compose reports
+it as an orphan and the flag deletes it mid-pass.
+
+#### What it must produce, and the file to diff against
+
+The BEFORE audit is committed at **`docs/canonical/bank-audit-before-jdfn.json`**.
+
+| JDFN, before the run | |
+|---|---|
+| drafts | 1,872 · mean **78.2** · 1,321 approvable |
+| relationships | 64.7% |
+| decision_making | 64.6% |
+| **problem_solving** | 🔴 **233.1% — 636 drafts carry it with NO source** |
+
+```bash
+make bank-audit          # then diff against the before file
+```
+
+**Success = `problem_solving` at or below 100%, and relationships / decision_making
+rising toward it.** ⚠ **EXPECT THE JDFN MEAN SCORE TO FALL.** That is fabrication being
+withdrawn — the S-5 argument — and a rising score has been the signature of three
+separate content-loss defects here. Treat a rise as a question.
+
+#### Why this pass was trusted to start (the ~90-second check, run first)
+
+Cluster `a622f3cf`, 40 members — the defect caught on live data:
+
+```
+CURRENT draft: problem_solving=3   ...while 0 of 40 SOURCES state any
+SOURCES: 40/40 state decision_making, 0/40 state problem_solving
+MERGE  -> duties=5  dm=6  ps=0  rel=YES
+REWRITE-> duties=5  dm=5  ps=0  rel=YES  score=74.29
+         scrubbed_sections=()   invented_duties=0
+```
+
+Grounded decision-making comes through; problem_solving stays empty. **Do this check
+before any future pass** — two passes were started on unverified fixes and both were
+still wrong.
+
+## 🔴 HANDING OVER THE BOXES — the state that is NOT in git
+
+There are **TWO** machines and the system needs both.
+
+| | |
+|---|---|
+| **this box** | the repo, Docker stack, the archive, the backups |
+| **`aria-gb10-2`** | **Ollama.** Every embedding and every LLM pass calls it (ADR-003). No producer run, no `make embed`, no Builder assist without it. It is not in this repo and nothing here provisions it |
+
+**A fresh `git clone` will not run.** These are real and invisible in a diff:
+
+1. **`.env` is GITIGNORED and carries the auth posture.** Keys currently set:
+   `CAS_ENABLED` (**true**), `CAS_SERVICE_BASE_URL` (`http://sfuai.ca:7000`),
+   `ALLOWED_SERVICE_ORIGINS` (`http://localhost:25800,http://sfuai.ca:7000`),
+   `CAS_VERIFY_TLS`, and **`BOOTSTRAP_ADMINS` — set to the owner's SFU id, which is WHO
+   GETS ADMIN on first sign-in.** A new owner must set it to their own id or they cannot
+   administer the app. The committed compose defaults are all safe/off, so a clone comes
+   up with CAS disabled and no admin.
+2. **`JD_ARCHIVE_PATH` is UNSET in the shell.** The Makefile falls back to `./archive`,
+   which is empty, and the baseline runner then REFUSES rather than producing a confident
+   baseline of nothing. The real archive is `C:\repos\hris\fixtures\SFU_JDs` —
+   **external and read-only**, and not part of this repo. Pass it explicitly:
+   `make baseline JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs`.
+3. **Backups live at `C:\Users\adam\jd-bank-backups\`**, outside the repo:
+   `harness-pre-full-llm-run.dump` (81 MB), `harness-pre-cupe-rerun-20260819.dump` (82 MB),
+   and `env.cas-enabled-20260909.bak`. ⚠ Back up **Postgres only** — Neo4j is a derived
+   index, rebuilt with `make embed` / `make embed-roles`. ⚠ And `pg_restore --data-only`
+   WIPES the Bank and exits 0; restore a full `-Fc` dump into an EMPTY database.
+4. **The published port varies.** `${JD_API_PORT:-25800}` — it was 25900 and 25800 on this
+   machine within a day. `docker port jd-bank-api-1` is the answer, not the docs.
+5. **The stack does not self-restart.** No `restart:` policy, while every other project on
+   this box has one. A Docker Desktop restart on 2026-08-20 killed a 52-minute producer
+   pass and left the stack down for ~50 minutes with nothing saying so.
+6. **Other projects share this box.** Stray `postgres:16-alpine` / `neo4j:5-community`
+   containers are `recruiter-assistant`'s testcontainers, not ours.
+
+7. ⚠ **Git Bash mangles container paths.** A `docker compose run ... sh -c '... /committed/ ...'`
+   issued from Git Bash can have MSYS rewrite `/committed` to `C:/Program Files/Git/committed`,
+   which silently creates a junk `core/C:/` directory in the repo. Delete it (`rm -rf "core/C:"`)
+   and prefer PowerShell, or `MSYS_NO_PATHCONV=1`, for commands passing absolute container paths.
+8. ⚠ **The `./docs/canonical` bind mount lags on Windows.** A file the container has just
+   written may not appear to `ls` on the host for a few seconds — it is propagation delay,
+   not a failed write. Re-check before concluding the run did not produce its artifact.
+
+⚠ **With CAS ON you cannot `curl` a UI route to check it** — every one 303s to login.
+Verify through the suite, or `launch.ps1 -NoCas`.
+
+## ▶ WHAT IS OPEN, in the order I would take it
+
+1. **Land the JDFN pass** — `make bank-audit`, diff the before file, confirm
+   `problem_solving` ≤ 100%. If it did not finish, `--resume` continues it safely (#126);
+   **do not** start it without `--resume` a second time or it pays for every cluster again.
+2. **The six unassigned departments** — one-line edits to `org_units.yaml`, each already
+   rendered as a candidate on its unit page: **Human Resources (52)**, Financial Aid &
+   Awards (8), Procurement Services (7), Budget Office (4), Enterprise Risk & Resilience
+   (3), Campus Public Safety (2). None was named by the owner; none may be inferred.
+3. **`ITP/S` is legacy** — the IT collection (213) vs the ITS department (54) is with the
+   **CIO and VPFA**. Both surfaces ship deliberately and the ITS page explains why. Do not
+   "fix" one to match the other.
+4. **Duty-frequency matching** — 28.5% rewritten vs 100% merge-only. The one-line fix is
+   UNSAFE (the model reorders; argmax and positional agree 8–26%). Needs a design.
+5. **677 roles (27.1%) carry no department** — every unit page says so. It is a
+   parse-coverage gap, and it is the first thing a stakeholder asks about.
+
 ## ▶ CURRENT STATE — 2026-08-29
 
 🔴 **`make smoke` is RED, deliberately, and that is the honest state** — see *What smoke
