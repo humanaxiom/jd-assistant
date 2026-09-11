@@ -13,9 +13,22 @@ five wrong ones that agreed with each other.
 > JDs?") is VOID — it made correct engineering look like a distraction. Ask instead:
 > **does this give a role a draft, or make an existing draft truer to its sources?**
 
+## 🔴🔴 DIRECTIVE #0 — THE PRIME DIRECTIVE (owner, 2026-09-11)
+
+> **SHIP ONLY AFTER A FULL END-TO-END SMOKE TEST.**
+
+**"Ship" = merging to `main` or deploying.** `make smoke` GREEN first — not "green except",
+not "red for a known reason". ⚠ **"Pre-existing and unrelated" is not a reason to ship**: it
+is the sentence that let eight PRs past the only live check on 2026-09-11. If smoke is red
+and you cannot fix it, **stop shipping and say so** — finish the work, leave it on a branch
+with its evidence. Full statement in [`CLAUDE.md`](../CLAUDE.md) § DIRECTIVE #0.
+
+**It outranks Directive #1 and every item on this page.**
+
 ## 🔴 DIRECTIVE #1 — applies to EVERY item on this page
 
-**Set by the project owner 2026-08-28.** No task below is complete until it is:
+**Set by the project owner 2026-08-28.** Subordinate to Directive #0. No task below is
+complete until it is:
 
 1. **tested** — `make gates` green, failing test first, the guard broken once;
 2. **deployable through the scripts** — `build.ps1` / `launch.ps1` / `teardown.ps1`, and `deploy/bundle.ps1` +
