@@ -805,6 +805,72 @@ Approved`.
 ⚠ **This scope covers WJQ only.** 4,226 documents carry a WJQ identification heading; the
 rest are skipped as *could not scope*, not as *states nothing*.
 
+## 10. 🔴 `flagged_duties` fires on 69.2% of all duties — HR-184 re-measured
+
+**Measured 2026-09-11 over all 2,501 current drafts / 15,530 duties.** HANDOFF flagged this
+as wanting re-measurement rather than quiet re-tuning; this is that measurement.
+
+### 10a. The draft-level rate was right, and it was the wrong unit
+
+| group | drafts | with ≥1 flag | draft % | duties | flagged | **duty %** | every duty flagged |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `(unrecorded)` | 1,298 | 1,258 | 96.9% | 5,654 | 4,273 | **75.6%** | 558 |
+| `cupe` | 625 | 610 | **97.6%** | 7,290 | 4,570 | **62.7%** | 21 |
+| `apsa` | 524 | 504 | 96.2% | 2,324 | 1,725 | **74.2%** | 201 |
+| `apex` | 42 | 36 | 85.7% | 205 | 127 | 62.0% | 18 |
+| `excluded` / `poly` | 12 | 12 | 100% | 57 | 48 | 84.2% | 7 |
+| **ALL** | **2,501** | **2,420** | **96.8%** | **15,530** | **10,743** | **69.2%** | **805** |
+
+The draft-level figures reproduce the handoff exactly (CUPE 97.6%; the JDFN side 96.2–96.9%
+against the quoted 97.0%). **But a draft with five duties and one flag counted the same as a
+draft where all five were flagged**, which is why the draft rate understates the problem:
+
+- 🔴 **69.2% of every duty in the Bank is flagged.**
+- 🔴 **805 drafts — 32% — have EVERY duty flagged.** Inside those, the flag distinguishes
+  nothing at all.
+
+A finding on two-thirds of the corpus is not a finding. `duty_flag_threshold` (HR-184,
+`open`, provisional) is the knob, and this is the evidence for re-deciding it.
+
+### 10b. It independently corroborates the 120-cluster sample
+
+The duty-frequency work measured **"62.4% of duties share under 0.2 Jaccard with any merge
+duty"** over 120 real clusters. Over the **whole** CUPE corpus the flag — which fires on
+exactly that condition — hits **62.7%** (4,570 of 7,290). **Two different methods, two
+different populations, the same answer**: the 120-cluster sample was representative, and
+neither number needs re-deriving again.
+
+### 10c. 🔴 It is ONE knob wearing two hats, and that is the real finding
+
+`duty_flag_threshold` does not only flag. `rewrite/harmonize.py` reads the same number in
+the other direction: a rewritten duty scoring **below** it is flagged **and gets no
+`frequency` carried back** from its merge counterpart. So *"the flag fires too often"* and
+*"frequency is destroyed"* are *one mechanism seen from two sides* — the handoff carries
+them as two separate backlog items.
+
+The arithmetic reconciles and explains the gap between them:
+
+| CUPE | |
+|---|---:|
+| duties **not** flagged (so a frequency could be carried back) | 37.3% |
+| duties that actually **kept** a frequency | 28.5% |
+| **difference** | **8.8 points** |
+
+Those 8.8 points are matched duties whose **merge counterpart had no frequency of its own**
+— nothing was lost there; the source never had one. ⚠ This matters for design: lowering the
+threshold to rescue frequency also floods the flag, and raising it to sharpen the flag
+destroys more frequency. **They cannot be tuned independently, and the rulebook comment says
+so on purpose** (*"answering it twice is how two thresholds drift apart"*).
+
+### 10d. What this measurement CANNOT answer, and what it would take
+
+A threshold **sweep** — how flag rate and frequency survival move at 0.1, 0.3, 0.5 — needs
+the per-duty Jaccard **values**, and those are not stored: only the boolean outcome at the
+shipped 0.2 survives in `change_log`. Recomputing them means re-running the deterministic
+merge for each cluster and re-scoring against the stored rewritten duties. That is CPU-only
+(no GPU, no model), so it is **feasible but not free**, and it is the honest prerequisite
+for moving HR-184 rather than guessing at it.
+
 ## Full working
 
 The original per-topic documents are in **`docs/archive/plans/`** — kept for the reasoning
