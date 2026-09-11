@@ -92,6 +92,11 @@ def test_dedup_is_the_fourth_unhashed_file(rules: Rules) -> None:
         # Track E added `org_units.yaml` — the ninth. Which roles roll up into a named
         # ORG UNIT decides what a BROWSE surface shows, never how a JD is scored.
         "org_units.yaml",
+        # P3f added `classification.yaml` — the tenth. How a PAY GRADE is read off a JD.
+        # Nothing scores, gates or approves on `SFUJobDescription.classification`, so it
+        # cannot move a report's stamp. ⚠ It moves `PARSER_VERSION` instead, which is
+        # the heavier obligation: a change here owes an archive re-parse.
+        "classification.yaml",
     }
     assert "dedup" not in loader._HASHED_FIELDS
 

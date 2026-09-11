@@ -7432,6 +7432,128 @@ decisions:
       removing one makes them invisible.
     status: open
 
+
+  # --- classification.yaml: how a PAY GRADE is read off a JD (Track P, P3f) ------
+  # These four were HARDCODED regexes in `parser/classification.py` until P3f. FINDINGS
+  # §9e named that as a defect in its own right: the field audit cannot see a constant,
+  # so `classification` was reported UNEVALUATED rather than clean. Registering them
+  # changed NO value — the parse is byte-identical and `PARSER_VERSION` did not move.
+  # All four are `technical`: DecisionTier says so in as many words ("plumbing: ...
+  # extraction regexes. A wrong value is an engineering bug, not a policy error").
+  # Nothing scores, gates or approves on `classification`.
+  - id: HR-233
+    question: >-
+      What counts as a CUPE numeric pay grade printed on a JD?
+    config:
+      file: classification.yaml
+      path: classification.cupe_grade_pattern
+    current_default: '(?i)\b(?:gr\.?|grade)\s*[:#]?\s*(\d{1,2})\b'
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      CUPE is the one group that PRINTS its pay grade on the JD, inline in a
+      classification line ("Secretary, grade 8") rather than as a labelled field — so
+      this matcher is deliberately NOT line-anchored, because anchoring it would recover
+      almost nothing. It is applied only to documents already routed as `cupe`, and only
+      to the identification block.
+      🔴 KNOWN LOOSE, and registered rather than quietly tightened (CLAUDE.md's standing
+      rule). FINDINGS §9e measured it from one direction: parser 465 against readable 98,
+      because it finds a grade anywhere in the block, including prose like "Secretary,
+      Grade 6" that carries no grade LABEL for a probe to see. Probed from the other
+      direction, the leading `\b` does its job — "upgrade 9" and "photograph 3" are
+      correctly refused — but NO SEPARATOR IS REQUIRED between the word and the number,
+      so the bare token `GR8` reads as grade 8. Tightening it is a real candidate; it
+      needs a measurement over the archive first, not a regex improved on a sample.
+    impact_if_changed: >-
+      Does NOT move `rules_version` — no validator reads `classification`
+      (`_UNHASHED_FILES`). ⚠ DOES move `PARSER_VERSION` and requires an archive re-parse
+      in the SAME change: it decides what the parser WRITES. Loosening it manufactures a
+      grade the document never stated, which is strictly worse than the absent grade this
+      field usually holds. Pinned by mutation (`test_classification_rules.py`: retune the
+      pattern and the extracted grade follows the YAML, proving the parser reads the data
+      and not a constant).
+    status: open
+  - id: HR-234
+    question: >-
+      What counts as a filled JDFN "Classification & Grade Approved:" value?
+    config:
+      file: classification.yaml
+      path: classification.jdfn_grade_approved_pattern
+    current_default: '(?i)grade\s+approved\s*[:#]?\s*((?:PG\s*)?\d{1,2})\b'
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The OLDER JDFN template's grade field. It is captured only when it holds a
+      plausible grade token — one or two digits, optionally `PG`-prefixed — because the
+      field is routinely present and BLANK: a JDFN grade is typically assigned after
+      authoring and lives in the HRIS. A matcher that accepted whatever followed the
+      label would read the NEXT FIELD'S LABEL as a grade, which is exactly the legacy
+      failure this replaced (430 garbage `grade` strings).
+    impact_if_changed: >-
+      Does NOT move `rules_version`. ⚠ DOES move `PARSER_VERSION` and requires a re-parse
+      in the same change. Widening the accepted token (dropping the `\d{1,2}` shape) is
+      how a blank field becomes an invented grade. Pinned by mutation and by a
+      failing-fixture test (a blank `Classification & Grade Approved:` must stay `None`).
+    status: open
+  - id: HR-235
+    question: >-
+      What counts as the modern JDFN identification-block `Grade:` field?
+    config:
+      file: classification.yaml
+      path: classification.jdfn_grade_field_pattern
+    current_default: '(?im)^[ \t]*(?:pay )?grade[ \t]*[:#][ \t]*((?:PG[ \t]*)?\d{1,2})\b'
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      🔴 THE LINE ANCHOR IS THE WHOLE RULE, and it is load-bearing. The point is that
+      this is a labelled FIELD, not the word "grade" occurring somewhere in prose — a
+      JDFN JD reading "Supports grade 12 students in the program" must not acquire grade
+      12. MEASURED: before the docx-header fix (`_docx_identification_block`) these
+      documents had no identification block at all, `text` was the whole document, and
+      an unanchored match there produced the 430 garbage `grade` strings the audit found.
+      After the fix, 876 archive documents state a JDFN grade in the header — a field the
+      same audit had reported "not extracted anywhere", having looked only at body text.
+      ⚠ The `(?m)` flag is what makes `^` mean start-of-LINE rather than start-of-string;
+      without it this finds the field only on a block that begins with it. The flag is
+      written INLINE, not as an `ignore_case` key, precisely so this register entry can
+      see it: `normalize_config_value` renders a regex as its pattern source alone, so a
+      flag held in a separate key is a behaviour-changing knob the drift check is blind
+      to.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. ⚠ DOES move `PARSER_VERSION` and requires a re-parse
+      in the same change. Dropping the `^` anchor or the `(?m)` flag re-opens the exact
+      defect that produced 430 garbage grades. Pinned by mutation and by a
+      failing-fixture test (the "grade 12 students" case must stay `None`).
+    status: open
+  - id: HR-236
+    question: >-
+      Which employee groups record a parsed grade under their OWN scheme name, and which
+      fall back to `unknown`?
+    config:
+      file: classification.yaml
+      path: classification.jdfn_schemes
+    current_default: [apsa, apex, poly]
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      `JobClassification.scheme` exists because EACH GROUP HAS ITS OWN SCALE — a CUPE
+      grade 8 is not an APSA grade 8 — so a grade recorded under the wrong scheme is not
+      a cosmetic error, it is a wrong pay band. A grade read for a group not on this list
+      is recorded as `unknown` rather than attributed to a scale we cannot name.
+      `excluded` is deliberately ABSENT: an excluded position has no bargaining-unit
+      grade ladder to belong to. `cupe` is absent because it never reaches this branch —
+      it is handled by HR-233 and stamped `scheme: cupe` directly.
+      The loader refuses a name that is not an `SFUEmployeeGroup`, and refuses an empty
+      list: a scheme table nothing can be parsed into is a table that silently does
+      nothing, which is this rulebook's standing objection to a gate that can never fire.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. ⚠ DOES move `PARSER_VERSION` and requires a re-parse
+      in the same change. Removing a group here does not lose the grade — it downgrades
+      its `scheme` to `unknown`, which is the honest failure. Pinned by mutation
+      (`test_classification_rules.py`: drop `apex` and an APEX grade comes back
+      `unknown`).
+    status: open
+
 trivial:
   # ── The tree shape: definitional given the rollups above. ──
   - config: {file: org_units.yaml, path: org_units.vpfa.children}

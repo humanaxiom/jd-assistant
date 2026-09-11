@@ -91,8 +91,29 @@ jd-canonical-jdfn-rerun
   python -u -m src.jd_bank.canonical --only-template jdfn --commit-every 25
 ```
 
-**No `--resume` — it is a RE-BASELINE.** ~19 hours by the CUPE pass's measured rate, so
-it lands ~23:00 UTC on 2026-09-11. Check it BEFORE starting anything that writes drafts:
+**No `--resume` — it is a RE-BASELINE.** Check it BEFORE starting anything that writes
+drafts.
+
+🔴 **THE ~19-HOUR ESTIMATE IS WRONG — MEASURED 2026-09-11 04:40 UTC AT THE FIRST
+CHECKPOINT.** The pass prints its own rate, and it reads:
+
+```
+[canonical-producer] 25/2453 clusters | persisted=0 refreshed=25 skipped=0 failures=0 | elapsed=1802.1s
+```
+
+**72 s/cluster × 2,453 clusters ≈ 49 hours**, landing ~**05:00 UTC on 2026-09-13** — not
+23:00 on 2026-09-11. The ~19 hours was carried over from the CUPE pass and this cohort is
+slower. ⚠ **This is ONE checkpoint and it includes process startup**, so treat 49 h as the
+order of magnitude, not a promise — read the next `25/` line and recompute. But plan for
+**more than two days**, not one overnight, and note what that implies: trap 5 below (the
+stack has no `restart:` policy) now has **two extra days** to bite, and a Docker Desktop
+restart mid-pass is exactly how a 52-minute pass was lost on 2026-08-20. If it does die,
+**`--resume` continues it safely (#126)** — starting it WITHOUT `--resume` pays for every
+cluster again.
+
+⚠ And `refreshed=25 failures=0` is a COUNTER, not the Bank. It says what the run did, not
+what is true — `make bank-audit` against `docs/canonical/bank-audit-before-jdfn.json` is
+the verdict, and nothing else is.
 
 ```bash
 docker ps --filter "name=canonical"          # non-empty => a pass is running
@@ -205,16 +226,26 @@ Verify through the suite, or `launch.ps1 -NoCas`.
 1. **Land the JDFN pass** — `make bank-audit`, diff the before file, confirm
    `problem_solving` ≤ 100%. If it did not finish, `--resume` continues it safely (#126);
    **do not** start it without `--resume` a second time or it pays for every cluster again.
-2. **The six unassigned departments** — one-line edits to `org_units.yaml`, each already
+2. **Track P's remaining three: `P3c`, then `P2` / `P3g`** — ✅ **P3f landed 2026-09-11**
+   (the grade matchers are rulebook data, HR-233 … HR-236, **no value changed** — measured
+   identical over 78,384 comparisons, so `PARSER_VERSION` did not bump and nothing was
+   re-parsed). ⚠ **P3f did NOT make `classification` auditable** — `make field-audit` reads
+   LABELS and a matcher is not a label, so that field is still reported unevaluated; what
+   changed is that the three patterns are now reviewable and drift-checked instead of
+   invisible. Next is **P3c** (one recovered title contains an incumbent's name — needs a
+   measurement and a registered rule, not a regex invented on a sample of one). `P3g` is the
+   one to schedule around the GPU: it re-runs `make embed-roles`, so **do not start it while
+   a producer pass holds `aria-gb10-2`**.
+3. **The six unassigned departments** — one-line edits to `org_units.yaml`, each already
    rendered as a candidate on its unit page: **Human Resources (52)**, Financial Aid &
    Awards (8), Procurement Services (7), Budget Office (4), Enterprise Risk & Resilience
    (3), Campus Public Safety (2). None was named by the owner; none may be inferred.
-3. **`ITP/S` is legacy** — the IT collection (213) vs the ITS department (54) is with the
+4. **`ITP/S` is legacy** — the IT collection (213) vs the ITS department (54) is with the
    **CIO and VPFA**. Both surfaces ship deliberately and the ITS page explains why. Do not
    "fix" one to match the other.
-4. **Duty-frequency matching** — 28.5% rewritten vs 100% merge-only. The one-line fix is
+5. **Duty-frequency matching** — 28.5% rewritten vs 100% merge-only. The one-line fix is
    UNSAFE (the model reorders; argmax and positional agree 8–26%). Needs a design.
-5. **677 roles (27.1%) carry no department** — every unit page says so. It is a
+6. **677 roles (27.1%) carry no department** — every unit page says so. It is a
    parse-coverage gap, and it is the first thing a stakeholder asks about.
 
 ## ▶ CURRENT STATE — 2026-08-29

@@ -17,6 +17,7 @@ version.
 """
 
 from src.jd_core.rules.loader import (
+    CLASSIFICATION_FILE,
     CONTENT_HASH_LENGTH,
     DEDUP_FILE,
     EMBEDDINGS_FILE,
@@ -35,6 +36,7 @@ from src.jd_core.rules.loader import (
     AuthoringGuard,
     BlockingRulesGate,
     Boilerplate,
+    Classification,
     ClusterAlgorithm,
     ClusterRepresentativePolicy,
     ClusterTier,
@@ -103,6 +105,7 @@ from src.jd_core.rules.loader import (
 # directly: `from src.jd_core.rules.render import render_register`.
 
 __all__ = [
+    "CLASSIFICATION_FILE",
     "CONTENT_HASH_LENGTH",
     "DEDUP_FILE",
     "EMBEDDINGS_FILE",
@@ -118,6 +121,7 @@ __all__ = [
     "AuthoringGuard",
     "BlockingRulesGate",
     "Boilerplate",
+    "Classification",
     "ClusterAlgorithm",
     "ClusterRepresentativePolicy",
     "ClusterTier",

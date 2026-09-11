@@ -99,6 +99,8 @@ def test_rewrite_is_an_unhashed_file(rules: Rules) -> None:
         "functional_families.yaml",
         # Track E added `org_units.yaml` — the ninth unhashed file, same class as A2's.
         "org_units.yaml",
+        # P3f added `classification.yaml` — the tenth (test_classification_rules).
+        "classification.yaml",
     }
     assert "rewrite" not in loader._HASHED_FIELDS
 

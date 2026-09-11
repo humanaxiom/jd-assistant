@@ -486,6 +486,11 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         # a family added later is on the surface the moment it is declared.
         "functional_families",
         "org_units",
+        # `classification.yaml` (P3f) — how a PAY GRADE is read off a JD. Unhashed like
+        # the rest: nothing scores, gates or approves on `classification`. ⚠ It is the
+        # one unhashed file that owes an archive RE-PARSE when it changes, because it
+        # decides what the parser WRITES.
+        "classification",
     }
     # ...and that is every rule file there is, bar the register itself.
     described = {name.removesuffix(".yaml") for name in RULE_FILES}
@@ -520,6 +525,10 @@ def test_the_unhashed_files_are_the_ones_that_cannot_change_a_jds_score() -> Non
         "quality.yaml",
         "functional_families.yaml",
         "org_units.yaml",
+        # `classification.yaml` (P3f) decides how a PAY GRADE is read off a JD. No
+        # validator reads the field, so it cannot move a score — but unlike every other
+        # member it DOES move `PARSER_VERSION`, and so owes a re-parse.
+        "classification.yaml",
     }
     hashed = set(loader._HASHED_FIELDS)
     assert "segmentation" not in hashed

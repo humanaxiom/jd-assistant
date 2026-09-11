@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **231 decisions** (229 open · 2 ratified · 0 deferred) · 71 parameters explicitly exempted as trivial · 297 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **235 decisions** (233 open · 2 ratified · 0 deferred) · 71 parameters explicitly exempted as trivial · 301 parameters on the decision surface, all accounted for.
 
-**Of those 231, 85 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 144 are recorded for the same build check but are not yours to sign: 59 shape what a reviewer sees without deciding whether a job description passes, and 85 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 235, 85 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 148 are recorded for the same build check but are not yours to sign: 59 shape what a reviewer sees without deciding whether a job description passes, and 89 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -1492,6 +1492,10 @@ Model names, dimensions, timeouts, retries, text-matching patterns and search in
 | [HR-197](#hr-197) | How long should the Builder wait for the "roles SFU already has" panel before giving up on it and showing the compliance result without it? | `5.0` | we chose it |
 | [HR-198](#hr-198) | How long should the archive search wait for the search index before it gives up and tells the author to try again? | `10.0` | we chose it |
 | [HR-199](#hr-199) | How long should the Builder's "improve my summary" assistant wait for the writing model before it gives the author their page back? | `60.0` | we chose it |
+| [HR-233](#hr-233) | What counts as a CUPE numeric pay grade printed on a JD? | *a text pattern — see below* | we chose it |
+| [HR-234](#hr-234) | What counts as a filled JDFN "Classification & Grade Approved:" value? | *a text pattern — see below* | we chose it |
+| [HR-235](#hr-235) | What counts as the modern JDFN identification-block `Grade:` field? | *a text pattern — see below* | we chose it |
+| [HR-236](#hr-236) | Which employee groups record a parsed grade under their OWN scheme name, and which fall back to `unknown`? | `apsa`, `apex`, `poly` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -1967,6 +1971,38 @@ We picked these because the system needed *a* value. There is no SFU precedent b
 - **Where the default came from:** we chose it
 - **Why it matters:** Same protection as HR-198, for the one place the Builder waits on the WRITING model rather than the search index, and set higher for an honest reason: writing a new summary legitimately takes tens of seconds, where looking something up does not. Without a limit, a model that accepts the request and then stalls would hold the author's page for the better part of an hour and, worse, the author would have no way back to the words they had already typed. When the limit is reached the draft is returned to them intact with an explanation — losing half-written work to a wedged graphics card is a far worse outcome than not getting a suggestion. This is the INTERACTIVE limit only; the offline harmonization rewrite, which works through clusters in the background, is deliberately left unbounded by it.
 - **If it changes:** Longer means an author waits longer, staring at a loading page, before being told the assistant is unavailable. Shorter risks cutting off a suggestion that was about to arrive — most likely on a large model's first request after a quiet period. The suggestion is advisory in either case: it is applied to the summary box for the author to review, never published, and the validator scores the result regardless.
+
+##### HR-233 — What counts as a CUPE numeric pay grade printed on a JD?
+
+- **We ship:** `(?i)\b(?:gr\.?|grade)\s*[:#]?\s*(\d{1,2})\b`
+- **Configured in:** `classification.yaml` → `classification.cupe_grade_pattern`
+- **Where the default came from:** we chose it
+- **Why it matters:** CUPE is the one group that PRINTS its pay grade on the JD, inline in a classification line ("Secretary, grade 8") rather than as a labelled field — so this matcher is deliberately NOT line-anchored, because anchoring it would recover almost nothing. It is applied only to documents already routed as `cupe`, and only to the identification block. 🔴 KNOWN LOOSE, and registered rather than quietly tightened (CLAUDE.md's standing rule). FINDINGS §9e measured it from one direction: parser 465 against readable 98, because it finds a grade anywhere in the block, including prose like "Secretary, Grade 6" that carries no grade LABEL for a probe to see. Probed from the other direction, the leading `\b` does its job — "upgrade 9" and "photograph 3" are correctly refused — but NO SEPARATOR IS REQUIRED between the word and the number, so the bare token `GR8` reads as grade 8. Tightening it is a real candidate; it needs a measurement over the archive first, not a regex improved on a sample.
+- **If it changes:** Does NOT move `rules_version` — no validator reads `classification` (`_UNHASHED_FILES`). ⚠ DOES move `PARSER_VERSION` and requires an archive re-parse in the SAME change: it decides what the parser WRITES. Loosening it manufactures a grade the document never stated, which is strictly worse than the absent grade this field usually holds. Pinned by mutation (`test_classification_rules.py`: retune the pattern and the extracted grade follows the YAML, proving the parser reads the data and not a constant).
+
+##### HR-234 — What counts as a filled JDFN "Classification & Grade Approved:" value?
+
+- **We ship:** `(?i)grade\s+approved\s*[:#]?\s*((?:PG\s*)?\d{1,2})\b`
+- **Configured in:** `classification.yaml` → `classification.jdfn_grade_approved_pattern`
+- **Where the default came from:** we chose it
+- **Why it matters:** The OLDER JDFN template's grade field. It is captured only when it holds a plausible grade token — one or two digits, optionally `PG`-prefixed — because the field is routinely present and BLANK: a JDFN grade is typically assigned after authoring and lives in the HRIS. A matcher that accepted whatever followed the label would read the NEXT FIELD'S LABEL as a grade, which is exactly the legacy failure this replaced (430 garbage `grade` strings).
+- **If it changes:** Does NOT move `rules_version`. ⚠ DOES move `PARSER_VERSION` and requires a re-parse in the same change. Widening the accepted token (dropping the `\d{1,2}` shape) is how a blank field becomes an invented grade. Pinned by mutation and by a failing-fixture test (a blank `Classification & Grade Approved:` must stay `None`).
+
+##### HR-235 — What counts as the modern JDFN identification-block `Grade:` field?
+
+- **We ship:** `(?im)^[ \t]*(?:pay )?grade[ \t]*[:#][ \t]*((?:PG[ \t]*)?\d{1,2})\b`
+- **Configured in:** `classification.yaml` → `classification.jdfn_grade_field_pattern`
+- **Where the default came from:** we chose it
+- **Why it matters:** 🔴 THE LINE ANCHOR IS THE WHOLE RULE, and it is load-bearing. The point is that this is a labelled FIELD, not the word "grade" occurring somewhere in prose — a JDFN JD reading "Supports grade 12 students in the program" must not acquire grade 12. MEASURED: before the docx-header fix (`_docx_identification_block`) these documents had no identification block at all, `text` was the whole document, and an unanchored match there produced the 430 garbage `grade` strings the audit found. After the fix, 876 archive documents state a JDFN grade in the header — a field the same audit had reported "not extracted anywhere", having looked only at body text. ⚠ The `(?m)` flag is what makes `^` mean start-of-LINE rather than start-of-string; without it this finds the field only on a block that begins with it. The flag is written INLINE, not as an `ignore_case` key, precisely so this register entry can see it: `normalize_config_value` renders a regex as its pattern source alone, so a flag held in a separate key is a behaviour-changing knob the drift check is blind to.
+- **If it changes:** Does NOT move `rules_version`. ⚠ DOES move `PARSER_VERSION` and requires a re-parse in the same change. Dropping the `^` anchor or the `(?m)` flag re-opens the exact defect that produced 430 garbage grades. Pinned by mutation and by a failing-fixture test (the "grade 12 students" case must stay `None`).
+
+##### HR-236 — Which employee groups record a parsed grade under their OWN scheme name, and which fall back to `unknown`?
+
+- **We ship:** `apsa`, `apex`, `poly`
+- **Configured in:** `classification.yaml` → `classification.jdfn_schemes`
+- **Where the default came from:** we chose it
+- **Why it matters:** `JobClassification.scheme` exists because EACH GROUP HAS ITS OWN SCALE — a CUPE grade 8 is not an APSA grade 8 — so a grade recorded under the wrong scheme is not a cosmetic error, it is a wrong pay band. A grade read for a group not on this list is recorded as `unknown` rather than attributed to a scale we cannot name. `excluded` is deliberately ABSENT: an excluded position has no bargaining-unit grade ladder to belong to. `cupe` is absent because it never reaches this branch — it is handled by HR-233 and stamped `scheme: cupe` directly. The loader refuses a name that is not an `SFUEmployeeGroup`, and refuses an empty list: a scheme table nothing can be parsed into is a table that silently does nothing, which is this rulebook's standing objection to a gate that can never fire.
+- **If it changes:** Does NOT move `rules_version`. ⚠ DOES move `PARSER_VERSION` and requires a re-parse in the same change. Removing a group here does not lose the grade — it downgrades its `scheme` to `unknown`, which is the honest failure. Pinned by mutation (`test_classification_rules.py`: drop `apex` and an APEX grade comes back `unknown`).
 
 #### An earlier version of this tool chose it — also unratified
 
