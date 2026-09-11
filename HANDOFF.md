@@ -411,6 +411,16 @@ survives on **28.5% of rewritten duties against 100% of merge-only ones** — th
 destroys a field the merge preserves, and frequency is an input to the CUPE point-factor
 evaluation, so a dropped one is a missing evaluation signal and not just missing text.
 
+✅ **RE-DERIVED 2026-09-11 against the live Bank and it CONFIRMS — 2,071/7,266 = 28.5%
+rewritten, 24/24 = 100.0% merge-only.** Unlike the three rows this week that were stale,
+this one stands. (Frequency is also 0.0% on every non-CUPE form, as it should be: the
+markers are WJQ form furniture.)
+
+⚠ **But read the CONTROL's size before designing against it: 100% is 24 duties across TWO
+drafts.** It is small precisely *because the rewrite rarely fails* — good for the pipeline,
+weak as evidence. The 28.5% is solid (7,266 duties); the "100%" is directional. Do not
+treat the merge as a proven ceiling on the strength of two drafts.
+
 The restore exists but sits *inside* the well-grounded branch, so a heavily-reworded duty
 keeps nothing. **Do not simply move it out.** Measured over 120 real clusters: duty counts
 align 91.7% of the time, but argmax and positional matching agree only **8–26%** — the
