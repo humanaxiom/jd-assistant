@@ -74,6 +74,41 @@ none is needed.
 An **empty** document is skipped, never written as a zero vector — a zero vector is
 equidistant from everything and would surface as a spurious neighbour.
 
+### 🔴 An over-long role, and the two counts that tell you about it
+
+`make embed-roles` prints a line you should actually read:
+
+```
+over-long: 3 embedded from a SHORTER re-cut (HR-193 ladder), 0 refused even at the shortest rung
+```
+
+This is the history it encodes, and each step was a real defect:
+
+1. **It used to ABORT.** One role longer than `nomic-embed-text`'s window 400'd, the error
+   escaped the batch loop, and the pass stopped at **2,152 of 2,500** — 348 roles left with
+   no vector and invisible to Builder search, while `make embed-roles` reported only
+   `Error 1`. Fixed in #180: the chunk is retried one role at a time, so only the genuine
+   offender is affected.
+2. **Then it was counted, but still absent.** Isolating stopped the abort; it did not give
+   the role a vector. Fixed 2026-09-11: the role now walks the `max_chars_fallback` ladder
+   (`8000 → 6000 → 4000`), is re-cut on whole LINE boundaries, and is embedded from the
+   first cut the server accepts — the same HR-193 treatment the DOCUMENT runner has had
+   since Phase 3.2. That is `roles_backed_off`.
+3. **And the count was not printed.** `roles_rejected` sat in `roles-summary.json` and was
+   missing from the console line, so an operator watching the terminal could not learn that
+   a role had been dropped. Both counts now print.
+
+**What to do about each:**
+
+| count | meaning | action |
+|---|---|---|
+| `roles_backed_off` > 0 | the role HAS a vector, cut from less text than the role contains | none required — search ranks it slightly weaker, and that is the honest trade |
+| `roles_rejected` > 0 | 🔴 the role has **NO vector** and Builder search cannot see it | investigate: this survived even the 4,000-char rung, so something is wrong with the role, not the ladder |
+
+⚠ A backed-off role keeps its **full** text's `text_sha256` as the node identity, so an
+unchanged corpus still re-embeds nothing. The cost is that this handful re-runs on each
+*full* re-embed (a stamp change) — bounded and deliberate.
+
 ---
 
 ## 3. ⚠ `embed_stamp` — the difference between a free re-run and re-embedding the archive

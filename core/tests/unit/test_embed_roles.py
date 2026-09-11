@@ -15,7 +15,12 @@ import pytest
 from src.jd_bank.embeddings import roles as roles_mod
 from src.jd_bank.embeddings.client import EmbeddingBadRequestError
 from src.jd_bank.embeddings.models import NodeKey
-from src.jd_core.models.parsed_jd import SFUDuty, SFUJobDescription
+from src.jd_core.bank.embed_text import serialize_document
+from src.jd_core.models.parsed_jd import (
+    SFUDuty,
+    SFUJobDescription,
+    SFUQualification,
+)
 from src.jd_core.rules import get_rules
 
 
@@ -257,3 +262,139 @@ async def test_one_over_long_role_does_not_abort_the_whole_pass(
 
     assert summary.roles_embedded == 2, "the innocent roles are still embedded"
     assert summary.roles_rejected == 1, "and the over-long one is COUNTED, not hidden"
+
+
+class _FakeEmbedRejectingOverLength(_FakeEmbed):
+    """400s on any batch containing a text longer than ``accepts`` characters.
+
+    Closer to the real endpoint than :class:`_FakeEmbedRejectingLong`, which rejects one
+    text by IDENTITY: the server refuses on LENGTH, so a re-cut of the same role is a
+    different outcome. That is precisely what the fallback ladder depends on, and an
+    identity-based fake can never exercise it.
+    """
+
+    def __init__(self, accepts: int) -> None:
+        super().__init__()
+        self.accepts = accepts
+
+    async def embed_batch(self, texts: Any) -> list[list[float]]:
+        batch = list(texts)
+        self.batches.append(batch)
+        if any(len(text) > self.accepts for text in batch):
+            raise EmbeddingBadRequestError(
+                "the input length exceeds the context length"
+            )
+        return [[0.1] * 768 for _ in batch]
+
+
+def _overlong_content(word: str) -> dict[str, Any]:
+    """A role that serializes past ``max_chars`` and stays dense after truncation.
+
+    Many DUTIES rather than one huge summary, because `retruncate_within` cuts on whole
+    LINES — a single unbroken line cannot be re-cut at all, and a fixture built that way
+    would prove the ladder works when it had in fact never run.
+    """
+    return SFUJobDescription(
+        title=f"{word} lead",
+        employee_group="apsa",
+        position_summary=" ".join([word] * 60),
+        duties=[
+            SFUDuty(
+                action_verb="Manages",
+                statement=f"Manages {word} workstream {index} " + "detail " * 50,
+            )
+            for index in range(12)  # the model caps duties at 12
+        ],
+        # The bulk comes from QUALIFICATIONS (cap 40, 400 chars each): enough lines to
+        # exceed `max_chars` AND to still have somewhere to cut at each fallback rung.
+        qualifications=[
+            SFUQualification(text=f"{word} requirement {index} " + "detail " * 50)
+            for index in range(40)
+        ],
+    ).model_dump(mode="json")
+
+
+@pytest.mark.asyncio
+async def test_an_over_long_role_is_rescued_by_the_fallback_ladder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """🔴 P3g's REMAINING half. `ba196b9` made one over-long role stop aborting the pass
+    — it is isolated and counted. But counted is not embedded: the role still ends with
+    NO vector and stays invisible to Builder search, which is the outcome that mattered.
+
+    The DOCUMENT runner has solved this since HR-193: re-cut the text to each
+    `embeddings.max_chars_fallback` rung and embed the first the server takes, counting
+    it as backed-off. `roles.py` never got that ladder. This is the same rule for roles.
+    """
+    victim = _FakeCanonical(cluster_id=uuid.uuid4(), content=_overlong_content("aleph"))
+    _wire(monkeypatch, current=[victim])
+
+    # `max_chars` is 10,000 and the first fallback rung is 8,000, so a server that
+    # accepts 8,000 refuses the truncated text and accepts the first re-cut.
+    summary = await roles_mod.run_role_embedding(
+        object(),  # type: ignore[arg-type]
+        embed_client=_FakeEmbedRejectingOverLength(8_000),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+    )
+
+    assert summary.roles_embedded == 1, "the role gets a vector, not a gap"
+    assert summary.roles_backed_off == 1, "and the shorter vector is declared"
+    assert summary.roles_rejected == 0
+
+
+@pytest.mark.asyncio
+async def test_the_backed_off_role_keeps_its_full_text_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The vector is of the SHORTER text; the node's skip-first key must still be the
+    FULL one, exactly as the document runner memoises under the original sha.
+
+    Otherwise an unchanged corpus re-embeds this role on every run — and worse, the
+    stored `text_sha256` would describe text the Bank cannot reproduce from the role.
+    """
+    victim = _FakeCanonical(cluster_id=uuid.uuid4(), content=_overlong_content("beth"))
+    captured = _wire(monkeypatch, current=[victim])
+
+    await roles_mod.run_role_embedding(
+        object(),  # type: ignore[arg-type]
+        embed_client=_FakeEmbedRejectingOverLength(8_000),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+    )
+
+    written = captured["written"][0]
+    expected = serialize_document(
+        SFUJobDescription.model_validate(victim.content), get_rules().embeddings
+    )
+    assert written.text_sha256 == expected.text_sha256
+    assert written.truncated is True
+
+
+@pytest.mark.asyncio
+async def test_an_empty_fallback_ladder_writes_the_role_off_as_before(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HR-193's off switch, for roles as for documents: an empty ladder restores the
+    pre-HR-193 behaviour EXACTLY — counted in `roles_rejected`, never silently dropped.
+
+    Pinned so the ladder cannot become unconditional: the rungs are a registered, `open`
+    decision, and code that ignored an emptied list would take that decision away.
+    """
+    rules = get_rules()
+    no_ladder = rules.model_copy(
+        update={
+            "embeddings": rules.embeddings.model_copy(update={"max_chars_fallback": ()})
+        }
+    )
+    victim = _FakeCanonical(cluster_id=uuid.uuid4(), content=_overlong_content("gimel"))
+    _wire(monkeypatch, current=[victim])
+
+    summary = await roles_mod.run_role_embedding(
+        object(),  # type: ignore[arg-type]
+        embed_client=_FakeEmbedRejectingOverLength(8_000),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+        rules=no_ladder,
+    )
+
+    assert summary.roles_embedded == 0
+    assert summary.roles_backed_off == 0
+    assert summary.roles_rejected == 1

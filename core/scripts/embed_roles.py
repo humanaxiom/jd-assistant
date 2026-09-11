@@ -73,11 +73,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(list(sys.argv[1:] if argv is None else argv))
     summary = asyncio.run(_run(args))
 
+    # ⚠ `roles_rejected` and `roles_backed_off` are PRINTED, not merely written to the
+    # JSON. They were in the summary file and absent from this line, which is the same
+    # defect in miniature as the one they exist to report: an operator watching the
+    # terminal saw "seen / embedded / unchanged / empty" and had no way to learn that a
+    # role had been dropped. A count nobody is shown is not a report.
     print(
         f"roles: {summary.roles_seen} seen, {summary.roles_embedded} embedded, "
         f"{summary.roles_unchanged} unchanged, {summary.roles_empty} empty "
         f"(skipped, never a zero vector)\n"
-        f"nodes pruned (no longer planned): {summary.nodes_pruned}\n"
+        f"over-long: {summary.roles_backed_off} embedded from a SHORTER re-cut "
+        f"(HR-193 ladder), {summary.roles_rejected} refused even at the shortest rung"
+        + (
+            " <- THESE ROLES HAVE NO VECTOR and are invisible to Builder search"
+            if summary.roles_rejected
+            else ""
+        )
+        + f"\nnodes pruned (no longer planned): {summary.nodes_pruned}\n"
         f"model={summary.model} dimensions={summary.dimensions} "
         f"embed_stamp={summary.embed_stamp}",
         file=sys.stderr,
