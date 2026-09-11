@@ -978,6 +978,84 @@ share is legitimate splitting. Of the three examples surfaced, two are clearly w
 ⚠ **HR-184 stays `open` at 0.2, and nothing here argues for moving it.** It argues that the
 knob is the wrong lever.
 
+## 11. 🔴 The 27.1% department gap is NOT (only) a parse gap — 40% of it is STALE DRAFTS
+
+**Measured 2026-09-11.** HANDOFF describes the department gap as *"a parse-coverage gap"*.
+That is a claim about **cause**, and it is testable: a role is built from member documents,
+so if a department-less role has members whose **parse does carry a department**, the parser
+found it and the *role* lost it.
+
+### 11a. The number reproduces; the cause does not
+
+| | roles | |
+|---|---:|---|
+| roles with no department | **677** | **27.1%** — reproduces the handoff exactly |
+| …of which **≥1 member document states one** | **268** | **39.6% of the gap is NOT a parse failure** |
+| …of which no member states one | 409 | 60.4% — a genuine parse gap |
+
+**268 roles could carry a department from data already in the Bank**, with no re-parse and
+no GPU.
+
+### 11b. The cause, established from the code and confirmed with a control
+
+`merge.py` picks department with `_modal_non_null`, which returns `None` **only when every
+member is null** — it takes any non-null value and does not flag disagreement (a role
+legitimately spans departments). So the merge cannot drop a department it was shown.
+
+That makes a deterministic prediction: a draft **refreshed after** the v8 re-parse would
+have seen the recovered department and kept it, so **no post-v8 draft can be in this set.**
+
+| the 268 | |
+|---|---:|
+| last refreshed **BEFORE** the v8 parse of the member that states a department | **268** |
+| last refreshed **after** it | **0** |
+
+**Zero counter-examples, against 151 post-v8 drafts available to be counter-examples.** The
+cause is not the parser and not the merge — it is that **these drafts were never rebuilt
+after v8 recovered their departments**.
+
+### 11c. The systemic version: 94% of drafts predate the current parse
+
+| form | roles | refreshed before v8 | stale % |
+|---|---:|---:|---:|
+| `(unrecorded)` | 1,297 | 1,243 | 95.8% |
+| `cupe` | 625 | 625 | **100.0%** |
+| `apsa` | 525 | 441 | 84.0% |
+| **ALL** | **2,501** | **2,350** | **94.0%** |
+
+🔴 **`PARSER_VERSION`'s contract — "a bump ships WITH its re-parse" — is satisfied at the
+DOCUMENT layer and silently unsatisfied at the ROLE layer.** Nothing re-runs the drafts, so
+every parser fix since a draft was last built is invisible in it: v8's departments, v7's
+**805 recovered titles**, v6's employee-group correction. This is the same shape as P3g
+(*"nothing rebuilds the vector index, nothing notices"*) one layer up, and neither errors.
+
+⚠ CUPE is 100% stale because its repair pass ran **2026-08-19**, eleven days *before* v8.
+
+### 11d. What the in-flight JDFN pass fixes, and what it leaves
+
+The JDFN producer pass running since 2026-09-11 rebuilds JDFN drafts from current parses, so
+it will pick up v8 departments for the forms it touches:
+
+| form | recoverable roles | |
+|---|---:|---|
+| `(unrecorded)` | 164 | ✅ the in-flight pass rebuilds these |
+| `apsa` | 4 | ✅ |
+| `excluded` | 1 | ✅ |
+| **`cupe`** | **99** | 🔴 **the JDFN pass does NOT touch these** |
+
+**So ~169 of the 268 resolve for free when the pass lands, and 99 CUPE roles need their own
+scoped run.** ⚠ Re-measure after the pass rather than assuming the split holds.
+
+### 11e. ⚠ A correction made mid-analysis, recorded because it nearly shipped
+
+The first pass of this measurement used `canonical_jds.created_at` and concluded **100%** of
+drafts were stale — which made *"268 of 268 predate v8"* **automatically true and therefore
+evidence of nothing.** `created_at` is the row's birth; a producer refresh updates content
+**in place**, so `updated_at` is the column that tracks when a draft was last built. With
+the right column the systemic figure is **94%**, the 268 result survives *because* 151
+drafts were eligible to be counter-examples and none were, and the claim became a real test
+instead of a tautology.
+
 ## Full working
 
 The original per-topic documents are in **`docs/archive/plans/`** — kept for the reasoning

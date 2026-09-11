@@ -298,8 +298,30 @@ Verify through the suite, or `launch.ps1 -NoCas`.
    "fix" one to match the other.
 8. **Duty-frequency matching** — 28.5% rewritten vs 100% merge-only. The one-line fix is
    UNSAFE (the model reorders; argmax and positional agree 8–26%). Needs a design.
-9. **677 roles (27.1%) carry no department** — every unit page says so. It is a
-   parse-coverage gap, and it is the first thing a stakeholder asks about.
+9. 🔴 **677 roles (27.1%) carry no department — and it is NOT (only) a parse gap. MEASURED
+   2026-09-11 (§11).** The 27.1% reproduces exactly; the *cause* in this line did not.
+   **268 of the 677 (39.6%) have a member document whose parse DOES state a department** —
+   recoverable from data already in the Bank, with no re-parse and no GPU. Only 409 are
+   genuine parse gaps.
+
+   **Why they lost it:** `merge.py` takes any non-null department (`_modal_non_null` returns
+   `None` only when every member is null), so the merge cannot drop one it was shown. These
+   drafts were simply **never rebuilt after the v8 re-parse recovered their departments** —
+   268 of 268 were last refreshed before it, with **zero** of the 151 post-v8 drafts showing
+   the defect.
+
+   🔴 **THE SYSTEMIC VERSION: 94% of drafts (2,350 of 2,501) were last refreshed BEFORE the
+   current parse.** `PARSER_VERSION`'s contract — *a bump ships WITH its re-parse* — is
+   satisfied at the DOCUMENT layer and silently unsatisfied at the ROLE layer. Nothing
+   re-runs the drafts, so v8's departments, v7's **805 recovered titles** and v6's
+   employee-group fix are all invisible in most drafts. Same shape as P3g one layer up, and
+   it does not error either. ⚠ CUPE is 100% stale because its repair pass ran 2026-08-19,
+   eleven days before v8.
+
+   ✅ **The in-flight JDFN pass fixes ~169 of the 268 for free** (164 unrecorded + 4 apsa +
+   1 excluded) — it rebuilds from current parses. 🔴 **99 CUPE roles it does NOT touch** and
+   they need their own scoped run afterwards. Re-measure after the pass; do not assume the
+   split holds.
 
 ## ▶ CURRENT STATE — 2026-08-29
 
