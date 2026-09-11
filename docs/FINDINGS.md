@@ -556,21 +556,32 @@ one document is better handled as what it is — a single bad value — than as 
 pretending to generalise. ⚠ This is P3e's lesson a second time: *the defect was in the
 sample, not in the corpus.*
 
-### 8f. The defect the P3c probe tripped over, which is 53× bigger
+### 8f. The defect the P3c probe tripped over — the RESIDUAL of `_fallback_title`, diagnosed
 
-The `incumbent` cue matched two titles that are not names at all but **whole sentences**:
-*"Working under the guidance of the Director, the Program Manager, EHRS administers SFU's"*.
-That is a position summary in the `title` field. Counted properly:
+⚠ **First, a correction to this section's own first draft.** It called this a NEW defect
+and blamed a pydantic `max_length`. **Both were wrong, and checking the code is what said
+so** — the standing rule of this file, applied to it.
+
+- It is **not new**. It is the measured residual of the v2→v3 `_fallback_title` defect,
+  which `segmenter.py` records in full: the modern template keeps its identification table
+  in the docx *header*, extraction excluded it, and *"`_fallback_title` took the first body
+  paragraph as the title"*. `_docx_identification_block` fixed the bulk — **paragraph
+  titles 4,986 → 148** at v3. What follows is what is left at v8.
+- The 200-char cut is the **parser's own** `_MAX_TITLE = 200` (in `_fallback_title` and at
+  the `SFUJobDescription` call), not a model-validation artefact. `title` also carries
+  `max_length=200`, so the two agree — but the truncation happens in the parser first.
+
+⚠ **148 (v3) and the numbers below are NOT comparable** — they count different things by
+different definitions. Do not read a trend into the pair.
+
+**Measured at `jd_segmenter_v8`, 2026-09-11:**
 
 | | documents |
 |---|---:|
-| titles clipped at the model's **200-char cap** (`title: max_length=200`) — unambiguously a paragraph | **53** (15 distinct) |
+| titles cut at exactly `_MAX_TITLE` (200) — unambiguously a paragraph | **53** (15 distinct) |
 | titles opening with a prose word (`The`/`Reporting`/`Provides`/`Playing`/`Under`/`Working`/`Please`/`This position`) | **299** |
 | titles over 120 chars | 130 |
 | titles over 60 chars | 451 |
-
-The 200-char cases are not a judgement call: the value hit a pydantic `max_length` and was
-truncated mid-word, so the parser fed a paragraph into a field meant for a title. Samples:
 
 ```
 Reporting to the Manager, Linguistics, and supervised by both the Managers, Linguistics …
@@ -578,10 +589,28 @@ Provides comprehensive services to students, faculty, staff and external client 
 Please connect with Strategic Business Partner or Director, Strategic Business Partner. …
 ```
 
+🔴 **And the diagnosis is decisive about WHICH parser is at fault.** Split by employee
+group, the at-cap documents are:
+
+| group | at the 200 cap | titled documents |
+|---|---:|---:|
+| `(unrecorded)` | **30** | 4,534 |
+| `apsa` | **23** | 5,121 |
+| `cupe` | **0** | 4,300 |
+| `apex` / `poly` / `excluded` | 0 | 567 |
+
+**Zero CUPE.** The WJQ path reads a labelled CELL (`wjq.id_labels`) and cannot pick up a
+paragraph; every one of the 53 came through the JDFN identification-block path and fell
+through to `_fallback_title`. Every sample also carries `department = None`, which is the
+corroborating signal: the identification block was not recovered *at all*, so title and
+department failed together rather than the title extractor misfiring on its own.
+
 ⚠ **53 is the hard floor** (at the cap) and **299 the upper bound** (a prose opener could
-in principle be a real title). Unlike a personal name this needs no name detection at all
-— "the title field contains a sentence" is decidable from length and shape. **It is worth
-more than P3c and it was found by measuring P3c.**
+in principle be a real title). Unlike a personal name this needs no name detection —
+"the title field contains a sentence" is decidable from length and shape. The fix belongs
+in the **identification-block recovery for these ~53 `.docx` files**, not in a post-hoc
+title trimmer: §8d's standing rule is to refuse back to the sentinel rather than ship a
+fragment, and a truncated paragraph is a confident wrong value.
 
 ⚠ **The remaining ~1,241 CUPE placeholders are genuine gaps**, not a fixable parse: about
 half the placeholder population has no title label anywhere in the document.
