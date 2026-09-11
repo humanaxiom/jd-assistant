@@ -49,6 +49,34 @@ RETURN s.id AS id, s.text_sha256 AS text_sha256, s.model AS model,
        s.embed_stamp AS embed_stamp
 """
 
+#: Repair the PROVENANCE of a node whose VECTOR is already current.
+#:
+#: 🔴 Why this exists, measured on the live Bank 2026-09-11. `NodeKey` is a CONTENT
+#: identity — `(text_sha256, model, embed_stamp)` — and `parser_version` is deliberately
+#: NOT in it, correctly: the vector depends on the TEXT, not on which parser produced
+#: it. But the node also CARRIES `parser_version` as a claim about itself, and
+#: skip-first skipped updating that too. A document whose serialized text is
+#: byte-identical across a parser bump therefore kept the OLD label for ever: after a
+#: full, correct `make embed` the index read
+#: `['jd_segmenter_v2', 'jd_segmenter_v8']` — 11,787 nodes whose vectors were
+#: perfectly current while claiming a parse six bumps old.
+#:
+#: ⚠ Sets the LABEL ONLY. Never the embedding — recomputing a vector that cannot have
+#: changed is exactly the cost skip-first exists to avoid.
+_REFRESH_DOCUMENT_PROVENANCE = """
+UNWIND $rows AS row
+MATCH (d:JDDocument {id: row.id})
+SET d.parsed_jd_id = row.parsed_jd_id,
+    d.parser_version = row.parser_version
+"""
+
+_REFRESH_SECTION_PROVENANCE = """
+UNWIND $rows AS row
+MATCH (s:JDSection {id: row.id})
+SET s.parsed_jd_id = row.parsed_jd_id,
+    s.parser_version = row.parser_version
+"""
+
 _FETCH_ROLE_KEYS = """
 MATCH (r:JDRole)
 RETURN r.id AS id, r.text_sha256 AS text_sha256, r.model AS model,
@@ -302,6 +330,51 @@ async def write_sections(driver: AsyncDriver, rows: Sequence[SectionWrite]) -> N
         return
     async with driver.session() as session:
         await session.run(_WRITE_SECTIONS, rows=[_section_payload(r) for r in rows])
+
+
+async def refresh_document_provenance(
+    driver: AsyncDriver, rows: Sequence[DocumentWrite]
+) -> None:
+    """Correct ``parser_version`` / ``parsed_jd_id`` where the VECTOR is current.
+
+    See :data:`_REFRESH_DOCUMENT_PROVENANCE`. Takes the same ``DocumentWrite`` the
+    writer takes so the caller cannot supply a different notion of "which parse this
+    node represents" — but only the two provenance fields are read from it.
+    """
+    if not rows:
+        return
+    async with driver.session() as session:
+        await session.run(
+            _REFRESH_DOCUMENT_PROVENANCE,
+            rows=[
+                {
+                    "id": str(r.source_document_id),
+                    "parsed_jd_id": str(r.parsed_jd_id),
+                    "parser_version": r.parser_version,
+                }
+                for r in rows
+            ],
+        )
+
+
+async def refresh_section_provenance(
+    driver: AsyncDriver, rows: Sequence[SectionWrite]
+) -> None:
+    """:func:`refresh_document_provenance` for ``(:JDSection)`` — same rule."""
+    if not rows:
+        return
+    async with driver.session() as session:
+        await session.run(
+            _REFRESH_SECTION_PROVENANCE,
+            rows=[
+                {
+                    "id": r.section_id,
+                    "parsed_jd_id": str(r.parsed_jd_id),
+                    "parser_version": r.parser_version,
+                }
+                for r in rows
+            ],
+        )
 
 
 async def prune_sections(
