@@ -914,7 +914,69 @@ one.
 
 **So the genuinely open question is precision, not volume**, and it needs a labelled sample —
 read N rewritten duties against their argmax merge duty and count how often it is the same
-duty. That is the one piece this sweep does not supply.
+duty. That is the one piece this sweep does not supply. ✅ **§10f gets an upper bound on it
+WITHOUT labelling.**
+
+### 10f. 🔴 Precision, measured mechanically: 12.6% of matched CUPE duties COLLIDE
+
+§10e said precision needed human labelling. **Part of it does not.** `_closest` is argmax
+with **no exclusivity** — two rewritten duties can both claim the *same* merge duty, and
+both then inherit that one duty's `frequency`. Collisions are therefore countable, and they
+are exactly where the carry-back is unverified.
+
+**Measured 2026-09-11, same import-the-shipped-scorer method as §10e, at the shipped 0.2:**
+
+| group | drafts | matched duties | in a collision | **collide %** | drafts affected |
+|---|---:|---:|---:|---:|---:|
+| `cupe` | 612 | 2,720 | 342 | **12.6%** | 147 |
+| `(unrecorded)` | 1,250 | 1,375 | 233 | **16.9%** | 108 |
+| `apsa` | 510 | 594 | 79 | **13.3%** | 37 |
+| `apex` | 42 | 78 | 10 | 12.8% | 4 |
+
+**Roughly one matched duty in eight is in a contested match**, and 147 CUPE drafts (24% of
+those with a match) contain at least one.
+
+#### ⚠ A collision is not automatically an error — read the examples
+
+Two readings, and both occur:
+
+```
+MERGE : To operate (11 x 17) offset press (2 colour heads)
+rw #1 : Heidelberg Kord offset press to produce multicolour prints
+rw #2 : 11 x 17 offset press for two-colour jobs
+```
+↑ plausibly a legitimate **1 → 2 split**; both inheriting the frequency may be right.
+
+```
+MERGE : Provides strategic operational leadership ... post-graduate (residency) programs
+rw #1 : Strategic operational leadership ... undergraduate, graduate, postgraduate curricula
+rw #2 : Work closely with faculty, senior leadership, and the Associate Dean, PGME ...
+```
+```
+MERGE : Interprets Canadian immigration law and regulations to support recruitment ...
+rw #1 : Canadian immigration law and regulations to support recruitment and retention ...
+rw #2 : Immigration advising services through confidential appointments, group sessions ...
+```
+↑ **genuine mis-matches.** `rw #2` is a different duty in each case, matched on shared
+vocabulary (*"PGME/leadership"*, *"immigration"*) rather than on being the same duty. Its
+frequency is inherited from a duty it does not correspond to.
+
+**So 12.6% is an upper bound on the collision-driven error, not the error itself** — some
+share is legitimate splitting. Of the three examples surfaced, two are clearly wrong.
+
+#### What this settles, and what it does not
+
+- ✅ **A wrong frequency is not hypothetical.** The handoff's warning that a naive threshold
+  move would attach wrong frequencies is now demonstrated on live data with readable cases.
+- ✅ **The defect is in the MATCHER, not the threshold.** Collisions happen *above* the bar,
+  so moving the bar cannot fix them — an exclusive assignment (each merge duty claimed at
+  most once) would, and that is the "matching design with evidence behind it" the handoff
+  asks for. The evidence is now here.
+- ❌ **Still unmeasured: precision among NON-colliding matches.** A uniquely-claimed match
+  can still be the wrong duty, and only labelling settles that.
+
+⚠ **HR-184 stays `open` at 0.2, and nothing here argues for moving it.** It argues that the
+knob is the wrong lever.
 
 ## Full working
 

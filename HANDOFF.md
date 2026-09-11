@@ -463,8 +463,19 @@ value sits exactly where the curve is steepest.
 MATCHES, not whether the match is the RIGHT merge duty — and argmax/positional agree only
 8–26%. Because the same knob carries `frequency` back, a lower threshold attaches MORE
 frequencies from possibly-wrong matches, and a wrong frequency is worse than a missing one.
-**The open question is precision, not volume**, and it needs a labelled sample: read N
-rewritten duties against their argmax merge duty and count how often it is the same duty.
+**The open question is precision, not volume.** ✅ **And an upper bound on it is now measured
+WITHOUT labelling (§10f):** `_closest` is argmax with **no exclusivity**, so two rewritten
+duties can claim the same merge duty and both inherit its frequency. **12.6% of matched CUPE
+duties are in such a collision** (16.9% unrecorded, 13.3% apsa); 147 CUPE drafts contain one.
+Of three examples read by eye, **two are genuine mis-matches** — a different duty matched on
+shared vocabulary ("immigration", "leadership") — and one is a plausible 1→2 split, so 12.6%
+bounds the error rather than being it.
+
+🔴 **THAT RELOCATES THE FIX: the defect is in the MATCHER, not the threshold.** Collisions
+happen *above* the bar, so moving the bar cannot touch them. An **exclusive assignment**
+(each merge duty claimed at most once) is the "matching design with evidence behind it" this
+row has been asking for, and the evidence now exists. ❌ Still unmeasured: precision among
+NON-colliding matches — that one does need labelling.
 
 ### ✅ MVP-2 (VPFA · Facilities) — SHIPPED 2026-09-09 (#183), live behind CAS
 
