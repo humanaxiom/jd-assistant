@@ -49,11 +49,20 @@ this directive" — an assistant writing its own escape hatch into the prime dir
 is the shape of reasoning it exists to stop. **If it must change while smoke is red, a
 PERSON merges it.**
 
-🔴 **AS OF 2026-09-11 SHIPPING IS BLOCKED.** `make smoke` is RED on two P3g failures —
-document vectors at `jd_segmenter_v2` against a `v8` Bank, and the role index not covering
-every role. Clearing them needs `make embed` + `make embed-roles`, which need
-`aria-gb10-2` — **which the JDFN producer pass is holding until ~2026-09-13.** Nothing
-merges until those run and smoke is green.
+✅ **AS OF 2026-09-12 00:50 UTC, `make smoke` IS GREEN (8 passed) AND SHIPPING IS OPEN.**
+It took three things, and the middle one was a real defect the directive found on its
+first day:
+
+1. `make embed-roles` — the role index now covers every role (and the HR-193 ladder
+   rescued one over-long role on its first live run).
+2. 🔴 **`make embed` alone could NOT clear the document gate** — skip-first was skipping
+   the **provenance** as well as the vector, so 11,787 nodes kept a `jd_segmenter_v2`
+   label while holding perfectly current vectors. The gate had been **unpassable by
+   construction since it was written on 2026-08-29.** Fixed in **#199**.
+3. `make embed` again — 0 model calls, 52,077 nodes relabelled.
+
+⚠ **Re-run `make smoke` after any producer pass**, not just before: a pass changes role
+text and the derived index is owed.
 
 ## 🔴 DIRECTIVE #1 — TESTED, AND DEPLOYABLE WITHOUT THE ASSISTANT
 
@@ -113,108 +122,72 @@ shipped* did not move any gate — see the register.
 
 ---
 
-## 🔴🔴 A JDFN PRODUCER PASS IS IN FLIGHT — started 2026-09-11 04:04:58 UTC
+## 🔴🔴 THE JDFN PASS DIED ON THE REBOOT AT 825/2453 — AND IT WAS WORKING
 
-```
-jd-canonical-jdfn-rerun
-  python -u -m src.jd_bank.canonical --only-template jdfn --commit-every 25
-```
+**Started 2026-09-11 04:04:58 UTC · died 2026-09-11 21:03:10 UTC · 16h58m · `ExitCode=255`,
+`OOMKilled=false`, no error message — the machine went down under it.**
 
-**No `--resume` — it is a RE-BASELINE.** Check it BEFORE starting anything that writes
-drafts.
+🔴 **TRAP 5 BELOW BIT, EXACTLY AS PREDICTED.** The stack has no `restart:` policy. This
+page said two days earlier that the extra runtime "now has two extra days to bite", and it
+did. ⚠ **Nothing announced it**: the container sat `Exited (255)` and the whole jd-bank
+stack was down for ~4 hours with no signal.
 
-🔴 **THE ~19-HOUR ESTIMATE IS WRONG. IT IS ~51 HOURS — MEASURED 2026-09-11 OVER SIX
-CHECKPOINTS.** The pass prints its own rate; don't estimate it, read it:
+### What survived — verified in the Bank, not read off the counter
 
-```
-[canonical-producer]  25/2453 clusters | ... | elapsed=1802.1s
-[canonical-producer]  50/2453 clusters | ... | elapsed=3673.5s
-[canonical-producer]  75/2453 clusters | ... | elapsed=5558.9s
-[canonical-producer] 100/2453 clusters | ... | elapsed=7460.8s
-[canonical-producer] 125/2453 clusters | ... | elapsed=9354.7s
-[canonical-producer] 150/2453 clusters | ... | elapsed=11138.9s
-```
-
-**Per-batch: 72.1 · 74.9 · 75.4 · 76.1 · 75.8 · 71.4 s/cluster.** The rate is NOT startup
-inflation — five of the six batches are slower than the first. ⚠ **But it has NO TREND: an
-earlier draft of this note called it "still drifting up" on four points, and the sixth
-batch came back the FASTEST of all.** It fluctuates around ~74; do not read a direction
-into it. At **74.3 s/cluster overall**, 2,453 clusters ≈ **51 hours**, landing ~**06:00–08:00
-UTC on 2026-09-13** — not 23:00 on 2026-09-11. The ~19 hours was carried over from the CUPE
-pass; this cohort is roughly 2.5× slower per cluster and nobody had re-measured it.
-
-**Plan for more than two days, not one overnight**, and note what that implies: trap 5
-below (the stack has **no `restart:` policy**) now has two extra days to bite, and a
-Docker Desktop restart mid-pass is exactly how a 52-minute pass was lost on 2026-08-20.
-If it does die, **`--resume` continues it safely (#126)** — starting it WITHOUT `--resume`
-pays for every cluster again.
-
-⚠ **Re-read the rate rather than trusting this line.** It is six checkpoints out of 98, and
-the per-batch figure has no trend to extrapolate — only a mean to re-check.
-`docker logs --tail 2 jd-canonical-jdfn-rerun` and divide elapsed by clusters.
-
-⚠ And `refreshed=25 failures=0` is a COUNTER, not the Bank. It says what the run did, not
-what is true — `make bank-audit` against `docs/canonical/bank-audit-before-jdfn.json` is
-the verdict, and nothing else is.
-
-```bash
-docker ps --filter "name=canonical"          # non-empty => a pass is running
-docker logs --tail 5 jd-canonical-jdfn-rerun # progress every 25 clusters
-```
-
-⚠ **Silence is not failure for the first ~40 minutes.** The first progress line and the
-first commit both land at 25 clusters. Zero log lines and 0.00% CPU is what a HEALTHY
-pass looks like while it waits on the model — a run was nearly killed as hung for exactly
-this reason on 2026-08-20. To tell alive from stuck, ask something other than the log:
-
-```bash
-docker compose exec -T postgres psql -U app -d harness -c \
-  "SELECT state, to_char(query_start,'HH24:MI:SS') FROM pg_stat_activity \
-   WHERE datname='harness' AND pid<>pg_backend_pid() AND state<>'idle';"
-```
-
-`idle in transaction` on a `review_actions` count, with `query_start` ADVANCING every
-1–3 minutes, is a working pass. It is not `--rm`, so if it dies the container survives
-for `docker inspect`.
-
-⚠ **Never `--remove-orphans`** while it runs: it is a compose one-off, so compose reports
-it as an orphan and the flag deletes it mid-pass.
-
-#### What it must produce, and the file to diff against
-
-The BEFORE audit is committed at **`docs/canonical/bank-audit-before-jdfn.json`**.
-
-| JDFN, before the run | |
+| | |
 |---|---|
-| drafts | 1,872 · mean **78.2** · 1,321 approvable |
-| relationships | 64.7% |
-| decision_making | 64.6% |
-| **problem_solving** | 🔴 **233.1% — 636 drafts carry it with NO source** |
+| clusters processed | **825 of 2,453 (33.6%)** |
+| drafts refreshed | **824** — and Postgres holds exactly 824 with `updated_at >= pass start` |
+| measured rate | 59,120.5s / 825 = **71.7 s/cluster** |
+| remaining | 1,628 clusters ≈ **32 hours** |
+
+It commits every 25 clusters, so the work is durable. **`--resume` continues it safely
+(#126); starting it WITHOUT `--resume` pays for every cluster again.**
+
+### ✅ THE PASS IS DOING WHAT IT WAS STARTED FOR — measured per draft
+
+⚠ **And `make bank-audit`'s headline ratio says the opposite mid-pass. Do not trust it
+until the pass COMPLETES.** The committed diff reads:
+
+| JDFN | before | now | |
+|---|---:|---:|---|
+| decision_making | 64.6% | **100.7%** | ✅ content the sources state, recovered |
+| relationships | 64.7% | **100.8%** | ✅ same |
+| problem_solving | 233.1% | **247.5%** | 🔴 *looks worse* |
+| mean_score | 78.20 | **80.85** | 🔴 *this page says expect a FALL* |
+
+**Both red flags are artifacts of a MIXED cohort**, and the per-draft measurement settles
+it — each draft judged against **its own** cluster's sources:
+
+| | drafts | carries PS | its sources offer PS | **FABRICATED** | PS scrubbed |
+|---|---:|---:|---:|---:|---:|
+| not yet refreshed | 1,048 | 998 | 293 | **710 (67.7%)** | 29 |
+| **refreshed by this pass** | **824** | 185 | 185 | **0 (0.0%)** | **478** |
+
+**Zero fabricated `problem_solving` in everything the pass touched**, and it explicitly
+scrubbed the section from **478** drafts. The aggregate ratio rises because `offered` is
+counted cohort-wide (478 clusters) while `kept` spans a corpus that is now ⅓ repaired and
+⅔ not — it can move either way until the run finishes.
+
+🔴 **SO THE "SUCCESS = problem_solving ≤ 100%" CRITERION ON THIS PAGE IS NOT EVALUABLE
+MID-PASS.** Use the per-draft split above while a pass is partial; use the aggregate only
+after it completes. The same applies to the mean score: refreshed drafts average **75.29**
+against **85.23** untouched, and the aggregate rose only because recovered
+relationships/decision_making outweigh the withdrawn fabrication. A rise was correctly
+treated as a question here — and the question has an answer.
+
+### To continue it
 
 ```bash
-make bank-audit          # then diff against the before file
+docker compose up -d postgres neo4j redis api worker   # ⚠ NEVER --remove-orphans
+docker compose run -d --name jd-canonical-jdfn-resume \
+  canonical python -u -m src.jd_bank.canonical \
+  --only-template jdfn --commit-every 25 --resume
 ```
 
-**Success = `problem_solving` at or below 100%, and relationships / decision_making
-rising toward it.** ⚠ **EXPECT THE JDFN MEAN SCORE TO FALL.** That is fabrication being
-withdrawn — the S-5 argument — and a rising score has been the signature of three
-separate content-loss defects here. Treat a rise as a question.
-
-#### Why this pass was trusted to start (the ~90-second check, run first)
-
-Cluster `a622f3cf`, 40 members — the defect caught on live data:
-
-```
-CURRENT draft: problem_solving=3   ...while 0 of 40 SOURCES state any
-SOURCES: 40/40 state decision_making, 0/40 state problem_solving
-MERGE  -> duties=5  dm=6  ps=0  rel=YES
-REWRITE-> duties=5  dm=5  ps=0  rel=YES  score=74.29
-         scrubbed_sections=()   invented_duties=0
-```
-
-Grounded decision-making comes through; problem_solving stays empty. **Do this check
-before any future pass** — two passes were started on unverified fixes and both were
-still wrong.
+⚠ **Check `make smoke` is green BEFORE and after** (Directive #0), and re-run
+`make embed-roles` when it lands: a producer pass changes role text, and the derived index
+is owed. ⚠ **Budget ~32 hours** and expect the reboot risk to be live for all of it.
 
 ## 🔴 HANDING OVER THE BOXES — the state that is NOT in git
 
