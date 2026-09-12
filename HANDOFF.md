@@ -176,18 +176,55 @@ against **85.23** untouched, and the aggregate rose only because recovered
 relationships/decision_making outweigh the withdrawn fabrication. A rise was correctly
 treated as a question here — and the question has an answer.
 
-### To continue it
+### ✅ RESTARTED 2026-09-12 01:21:12 UTC as `jd-canonical-jdfn-rerun2`
 
-```bash
-docker compose up -d postgres neo4j redis api worker   # ⚠ NEVER --remove-orphans
-docker compose run -d --name jd-canonical-jdfn-resume \
-  canonical python -u -m src.jd_bank.canonical \
-  --only-template jdfn --commit-every 25 --resume
+```
+jd-canonical-jdfn-rerun2
+  python -u -m src.jd_bank.canonical --only-template jdfn --commit-every 25
 ```
 
-⚠ **Check `make smoke` is green BEFORE and after** (Directive #0), and re-run
-`make embed-roles` when it lands: a producer pass changes role text, and the derived index
-is owed. ⚠ **Budget ~32 hours** and expect the reboot risk to be live for all of it.
+Verified alive on the signature below (`idle in transaction` on a `review_actions` count,
+`RestartCount=0`). **Started deliberately WITHOUT `--resume` — read the next block before
+"correcting" that.**
+
+### 🔴 `--resume` IS THE WRONG FLAG FOR A RE-BASELINE, AND THIS PAGE SAID TO USE IT
+
+This page told the next session *"if it did not finish, `--resume` continues it safely
+(#126)"*. **That advice is wrong here and would have wasted the whole restart.**
+
+`--resume` sets `skip_llm_written`, which skips any cluster where
+`draft_has_rewritten_prose(change_log)` — i.e. `rewrite_ran AND NOT rewrite_failed`. That
+predicate means **"prose landed"**, *not* "this pass produced it". Every JDFN draft already
+held a successful rewrite from an earlier pass, so a re-baseline is exactly the case it
+cannot see. **Measured before starting:**
+
+| JDFN clusters | total | `--resume` SKIPS | `--resume` processes |
+|---|---:|---:|---:|
+| already done by the dead run | 824 | 799 | 25 |
+| **still owed the re-baseline** | **1,048** | **1,039** | **9** |
+| TOTAL | 1,872 | 1,838 | **34** |
+
+**`--resume` would have processed 9 of the 1,048 clusters that still need repairing**,
+exited green in about 40 minutes, and left 1,039 drafts fabricating — with the run's own
+summary reporting success.
+
+⚠ **The cost of the correct choice, stated plainly:** without `--resume` the run redoes the
+824 clusters it already fixed. ~1,872 × 71.7 s ≈ **37 hours**, of which ~16 h is rework.
+There is no offset or cluster-id flag to avoid it (`--limit` counts from the start;
+`--only-undrafted` needs *no* draft at all). Redoing them is wasteful, not harmful — the
+rewrite runs at temperature 0 and the anti-fabrication guards are unchanged.
+
+🔴 **BEFORE THE NEXT RE-BASELINE, FIX `--resume`** — it should skip only clusters already
+refreshed under the CURRENT rulebook/prompt stamp, not any cluster that has ever held
+prose. Until then, a re-baseline must run without it and pay for the rework.
+
+### While it runs
+
+⚠ **`make smoke` was GREEN before this restart** (Directive #0) and must be re-checked when
+it lands. ⚠ **Re-run `make embed-roles` afterwards** — a producer pass changes role text and
+the derived index does not follow on its own. ⚠ **Budget ~37 hours** (lands ~14:00 UTC on
+2026-09-13) and expect the reboot risk to be live for all of it: the stack still has **no
+`restart:` policy**, which is what killed the last run.
 
 ## 🔴 HANDING OVER THE BOXES — the state that is NOT in git
 
