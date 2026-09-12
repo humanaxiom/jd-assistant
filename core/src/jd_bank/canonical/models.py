@@ -57,6 +57,7 @@ class CanonicalProducerResult(BaseModel):
 
         clusters_seen == drafts_persisted + drafts_refreshed + skipped_reviewer_touched
                        + skipped_would_downgrade + skipped_already_llm_written
+                       + skipped_recently_refreshed
                        + cluster_failures
 
     ...and every cluster the CLUSTERING produced is either entered or explicitly
@@ -152,6 +153,19 @@ class CanonicalProducerResult(BaseModel):
     #: FAILED is NOT counted here — it holds only the deterministic merge, so a resume
     #: retries it (see :func:`draft_has_rewritten_prose`).
     skipped_already_llm_written: int = Field(default=0, ge=0)
+    #: An untouched DRAFT this BASELINE has already refreshed, skipped by
+    #: ``skip_refreshed_since`` (the CLI ``--refreshed-since``).
+    #:
+    #: 🔴 Distinct from :attr:`skipped_already_llm_written` for a measured reason.
+    #: ``--resume`` skips on "does this row HOLD prose", which is right for an
+    #: interrupted FIRST pass and exactly wrong for a RE-BASELINE — where every row
+    #: holds prose from the baseline being replaced. Measured 2026-09-12 on the killed
+    #: JDFN re-run: of the 1,048 clusters still owing work, ``--resume`` would have
+    #: processed **9** and skipped **1,039**, then exited green in ~40 minutes reporting
+    #: success. No stamp could substitute either — that re-baseline was triggered by a
+    #: CODE fix, so ``rules_version`` / ``prompt_version`` are identical on both sides.
+    #: Time is the only honest discriminator, so the operator states it.
+    skipped_recently_refreshed: int = Field(default=0, ge=0)
     #: Clusters the rulebook WOULD have authored, excluded from THIS INVOCATION by
     #: ``only_template`` (the CLI `--only-template`). An OPERATIONAL scope, not a
     #: rulebook outcome: zero on every unscoped run, so a non-zero value means exactly
@@ -205,6 +219,7 @@ class CanonicalProducerResult(BaseModel):
             + self.skipped_reviewer_touched
             + self.skipped_would_downgrade
             + self.skipped_already_llm_written
+            + self.skipped_recently_refreshed
             + self.cluster_failures
         )
         if buckets != self.clusters_seen:
@@ -215,6 +230,7 @@ class CanonicalProducerResult(BaseModel):
                 f"skipped_reviewer_touched={self.skipped_reviewer_touched} "
                 f"skipped_would_downgrade={self.skipped_would_downgrade} "
                 f"skipped_already_llm_written={self.skipped_already_llm_written} "
+                f"skipped_recently_refreshed={self.skipped_recently_refreshed} "
                 f"cluster_failures={self.cluster_failures}"
             )
         return self

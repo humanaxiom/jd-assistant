@@ -176,16 +176,28 @@ against **85.23** untouched, and the aggregate rose only because recovered
 relationships/decision_making outweigh the withdrawn fabrication. A rise was correctly
 treated as a question here — and the question has an answer.
 
-### ✅ RESTARTED 2026-09-12 01:21:12 UTC as `jd-canonical-jdfn-rerun2`
+### ✅ RESUMED 2026-09-12 01:48:06 UTC as `jd-canonical-jdfn-resume`
 
 ```
-jd-canonical-jdfn-rerun2
-  python -u -m src.jd_bank.canonical --only-template jdfn --commit-every 25
+jd-canonical-jdfn-resume
+  python -u -m src.jd_bank.canonical --only-template jdfn --commit-every 25 \
+    --refreshed-since 2026-09-11T04:04:58Z
 ```
 
-Verified alive on the signature below (`idle in transaction` on a `review_actions` count,
-`RestartCount=0`). **Started deliberately WITHOUT `--resume` — read the next block before
-"correcting" that.**
+**`--refreshed-since` is new (this session) and it is what makes a RE-BASELINE resumable.**
+The cutoff is the moment the CURRENT baseline began — the dead run's start — so the 824
+clusters it completed are this baseline's own work and are skipped, and the 1,048 still
+owed are processed.
+
+**Verified on the live Bank the moment it started:**
+
+```
+skipped_recently_refreshed: 824          <- exactly the dead run's completed clusters
+[canonical-producer] 825/2453 clusters | persisted=0 refreshed=0 | elapsed=1.9s
+```
+
+**~16 hours of rework, skipped in 1.9 seconds.** ~21 hours remain (1,048 × 71.7 s), landing
+~**23:00 UTC 2026-09-12** rather than ~14:00 on the 13th.
 
 ### 🔴 `--resume` IS THE WRONG FLAG FOR A RE-BASELINE, AND THIS PAGE SAID TO USE IT
 
@@ -208,22 +220,28 @@ cannot see. **Measured before starting:**
 exited green in about 40 minutes, and left 1,039 drafts fabricating — with the run's own
 summary reporting success.
 
-⚠ **The cost of the correct choice, stated plainly:** without `--resume` the run redoes the
-824 clusters it already fixed. ~1,872 × 71.7 s ≈ **37 hours**, of which ~16 h is rework.
-There is no offset or cluster-id flag to avoid it (`--limit` counts from the start;
-`--only-undrafted` needs *no* draft at all). Redoing them is wasteful, not harmful — the
-rewrite runs at temperature 0 and the anti-fabrication guards are unchanged.
+✅ **FIXED THE SAME SESSION — `--refreshed-since ISO8601` (P5).** Rather than pay ~16 h of
+rework, the flag was built: it skips clusters whose draft was last refreshed **at or after**
+a stated moment, and processes everything else. Use the time the current baseline began.
 
-🔴 **BEFORE THE NEXT RE-BASELINE, FIX `--resume`** — it should skip only clusters already
-refreshed under the CURRENT rulebook/prompt stamp, not any cluster that has ever held
-prose. Until then, a re-baseline must run without it and pay for the rework.
+⚠ **Why TIME and not a stamp.** The obvious fix — "skip clusters already refreshed under
+the current rulebook/prompt stamp" — **cannot work here.** This re-baseline was triggered by
+a **CODE** fix, so `rules_version` and `prompt_version` are *identical* either side of it.
+Nothing on the row distinguishes prose written before the fix from after. Time is the only
+honest discriminator, so the operator states it and a naive (timezone-less) value is
+refused rather than guessed.
+
+⚠ **One bounded exception, found in test and worth knowing:** when a refresh produces
+**byte-identical** content SQLAlchemy emits no UPDATE, so `onupdate` never fires and
+`updated_at` does not move — such a cluster is re-done by a resumed run rather than skipped.
+Benign (it is re-done, not corrupted) and invisible on a real re-baseline, where the content
+is what changes.
 
 ### While it runs
 
 ⚠ **`make smoke` was GREEN before this restart** (Directive #0) and must be re-checked when
 it lands. ⚠ **Re-run `make embed-roles` afterwards** — a producer pass changes role text and
-the derived index does not follow on its own. ⚠ **Budget ~37 hours** (lands ~14:00 UTC on
-2026-09-13) and expect the reboot risk to be live for all of it: the stack still has **no
+the derived index does not follow on its own. ⚠ **Budget ~21 hours** (lands ~23:00 UTC on 2026-09-12) and expect the reboot risk to be live for all of it: the stack still has **no
 `restart:` policy**, which is what killed the last run.
 
 ## 🔴 HANDING OVER THE BOXES — the state that is NOT in git

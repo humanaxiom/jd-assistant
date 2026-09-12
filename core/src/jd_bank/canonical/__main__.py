@@ -48,6 +48,29 @@ from src.jd_core.rules import Rules, get_rules
 from src.settings import get_settings
 
 
+def _utc_timestamp(value: str) -> dt.datetime:
+    """An ISO-8601 instant, normalised to UTC — the ``--refreshed-since`` cutoff.
+
+    A NAIVE value is rejected rather than assumed: this flag decides which clusters a
+    multi-hour, GPU-priced pass re-does, and reading "04:04:58" as local time on a box
+    whose Postgres records UTC is how a resume skips the wrong half of the corpus and
+    reports success.
+    """
+    text = value.strip().replace("Z", "+00:00")
+    try:
+        parsed = dt.datetime.fromisoformat(text)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"{value!r} is not an ISO-8601 instant (e.g. 2026-09-11T04:04:58Z)"
+        ) from exc
+    if parsed.tzinfo is None:
+        raise argparse.ArgumentTypeError(
+            f"{value!r} has no timezone. Say it explicitly — 'Z' for UTC, which is "
+            f"what the Bank's timestamps are in (e.g. 2026-09-11T04:04:58Z)."
+        )
+    return parsed.astimezone(dt.UTC)
+
+
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python -m src.jd_bank.canonical",
@@ -81,6 +104,21 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "hours, so without it an interruption anywhere means paying for every cluster "
         "again. Same property `make embed` has had since Phase 3.2. A cluster whose "
         "rewrite FAILED holds only the deterministic merge, so a resume retries it.",
+    )
+    parser.add_argument(
+        "--refreshed-since",
+        type=_utc_timestamp,
+        default=None,
+        metavar="ISO8601",
+        help="RESUME A RE-BASELINE: skip clusters whose draft was last refreshed AT OR "
+        "AFTER this moment, and process everything else. Use the time the CURRENT "
+        "baseline began, e.g. 2026-09-11T04:04:58Z. ⚠ `--resume` CANNOT do this: it "
+        "skips on 'does the row hold prose', which is true of every row a re-baseline "
+        "exists to replace — measured 2026-09-12, it would have processed 9 of the "
+        "1,048 clusters still owing work and skipped 1,039, exiting green. No stamp "
+        "substitutes, because a re-baseline triggered by a CODE fix leaves "
+        "rules_version/prompt_version identical on both sides; time is the only honest "
+        "discriminator, so the operator states it.",
     )
     parser.add_argument(
         "--only-template",
@@ -183,6 +221,7 @@ async def _run(args: argparse.Namespace) -> CanonicalProducerResult:
                 progress_every=commit_every,
                 allow_downgrade=args.allow_downgrade,
                 skip_llm_written=args.resume,
+                skip_refreshed_since=args.refreshed_since,
                 only_template=args.only_template,
                 only_undrafted=args.only_undrafted,
             )
