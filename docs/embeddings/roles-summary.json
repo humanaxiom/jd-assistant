@@ -3,11 +3,11 @@
   "embed_stamp": "jd_rules_sfu_v4+b760ce00210a",
   "model": "nomic-embed-text",
   "nodes_pruned": 0,
-  "roles_backed_off": 1,
-  "roles_embedded": 175,
+  "roles_backed_off": 0,
+  "roles_embedded": 647,
   "roles_empty": 8,
   "roles_rejected": 0,
   "roles_seen": 2501,
-  "roles_unchanged": 2318,
+  "roles_unchanged": 1846,
   "serializer_version": "embed_text_v1"
 }

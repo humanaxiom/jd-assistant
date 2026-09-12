@@ -2,31 +2,31 @@
   "documents_parsed": 14522,
   "forms": [
     {
-      "approvable": 1292,
+      "approvable": 1041,
       "blocking_gates": [
         {
-          "drafts": 323,
-          "gate_id": "SFU-APPROVE-KSA-ORDER"
-        },
-        {
-          "drafts": 145,
+          "drafts": 509,
           "gate_id": "SFU-APPROVE-QUAL-EQUIVALENT"
         },
         {
-          "drafts": 91,
-          "gate_id": "SFU-APPROVE-GRADE-FLOOR"
+          "drafts": 349,
+          "gate_id": "SFU-APPROVE-KSA-ORDER"
         },
         {
-          "drafts": 91,
-          "gate_id": "SFU-APPROVE-SCORE-FLOOR"
-        },
-        {
-          "drafts": 87,
+          "drafts": 106,
           "gate_id": "SFU-APPROVE-MANDATORY-SECTIONS"
         },
         {
-          "drafts": 87,
+          "drafts": 106,
+          "gate_id": "SFU-APPROVE-SCORE-FLOOR"
+        },
+        {
+          "drafts": 106,
           "gate_id": "SFU-APPROVE-SEVERITY-FLOOR"
+        },
+        {
+          "drafts": 106,
+          "gate_id": "SFU-APPROVE-GRADE-FLOOR"
         }
       ],
       "carry_through": [
@@ -37,35 +37,35 @@
           "section": "additional_context"
         },
         {
-          "kept": 1088,
-          "offered": 1788,
+          "kept": 1833,
+          "offered": 1819,
           "policy": "longest",
           "section": "relationships"
         },
         {
-          "kept": 1083,
-          "offered": 1781,
+          "kept": 1825,
+          "offered": 1812,
           "policy": "union",
           "section": "decision_making"
         },
         {
-          "kept": 1083,
-          "offered": 475,
+          "kept": 1183,
+          "offered": 478,
           "policy": "union",
           "section": "problem_solving"
         }
       ],
-      "drafts": 1840,
-      "mean_duties": 4.37,
-      "mean_score": 77.83,
+      "drafts": 1872,
+      "mean_duties": 4.49,
+      "mean_score": 80.85,
       "rewrite": {
-        "drafts": 1840,
-        "drafts_with_a_flagged_duty": 1736,
-        "duties_flagged": 5846,
-        "duties_total": 8049,
-        "merge_only_duties": 208,
+        "drafts": 1872,
+        "drafts_with_a_flagged_duty": 1777,
+        "duties_flagged": 6256,
+        "duties_total": 8410,
+        "merge_only_duties": 114,
         "merge_only_with_frequency": 0,
-        "rewritten_duties": 7841,
+        "rewritten_duties": 8296,
         "rewritten_with_frequency": 0
       },
       "template": "jdfn"
@@ -74,11 +74,11 @@
       "approvable": 3,
       "blocking_gates": [
         {
-          "drafts": 620,
+          "drafts": 596,
           "gate_id": "SFU-APPROVE-QUAL-EQUIVALENT"
         },
         {
-          "drafts": 564,
+          "drafts": 563,
           "gate_id": "SFU-APPROVE-KSA-ORDER"
         },
         {
@@ -86,15 +86,15 @@
           "gate_id": "SFU-APPROVE-NO-PLACEHOLDERS"
         },
         {
-          "drafts": 43,
+          "drafts": 42,
           "gate_id": "SFU-APPROVE-SUMMARY-CONDITIONS"
         },
         {
-          "drafts": 21,
+          "drafts": 14,
           "gate_id": "SFU-APPROVE-MANDATORY-SECTIONS"
         },
         {
-          "drafts": 21,
+          "drafts": 14,
           "gate_id": "SFU-APPROVE-SEVERITY-FLOOR"
         }
       ],
@@ -106,14 +106,14 @@
           "section": "additional_context"
         },
         {
-          "kept": 573,
-          "offered": 573,
+          "kept": 549,
+          "offered": 549,
           "policy": "longest",
           "section": "relationships"
         },
         {
-          "kept": 24,
-          "offered": 24,
+          "kept": 0,
+          "offered": 0,
           "policy": "union",
           "section": "decision_making"
         },
@@ -124,18 +124,18 @@
           "section": "problem_solving"
         }
       ],
-      "drafts": 649,
-      "mean_duties": 11.54,
-      "mean_score": 76.22,
+      "drafts": 625,
+      "mean_duties": 11.66,
+      "mean_score": 76.09,
       "rewrite": {
-        "drafts": 649,
-        "drafts_with_a_flagged_duty": 628,
-        "duties_flagged": 4663,
-        "duties_total": 7488,
-        "merge_only_duties": 65,
-        "merge_only_with_frequency": 60,
-        "rewritten_duties": 7423,
-        "rewritten_with_frequency": 2057
+        "drafts": 625,
+        "drafts_with_a_flagged_duty": 610,
+        "duties_flagged": 4570,
+        "duties_total": 7290,
+        "merge_only_duties": 24,
+        "merge_only_with_frequency": 24,
+        "rewritten_duties": 7266,
+        "rewritten_with_frequency": 2071
       },
       "template": "wjq"
     }
