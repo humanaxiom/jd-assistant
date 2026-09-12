@@ -23,13 +23,14 @@ No Neo4j: the producer recomputes clusters over the PG edge graph (no vectors ne
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from collections.abc import AsyncIterator, Iterator
 
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from testcontainers.postgres import PostgresContainer
 
@@ -1912,3 +1913,102 @@ async def test_only_undrafted_does_nothing_when_every_cluster_has_a_draft(
         assert again.drafts_persisted == 0
         assert again.drafts_refreshed == 0
         assert again.clusters_out_of_scope == 1
+
+
+@pytest.mark.asyncio
+async def test_refreshed_since_resumes_a_re_baseline_that_resume_cannot(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """🔴 THE CASE `--resume` CANNOT SEE, measured on the live Bank 2026-09-12.
+
+    A RE-BASELINE re-runs the pipeline over drafts that ALREADY hold good prose — that
+    is the whole point of one. ``--resume`` skips on ``draft_has_rewritten_prose``,
+    which answers *"did prose land"*, not *"did THIS baseline produce it"*. So on a
+    re-baseline it skips everything: of the 1,048 JDFN clusters still owing the
+    2026-09-11 re-run, ``--resume`` would have processed **9** and skipped **1,039**,
+    then exited green in ~40 minutes with a summary reporting success.
+
+    No stamp on the row stands in for this either: that re-baseline was triggered by a
+    CODE fix, so ``rules_version`` and ``prompt_version`` are identical on both sides
+    of it. **Time is the only honest discriminator**, so the operator states it.
+
+    ``--refreshed-since`` therefore skips a cluster whose draft was last refreshed AT OR
+    AFTER the moment the current baseline began, and processes everything else —
+    including drafts holding perfectly good prose from an EARLIER baseline.
+    """
+    async with session_maker() as session:
+        await _seed_pair(session)
+        await session.commit()
+
+        # A completed baseline: the draft now HOLDS rewritten prose.
+        first = _FakeChat()
+        await run_canonical_producer(
+            session, rewrite_client=first, audit_client=_FakeChat()
+        )
+        await session.commit()
+        assert first.seen == [SFUJobDescription]
+
+        # `--resume` declines it — correct for an interrupted FIRST pass, and exactly
+        # wrong for a re-baseline.
+        resumed = await run_canonical_producer(
+            session,
+            rewrite_client=_FakeChat(),
+            audit_client=_FakeChat(),
+            skip_llm_written=True,
+        )
+        await session.commit()
+        assert resumed.skipped_already_llm_written == 1
+        assert resumed.drafts_refreshed == 0
+
+        # A re-baseline starting NOW must still reach it: the prose predates the cutoff.
+        # ⚠ The cutoff is derived from the ROW's own `updated_at`, not from the test's
+        # clock: `updated_at` is set by Postgres, so a wall-clock literal here would
+        # make the test depend on host/container clock skew.
+        written_at = (
+            await session.execute(select(func.max(CanonicalJD.updated_at)))
+        ).scalar_one()
+        if written_at.tzinfo is None:
+            written_at = written_at.replace(tzinfo=dt.UTC)
+        started = written_at + dt.timedelta(microseconds=1)
+        client = _FakeChat()
+        reworked = await run_canonical_producer(
+            session,
+            rewrite_client=client,
+            audit_client=_FakeChat(),
+            skip_refreshed_since=started,
+        )
+        await session.commit()
+        assert (
+            reworked.drafts_refreshed == 1
+        ), "a re-baseline must re-run a draft holding prose from an EARLIER baseline"
+        assert reworked.skipped_recently_refreshed == 0
+        assert client.seen == [SFUJobDescription]  # the work was actually paid for
+
+        # ...and a draft this baseline HAS refreshed is declined, so an interrupted
+        # re-baseline resumes instead of paying for the whole corpus again.
+        #
+        # ⚠ `updated_at` is bumped explicitly here rather than relied upon, because of a
+        # real property worth knowing: when a refresh produces BYTE-IDENTICAL content,
+        # SQLAlchemy emits no UPDATE, so the server-side `onupdate=func.now()` never
+        # fires and `updated_at` does not move. `_FakeChat` is deterministic, so the
+        # re-baseline above was a true no-op at the column level. On the live Bank the
+        # content DOES change (the point of a re-baseline) and the column does move
+        # — verified: 824 rows carry `updated_at >= the dead run's start`. The cost of
+        # the exception is bounded and benign: a cluster whose output is unchanged gets
+        # redone by a resumed run rather than skipped.
+        await session.execute(
+            update(CanonicalJD).values(updated_at=started + dt.timedelta(seconds=1))
+        )
+        await session.commit()
+
+        second = _FakeChat()
+        continued = await run_canonical_producer(
+            session,
+            rewrite_client=second,
+            audit_client=_FakeChat(),
+            skip_refreshed_since=started,
+        )
+        await session.commit()
+        assert continued.skipped_recently_refreshed == 1
+        assert continued.drafts_refreshed == 0
+        assert second.seen == []  # ...and NOT paid for twice

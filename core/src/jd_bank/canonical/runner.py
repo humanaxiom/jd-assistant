@@ -58,6 +58,7 @@ drives ``jd_core`` (merge / diff / validator / gates) freely.
 
 from __future__ import annotations
 
+import datetime as dt
 import sys
 import time
 from collections import Counter, defaultdict
@@ -303,6 +304,10 @@ class _Outcome:
     #: (`skip_llm_written`) because it owes no further work. A draft whose rewrite
     #: FAILED holds only the merge and is NOT this — the resume retries it.
     skipped_llm_written: bool = False
+    #: An untouched DRAFT this BASELINE already refreshed, skipped by
+    #: `skip_refreshed_since`. NOT `skipped_llm_written`: that asks whether prose ever
+    #: landed, which is true of every row a RE-baseline is there to replace.
+    skipped_recently_refreshed: bool = False
     rewrite_failed: bool = False
     audit_failed: bool = False
     #: The validator's verdict on the draft this cluster WROTE — ``None`` when no draft
@@ -451,6 +456,7 @@ async def _process_cluster(
     rules: Rules,
     allow_downgrade: bool,
     skip_llm_written: bool,
+    skip_refreshed_since: dt.datetime | None = None,
 ) -> _Outcome:
     """Merge -> (best-effort LLM) -> validate -> upsert cluster + persist/refresh DRAFT
     + append audit_log, for ONE cluster on ONE form. Runs in the caller's SAVEPOINT.
@@ -518,6 +524,49 @@ async def _process_cluster(
         # run still owe it work?". It asks whether the rewrite LANDED, not whether one
         # was attempted — see `draft_has_rewritten_prose`, where reading the latter cost
         # 44 live drafts that no producer invocation could reach.
+        # 1a-bis. RE-BASELINE RESUME — by TIME, because nothing on the row can say it.
+        #
+        # 🔴 `--resume` above cannot resume a RE-BASELINE. Its predicate asks "does this
+        # row HOLD prose", which is true of every row a re-baseline exists to replace.
+        # MEASURED 2026-09-12 on the killed JDFN re-run: of the 1,048 clusters still
+        # owing work, `--resume` would have processed 9 and skipped 1,039, then exited
+        # green in ~40 minutes with a summary reporting success.
+        #
+        # No stamp substitutes: that re-baseline was triggered by a CODE fix, so
+        # `rules_version` / `prompt_version` are identical either side of it. Time is
+        # the only honest discriminator — so the OPERATOR states when the baseline
+        # began, and a draft refreshed at or after it is this baseline's own work.
+        if skip_refreshed_since is not None:
+            # ⚠ Read `updated_at` from the DATABASE, never off the ORM instance. It is
+            # a server-side `onupdate=func.now()`, and the producer's session is
+            # long-lived with `expire_on_commit=False` — so the in-memory attribute can
+            # be the value from when the row was first loaded, hours and many refreshes
+            # ago. Taking it from the object made this skip miss its own work in test.
+            # indexed scalar SELECT against a cluster that costs ~70s of GPU is free.
+            updated_at = await session.scalar(
+                select(CanonicalJD.updated_at).where(CanonicalJD.id == existing.id)
+            )
+            if updated_at is not None and updated_at.tzinfo is None:
+                updated_at = updated_at.replace(tzinfo=dt.UTC)
+            if updated_at is not None and updated_at >= skip_refreshed_since:
+                outcome.skipped_recently_refreshed = True
+                # One audit row per skip (NN #6) — the resume skip had none for a while,
+                # and a run that declines work silently is the failure being avoided.
+                session.add(
+                    AuditLog(
+                        event_type="canonical_draft.skipped_recently_refreshed",
+                        entity_type="canonical_jd",
+                        entity_id=existing.id,
+                        payload={
+                            "cluster_id": str(cluster_id),
+                            "reason": "refreshed_by_this_baseline",
+                            "updated_at": updated_at.isoformat(),
+                            "baseline_started": skip_refreshed_since.isoformat(),
+                        },
+                    )
+                )
+                return outcome
+
         if skip_llm_written and draft_has_rewritten_prose(existing.change_log):
             outcome.skipped_llm_written = True
             # Per skip, one audit row (NN #6). This was the one skip that wrote none —
@@ -795,6 +844,7 @@ async def run_canonical_producer(
     progress_every: int | None = None,
     allow_downgrade: bool = False,
     skip_llm_written: bool = False,
+    skip_refreshed_since: dt.datetime | None = None,
     only_template: str | None = None,
     only_undrafted: bool = False,
 ) -> CanonicalProducerResult:
@@ -873,6 +923,7 @@ async def run_canonical_producer(
     skipped = 0
     skipped_downgrade = 0
     skipped_llm_written = 0
+    skipped_recently_refreshed = 0
     #: Clusters the rulebook WOULD author, excluded from THIS INVOCATION by
     #: `only_template`. Not a rulebook outcome — an operational scope, counted so a
     #: scoped run says out loud what it did not look at.
@@ -993,6 +1044,7 @@ async def run_canonical_producer(
                     rules=rulebook,
                     allow_downgrade=allow_downgrade,
                     skip_llm_written=skip_llm_written,
+                    skip_refreshed_since=skip_refreshed_since,
                 )
         except Exception:  # noqa: BLE001 - isolate a per-cluster failure, keep the run
             cluster_failures += 1
@@ -1004,6 +1056,7 @@ async def run_canonical_producer(
             skipped += int(outcome.skipped)
             skipped_downgrade += int(outcome.skipped_downgrade)
             skipped_llm_written += int(outcome.skipped_llm_written)
+            skipped_recently_refreshed += int(outcome.skipped_recently_refreshed)
             rewrite_failures += int(outcome.rewrite_failed)
             audit_failures += int(outcome.audit_failed)
             # AUTHORED means "fed a draft THIS RUN WROTE", which is only knowable here.
@@ -1065,6 +1118,7 @@ async def run_canonical_producer(
         skipped_reviewer_touched=skipped,
         skipped_would_downgrade=skipped_downgrade,
         skipped_already_llm_written=skipped_llm_written,
+        skipped_recently_refreshed=skipped_recently_refreshed,
         clusters_out_of_scope=out_of_scope,
         cluster_failures=cluster_failures,
         rewrite_failures=rewrite_failures,
