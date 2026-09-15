@@ -58,11 +58,27 @@ Only **one** port should be reachable by users.
 | 25474 / 25687 | Neo4j HTTP / Bolt | **localhost only** — never routed |
 | 25379 | Redis | **localhost only** — never routed |
 
-The non-default port numbers are deliberate: the box runs several Docker projects and
-the standard ports collide. In `docker-compose.prod.yml` the data stores are bound to
-`127.0.0.1`, and the API publishes to `${JD_API_BIND:-127.0.0.1}:${JD_API_PORT:-25800}` —
-i.e. **loopback by default, on the assumption a reverse proxy on the same box terminates
-TLS**. Set `JD_API_BIND=0.0.0.0` only if something else is doing TLS in front.
+The non-default port numbers are deliberate: the box runs several Docker projects and the
+standard ports collide.
+
+🔴 **The two compose files bind the API differently, and the difference is the whole
+exposure.** Check which one the box is running before assuming either.
+
+| | API published as | reachable from |
+|---|---|---|
+| `docker-compose.yml` (dev) | `${JD_API_PORT:-25800}:8000` | **every interface — `0.0.0.0`** |
+| `docker-compose.prod.yml` | `${JD_API_BIND:-127.0.0.1}:${JD_API_PORT:-25800}:8000` | **loopback only, by default** |
+
+The dev file publishes on all interfaces with no bind address at all, which is what makes
+a plain NAT forward to the box work — and also means the app itself is on the network.
+**`JD_API_BIND` does not exist in the dev compose file**: setting it there changes nothing
+and silently leaves the app exposed. The production default is loopback on the assumption
+that a reverse proxy on the same box terminates TLS; set `JD_API_BIND=0.0.0.0` there only
+when the terminator is on **another** host, and understand that this publishes the
+application directly.
+
+The data stores are bound to `127.0.0.1` in **both** files. Confirm what is actually
+published with `docker ps --format "{{.Names}}  {{.Ports}}"` rather than from either file.
 
 ---
 
@@ -224,7 +240,7 @@ Set in the environment file the install script reads; see [`.env.example`](../.e
 |---|---|
 | `ALLOWED_SERVICE_ORIGINS` | comma-separated list of every origin users reach the app on (§1) |
 | `CAS_SERVICE_BASE_URL` | the fallback used when an arriving origin is not listed. **Point it at a host that actually answers** — a dead fallback turns a missing entry into an unexplainable timeout |
-| `JD_API_BIND` / `JD_API_PORT` | where the API publishes on the host. Default `127.0.0.1:25800` |
+| `JD_API_BIND` / `JD_API_PORT` | where the API publishes on the host. ⚠ `JD_API_BIND` is **`docker-compose.prod.yml` only** (default `127.0.0.1`) — the dev file has no bind address and publishes on `0.0.0.0`, so setting it there is a silent no-op. §2 |
 | `OLLAMA_BASE_URL` / `ALLOWED_INFERENCE_HOSTS` | the inference host, and the hosts the app may ever send JD text to |
 | `CAS_SERVICE_FROM_REQUEST` | retired. Must stay `false` |
 | `CAS_VERIFY_TLS` | leave `true`. Flip only with a documented reason (container cert-chain issues) |
