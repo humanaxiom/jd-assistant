@@ -26,7 +26,7 @@ leave the pointer.
 | How many decisions are open / ratified, and what HR still owes | the generated register's **own header** | `sed -n '5,7p' docs/decisions/HR-DECISION-REGISTER.md` |
 | Is the tree clean? Is anything unmerged? | git and GitHub, never a document | `git status && git fetch && gh pr list` |
 | Is the stack up? On which ports? | Docker, never a document | `docker ps` · `docker compose port api 8000` |
-| **Does the system actually WORK end to end?** | 🔴 the LIVE smoke — fixtures cannot be stale, so only this counts | `make smoke` ⚠ currently RED on two known gaps; see HANDOFF |
+| **Does the system actually WORK end to end?** | 🔴 the LIVE smoke — fixtures cannot be stale, so only this counts | `make smoke` — **run it; do not read its status off this page.** ⚠ This row said "currently RED on two known gaps" for three days after smoke went GREEN (2026-09-12), which is exactly the bug the header of this file forbids: a STATUS written here instead of a pointer |
 | Is the archive itself as claimed? | **the source files** — `C:\repos\hris\fixtures\SFU_JDs` (read-only) | `make field-audit` · `make singletons` |
 | What we do next | [`docs/plan.md`](docs/plan.md) | — |
 | What is half-finished right now | [`HANDOFF.md`](HANDOFF.md) | verify against `gh pr list` before trusting it |
