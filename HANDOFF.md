@@ -251,8 +251,13 @@ There are **TWO** machines and the system needs both.
    http://localhost:25800,http://127.0.0.1:25800,http://192.168.1.80:25800,
    http://sfuai.ca:25800,http://aria-alien1:25800,http://aria-alien1.local:25800,
    http://aria-alien1.tail652d79.ts.net:25800,http://100.75.144.77:25800,
-   http://sfuai.ca:7000
+   http://sfuai.ca:7000,https://sfuai.ca,http://sfuai.ca:3000,https://sfuai.ca:3000
    ```
+
+   ⚠ **The last three are PREPARED, not live** (2026-09-15): `https://sfuai.ca` has no TLS
+   terminator behind it, and `:3000` is refused at the gateway — that port belongs to the
+   Offline Research Assistant on this box. They are listed so a switch needs no restart.
+   **`http://sfuai.ca:7000` is the live external origin.**
 
    An origin not on the list falls back to `CAS_SERVICE_BASE_URL`, **now
    `http://aria-alien1.tail652d79.ts.net:25800`** — moved off `http://sfuai.ca:7000`
@@ -456,13 +461,29 @@ are in §HANDING OVER THE BOXES above; the reasoning is
 [`core/src/api/service_origin.py`](core/src/api/service_origin.py) and the admin-facing
 version is [`docs/NETWORK-SETUP.md`](docs/NETWORK-SETUP.md).
 
-🔴 **`http://sfuai.ca:7000` — the NAT forward — has stopped delivering traffic.** The
-gateway rule is still visibly configured (`:7000 → 192.168.1.80:25800`) and the DNS record
-still matches the live WAN IP, but nothing external arrives: fifteen probes from outside
-timed out and the app logged none of them. The gateway does not hairpin either, so it
-cannot be tested from inside the LAN. **Reach the box over Tailscale
-(`aria-alien1.tail652d79.ts.net:25800`) until someone with access to the gateway sorts the
-forward out** — the origin is allowlisted and sign-in works on it.
+✅ **`http://sfuai.ca:7000` — the NAT forward — IS DELIVERING AGAIN as of 2026-09-15.**
+The owner sorted it at the gateway. **Verified from both ends, which is the only way this
+can be verified:** `http://sfuai.ca:7000/health` answered **200 from three external nodes
+(NL, IR, VN)**, and the app logged those same three arriving (`GET /health 200 OK` ×3).
+An external probe alone is not evidence — one earlier "open" result came back in 64 ms
+from Ukraine, which is physically impossible for that path, and the app had logged
+nothing.
+
+⚠ **It had been dead for days while its rule sat visibly configured in the gateway UI**,
+DNS matching the live WAN IP the whole time. The gateway does not hairpin, so it cannot be
+tested from inside the LAN — only from a genuinely external network, and only by checking
+the app log.
+
+⚠ **This is plain HTTP over the public internet, carrying CAS session cookies in clear.**
+That is BGL-1 and it is unchanged by the forward working. `https://sfuai.ca` resolves
+nowhere: the certificate is at IONOS, which is authoritative DNS only — the A record points
+straight at the WAN IP, so nothing of theirs is in the traffic path and no TLS terminator
+exists anywhere in this chain. **Tailscale (`aria-alien1.tail652d79.ts.net:25800`) remains
+allowlisted and is the safer route.**
+
+⚠ **Port 443 at that WAN IP is the Telus gateway's own remote-admin interface**, exposed to
+the internet — it answers from outside while the app logs nothing. Not ours, but worth
+closing.
 
 ⚠ **With CAS on you cannot `curl` a page to check it** — every UI route 303s. Verify
 through the suite, or `launch.ps1 -NoCas` / flip the one line. A copy of the CAS-enabled
