@@ -152,3 +152,14 @@ The **internal** network (not the internet) is needed only for inference —
 `make embed`, `make embed-roles`, and the LLM jobs, which talk to Ollama on
 `aria-gb10-2`. If that host is unreachable those jobs fail fast and say so; nothing else
 degrades.
+
+…**with one exception that is not about serving the Bank but about getting into it:
+signing in.** 🔴 **Every origin users reach the box on must be listed in
+`ALLOWED_SERVICE_ORIGINS` — scheme, host AND port, each spelling its own entry** — or CAS
+returns them to the fallback and they land on a connection timeout holding a valid ticket.
+It is the one setting a correct install can still get wrong, and in production the app
+**refuses to start** unless every entry is https at a real hostname.
+
+**Hand [`../docs/NETWORK-SETUP.md`](../docs/NETWORK-SETUP.md) to whoever owns the network
+for the target box**: ports and bindings, required egress, DNS/TLS, reverse-proxy headers,
+NAT caveats, a verification sequence and a symptom→cause table.

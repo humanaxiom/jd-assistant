@@ -1,52 +1,55 @@
 {
-  "generated_at": "2026-08-24T03:15:13.405082+00:00",
+  "generated_at": "2026-09-12T21:33:25.200479+00:00",
   "result": {
-    "audit_failures": 6,
+    "audit_failures": 1,
     "cluster_failures": 0,
     "clusters_by_template": {
-      "wjq": 649
+      "jdfn": 1828
     },
     "clusters_fully_wjq_excluded": 0,
     "clusters_mixed_jdfn_wjq": 0,
     "clusters_no_authorable_template": 0,
     "clusters_no_members_loaded": 0,
-    "clusters_out_of_scope": 1807,
-    "clusters_recomputed": 2456,
-    "clusters_seen": 649,
+    "clusters_out_of_scope": 625,
+    "clusters_recomputed": 2453,
+    "clusters_seen": 1828,
     "documents_seen": 14522,
     "documents_signed": 14522,
     "documents_unsignable": 0,
     "drafts_persisted": 0,
-    "drafts_refreshed": 649,
+    "drafts_refreshed": 1001,
     "evaluation_by_template": {
-      "wjq": {
-        "approvable": 3,
-        "clusters": 649,
-        "drafts_scored": 649,
+      "jdfn": {
+        "approvable": 310,
+        "clusters": 1828,
+        "drafts_scored": 1001,
         "grades": {
-          "B": 288,
-          "C": 348,
-          "D": 13
+          "A": 10,
+          "B": 740,
+          "C": 136,
+          "D": 111,
+          "F": 4
         },
-        "mean_score": 76.22
+        "mean_score": 75.6
       }
     },
     "llm_enabled": true,
     "member_rows_dropped_unvalidatable": 0,
-    "multi_member_clusters": 649,
+    "multi_member_clusters": 1828,
     "quality_model": "gpt-oss:120b",
     "quality_prompt_version": "jd_quality_v1",
-    "rewrite_failures": 6,
+    "rewrite_failures": 29,
     "rewrite_model": "gpt-oss:120b",
     "rewrite_prompt_version": "jd_harmonize_v2",
-    "rules_version": "jd_rules_sfu_v4+76baba29cfeb",
+    "rules_version": "jd_rules_sfu_v4+e59b1b5d62e3",
     "single_member_clusters": 0,
     "skipped_already_llm_written": 0,
-    "skipped_reviewer_touched": 0,
+    "skipped_recently_refreshed": 824,
+    "skipped_reviewer_touched": 3,
     "skipped_would_downgrade": 0,
-    "wjq_members_authored": 3446,
+    "wjq_members_authored": 0,
     "wjq_members_excluded": 0,
-    "wjq_members_frequency_confirmed": 3031,
+    "wjq_members_frequency_confirmed": 0,
     "wjq_members_unwritten": 0
   },
   "source": "parsed_jds + dedup_edges (recomputed clusters; forms per harmonization.templates_harmonized \u2014 HR-206)"
