@@ -122,82 +122,54 @@ shipped* did not move any gate — see the register.
 
 ---
 
-## 🔴🔴 THE JDFN PASS DIED ON THE REBOOT AT 825/2453 — AND IT WAS WORKING
+## ✅ THE JDFN RE-BASELINE LANDED — 2026-09-12 21:33 UTC, `ExitCode=0`
 
-**Started 2026-09-11 04:04:58 UTC · died 2026-09-11 21:03:10 UTC · 16h58m · `ExitCode=255`,
-`OOMKilled=false`, no error message — the machine went down under it.**
+**Resumed run `jd-canonical-jdfn-resume`: 2026-09-12 01:48:06 → 21:33:25 UTC (19h45m),
+exit 0.** Together with the 824 clusters the dead first attempt completed, **the whole
+1,872-cluster JDFN baseline has now been re-produced under the fixed code.**
 
-🔴 **TRAP 5 BELOW BIT, EXACTLY AS PREDICTED.** The stack has no `restart:` policy. This
-page said two days earlier that the extra runtime "now has two extra days to bite", and it
-did. ⚠ **Nothing announced it**: the container sat `Exited (255)` and the whole jd-bank
-stack was down for ~4 hours with no signal.
+```
+clusters: 2453 recomputed -> 1828 seen [jdfn=1828] (1828 multi, 0 single)
+drafts:   0 persisted, 1001 refreshed, 3 skipped (reviewer-touched), 625 out of scope,
+          0 cluster failures
+LLM:      enabled=True, 29 rewrite failures, 1 audit failure
+jdfn:     1001 drafts scored, mean 75.6, 310 approvable
+```
 
-### What survived — verified in the Bank, not read off the counter
+### What it achieved — `make bank-audit`, run 2026-09-15 after the pass
 
-| | |
-|---|---|
-| clusters processed | **825 of 2,453 (33.6%)** |
-| drafts refreshed | **824** — and Postgres holds exactly 824 with `updated_at >= pass start` |
-| measured rate | 59,120.5s / 825 = **71.7 s/cluster** |
-| remaining | 1,628 clusters ≈ **32 hours** |
+🔴 **The success criterion on this page was `problem_solving` ≤ 100%. It was NOT met — but
+read the size of what moved before deciding what that means.**
 
-It commits every 25 clusters, so the work is durable. **`--resume` continues it safely
-(#126); starting it WITHOUT `--resume` pays for every cluster again.**
-
-### ✅ THE PASS IS DOING WHAT IT WAS STARTED FOR — measured per draft
-
-⚠ **And `make bank-audit`'s headline ratio says the opposite mid-pass. Do not trust it
-until the pass COMPLETES.** The committed diff reads:
-
-| JDFN | before | now | |
+| JDFN carry-through | before the pass | **now** | |
 |---|---:|---:|---|
-| decision_making | 64.6% | **100.7%** | ✅ content the sources state, recovered |
-| relationships | 64.7% | **100.8%** | ✅ same |
-| problem_solving | 233.1% | **247.5%** | 🔴 *looks worse* |
-| mean_score | 78.20 | **80.85** | 🔴 *this page says expect a FALL* |
+| `problem_solving` | 233.1% | **101.7%** (486/478) | **8 drafts** fabricate it, down from ~710 |
+| `relationships` | 64.7% | **99.8%** (1816/1819) | 3 drafts drop what their sources state |
+| `decision_making` | 64.6% | **99.8%** (1809/1812) | 3 drafts, same |
+| mean score | 78.20 | **75.6** | the predicted FALL, and it arrived |
 
-**Both red flags are artifacts of a MIXED cohort**, and the per-draft measurement settles
-it — each draft judged against **its own** cluster's sources:
+**This is the outcome the pass was started for.** Fabricated `problem_solving` went from
+two-thirds of drafts to **eight**, and the two sections that were silently dropping source
+content are within three drafts of complete. The mean fell because withdrawn fabrication
+costs points — which this page predicted, and which is the correct direction.
 
-| | drafts | carries PS | its sources offer PS | **FABRICATED** | PS scrubbed |
-|---|---:|---:|---:|---:|---:|
-| not yet refreshed | 1,048 | 998 | 293 | **710 (67.7%)** | 29 |
-| **refreshed by this pass** | **824** | 185 | 185 | **0 (0.0%)** | **478** |
+⚠ **`make bank-audit` exits non-zero (Error 2) while any carry-through is below 100%.**
+That is the gate firing as designed, not a crash — do not read the exit code as a failed
+measurement.
 
-**Zero fabricated `problem_solving` in everything the pass touched**, and it explicitly
-scrubbed the section from **478** drafts. The aggregate ratio rises because `offered` is
-counted cohort-wide (478 clusters) while `kept` spans a corpus that is now ⅓ repaired and
-⅔ not — it can move either way until the run finishes.
+### 🔴 What is still owed, and it is now small enough to name individually
 
-🔴 **SO THE "SUCCESS = problem_solving ≤ 100%" CRITERION ON THIS PAGE IS NOT EVALUABLE
-MID-PASS.** Use the per-draft split above while a pass is partial; use the aggregate only
-after it completes. The same applies to the mean score: refreshed drafts average **75.29**
-against **85.23** untouched, and the aggregate rose only because recovered
-relationships/decision_making outweigh the withdrawn fabrication. A rise was correctly
-treated as a question here — and the question has an answer.
+- **8 JDFN drafts fabricate `problem_solving`** with no source offering it.
+- **3 drafts drop `relationships`** and **3 drop `decision_making`** their sources state.
+- **29 rewrite failures + 1 audit failure** in the run — not investigated.
+- **3 clusters skipped as reviewer-touched** — correct behaviour; they keep the old prose.
 
-### ✅ RESUMED 2026-09-12 01:48:06 UTC as `jd-canonical-jdfn-resume`
-
-```
-jd-canonical-jdfn-resume
-  python -u -m src.jd_bank.canonical --only-template jdfn --commit-every 25 \
-    --refreshed-since 2026-09-11T04:04:58Z
-```
-
-**`--refreshed-since` is new (this session) and it is what makes a RE-BASELINE resumable.**
-The cutoff is the moment the CURRENT baseline began — the dead run's start — so the 824
-clusters it completed are this baseline's own work and are skipped, and the 1,048 still
-owed are processed.
-
-**Verified on the live Bank the moment it started:**
-
-```
-skipped_recently_refreshed: 824          <- exactly the dead run's completed clusters
-[canonical-producer] 825/2453 clusters | persisted=0 refreshed=0 | elapsed=1.9s
-```
-
-**~16 hours of rework, skipped in 1.9 seconds.** ~21 hours remain (1,048 × 71.7 s), landing
-~**23:00 UTC 2026-09-12** rather than ~14:00 on the 13th.
+These are twelve-odd drafts, not a population. **Identify them individually before running
+anything** — a third full pass costs ~20 hours to repair a handful of rows, and a scoped
+re-run (`--only-template jdfn --refreshed-since …`, or by cluster) is the proportionate
+tool. ⚠ WJQ is untouched by all of this and still shows `duty frequency kept — rewritten
+28.5%` against a **100%** merge-only control: the rewrite destroys a field the merge
+preserves. That is a separate, larger defect and it is not what this pass was about.
 
 ### 🔴 `--resume` IS THE WRONG FLAG FOR A RE-BASELINE, AND THIS PAGE SAID TO USE IT
 
@@ -237,12 +209,21 @@ refused rather than guessed.
 Benign (it is re-done, not corrupted) and invisible on a real re-baseline, where the content
 is what changes.
 
-### While it runs
+### After it landed — what was re-checked, and the one thing still owed
 
-⚠ **`make smoke` was GREEN before this restart** (Directive #0) and must be re-checked when
-it lands. ⚠ **Re-run `make embed-roles` afterwards** — a producer pass changes role text and
-the derived index does not follow on its own. ⚠ **Budget ~21 hours** (lands ~23:00 UTC on 2026-09-12) and expect the reboot risk to be live for all of it: the stack still has **no
-`restart:` policy**, which is what killed the last run.
+✅ **`make smoke` is GREEN — 8 passed, re-run 2026-09-15 after the pass** (Directive #0).
+Shipping is open.
+
+🔴 **`make embed-roles` has NOT been re-run since the pass, and it is owed.** 1,001 drafts
+changed their text; the role vector index does not follow on its own. Smoke passes because
+its role-index test checks **coverage** — every current role has a node — and coverage did
+not change. **Coverage is not freshness**: Builder search and the near-duplicate authoring
+guard are matching against pre-pass prose for those 1,001 roles until it runs. This is the
+same shape as the document-vector staleness #199 fixed: green on the property that was
+measured, stale on the one that matters.
+
+⚠ The stack still has **no `restart:` policy** — the trap that killed the first attempt at
+825/2453 is unchanged and will bite the next long run.
 
 ## 🔴 HANDING OVER THE BOXES — the state that is NOT in git
 
@@ -256,12 +237,29 @@ There are **TWO** machines and the system needs both.
 **A fresh `git clone` will not run.** These are real and invisible in a diff:
 
 1. **`.env` is GITIGNORED and carries the auth posture.** Keys currently set:
-   `CAS_ENABLED` (**true**), `CAS_SERVICE_BASE_URL` (`http://sfuai.ca:7000`),
-   `ALLOWED_SERVICE_ORIGINS` (`http://localhost:25800,http://sfuai.ca:7000`),
-   `CAS_VERIFY_TLS`, and **`BOOTSTRAP_ADMINS` — set to the owner's SFU id, which is WHO
-   GETS ADMIN on first sign-in.** A new owner must set it to their own id or they cannot
-   administer the app. The committed compose defaults are all safe/off, so a clone comes
-   up with CAS disabled and no admin.
+   `CAS_ENABLED` (**true**), `CAS_VERIFY_TLS`, **`BOOTSTRAP_ADMINS` — set to the owner's
+   SFU id, which is WHO GETS ADMIN on first sign-in** (a new owner must set it to their
+   own id or they cannot administer the app), plus the two origin settings below. The
+   committed compose defaults are all safe/off, so a clone comes up with CAS disabled and
+   no admin.
+
+   🔴 **`ALLOWED_SERVICE_ORIGINS` must list EVERY origin users reach the box on — scheme,
+   host AND port, each spelling its own entry.** Updated 2026-09-14 after sign-in broke
+   twice; it now reads:
+
+   ```
+   http://localhost:25800,http://127.0.0.1:25800,http://192.168.1.80:25800,
+   http://sfuai.ca:25800,http://aria-alien1:25800,http://aria-alien1.local:25800,
+   http://aria-alien1.tail652d79.ts.net:25800,http://100.75.144.77:25800,
+   http://sfuai.ca:7000
+   ```
+
+   An origin not on the list falls back to `CAS_SERVICE_BASE_URL`, **now
+   `http://aria-alien1.tail652d79.ts.net:25800`** — moved off `http://sfuai.ca:7000`
+   because the fallback was a host that could not answer, which turned every missing entry
+   into a bare `ERR_CONNECTION_TIMED_OUT` on a URL carrying a valid CAS ticket. Keep the
+   fallback pointed at something that responds. Full rationale, and what the data-centre
+   boxes need, in [`docs/NETWORK-SETUP.md`](docs/NETWORK-SETUP.md).
 2. **`JD_ARCHIVE_PATH` is UNSET in the shell.** The Makefile falls back to `./archive`,
    which is empty, and the baseline runner then REFUSES rather than producing a confident
    baseline of nothing. The real archive is `C:\repos\hris\fixtures\SFU_JDs` —
@@ -293,9 +291,19 @@ Verify through the suite, or `launch.ps1 -NoCas`.
 
 ## ▶ WHAT IS OPEN, in the order I would take it
 
-1. **Land the JDFN pass** — `make bank-audit`, diff the before file, confirm
-   `problem_solving` ≤ 100%. If it did not finish, `--resume` continues it safely (#126);
-   **do not** start it without `--resume` a second time or it pays for every cluster again.
+1. ✅ **THE JDFN PASS LANDED 2026-09-12** (exit 0, 19h45m) and was measured 2026-09-15 —
+   see the section above. `problem_solving` fell **233.1% → 101.7%**: the ≤ 100% criterion
+   was missed, but by **8 drafts**, not a population. What is open from it is small and
+   specific:
+
+   1. **`make embed-roles` — OWED.** 1,001 drafts changed text; the role index still holds
+      pre-pass vectors. Smoke's role test checks coverage, not freshness, so it cannot
+      catch this. **Do this first** — it is cheap and everything that searches roles is
+      wrong until it runs.
+   2. **Name the twelve-odd drafts individually** (8 fabricating `problem_solving`, 3+3
+      dropping stated content) and repair them scoped. A third full pass costs ~20 hours
+      to fix a handful of rows.
+   3. **29 rewrite failures + 1 audit failure** in the run, uninvestigated.
 2. **✅ ALL OF 2026-09-11's WORK IS MERGED.** Nothing from that session is left open.
 
    | PR | what |
@@ -430,9 +438,31 @@ lives in the repo-root **`.env`, which is gitignored**; the committed compose de
 
 Verified end to end rather than by the flag: a protected page 303s to login, `/cas/login`
 302s to `https://cas.sfu.ca/cas/login?service=…`, and `cas.sfu.ca` answers 200. The
-service URL resolves to **the origin the request arrived on**, so both
-`http://localhost:25800` and `http://sfuai.ca:7000` work — that is `ALLOWED_SERVICE_ORIGINS`
-(P0.3) doing its job, not a coincidence.
+service URL resolves to **the origin the request arrived on** — that is
+`ALLOWED_SERVICE_ORIGINS` (P0.3) doing its job, not a coincidence.
+
+🔴 **AND IT ONLY WORKS FOR ORIGINS ON THE LIST — 2026-09-14.** Sign-in broke twice in one
+session and neither failure looked like a config error: the user authenticated at CAS and
+landed on `ERR_CONNECTION_TIMED_OUT`, at a hostname they had not typed, with a valid
+`ticket=ST-…` in the URL bar. Both times the cause was an unlisted spelling.
+
+- `192.168.1.80:25800` (the LAN address) was not listed. A hosts-file entry did not rescue
+  it: **the port is part of the origin**, and the fallback carried `:7000`.
+- `aria-alien1:25800` (the short name) is a different origin from
+  `aria-alien1.tail652d79.ts.net:25800`. Adding one did not add the other.
+
+**Every new way anyone reaches this box needs its own entry.** The list and the fallback
+are in §HANDING OVER THE BOXES above; the reasoning is
+[`core/src/api/service_origin.py`](core/src/api/service_origin.py) and the admin-facing
+version is [`docs/NETWORK-SETUP.md`](docs/NETWORK-SETUP.md).
+
+🔴 **`http://sfuai.ca:7000` — the NAT forward — has stopped delivering traffic.** The
+gateway rule is still visibly configured (`:7000 → 192.168.1.80:25800`) and the DNS record
+still matches the live WAN IP, but nothing external arrives: fifteen probes from outside
+timed out and the app logged none of them. The gateway does not hairpin either, so it
+cannot be tested from inside the LAN. **Reach the box over Tailscale
+(`aria-alien1.tail652d79.ts.net:25800`) until someone with access to the gateway sorts the
+forward out** — the origin is allowlisted and sign-in works on it.
 
 ⚠ **With CAS on you cannot `curl` a page to check it** — every UI route 303s. Verify
 through the suite, or `launch.ps1 -NoCas` / flip the one line. A copy of the CAS-enabled

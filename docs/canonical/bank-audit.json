@@ -2,30 +2,30 @@
   "documents_parsed": 14522,
   "forms": [
     {
-      "approvable": 1041,
+      "approvable": 609,
       "blocking_gates": [
         {
-          "drafts": 509,
+          "drafts": 1036,
           "gate_id": "SFU-APPROVE-QUAL-EQUIVALENT"
         },
         {
-          "drafts": 349,
+          "drafts": 333,
           "gate_id": "SFU-APPROVE-KSA-ORDER"
         },
         {
-          "drafts": 106,
+          "drafts": 212,
           "gate_id": "SFU-APPROVE-MANDATORY-SECTIONS"
         },
         {
-          "drafts": 106,
-          "gate_id": "SFU-APPROVE-SCORE-FLOOR"
-        },
-        {
-          "drafts": 106,
+          "drafts": 212,
           "gate_id": "SFU-APPROVE-SEVERITY-FLOOR"
         },
         {
-          "drafts": 106,
+          "drafts": 210,
+          "gate_id": "SFU-APPROVE-SCORE-FLOOR"
+        },
+        {
+          "drafts": 210,
           "gate_id": "SFU-APPROVE-GRADE-FLOOR"
         }
       ],
@@ -37,35 +37,35 @@
           "section": "additional_context"
         },
         {
-          "kept": 1833,
+          "kept": 1816,
           "offered": 1819,
           "policy": "longest",
           "section": "relationships"
         },
         {
-          "kept": 1825,
+          "kept": 1809,
           "offered": 1812,
           "policy": "union",
           "section": "decision_making"
         },
         {
-          "kept": 1183,
+          "kept": 486,
           "offered": 478,
           "policy": "union",
           "section": "problem_solving"
         }
       ],
       "drafts": 1872,
-      "mean_duties": 4.49,
-      "mean_score": 80.85,
+      "mean_duties": 4.61,
+      "mean_score": 75.6,
       "rewrite": {
         "drafts": 1872,
-        "drafts_with_a_flagged_duty": 1777,
-        "duties_flagged": 6256,
-        "duties_total": 8410,
-        "merge_only_duties": 114,
+        "drafts_with_a_flagged_duty": 1722,
+        "duties_flagged": 6288,
+        "duties_total": 8626,
+        "merge_only_duties": 191,
         "merge_only_with_frequency": 0,
-        "rewritten_duties": 8296,
+        "rewritten_duties": 8435,
         "rewritten_with_frequency": 0
       },
       "template": "jdfn"

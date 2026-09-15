@@ -99,6 +99,7 @@ argument disagree, **you have two hypotheses and have tested one.**
 | [`docs/FINDINGS.md`](docs/FINDINGS.md) | 🟢 **live** | everything measured, with its working |
 | [`docs/OPERATOR-GUIDE.md`](docs/OPERATOR-GUIDE.md) | 🟢 **live** | using and running the system (served in-app at 📖 Guide) |
 | [`DEVELOPER_GUIDE_1.md`](DEVELOPER_GUIDE_1.md) | 🟢 **live** | onboarding, workflow, `PARSER_VERSION` contract |
+| [`docs/NETWORK-SETUP.md`](docs/NETWORK-SETUP.md) | 🟢 **live** | network-admin guide: ports, egress, DNS/TLS, proxy headers — and the CAS **origin allowlist**, which a network design can silently violate |
 | [`docs/decisions/`](docs/decisions/) | 🟢 **live** | the register (generated) + what HR must decide |
 | [`docs/adr/`](docs/adr/) | 🟢 **live** | architecture decisions |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | 🟠 **superseded** | the 2026-08-13 review, as a record |
