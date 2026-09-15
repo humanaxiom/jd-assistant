@@ -115,6 +115,21 @@ X-Forwarded-Host: 192.168.1.80:25800  Proto: http   -> http://192.168.1.80:25800
 X-Forwarded-Host: 192.168.1.80:25800  Proto: https  -> fell back to the default    (https spelling not listed)
 ```
 
+🔴 **`X-Forwarded-Host` is not optional — `X-Forwarded-Proto` alone is ignored.** The
+scheme is read from `X-Forwarded-Proto` **only when `X-Forwarded-Host` is also present**;
+with `Host` alone the app uses the scheme of the connection it actually received, which
+behind a TLS-terminating proxy is `http`. Measured 2026-09-15 against a listed
+`https://sfuai.ca`:
+
+```
+Host: sfuai.ca  +  X-Forwarded-Proto: https                     -> FELL BACK (derived http://sfuai.ca)
+Host: sfuai.ca  +  X-Forwarded-Host: sfuai.ca  +  Proto: https  -> https://sfuai.ca   ✓
+```
+
+Several edges — Cloudflare among them — send `X-Forwarded-Proto` but **not**
+`X-Forwarded-Host` by default. Configure it explicitly, or sign-in breaks in the §1 way:
+authenticated at CAS, returned to the fallback, timing out with a valid ticket in the URL.
+
 Other requirements: WebSockets are not used, so no upgrade handling is needed; do not
 rewrite the path (the UI is served under `/jd-bank/...` and expects that prefix); allow
 response bodies of a few MB (JD exports); keep the proxy read timeout at 60s or more,
