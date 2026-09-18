@@ -301,14 +301,36 @@ Verify through the suite, or `launch.ps1 -NoCas`.
    was missed, but by **8 drafts**, not a population. What is open from it is small and
    specific:
 
-   1. **`make embed-roles` — OWED.** 1,001 drafts changed text; the role index still holds
-      pre-pass vectors. Smoke's role test checks coverage, not freshness, so it cannot
-      catch this. **Do this first** — it is cheap and everything that searches roles is
-      wrong until it runs.
-   2. **Name the twelve-odd drafts individually** (8 fabricating `problem_solving`, 3+3
-      dropping stated content) and repair them scoped. A third full pass costs ~20 hours
-      to fix a handful of rows.
-   3. **29 rewrite failures + 1 audit failure** in the run, uninvestigated.
+   1. ✅ **`make embed-roles` — DONE 2026-09-18, and proven fresh the Bank's way.** First
+      run: 2,501 roles seen, **997 re-embedded**, 1,495 unchanged, 9 empty skipped, 1 stale
+      node pruned; Neo4j holds 2,492 `(:JDRole)` = 2,501 − 9. Second run: **0 embedded,
+      2,492 unchanged** — the only freshness proof there is, since the nodes carry no
+      timestamp. `make smoke` green after it.
+   2. 🔴 **"Twelve-odd" was wrong — it is 21 drafts, and 19 of them CANNOT be reached by
+      any producer run.** [`FINDINGS.md`](docs/FINDINGS.md) §12, measured 2026-09-18.
+      The audit's "8 / 3 / 3" are *net* deltas (`kept − offered`); per draft it is
+      13 + 4 + 4 fabricating and 5 + 7 + 7 dropping, 21 distinct. **45 JDFN drafts sit
+      under cluster ids the clustering no longer produces** (43 stranded producer drafts
+      + 2 Builder-minted), proven per id against the recomputed list — and `--only-template
+      jdfn` walks the *recomputed* clusters, so the exact flag the pass ran can never touch
+      them. 22 of the 45 have a refreshed same-title twin (HR sees duplicate roles); 23 have
+      none. **This is an owner ruling — delete / re-attach / keep — with the P1 repair as
+      the precedent. Do not re-run the producer for it; it will not help.** Two defective
+      drafts the pass *did* see and did not change are §12c, unverified.
+   3. 🔴 **"29 rewrite failures" is ONE container's counter — the re-baseline owes 54.**
+      [`FINDINGS.md`](docs/FINDINGS.md) §13, measured 2026-09-18. The killed 09-11 run
+      wrote 824 drafts carrying 25 failures + 1 audit failure; `--refreshed-since` skipped
+      them, as designed, and their failures with them. **No failure reason was recorded
+      anywhere** — `runner.py:379` swallows the exception into a boolean — so the classes
+      below come from re-running the rewrite read-only today. Both reproduced classes are
+      the prompt contradicting the schema: the model files the *mandated* equivalency
+      sentence into `modifier` (capped at 20 chars) and the whole rewrite is discarded; or
+      invents a `kind`. Timeouts ruled out by batch timing.
+      **Proportionate next step: three small code changes (record the reason; put the
+      validation message in the repair nudge; give the phrase a home in the prompt), THEN
+      `make canonical-drafts CANONICAL_ARGS="--only-template jdfn --resume"` — measured
+      to reach 54 drafts (~65 min), not a 20-hour pass. Class A is deterministic: check
+      the Bank afterwards with the `rewrite_failed` predicate, not the summary line.**
 2. **✅ ALL OF 2026-09-11's WORK IS MERGED.** Nothing from that session is left open.
 
    | PR | what |

@@ -1056,6 +1056,188 @@ the right column the systemic figure is **94%**, the 268 result survives *becaus
 drafts were eligible to be counter-examples and none were, and the claim became a real test
 instead of a tautology.
 
+## 12. 🔴 The JDFN pass landed — and the fidelity defects it left are in drafts NO pass can reach
+
+**Measured 2026-09-18, after the re-baseline (2026-09-12) and its audit (2026-09-15).** Two
+findings, each a *check the Bank, not the counter* result, and the second is structural.
+
+### 12a. "8 / 3 / 3" was a NET — the per-draft defect count is 21
+
+`make bank-audit` renders `kept − offered` as *"N drafts carry it with no source"*. That is
+a net across two opposite defects in the same cohort. Decomposed per draft, with the audit
+module's own predicates (`bank_audit/metrics.py`: same `_group_sql`, same
+`_PARSER_VERSION`, same JSON presence tests) and reproducing its totals exactly first
+(486/478, 1816/1819, 1809/1812):
+
+| JDFN section | fabricated (kept ∧ ¬offered) | shortfall (offered ∧ ¬kept) | net | audit said |
+|---|---:|---:|---:|---|
+| `problem_solving` | **13** | 5 | +8 | "8 drafts" |
+| `relationships` | 4 | **7** | −3 | "3 drafts" |
+| `decision_making` | 4 | **7** | −3 | "3 drafts" |
+
+**21 distinct drafts** are defective; the relationships and decision_making sets are the
+*same* 11 drafts. The audit's shortfall detector (`is_shortfall`) cannot fire while the
+aggregate ratio sits above 100%, so the 5 problem_solving shortfalls are invisible in its
+output today. 🔴 **Follow-up for the renderer:** report fabricated and shortfall as two
+counts, never a net.
+
+### 12b. 🔴 45 JDFN drafts sit under cluster ids the clustering no longer produces
+
+The pass refreshed 1,825 of 1,872 JDFN drafts. Of the 47 it did not touch, **45 belong to
+clusters that do not exist in the current recomputation**: 2 are Builder-minted roles
+(zero members — never producer candidates, by design) and **43 are producer-made drafts
+stranded under a superseded cluster id**. **19 of the 21 defective drafts are among the
+45** — 18 stranded producer drafts plus Multimedia Coordinator, which is one of the two
+Builder-minted, reviewer-touched roles. The remaining 2 defective drafts are §12c.
+
+Proof per id, not by subtraction. Cluster ids are content-derived (`uuid5` of membership),
+so when dedup/clustering changes, a cluster gets a *new* id and its old draft stays behind
+under the old one. Intersecting the 47 untouched drafts' `cluster_id`s with the recomputed
+cluster list (`docs/cluster/cluster-report.csv`, 2,454 ids):
+
+```
+untouched drafts                                   47
+  present in the recomputed cluster list            2   (Human Resources Professional, Human Resources Coordinator)
+  ABSENT                                           45   = 43 stranded producer drafts + 2 Builder-minted (zero members)
+    with a refreshed same-title twin               22
+    with no same-title twin                        23
+control: refreshed drafts present (sample of 200)  200 / 200
+```
+
+The arithmetic agrees: `clusters` holds **2,501** rows (3 of them Builder-minted, zero
+members), **2,497** clusters carry a DRAFT, and the producer recomputes **2,453**.
+
+**Consequences.**
+
+- **No producer flag reaches them.** `--only-template jdfn` was exactly what the pass ran;
+  it walks the *recomputed* clusters, so a stranded draft is never a candidate. The 20
+  defective drafts cannot be repaired by any re-run as the producer stands.
+- **The library shows them.** `jd_bank/library/service.py` reads `canonical_jds` and has
+  no notion of a superseded cluster, so a stranded draft renders like any other role.
+  **22 of the 45** share a title with a draft the pass *did* refresh — `Executive
+  Secretary` twice, `Director, Strategic Projects and Analysis` twice — which reads as
+  duplicate roles to HR, one of them stale. ⚠ Title equality is a signal, not a proof of duplication; the
+  member overlap has not been measured.
+- **The audit's cohort includes them.** Every stranded draft counts toward the JDFN
+  carry-through ratios, so the residual fabrication the pass "left" is mostly drafts the
+  pass could never have touched. That is a different finding from "the pass missed 8".
+
+**What this needs is a ruling, not a re-run.** The precedent is P1
+(`core/db/repairs/001_drop_mislabelled_cupe_drafts.sql`): a derived, idempotent condition,
+refusing anything non-DRAFT or reviewer-touched, owner-ruled *delete over re-compose*. The
+same shape applies — "DRAFT whose `cluster_id` is not in the current recomputation" — but
+**whether a stranded draft is deleted, re-attached to its successor cluster, or kept as a
+role in its own right is the owner's call**, because **23 of the 45 have *no* same-title
+twin** and may be the only draft of that job.
+
+### 12c. ⚠ UNVERIFIED — the two untouched drafts the pass DID see
+
+`Human Resources Professional` and `Human Resources Coordinator` are in the recomputed
+list, are not reviewer-touched, both fabricate `problem_solving`, and both still carry
+`updated_at = 2026-08-14`. Two explanations fit and the Bank cannot separate them:
+`change_log` carries no run timestamp, and the recomputed list on disk is from 2026-08-29
+(2,454 clusters) while the pass recomputed 2,453. Either the pass regenerated
+byte-identical content (the documented `onupdate` exception — which would mean **the
+current code reproduces the fabrication**), or those two clusters dropped out between the
+two recomputations. Settle it by running the producer on those two clusters alone once a
+per-cluster flag exists; do not assume either.
+
+### Method note
+
+Every number above came from `docker compose exec -T postgres psql` against the live Bank,
+with the predicates copied from the code that produced the audit, and the audit's own
+totals reproduced *before* any decomposition was trusted. The first agent that looked at
+this reported the 21 correctly and proposed `--only-template jdfn` as the repair; §12b is
+why that proposal is wrong, and it was caught by asking the one question the report did
+not — *why did the pass not fix them?*
+
+## 13. 🔴 The re-baseline's rewrite failures: 54, not 29 — and no reason was recorded anywhere
+
+**Measured 2026-09-18.** HANDOFF item 1.3 carried the resume container's summary line —
+*29 rewrite failures, 1 audit failure* — as the debt. The counter reconciles with the Bank
+exactly, and it is scoped to one of two containers.
+
+### 13a. Two containers, one baseline; the first one's failures were never revisited
+
+```
+pass                                   drafts  rewrite_failed  audit_failed
+jd-canonical-jdfn-rerun   (09-11, killed)  824       25              1
+jd-canonical-jdfn-resume  (09-12, exit 0) 1001       29              1
+```
+
+`--refreshed-since` did what it was built to do — skipped the 824 the killed run had
+completed — and so also skipped its 25 failures. **The re-baseline owes 54 rewrite failures
+and 2 audit failures.** A `rewrite_failed` draft keeps its deterministic prose and is
+counted *refreshed*: mean score **71.5 vs 75.7**, approvable **5/29 (17%) vs 305/972 (31%)**
+for the resume run's 29.
+
+### 13b. The reason is not in the log, not in `change_log`, not in `audit_log`
+
+`runner.py:379-381` catches bare `Exception`, sets `outcome.rewrite_failed = True`, and
+records nothing else. The progress line is counts-only by design; the audit payload
+carries the same booleans; the container log is 81 progress lines and a summary with no
+cluster id or error string in it. **Every question below could only be answered by
+re-running the rewrite today**, read-only (`rewrite_merged_role` is persistence-free; the
+request is rebuildable from `content` + `change_log.merge_provenance`).
+
+### 13c. Two classes reproduced — both are the prompt contradicting the schema
+
+Every reproduced raise is `LLMOutputInvalidError` (`client.py:287`) wrapping a pydantic
+error on `SFUQualification`:
+
+| class | clusters | what the model did | why |
+|---|---:|---|---|
+| **A** — `modifier` > 20 chars | 2 (one failed 2/2 attempts, identically) | filed *"or an equivalent combination of education, training and experience"* as `modifier` | `jd_harmonize_v2.system.j2` rule 5 **orders** that phrase (gate `SFU-APPROVE-QUAL-EQUIVALENT` demands it) and the schema block says only `modifier: string|null` — never that it is a short Toolkit token capped at 20 (`parsed_jd.py:96`). The whole rewrite is then discarded |
+| **B** — `kind` not in the enum | 1 | `"certification"` | the schema block does not list the literals |
+
+**Timeouts ruled out by timing**: checkpoint batches containing a failure took +17 s over
+batches with none (1,781 s vs 1,764 s); a single 600 s SDK-default hang would show as
+~30 min. Not size-driven either — failed inputs span 407 → 8,035 chars.
+
+The repair loop's nudge (`client.py:75`) says only *"not valid JSON matching the required
+schema"* — it never tells the model **what** was wrong, although `str(exc)` is in hand at
+the re-ask. That is why a 21-character `modifier` misses twice.
+
+### 13d. What a scoped re-run reaches, measured — and what it cannot
+
+`--resume` skips on `rewrite_ran AND NOT rewrite_failed`, which is false for every
+failure. Against the Bank the predicate selects **60** JDFN drafts, **6 of them stranded**
+(§12b — unreachable by any run), so `--only-template jdfn --resume` would process **54**
+and skip ~1,770: roughly **65 minutes**, not 20 hours. Pinned by
+`test_resume_retries_a_cluster_whose_rewrite_failed`. Blind retry recovered 14 of 17
+re-run clusters; **class A is deterministic and will leave a residue** — check the Bank
+afterwards with the same predicate, not the new summary line. It will not touch the 2 audit
+failures (their rewrites succeeded, so `--resume` skips them; only `--refreshed-since` would).
+
+The audit failure inspected (`92c1b4ba`, Director, Alumni & External Relations): rewrite
+succeeded, only the advisory quality-audit packet is missing. Nothing is in a bad state.
+
+### 13e. Three small code changes, none of which is a re-run
+
+1. **Record the reason** — `runner.py:379-381`: `type(exc).__name__` + a bounded
+   `str(exc)` into `change_log.pipeline.rewrite_error`. This whole section exists because
+   that line was never written.
+2. **Name the error in the repair nudge** — `client.py:75-78` / `:278`: include the
+   validation message. One string.
+3. **Give the mandated phrase a legal home** — `jd_harmonize_v2.system.j2`: annotate
+   `modifier` (short token, ≤ 20) and `kind` (the six literals) in the schema block, and
+   say the equivalency sentence belongs in `text`.
+
+Constrained decoding already fixed a ~24% enum mismatch for the audit and is deliberately
+off for the rewrite (Ollama 500s on the large grammar) — schema adherence here is the
+prompt's job.
+
+### 13f. ⚠ UNVERIFIED
+
+- What each cluster raised **that night** — irrecoverable; the classes are from re-running
+  today against a host whose state may differ.
+- 12 of the resume run's 29 were not re-run; other classes may exist among them.
+- The killed run's 25 were identified in the Bank but none re-run.
+- The audit failures' cause (a separate `audit_quality` re-run; nothing recorded).
+- `finish_reason` / server-side truncation on `aria-gb10-2` — not reachable from this box.
+  Successful outputs taper smoothly to ~6,048 chars with no pile-up at the HR-178
+  `max_tokens` ceiling, so there is no truncation *signature*, but it was not observed.
+
 ## Full working
 
 The original per-topic documents are in **`docs/archive/plans/`** — kept for the reasoning
