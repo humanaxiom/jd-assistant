@@ -17,7 +17,7 @@ scp deploy/rtx/triage.sh asalah@rcg-asalah-2.research.sfu.ca:/tmp/
 ssh asalah@rcg-asalah-2.research.sfu.ca 'bash /tmp/triage.sh' | tee rtx-2.txt
 ```
 
-Read-only: it installs nothing, writes nothing, and contacts no third party. Verified to
+Read-only: it installs nothing and writes nothing. Its last section makes three outbound HTTPS requests — to `download.docker.com`, `huggingface.co` and `pypi.org` — purely to report whether the box can reach them; nothing about the box is sent. Verified to
 run to **exit 0** on a box with no GPU, no `nvidia-smi`, no `ss`, and no firewall tool —
 every absent tool prints `(absent: …)` and the run continues, because a missing tool is a
 finding, not a crash.

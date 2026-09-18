@@ -393,6 +393,20 @@ Verify through the suite, or `launch.ps1 -NoCas`.
    they need their own scoped run afterwards. Re-measure after the pass; do not assume the
    split holds.
 
+10. **The data-centre boxes (`rcg-asalah-1` / `-2`) — triaged, BLOCKED ON HARDWARE.**
+    Recorded in [`deploy/rtx/README.md`](deploy/rtx/README.md) (merged 2026-09-18 from a
+    branch that had sat unfiled for a week). The plan is vLLM on the two SFU RCG RTX hosts
+    replacing Ollama-on-`aria-gb10-2`, and the full stack alongside. **Nothing is wired
+    into the app, on purpose.** The triage found: **no GPU is physically installed** in
+    either chassis (SMBIOS type 9 — both PCIe slots empty, and reported `Length: Short`,
+    which cannot seat an RTX 6000 Ada, so the riser package may be missing too); no NVIDIA
+    driver; `aria-gb10-2` unreachable from both; `rcg-asalah-1` was down on the last pass.
+    🔴 **Three rulings gate the wiring and none is a code change** — the hosts are on
+    PUBLIC IPs, which is an ADR-003 re-decision (the egress guard refuses them until
+    someone rules), vLLM ships no authentication, and the inference host allowlist is a
+    FIPPA question, not a config append. Do not add them to `ALLOWED_INFERENCE_HOSTS`
+    to "test".
+
 ## ▶ CURRENT STATE — 2026-08-29
 
 🔴 **`make smoke` is RED, deliberately, and that is the honest state** — see *What smoke
