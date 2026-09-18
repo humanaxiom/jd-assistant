@@ -1,0 +1,172 @@
+JD Bank RTX triage · host=rcg-asalah-2 · 2026-09-01T17:14:18+00:00
+
+=== OS / kernel / arch ===
+Linux rcg-asalah-2 7.0.0-30-generic #30-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 18:22:54 UTC 2026 x86_64 GNU/Linux
+NAME="Ubuntu"
+VERSION_ID="26.04"
+VERSION="26.04.1 LTS (Resolute Raccoon)"
+ID=ubuntu
+
+=== CPU / memory ===
+model name	: AMD EPYC 9135 16-Core Processor
+cores: 64
+               total        used        free      shared  buff/cache   available
+Mem:           750Gi       4.4Gi       748Gi        14Mi       567Mi       746Gi
+Swap:          8.0Gi          0B       8.0Gi
+
+=== Disk (model weights are tens of GB — this is a go/no-go number) ===
+Filesystem                         Size  Used Avail Use% Mounted on
+/dev/mapper/ubuntu--vg-ubuntu--lv   98G   11G   83G  12% /
+df: /var/lib/docker: No such file or directory
+-- home --
+Filesystem                         Size  Used Avail Use% Mounted on
+/dev/mapper/ubuntu--vg-ubuntu--lv   98G   11G   83G  12% /
+
+=== GPU ===
+(absent: nvidia-smi — no NVIDIA driver installed, or not on PATH)
+-- is the card even visible on the PCI bus? --
+0000:00:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:00:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:00:03.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:00:04.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:00:05.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:00:07.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:3e:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:3e:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:7a:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:7a:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:7a:03.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:7a:04.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:7a:05.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:7a:07.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:7c:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:7c:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:7e:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:7e:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:80:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:80:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:80:03.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:80:04.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:80:05.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:80:07.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:83:00.0 VGA compatible controller [0300]: Matrox Electronics Systems Ltd. Integrated Matrox G200eW3 Graphics Controller [102b:0536] (rev 08)
+0000:88:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:88:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:c4:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:c4:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:c4:03.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:c4:04.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:c4:05.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0000:c4:07.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:00:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:00:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:00:03.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:00:04.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:00:05.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:00:07.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:3e:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:3e:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:7a:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:7a:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:7a:03.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:7a:04.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:7a:05.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:7a:07.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:7c:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:7c:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:7e:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:7e:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:80:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:80:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:80:03.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:80:04.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:80:05.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:80:07.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:88:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:88:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:c4:01.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:c4:02.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:c4:03.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:c4:04.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:c4:05.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+0001:c4:07.0 Host bridge [0600]: Advanced Micro Devices, Inc. [AMD] Turin PCIe Dummy Host Bridge [1022:153d]
+
+=== CUDA toolkit (optional — vLLM in Docker does NOT need it on the host) ===
+(absent: nvcc)
+
+=== Docker ===
+(absent: docker)
+(absent: docker)
+-- can this user run docker without sudo? --
+-- groups for asalah --
+asalah
+
+=== NVIDIA container toolkit (what lets a container SEE the GPU) ===
+(absent: nvidia-ctk)
+ls: cannot access '/etc/docker/daemon.json': No such file or directory
+(no /etc/docker/daemon.json)
+
+=== Python (informational only — ADR-006 is Docker-only, no host venv) ===
+Python 3.14.4
+
+=== Listening sockets — THE SECURITY-RELEVANT ONE ===
+Netid State  Recv-Q Send-Q Local Address:Port Peer Address:PortProcess
+udp   UNCONN 0      0         127.0.0.54:53        0.0.0.0:*          
+udp   UNCONN 0      0      127.0.0.53%lo:53        0.0.0.0:*          
+udp   UNCONN 0      0          127.0.0.1:323       0.0.0.0:*          
+udp   UNCONN 0      0              [::1]:323          [::]:*          
+tcp   LISTEN 0      4096         0.0.0.0:22        0.0.0.0:*          
+tcp   LISTEN 0      4096      127.0.0.54:53        0.0.0.0:*          
+tcp   LISTEN 0      4096   127.0.0.53%lo:53        0.0.0.0:*          
+tcp   LISTEN 0      4096            [::]:22           [::]:*          
+
+=== Firewall posture ===
+(absent: ufw)
+(absent: firewall-cmd)
+(absent: firewall-cmd)
+-- iptables filter INPUT --
+(absent: iptables)
+
+=== MAC layer ===
+(absent: getenforce)
+aa-status: unrecognized option '--summary'
+Error: Invalid command.
+Usage: aa-status [OPTIONS]
+Displays various information about the currently loaded AppArmor policy.
+Default if no options given
+  --show=all
+
+OPTIONS (one only):
+  --enabled       returns error code if AppArmor not enabled
+  --show=X        What information to show. {profiles,processes,all}
+  --count         print the number of entries. Implies --quiet
+  --filter.mode=filter      see filters
+  --filter.profiles=filter  see filters
+  --filter.pid=filter       see filters
+  --filter.exe=filter       see filters
+  --json          displays multiple data points in machine-readable JSON format
+  --pretty-json   same data as --json, formatted for human consumption as well
+  --verbose       (default) displays data points about loaded policy set
+  --quiet         don't output error messages
+  -h[(legacy|filters)]      this message, or info on the specified option
+  --help[=(legacy|filters)] this message, or info on the specified option
+
+=== Outbound reachability (can this box PULL images and weights?) ===
+https://download.docker.com -> HTTP 200
+https://huggingface.co -> HTTP 200
+https://pypi.org -> HTTP 200
+
+=== Reachability of the CURRENT inference host (aria-gb10-2, ADR-003) ===
+http://aria-gb10-2:11434/v1/models -> HTTP 000
+
+=== Is anything already serving here? ===
+127.0.0.1:8000/v1/models -> HTTP 000
+127.0.0.1:8001/v1/models -> HTTP 000
+127.0.0.1:11434/v1/models -> HTTP 000
+
+=== The other RTX box ===
+peer: rcg-asalah-1.research.sfu.ca
+206.12.17.82    rcg-asalah-1.research.sfu.ca
+(absent: ping)
+
+=== triage complete — paste this whole file back ===
