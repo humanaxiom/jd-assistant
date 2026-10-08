@@ -222,8 +222,10 @@ guard are matching against pre-pass prose for those 1,001 roles until it runs. T
 same shape as the document-vector staleness #199 fixed: green on the property that was
 measured, stale on the one that matters.
 
-⚠ The stack still has **no `restart:` policy** — the trap that killed the first attempt at
-825/2453 is unchanged and will bite the next long run.
+✅ The stack now has a `restart: unless-stopped` policy (2026-10-08) — but that covers the
+five long-running services only. A producer pass is a one-shot `docker compose run` and
+is **not** restarted; the trap that killed the first attempt at 825/2453 still bites a
+long run, and `--refreshed-since` is still how it resumes.
 
 ## 🔴 HANDING OVER THE BOXES — the state that is NOT in git
 
@@ -247,17 +249,19 @@ There are **TWO** machines and the system needs both.
    host AND port, each spelling its own entry.** Updated 2026-09-14 after sign-in broke
    twice; it now reads:
 
+   ⚠ **Read the list off the box, never off this page** — a literal copy here went stale
+   four times in three weeks:
+
    ```
-   http://localhost:25800,http://127.0.0.1:25800,http://192.168.1.80:25800,
-   http://sfuai.ca:25800,http://aria-alien1:25800,http://aria-alien1.local:25800,
-   http://aria-alien1.tail652d79.ts.net:25800,http://100.75.144.77:25800,
-   http://sfuai.ca:7000,https://sfuai.ca,http://sfuai.ca:3000,https://sfuai.ca:3000
+   grep ^ALLOWED_SERVICE_ORIGINS .env | tr ',' '\n'
    ```
 
-   ⚠ **The last three are PREPARED, not live** (2026-09-15): `https://sfuai.ca` has no TLS
-   terminator behind it, and `:3000` is refused at the gateway — that port belongs to the
-   Offline Research Assistant on this box. They are listed so a switch needs no restart.
-   **`http://sfuai.ca:7000` is the live external origin.**
+   It carries every spelling the box has been reached on (localhost, LAN IP, short name,
+   Tailscale name and IP) plus the external forward on whichever port the gateway maps.
+   Entries for ports or schemes nothing serves yet are **prepared, not live**, listed so
+   a switch needs no restart. 🔴 **The external forward's internal target is host port
+   25800** — on 2026-10-08 it pointed at host port 8000, which is another project's
+   nginx, and the internet got `400 Bad Request` (NETWORK-SETUP §6).
 
    An origin not on the list falls back to `CAS_SERVICE_BASE_URL`, **now
    `http://aria-alien1.tail652d79.ts.net:25800`** — moved off `http://sfuai.ca:7000`
@@ -277,9 +281,15 @@ There are **TWO** machines and the system needs both.
    WIPES the Bank and exits 0; restore a full `-Fc` dump into an EMPTY database.
 4. **The published port varies.** `${JD_API_PORT:-25800}` — it was 25900 and 25800 on this
    machine within a day. `docker port jd-bank-api-1` is the answer, not the docs.
-5. **The stack does not self-restart.** No `restart:` policy, while every other project on
-   this box has one. A Docker Desktop restart on 2026-08-20 killed a 52-minute producer
-   pass and left the stack down for ~50 minutes with nothing saying so.
+5. ✅ **The stack self-restarts as of 2026-10-08** — `restart: unless-stopped` on
+   postgres / neo4j / redis / api / worker in `docker-compose.yml`, verified with
+   `docker inspect` on the live containers. Until then it had **no** policy while every
+   other project on the box had one: a Docker Desktop restart on 2026-08-20 killed a
+   52-minute producer pass, the 2026-09-11 reboot killed the JDFN pass at 825/2453, and
+   **after every reboot the owner had to come back and ask for the stack to be started**.
+   Docker Desktop is in the user's `Run` key, so a reboot now brings JD Bank back by
+   itself. ⚠ One-shot `docker compose run` jobs (producer passes, `make embed`) are
+   still NOT restarted — a long pass still needs `--refreshed-since` to resume.
 6. **Other projects share this box.** Stray `postgres:16-alpine` / `neo4j:5-community`
    containers are `recruiter-assistant`'s testcontainers, not ours.
 
