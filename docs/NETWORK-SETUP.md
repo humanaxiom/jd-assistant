@@ -177,6 +177,12 @@ Also, if you are testing a forward:
   external TCP probe reporting "open" while the log stays empty means something in
   between answered, not the app.
 - **Pin the internal host's address.** A DHCP lease change silently invalidates the rule.
+- 🔴 **The forward's internal port is the HOST port (25800), never the container's.**
+  The app listens on 8000 *inside* its container; the host publishes it as 25800. On a box
+  running several Docker projects, host port 8000 is very likely to belong to something
+  else — on 2026-10-08 it was another project's nginx, which answered the forwarded
+  traffic with `400 Bad Request` from the internet. `docker ps` shows the mapping as
+  `0.0.0.0:25800->8000/tcp`: the **left** number is the one the forward targets.
 - For a data-centre deployment, prefer a reverse proxy with a real certificate over a
   port-forward. A forward gives you a plain-http origin, which production refuses.
 
