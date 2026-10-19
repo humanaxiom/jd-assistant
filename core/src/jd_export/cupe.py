@@ -13,7 +13,7 @@ checkbox options and tables — and fills in only what the Bank's model actually
 read back through ``extract_text`` -> ``parse_jd`` lands every field where it came from.
 That round trip is the contract (``tests/export_roundtrip.py``; live in the smoke).
 
-What is deliberately NOT filled in (registered in HR-238 / HR-239):
+What is deliberately NOT filled in (registered in HR-239 / HR-240):
 
 * the **Approval and Review** lines and HR's **"FOR USE BY HUMAN RESOURCES"** box are
   always blank, and the draft's grade is printed nowhere (non-negotiable #1);
@@ -238,7 +238,7 @@ def _identification(
     doc: DocxDocument, jd: SFUJobDescription, form: CupeForm, heading: str
 ) -> None:
     """Section 1: the draft's identification on the left, HR's box on the right —
-    whose values are ALWAYS blank (HR-239, non-negotiable #1)."""
+    whose values are ALWAYS blank (HR-240, non-negotiable #1)."""
     labels = form.id_labels
     hr = list(form.hr_box_labels)
     table = _table(doc, 4)
@@ -381,7 +381,7 @@ def _qualifications(
     doc: DocxDocument, jd: SFUJobDescription, form: CupeForm, heading: str
 ) -> None:
     """Section 13, block by block as HR's form lays it out. Each qualification prints
-    in the block ``cupe_form.qualification_blocks`` assigns its kind (HR-238)."""
+    in the block ``cupe_form.qualification_blocks`` assigns its kind (HR-239)."""
     blocks: dict[str, list[str]] = {
         "education": [],
         "experience": [],
@@ -458,7 +458,7 @@ def render_cupe_docx(jd: SFUJobDescription, *, rules: Rules | None = None) -> by
     letters = {meaning: letter for letter, meaning in wjq.frequency_markers.items()}
 
     context = _context_sections(jd.additional_context, wjq)
-    # The model's fields that have no slot of their own on the CUPE form (HR-238).
+    # The model's fields that have no slot of their own on the CUPE form (HR-239).
     extras: dict[str, list[str]] = {}
     if jd.relationships is not None and (jd.relationships.supervisory or "").strip():
         extras.setdefault(form.supervisory_section, []).append(

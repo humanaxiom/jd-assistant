@@ -23,7 +23,7 @@
 # sha256 in `fixtures/hr/cupe/` (see the README there). Every string below is copied from
 # that file; where HR's own form has a typo or odd spacing it is kept, because CUPE 3338
 # Art. 15.04 says the standard form "cannot be revised without mutual agreement between
-# the University and the Union". Registered `open` (HR-237): HR confirms this is the
+# the University and the Union". Registered `open` (HR-238): HR confirms this is the
 # current form before any export is circulated.
 #
 # WHAT IS NOT YET MODELLED (Track J, PR J2)
@@ -62,7 +62,7 @@ completed_by_options:
   - Employee
   - Evaluating Supervisor
 # The right-hand box of section 1 belongs to HR. It is ALWAYS rendered blank — the
-# draft's grade is never printed in it (HR-239).
+# draft's grade is never printed in it (HR-240).
 hr_box_heading: FOR USE BY HUMAN RESOURCES
 hr_box_labels:
   - "Classification & Grade Approved:"
@@ -165,7 +165,7 @@ qualifications_skills_prompt: "Occupational Skills:  Identify skills specificall
 qualifications_requirements_prompt: "Occupational Requirement(s): Identify non-skill requirements to perform the work such as ability to work shifts and/or be on-call; ability to travel periodically outside the lower mainland; have a valid driver's license; ability to lift, move or carry equipment or materials over 10 kg; etc."
 
 # Which block of section 13 each of the model's qualification kinds is printed in
-# (HR-238). `ability` -> Occupational Requirement(s) mirrors the parser, which reads that
+# (HR-239). `ability` -> Occupational Requirement(s) mirrors the parser, which reads that
 # block back as `ability` (`wjq.qualification_cues`), so an export round-trips its kinds.
 # `knowledge` has no block on HR's form and no parser cue; HR's Dec-2024 sample prints
 # knowledge-type lines under Occupational Skills, so it goes there (and re-parses as
@@ -179,7 +179,7 @@ qualification_blocks:
   security: requirements
 
 # Where the model's JDFN-shaped fields that have no slot of their own on the CUPE form
-# are printed, so nothing in a draft is silently dropped from its export (HR-238).
+# are printed, so nothing in a draft is silently dropped from its export (HR-239).
 # `supervisory` (the Relationships section's supervisory scope) is the form's DIRECTION
 # EXERCISED; problem-solving / decision-making prose (empty on every live CUPE role, but
 # the model allows it) reads as independence of action.

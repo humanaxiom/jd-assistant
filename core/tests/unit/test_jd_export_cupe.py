@@ -311,7 +311,7 @@ def test_a_cupe_export_round_trips_through_the_wjq_parser(rules: Rules) -> None:
     jd = _cupe_jd(rules)
     back = _reparse(render_sfu_docx(jd))
     assert cupe_round_trip_losses(jd, back, rules) == []
-    # The grade is deliberately NOT exported (HR-239), so it cannot come back.
+    # The grade is deliberately NOT exported (HR-240), so it cannot come back.
     assert back.grade is None
 
 

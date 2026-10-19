@@ -14,7 +14,7 @@ Retrieved **2026-10-19** from the links on
 
 | File | Source URL | What it is | sha256 |
 |---|---|---|---|
-| `CUPE_Job_Description_Template_Sept2013.docx` | `B/job-evaluation/CUPE_Job_Description_Template_Sept2013.docx` | **S13** — "WJQ Custom Part I: Job Description" template. Filename says Sept 2013; the file was modified **2026-05-12**. The source of every string in `cupe_form.yaml` (HR-237). | `ff9608373f6cfa87547b0ce03842c14704a36420165117c557aae187e68e21b8` |
+| `CUPE_Job_Description_Template_Sept2013.docx` | `B/job-evaluation/CUPE_Job_Description_Template_Sept2013.docx` | **S13** — "WJQ Custom Part I: Job Description" template. Filename says Sept 2013; the file was modified **2026-05-12**. The source of every string in `cupe_form.yaml` (HR-238). | `ff9608373f6cfa87547b0ce03842c14704a36420165117c557aae187e68e21b8` |
 | `CUPE_WJQ_JD_Writing_Guide_and_Glossary_of_JD_Verbs.pdf` | `B/Compensation/CUPE%20WJQ%20JD%20Writing%20Guide%20%26%20Glossary%20of%20JD%20Verbs.pdf` | **S14** — CUPE JD Writing Guide & Glossary of JD Verbs (March 2011, 14 pp). Section-by-section guidance for Part I. | `941135a886bb1b8b94b339149fb87dbbfebc309f3e572fca3966d49b5c38f89d` |
 | `CUPE_Sample_JobDescription_DepartmentSecretary(Secretary_grade6_Dec2024).doc` | `B/job-descriptions/CUPE_job_descriptions/CUPE_Sample_JobDescription_DepartmentSecretary(Secretary_grade6_Dec2024).doc` | **S20** — HR's pre-classified sample (Department Secretary, grade 6, Dec 2024): a filled-in current form (11 major + 3 minor functions). | `a49a262b18d03571555255534fcfc553229792d95fccbeec97896c9388b95159` |
 
@@ -33,4 +33,4 @@ Notes:
   export prints (`cupe_form.yaml` plus the 14 canonical `wjq.section_headings`), with
   whitespace collapsed: **96 found, 0 missing** — 82 equal a whole template paragraph,
   14 sit inside one (e.g. the headings, which the template prefixes with their number).
-  HR still has to confirm the template is the form in force (HR-237).
+  HR still has to confirm the template is the form in force (HR-238).

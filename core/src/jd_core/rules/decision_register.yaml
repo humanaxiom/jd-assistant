@@ -7555,7 +7555,7 @@ decisions:
     status: open
 
   # ═══ THE CUPE EXPORT FORM (Track J, PR J1) ════════════════════════════════════
-  - id: HR-237
+  - id: HR-238
     question: >-
       Is the CUPE job description the Builder exports a faithful copy of HR's current
       "WJQ Custom — Part 1: Job Description" form?
@@ -7593,7 +7593,7 @@ decisions:
       Pinned by the round-trip tests (`test_jd_export_cupe.py`, and the live smoke
       `test_a_live_cupe_role_survives_export_and_reparse`).
     status: open
-  - id: HR-238
+  - id: HR-239
     question: >-
       Where on the CUPE form does the export print the parts of a draft that the form
       has no field of its own for?
@@ -7640,7 +7640,7 @@ decisions:
       silently left off the export. Pinned by the round-trip oracle
       (`tests/export_roundtrip.py`).
     status: open
-  - id: HR-239
+  - id: HR-240
     question: >-
       Should the CUPE export ever print a classification or grade — in HR's "FOR USE BY
       HUMAN RESOURCES" box, or as the "Current Position Classification"?
@@ -7672,138 +7672,138 @@ decisions:
     status: open
 
 trivial:
-  # ── The CUPE export form (Track J1): HR's own wording, pinned by HR-237. ──
+  # ── The CUPE export form (Track J1): HR's own wording, pinned by HR-238. ──
   - config: {file: cupe_form.yaml, path: cupe_form.font_name}
     reason: >-
       HR's template sets its text in Arial; formatting transcribed from the form, part of
-      the form-fidelity question HR-237 asks.
-    covered_by: HR-237
+      the form-fidelity question HR-238 asks.
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.font_size_pt}
     reason: >-
       HR's template sets its text at 10 pt; formatting transcribed from the form, part of
-      the form-fidelity question HR-237 asks.
-    covered_by: HR-237
+      the form-fidelity question HR-238 asks.
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.id_labels}
     reason: >-
       The identification labels, verbatim from HR's form. The three the model carries
       must be parser spellings (`test_the_modelled_id_labels_are_ones_the_parser_reads`).
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.completed_by_label}
     reason: HR's own wording for the "Part 1 is being completed by" line, verbatim.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.completed_by_options}
     reason: HR's own two "completed by" choices, verbatim; always printed unticked.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.hr_box_heading}
-    reason: The heading of HR's own box on the form, verbatim; the box's blankness is HR-239.
-    covered_by: HR-237
+    reason: The heading of HR's own box on the form, verbatim; the box's blankness is HR-240.
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.instructions}
     reason: >-
       The instruction line under each numbered heading, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.checkbox_glyph}
     reason: >-
       The empty box printed beside each checkbox option — the form's shape, not a choice
-      of content. Part of the form-fidelity question HR-237 asks.
-    covered_by: HR-237
+      of content. Part of the form-fidelity question HR-238 asks.
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.checkbox_options}
     reason: >-
       The option text of sections 5, 6, 7 and 12, verbatim from HR's form; printed
-      unticked (HR-238 says why).
-    covered_by: HR-237
+      unticked (HR-239 says why).
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.contacts_columns}
     reason: Section 8's column headings, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.effort_columns}
     reason: Section 10's column headings, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.working_conditions_location_prompt}
     reason: Section 11's first prompt, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.working_conditions_location_columns}
     reason: Section 11's first table's column headings, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config:
       file: cupe_form.yaml
       path: cupe_form.working_conditions_uncomfortable_prompt
     reason: Section 11's second prompt, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config:
       file: cupe_form.yaml
       path: cupe_form.working_conditions_uncomfortable_columns
     reason: Section 11's second table's column headings, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.working_conditions_hazards_prompt}
     reason: Section 11's third prompt, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.working_conditions_hazards_columns}
     reason: Section 11's third table's column headings, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.blank_rows}
     reason: >-
       How many empty rows each table offers, counted off HR's form; a table with more
       modelled rows grows to fit, so this can never drop content.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.impact_of_errors_common_prompt}
     reason: Section 9's "Common Errors" prompt, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.impact_of_errors_uncommon_prompt}
     reason: Section 9's "Uncommon Errors" prompt, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.qualifications_education_prompt}
     reason: Section 13's formal-education prompt, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.qualifications_certification_prompt}
     reason: Section 13's certification prompt, verbatim; its value is not modelled (J2).
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.qualifications_experience_prompt}
     reason: Section 13's minimum-experience prompt, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.qualifications_experience_unit}
     reason: The "Years" unit cell beside the experience number on HR's form, verbatim.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.qualifications_equivalency_heading}
     reason: Section 13's "Check one:" line, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.qualifications_equivalency_options}
     reason: >-
       Section 13's two equivalency choices, verbatim; printed unticked because the model
       has no equivalency choice yet (J2).
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.qualifications_skills_prompt}
     reason: Section 13's "Occupational Skills" prompt, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.qualifications_requirements_prompt}
     reason: Section 13's "Occupational Requirement(s)" prompt, verbatim from HR's form.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.approval_supervisor_statement}
     reason: Section 14's supervisor statement, verbatim; its sign-off lines are always blank.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.approval_supervisor_labels}
     reason: Section 14's supervisor name / signature / date labels, verbatim; values blank.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.approval_employee_statement}
     reason: Section 14's employee statement, verbatim; its sign-off lines are always blank.
-    covered_by: HR-237
+    covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.approval_employee_labels}
     reason: Section 14's employee name / signature / date labels, verbatim; values blank.
-    covered_by: HR-237
-  # ── The CUPE export form: where the model's slot-less fields print, HR-238. ──
+    covered_by: HR-238
+  # ── The CUPE export form: where the model's slot-less fields print, HR-239. ──
   - config: {file: cupe_form.yaml, path: cupe_form.supervisory_section}
     reason: >-
       Where the Relationships section's supervisory scope prints on the CUPE form (it has
-      no Relationships section). A placement decided with the rest in HR-238.
-    covered_by: HR-238
+      no Relationships section). A placement decided with the rest in HR-239.
+    covered_by: HR-239
   - config: {file: cupe_form.yaml, path: cupe_form.decision_making_section}
     reason: >-
       Where decision-making prose prints on the CUPE form (empty on every live CUPE role).
-      A placement decided with the rest in HR-238.
-    covered_by: HR-238
+      A placement decided with the rest in HR-239.
+    covered_by: HR-239
   - config: {file: cupe_form.yaml, path: cupe_form.problem_solving_section}
     reason: >-
       Where problem-solving prose prints on the CUPE form (empty on every live CUPE role).
-      A placement decided with the rest in HR-238.
-    covered_by: HR-238
+      A placement decided with the rest in HR-239.
+    covered_by: HR-239
   # ── The tree shape: definitional given the rollups above. ──
   - config: {file: org_units.yaml, path: org_units.vpfa.children}
     reason: >-

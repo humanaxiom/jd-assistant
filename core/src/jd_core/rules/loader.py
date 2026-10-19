@@ -1927,7 +1927,7 @@ class CupeForm(_RuleFile):
     qualifications_equivalency_options: tuple[str, ...] = Field(min_length=1)
     qualifications_skills_prompt: str = Field(min_length=1)
     qualifications_requirements_prompt: str = Field(min_length=1)
-    #: Which block of section 13 each model qualification kind is printed in (HR-238).
+    #: Which block of section 13 each model qualification kind is printed in (HR-239).
     qualification_blocks: Annotated[
         Mapping[QualificationKind, CupeQualificationBlock], AfterValidator(_freeze)
     ]
