@@ -35,10 +35,11 @@ import os
 import re
 
 import pytest
-# Module-level on purpose: with `from __future__ import annotations` FastAPI resolves the
-# `request: Request` annotation of the auth override from module globals. Imported inside
-# the fixture it is unresolvable, `request` becomes a required QUERY param, and every
-# route call 422s (that is how these smoke tests first failed).
+
+# Module-level on purpose: with `from __future__ import annotations`, FastAPI resolves
+# the `request: Request` annotation of the auth override from module globals. Imported
+# inside the fixture it is unresolvable, `request` becomes a required QUERY param, and
+# every route call 422s (that is how these smoke tests first failed).
 from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine

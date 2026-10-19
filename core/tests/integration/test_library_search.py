@@ -285,3 +285,41 @@ async def test_archive_search_finds_the_current_parsed_title_not_only_the_filena
     assert by_title.total == 1
     assert by_old.total == 0, "a superseded parse's title must not match"
     assert by_file.total == 1, "filename search still works"
+
+
+@pytest.mark.asyncio
+async def test_like_wildcards_in_a_query_are_literal(
+    session_maker: async_sessionmaker[AsyncSession],  # noqa: F811
+) -> None:
+    """``%`` and ``_`` typed by a reader are characters, not LIKE wildcards — on the
+    roles search and on the archive's filename/title search alike."""
+    async with session_maker() as session:
+        await _seed_titles(session, "Clerk_Typist", "ClerkXTypist", "Library Clerk")
+        await _seed_source(session, filename="a_b.docx", jd=_jd("Plain"))
+        await _seed_source(session, filename="axb.docx", jd=_jd("Other"))
+        underscore = await list_roles(session, q="clerk_typist")
+        percent = await list_roles(session, q="%")
+        archive = await list_source_jds(session, q="a_b")
+
+    assert [i.title for i in underscore.items] == ["Clerk_Typist"]
+    assert percent.total == 0
+    assert archive.total == 1
+
+
+@pytest.mark.asyncio
+async def test_meaning_hits_outside_the_scope_or_the_bank_are_not_counted(
+    session_maker: async_sessionmaker[AsyncSession],  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A vector node for a role outside the collection, or for a cluster the Bank no
+    longer has (a stale node), must drop out of the rows AND the total — otherwise
+    "showing 1-1 of 3" promises pages that do not exist."""
+    async with session_maker() as session:
+        ids = await _seed_titles(session, "Scoped Clerk", "Outside Role")
+        _neighbours(monkeypatch, [ids["Outside Role"], uuid.uuid4()])
+        page = await list_roles(
+            session, q="clerk", cluster_ids=[ids["Scoped Clerk"]], **_clients()
+        )
+
+    assert [i.title for i in page.items] == ["Scoped Clerk"]
+    assert page.total == 1
