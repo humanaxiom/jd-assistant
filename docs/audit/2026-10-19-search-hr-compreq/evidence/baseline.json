@@ -1,0 +1,1507 @@
+{
+ "mode": "baseline",
+ "model": "gpt-oss:120b",
+ "queries": [
+  {
+   "id": "E1",
+   "kind": "exact",
+   "q": "Financial Assistant",
+   "form": "wjq",
+   "library": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.6,
+    "n": 6,
+    "first_rel": 1,
+    "top": [
+     "* Administrative and Financial Assistant | Applied Science | cupe",
+     "* Administrative and Financial Assistant | Biomedical Physiology | cupe",
+     "* Administrative and Financial Assistant | School of Computing Science | cupe",
+     "* Administrative and Financial Assistant |  | cupe",
+     "* Financial Assistant | School for the Contemporary Arts | cupe",
+     "* Financial Assistant | Beedie School of Business | cupe"
+    ],
+    "total": 6
+   },
+   "builder_s": 1.748,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Financial Assistant | School for the Contemporary Arts | cupe",
+     "* Financial Assistant | Beedie School of Business | cupe",
+     "* Administrative and Financial Assistant | Applied Science | cupe",
+     "* Administrative and Financial Assistant | Biomedical Physiology | cupe",
+     "* Administrative and Financial Assistant | Vice-President | cupe",
+     "* Administrative and Financial Assistant | School of Computing Science | cupe",
+     "* Financial Assistant |  | cupe",
+     "* Financial Assistant | Psychology | cupe",
+     "* Financial Assistant | Physics | cupe",
+     "* Undergraduate Program Assistant/Financial Assistant | Archaeology | cupe"
+    ],
+    "matches": [
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "title",
+     "title",
+     "title",
+     "title"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.6,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Financial Assistant | School for the Contemporary Arts | cupe",
+     "* Financial Assistant | Beedie School of Business | cupe",
+     "* Administrative and Financial Assistant | Applied Science | cupe",
+     "* Administrative and Financial Assistant | Biomedical Physiology | cupe",
+     "* Administrative and Financial Assistant |  | cupe",
+     "* Administrative and Financial Assistant | School of Computing Science | cupe",
+     "  Student Recruiter, French Language Programs |  | apsa",
+     "  Student Recruiter | Office of Francophone and Francophile Af | ",
+     "  Communications, Marketing and Student Recruitment Coordinator | Office of Francophone and Francophile Af | apsa",
+     "  Student Recruiter, French Language Programs | Office of Francophone and Francophile Af | "
+    ]
+   }
+  },
+  {
+   "id": "E2",
+   "kind": "exact",
+   "q": "Co-op Education Coordinator",
+   "form": "jdfn",
+   "library": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Surrey Co-operative Education | "
+    ],
+    "total": 15
+   },
+   "builder_s": 0.064,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator |  | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | apsa"
+    ],
+    "matches": [
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator |  | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | apsa"
+    ]
+   }
+  },
+  {
+   "id": "E3",
+   "kind": "exact",
+   "q": "Research Grants Facilitator",
+   "form": "jdfn",
+   "library": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Research Grants Facilitator |  | ",
+     "* Research Grants Facilitator | Faculty of Education, Dean\u2019s Office | apsa",
+     "* Research Grants Facilitator | Dean of Science Office | ",
+     "* Research Grants Facilitator |  | ",
+     "* Research Grants Facilitator | Faculty of Science, Dean\u2019s Office | ",
+     "* Research Grants Facilitator | Faculty of Arts & Social Sciences, Offic | apsa",
+     "* Research Grants Facilitator | Faculty of Arts and Social Sciences, Off | apsa",
+     "* Research Grants Facilitator | Major Projects Office, Office of the Vic | ",
+     "* Research Grants Facilitator |  | ",
+     "* Research Grants Facilitator |  | apsa"
+    ],
+    "total": 10
+   },
+   "builder_s": 0.08,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Research Grants Facilitator |  | ",
+     "* Research Grants Facilitator | Faculty of Arts and Social Sciences, Off | apsa",
+     "* Research Grants Facilitator | Faculty of Science, Dean\u2019s Office | ",
+     "* Research Grants Facilitator | Dean of Science Office | ",
+     "* Research Grants Facilitator | Faculty of Education, Dean\u2019s Office | apsa",
+     "* Research Grants Facilitator | Faculty of Arts & Social Sciences, Offic | apsa",
+     "* Research Grants Facilitator |  | ",
+     "* Research Grants Facilitator |  | apsa",
+     "* Research Grants Facilitator |  | ",
+     "* Research Grants Facilitator | Major Projects Office, Office of the Vic | "
+    ],
+    "matches": [
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Research Grants Facilitator |  | ",
+     "* Research Grants Facilitator | Faculty of Arts and Social Sciences, Off | apsa",
+     "* Research Grants Facilitator | Faculty of Science, Dean\u2019s Office | ",
+     "* Research Grants Facilitator | Dean of Science Office | ",
+     "* Research Grants Facilitator | Faculty of Education, Dean\u2019s Office | apsa",
+     "* Research Grants Facilitator | Faculty of Arts & Social Sciences, Offic | apsa",
+     "* Research Grants Facilitator |  | ",
+     "* Research Grants Facilitator |  | apsa",
+     "* Research Grants Facilitator |  | ",
+     "* Research Grants Facilitator | Major Projects Office, Office of the Vic | "
+    ]
+   }
+  },
+  {
+   "id": "E4",
+   "kind": "exact",
+   "q": "Laboratory Technician",
+   "form": "wjq",
+   "library": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Archaeology Laboratory Technician | Archaeology | cupe",
+     "* Biological Sciences Laboratory Technician | BIOLOGICAL SCIENCES | cupe",
+     "* Chemistry Laboratory Technician |  | cupe",
+     "* Electronics Laboratory Technician |  | cupe",
+     "* Laboratory Technician | Biomedical Physiology & Kinesiology | cupe",
+     "* Laboratory Technician | Archaeology | cupe",
+     "* Laboratory Technician | Biological Sciences | cupe",
+     "* Laboratory Technician | Molecular Biology and Biochemistry | cupe",
+     "* Laboratory Technician | Biological Sciences | cupe",
+     "* Laboratory Technician | Chemistry | cupe"
+    ],
+    "total": 18
+   },
+   "builder_s": 0.078,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Laboratory Technician | School of Engineering Science | cupe",
+     "* Laboratory Technician | Archaeology | cupe",
+     "* Laboratory Technician | Biomedical Physiology & Kinesiology | cupe",
+     "* Laboratory Technician | Biological Sciences | cupe",
+     "* Laboratory Technician | Chemistry | cupe",
+     "* Laboratory Technician | Biological Sciences | cupe",
+     "* Laboratory Technician | Chemistry | cupe",
+     "* Laboratory Technician | Molecular Biology and Biochemistry | cupe",
+     "* Laboratory Technician | Biological Sciences | cupe",
+     "* Laboratory Technician \u2013 Molecular Biology and Biochemistry | MBB | cupe"
+    ],
+    "matches": [
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Laboratory Technician |  | cupe",
+     "* Laboratory Technician | Archaeology | cupe",
+     "* Laboratory Technician | Biomedical Physiology & Kinesiology | cupe",
+     "* Laboratory Technician | Biological Sciences | cupe",
+     "* Laboratory Technician | Chemistry | cupe",
+     "* Laboratory Technician | Biological Sciences | cupe",
+     "* Laboratory Technician | Chemistry | cupe",
+     "* Laboratory Technician | Molecular Biology and Biochemistry | cupe",
+     "* Laboratory Technician | Biological Sciences | cupe",
+     "* Laboratory Technician \u2013 Molecular Biology and Biochemistry |  | cupe"
+    ]
+   }
+  },
+  {
+   "id": "P1",
+   "kind": "paraphrase",
+   "q": "someone who processes invoices and reconciles accounts",
+   "form": "wjq",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 2.916,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.6,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Accounts Payable Clerk | Financial Services | cupe",
+     "* Accounts Payable Clerk | Financial Services, Accounts Payable | cupe",
+     "* Bookstore Accounting Clerk | Bookstore | cupe",
+     "* Accounts Payable Coordinator |  | cupe",
+     "* Student Accounts Clerk | Student Accounts | cupe",
+     "* Financial Assistant | School for the Contemporary Arts | cupe",
+     "  Billing Assistant | Health & Counseling Services | cupe",
+     "  Library Invoicing and Receiving Assistant | Library Acquisitions and Serials | cupe",
+     "  Serials Invoice Coordinator | Library Processing Division, Serials Sec | cupe",
+     "  Budget Clerk | First Nations Studies | cupe"
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.6,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Accounts Payable Clerk | Financial Services | cupe",
+     "  Finance and Operations Coordinator |  | apsa",
+     "* Accounts Payable Clerk |  | cupe",
+     "* Accounts Payable Officer |  | ",
+     "  Business Analyst, Human Resources Systems |  | apsa",
+     "* Bookstore Accounting Clerk | Bookstore | cupe",
+     "  Information Technology Professional | Enterprise Systems \u2013 Application Service | apsa",
+     "  Payment Services Officer |  | ",
+     "* Bank and Accounts Receivable Manager |  | apsa",
+     "* Accounts Payable Coordinator |  | cupe"
+    ]
+   }
+  },
+  {
+   "id": "P2",
+   "kind": "paraphrase",
+   "q": "person who helps students plan their courses and meet degree requirements",
+   "form": "jdfn",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 1.059,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.8,
+    "n": 10,
+    "first_rel": 2,
+    "top": [
+     "  Coordinator, Scheduling and Advising | Beedie School of Business | apsa",
+     "* Undergraduate Program Advisor | Faculty of Business Administration | ",
+     "* Undergraduate Advisor | Faculty of Environment | ",
+     "* Undergraduate Advisor | Humanities | ",
+     "* Undergraduate Advisor | Faculty of Business Administration | ",
+     "* Undergraduate Advisor | School of Criminology | ",
+     "* Undergraduate Advisor | Faculty of Business Administration | ",
+     "  Student Affairs Officer, Scheduling and Planning | Faculty of Applied Sciences | apsa",
+     "* Undergraduate Advisor |  | apsa",
+     "* Undergraduate Advisor and Recruiter | Faculty of Business Administration | "
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.8,
+    "n": 10,
+    "first_rel": 2,
+    "top": [
+     "  Coordinator, Scheduling and Advising | Beedie School of Business | apsa",
+     "* Undergraduate Program Advisor | Faculty of Business Administration | ",
+     "* Undergraduate Advisor | Faculty of Environment | ",
+     "* Undergraduate Advisor | Humanities | ",
+     "* Undergraduate Advisor | Faculty of Business Administration | ",
+     "* Undergraduate Advisor | School of Criminology | ",
+     "* Undergraduate Advisor | Faculty of Business Administration | ",
+     "  Student Affairs Officer, Scheduling and Planning | Faculty of Applied Sciences | apsa",
+     "* Undergraduate Advisor |  | apsa",
+     "* Undergraduate Advisor and Recruiter | Faculty of Business Administration | "
+    ]
+   }
+  },
+  {
+   "id": "P3",
+   "kind": "paraphrase",
+   "q": "fundraiser who builds relationships with major donors",
+   "form": "jdfn",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 2.663,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Associate Director, Major Gifts | University Advancement | ",
+     "* Associate Director, Advancement | University Advancement | ",
+     "* Associate Director, Advancement |  | apsa",
+     "* Director, Major Gifts | University Advancement | ",
+     "* Leadership Gifts Manager | University Advancement | apsa",
+     "* Donor Relations Manager | University Advancement | apsa",
+     "* Associate Director, Major Gifts | University Advancement | ",
+     "* Associate Director, Advancement | University Advancement | ",
+     "* Associate Director, Advancement | Morris J. Wosk Centre for Dialogue | apsa",
+     "* Advancement Officer | University Advancement | apsa"
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Associate Director, Major Gifts | University Advancement | ",
+     "* Associate Director, Advancement | University Advancement | ",
+     "* Associate Director, Advancement |  | apsa",
+     "* Director, Major Gifts | University Advancement | ",
+     "* Leadership Gifts Manager | University Advancement | apsa",
+     "* Donor Relations Manager | University Advancement | apsa",
+     "* Associate Director, Major Gifts | University Advancement | ",
+     "* Associate Director, Advancement | University Advancement | ",
+     "* Associate Director, Advancement | Morris J. Wosk Centre for Dialogue | apsa",
+     "* Advancement Officer | University Advancement | apsa"
+    ]
+   }
+  },
+  {
+   "id": "P4",
+   "kind": "paraphrase",
+   "q": "entry-level library job shelving books and helping patrons at the desk",
+   "form": "wjq",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 3.037,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.9,
+    "n": 10,
+    "first_rel": 2,
+    "top": [
+     "  Library Stack Assistant | Library Leans | cupe",
+     "* Library Assistant | Library Loan Division | cupe",
+     "* Library Assistant | Library Loans | cupe",
+     "* Library Assistant, Loans Division | Library Loans | cupe",
+     "* Library Assistant | Bennett Library | cupe",
+     "* Library Circulation Assistant | Belzberg Library | cupe",
+     "* Library Circulation Assistant | Belzberg Library | cupe",
+     "* Library Assistant |  | cupe",
+     "* Library Assistant | Library Loans | cupe",
+     "* Library Circulation and Media Services Technician |  | cupe"
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.9,
+    "n": 10,
+    "first_rel": 2,
+    "top": [
+     "  Library Stack Assistant |  | cupe",
+     "* Library Assistant | Library Loan Division | cupe",
+     "* Library Assistant | Library Loans | cupe",
+     "* Library Assistant, Loans Division | Library Loans | cupe",
+     "* Library Assistant | Bennett Library | cupe",
+     "* Library Circulation Assistant | Belzberg Library | cupe",
+     "* Library Circulation Assistant |  | cupe",
+     "* Library Assistant |  | cupe",
+     "* Library Assistant | Library Loans | cupe",
+     "* Library Circulation and Media Services Technician |  | cupe"
+    ]
+   }
+  },
+  {
+   "id": "D1",
+   "kind": "duty",
+   "q": "maintain Linux servers, apply patches, run backups and manage user accounts",
+   "form": "jdfn",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 2.935,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.8,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Computer Systems Administrator | School of Computing Science | ",
+     "* Computer Systems Administrator | School of Computing Science | ",
+     "* Systems Administrator | IT Services - Infrastructure | apsa",
+     "  Database Administrator |  | apsa",
+     "* PeopleSoft System Administrator |  | apsa",
+     "* Computer Systems Administrator | Computing Science | ",
+     "* Systems Administrator | Computing Operations & Technical Support | ",
+     "* Network and Systems Administrator |  | apsa",
+     "* Storage and Systems Administrator |  | apsa",
+     "  Application Developer | Windows Applications, Applications Servi | apsa"
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.5,
+    "n": 10,
+    "first_rel": 2,
+    "top": [
+     "  Computer Support Technician | Learning & Teaching Technology | cupe",
+     "* Computer Systems Administrator | School of Computing Science | ",
+     "  Technical Support Specialist | Centre for Online and Distance Education | cupe",
+     "* System Administrator | Continuing Studies | cupe",
+     "* Computer Systems Administrator | School of Computing Science | ",
+     "  Computer Systems Analyst | Mechatronics | cupe",
+     "* Systems Administrator | IT Services - Infrastructure | apsa",
+     "  Database Administrator |  | apsa",
+     "  Network and Systems Support Technician |  | cupe",
+     "* PeopleSoft System Administrator |  | apsa"
+    ]
+   }
+  },
+  {
+   "id": "D2",
+   "kind": "duty",
+   "q": "plan and run conferences, convocation ceremonies and university events",
+   "form": "jdfn",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 2.952,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Event Coordinator | SFU International | apsa",
+     "* Associate Director, Convocation and Events | Ceremonies and Events | apsa",
+     "* Events, Sponsorship and Alumni Manager | Beedie School of Business | ",
+     "* Ceremonies and Events Manager | External Relations Administration | apsa",
+     "* Coordinator, Projects and Events |  | apsa",
+     "* Ceremonies and Events Manager | Ceremonies and Events | apsa",
+     "* Event and Marketing Coordinator | Faculty of Applied Sciences | ",
+     "* Events and Communications Coordinator | School of Computing Science | apsa",
+     "* Ceremonial Events Coordinator |  | apsa",
+     "* Ceremonial and Special Events Manager |  | "
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Event Coordinator | SFU International | apsa",
+     "* Associate Director, Convocation and Events | Ceremonies and Events | apsa",
+     "* Events, Sponsorship and Alumni Manager | Beedie School of Business | ",
+     "* Ceremonies and Events Manager | External Relations Administration | apsa",
+     "* Coordinator, Projects and Events |  | apsa",
+     "* Ceremonies and Events Manager | Ceremonies and Events | apsa",
+     "* Event and Marketing Coordinator | Faculty of Applied Sciences | ",
+     "* Event Coordinator | Ceremonies & Events | cupe",
+     "* Events and Communications Coordinator | School of Computing Science | apsa",
+     "* Ceremonial Events Coordinator |  | apsa"
+    ]
+   }
+  },
+  {
+   "id": "D3",
+   "kind": "duty",
+   "q": "manage research grant applications and post-award budgets for faculty members",
+   "form": "jdfn",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 2.899,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.9,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Research Grants and Projects Assistant | Major Projects Office, VPR | apsa",
+     "* Research Grants Facilitator | Faculty of Arts & Social Sciences, Offic | apsa",
+     "* Research Grants and Projects Coordinator | Linguistics | apsa",
+     "* Research Grants Officer | Office of Research Services, VP Research | apsa",
+     "* Research Grants Facilitator | Faculty of Arts and Social Sciences, Off | apsa",
+     "* Research Grants Officer | Research Services | ",
+     "  Financial Administration Coordinator | Beedie School of Business | apsa",
+     "* Research Grants Facilitator | Dean of Science Office | ",
+     "* Research Grants Facilitator | Faculty of Science, Dean\u2019s Office | ",
+     "* Research Grants and Projects Coordinator | School of Computing Science | apsa"
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.9,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Research Grants and Projects Assistant | Major Projects Office, VPR | apsa",
+     "* Research Grants Facilitator | Faculty of Arts & Social Sciences, Offic | apsa",
+     "* Research Grants and Projects Coordinator | Linguistics | apsa",
+     "* Research Grants Officer | Office of Research Services, VP Research | apsa",
+     "* Research Grants Facilitator | Faculty of Arts and Social Sciences, Off | apsa",
+     "* Research Grants Officer | Research Services | ",
+     "  Financial Administration Coordinator | Beedie School of Business | apsa",
+     "* Research Grants Facilitator | Dean of Science Office | ",
+     "* Research Grants Facilitator | Faculty of Science, Dean\u2019s Office | ",
+     "* Research Grants and Projects Coordinator | School of Computing Science | apsa"
+    ]
+   }
+  },
+  {
+   "id": "D4",
+   "kind": "duty",
+   "q": "write news stories, manage social media and the department newsletter",
+   "form": "jdfn",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 2.888,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.8,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Communications Assistant | Communications & Marketing, External Rel | ",
+     "* Communications and Events Coordinator | Psychology | apsa",
+     "* Communications Associate | University Communications | ",
+     "* Communications Associate | VP Finance and Administration, Human Res | apex",
+     "* Communications and Events Coordinator |  | apsa",
+     "* Communications and Marketing Coordinator | Office of the Vice-President, Research | apsa",
+     "* Communications and Marketing Coordinator | Office of the Vice-President, Research \u2013 | apsa",
+     "  Administrative Coordinator |  | apsa",
+     "  Digital Media and Sports Information Specialist | Athletics & Recreation | ",
+     "* Communications Coordinator | Faculty of Applied Sciences \u2013 Office of  | apsa"
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.8,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Communications Assistant | Communications & Marketing, External Rel | ",
+     "* Communications and Events Coordinator | Psychology | apsa",
+     "* Communications Associate | University Communications | ",
+     "* Communications Associate | VP Finance and Administration, Human Res | apex",
+     "* Communications and Events Coordinator |  | apsa",
+     "* Communications and Marketing Coordinator | Office of the Vice-President, Research | apsa",
+     "* Communications and Marketing Coordinator | Office of the Vice-President, Research \u2013 | apsa",
+     "  Administrative Coordinator |  | apsa",
+     "  Digital Media and Sports Information Specialist | Athletics & Recreation | ",
+     "* Communications Coordinator | Faculty of Applied Sciences \u2013 Office of  | apsa"
+    ]
+   }
+  },
+  {
+   "id": "C1",
+   "kind": "constraint",
+   "q": "supervisory admin role in Faculty of Science, APSA",
+   "form": "jdfn",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 2.96,
+   "builder": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 10,
+    "first_rel": null,
+    "top": [
+     "  Planning and Project Analyst |  | apsa",
+     "  Systems Consultant | AISG | ",
+     "  Academic and Administrative Services Manager | School of Engineering Science | apsa",
+     "  Associate Director, Operations, Quality Assurance & Strategic Planning | Teaching & Learning Centre Administratio | ",
+     "  Administration Manager | Division of Curriculum and Instruction,  | apsa",
+     "  Administrative Coordinator |  | apsa",
+     "  Director, Science | Faculty of Science | poly",
+     "  Program Director | Continuing Studies | apsa",
+     "  Director, Student Academic Affairs | Senate & Curriculum Services | ",
+     "  Business Analyst | Facilities Services | "
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 10,
+    "first_rel": null,
+    "top": [
+     "  Planning and Project Analyst |  | apsa",
+     "  Systems Consultant | AISG | ",
+     "  Academic and Administrative Services Manager | School of Engineering Science | apsa",
+     "  Associate Director, Operations, Quality Assurance & Strategic Planning | Teaching & Learning Centre Administratio | ",
+     "  Administration Manager | Division of Curriculum and Instruction,  | apsa",
+     "  Administrative Coordinator |  | apsa",
+     "  Director, Science | Faculty of Science | poly",
+     "  Program Assistant | Institute for the Study of Teaching and  | cupe",
+     "  Program Director | Continuing Studies | apsa",
+     "  Director, Student Academic Affairs | Senate & Curriculum Services | "
+    ]
+   }
+  },
+  {
+   "id": "C2",
+   "kind": "constraint",
+   "q": "CUPE administrative assistant",
+   "form": "wjq",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 2.803,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.8,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Administrative Assistant | Centre for Dialogue | cupe",
+     "* Administrative Assistant | Faculty of Applied Sciences | cupe",
+     "* Student Services Administrative Assistant | First Nations | cupe",
+     "* Office Assistant | Health and Counselling Services (HCS) | cupe",
+     "* Office Assistant | Office of Research Services | cupe",
+     "* Administrative Assistant | Faculty of Arts and Social Sciences, Off | cupe",
+     "* Program Assistant | Faculty of Education | cupe",
+     "* Administrative Assistant to Department Chair | Biomedical Physiology and Kinesiology | cupe",
+     "  Student Learning Commons Assistant | Library, Student Learning Commons | cupe",
+     "  Project Assistant | Faculty of Communication, Art and Techno | cupe"
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.5,
+    "n": 10,
+    "first_rel": 4,
+    "top": [
+     "  Executive Assistant |  | apsa",
+     "  Board Assistant | President\u2019s Office | excluded",
+     "  Human Resources Administrative Assistant | Human Resources | apsa",
+     "* Administrative Assistant | Centre for Dialogue | cupe",
+     "  Executive Assistant |  | apsa",
+     "  Executive Assistant |  | apsa",
+     "* Administrative Assistant | Faculty of Applied Sciences | cupe",
+     "* Student Services Administrative Assistant |  | cupe",
+     "* Office Assistant | Health and Counselling Services (HCS) | cupe",
+     "* Office Assistant | Office of Research Services | cupe"
+    ]
+   }
+  },
+  {
+   "id": "C3",
+   "kind": "constraint",
+   "q": "APSA communications officer",
+   "form": "jdfn",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 3.033,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.7,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Communications Officer |  | apsa",
+     "* Communications Officer | Dean\u2019s Office, Faculty of Arts and Socia | ",
+     "  Communications Officer |  | apex",
+     "* Communications Officer | Communications & Marketing | ",
+     "* Communications Officer | Safety and Risk Services | apsa",
+     "* Communications Officer | CIO Office | ",
+     "  Director, University Communications | External Relations, Communications & Mar | ",
+     "* Communications Officer | Dean\u2019s Office, Faculty of Arts and Socia | ",
+     "* Communications Officer | Surrey Marketing & External Affairs | ",
+     "  Web Development Coordinator |  | apsa"
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.7,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Communications Officer |  | apsa",
+     "* Communications Officer | Dean\u2019s Office, Faculty of Arts and Socia | ",
+     "  Communications Officer |  | apex",
+     "* Communications Officer | Communications & Marketing | ",
+     "* Communications Officer | Safety and Risk Services | apsa",
+     "* Communications Officer | CIO Office | ",
+     "  Director, University Communications | External Relations, Communications & Mar | ",
+     "* Communications Officer | Dean\u2019s Office, Faculty of Arts and Socia | ",
+     "* Communications Officer | Surrey Marketing & External Affairs | ",
+     "  Web Development Coordinator |  | apsa"
+    ]
+   }
+  },
+  {
+   "id": "C4",
+   "kind": "constraint",
+   "q": "academic advisor in the Beedie business school",
+   "form": "jdfn",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 3.345,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.1,
+    "n": 10,
+    "first_rel": 4,
+    "top": [
+     "  Academic Advisor | Faculty of Science | ",
+     "  Records and Business Liaison | Graduate and Postdoctoral Studies | apsa",
+     "  Undergraduate Advisor | Faculty of Environment | ",
+     "* Undergraduate Program Advisor | Faculty of Business Administration | ",
+     "  Manager, Advising and Curriculum Support |  | apsa",
+     "  Academic Advisor | Academic Advising | apsa",
+     "  Undergraduate Advisor and Recruiter | Economics | apsa",
+     "  Program Coordinator, TechOne Program |  | ",
+     "  Departmental Assistant | Explorations Program at Surrey | ",
+     "  Manager, Academic and Administrative Services | French | "
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.1,
+    "n": 10,
+    "first_rel": 4,
+    "top": [
+     "  Academic Advisor | Faculty of Science | ",
+     "  Records and Business Liaison | Graduate and Postdoctoral Studies | apsa",
+     "  Undergraduate Advisor | Faculty of Environment | ",
+     "* Undergraduate Program Advisor | Faculty of Business Administration | ",
+     "  Manager, Advising and Curriculum Support |  | apsa",
+     "  Academic Advisor | Academic Advising | apsa",
+     "  Undergraduate Advisor and Recruiter | Economics | apsa",
+     "  Program Coordinator, TechOne Program |  | ",
+     "  Departmental Assistant | Explorations Program at Surrey | ",
+     "  Manager, Academic and Administrative Services | French | "
+    ]
+   }
+  },
+  {
+   "id": "A1",
+   "kind": "abbrev",
+   "q": "coop coord",
+   "form": "jdfn",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 2.919,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.7,
+    "n": 10,
+    "first_rel": 2,
+    "top": [
+     "  Co-operative Education Program Manager | Co-operative Education | ",
+     "* Co-operative Education Coordinator | Work Integrated Learning | apsa",
+     "* Co-operative Education Coordinator |  | apsa",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-operative Education Coordinator | Co-operative Education | ",
+     "  Co-operative Education Program Manager | Co-operative Education | ",
+     "  Co-operative Education Manager | Co-operative Education | ",
+     "* Co-op Education Coordinator | Work Integrated Learning | "
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.6,
+    "n": 10,
+    "first_rel": 2,
+    "top": [
+     "  Co-operative Education Program Manager | Co-operative Education | ",
+     "* Co-operative Education Coordinator | Work Integrated Learning | apsa",
+     "* Co-operative Education Coordinator |  | apsa",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "  Co-op Education Program Manager |  | apsa",
+     "  Co-operative Education Program Assistant |  | cupe",
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-operative Education Coordinator | Co-operative Education | ",
+     "  Co-operative Education Program Manager | Co-operative Education | "
+    ]
+   }
+  },
+  {
+   "id": "A2",
+   "kind": "abbrev",
+   "q": "IT sysadmin",
+   "form": "jdfn",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 2.911,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.5,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Systems Consultant | Administrative Systems \u2014 AIS | ",
+     "* Systems Consultant | AISG | ",
+     "  Information Technology Operations Manager | Beedie School of Business | apsa",
+     "  Application Developer | Windows Applications, Applications Servi | apsa",
+     "  Software Developer |  | apsa",
+     "* Computer Systems Administrator | School of Computing Science | ",
+     "* Computer Systems Administrator | School of Computing Science | ",
+     "* Computer Systems Administrator | Academic Computing Services | ",
+     "  Software Engineer |  | apsa",
+     "  Business Solutions Manager | Application Services, IT Services | apsa"
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.6,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Systems Consultant | Administrative Systems \u2014 AIS | ",
+     "* Systems Consultant | AISG | ",
+     "  Information Technology Operations Manager | Beedie School of Business | apsa",
+     "  Application Developer | Windows Applications, Applications Servi | apsa",
+     "  Software Developer |  | apsa",
+     "* Computer Systems Administrator | School of Computing Science | ",
+     "* Computer Systems Administrator | School of Computing Science | ",
+     "* Systems Administrator |  | apsa",
+     "* Computer Systems Administrator | Academic Computing Services | ",
+     "  Software Engineer |  | apsa"
+    ]
+   }
+  },
+  {
+   "id": "A3",
+   "kind": "abbrev",
+   "q": "AP clerk",
+   "form": "wjq",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 2.828,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.4,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Accounts Payable Clerk | Financial Services | cupe",
+     "  Housing Services Clerk |  | cupe",
+     "* Student Accounts Clerk |  | cupe",
+     "* Bookstore Accounts Clerk | Bookstore | cupe",
+     "  Parking Services Clerk | Campus Security | cupe",
+     "  Bookstore Clerk |  | cupe",
+     "  Facilities and Resources Clerk | Dean\u2019s Office, Faculty of Education | cupe",
+     "* Student Accounts Clerk | Student Accounts | cupe",
+     "  Parking Services Clerk | Campus | cupe",
+     "  Student Services Clerk | Centre for Online & Distance Education,  | cupe"
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.4,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Accounts Payable Clerk | Financial Services | cupe",
+     "  Housing Services Clerk |  | cupe",
+     "  Residence Mail Services Clerk |  | cupe",
+     "* Student Accounts Clerk |  | cupe",
+     "* Bookstore Accounts Clerk | Bookstore | cupe",
+     "  Bookstore Supervisor | Bookstore | ",
+     "  Parking Services Clerk | Campus Security | cupe",
+     "  Bookstore Clerk |  | cupe",
+     "  Facilities and Resources Clerk | Dean\u2019s Office, Faculty of Education | cupe",
+     "* Student Accounts Clerk | Student Accounts | cupe"
+    ]
+   }
+  },
+  {
+   "id": "A4",
+   "kind": "typo",
+   "q": "adminstrative cordinator",
+   "form": "jdfn",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 4.516,
+   "builder": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 10,
+    "first_rel": null,
+    "top": [
+     "  Network Operations Supervisor |  | apsa",
+     "  Information Technology Professional |  | apsa",
+     "  Loans Supervisor | Library Loan Division | ",
+     "  Academic Affairs Coordinator | Beedie School of Business, Dean\u2019s Office | apsa",
+     "  Program Manager, Education Programs (Community-Based) | Ed. D. and M. Ed. (Community Based) Prog | ",
+     "  Faculty Relations Assistant | Academic Relations | ",
+     "  Co-operative Education Program Manager | Co-operative Education | ",
+     "  Business Acceleration Program Administrator | VPR Innovation Office | apsa",
+     "  Operating Systems Consultant | School of Computing Science | ",
+     "  Access Services Supervisor | Library Access Services | apsa"
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 10,
+    "first_rel": null,
+    "top": [
+     "  Network Operations Supervisor |  | apsa",
+     "  Information Technology Professional |  | apsa",
+     "  Loans Supervisor | Library Loan Division | ",
+     "  Academic Affairs Coordinator | Beedie School of Business, Dean\u2019s Office | apsa",
+     "  Program Manager, Education Programs (Community-Based) | Ed. D. and M. Ed. (Community Based) Prog | ",
+     "  Faculty Relations Assistant | Academic Relations | ",
+     "  Co-operative Education Program Manager | Co-operative Education | ",
+     "  Business Acceleration Program Administrator | VPR Innovation Office | apsa",
+     "  Operating Systems Consultant | School of Computing Science | ",
+     "  Access Services Supervisor | Library Access Services | apsa"
+    ]
+   }
+  },
+  {
+   "id": "A5",
+   "kind": "abbrev",
+   "q": "HR advisor labour relations",
+   "form": "jdfn",
+   "library": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 0,
+    "first_rel": null,
+    "top": [],
+    "total": 0
+   },
+   "builder_s": 4.421,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.9,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Labour and Employee Relations Advisor |  | apex",
+     "* Labour and Employee Relations Advisor | Human Resources | apsa",
+     "* Director, Labour Relations | Human Resources | apex",
+     "* Labour and Employee Relations Specialist |  | apex",
+     "* Executive Director, Human Resources |  | apex",
+     "* Labour Relations Advisor | Human Resources | apsa",
+     "* Human Resources Coordinator | Human Resources | ",
+     "* Administrative Officer \u2013 Human Resources and Governance | Vice-President, Academic | ",
+     "* Human Resources Associate |  | apsa",
+     "  Administrative Professional | Academic Relations | "
+    ],
+    "matches": [
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic",
+     "semantic"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.9,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Labour and Employee Relations Advisor |  | apex",
+     "* Labour and Employee Relations Advisor | Human Resources | apsa",
+     "* Director, Labour Relations | Human Resources | apex",
+     "* Labour and Employee Relations Specialist |  | apex",
+     "* Executive Director, Human Resources |  | apex",
+     "* Labour Relations Advisor | Human Resources | apsa",
+     "* Human Resources Coordinator |  | ",
+     "* Administrative Officer \u2013 Human Resources and Governance | Vice-President, Academic | ",
+     "* Human Resources Associate |  | apsa",
+     "  Administrative Professional | Academic Relations | "
+    ]
+   }
+  },
+  {
+   "id": "A6",
+   "kind": "abbrev",
+   "q": "web dev",
+   "form": "jdfn",
+   "library": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.8,
+    "n": 8,
+    "first_rel": 1,
+    "top": [
+     "* Systems and Web Developer | Creative Services | ",
+     "* Systems and Web Developer | Creative Studio | ",
+     "* Systems and Web Developer | Centre for Online & Distance Education ( | ",
+     "* Web Developer | Faculty Information Technical Solutions | apsa",
+     "* Web Developer | Hellenic Studies | apsa",
+     "* Web Development Coordinator | Communication Services, Student Services | ",
+     "* Web Development Coordinator |  | apsa",
+     "* Web Development Coordinator | Communications | "
+    ],
+    "total": 8
+   },
+   "builder_s": 0.978,
+   "builder": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Web Developer | Hellenic Studies | apsa",
+     "* Web Development Coordinator | Communication Services, Student Services | ",
+     "* Web Developer | Faculty Information Technical Solutions | apsa",
+     "* Web Development Coordinator |  | apsa",
+     "* Web Development Coordinator | Communications | ",
+     "* Systems and Web Developer | Creative Services | ",
+     "* Systems and Web Developer | Creative Studio | ",
+     "* Systems and Web Developer | Centre for Online & Distance Education ( | ",
+     "* Web Development Coordinator | Education Central | ",
+     "* Systems & Web Developer |  | apsa"
+    ],
+    "matches": [
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "role_title",
+     "title",
+     "title"
+    ]
+   },
+   "library_rawvec": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.9,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Web Developer | Hellenic Studies | apsa",
+     "* Web Developer | Faculty Information Technical Solutions | apsa",
+     "* Web Development Coordinator | Communication Services, Student Services | ",
+     "* Web Development Coordinator |  | apsa",
+     "* Web Development Coordinator | Communications | ",
+     "* Systems and Web Developer | Creative Services | ",
+     "* Systems and Web Developer | Creative Studio | ",
+     "* Systems and Web Developer | Centre for Online & Distance Education ( | ",
+     "* Web and Data Services Developer | Beedie School of Business | apsa",
+     "  Digital Humanities User Interface Developer | Library Systems | apsa"
+    ]
+   }
+  }
+ ]
+}
