@@ -169,6 +169,12 @@ ORG_UNITS_FILE: Final[str] = "org_units.yaml"
 #: archive re-parse in the same change.
 CLASSIFICATION_FILE: Final[str] = "classification.yaml"
 
+#: HR's CUPE "WJQ Custom — Part 1" form as EXPORTED (Track J, PR J1): the fixed wording
+#: a CUPE ``.docx`` prints and where the model's fields land on it. No validator reads
+#: it and the parser never sees it — registered and on the surface but NOT hashed
+#: (:data:`_UNHASHED_FILES`), and it does NOT move ``PARSER_VERSION``.
+CUPE_FORM_FILE: Final[str] = "cupe_form.yaml"
+
 #: The content-bearing SFU sections an embedding may be built from — the subset of
 #: :data:`~src.jd_core.models.quality.SFUSection` that carries free text at all.
 #: ``identification`` is structured columns, not prose; ``about_sfu`` /
@@ -1829,6 +1835,145 @@ class Classification(_RuleFile):
         return schemes
 
 
+#: The CUPE form's identification fields the export prints a label for. The first
+#: three are carried by the model; the rest are on HR's form and not yet modelled (J2).
+CupeIdField = Literal[
+    "department",
+    "position_number",
+    "current_classification",
+    "title",
+    "supervisor_title",
+    "date_completed",
+]
+#: The four sections HR's form renders as a column of tick boxes.
+CupeCheckboxSection = Literal[
+    "level_of_independence",
+    "training_exercised",
+    "direction_exercised",
+    "continuing_education",
+]
+#: The point-factor sections a model field with no slot of its own may be printed in.
+CupePointFactorSection = Literal[
+    "level_of_independence",
+    "training_exercised",
+    "direction_exercised",
+    "impact_of_errors",
+    "effort",
+    "working_conditions",
+    "continuing_education",
+]
+#: The four blocks of section 13 a qualification can be printed in.
+CupeQualificationBlock = Literal["education", "experience", "skills", "requirements"]
+#: The form's tables that offer a fixed number of empty rows.
+CupeTable = Literal[
+    "contacts",
+    "effort",
+    "working_conditions_location",
+    "working_conditions_uncomfortable",
+    "working_conditions_hazards",
+]
+
+
+class CupeForm(_RuleFile):
+    """HR's CUPE "WJQ Custom — Part 1: Job Description" form, as EXPORTED
+    (``cupe_form.yaml``, Track J PR J1).
+
+    Every fixed string the CUPE export prints — banner, labels, instructions, checkbox
+    options, table headings, the Approval and Review lines — transcribed from SFU HR's
+    current template (vendored in ``fixtures/hr/cupe/``), plus the two placement tables
+    that say where the model's fields land on the form.
+
+    **On the register, but NOT in the content hash** (:data:`_UNHASHED_FILES`): no
+    validator reads it and the parser never sees it, so it cannot move a JD's score —
+    and, unlike ``classification.yaml``, it does not move ``PARSER_VERSION`` either. It
+    decides only what an exported ``.docx`` looks like.
+
+    The 14 section HEADINGS are deliberately absent: the export reads them from
+    ``wjq.section_headings`` so that the form it writes is one the Bank's own WJQ parser
+    can read back.
+
+    Shaped **flat** (:data:`_FLAT_SURFACE_FILES`), so every field is on the decision
+    surface the moment it is declared.
+    """
+
+    font_name: str = Field(min_length=1)
+    font_size_pt: float = Field(gt=0)
+    banner: tuple[str, ...] = Field(min_length=1)
+    id_labels: Annotated[Mapping[CupeIdField, str], AfterValidator(_freeze)]
+    completed_by_label: str = Field(min_length=1)
+    completed_by_options: tuple[str, ...] = Field(min_length=1)
+    hr_box_heading: str = Field(min_length=1)
+    hr_box_labels: tuple[str, ...] = Field(min_length=1)
+    instructions: Annotated[
+        Mapping[WjqSection, tuple[str, ...]], AfterValidator(_freeze)
+    ]
+    checkbox_glyph: str = Field(min_length=1)
+    checkbox_options: Annotated[
+        Mapping[CupeCheckboxSection, tuple[str, ...]], AfterValidator(_freeze)
+    ]
+    contacts_columns: tuple[str, ...] = Field(min_length=1)
+    effort_columns: tuple[str, ...] = Field(min_length=1)
+    working_conditions_location_prompt: str = Field(min_length=1)
+    working_conditions_location_columns: tuple[str, ...] = Field(min_length=1)
+    working_conditions_uncomfortable_prompt: str = Field(min_length=1)
+    working_conditions_uncomfortable_columns: tuple[str, ...] = Field(min_length=1)
+    working_conditions_hazards_prompt: str = Field(min_length=1)
+    working_conditions_hazards_columns: tuple[str, ...] = Field(min_length=1)
+    blank_rows: Annotated[Mapping[CupeTable, int], AfterValidator(_freeze)]
+    impact_of_errors_common_prompt: str = Field(min_length=1)
+    impact_of_errors_uncommon_prompt: str = Field(min_length=1)
+    qualifications_education_prompt: str = Field(min_length=1)
+    qualifications_certification_prompt: str = Field(min_length=1)
+    qualifications_experience_prompt: str = Field(min_length=1)
+    qualifications_experience_unit: str = Field(min_length=1)
+    qualifications_equivalency_heading: str = Field(min_length=1)
+    qualifications_equivalency_options: tuple[str, ...] = Field(min_length=1)
+    qualifications_skills_prompt: str = Field(min_length=1)
+    qualifications_requirements_prompt: str = Field(min_length=1)
+    #: Which block of section 13 each model qualification kind is printed in (HR-239).
+    qualification_blocks: Annotated[
+        Mapping[QualificationKind, CupeQualificationBlock], AfterValidator(_freeze)
+    ]
+    #: Where the model's fields with no slot of their own on the form are printed.
+    supervisory_section: CupePointFactorSection
+    decision_making_section: CupePointFactorSection
+    problem_solving_section: CupePointFactorSection
+    approval_supervisor_statement: str = Field(min_length=1)
+    approval_supervisor_labels: tuple[str, ...] = Field(min_length=1)
+    approval_employee_statement: str = Field(min_length=1)
+    approval_employee_labels: tuple[str, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _tables_are_complete(self) -> CupeForm:
+        """Every closed table names every member it must. A qualification kind with no
+        block would be silently left off the export — the one failure this file exists
+        to prevent — and a checkbox section with no options would print a bare heading.
+        """
+        for label, table, wanted in (
+            ("id_labels", self.id_labels, get_args(CupeIdField)),
+            ("checkbox_options", self.checkbox_options, get_args(CupeCheckboxSection)),
+            ("blank_rows", self.blank_rows, get_args(CupeTable)),
+            (
+                "qualification_blocks",
+                self.qualification_blocks,
+                get_args(QualificationKind),
+            ),
+        ):
+            if set(table) != set(wanted):
+                raise ValueError(
+                    f"cupe_form.{label} must name exactly {sorted(wanted)}; "
+                    f"got {sorted(table)}"
+                )
+        for section, options in self.checkbox_options.items():
+            if not options or any(not o.strip() for o in options):
+                raise ValueError(
+                    f"cupe_form.checkbox_options[{section}] needs non-blank options"
+                )
+        if any(n < 0 for n in self.blank_rows.values()):
+            raise ValueError("cupe_form.blank_rows must not be negative")
+        return self
+
+
 class RestrictedTitle(BaseModel):
     """One SFU-reserved title phrase."""
 
@@ -3465,6 +3610,8 @@ class Rules(BaseModel):
     #: On the register, but NOT in the content hash — see :class:`Classification`
     #: (Track P, P3f). ⚠ It moves ``PARSER_VERSION`` instead.
     classification: Classification
+    #: On the register, but NOT in the content hash — see :class:`CupeForm` (Track J1).
+    cupe_form: CupeForm
     decision_register: DecisionRegister
 
     def thresholds_for(self, template: JDTemplate) -> Thresholds:
@@ -3963,6 +4110,7 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "rewrite",
     "quality",
     "classification",
+    "cupe_form",
 )
 
 
@@ -4236,6 +4384,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     (FUNCTIONAL_FAMILIES_FILE, "functional_families", FunctionalFamilies),
     (ORG_UNITS_FILE, "org_units", OrgUnits),
     (CLASSIFICATION_FILE, "classification", Classification),
+    (CUPE_FORM_FILE, "cupe_form", CupeForm),
     (REGISTER_FILE, "decision_register", DecisionRegister),
 )
 
@@ -4257,6 +4406,8 @@ RULE_FILES: Final[tuple[str, ...]] = tuple(name for name, _, _ in _FILE_MODELS)
 #: * ``classification.yaml`` decides how a PAY GRADE is read off a JD (P3f). ⚠ The one
 #:   entry here that owes a re-parse: it cannot move ``rules_version``, but it DOES move
 #:   ``PARSER_VERSION``, because it changes what the parser writes.
+#: * ``cupe_form.yaml`` decides what an exported CUPE ``.docx`` LOOKS like (Track J1) —
+#:   wording and placement only; nothing reads it back.
 #:
 #: Hashing any of them would mean a copy-edit to an HR-facing paragraph, a re-banding of
 #: the archive's eras, retuning ``max_chars``, retuning ``jaccard_min``, or retuning a
@@ -4274,6 +4425,7 @@ _UNHASHED_FILES: Final[frozenset[str]] = frozenset(
         FUNCTIONAL_FAMILIES_FILE,
         ORG_UNITS_FILE,
         CLASSIFICATION_FILE,
+        CUPE_FORM_FILE,
     }
 )
 

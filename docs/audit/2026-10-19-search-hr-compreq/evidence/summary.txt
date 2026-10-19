@@ -1,0 +1,142 @@
+===== /tmp/spike_baseline_gpt-oss_120b.json baseline gpt-oss:120b
+builder {'n': 22, 'hit5': 20, 'hit10': 20, 'p10': 0.723, 'empty': 0}
+library {'n': 22, 'hit5': 5, 'hit10': 5, 'p10': 0.2, 'empty': 17}
+library_rawvec {'n': 22, 'hit5': 20, 'hit10': 20, 'p10': 0.673, 'empty': 0}
+builder_s p50 2.91 p95 4.421 max 4.516 min 0.064
+per-query: id | builder | library | library_rawvec
+E1 Financial Assistant                           H5 p1.0 n10 | H5 p0.6 n6 | H5 p0.6 n10 
+E2 Co-op Education Coordinator                   H5 p1.0 n10 | H5 p1.0 n10 | H5 p1.0 n10 
+E3 Research Grants Facilitator                   H5 p1.0 n10 | H5 p1.0 n10 | H5 p1.0 n10 
+E4 Laboratory Technician                         H5 p1.0 n10 | H5 p1.0 n10 | H5 p1.0 n10 
+P1 someone who processes invoices and reconciles H5 p0.6 n10 | -- p0.0 n0 | H5 p0.6 n10 
+P2 person who helps students plan their courses  H5 p0.8 n10 | -- p0.0 n0 | H5 p0.8 n10 
+P3 fundraiser who builds relationships with majo H5 p1.0 n10 | -- p0.0 n0 | H5 p1.0 n10 
+P4 entry-level library job shelving books and he H5 p0.9 n10 | -- p0.0 n0 | H5 p0.9 n10 
+D1 maintain Linux servers, apply patches, run ba H5 p0.8 n10 | -- p0.0 n0 | H5 p0.5 n10 
+D2 plan and run conferences, convocation ceremon H5 p1.0 n10 | -- p0.0 n0 | H5 p1.0 n10 
+D3 manage research grant applications and post-a H5 p0.9 n10 | -- p0.0 n0 | H5 p0.9 n10 
+D4 write news stories, manage social media and t H5 p0.8 n10 | -- p0.0 n0 | H5 p0.8 n10 
+C1 supervisory admin role in Faculty of Science, -- p0.0 n10 | -- p0.0 n0 | -- p0.0 n10 
+C2 CUPE administrative assistant                 H5 p0.8 n10 | -- p0.0 n0 | H5 p0.5 n10 
+C3 APSA communications officer                   H5 p0.7 n10 | -- p0.0 n0 | H5 p0.7 n10 
+C4 academic advisor in the Beedie business schoo H5 p0.1 n10 | -- p0.0 n0 | H5 p0.1 n10 
+A1 coop coord                                    H5 p0.7 n10 | -- p0.0 n0 | H5 p0.6 n10 
+A2 IT sysadmin                                   H5 p0.5 n10 | -- p0.0 n0 | H5 p0.6 n10 
+A3 AP clerk                                      H5 p0.4 n10 | -- p0.0 n0 | H5 p0.4 n10 
+A4 adminstrative cordinator                      -- p0.0 n10 | -- p0.0 n0 | -- p0.0 n10 
+A5 HR advisor labour relations                   H5 p0.9 n10 | -- p0.0 n0 | H5 p0.9 n10 
+A6 web dev                                       H5 p1.0 n10 | H5 p0.8 n8 | H5 p0.9 n10 
+===== /tmp/spike_rerank_gpt-oss_120b.json rerank gpt-oss:120b
+builder_nlp {'n': 22, 'hit5': 18, 'hit10': 18, 'p10': 0.782, 'empty': 2}
+library_nlp {'n': 22, 'hit5': 20, 'hit10': 20, 'p10': 0.777, 'empty': 0}
+library_nlp_dept {'n': 2, 'hit5': 2, 'hit10': 2, 'p10': 0.35, 'empty': 0}
+library_nlp_rerank {'n': 22, 'hit5': 21, 'hit10': 21, 'p10': 0.773, 'empty': 1}
+plan_s p50 4.66 p95 7.417 max 24.977 min 3.757
+builder_nlp_s p50 3.43 p95 13.749 max 13.782 min 0.296
+rerank_s p50 5.98 p95 10.517 max 10.984 min 3.018
+per-query: id | builder_nlp | library_nlp | library_nlp_dept | library_nlp_rerank
+E1 Financial Assistant                           H5 p1.0 n10 | H5 p0.6 n10 | - | H5 p0.6 n6 
+E2 Co-op Education Coordinator                   H5 p1.0 n10 | H5 p1.0 n10 | - | H5 p1.0 n10 
+E3 Research Grants Facilitator                   H5 p1.0 n10 | H5 p1.0 n10 | - | H5 p1.0 n10 
+E4 Laboratory Technician                         H5 p1.0 n10 | H5 p1.0 n10 | - | H5 p1.0 n10 
+P1 someone who processes invoices and reconciles -- p0.0 n0 | H5 p0.3 n10 | - | H5 p0.3 n10 
+P2 person who helps students plan their courses  H5 p1.0 n10 | H5 p1.0 n10 | - | H5 p1.0 n10 
+P3 fundraiser who builds relationships with majo H5 p1.0 n10 | H5 p1.0 n10 | - | H5 p1.0 n10 
+P4 entry-level library job shelving books and he H5 p1.0 n10 | H5 p1.0 n10 | - | H5 p0.9 n10 
+D1 maintain Linux servers, apply patches, run ba H5 p1.0 n10 | H5 p0.9 n10 | - | H5 p0.9 n10 
+D2 plan and run conferences, convocation ceremon H5 p0.6 n10 | H5 p0.6 n10 | - | H5 p0.7 n10 
+D3 manage research grant applications and post-a H5 p0.9 n10 | H5 p0.9 n10 | - | H5 p1.0 n10 
+D4 write news stories, manage social media and t H5 p1.0 n10 | H5 p1.0 n10 | - | H5 p1.0 n10 
+C1 supervisory admin role in Faculty of Science, -- p0.0 n10 | -- p0.0 n10 | H5 p0.4 n4 | -- p0.0 n0 
+C2 CUPE administrative assistant                 H5 p1.0 n10 | H5 p1.0 n10 | - | H5 p1.0 n10 
+C3 APSA communications officer                   H5 p1.0 n10 | H5 p1.0 n10 | - | H5 p1.0 n10 
+C4 academic advisor in the Beedie business schoo -- p0.0 n10 | -- p0.0 n10 | H5 p0.3 n6 | H5 p0.1 n1 
+A1 coop coord                                    H5 p1.0 n10 | H5 p1.0 n10 | - | H5 p1.0 n10 
+A2 IT sysadmin                                   H5 p1.0 n10 | H5 p1.0 n10 | - | H5 p0.9 n9 
+A3 AP clerk                                      -- p0.0 n0 | H5 p0.1 n10 | - | H5 p0.1 n3 
+A4 adminstrative cordinator                      H5 p1.0 n10 | H5 p1.0 n10 | - | H5 p1.0 n10 
+A5 HR advisor labour relations                   H5 p0.8 n10 | H5 p0.8 n10 | - | H5 p0.6 n8 
+A6 web dev                                       H5 p0.9 n10 | H5 p0.9 n10 | - | H5 p0.9 n10 
+===== /tmp/spike_guarded_gpt-oss_120b.json guarded gpt-oss:120b
+builder_guarded {'n': 22, 'hit5': 20, 'hit10': 20, 'p10': 0.859, 'empty': 0}
+library_guarded {'n': 22, 'hit5': 21, 'hit10': 21, 'p10': 0.827, 'empty': 0}
+builder_nlp_s p50 6.87 p95 16.08 max 16.163 min 1.102
+per-query: id | builder_guarded | library_guarded
+E1 Financial Assistant                           H5 p1.0 n10 | H5 p0.6 n10 
+E2 Co-op Education Coordinator                   H5 p1.0 n10 | H5 p1.0 n10 
+E3 Research Grants Facilitator                   H5 p1.0 n10 | H5 p1.0 n10 
+E4 Laboratory Technician                         H5 p1.0 n10 | H5 p1.0 n10 
+P1 someone who processes invoices and reconciles H5 p0.8 n10 | H5 p0.5 n10 
+P2 person who helps students plan their courses  H5 p1.0 n10 | H5 p1.0 n10 
+P3 fundraiser who builds relationships with majo H5 p1.0 n10 | H5 p1.0 n10 
+P4 entry-level library job shelving books and he H5 p1.0 n10 | H5 p1.0 n10 
+D1 maintain Linux servers, apply patches, run ba H5 p1.0 n10 | H5 p1.0 n10 
+D2 plan and run conferences, convocation ceremon H5 p0.6 n10 | H5 p0.9 n10 
+D3 manage research grant applications and post-a H5 p0.9 n10 | H5 p0.9 n10 
+D4 write news stories, manage social media and t H5 p1.0 n10 | H5 p1.0 n10 
+C1 supervisory admin role in Faculty of Science, -- p0.0 n10 | -- p0.0 n10 
+C2 CUPE administrative assistant                 H5 p1.0 n10 | H5 p1.0 n10 
+C3 APSA communications officer                   H5 p1.0 n10 | H5 p1.0 n10 
+C4 academic advisor in the Beedie business schoo -- p0.0 n10 | H5 p0.1 n10 
+A1 coop coord                                    H5 p1.0 n10 | H5 p1.0 n10 
+A2 IT sysadmin                                   H5 p1.0 n10 | H5 p1.0 n10 
+A3 AP clerk                                      H5 p0.8 n10 | H5 p0.5 n10 
+A4 adminstrative cordinator                      H5 p1.0 n10 | H5 p1.0 n10 
+A5 HR advisor labour relations                   H5 p0.8 n10 | H5 p0.8 n10 
+A6 web dev                                       H5 p1.0 n10 | H5 p0.9 n10 
+===== /tmp/spike_nlp_gpt-oss_20b.json nlp gpt-oss:20b
+builder_nlp {'n': 22, 'hit5': 17, 'hit10': 17, 'p10': 0.741, 'empty': 3}
+library_nlp {'n': 22, 'hit5': 18, 'hit10': 19, 'p10': 0.745, 'empty': 0}
+library_nlp_dept {'n': 3, 'hit5': 3, 'hit10': 3, 'p10': 0.667, 'empty': 0}
+plan_s p50 3.29 p95 6.056 max 10.012 min 2.291
+builder_nlp_s p50 3.61 p95 10.246 max 11.132 min 0.296
+per-query: id | builder_nlp | library_nlp | library_nlp_dept
+E1 Financial Assistant                           -- p0.0 n0 | -- p0.0 n10 | - 
+E2 Co-op Education Coordinator                   H5 p1.0 n10 | H5 p1.0 n10 | - 
+E3 Research Grants Facilitator                   H5 p1.0 n10 | H5 p1.0 n10 | - 
+E4 Laboratory Technician                         H5 p1.0 n10 | H5 p1.0 n10 | - 
+P1 someone who processes invoices and reconciles -- p0.0 n0 | h10 p0.1 n10 | - 
+P2 person who helps students plan their courses  H5 p1.0 n10 | H5 p1.0 n10 | - 
+P3 fundraiser who builds relationships with majo H5 p0.9 n10 | H5 p0.9 n10 | - 
+P4 entry-level library job shelving books and he H5 p1.0 n10 | H5 p1.0 n10 | H5 p0.9 n10 
+D1 maintain Linux servers, apply patches, run ba H5 p1.0 n10 | H5 p0.9 n10 | - 
+D2 plan and run conferences, convocation ceremon H5 p0.9 n10 | H5 p0.9 n10 | - 
+D3 manage research grant applications and post-a H5 p0.8 n10 | H5 p0.8 n10 | - 
+D4 write news stories, manage social media and t H5 p1.0 n10 | H5 p1.0 n10 | - 
+C1 supervisory admin role in Faculty of Science, -- p0.0 n10 | -- p0.0 n10 | H5 p0.5 n6 
+C2 CUPE administrative assistant                 H5 p1.0 n10 | H5 p1.0 n10 | - 
+C3 APSA communications officer                   H5 p1.0 n10 | H5 p1.0 n10 | - 
+C4 academic advisor in the Beedie business schoo -- p0.0 n10 | -- p0.0 n10 | H5 p0.6 n8 
+A1 coop coord                                    H5 p1.0 n10 | H5 p1.0 n10 | - 
+A2 IT sysadmin                                   H5 p1.0 n10 | H5 p0.9 n10 | - 
+A3 AP clerk                                      -- p0.0 n0 | H5 p0.2 n10 | - 
+A4 adminstrative cordinator                      H5 p1.0 n10 | H5 p1.0 n10 | - 
+A5 HR advisor labour relations                   H5 p0.7 n10 | H5 p0.8 n10 | - 
+A6 web dev                                       H5 p1.0 n10 | H5 p0.9 n10 | - 
+===== /tmp/spike_guarded_gpt-oss_20b.json guarded gpt-oss:20b
+builder_guarded {'n': 22, 'hit5': 20, 'hit10': 20, 'p10': 0.868, 'empty': 0}
+library_guarded {'n': 22, 'hit5': 21, 'hit10': 21, 'p10': 0.836, 'empty': 0}
+builder_nlp_s p50 7.44 p95 11.606 max 11.627 min 1.16
+per-query: id | builder_guarded | library_guarded
+E1 Financial Assistant                           H5 p1.0 n10 | H5 p0.6 n10 
+E2 Co-op Education Coordinator                   H5 p1.0 n10 | H5 p1.0 n10 
+E3 Research Grants Facilitator                   H5 p1.0 n10 | H5 p1.0 n10 
+E4 Laboratory Technician                         H5 p1.0 n10 | H5 p1.0 n10 
+P1 someone who processes invoices and reconciles H5 p0.8 n10 | H5 p0.4 n10 
+P2 person who helps students plan their courses  H5 p1.0 n10 | H5 p1.0 n10 
+P3 fundraiser who builds relationships with majo H5 p0.9 n10 | H5 p0.9 n10 
+P4 entry-level library job shelving books and he H5 p1.0 n10 | H5 p0.9 n10 
+D1 maintain Linux servers, apply patches, run ba H5 p1.0 n10 | H5 p1.0 n10 
+D2 plan and run conferences, convocation ceremon H5 p0.9 n10 | H5 p1.0 n10 
+D3 manage research grant applications and post-a H5 p0.8 n10 | H5 p0.8 n10 
+D4 write news stories, manage social media and t H5 p1.0 n10 | H5 p1.0 n10 
+C1 supervisory admin role in Faculty of Science, -- p0.0 n10 | -- p0.0 n10 
+C2 CUPE administrative assistant                 H5 p1.0 n10 | H5 p1.0 n10 
+C3 APSA communications officer                   H5 p1.0 n10 | H5 p1.0 n10 
+C4 academic advisor in the Beedie business schoo -- p0.0 n10 | H5 p0.2 n10 
+A1 coop coord                                    H5 p1.0 n10 | H5 p1.0 n10 
+A2 IT sysadmin                                   H5 p1.0 n10 | H5 p1.0 n10 
+A3 AP clerk                                      H5 p0.8 n10 | H5 p0.8 n10 
+A4 adminstrative cordinator                      H5 p1.0 n10 | H5 p1.0 n10 
+A5 HR advisor labour relations                   H5 p0.9 n10 | H5 p0.9 n10 
+A6 web dev                                       H5 p1.0 n10 | H5 p0.9 n10 
