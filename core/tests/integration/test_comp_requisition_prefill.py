@@ -93,7 +93,7 @@ async def _role(
 
 
 @pytest.mark.asyncio
-async def test_a_single_position_role_prefills_everything_the_bank_holds(
+async def test_reevaluation_of_a_single_position_role_fills_section_b_and_position(
     session_maker: async_sessionmaker[AsyncSession],
 ) -> None:
     async with session_maker() as session:
@@ -110,15 +110,56 @@ async def test_a_single_position_role_prefills_everything_the_bank_holds(
             ],
         )
         await session.commit()
-        prefill = await prefill_from_role(session, rid)
+        prefill = await prefill_from_role(session, rid, request_type="reevaluation")
 
     assert prefill.position_number == "00001234"
     assert prefill.position_title == "Research Coordinator"
     assert prefill.department == "Biology"
     assert prefill.employee_group == "APSA"
-    assert prefill.based_on_positions_a == ("00001234",)
     assert prefill.based_on_positions_b == ("00001234",)
-    assert prefill.jd_in_word_attached is True
+    assert prefill.based_on_positions_a == ()  # Section A is a different request
+    assert prefill.candidate_positions == ("00001234",)
+    assert prefill.positions_incomplete is False
+
+
+@pytest.mark.asyncio
+async def test_with_no_request_type_no_position_or_list_is_chosen(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        rid = await _role(
+            session,
+            content={"title": "Analyst"},
+            filenames=["20200601_00001234_Analyst.docx"],
+        )
+        await session.commit()
+        prefill = await prefill_from_role(session, rid)
+
+    assert prefill.position_number is None
+    assert prefill.based_on_positions_a == ()
+    assert prefill.based_on_positions_b == ()
+    assert prefill.candidate_positions == ("00001234",)  # offered to K3's picker
+    assert prefill.position_title == "Analyst"
+
+
+@pytest.mark.asyncio
+async def test_a_new_position_based_on_existing_fills_section_a_not_the_position(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        rid = await _role(
+            session,
+            content={"title": "Analyst"},
+            filenames=["20200601_00001234_Analyst.docx"],
+        )
+        await session.commit()
+        prefill = await prefill_from_role(
+            session, rid, request_type="new_based_on_existing"
+        )
+
+    assert prefill.position_number is None  # the form says N/A if new
+    assert prefill.based_on_positions_a == ("00001234",)
+    assert prefill.based_on_positions_b == ()
 
 
 @pytest.mark.asyncio
@@ -135,10 +176,49 @@ async def test_a_multi_position_role_lists_them_all_and_does_not_pick_one(
             ],
         )
         await session.commit()
-        prefill = await prefill_from_role(session, rid)
+        prefill = await prefill_from_role(session, rid, request_type="reevaluation")
 
     assert prefill.position_number is None  # a role spans positions: the picker is K3's
-    assert prefill.based_on_positions_a == ("00001111", "00005555", "00009999")
+    assert prefill.based_on_positions_b == ("00001111", "00005555", "00009999")
+    assert prefill.candidate_positions == ("00001111", "00005555", "00009999")
+
+
+@pytest.mark.asyncio
+async def test_an_unpadded_member_file_blocks_the_single_position_claim(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """One member names 00001234; another names positions the pattern cannot read
+    (508 archive files lead with an unpadded id). The role may hold another position,
+    so it must not be presented as a single one."""
+    async with session_maker() as session:
+        rid = await _role(
+            session,
+            content={"title": "Analyst"},
+            filenames=[
+                "20200601_00001234_Analyst.docx",
+                "20200601_61,_30785,_208,_975_JDFN_APSA_20211117.docx",
+            ],
+        )
+        await session.commit()
+        prefill = await prefill_from_role(session, rid, request_type="reevaluation")
+
+    assert prefill.positions_incomplete is True
+    assert prefill.position_number is None
+    assert prefill.candidate_positions == ("00001234",)
+
+
+@pytest.mark.asyncio
+async def test_the_word_attachment_is_never_claimed_by_the_builder(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        rid = await _role(
+            session, content={"title": "A"}, filenames=["20200601_00001234_A.docx"]
+        )
+        await session.commit()
+        assert (await prefill_from_role(session, rid)).jd_in_word_attached is False
+        bundled = await prefill_from_role(session, rid, jd_in_word_attached=True)
+        assert bundled.jd_in_word_attached is True
 
 
 @pytest.mark.asyncio
@@ -152,12 +232,13 @@ async def test_what_the_bank_lacks_stays_none(
             filenames=["61,_30785,_208,_975_JDFN_CUPE_20211117.docx"],
         )
         await session.commit()
-        prefill = await prefill_from_role(session, rid)
+        prefill = await prefill_from_role(session, rid, request_type="reevaluation")
 
     assert prefill.position_number is None
     assert prefill.department is None
     assert prefill.employee_group is None  # CUPE: no such option
-    assert prefill.based_on_positions_a == ()
+    assert prefill.based_on_positions_b == ()
+    assert prefill.positions_incomplete is True
     assert prefill.position_title == "Clerk"
 
 
@@ -182,7 +263,7 @@ async def test_only_the_current_version_is_read(
         prefill = await prefill_from_role(session, rid)
 
     assert prefill.position_title == "New Title"
-    assert prefill.based_on_positions_a == ("00000002",)
+    assert prefill.candidate_positions == ("00000002",)
 
 
 @pytest.mark.asyncio

@@ -37,6 +37,29 @@ employee_group_options:
   apsa: APSA
   apex: APEX
 
+# CompReqPrefill fields that are carried for the caller (K3's picker, a warning) and are
+# NEVER written to the PDF.
+unwritten_fields:
+  - candidate_positions
+  - positions_incomplete
+
+# OVERFLOW of the single-line "list all position #" boxes. MEASURED off the template:
+# `Text70` (Sec A) is 212.03 pt wide at a FIXED 12 pt Helvetica; a padded id is 8 digits
+# = 53.4 pt and ", " is 6.7 pt, so three ids + a "+K more" marker do not fit and TWO
+# do (2 ids + " +71 more" = 168 pt). `max_ids` is therefore 2. Sec B's box is wider
+# (247.9 pt, auto font) so the same cap is conservative there. A longer list writes the
+# first `max_ids` + the marker on the box, and the FULL list under its section label in
+# `details_field` (the large multiline "Reason for request" box).
+overflow:
+  max_ids: 2
+  more_template: " +{k} more"
+  field_width_pt: 212.0
+  font_size_pt: 12
+  details_field: "Reason for request and additional information"
+  section_labels:
+    based_on_positions_a: "Section A"
+    based_on_positions_b: "Section B"
+
 # Fields the filler must NEVER write, whatever it is asked.
 signature_fields:
   - Signature

@@ -162,8 +162,95 @@ def test_the_model_has_no_field_that_could_carry_a_person() -> None:
         assert not any(bit in field for bit in forbidden), field
 
 
-def test_the_model_fields_are_exactly_the_mapped_fields() -> None:
-    assert set(CompReqPrefill.model_fields) == set(load_field_map().prefill_fields)
+def test_the_model_fields_are_the_mapped_fields_plus_the_declared_unwritten_ones() -> (
+    None
+):
+    fmap = load_field_map()
+    assert set(CompReqPrefill.model_fields) == set(fmap.prefill_fields) | set(
+        fmap.unwritten_fields
+    )
+    assert set(fmap.unwritten_fields) == {"candidate_positions", "positions_incomplete"}
+
+
+def test_candidate_positions_and_the_incomplete_flag_never_reach_the_pdf() -> None:
+    fmap = load_field_map()
+    blank = _values((crf.TEMPLATE_DIR / fmap.template_file).read_bytes())
+    pre = CompReqPrefill(
+        candidate_positions=("00000001", "00000002"), positions_incomplete=True
+    )
+    assert _values(fill_compensation_requisition(pre)) == blank
+
+
+def test_jd_in_word_attached_defaults_to_false() -> None:
+    assert CompReqPrefill().jd_in_word_attached is False
+
+
+# --- overflow: Text70 is a single line about two IDs wide -----------------------------
+
+#: Helvetica advance widths (1/1000 em) for every character the overflow text can use.
+_HELV = {" ": 278, ",": 278, "+": 584, **{str(d): 556 for d in range(10)}}
+_HELV.update({"m": 833, "o": 556, "r": 333, "e": 556})
+
+
+def _width_pt(text: str, size: float) -> float:
+    return sum(_HELV[c] for c in text) * size / 1000
+
+
+def _ids(n: int) -> tuple[str, ...]:
+    return tuple(f"{i:08d}" for i in range(1, n + 1))
+
+
+def test_the_overflow_cap_and_geometry_in_the_yaml_match_the_real_field() -> None:
+    fmap = load_field_map()
+    reader = PdfReader(str(crf.TEMPLATE_DIR / fmap.template_file))
+    rect = None
+    for page in reader.pages:
+        for annot in page.get("/Annots", []):
+            obj = annot.get_object()
+            if obj.get("/T") == fmap.prefill_fields["based_on_positions_a"]:
+                rect = [float(x) for x in obj["/Rect"]]
+                assert "12 Tf" in str(obj.get("/DA"))
+    assert rect is not None
+    real_width = rect[2] - rect[0]
+    ov = fmap.overflow
+    assert ov.field_width_pt <= real_width
+    assert ov.font_size_pt == 12
+
+
+def test_a_73_position_list_is_capped_on_the_field_and_complete_in_reason() -> None:
+    fmap = load_field_map()
+    ov = fmap.overflow
+    ids = _ids(73)
+    pre = CompReqPrefill(based_on_positions_a=ids, based_on_positions_b=ids)
+    out = _values(fill_compensation_requisition(pre))
+    a = str(out[fmap.prefill_fields["based_on_positions_a"]])
+    b = str(out[fmap.prefill_fields["based_on_positions_b"]])
+    expected = ", ".join(ids[: ov.max_ids]) + f" +{73 - ov.max_ids} more"
+    assert a == expected
+    assert b == expected
+    assert _width_pt(a, ov.font_size_pt) <= ov.field_width_pt
+    reason = str(out[ov.details_field])
+    for pid in ids:
+        assert pid in reason
+    assert "Section A" in reason and "Section B" in reason
+    assert "73" in reason
+
+
+def test_a_list_within_the_cap_is_written_whole_and_reason_stays_empty() -> None:
+    fmap = load_field_map()
+    ids = _ids(fmap.overflow.max_ids)
+    out = _values(
+        fill_compensation_requisition(CompReqPrefill(based_on_positions_a=ids))
+    )
+    assert out[fmap.prefill_fields["based_on_positions_a"]] == ", ".join(ids)
+    assert out[fmap.overflow.details_field] in (None, "")
+
+
+def test_the_overflow_details_field_is_a_real_unmapped_non_signature_field() -> None:
+    fmap = load_field_map()
+    assert fmap.overflow.details_field in fmap.all_fields
+    assert fmap.overflow.details_field not in fmap.signature_fields
+    assert fmap.overflow.details_field not in fmap.prefill_fields.values()
 
 
 def test_employee_group_must_be_a_dropdown_option() -> None:

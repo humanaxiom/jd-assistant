@@ -45,6 +45,19 @@ class TemplateMismatchError(ValueError):
     """The template PDF is not the pinned one (SFU revised it, or it is corrupt)."""
 
 
+class OverflowRules(BaseModel):
+    """How a list longer than its single-line box is written (see the YAML)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    max_ids: int = Field(ge=1)
+    more_template: str
+    field_width_pt: float
+    font_size_pt: float
+    details_field: str
+    section_labels: dict[str, str]
+
+
 class CompReqFieldMap(BaseModel):
     """``templates/comp_requisition.yaml`` — the field map and the template pin."""
 
@@ -55,6 +68,8 @@ class CompReqFieldMap(BaseModel):
     template_sha256: str
     checkbox_on_value: str
     prefill_fields: dict[str, str]
+    unwritten_fields: tuple[str, ...]
+    overflow: OverflowRules
     employee_group_options: dict[str, str]
     signature_fields: tuple[str, ...]
     all_fields: tuple[str, ...]
@@ -79,6 +94,12 @@ class CompReqPrefill(BaseModel):
     jd_in_word_attached: bool = False
     #: VPA section dropdown — only APSA / APEX exist on the form.
     employee_group: Literal["APSA", "APEX"] | None = None
+    #: Every position the Bank can name for the role, for the caller's picker. NEVER
+    #: written to the PDF.
+    candidate_positions: tuple[str, ...] = Field(default=())
+    #: True when some member file names no position the pattern can read (e.g. an
+    #: unpadded id), so ``candidate_positions`` may be a partial list. NEVER written.
+    positions_incomplete: bool = False
 
 
 def validate_field_map(fmap: CompReqFieldMap) -> CompReqFieldMap:
@@ -92,8 +113,20 @@ def validate_field_map(fmap: CompReqFieldMap) -> CompReqFieldMap:
         raise ValueError(f"prefill_fields names unknown PDF fields: {unknown}")
     if not set(fmap.signature_fields) <= names:
         raise ValueError("signature_fields names a field the form does not have")
-    if set(fmap.prefill_fields) != set(CompReqPrefill.model_fields):
-        raise ValueError("prefill_fields must map exactly the CompReqPrefill fields")
+    if set(fmap.prefill_fields) | set(fmap.unwritten_fields) != set(
+        CompReqPrefill.model_fields
+    ):
+        raise ValueError(
+            "prefill_fields + unwritten_fields must cover exactly the "
+            "CompReqPrefill fields"
+        )
+    if set(fmap.prefill_fields) & set(fmap.unwritten_fields):
+        raise ValueError("a field cannot be both written and unwritten")
+    details = fmap.overflow.details_field
+    if details not in names or details in fmap.signature_fields or details in targets:
+        raise ValueError(
+            "overflow.details_field must be a real, unmapped, unsigned field"
+        )
     return fmap
 
 
@@ -127,8 +160,22 @@ def _values_to_write(fmap: CompReqFieldMap, prefill: CompReqPrefill) -> dict[str
     put("position_number", prefill.position_number)
     put("position_title", prefill.position_title)
     put("department", prefill.department)
-    put("based_on_positions_a", ", ".join(prefill.based_on_positions_a))
-    put("based_on_positions_b", ", ".join(prefill.based_on_positions_b))
+    ov = fmap.overflow
+    details: list[str] = []
+    for key, ids in (
+        ("based_on_positions_a", prefill.based_on_positions_a),
+        ("based_on_positions_b", prefill.based_on_positions_b),
+    ):
+        if len(ids) > ov.max_ids:
+            shown = ", ".join(ids[: ov.max_ids])
+            put(key, shown + ov.more_template.format(k=len(ids) - ov.max_ids))
+            details.append(
+                f"{ov.section_labels[key]} position # ({len(ids)}): " + ", ".join(ids)
+            )
+        else:
+            put(key, ", ".join(ids))
+    if details:
+        out[ov.details_field] = "\n".join(details)
     if prefill.jd_in_word_attached:
         out[pf["jd_in_word_attached"]] = fmap.checkbox_on_value
     put("employee_group", prefill.employee_group)
