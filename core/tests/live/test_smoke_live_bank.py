@@ -314,3 +314,70 @@ async def test_the_document_vector_index_is_at_the_current_parser_version(  # ty
         f"document vectors are at {versions}, the Bank is at {PARSER_VERSION!r}. "
         f"Run `make embed`."
     )
+
+
+async def test_the_comp_requisition_form_fills_from_a_live_role(session) -> None:  # type: ignore[no-untyped-def]
+    """K2 — fill SFU's own CRF for a LIVE role and read it back.
+
+    No fixture: the role is picked deterministically from the real Bank (the first
+    current role, by cluster id, with exactly ONE position and a title, a
+    department and an APSA/APEX group), its prefill is built from the live rows, and
+    expected values are re-derived here by raw SQL — NOT by calling the builder again —
+    so a builder that silently dropped a field cannot agree with itself.
+    """
+    import io
+
+    from pypdf import PdfReader
+
+    from src.jd_bank.forms import prefill_from_role
+    from src.jd_core.rules import get_rules
+    from src.jd_export.comp_requisition import (
+        fill_compensation_requisition,
+        load_field_map,
+    )
+
+    pattern = get_rules().segmentation.position_id_pattern.pattern
+    row = (
+        await session.execute(
+            text(f"""
+                WITH cur AS ({_CURRENT}),
+                pos AS (
+                  SELECT c.cluster_id, array_agg(DISTINCT m[1] ORDER BY m[1]) AS pids
+                  FROM cur c
+                  CROSS JOIN LATERAL jsonb_array_elements(c.source_document_ids) e
+                  JOIN source_documents s ON s.id::text = e->>'source_id'
+                  CROSS JOIN LATERAL regexp_matches(s.filename, :pat, 'g') m
+                  GROUP BY c.cluster_id)
+                SELECT c.cluster_id, c.content->>'title', c.content->>'department',
+                       upper(c.content->>'employee_group'), p.pids
+                FROM cur c JOIN pos p USING (cluster_id)
+                WHERE cardinality(p.pids) = 1
+                  AND nullif(trim(c.content->>'title'), '') IS NOT NULL
+                  AND nullif(trim(c.content->>'department'), '') IS NOT NULL
+                  AND c.content->>'employee_group' IN ('apsa', 'apex')
+                ORDER BY c.cluster_id
+                LIMIT 1
+                """),
+            {"pat": pattern},
+        )
+    ).first()
+    assert row is not None, "no live role has one position + title + dept + group"
+    cluster_id, title, department, group, pids = row
+
+    prefill = await prefill_from_role(session, cluster_id)
+    pdf = fill_compensation_requisition(prefill)
+
+    fmap = load_field_map()
+    pf = fmap.prefill_fields
+    fields = PdfReader(io.BytesIO(pdf)).get_fields() or {}
+    got = {name: f.get("/V") for name, f in fields.items()}
+
+    assert got[pf["position_number"]] == pids[0]
+    assert got[pf["position_title"]] == title.strip()
+    assert got[pf["department"]] == department.strip()
+    assert got[pf["employee_group"]] == group
+    assert got[pf["based_on_positions_a"]] == pids[0]
+    assert got[pf["based_on_positions_b"]] == pids[0]
+    assert got[pf["jd_in_word_attached"]] == fmap.checkbox_on_value
+    for name in fmap.signature_fields:
+        assert got[name] in (None, ""), f"{name} must stay empty"
