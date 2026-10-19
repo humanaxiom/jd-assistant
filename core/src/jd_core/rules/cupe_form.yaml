@@ -1,0 +1,200 @@
+# The CUPE 3338 "WJQ Custom — Part 1: Job Description" EXPORT FORM — rulebook-as-data
+# (CLAUDE.md non-negotiable #2). Track J, PR J1.
+#
+# WHAT THIS FILE DECIDES
+# ----------------------
+# What a CUPE draft looks like when it is EXPORTED to `.docx` (`jd_export/cupe.py`): the
+# form's fixed wording — banner, identification labels, instructions, checkbox options,
+# table column headings, the Approval and Review lines — and where each field of the
+# Bank's model is printed on HR's form. It decides nothing about what a JD IS: no
+# validator reads it and the parser never sees it, so it is UNHASHED (not part of
+# `rules_version`) and it does NOT move `PARSER_VERSION`.
+#
+# The 14 numbered section HEADINGS are deliberately NOT here. They are read from
+# `wjq.yaml :: section_headings` (the first, canonical variant of each), because those
+# are the words the Bank's own WJQ parser matches — an exported form whose headings the
+# parser cannot find would not round-trip. One vocabulary, one file.
+#
+# SOURCE (verbatim transcription)
+# -------------------------------
+# SFU HR, "WJQ Custom Part I: Job Description Template",
+#   https://www.sfu.ca/content/dam/sfu/human-resources/forms-documents/job-evaluation/CUPE_Job_Description_Template_Sept2013.docx
+# The filename says Sept 2013; the file itself was modified 2026-05-12. Vendored with its
+# sha256 in `fixtures/hr/cupe/` (see the README there). Every string below is copied from
+# that file; where HR's own form has a typo or odd spacing it is kept, because CUPE 3338
+# Art. 15.04 says the standard form "cannot be revised without mutual agreement between
+# the University and the Union". Registered `open` (HR-238): HR confirms this is the
+# current form before any export is circulated.
+#
+# WHAT IS NOT YET MODELLED (Track J, PR J2)
+# -----------------------------------------
+# The Bank's model carries no checkbox choice, no contact duration/frequency, no
+# major/minor split, no equivalency choice, no current classification, no evaluating
+# supervisor. Those parts of the form are rendered in the form's SHAPE with BLANK cells —
+# never guessed. The Approval and Review lines and the HR-only box are ALWAYS blank
+# (non-negotiable #1: nothing here asserts an approval that did not happen).
+
+version: jd_rules_sfu_v4
+
+# --- the form's identity ---------------------------------------------------------
+# HR's template sets its text in Arial 10 (`w:sz 20` on 283 of its runs).
+font_name: Arial
+font_size_pt: 10
+banner:
+  - SIMON FRASER UNIVERSITY & C.U.P.E., LOCAL 3338
+  - WEIGHTED JOB QUESTIONNAIRE (WJQ) CUSTOM
+  - "PART 1: JOB DESCRIPTION"
+
+# --- 1. POSITION IDENTIFICATION ----------------------------------------------------
+# Label printed for each identification field. `title`, `department` and
+# `position_number` are the fields the Bank's model carries and the parser reads back —
+# each MUST be one of the parser's own `wjq.id_labels` spellings (a unit test pins it).
+# The rest are on HR's form but not in the model yet (J2): printed with a blank value.
+id_labels:
+  department: "Department Name:"
+  position_number: "Position Number(s):"
+  current_classification: "Current Position Classification:"
+  title: "Department Position Title:"
+  supervisor_title: "Evaluating Supervisor’s Title:"
+  date_completed: "Date Completed:"
+completed_by_label: "Part 1 is being completed by:"
+completed_by_options:
+  - Employee
+  - Evaluating Supervisor
+# The right-hand box of section 1 belongs to HR. It is ALWAYS rendered blank — the
+# draft's grade is never printed in it (HR-240).
+hr_box_heading: FOR USE BY HUMAN RESOURCES
+hr_box_labels:
+  - "Classification & Grade Approved:"
+  - "Effective Date:"
+  - "Approved by:"
+  - "Next Review:"
+
+# --- instructions under each numbered heading (HR's own words) ---------------------
+instructions:
+  position_summary:
+    - A summary of the major functions of the position in three or four sentences.
+  major_functions:
+    - "List the duties and responsibilities of the position in order of frequency (i.e., (D) Daily; (W) Weekly; (M) Monthly; (S) Semester)"
+  minor_functions:
+    - List duties and responsibilities that occur annually and periodically throughout the year.
+  level_of_independence:
+    - Check one box that best describes the level of independence that can be exercised within the position by a fully trained employee.
+  training_exercised:
+    - If the position provides training, check each description that applies.
+  direction_exercised:
+    - Check each description that applies.
+  internal_external_contacts:
+    - "List internal and external contacts (i.e., specific positions within own department, other departments, students, faculty, on/off campus vendors, etc.), the duration of each contact (i.e. less than 1 hour at a time, 1-2 hours at a time, more than 2 hours at a time), and the frequency of each contact (i.e. occasional, frequent, or continuous)."
+  effort:
+    - "Describe concentrated periods of auditory (hearing/listening); visual (seeing); perceptual (understanding / comprehending); and physical dexterity (finger/hand movements, eye/hand coordination, lifting, carrying, pushing, pulling, reaching etc.). For each example of effort, indicate the concentrated duration (less than 1 hour at a time, 1-2 hours at a time, more than 2 hours at a time) and frequency (occasional, frequent, continuous)."
+  continuing_education:
+    - Check each description that applies.
+  qualifications:
+    - Minimum required to satisfactorily perform the work.
+
+# --- the four checkbox sections (5, 6, 7, 12) ---------------------------------------
+# Every option is printed with an UNTICKED box: the model stores these sections as
+# free text, not as a chosen level (measured unreliable in the archive — wjq.yaml), so
+# ticking one would be a guess.
+checkbox_glyph: "☐"
+checkbox_options:
+  level_of_independence:
+    - Work is provided with specific instructions describing how and when it should be completed.
+    - Work is provided with general instructions. The employee makes choices about how the work will be completed within deadlines.
+    - Work is self-directed by the employee. The employee determines what work needs to be completed and when it should be completed to meet deadlines.
+    - "Work is assigned on a project-by-project basis in the form of broad objectives. The employee evaluates what work needs to be completed within general time frames. Provide examples of project work:"
+  training_exercised:
+    - Not required to provide training to other individuals.
+    - Explains how work is performed in his/her own position to individuals in other positions performing the same or similar work (includes training replacement employees).
+    - Provides one-on-one specialized training to other individuals. Considered a specialist in a particular area or field of study. Positions at this level may be designated as the resident department expert.
+    - Provides one-on-one training to individuals in other positions. Must have a good understanding of the work of the other positions. Positions at this level may be designated as group leaders or work leaders.
+    - Conducts training seminars for groups. Training seminars are normally scheduled and follow a prescribed format. May also develop or assist in the development of training seminars.
+  direction_exercised:
+    - Not required to provide direction to other individuals.
+    - Assigns and/or checks work of other individuals.
+    - Schedules, assigns, and checks work of other individuals.
+    - In addition to C, establishes work priorities for a unit.
+    - In addition to C and D, guides project teams.
+  continuing_education:
+    - Does not require any continuing education.
+    - Requires learning new university/department related procedures and/or methods.
+    - Requires learning new procedures and/or methods acquired through reading non-university/department publications.
+    - In addition to B and C, requires registration in formal seminars, training sessions, workshops, conferences, etc.
+    - In addition to B, C, and D, requires registration in post-secondary courses (one semester/equivalent).
+
+# --- the table sections (8, 10, 11) -------------------------------------------------
+contacts_columns: [Type of Contact, Duration, Frequency]
+effort_columns: [Type of Effort, Duration, Frequency]
+working_conditions_location_prompt: Describe the place(s) where work is performed such as office environment, laboratory, outside work site, etc. Also identify the number of hours (of the total hours worked per week) spent in the place(s).
+working_conditions_location_columns:
+  - Location
+  - Hours spent as a total of hours worked per week
+working_conditions_uncomfortable_prompt: Describe any uncomfortable and/or distracting conditions in the work place(s) which an incumbent is exposed to on a regular basis and the frequency of the exposure. (e.g. interruptions, distracting noise, unpleasant odours, dust, drafts, inks, dyes, cleaning agents, toner for printers, temperature extremes, heavy dust conditions, wetness, fumes, vibrations, etc.)
+# (A "\n" is a line break inside the cell, as on HR's form.)
+working_conditions_uncomfortable_columns:
+  - Uncomfortable Conditions
+  - "Frequency of Exposure\n(Occasional, Frequent, or Continuous)"
+working_conditions_hazards_prompt: Describe any potential health or safety hazards etc. and the frequency of exposure of each hazard. (e.g. dealing with complaints and/or verbal/physical abuse; noise levels that interfere with normal speech/hearing; toxic gases or materials; dangerous chemicals, combustibles, radioactive material; repetitive arm, finger, wrist movements or other activities that may result in a physical injury; high speed, pressurized equipment; high voltage; heights above five feet; bio-hazardous wastes, body fluids, etc.)
+working_conditions_hazards_columns:
+  - Potential Health or Safety Hazards
+  - "Frequency of Exposure\n(Occasional, Frequent, or Continuous)"
+# How many empty rows each table offers, as on HR's form. A table with more modelled
+# rows than this grows to fit; one with fewer is padded with blank rows to this count.
+blank_rows:
+  contacts: 6
+  effort: 3
+  working_conditions_location: 3
+  working_conditions_uncomfortable: 4
+  working_conditions_hazards: 4
+
+# --- 9. IMPACT OF ERRORS ---------------------------------------------------------------
+impact_of_errors_common_prompt: "Common Errors: Provide a few examples of the most common errors which normally occur in the performance of the work."
+impact_of_errors_uncommon_prompt: "Uncommon Errors: Provide a few examples of most uncommon errors which infrequently occur in the performance of the work."
+
+# --- 13. QUALIFICATIONS ------------------------------------------------------------
+qualifications_education_prompt: "Formal education qualifications: identify the highest level of formal schooling required."
+qualifications_certification_prompt: In addition to formal education, identify the certification or program of study required.
+qualifications_experience_prompt: "In addition to the above qualifications, the number of years of minimum experience are:"
+qualifications_experience_unit: "Years"
+qualifications_equivalency_heading: "Check one:"
+qualifications_equivalency_options:
+  - An equivalent combination of formal education, certificate/program of study and experience is acceptable.
+  - "An equivalent combination of education, certificate/program of study and experience is not acceptable because: (please explain)"
+qualifications_skills_prompt: "Occupational Skills:  Identify skills specifically required to perform the work of the position."
+qualifications_requirements_prompt: "Occupational Requirement(s): Identify non-skill requirements to perform the work such as ability to work shifts and/or be on-call; ability to travel periodically outside the lower mainland; have a valid driver's license; ability to lift, move or carry equipment or materials over 10 kg; etc."
+
+# Which block of section 13 each of the model's qualification kinds is printed in
+# (HR-239). `ability` -> Occupational Requirement(s) mirrors the parser, which reads that
+# block back as `ability` (`wjq.qualification_cues`), so an export round-trips its kinds.
+# `knowledge` has no block on HR's form and no parser cue; HR's Dec-2024 sample prints
+# knowledge-type lines under Occupational Skills, so it goes there (and re-parses as
+# `skill`). `security` is a non-skill requirement.
+qualification_blocks:
+  education: education
+  experience: experience
+  knowledge: skills
+  skill: skills
+  ability: requirements
+  security: requirements
+
+# Where the model's JDFN-shaped fields that have no slot of their own on the CUPE form
+# are printed, so nothing in a draft is silently dropped from its export (HR-239).
+# `supervisory` (the Relationships section's supervisory scope) is the form's DIRECTION
+# EXERCISED; problem-solving / decision-making prose (empty on every live CUPE role, but
+# the model allows it) reads as independence of action.
+supervisory_section: direction_exercised
+decision_making_section: level_of_independence
+problem_solving_section: level_of_independence
+
+# --- 14. APPROVAL AND REVIEW (always blank — non-negotiable #1) ----------------------
+approval_supervisor_statement: "Evaluating Supervisor Approval: Information provided in the job description accurately reflects the requirements of the position."
+approval_supervisor_labels:
+  - Name of Evaluating Supervisor
+  - Signature of Evaluating Supervisor
+  - Date
+approval_employee_statement: "Employee Review: I have read and understand the requirements of the position."
+approval_employee_labels:
+  - Name of Employee
+  - Signature of Employee
+  - Date

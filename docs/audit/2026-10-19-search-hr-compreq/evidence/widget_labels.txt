@@ -1,0 +1,118 @@
+/usr/local/lib/python3.11/site-packages/fitz/__init__.py:17: FutureWarning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+  warnings.warn(
+AcroForm keys ['/DA', '/DR', '/Fields', '/SigFlags'] NeedAppearances None XFA False
+1 Department |L: Department: |R: 
+1 Email |L: Email: |R: 
+1 Supervisor Position Title |L: Contact Name & Position Title: |R: Email:
+1 Email_2 |L: Email: |R: 
+1 Reason for request and additional information |L:  |R: 
+1 Proposed Grade |L: Bi-weekly Hours: Anticipated Grade: |R: Supervisor Position #:
+1 Accounting String if cost split is required please include secondary accounting string and percentage breakdown in Additional Information under |L:  |R: 
+1 undefined |L:  |R: 
+1 OBJECT 4 |L:  |R: 
+1 undefined_2 |L:  |R: 
+1 undefined_3 |L:  |R: 
+1 Text60 |L:  |R: 
+1 Check Box62 |L:  |R: Yes No Accounting (Please note: String A separate
+1 Check Box63 |L: Yes |R: No Accounting (Please note: String A separate if
+1 Check Box64 |L: Is this request a clone? |R: Yes No If yes, position # to clone:
+1 Check Box65 |L: Is this request a clone? Yes |R: No If yes, position # to clone:
+1 Check Box66 |L: is this based off of an existing position? |R: Yes No If yes, list all position #:
+1 Check Box67 |L: this based off of an existing position? Yes |R: No If yes, list all position #:
+1 Text68 |L: CB66 If yes, position CB67 # to clone: |R: 
+1 Text70 |L: Yes No If yes, list all position #: |R: 
+1 Check Box71 |L:  |R: A. New Position
+1 Check Box72 |L:  |R: C. Editorial Changes
+1 Check Box73 |L:  |R: E. Other Changes
+1 Check Box75 |L: A. New Position |R: B. Re-evaluation
+1 Check Box76 |L: C. Editorial Changes |R: D. Additional Duties (Temporary)
+1 Check Box78 |L:  |R: Organization chart
+1 Check Box79 |L:  |R: Job description in Word format
+1 Check Box80 |L:  |R: VPA approval (Faculties & VPA units requesting
+1 RESET FORM |L:  |R: 
+1 Dropdown77 |L: Position Type: |R: Bi-weekly Hours: Anticipated Grade:
+1 Hours |L: Position Type: Bi-weekly Hours: |R: Anticipated Grade: Supervisor
+1 Text61 |L: Anticipated Grade: Supervisor Position #: |R: 
+1 Supervisor Name |L: Supervisor Name & Position Title: |R: Email:
+1 Position Title |L: Position Title: |R: Department:
+1 Position  NA if new |L: Position # (N/A Position if new): Title |R: 
+2 No      If no specify effective date of changeRow1 |L: of an If yes, list all position #: |R: 
+2 SECTION C Editorial Changes |L: Yes CB37 No If yes, name of incumbent(s): |R: 
+2 SECTION D Additional Duties TEMPORARY |L: Name of Incumbent(s): |R: 
+2 SUBMISSION CHECKLIST |L: Effective Date: |R: End Date:
+2 End Date |L: End Date: |R: 
+2 Check Box27 |L:  |R: Duties and Responsibilities
+2 Check Box28 |L:  |R: Formatting or Transposing to new template
+2 Check Box29 |L:  |R: Qualifications that do not change the minimum
+2 Check Box30 |L:  |R: Other (please provide details in the General
+2 Check Box31 |L: and Responsibilities |R: Job Title (complete Section E. System Changes)
+2 Check Box32 |L: Formatting or Transposing to new template |R: Department name (complete Section E. if Dept
+2 Check Box33 |L: Qualifications that do not change the minimum |R: Updating work tools &/or systems
+2 Check Box34 |L:  |R: Use Track Changes on existing job description
+2 Check Box35 |L:  |R: Complete Section E. System Changes if necessary
+2 Check Box36 |L: Is the position occupied? |R: Yes No If yes, name of incumbent(s):
+2 Check Box37 |L: Is the position occupied? Yes |R: No If yes, name of incumbent(s):
+2 Check Box38 |L: Do the changes impact the current incumbent(s)?: |R: Yes No If no, specify effective
+2 Check Box39 |L: changes impact the current incumbent(s)?: Yes |R: No If no, specify effective date of
+2 Check Box41 |L:  |R: Duties and Responsibilities
+2 Check Box42 |L:  |R: Direct Reports
+2 Check Box43 |L:  |R: Minimum Education and Years of Experience
+2 Check Box44 |L: and Responsibilities |R: Reporting Relationship (complete Section E.
+2 Check Box45 |L: Reports |R: Title (complete Section E. System Changes)
+2 Check Box46 |L: Minimum Education and Years of Experience |R: Other (please provide details in the General
+2 Check Box47 |L: Do these changes affect any other positions? |R: Yes No If yes, list all position #:
+2 Check Box48 |L: Do these changes affect any other positions? Yes |R: No If yes, list all position #:
+2 Text49 |L: Yes No If yes, list all position #: |R: 
+2 Text50 |L: Anticipated grade after re-evaluation: |R: Request initiated by:
+2 Dropdown51 |L: re-evaluation: Request initiated by: |R: 
+2 Text52 |L: occupied? Yes No If yes, name of incumbent(s): |R: 
+2 Check Box53 |L: Is the position occupied? |R: Yes No If yes, name of incumbent(s):
+2 Check Box54 |L: Is the position occupied? Yes |R: No If yes, name of incumbent(s):
+2 Check Box55 |L: existing position? |R: Yes No Text50 If yes, list
+2 Check Box56 |L: existing position? Yes |R: No Text50 If yes, list all position
+2 Check Box57 |L: the incumbent already performing the revised duties? |R: Yes No If no, specify effective date of
+2 Check Box58 |L: incumbent already performing the revised duties? Yes |R: No If no, specify effective date of change:
+2 Check Box81 |L:  |R: Use Track Changes on existing job description
+2 Check Box82 |L:  |R: Complete Section E. System Changes if applicable
+2 Check Box84 |L:  |R: Consult with your HR Specialist or Strategic Business
+2 Check Box85 |L:  |R: Provide a separate document that includes a
+2 Text86 |L: No If no, specify effective date of change: |R: 
+2 Text87 |L: No If no, specify effective date of change: |R: 
+2 Check Box2 |L:  |R: Consult with your HR Specialist or Strategic Business
+3 Print Name |L: Print Name: |R: Date:
+3 Date |L: Date: |R: 
+3 Signature |L: Signature: |R: 
+3 Print Name_2 |L: Print Name: |R: Date:
+3 Date_2 |L: Date: |R: 
+3 Signature_2 |L: Signature: |R: 
+3 PROVOST VICEPRESIDENT ACADEMIC |L:  |R: 
+3 Date2_af_date |L:  |R: 
+3 Signature3 |L:  |R: 
+3 Text4 |L:  |R: 
+3 Text5 |L:  |R: 
+3 Text8 |L: Full-time/Part-time: Proposed Grade: |R: Projected Annual Cost (Salary & Benefits):
+3 Text9 |L: Grade: Projected Annual Cost (Salary & Benefits): |R: 
+3 Dropdown10 |L: Employee Group: Full-time/Part-time: |R: Proposed Grade: Projected Annual
+3 Check Box11 |L:  |R: Vice-President Dean Vice-President or Associate
+3 Check Box13 |L: Vice-President Dean Vice-President or Associate |R: Manager Director or Departmental
+3 Check Box14 |L: Dean Vice-President or Associate Manager Director or |R: Departmental (For employee-initiated Incumbent
+3 Check Box15 |L: Manager Director or Departmental |R: (For employee-initiated Incumbent re-
+3 Check Box16 |L: Vice-President |R: Dean Vice-President or Associate Manager Director
+3 Check Box25 |L:  |R: Deactivate Reactivate
+3 Check Box26 |L: Deactivate |R: Reactivate Effective Date:
+3 Effective Date_3 |L: Effective Date: |R: New Bi-weekly Hours:
+3 New Supervisor Position |L: New Supervisor Position #: |R: 
+3 New Biweekly Hours |L: New Bi-weekly Hours: |R: 
+3 Effective Date_4 |L: Reactivate Effective Date: |R: 
+3 Effective Date_5 |L: Effective Date: |R: 
+3 Text17 |L:  |R: 
+3 Text19 |L: New Title: |R: 
+3 Effective Date |L: Effective Date: |R: New Title:
+3 Effective Date_2 |L: Effective Date: |R: New Supervisor Position #:
+3 New Dept ID |L: New Dept ID: |R: Effective Date:
+3 Effective Date_6 |L: Effective Date: |R: 
+3 Text18 |L:  |R: 
+3 OBJECT 4_2 |L:  |R: 
+3 FUND 2 |L:  |R: 
+3 please include secondary string and percentage breakdown in General Information at the start of the form |L:  |R: 
+3 Employee Group |L: Employee Group: |R: Full-time/Part-time: Proposed

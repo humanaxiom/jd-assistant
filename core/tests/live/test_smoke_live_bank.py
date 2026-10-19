@@ -467,3 +467,128 @@ async def test_crf_never_claims_one_position_for_an_unpadded_role(session) -> No
         )
         assert prefill.positions_incomplete is True, cluster_id
         assert prefill.position_number is None, cluster_id
+
+
+# ── 9-11. EXPORT — a live role, rendered and read back by the Bank's own parser ────
+#
+# Track J1. The unit suite proves the CUPE export round-trips on fixtures; a fixture
+# cannot hold the shapes the archive actually produced (a form's instructions flattened
+# into a section, a prompt typed twice, a tick typed beside an option). These take a
+# LIVE role, export it through the same entry point the Builder's export routes call,
+# extract the `.docx` with the ingest path, and re-parse it.
+#
+# MEASURED 2026-10-19 over every current role: 623 of 627 CUPE roles round-trip with no
+# loss. The other 4 are WJQ-PARSER limits, not export defects — 3 hold authored text
+# containing "an equivalent combination of", which is a `wjq.instruction_markers`
+# fragment, so the parser discards that line; 1 has exactly 40 qualifications and the
+# form's own "Years" cell re-reads as a 41st, pushing the last past the parser's cap.
+# Fixing either is a parser change (hashed `wjq.yaml`, PARSER_VERSION, re-parse).
+
+
+async def _first_current(session, where: str) -> tuple[str, dict]:  # type: ignore[no-untyped-def,type-arg]
+    """The first current role (by cluster id — deterministic) matching ``where``."""
+    row = (await session.execute(text(f"""
+                WITH cur AS ({_CURRENT})
+                SELECT cluster_id, content FROM cur c WHERE {where}
+                ORDER BY cluster_id LIMIT 1
+            """))).first()
+    if row is None:
+        pytest.fail(f"no current role matches {where!r} — an empty Bank is not a pass")
+    return str(row[0]), row[1]
+
+
+def _export_and_reparse(content: dict):  # type: ignore[no-untyped-def,type-arg]
+    from src.jd_bank.db.models import DocumentFormat
+    from src.jd_bank.ingest.extract import extract_text
+    from src.jd_core.models.parsed_jd import SFUJobDescription
+    from src.jd_core.parser.segmenter import parse_jd
+    from src.jd_export import render_sfu_docx
+
+    jd = SFUJobDescription.model_validate(content)
+    body = extract_text(render_sfu_docx(jd), DocumentFormat.DOCX)
+    return jd, body, parse_jd(body)
+
+
+async def test_a_live_cupe_role_survives_export_and_reparse(session) -> None:  # type: ignore[no-untyped-def]
+    """A live CUPE role exports on HR's CUPE form and the WJQ parser reads it back
+    with title, functions (statement, how/why, frequency), contacts, qualifications and
+    every point-factor section intact — and with no APSA boilerplate on it."""
+    from src.jd_core.rules import get_rules
+    from tests.export_roundtrip import cupe_round_trip_losses
+
+    rules = get_rules()
+    cid, content = await _first_current(
+        session,
+        "c.content->>'employee_group' = 'cupe' "
+        "AND jsonb_array_length(c.content->'duties') > 0 "
+        "AND c.content->>'additional_context' IS NOT NULL "
+        "AND jsonb_typeof(c.content->'relationships') = 'object'",
+    )
+    jd, body, result = _export_and_reparse(content)
+
+    assert (
+        result.template == "wjq"
+    ), f"role {cid}: the export is not read as a CUPE form"
+    losses = cupe_round_trip_losses(jd, result.jd, rules)
+    assert losses == [], f"role {cid} lost fields on export -> re-parse: {losses}"
+    for line in rules.cupe_form.banner:
+        assert line in body, f"role {cid}: CUPE banner line {line!r} missing"
+    boiler = rules.boilerplate
+    for passage in (
+        *boiler.territorial_acknowledgement,
+        *boiler.employment_equity,
+        *boiler.about_sfu,
+    ):
+        assert passage not in body, f"role {cid}: APSA boilerplate on the CUPE form"
+
+
+async def test_no_live_cupe_role_exports_with_the_apsa_footer(session) -> None:  # type: ignore[no-untyped-def]
+    """Every current CUPE role, not a sample: none exports in the APSA layout or with
+    the APSA territorial / equity footer (CUPE 3338 Art. 15.04)."""
+    from src.jd_core.rules import get_rules
+
+    rules = get_rules()
+    footer = [
+        *rules.boilerplate.territorial_acknowledgement,
+        *rules.boilerplate.employment_equity,
+    ]
+    rows = (await session.execute(text(f"""
+                WITH cur AS ({_CURRENT})
+                SELECT cluster_id, content FROM cur c
+                WHERE c.content->>'employee_group' = 'cupe'
+            """))).all()
+    assert rows, "no current CUPE role — an empty Bank is not a pass"
+    wrong = []
+    for cid, content in rows:
+        _, body, result = _export_and_reparse(content)
+        if result.template != "wjq" or any(p in body for p in footer):
+            wrong.append(str(cid))
+    assert not wrong, f"{len(wrong)} CUPE roles export on the APSA form: {wrong[:5]}"
+
+
+async def test_a_live_apsa_role_survives_export_and_reparse(session) -> None:  # type: ignore[no-untyped-def]
+    """The APSA export is unchanged by J1 and still carries its footer; a live APSA
+    role's title and position summary come back through the JDFN parser.
+
+    ⚠ Duties are NOT asserted, and that is a measured pre-existing defect of the APSA
+    export, not a gap in this test: 1,798 of 1,876 current non-CUPE roles re-read with a
+    different duty count (``tests/export_roundtrip.py :: jdfn_round_trip_losses``). J1
+    must leave the APSA output byte-identical in content, so it is reported, not fixed.
+    """
+    from src.jd_core.rules import get_rules
+    from tests.export_roundtrip import jdfn_round_trip_losses
+
+    rules = get_rules()
+    cid, content = await _first_current(
+        session,
+        "c.content->>'employee_group' = 'apsa' "
+        "AND jsonb_array_length(c.content->'duties') > 0 "
+        "AND c.content->>'position_summary' IS NOT NULL",
+    )
+    jd, body, result = _export_and_reparse(content)
+
+    assert result.template != "wjq", f"role {cid}: an APSA export read as a CUPE form"
+    losses = jdfn_round_trip_losses(jd, result.jd)
+    assert losses == [], f"role {cid} lost fields on export -> re-parse: {losses}"
+    for passage in rules.boilerplate.territorial_acknowledgement:
+        assert passage in body, f"role {cid}: the APSA footer is missing"

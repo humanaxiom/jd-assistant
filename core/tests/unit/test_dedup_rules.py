@@ -97,6 +97,9 @@ def test_dedup_is_the_fourth_unhashed_file(rules: Rules) -> None:
         # cannot move a report's stamp. ⚠ It moves `PARSER_VERSION` instead, which is
         # the heavier obligation: a change here owes an archive re-parse.
         "classification.yaml",
+        # Track J1 added `cupe_form.yaml` — the eleventh. What an exported CUPE `.docx`
+        # LOOKS like; nothing reads it back, so it moves neither stamp.
+        "cupe_form.yaml",
     }
     assert "dedup" not in loader._HASHED_FIELDS
 
