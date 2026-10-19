@@ -1,0 +1,1262 @@
+{
+ "mode": "guarded",
+ "model": "gpt-oss:20b",
+ "queries": [
+  {
+   "id": "E1",
+   "kind": "exact",
+   "q": "Financial Assistant",
+   "form": "wjq",
+   "plan": {
+    "semantic_query": "Provide financial support to the organization by preparing and processing invoices, reconciling accounts, maintaining financial records, and assisting with budgeting and reporting tasks. Collaborate with other staff to ensure accurate and timely financial transactions and compliance with institutional policies.",
+    "title_keywords": [
+     "Financial Assistant"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 1.55,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.6,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Financial Assistant | School for the Contemporary Arts | cupe",
+     "* Financial Assistant | Beedie School of Business | cupe",
+     "* Administrative and Financial Assistant | Applied Science | cupe",
+     "* Administrative and Financial Assistant | Biomedical Physiology | cupe",
+     "* Administrative and Financial Assistant |  | cupe",
+     "* Administrative and Financial Assistant | School of Computing Science | cupe",
+     "  Finance and Operations Coordinator |  | apsa",
+     "  Administrative Assistant | Office of the President | apex",
+     "  Program and Budget Coordinator | Faculty of Environment, Office of the De | apsa",
+     "  Administrative Coordinator |  | apsa"
+    ]
+   },
+   "builder_nlp_s": 1.164,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Financial Assistant | School for the Contemporary Arts | cupe",
+     "* Financial Assistant | Beedie School of Business | cupe",
+     "* Administrative and Financial Assistant | Applied Science | cupe",
+     "* Administrative and Financial Assistant | Biomedical Physiology | cupe",
+     "* Administrative and Financial Assistant | Vice-President | cupe",
+     "* Administrative and Financial Assistant | School of Computing Science | cupe",
+     "* Financial Assistant |  | cupe",
+     "* Financial Assistant | Psychology | cupe",
+     "* Financial Assistant | Physics | cupe",
+     "* Undergraduate Program Assistant/Financial Assistant | Archaeology | cupe"
+    ]
+   }
+  },
+  {
+   "id": "E2",
+   "kind": "exact",
+   "q": "Co-op Education Coordinator",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Coordinate and manage the university\u2019s co\u2011operative education program, including developing partnerships with industry, advising students and employers, scheduling placements, tracking student progress, and ensuring compliance with academic and regulatory requirements.",
+    "title_keywords": [
+     "Co-op Education Coordinator"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.03,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator |  | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | apsa"
+    ]
+   },
+   "builder_nlp_s": 1.242,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator |  | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | apsa"
+    ]
+   }
+  },
+  {
+   "id": "E3",
+   "kind": "exact",
+   "q": "Research Grants Facilitator",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Facilitates the research grant application process by reviewing proposals, coordinating with faculty and funding agencies, providing guidance on compliance and reporting, and ensuring timely submission and tracking of grant activities.",
+    "title_keywords": [
+     "Research Grants Facilitator"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.027,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Research Grants Facilitator |  | ",
+     "* Research Grants Facilitator | Faculty of Arts and Social Sciences, Off | apsa",
+     "* Research Grants Facilitator | Faculty of Science, Dean\u2019s Office | ",
+     "* Research Grants Facilitator | Dean of Science Office | ",
+     "* Research Grants Facilitator | Faculty of Education, Dean\u2019s Office | apsa",
+     "* Research Grants Facilitator | Faculty of Arts & Social Sciences, Offic | apsa",
+     "* Research Grants Facilitator |  | ",
+     "* Research Grants Facilitator |  | apsa",
+     "* Research Grants Facilitator |  | ",
+     "* Research Grants Facilitator | Major Projects Office, Office of the Vic | "
+    ]
+   },
+   "builder_nlp_s": 1.16,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Research Grants Facilitator |  | ",
+     "* Research Grants Facilitator | Faculty of Arts and Social Sciences, Off | apsa",
+     "* Research Grants Facilitator | Faculty of Science, Dean\u2019s Office | ",
+     "* Research Grants Facilitator | Dean of Science Office | ",
+     "* Research Grants Facilitator | Faculty of Education, Dean\u2019s Office | apsa",
+     "* Research Grants Facilitator | Faculty of Arts & Social Sciences, Offic | apsa",
+     "* Research Grants Facilitator |  | ",
+     "* Research Grants Facilitator |  | apsa",
+     "* Research Grants Facilitator |  | ",
+     "* Research Grants Facilitator | Major Projects Office, Office of the Vic | "
+    ]
+   }
+  },
+  {
+   "id": "E4",
+   "kind": "exact",
+   "q": "Laboratory Technician",
+   "form": "wjq",
+   "plan": {
+    "semantic_query": "Perform routine laboratory analyses, maintain equipment, record and interpret data, and ensure compliance with safety and quality protocols.",
+    "title_keywords": [
+     "Laboratory Technician"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.031,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Laboratory Technician |  | cupe",
+     "* Laboratory Technician | Archaeology | cupe",
+     "* Laboratory Technician | Biomedical Physiology & Kinesiology | cupe",
+     "* Laboratory Technician | Biological Sciences | cupe",
+     "* Laboratory Technician | Chemistry | cupe",
+     "* Laboratory Technician | Biological Sciences | cupe",
+     "* Laboratory Technician | Chemistry | cupe",
+     "* Laboratory Technician | Molecular Biology and Biochemistry | cupe",
+     "* Laboratory Technician | Biological Sciences | cupe",
+     "* Laboratory Technician \u2013 Molecular Biology and Biochemistry |  | cupe"
+    ]
+   },
+   "builder_nlp_s": 1.233,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Laboratory Technician | School of Engineering Science | cupe",
+     "* Laboratory Technician | Archaeology | cupe",
+     "* Laboratory Technician | Biomedical Physiology & Kinesiology | cupe",
+     "* Laboratory Technician | Biological Sciences | cupe",
+     "* Laboratory Technician | Chemistry | cupe",
+     "* Laboratory Technician | Biological Sciences | cupe",
+     "* Laboratory Technician | Chemistry | cupe",
+     "* Laboratory Technician | Molecular Biology and Biochemistry | cupe",
+     "* Laboratory Technician | Biological Sciences | cupe",
+     "* Laboratory Technician \u2013 Molecular Biology and Biochemistry | MBB | cupe"
+    ]
+   }
+  },
+  {
+   "id": "P1",
+   "kind": "paraphrase",
+   "q": "someone who processes invoices and reconciles accounts",
+   "form": "wjq",
+   "plan": {
+    "semantic_query": "Responsible for processing invoices, verifying accuracy, and reconciling accounts payable records. Ensures timely payment of vendors, maintains accurate financial documentation, and supports month\u2011end closing activities.",
+    "title_keywords": [
+     "someone who processes invoices and reconciles accounts",
+     "Accounts Payable Clerk",
+     "Invoice Processor",
+     "Accounts Payable Specialist"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "no"
+   },
+   "lib_s": 0.027,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.4,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Accounts Payable Clerk |  | cupe",
+     "* Accounts Payable Clerk | Financial Services | cupe",
+     "  Payment Services Officer |  | ",
+     "  Finance and Operations Coordinator |  | apsa",
+     "  Serials Invoice Coordinator |  | cupe",
+     "  Associate Director, Student Financials | Student Services \u2013 Student Accounts | apsa",
+     "  Business Analyst, Human Resources Systems |  | apsa",
+     "  Executive Secretary |  | ",
+     "* Financial Assistant | School for the Contemporary Arts | cupe",
+     "* Accounts Payable Coordinator |  | cupe"
+    ]
+   },
+   "builder_nlp_s": 11.627,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.8,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Accounts Payable Clerk | Financial Services, Accounts Payable | cupe",
+     "* Accounts Payable Clerk | Financial Services | cupe",
+     "* Accounts Payable Clerk |  | cupe",
+     "* Accounts Payable Clerk Classification and Grade |  | cupe",
+     "* Senior Accounts Payable Clerk | Financial Services/Accounts Payable | cupe",
+     "  Serials Invoice Coordinator | Library Processing Division, Serials Sec | cupe",
+     "* Financial Assistant | School for the Contemporary Arts | cupe",
+     "* Accounts Payable Coordinator |  | cupe",
+     "  Library Invoicing and Receiving Assistant | Library Acquisitions and Serials | cupe",
+     "* Bookstore Accounting Clerk | Bookstore | cupe"
+    ]
+   }
+  },
+  {
+   "id": "P2",
+   "kind": "paraphrase",
+   "q": "person who helps students plan their courses and meet degree requirements",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Provides guidance to students on course selection and degree planning, ensuring they meet all program requirements and academic standards.",
+    "title_keywords": [
+     "person who helps students plan their courses and meet degree requirements",
+     "Academic Advisor",
+     "Student Advisor",
+     "Degree Planning Advisor"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.047,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Academic Advisor | Student Engagement and Retention | ",
+     "* Academic Advisor |  | ",
+     "* Academic Advisor | Academic Advising | ",
+     "* Academic Advisor | Resource and Environmental Management (R | apsa",
+     "* Academic Advisor | Academic Advising | apsa",
+     "* Academic Advisor | Student Services \u2013 New Student Enrolment | ",
+     "* Academic Advisor | Student Retention | ",
+     "* Academic Advisor | Faculty of Science | ",
+     "* Academic Advisor | Student Services \u2013 Student Retention | ",
+     "* Academic Advisor | Faculty of Communication, Art and Techno | apsa"
+    ]
+   },
+   "builder_nlp_s": 8.188,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Academic Advisor | Student Engagement and Retention | ",
+     "* Academic Advisor |  | ",
+     "* Academic Advisor | Academic Advising | ",
+     "* Academic Advisor | Resource and Environmental Management (R | apsa",
+     "* Academic Advisor | Academic Advising | apsa",
+     "* Academic Advisor | Student Services \u2013 New Student Enrolment | ",
+     "* Academic Advisor | Student Retention | ",
+     "* Academic Advisor | Faculty of Science | ",
+     "* Academic Advisor | Student Services \u2013 Student Retention | ",
+     "* Academic Advisor | Faculty of Communication, Art and Techno | apsa"
+    ]
+   }
+  },
+  {
+   "id": "P3",
+   "kind": "paraphrase",
+   "q": "fundraiser who builds relationships with major donors",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Responsible for cultivating and maintaining relationships with major donors to secure significant contributions for the university. Engages donors through personalized communication, events, and stewardship activities, ensuring alignment with institutional priorities and donor interests.",
+    "title_keywords": [
+     "fundraiser who builds relationships with major donors",
+     "Fundraiser",
+     "Major Gifts Officer",
+     "Development Officer"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.03,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.9,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Development Officer |  | apsa",
+     "* Business Development Officer | Office of the VPR - KEY, SFU\u2019s Big Data  | apsa",
+     "* Donor Relations Manager | University Advancement | apsa",
+     "* Director, Major Gifts | University Advancement | ",
+     "* Associate Director, Donor Relations | University Advancement | apsa",
+     "* Advancement Coordinator | University Advancement | apsa",
+     "* Associate Director, Major Gifts | University Advancement | ",
+     "  Recognition and Stewardship Officer |  | apsa",
+     "* Associate Director, Advancement | University Advancement | ",
+     "* Director, Donor Stewardship |  | apsa"
+    ]
+   },
+   "builder_nlp_s": 11.606,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.9,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Development Officer |  | apsa",
+     "* Business Development Officer | Office of the VPR - KEY, SFU\u2019s Big Data  | apsa",
+     "* Development Officer, Annual Campaign | University Advancement | ",
+     "* Donor Relations Manager | University Advancement | apsa",
+     "* Director, Major Gifts | University Advancement | ",
+     "* Associate Director, Donor Relations | University Advancement | apsa",
+     "* Advancement Coordinator | University Advancement | apsa",
+     "* Associate Director, Major Gifts | University Advancement | ",
+     "  Recognition and Stewardship Officer |  | apsa",
+     "* Associate Director, Advancement | University Advancement | "
+    ]
+   }
+  },
+  {
+   "id": "P4",
+   "kind": "paraphrase",
+   "q": "entry-level library job shelving books and helping patrons at the desk",
+   "form": "wjq",
+   "plan": {
+    "semantic_query": "Assist with book shelving, organization, and inventory management. Provide front\u2011desk support to patrons, answering inquiries, checking out materials, and guiding them to resources. Maintain a welcoming and efficient library environment.",
+    "title_keywords": [
+     "entry-level library job shelving books and helping patrons at the desk",
+     "Library Assistant",
+     "Library Clerk",
+     "Library Support Staff"
+    ],
+    "employee_group": "any",
+    "department_keywords": [
+     "Library"
+    ],
+    "supervisory": "no"
+   },
+   "lib_s": 0.03,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.9,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Library Assistant | Library Loan Division | cupe",
+     "* Library Assistant | Library Learning Instruction | cupe",
+     "* Library Assistant | Library Reference Division | cupe",
+     "* Library Assistant | Belzberg Library | cupe",
+     "* Library Assistant | Library Loans | cupe",
+     "* Library Assistant | Bennett Library | cupe",
+     "* Library Assistant | Library Loans | cupe",
+     "* Library Assistant, Loans Division | Library Loans | cupe",
+     "* Library Circulation Assistant | Belzberg Library | cupe",
+     "  Library Materials Preparation Assistant | Library | cupe"
+    ]
+   },
+   "builder_nlp_s": 10.275,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Library Assistant | Library Loan Division | cupe",
+     "* Library Assistant | Library Learning Instruction | cupe",
+     "* Library Assistant | Library Loans | cupe",
+     "* Library Assistant | Library Reference Division | cupe",
+     "* Library Assistant | Belzberg Library | cupe",
+     "* Library Assistant | Library Loans | cupe",
+     "* Library Assistant |  | cupe",
+     "* Library Assistant | Bennett Library | cupe",
+     "* Library Assistant | Library Loans | cupe",
+     "* Library Assistant, Loans Division | Library Loans | cupe"
+    ]
+   }
+  },
+  {
+   "id": "D1",
+   "kind": "duty",
+   "q": "maintain Linux servers, apply patches, run backups and manage user accounts",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Maintain Linux servers, apply patches, run backups, and manage user accounts, ensuring system reliability and security.",
+    "title_keywords": [
+     "maintain Linux servers, apply patches, run backups and manage user accounts",
+     "Systems Administrator",
+     "Linux Administrator"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.028,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Systems Administrator | IT Services - Infrastructure | apsa",
+     "* Systems Administrator |  | apsa",
+     "* Systems Administrator |  | apsa",
+     "* Systems Administrator | Psychology | ",
+     "* Systems Administrator | Computing Operations & Technical Support | ",
+     "* Systems Administrator |  | apsa",
+     "* Computer Systems Administrator | School of Communication | apsa",
+     "* Computer Systems Administrator | School of Computing Science | ",
+     "* Computer Systems Administrator | School of Computing Science (SFU Surrey) | ",
+     "* Computer Systems Administrator |  | apsa"
+    ]
+   },
+   "builder_nlp_s": 7.644,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Systems Administrator | IT Services - Infrastructure | apsa",
+     "* Systems Administrator |  | apsa",
+     "* Systems Administrator |  | apsa",
+     "* Systems Administrator | Psychology | ",
+     "* Systems Administrator | Computing Operations & Technical Support | ",
+     "* Systems Administrator |  | apsa",
+     "* Computer Systems Administrator | School of Communication | apsa",
+     "* Computer Systems Administrator | School of Computing Science | ",
+     "* Storage and Systems Administrator |  | apsa",
+     "* Computer Systems Administrator | School of Computing Science (SFU Surrey) | "
+    ]
+   }
+  },
+  {
+   "id": "D2",
+   "kind": "duty",
+   "q": "plan and run conferences, convocation ceremonies and university events",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Plan, coordinate, and execute conferences, convocation ceremonies, and other university events, ensuring all logistical, financial, and communication aspects are managed effectively.",
+    "title_keywords": [
+     "plan and run conferences, convocation ceremonies and university events",
+     "Event Coordinator",
+     "Conference Coordinator",
+     "Convocation Coordinator"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.025,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Event Coordinator | Ceremonies & Events | cupe",
+     "* Event Coordinator | SFU\u2019s Big Data Hub, VP Research | apsa",
+     "* Event Coordinator |  | cupe",
+     "* Event Coordinator | Meeting, Event & Conference Services (ME | cupe",
+     "* Event Coordinator | SFU International | apsa",
+     "* Project and Event Coordinator |  | apsa",
+     "* Project and Event Coordinator | FCAT Office of the Dean | apsa",
+     "* Recreation Event Coordinator | Recreation & Athletics | ",
+     "* Associate Director, Convocation and Events | Ceremonies and Events | apsa",
+     "* Ceremonies and Events Manager | Ceremonies and Events | apsa"
+    ]
+   },
+   "builder_nlp_s": 11.598,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.9,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Event Coordinator | SFU\u2019s Big Data Hub, VP Research | apsa",
+     "* Event Coordinator | SFU International | apsa",
+     "* Project and Event Coordinator |  | apsa",
+     "* Recreation Event Coordinator | Recreation & Athletics | ",
+     "* Project and Event Coordinator | FCAT Office of the Dean | apsa",
+     "* Associate Director, Convocation and Events | Ceremonies and Events | apsa",
+     "* Ceremonies and Events Manager | Ceremonies and Events | apsa",
+     "* Coordinator, Projects and Events |  | apsa",
+     "  Client Services Coordinator | SFU Vancouver - Meeting, Event and Confe | ",
+     "* Ceremonies and Events Manager | External Relations Administration | apsa"
+    ]
+   }
+  },
+  {
+   "id": "D3",
+   "kind": "duty",
+   "q": "manage research grant applications and post-award budgets for faculty members",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Responsible for managing research grant applications and overseeing post-award budget administration for faculty members, ensuring compliance with institutional and funding agency policies, preparing reports, and coordinating with faculty and finance staff to maintain accurate financial records.",
+    "title_keywords": [
+     "manage research grant applications and post-award budgets for faculty members",
+     "Research Grant Coordinator",
+     "Grant Administrator"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.026,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.8,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Research Grants and Projects Coordinator | Linguistics | apsa",
+     "  Financial Administration Coordinator | Beedie School of Business | apsa",
+     "* Research Grants and Projects Assistant | Major Projects Office, VPR | apsa",
+     "* Research Grants and Projects Coordinator | School of Computing Science | apsa",
+     "* Research Grants Facilitator | Faculty of Arts & Social Sciences, Offic | apsa",
+     "* Research Grants and Projects Coordinator | Criminology | ",
+     "* Research Grants Coordinator | Faculty of Health Sciences | apsa",
+     "* Research Grants and Projects Coordinator |  | apsa",
+     "  Administrative Coordinator | Office of the Dean, Faculty of Health Sc | ",
+     "* Grant and Post-Award Administrator | Faculty of Health Sciences | apsa"
+    ]
+   },
+   "builder_nlp_s": 10.375,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.8,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Research Grants and Projects Coordinator | Linguistics | apsa",
+     "  Financial Administration Coordinator | Beedie School of Business | apsa",
+     "* Research Grants and Projects Assistant | Major Projects Office, VPR | apsa",
+     "* Research Grants and Projects Coordinator | School of Computing Science | apsa",
+     "* Research Grants Facilitator | Faculty of Arts & Social Sciences, Offic | apsa",
+     "* Research Grants and Projects Coordinator | Criminology | ",
+     "* Research Grants Coordinator | Faculty of Health Sciences | apsa",
+     "* Research Grants and Projects Coordinator |  | apsa",
+     "  Administrative Coordinator | Office of the Dean, Faculty of Health Sc | ",
+     "* Grant and Post-Award Administrator | Faculty of Health Sciences | apsa"
+    ]
+   }
+  },
+  {
+   "id": "D4",
+   "kind": "duty",
+   "q": "write news stories, manage social media and the department newsletter",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Responsible for creating and publishing news stories, managing the department\u2019s social media presence, and producing the department newsletter. Collaborates with faculty and staff to gather content, ensures timely distribution, and maintains brand consistency across all communication channels.",
+    "title_keywords": [
+     "write news stories, manage social media and the department newsletter",
+     "Communications Coordinator",
+     "Social Media Coordinator",
+     "News Writer"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.028,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Communications Coordinator |  | apsa",
+     "* Communications Coordinator | Faculty of Applied Sciences (FAS) | ",
+     "* Communications Coordinator |  | apsa",
+     "* Communications Coordinator | Faculty of Applied Sciences \u2013 Office of  | apsa",
+     "* Communications Coordinator |  | apsa",
+     "* Events and Communications Coordinator | School of Computing Science | apsa",
+     "* Events and Communications Coordinator |  | apsa",
+     "* Marketing & Communications Coordinator | Lifelong Learning | ",
+     "* Marketing and Communications Coordinator |  | apsa",
+     "* Strategic Enrollment Management Communications Coordinator | AVPSI Communications Services | apsa"
+    ]
+   },
+   "builder_nlp_s": 11.274,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Communications Coordinator |  | apsa",
+     "* Communications Coordinator | Faculty of Applied Sciences (FAS) | ",
+     "* Communications Coordinator |  | apsa",
+     "* Communications Coordinator | Faculty of Applied Sciences \u2013 Office of  | apsa",
+     "* Communications Coordinator |  | apsa",
+     "* Strategic Enrollment Management Communications Coordinator | AVPSI Communications Services | apsa",
+     "* Marketing and Communications Coordinator |  | apsa",
+     "* Events and Communications Coordinator | School of Computing Science | apsa",
+     "* Marketing & Communications Coordinator | Lifelong Learning | ",
+     "* Web Communications Coordinator | Communications | "
+    ]
+   }
+  },
+  {
+   "id": "C1",
+   "kind": "constraint",
+   "q": "supervisory admin role in Faculty of Science, APSA",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Responsible for overseeing the day\u2011to\u2011day administrative operations of the Faculty of Science, including budget monitoring, staff coordination, policy implementation, and liaison with university departments and external partners. Provides strategic support to faculty leadership, manages project timelines, and ensures compliance with university regulations and best practices.",
+    "title_keywords": [
+     "supervisory admin role in Faculty of Science, APSA",
+     "Administrative Officer",
+     "Administrative Manager",
+     "Administrative Coordinator"
+    ],
+    "employee_group": "apsa",
+    "department_keywords": [
+     "Faculty of Science",
+     "Computer Science",
+     "Environmental Science"
+    ],
+    "supervisory": "yes"
+   },
+   "lib_s": 0.034,
+   "library_guarded": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 10,
+    "first_rel": null,
+    "top": [
+     "  Academic and Administrative Services Manager | Faculty of Environment \u2013 School of Envir | apsa",
+     "  Administrative Officer \u2013 Human Resources and Governance | Vice-President, Academic | ",
+     "  Administrative Manager |  | apsa",
+     "  Administrative Manager | Beedie School of Business Administration | apsa",
+     "  Administrative Manager | Administration | ",
+     "  Administrative Manager, School of Computing Science |  | apsa",
+     "  Academic and Administrative Manager | Geography | apsa",
+     "  Administrative Coordinator |  | apsa",
+     "  Administrative Coordinator |  | apsa",
+     "  Administrative Coordinator |  | apsa"
+    ]
+   },
+   "builder_nlp_s": 10.633,
+   "builder_guarded": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 10,
+    "first_rel": null,
+    "top": [
+     "  Administrative Officer \u2013 Human Resources and Governance | Vice-President, Academic | ",
+     "  Administrative Manager | Administration | ",
+     "  Administrative Manager |  | apsa",
+     "  Administrative Manager | Beedie School of Business Administration | apsa",
+     "  Administrative Manager, School of Computing Science |  | apsa",
+     "  Academic and Administrative Manager | Geography | apsa",
+     "  Administrative Coordinator |  | apsa",
+     "  Administrative Coordinator |  | apsa",
+     "  Administrative Coordinator | Lifelong Learning- Centre for Integrated | ",
+     "  Administrative Coordinator |  | apsa"
+    ]
+   }
+  },
+  {
+   "id": "C2",
+   "kind": "constraint",
+   "q": "CUPE administrative assistant",
+   "form": "wjq",
+   "plan": {
+    "semantic_query": "Provide clerical and administrative support to a department or office, including managing correspondence, scheduling meetings, maintaining records, and assisting staff with day\u2011to\u2011day tasks.",
+    "title_keywords": [
+     "CUPE administrative assistant",
+     "Administrative Assistant"
+    ],
+    "employee_group": "cupe",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.036,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Administrative Assistant |  | cupe",
+     "* Administrative Assistant | Criminology | cupe",
+     "* Administrative Assistant |  | cupe",
+     "* Administrative Assistant | Faculty of Education | cupe",
+     "* Administrative Assistant | School for the Contemporary Arts | cupe",
+     "* Administrative Assistant | Centre for Dialogue | cupe",
+     "* Administrative Assistant | Faculty of Health Science | cupe",
+     "* Administrative Assistant | Continuing Studies | cupe",
+     "* Administrative Assistant |  | cupe",
+     "* Administrative Assistant | School of Engineering Science | cupe"
+    ]
+   },
+   "builder_nlp_s": 3.333,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Administrative Assistant | Economics | cupe",
+     "* Administrative Assistant | Criminology | cupe",
+     "* Administrative Assistant | ___Chemistry____________ | cupe",
+     "* Administrative Assistant | Faculty of Education | cupe",
+     "* Administrative Assistant | School for the Contemporary Arts | cupe",
+     "* Administrative Assistant | Centre for Dialogue | cupe",
+     "* Administrative Assistant | Faculty of Health Science | cupe",
+     "* Administrative Assistant | Continuing Studies | cupe",
+     "* Administrative Assistant | School of Computing | cupe",
+     "* Administrative Assistant | School of Engineering Science | cupe"
+    ]
+   }
+  },
+  {
+   "id": "C3",
+   "kind": "constraint",
+   "q": "APSA communications officer",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Responsible for developing, implementing, and managing communication strategies and materials to promote the organization\u2019s mission, programs, and events. Coordinates internal and external communications, including newsletters, social media, press releases, and website content, while ensuring consistency with brand guidelines and compliance with institutional policies.",
+    "title_keywords": [
+     "APSA communications officer",
+     "Communications Officer"
+    ],
+    "employee_group": "apsa",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.028,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Communications Officer | Associate Vice President Learning and Te | apsa",
+     "* Communications Officer |  | apsa",
+     "* Communications Officer | Faculty of Education | apsa",
+     "* Communications Officer | Safety and Risk Services | apsa",
+     "* Communications Officer |  | apsa",
+     "* Communications Officer |  | apsa",
+     "* Communications Officer |  | apsa",
+     "* Communications Officer | Dean\u2019s Office, Faculty of Arts and Socia | ",
+     "* Communications Officer | Graduate Studies Office | ",
+     "* Communications Officer | Business Marketing and Communications, B | "
+    ]
+   },
+   "builder_nlp_s": 3.52,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Communications Officer | Dean\u2019s Office, Faculty of Arts and Socia | ",
+     "* Communications Officer | Associate Vice President Learning and Te | apsa",
+     "* Communications Officer |  | apsa",
+     "* Communications Officer | Graduate Studies Office | ",
+     "* Communications Officer | Business Marketing and Communications, B | ",
+     "* Communications Officer | Faculty of Education | apsa",
+     "* Communications Officer | Safety and Risk Services | apsa",
+     "* Communications Officer | CIO Office | ",
+     "* Communications Officer | Communications & Marketing | ",
+     "* Communications Officer | Dean\u2019s Office, Faculty of Arts and Socia | "
+    ]
+   }
+  },
+  {
+   "id": "C4",
+   "kind": "constraint",
+   "q": "academic advisor in the Beedie business school",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Provide academic advising services to undergraduate and graduate students in the Beedie School of Business, including course selection, career planning, and academic progress monitoring. Collaborate with faculty and staff to support student success and retention. Maintain accurate advising records and participate in faculty meetings and professional development activities.",
+    "title_keywords": [
+     "academic advisor in the Beedie business school",
+     "Academic Advisor"
+    ],
+    "employee_group": "any",
+    "department_keywords": [
+     "Beedie School of Business"
+    ],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.033,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.2,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Academic Advising Manager | Beedie School of Business | apsa",
+     "* Coordinator, Scheduling and Advising | Beedie School of Business | apsa",
+     "  Academic Advisor | Student Engagement and Retention | ",
+     "  Academic Advisor |  | ",
+     "  Academic Advisor | Academic Advising | ",
+     "  Academic Advisor | Resource and Environmental Management (R | apsa",
+     "  Academic Advisor | Academic Advising | apsa",
+     "  Academic Advisor | Student Services \u2013 New Student Enrolment | ",
+     "  Academic Advisor | Student Retention | ",
+     "  Academic Advisor | Faculty of Science | "
+    ]
+   },
+   "builder_nlp_s": 3.249,
+   "builder_guarded": {
+    "hit5": false,
+    "hit10": false,
+    "p10": 0.0,
+    "n": 10,
+    "first_rel": null,
+    "top": [
+     "  Academic Advisor | Student Engagement and Retention | ",
+     "  Academic Advisor |  | ",
+     "  Academic Advisor | Academic Advising | ",
+     "  Academic Advisor | Resource and Environmental Management (R | apsa",
+     "  Academic Advisor | Academic Advising | apsa",
+     "  Academic Advisor | Student Services \u2013 New Student Enrolment | ",
+     "  Academic Advisor | Student Retention | ",
+     "  Academic Advisor | Faculty of Science | ",
+     "  Academic Advisor | Student Services \u2013 Student Retention | ",
+     "  Academic Advisor | Faculty of Communication, Art and Techno | apsa"
+    ]
+   }
+  },
+  {
+   "id": "A1",
+   "kind": "abbrev",
+   "q": "coop coord",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Responsible for coordinating the co\u2011operative education program, including scheduling placements, maintaining relationships with industry partners, supporting students and faculty, and ensuring compliance with program policies and accreditation requirements.",
+    "title_keywords": [
+     "coop coord",
+     "Co-op Education Coordinator"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.031,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator |  | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | apsa"
+    ]
+   },
+   "builder_nlp_s": 4.466,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Co-operative Education | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Co-operative Education | ",
+     "* Co-op Education Coordinator | Work Integrated Learning | ",
+     "* Co-op Education Coordinator |  | apsa",
+     "* Co-op Education Coordinator | Co-operative Education | apsa"
+    ]
+   }
+  },
+  {
+   "id": "A2",
+   "kind": "abbrev",
+   "q": "IT sysadmin",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Responsible for maintaining, troubleshooting, and optimizing the university\u2019s computer systems, networks, and servers. Performs system installations, updates, backups, and security monitoring to ensure reliable and secure IT infrastructure for faculty, staff, and students.",
+    "title_keywords": [
+     "IT sysadmin",
+     "Systems Administrator",
+     "IT Administrator",
+     "IT Systems Administrator"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.032,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Systems Administrator | IT Services - Infrastructure | apsa",
+     "* Systems Administrator |  | apsa",
+     "* Systems Administrator |  | apsa",
+     "* Systems Administrator | Psychology | ",
+     "* Systems Administrator | Computing Operations & Technical Support | ",
+     "* Systems Administrator |  | apsa",
+     "* Computer Systems Administrator | School of Communication | apsa",
+     "* Computer Systems Administrator | School of Computing Science | ",
+     "* Computer Systems Administrator | School of Computing Science (SFU Surrey) | ",
+     "* Computer Systems Administrator |  | apsa"
+    ]
+   },
+   "builder_nlp_s": 10.636,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Systems Administrator | IT Services - Infrastructure | apsa",
+     "* Systems Administrator |  | apsa",
+     "* Systems Administrator |  | apsa",
+     "* Systems Administrator | Psychology | ",
+     "* Systems Administrator | Computing Operations & Technical Support | ",
+     "* Systems Administrator |  | apsa",
+     "* Computer Systems Administrator | School of Communication | apsa",
+     "* Computer Systems Administrator | School of Computing Science | ",
+     "* Storage and Systems Administrator |  | apsa",
+     "* Computer Systems Administrator | School of Computing Science (SFU Surrey) | "
+    ]
+   }
+  },
+  {
+   "id": "A3",
+   "kind": "abbrev",
+   "q": "AP clerk",
+   "form": "wjq",
+   "plan": {
+    "semantic_query": "Responsible for processing accounts payable invoices, verifying purchase orders, reconciling vendor statements, and maintaining accurate financial records in accordance with university policies and procedures.",
+    "title_keywords": [
+     "AP clerk",
+     "Accounts Payable Clerk"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.028,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.8,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Accounts Payable Clerk |  | cupe",
+     "* Accounts Payable Clerk | Financial Services | cupe",
+     "* Accounts Payable Coordinator |  | cupe",
+     "* Bookstore Accounting Clerk | Bookstore | cupe",
+     "  Stores and Procurement Coordinator | Science Stores | cupe",
+     "  Student Services Representative |  | cupe",
+     "* Bank and Accounts Receivable Manager |  | apsa",
+     "* Student Accounts Clerk | Student Accounts | cupe",
+     "* Financial Assistant | Beedie School of Business | cupe",
+     "* Financial Assistant | School for the Contemporary Arts | cupe"
+    ]
+   },
+   "builder_nlp_s": 7.231,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.8,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Accounts Payable Clerk | Financial Services, Accounts Payable | cupe",
+     "* Accounts Payable Clerk | Financial Services | cupe",
+     "* Accounts Payable Clerk |  | cupe",
+     "* Accounts Payable Clerk Classification and Grade |  | cupe",
+     "* Senior Accounts Payable Clerk | Financial Services/Accounts Payable | cupe",
+     "* Accounts Payable Coordinator |  | cupe",
+     "* Bookstore Accounting Clerk | Bookstore | cupe",
+     "  Stores and Procurement Coordinator | Science Stores | cupe",
+     "  Student Services Representative |  | cupe",
+     "* Student Accounts Clerk | Student Accounts | cupe"
+    ]
+   }
+  },
+  {
+   "id": "A4",
+   "kind": "typo",
+   "q": "adminstrative cordinator",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Responsible for coordinating administrative activities, managing schedules, preparing reports, and ensuring efficient office operations. Supports faculty and staff by handling correspondence, maintaining records, and facilitating communication across departments.",
+    "title_keywords": [
+     "adminstrative cordinator",
+     "Administrative Coordinator"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "no"
+   },
+   "lib_s": 0.028,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Administrative Coordinator |  | apsa",
+     "* Administrative Coordinator |  | apsa",
+     "* Administrative Coordinator | Lifelong Learning- Centre for Integrated | ",
+     "* Administrative Coordinator |  | apsa",
+     "* Administrative Coordinator | SFU International | apsa",
+     "* Administrative Coordinator | School of Communication (CMNS) | apsa",
+     "* Administrative Coordinator | Hellenic Studies | apsa",
+     "* Administrative Coordinator | Health & Counselling Centre | ",
+     "* Administrative Coordinator | Faculty of Health Sciences | apsa",
+     "* Administrative Coordinator | International Services for Students | apsa"
+    ]
+   },
+   "builder_nlp_s": 3.597,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Administrative Coordinator |  | apsa",
+     "* Administrative Coordinator |  | apsa",
+     "* Administrative Coordinator | Lifelong Learning- Centre for Integrated | ",
+     "* Administrative Coordinator |  | apsa",
+     "* Administrative Coordinator | SFU International | apsa",
+     "* Administrative Coordinator | School of Communication (CMNS) | apsa",
+     "* Administrative Coordinator | Hellenic Studies | apsa",
+     "* Administrative Coordinator | Health & Counselling Centre | ",
+     "* Administrative Coordinator | Faculty of Health Sciences | apsa",
+     "* Administrative Coordinator | International Services for Students | apsa"
+    ]
+   }
+  },
+  {
+   "id": "A5",
+   "kind": "abbrev",
+   "q": "HR advisor labour relations",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Provide expert advice and support on labour relations matters, including negotiation, dispute resolution, and compliance with collective agreements. Conduct research, prepare reports, and facilitate communication between management and employee representatives to promote a collaborative workplace environment.",
+    "title_keywords": [
+     "HR advisor labour relations",
+     "HR Advisor",
+     "Labour Relations Advisor"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.027,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.9,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Labour Relations Advisor | Human Resources | apsa",
+     "* Labour and Employee Relations Advisor |  | apex",
+     "* Director, Labour Relations | Human Resources | apex",
+     "* Labour and Employee Relations Advisor | Human Resources | apsa",
+     "* Labour and Employee Relations Specialist |  | apex",
+     "* Executive Director, Human Resources |  | apex",
+     "* Human Resources Coordinator |  | ",
+     "* Human Resources Business Partner |  | apex",
+     "  Compensation Consultant |  | apex",
+     "* Human Resources Coordinator | Human Resources | apex"
+    ]
+   },
+   "builder_nlp_s": 10.086,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.9,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Labour Relations Advisor | Human Resources | apsa",
+     "* Labour and Employee Relations Advisor |  | apex",
+     "* Director, Labour Relations | Human Resources | apex",
+     "* Labour and Employee Relations Advisor | Human Resources | apsa",
+     "* Labour and Employee Relations Specialist |  | apex",
+     "* Executive Director, Human Resources |  | apex",
+     "* Human Resources Coordinator | Human Resources | ",
+     "* Human Resources Business Partner |  | apex",
+     "  Compensation Consultant |  | apex",
+     "* Human Resources Coordinator | Human Resources | apex"
+    ]
+   }
+  },
+  {
+   "id": "A6",
+   "kind": "abbrev",
+   "q": "web dev",
+   "form": "jdfn",
+   "plan": {
+    "semantic_query": "Responsible for designing, developing, and maintaining web applications and websites, ensuring optimal performance, usability, and security. Collaborates with cross\u2011functional teams to translate business requirements into functional, responsive, and accessible digital solutions.",
+    "title_keywords": [
+     "web dev",
+     "Web Developer",
+     "Web Development"
+    ],
+    "employee_group": "any",
+    "department_keywords": [],
+    "supervisory": "unknown"
+   },
+   "lib_s": 0.036,
+   "library_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 0.9,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Web Developer | Hellenic Studies | apsa",
+     "* Web Developer | Faculty Information Technical Solutions | apsa",
+     "* Web Development Coordinator | Communication Services, Student Services | ",
+     "* Web Development Coordinator |  | apsa",
+     "* Web Development Coordinator | Communications | ",
+     "* Systems and Web Developer | Creative Services | ",
+     "* Systems and Web Developer | Creative Studio | ",
+     "* Systems and Web Developer | Centre for Online & Distance Education ( | ",
+     "* Web and Systems Developer |  | apsa",
+     "  Information Technology Professional | Learning & Community Platform Operations | apsa"
+    ]
+   },
+   "builder_nlp_s": 4.243,
+   "builder_guarded": {
+    "hit5": true,
+    "hit10": true,
+    "p10": 1.0,
+    "n": 10,
+    "first_rel": 1,
+    "top": [
+     "* Web Developer | Hellenic Studies | apsa",
+     "* Web Development Coordinator | Communication Services, Student Services | ",
+     "* Web Developer | Faculty Information Technical Solutions | apsa",
+     "* Web Development Coordinator |  | apsa",
+     "* Web Development Coordinator | Communications | ",
+     "* Systems and Web Developer | Creative Services | ",
+     "* Systems and Web Developer | Creative Studio | ",
+     "* Systems and Web Developer | Centre for Online & Distance Education ( | ",
+     "* Web Development Coordinator | Education Central | ",
+     "* Systems & Web Developer |  | apsa"
+    ]
+   }
+  }
+ ]
+}
