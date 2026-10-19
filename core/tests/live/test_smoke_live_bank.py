@@ -491,6 +491,159 @@ async def test_archive_finds_documents_by_current_parsed_title(session) -> None:
         )
 
 
+#: Per current role: its distinct padded position ids, and whether EVERY member file
+#: carries one. Derived by raw SQL, never through the builder under test.
+_CRF_ROLES = f"""
+    WITH cur AS ({_CURRENT}),
+    pos AS (
+      SELECT c.cluster_id, array_agg(DISTINCT m[1] ORDER BY m[1]) AS pids
+      FROM cur c
+      CROSS JOIN LATERAL jsonb_array_elements(c.source_document_ids) e
+      JOIN source_documents s ON s.id::text = e->>'source_id'
+      CROSS JOIN LATERAL regexp_matches(s.filename, :pat, 'g') m
+      GROUP BY c.cluster_id),
+    bad AS (
+      SELECT DISTINCT c.cluster_id
+      FROM cur c
+      CROSS JOIN LATERAL jsonb_array_elements(c.source_document_ids) e
+      LEFT JOIN source_documents s ON s.id::text = e->>'source_id'
+      WHERE s.id IS NULL OR s.filename IS NULL OR s.filename !~ :pat)
+"""
+
+
+async def _crf_fill(session, cluster_id, **kwargs):  # type: ignore[no-untyped-def]
+    import io
+
+    from pypdf import PdfReader
+
+    from src.jd_bank.forms import prefill_from_role
+    from src.jd_export.comp_requisition import fill_compensation_requisition
+
+    prefill = await prefill_from_role(session, cluster_id, **kwargs)
+    pdf = fill_compensation_requisition(prefill)
+    fields = PdfReader(io.BytesIO(pdf)).get_fields() or {}
+    return prefill, {name: f.get("/V") for name, f in fields.items()}
+
+
+async def test_crf_fills_from_a_live_single_position_role(session) -> None:  # type: ignore[no-untyped-def]
+    """K2 — fill SFU's own CRF (re-evaluation) for a LIVE single-position role.
+
+    No fixture: the role is the first current role, by cluster id, whose members ALL
+    carry a padded position id, with exactly ONE position and a title, a department and
+    an APSA/APEX group. Expected values are re-derived by raw SQL — NOT by calling the
+    builder again — so a builder that silently dropped a field cannot agree with itself.
+    """
+    from src.jd_core.rules import get_rules
+    from src.jd_export.comp_requisition import load_field_map
+
+    pattern = get_rules().segmentation.position_id_pattern.pattern
+    row = (
+        await session.execute(
+            text(_CRF_ROLES + """
+                SELECT c.cluster_id, c.content->>'title', c.content->>'department',
+                       upper(c.content->>'employee_group'), p.pids
+                FROM cur c JOIN pos p USING (cluster_id)
+                WHERE cardinality(p.pids) = 1
+                  AND c.cluster_id NOT IN (SELECT cluster_id FROM bad)
+                  AND nullif(trim(c.content->>'title'), '') IS NOT NULL
+                  AND nullif(trim(c.content->>'department'), '') IS NOT NULL
+                  AND c.content->>'employee_group' IN ('apsa', 'apex')
+                ORDER BY c.cluster_id
+                LIMIT 1
+                """),
+            {"pat": pattern},
+        )
+    ).first()
+    assert row is not None, "no live role has one position + title + dept + group"
+    cluster_id, title, department, group, pids = row
+
+    _, got = await _crf_fill(
+        session, cluster_id, request_type="reevaluation", jd_in_word_attached=True
+    )
+
+    fmap = load_field_map()
+    pf = fmap.prefill_fields
+    assert got[pf["position_number"]] == pids[0]
+    assert got[pf["position_title"]] == title.strip()
+    assert got[pf["department"]] == department.strip()
+    assert got[pf["employee_group"]] == group
+    assert got[pf["based_on_positions_b"]] == pids[0]
+    assert got[pf["based_on_positions_a"]] in (None, "")  # not a Section A request
+    assert got[pf["jd_in_word_attached"]] == fmap.checkbox_on_value
+    for name in fmap.signature_fields:
+        assert got[name] in (None, ""), f"{name} must stay empty"
+
+
+async def test_crf_caps_a_live_many_position_role(session) -> None:  # type: ignore[no-untyped-def]
+    """K2 — a live role with MORE positions than the single-line field holds.
+
+    The Section A box is ~2 ids wide; the full list must land in the Reason field and
+    the box carries the cap + a `+K more` marker, never an overflowing line.
+    """
+    from src.jd_core.rules import get_rules
+    from src.jd_export.comp_requisition import load_field_map
+
+    fmap = load_field_map()
+    ov = fmap.overflow
+    pattern = get_rules().segmentation.position_id_pattern.pattern
+    row = (
+        await session.execute(
+            text(_CRF_ROLES + """
+                SELECT c.cluster_id, p.pids
+                FROM cur c JOIN pos p USING (cluster_id)
+                WHERE cardinality(p.pids) > :n
+                  AND c.cluster_id NOT IN (SELECT cluster_id FROM bad)
+                ORDER BY cardinality(p.pids) DESC, c.cluster_id
+                LIMIT 1
+                """),
+            {"pat": pattern, "n": ov.max_ids},
+        )
+    ).first()
+    assert row is not None, "no live role has more positions than the box holds"
+    cluster_id, pids = row
+
+    prefill, got = await _crf_fill(
+        session, cluster_id, request_type="new_based_on_existing"
+    )
+
+    pf = fmap.prefill_fields
+    expected = ", ".join(pids[: ov.max_ids]) + f" +{len(pids) - ov.max_ids} more"
+    assert got[pf["based_on_positions_a"]] == expected
+    assert got[pf["position_number"]] in (None, "")  # N/A if new
+    reason = str(got[ov.details_field])
+    assert all(pid in reason for pid in pids)
+    assert str(len(pids)) in reason
+    assert list(prefill.candidate_positions) == list(pids)
+
+
+async def test_crf_never_claims_one_position_for_an_unpadded_role(session) -> None:  # type: ignore[no-untyped-def]
+    """The measured trap: a role with ONE padded id whose other member files carry only
+    unpadded ids (the pattern cannot read 508 archive files) is not a single-position
+    role. Every such live role must come back flagged with no position number."""
+    from src.jd_bank.forms import prefill_from_role
+    from src.jd_core.rules import get_rules
+
+    pattern = get_rules().segmentation.position_id_pattern.pattern
+    rows = (
+        await session.execute(
+            text(_CRF_ROLES + """
+                SELECT c.cluster_id
+                FROM cur c JOIN pos p USING (cluster_id)
+                WHERE cardinality(p.pids) = 1
+                  AND c.cluster_id IN (SELECT cluster_id FROM bad)
+                ORDER BY c.cluster_id
+                """),
+            {"pat": pattern},
+        )
+    ).all()
+    for (cluster_id,) in rows:
+        prefill = await prefill_from_role(
+            session, cluster_id, request_type="reevaluation"
+        )
+        assert prefill.positions_incomplete is True, cluster_id
+        assert prefill.position_number is None, cluster_id
+
+
 # ── 9-11. EXPORT — a live role, rendered and read back by the Bank's own parser ────
 #
 # Track J1. The unit suite proves the CUPE export round-trips on fixtures; a fixture

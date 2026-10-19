@@ -1,0 +1,185 @@
+# Compensation Requisition Form (CRF) — field map for the AcroForm filler (Track K, K2).
+# Rulebook-as-data (CLAUDE.md §2): which PDF field carries which Bank value lives HERE,
+# never in Python. The Bank fills SFU's OWN form; it never redraws it.
+#
+# WHY A MAP AT ALL: the PDF's field names are unreliable and several are actively
+# misleading (`Supervisor Position Title` is the CONTACT person; `OBJECT 4` is PROJECT).
+# Every name below was matched to its printed label by drawing the widget rectangles on a
+# render (docs/audit/2026-10-19-search-hr-compreq/comp-form-mapping.md, widget_labels.txt).
+#
+# THE TEMPLATE IS PINNED. `template_sha256` is the sha256 of the shipped PDF ("Updated
+# September 17, 2024"). The filler REFUSES a template whose hash differs, and a test fails
+# if the PDF's field set differs from `all_fields` — so an SFU revision cannot be filled
+# silently against a stale map.
+#
+# NOT a decision register entry: nothing here is a threshold or a judgement. The map is
+# dictated by the form; `employee_group_options` is dictated by the dropdown's own option
+# list. Suggested-for-confirmation fields (request type, change boxes, VPA trigger) are out
+# of scope for K2 and WILL be rules when built.
+version: crf_fields_v1
+template_file: CompensationRequisitionForm_2024.pdf
+template_sha256: e3616b92be770cc2b4e412fd7099f8509c2e711850ed23821ae3303827c6e790
+checkbox_on_value: /Yes
+
+# semantic name -> PDF field name (the ONLY fields the Bank may fill)
+prefill_fields:
+  position_number: "Position  NA if new"             # General: Position # (N/A Position if new)
+  position_title: "Position Title"                   # General: Position Title
+  department: "Department"                           # General: Department
+  based_on_positions_a: "Text70"                     # Sec A: based off existing? list all position #
+  based_on_positions_b: "No      If no specify effective date of changeRow1"  # Sec B: list all position #
+  jd_in_word_attached: "Check Box79"                 # Checklist: Job description in Word format
+  employee_group: "Employee Group"                   # VPA section: Employee Group (APSA | APEX)
+
+# Bank employee_group code -> the dropdown option. CUPE / Poly / excluded are NOT options on
+# the form, so they map to nothing and the field stays empty (never coerced).
+employee_group_options:
+  apsa: APSA
+  apex: APEX
+
+# CompReqPrefill fields that are carried for the caller (K3's picker, a warning) and are
+# NEVER written to the PDF.
+unwritten_fields:
+  - candidate_positions
+  - positions_incomplete
+
+# OVERFLOW of the single-line "list all position #" boxes. MEASURED off the template:
+# `Text70` (Sec A) is 212.03 pt wide at a FIXED 12 pt Helvetica; a padded id is 8 digits
+# = 53.4 pt and ", " is 6.7 pt, so three ids + a "+K more" marker do not fit and TWO
+# do (2 ids + " +71 more" = 168 pt). `max_ids` is therefore 2. Sec B's box is wider
+# (247.9 pt, auto font) so the same cap is conservative there. A longer list writes the
+# first `max_ids` + the marker on the box, and the FULL list under its section label in
+# `details_field` (the large multiline "Reason for request" box).
+overflow:
+  max_ids: 2
+  more_template: " +{k} more"
+  field_width_pt: 212.0
+  font_size_pt: 12
+  details_field: "Reason for request and additional information"
+  section_labels:
+    based_on_positions_a: "Section A"
+    based_on_positions_b: "Section B"
+
+# Fields the filler must NEVER write, whatever it is asked.
+signature_fields:
+  - Signature
+  - Signature_2
+  - Signature3
+
+# The complete AcroForm field set of the pinned template (115 names).
+all_fields:
+  - "Accounting String if cost split is required please include secondary accounting string and percentage breakdown in Additional Information under"
+  - "Check Box11"
+  - "Check Box13"
+  - "Check Box14"
+  - "Check Box15"
+  - "Check Box16"
+  - "Check Box2"
+  - "Check Box25"
+  - "Check Box26"
+  - "Check Box27"
+  - "Check Box28"
+  - "Check Box29"
+  - "Check Box30"
+  - "Check Box31"
+  - "Check Box32"
+  - "Check Box33"
+  - "Check Box34"
+  - "Check Box35"
+  - "Check Box36"
+  - "Check Box37"
+  - "Check Box38"
+  - "Check Box39"
+  - "Check Box41"
+  - "Check Box42"
+  - "Check Box43"
+  - "Check Box44"
+  - "Check Box45"
+  - "Check Box46"
+  - "Check Box47"
+  - "Check Box48"
+  - "Check Box53"
+  - "Check Box54"
+  - "Check Box55"
+  - "Check Box56"
+  - "Check Box57"
+  - "Check Box58"
+  - "Check Box62"
+  - "Check Box63"
+  - "Check Box64"
+  - "Check Box65"
+  - "Check Box66"
+  - "Check Box67"
+  - "Check Box71"
+  - "Check Box72"
+  - "Check Box73"
+  - "Check Box75"
+  - "Check Box76"
+  - "Check Box78"
+  - "Check Box79"
+  - "Check Box80"
+  - "Check Box81"
+  - "Check Box82"
+  - "Check Box84"
+  - "Check Box85"
+  - "Date"
+  - "Date2_af_date"
+  - "Date_2"
+  - "Department"
+  - "Dropdown10"
+  - "Dropdown51"
+  - "Dropdown77"
+  - "Effective Date"
+  - "Effective Date_2"
+  - "Effective Date_3"
+  - "Effective Date_4"
+  - "Effective Date_5"
+  - "Effective Date_6"
+  - "Email"
+  - "Email_2"
+  - "Employee Group"
+  - "End Date"
+  - "FUND 2"
+  - "Hours"
+  - "New Biweekly Hours"
+  - "New Dept ID"
+  - "New Supervisor Position"
+  - "No      If no specify effective date of changeRow1"
+  - "OBJECT 4"
+  - "OBJECT 4_2"
+  - "PROVOST VICEPRESIDENT ACADEMIC"
+  - "Position  NA if new"
+  - "Position Title"
+  - "Print Name"
+  - "Print Name_2"
+  - "Proposed Grade"
+  - "RESET FORM"
+  - "Reason for request and additional information"
+  - "SECTION C Editorial Changes"
+  - "SECTION D Additional Duties TEMPORARY"
+  - "SUBMISSION CHECKLIST"
+  - "Signature"
+  - "Signature3"
+  - "Signature_2"
+  - "Supervisor Name"
+  - "Supervisor Position Title"
+  - "Text17"
+  - "Text18"
+  - "Text19"
+  - "Text4"
+  - "Text49"
+  - "Text5"
+  - "Text50"
+  - "Text52"
+  - "Text60"
+  - "Text61"
+  - "Text68"
+  - "Text70"
+  - "Text8"
+  - "Text86"
+  - "Text87"
+  - "Text9"
+  - "please include secondary string and percentage breakdown in General Information at the start of the form"
+  - "undefined"
+  - "undefined_2"
+  - "undefined_3"
