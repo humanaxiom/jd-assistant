@@ -7554,7 +7554,256 @@ decisions:
       `unknown`).
     status: open
 
+  # ═══ THE CUPE EXPORT FORM (Track J, PR J1) ════════════════════════════════════
+  - id: HR-238
+    question: >-
+      Is the CUPE job description the Builder exports a faithful copy of HR's current
+      "WJQ Custom — Part 1: Job Description" form?
+    config:
+      file: cupe_form.yaml
+      path: cupe_form.banner
+    current_default:
+      - SIMON FRASER UNIVERSITY & C.U.P.E., LOCAL 3338
+      - WEIGHTED JOB QUESTIONNAIRE (WJQ) CUSTOM
+      - "PART 1: JOB DESCRIPTION"
+    provenance: sfu_rulebook
+    source_part: >-
+      SFU HR "WJQ Custom Part I: Job Description Template"
+      (CUPE_Job_Description_Template_Sept2013.docx, file modified 2026-05-12),
+      vendored with its sha256 in fixtures/hr/cupe/
+    tier: hr_policy
+    why_it_matters: >-
+      CUPE 3338 Art. 15.04: "The standard job description form cannot be revised without
+      mutual agreement between the University and the Union." Until J1 every CUPE draft
+      exported in the APSA layout with the APSA territorial/equity footer — a different
+      form. The export now prints HR's own form: its banner, its fourteen numbered
+      sections in order, its identification labels, instructions, checkbox options and
+      table headings, transcribed verbatim from the template HR links today (typos and
+      all — revising the wording is not ours to do). Every one of those strings lives in
+      `cupe_form.yaml`; this entry pins the banner and the trivial exemptions below point
+      here for the rest. The template's filename says "Sept2013" while the file was
+      modified on 2026-05-12, so HR should confirm this IS the form in force before any
+      export is circulated.
+    impact_if_changed: >-
+      Does NOT move `rules_version` and does NOT move `PARSER_VERSION`: no validator reads
+      this file and the parser never sees it (`_UNHASHED_FILES`). It changes only what an
+      exported CUPE `.docx` looks like. ⚠ The fourteen section HEADINGS are NOT here — the
+      export reads them from `wjq.section_headings` so the Bank's own parser can read its
+      export back; editing a heading there is a parser change (hashed, re-parse).
+      Pinned by the round-trip tests (`test_jd_export_cupe.py`, and the live smoke
+      `test_a_live_cupe_role_survives_export_and_reparse`).
+    status: open
+  - id: HR-239
+    question: >-
+      Where on the CUPE form does the export print the parts of a draft that the form
+      has no field of its own for?
+    config:
+      file: cupe_form.yaml
+      path: cupe_form.qualification_blocks
+    current_default:
+      education: education
+      experience: experience
+      knowledge: skills
+      skill: skills
+      ability: requirements
+      security: requirements
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The Bank's model is the APSA template's shape, and HR's CUPE form is a different
+      one, so some placements are ours. Qualifications — knowledge and skill print under
+      "Occupational Skills" (HR's Dec-2024 sample puts knowledge-type lines there);
+      ability and security under "Occupational Requirement(s)", which mirrors the parser
+      (`wjq.qualification_cues` reads that block back as ability) so an export
+      round-trips its kinds. ⚠ The model's `ability` is not HR's distinction: the rewrite
+      pass files "Ability to exercise mature judgment" as an ability, which HR would put
+      under Occupational Skills. Also decided here (trivial exemptions point at this
+      entry): the Relationships section's supervisory scope prints under DIRECTION
+      EXERCISED; problem-solving / decision-making prose (empty on every live CUPE role)
+      under LEVEL OF INDEPENDENCE; each duty's how/why clauses print inside its duty
+      sentence, as HR's form asks ("what + how + why"). And, NOT a knob because the model
+      cannot express it until J2: every duty prints under MAJOR FUNCTIONS and MINOR
+      FUNCTIONS is left blank, because the major/minor split is lost on assembly and
+      parse (gap analysis §2a item 4); the checkbox sections print every option UNTICKED
+      and the contact / effort / working-conditions tables print duration, frequency and
+      hours BLANK, because the model stores those sections as free text, not choices. The
+      free text itself is printed inside its section, minus the form's own instruction /
+      prompt sentences (archive-parsed roles store them flattened into the section), but
+      WITH its options and column headings: an archive form types its tick beside an
+      option ("_X An equivalent combination …"), and that tick is the only record of the
+      choice. Text that cannot be split honestly (an authored "impact of errors" with no
+      Common/Uncommon prompts) is printed under the first prompt.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. Moving a kind to another block
+      moves where HR reads it and what kind it re-parses as; leaving a kind out is
+      refused at load (`CupeForm._tables_are_complete`), because an unmapped kind would be
+      silently left off the export. Pinned by the round-trip oracle
+      (`tests/export_roundtrip.py`).
+    status: open
+  - id: HR-240
+    question: >-
+      Should the CUPE export ever print a classification or grade — in HR's "FOR USE BY
+      HUMAN RESOURCES" box, or as the "Current Position Classification"?
+    config:
+      file: cupe_form.yaml
+      path: cupe_form.hr_box_labels
+    current_default:
+      - "Classification & Grade Approved:"
+      - "Effective Date:"
+      - "Approved by:"
+      - "Next Review:"
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The export prints HR's box with these four labels and ALWAYS leaves their values
+      blank, and does not print the draft's grade anywhere else either. The box is "FOR
+      USE BY HUMAN RESOURCES" (S13; the CUPE writing guide: "a staff member of the human
+      resources department will indicate approval"); pre-filling it would assert an HR
+      approval that has not happened (non-negotiable #1). The draft's grade is not a safe
+      "Current Position Classification" either: for a role harmonized from many archive
+      files it is a cluster-level value, and the Builder currently asks the AUTHOR for
+      "the approved classification and grade" — the inversion the gap analysis flags
+      (§2a item 1h). Consequence, stated plainly: an exported CUPE draft re-ingested by
+      the Bank comes back with no grade. J2 adds a proper "current classification" field.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. Printing a grade into HR's box is
+      a non-negotiable-#1 question, not a formatting one — it needs HR's ruling, not a
+      config edit. Pinned by `test_the_hr_box_and_the_sign_off_lines_are_blank`.
+    status: open
+
 trivial:
+  # ── The CUPE export form (Track J1): HR's own wording, pinned by HR-238. ──
+  - config: {file: cupe_form.yaml, path: cupe_form.font_name}
+    reason: >-
+      HR's template sets its text in Arial; formatting transcribed from the form, part of
+      the form-fidelity question HR-238 asks.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.font_size_pt}
+    reason: >-
+      HR's template sets its text at 10 pt; formatting transcribed from the form, part of
+      the form-fidelity question HR-238 asks.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.id_labels}
+    reason: >-
+      The identification labels, verbatim from HR's form. The three the model carries
+      must be parser spellings (`test_the_modelled_id_labels_are_ones_the_parser_reads`).
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.completed_by_label}
+    reason: HR's own wording for the "Part 1 is being completed by" line, verbatim.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.completed_by_options}
+    reason: HR's own two "completed by" choices, verbatim; always printed unticked.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.hr_box_heading}
+    reason: The heading of HR's own box on the form, verbatim; the box's blankness is HR-240.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.instructions}
+    reason: >-
+      The instruction line under each numbered heading, verbatim from HR's form.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.checkbox_glyph}
+    reason: >-
+      The empty box printed beside each checkbox option — the form's shape, not a choice
+      of content. Part of the form-fidelity question HR-238 asks.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.checkbox_options}
+    reason: >-
+      The option text of sections 5, 6, 7 and 12, verbatim from HR's form; printed
+      unticked (HR-239 says why).
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.contacts_columns}
+    reason: Section 8's column headings, verbatim from HR's form.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.effort_columns}
+    reason: Section 10's column headings, verbatim from HR's form.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.working_conditions_location_prompt}
+    reason: Section 11's first prompt, verbatim from HR's form.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.working_conditions_location_columns}
+    reason: Section 11's first table's column headings, verbatim from HR's form.
+    covered_by: HR-238
+  - config:
+      file: cupe_form.yaml
+      path: cupe_form.working_conditions_uncomfortable_prompt
+    reason: Section 11's second prompt, verbatim from HR's form.
+    covered_by: HR-238
+  - config:
+      file: cupe_form.yaml
+      path: cupe_form.working_conditions_uncomfortable_columns
+    reason: Section 11's second table's column headings, verbatim from HR's form.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.working_conditions_hazards_prompt}
+    reason: Section 11's third prompt, verbatim from HR's form.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.working_conditions_hazards_columns}
+    reason: Section 11's third table's column headings, verbatim from HR's form.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.blank_rows}
+    reason: >-
+      How many empty rows each table offers, counted off HR's form; a table with more
+      modelled rows grows to fit, so this can never drop content.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.impact_of_errors_common_prompt}
+    reason: Section 9's "Common Errors" prompt, verbatim from HR's form.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.impact_of_errors_uncommon_prompt}
+    reason: Section 9's "Uncommon Errors" prompt, verbatim from HR's form.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.qualifications_education_prompt}
+    reason: Section 13's formal-education prompt, verbatim from HR's form.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.qualifications_certification_prompt}
+    reason: Section 13's certification prompt, verbatim; its value is not modelled (J2).
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.qualifications_experience_prompt}
+    reason: Section 13's minimum-experience prompt, verbatim from HR's form.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.qualifications_experience_unit}
+    reason: The "Years" unit cell beside the experience number on HR's form, verbatim.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.qualifications_equivalency_heading}
+    reason: Section 13's "Check one:" line, verbatim from HR's form.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.qualifications_equivalency_options}
+    reason: >-
+      Section 13's two equivalency choices, verbatim; printed unticked because the model
+      has no equivalency choice yet (J2).
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.qualifications_skills_prompt}
+    reason: Section 13's "Occupational Skills" prompt, verbatim from HR's form.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.qualifications_requirements_prompt}
+    reason: Section 13's "Occupational Requirement(s)" prompt, verbatim from HR's form.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.approval_supervisor_statement}
+    reason: Section 14's supervisor statement, verbatim; its sign-off lines are always blank.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.approval_supervisor_labels}
+    reason: Section 14's supervisor name / signature / date labels, verbatim; values blank.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.approval_employee_statement}
+    reason: Section 14's employee statement, verbatim; its sign-off lines are always blank.
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.approval_employee_labels}
+    reason: Section 14's employee name / signature / date labels, verbatim; values blank.
+    covered_by: HR-238
+  # ── The CUPE export form: where the model's slot-less fields print, HR-239. ──
+  - config: {file: cupe_form.yaml, path: cupe_form.supervisory_section}
+    reason: >-
+      Where the Relationships section's supervisory scope prints on the CUPE form (it has
+      no Relationships section). A placement decided with the rest in HR-239.
+    covered_by: HR-239
+  - config: {file: cupe_form.yaml, path: cupe_form.decision_making_section}
+    reason: >-
+      Where decision-making prose prints on the CUPE form (empty on every live CUPE role).
+      A placement decided with the rest in HR-239.
+    covered_by: HR-239
+  - config: {file: cupe_form.yaml, path: cupe_form.problem_solving_section}
+    reason: >-
+      Where problem-solving prose prints on the CUPE form (empty on every live CUPE role).
+      A placement decided with the rest in HR-239.
+    covered_by: HR-239
   # ── The tree shape: definitional given the rollups above. ──
   - config: {file: org_units.yaml, path: org_units.vpfa.children}
     reason: >-

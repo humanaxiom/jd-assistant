@@ -101,6 +101,8 @@ def test_rewrite_is_an_unhashed_file(rules: Rules) -> None:
         "org_units.yaml",
         # P3f added `classification.yaml` — the tenth (test_classification_rules).
         "classification.yaml",
+        # Track J1 added `cupe_form.yaml` — the eleventh (test_jd_export_cupe).
+        "cupe_form.yaml",
     }
     assert "rewrite" not in loader._HASHED_FIELDS
 

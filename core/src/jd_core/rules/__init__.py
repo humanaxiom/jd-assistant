@@ -19,6 +19,7 @@ version.
 from src.jd_core.rules.loader import (
     CLASSIFICATION_FILE,
     CONTENT_HASH_LENGTH,
+    CUPE_FORM_FILE,
     DEDUP_FILE,
     EMBEDDINGS_FILE,
     FUNCTIONAL_FAMILIES_FILE,
@@ -43,6 +44,7 @@ from src.jd_core.rules.loader import (
     CodedTerms,
     Comparison,
     ConfigRef,
+    CupeForm,
     DecisionProvenance,
     DecisionRegister,
     DecisionStatus,
@@ -107,6 +109,7 @@ from src.jd_core.rules.loader import (
 __all__ = [
     "CLASSIFICATION_FILE",
     "CONTENT_HASH_LENGTH",
+    "CUPE_FORM_FILE",
     "DEDUP_FILE",
     "EMBEDDINGS_FILE",
     "GENERAL_SECTION",
@@ -133,6 +136,7 @@ __all__ = [
     "Embeddings",
     "ExactEdgeTopology",
     "ConfigRef",
+    "CupeForm",
     "PositionIdGrouping",
     "FUNCTIONAL_FAMILIES_FILE",
     "FunctionalFamilies",

@@ -1,8 +1,11 @@
 """Render an SFU JD to the official ``.docx`` template (Phase 5.7).
 
-The composer/export half of the plan (§2.5). ``render_sfu_docx`` composes an
+The composer/export half of the plan (§2.5). ``render_sfu_docx`` is the one entry point
+and picks the FORM by :func:`~src.jd_core.quality.validators.template_of` (Track J1): a
+CUPE (WJQ) JD goes to :mod:`src.jd_export.cupe` — HR's CUPE form, no APSA footer — and
+every other JD to :func:`render_jdfn_docx`, which composes an
 :class:`~src.jd_core.models.parsed_jd.SFUJobDescription` into a Word document that
-follows SFU's formatting standard (rulebook Part 10.1):
+follows SFU's APSA/APEX/Poly formatting standard (rulebook Part 10.1):
 
 * **Times New Roman, size 10** — set on the ``Normal`` style, so every paragraph
   inherits it.
@@ -41,7 +44,10 @@ from src.jd_core.models.parsed_jd import (
     SFUQualification,
     SFURelationships,
 )
+from src.jd_core.models.quality import WJQ_TEMPLATE
+from src.jd_core.quality.validators import template_of
 from src.jd_core.rules import Rules, get_rules
+from src.jd_export.cupe import render_cupe_docx
 
 _BODY_FONT = "Times New Roman"
 _BODY_SIZE = Pt(10)
@@ -124,7 +130,21 @@ def _footer(doc: DocxDocument, rules: Rules) -> None:
 
 
 def render_sfu_docx(jd: SFUJobDescription, *, rules: Rules | None = None) -> bytes:
-    """Compose ``jd`` into an SFU-format ``.docx`` and return its bytes.
+    """Compose ``jd`` into the ``.docx`` of ITS OWN SFU form and return the bytes.
+
+    The single public entry point (Track J1): callers never branch on the form. The
+    form is :func:`~src.jd_core.quality.validators.template_of` — the same separator the
+    validator judges the JD by — so a CUPE (WJQ) JD exports on HR's CUPE form
+    (:func:`~src.jd_export.cupe.render_cupe_docx`: no APSA footer, CUPE 3338 Art. 15.04)
+    and every other JD on the APSA/APEX/Poly layout (:func:`render_jdfn_docx`, byte for
+    byte what this function produced before J1). Deterministic."""
+    if template_of(jd) == WJQ_TEMPLATE:
+        return render_cupe_docx(jd, rules=rules)
+    return render_jdfn_docx(jd, rules=rules)
+
+
+def render_jdfn_docx(jd: SFUJobDescription, *, rules: Rules | None = None) -> bytes:
+    """Compose ``jd`` into an APSA/APEX/Poly (JDFN) ``.docx`` and return its bytes.
 
     Sections render in SFU template order; empty ones are dropped; the mandated
     footer is always appended from the rulebook. Deterministic."""
