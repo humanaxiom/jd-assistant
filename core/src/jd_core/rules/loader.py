@@ -842,7 +842,7 @@ class Segmentation(_RuleFile):
 #: vector can observe. **Adding to this set is a claim that needs proving** — anything
 #: touching WHAT is sent to the model, or WHICH model sees it, does not belong here.
 _NON_VECTOR_EMBEDDING_FIELDS: Final[frozenset[str]] = frozenset(
-    {"interactive_timeout_seconds"}
+    {"interactive_timeout_seconds", "library_vector_k"}
 )
 
 
@@ -929,6 +929,9 @@ class Embeddings(_RuleFile):
     #: up. Bounds the accept-then-stall failure a ``try``/``except`` cannot catch —
     #: NOT the batch budget, which is deliberately left long. HR-198.
     interactive_timeout_seconds: float = Field(gt=0.0)
+    #: How deep the library search reads the role vector index before paging (Track I1,
+    #: HR-237). Order only, never a threshold. Non-vector: outside the embed stamp.
+    library_vector_k: int = Field(ge=1)
 
     @field_validator("document_sections", "section_vectors")
     @classmethod

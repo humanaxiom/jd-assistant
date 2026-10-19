@@ -1,0 +1,120 @@
+# search_eval_v1 — the 22-query relevance set behind Track I1 (library hybrid search).
+#
+# PROVENANCE. Lifted from the 2026-10-19 search spike
+# (docs/audit/2026-10-19-search-hr-compreq/search-nlp-spike.md, section 2; predicates in
+# evidence/spike.py). Relevance is a PREDICATE over a live role's (title, department,
+# employee group), written after reading the live role table — NOT a list of role ids,
+# because ids change with every re-cluster. A single reviewer (the spike author) judged
+# these and the predicates are somewhat lenient: hit@10 is coarse; do not read precision
+# off it. FIXTURES ARE SACRED (NN #7): change only through a reviewed PR.
+#
+# SEMANTICS. A role is relevant to a query when ALL the keys present hold:
+#   title_pattern             regex, case-insensitive, searched in the role title
+#   department_pattern        regex, searched in the department (missing = "")
+#   not_department_pattern    regex that must NOT match the department
+#   groups                    employee_group must be one of these ("" = group not recorded)
+#
+# THE FLOOR. tests/live/test_smoke_live_bank.py requires hit@10 >= `recall_floor_hit_at_10`
+# of the queries returning a relevant role in their first 10 results. The spike measured
+# 20/22 for the no-LLM hybrid; C1 (Faculty of Science) and A4 (typo) are the known misses
+# (no faculty->department mapping, no typo tolerance yet). If the live result is below the
+# floor, REPORT it; do not lower the floor.
+
+version: search_eval_v1
+recall_floor_hit_at_10: 18
+
+queries:
+  - id: E1
+    kind: exact
+    query: "Financial Assistant"
+    title_pattern: 'financ\w* (and administrative )?assistant|administrative and financial assistant'
+  - id: E2
+    kind: exact
+    query: "Co-op Education Coordinator"
+    title_pattern: '(co-?op|co‑op|co-operative)( education)?( program)? (coordinator|career advisor)'
+  - id: E3
+    kind: exact
+    query: "Research Grants Facilitator"
+    title_pattern: 'research (grants?|facilitat)'
+  - id: E4
+    kind: exact
+    query: "Laboratory Technician"
+    title_pattern: 'lab(oratory)? (technician|technologist|assistant)|research technician'
+  - id: P1
+    kind: paraphrase
+    query: "someone who processes invoices and reconciles accounts"
+    title_pattern: 'accounts? (payable|receivable)|accounting|financ\w* (and administrative )?(assistant|clerk)|administrative and financial assistant|finance (assistant|clerk)|accounts? clerk|bookkeep'
+  - id: P2
+    kind: paraphrase
+    query: "person who helps students plan their courses and meet degree requirements"
+    title_pattern: '(academic|undergraduate|graduate|program|student)( program)? advis'
+  - id: P3
+    kind: paraphrase
+    query: "fundraiser who builds relationships with major donors"
+    title_pattern: 'advancement|development (officer|coordinator|director|manager)|major gifts|gift|donor|fundrais|philanthrop'
+  - id: P4
+    kind: paraphrase
+    query: "entry-level library job shelving books and helping patrons at the desk"
+    title_pattern: 'librar\w* (assistant|circulation)|circulation|loans'
+  - id: D1
+    kind: duty
+    query: "maintain Linux servers, apply patches, run backups and manage user accounts"
+    title_pattern: 'system(s)?.{0,15}admin|sysadmin|systems (consultant|specialist|engineer)|infrastructure|unix|linux|devops|server'
+  - id: D2
+    kind: duty
+    query: "plan and run conferences, convocation ceremonies and university events"
+    title_pattern: 'event|ceremon|convocation|conference'
+  - id: D3
+    kind: duty
+    query: "manage research grant applications and post-award budgets for faculty members"
+    title_pattern: 'research (grants?|facilitat|finance|services|project)|grants? (officer|facilitator|coordinator|administrator)|post-award'
+  - id: D4
+    kind: duty
+    query: "write news stories, manage social media and the department newsletter"
+    title_pattern: 'communicat|marketing|writer|social media|content|editor'
+  - id: C1
+    kind: constraint
+    query: "supervisory admin role in Faculty of Science, APSA"
+    title_pattern: 'manager|director|administrator'
+    department_pattern: 'biolog|chemistry|mathemat|molecular biology|physics|statistics|earth sci|faculty of science|science dean|dean of science|biomedical physiology|kinesiology|science technical|science stores|\bscience,|^science\b'
+    not_department_pattern: 'social|health|applied|political|computing|environment|engineering'
+    groups: [apsa, ""]
+  - id: C2
+    kind: constraint
+    query: "CUPE administrative assistant"
+    title_pattern: 'administrative assistant|office assistant|program assistant|secretary|admin\w* and \w+ assistant'
+    groups: [cupe]
+  - id: C3
+    kind: constraint
+    query: "APSA communications officer"
+    title_pattern: 'communications (officer|associate|coordinator|specialist|manager)|marketing (and|&) communications'
+    groups: [apsa, ""]
+  - id: C4
+    kind: constraint
+    query: "academic advisor in the Beedie business school"
+    title_pattern: 'advis'
+    department_pattern: 'beedie|business'
+  - id: A1
+    kind: abbrev
+    query: "coop coord"
+    title_pattern: '(co-?op|co‑op|co-operative)( education)?( program)? (coordinator|career advisor)'
+  - id: A2
+    kind: abbrev
+    query: "IT sysadmin"
+    title_pattern: 'system(s)?.{0,15}admin|sysadmin|systems (consultant|specialist|engineer)|infrastructure|unix|linux|devops|server'
+  - id: A3
+    kind: abbrev
+    query: "AP clerk"
+    title_pattern: 'accounts? (payable|receivable)|accounting|financ\w* (and administrative )?(assistant|clerk)|administrative and financial assistant|finance (assistant|clerk)|accounts? clerk|bookkeep'
+  - id: A4
+    kind: typo
+    query: "adminstrative cordinator"
+    title_pattern: 'administrative co-?ordinator'
+  - id: A5
+    kind: abbrev
+    query: "HR advisor labour relations"
+    title_pattern: 'labou?r|employee relations|human resources'
+  - id: A6
+    kind: abbrev
+    query: "web dev"
+    title_pattern: 'web'

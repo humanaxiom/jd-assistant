@@ -15,19 +15,24 @@ fresh gate decision (that is the review packet's job).
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from collections.abc import Collection, Sequence
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
-from sqlalchemy import Float, func, select
+from neo4j import AsyncDriver
+from sqlalchemy import Float, Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.jd_bank.composer.search import semantic_role_neighbours, title_rank
 from src.jd_bank.db.models import (
     CanonicalJD,
     Cluster,
     ParsedJDRow,
     SourceDocument,
 )
+from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.library.models import (
     MemberJD,
     RoleListItem,
@@ -40,6 +45,10 @@ from src.jd_bank.library.models import (
 )
 from src.jd_core.bank.render import render_sfu_jd_text
 from src.jd_core.models.parsed_jd import SFUJobDescription
+from src.jd_core.parser import PARSER_VERSION
+from src.jd_core.rules import Rules, get_rules
+
+logger = logging.getLogger(__name__)
 
 #: Default page size for the browsable lists (roles + source archive).
 DEFAULT_PAGE_SIZE = 50
@@ -238,7 +247,9 @@ async def get_role(session: AsyncSession, cluster_id: UUID) -> RoleView | None:
 # --- the roles library (browse) -------------------------------------------------------
 
 
-def _role_list_item(canonical: CanonicalJD) -> RoleListItem:
+def _role_list_item(
+    canonical: CanonicalJD, matched_by: Literal["title", "meaning"] | None = None
+) -> RoleListItem:
     content = canonical.content or {}
     validator = (canonical.change_log or {}).get("validator") or {}
     return RoleListItem(
@@ -249,6 +260,161 @@ def _role_list_item(canonical: CanonicalJD) -> RoleListItem:
         source_count=len(canonical.source_document_ids or []),
         score=validator.get("score"),
         grade=validator.get("grade"),
+        matched_by=matched_by,
+    )
+
+
+#: Shown when the role-vector pass could not run, so the reader knows the list is
+#: shorter than it would be — never a silent downgrade.
+SEMANTIC_UNAVAILABLE_BANNER = (
+    "Search by meaning is unavailable right now, so only roles whose title matches "
+    "your search are shown. Try again in a few minutes."
+)
+
+
+def _like_pattern(query: str) -> str:
+    """``%query%`` with the LIKE wildcards in the query itself neutralised."""
+    escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+async def _meaning_candidates(
+    query: str,
+    *,
+    embed_client: EmbedClient,
+    neo4j_driver: AsyncDriver,
+    rules: Rules | None,
+) -> list[UUID] | None:
+    """The role-vector pass, bounded and failure-proof: cluster ids best-first, or
+    ``None`` when it could not run (host down, refused, stalled past the interactive
+    budget, bad request). The library must never 500 because a GPU box is off."""
+    rulebook = rules if rules is not None else get_rules()
+    try:
+        near = await asyncio.wait_for(
+            semantic_role_neighbours(
+                query,
+                embed_client=embed_client,
+                neo4j_driver=neo4j_driver,
+                k=rulebook.embeddings.library_vector_k,
+                rules=rulebook,
+            ),
+            timeout=rulebook.embeddings.interactive_timeout_seconds,
+        )
+    except Exception:  # noqa: BLE001 — any embed/index failure degrades, never raises
+        logger.warning(
+            "library meaning search unavailable; serving title matches only",
+            exc_info=True,
+        )
+        return None
+    return [cluster_id for cluster_id, _title, _group in near]
+
+
+async def _search_roles(
+    session: AsyncSession,
+    base: Select[Any],
+    *,
+    query: str,
+    limit: int,
+    offset: int,
+    sort: str,
+    direction: str,
+    embed_client: EmbedClient | None,
+    neo4j_driver: AsyncDriver | None,
+    rules: Rules | None,
+) -> RolePage:
+    """Title tiers first (exact, prefix, contains), then roles found by meaning, each
+    role once. ``base`` is already scoped to the current version per cluster (and to
+    any collection)."""
+    title_rows = list(
+        (
+            await session.execute(
+                base.with_only_columns(
+                    CanonicalJD.cluster_id, CanonicalJD.content["title"].astext
+                ).where(
+                    CanonicalJD.content["title"].astext.ilike(
+                        _like_pattern(query), escape="\\"
+                    )
+                )
+            )
+        ).all()
+    )
+    title_rows.sort(
+        key=lambda r: (title_rank(r[1] or "", query), (r[1] or "").lower(), str(r[0]))
+    )
+    title_ids = [row[0] for row in title_rows]
+
+    banner: str | None = None
+    meaning: list[UUID] = []
+    if embed_client is not None and neo4j_driver is not None:
+        found = await _meaning_candidates(
+            query, embed_client=embed_client, neo4j_driver=neo4j_driver, rules=rules
+        )
+        if found is None:
+            banner = SEMANTIC_UNAVAILABLE_BANNER
+        else:
+            meaning = found
+
+    titled = set(title_ids)
+    candidates = title_ids + [c for c in dict.fromkeys(meaning) if c not in titled]
+    # Only roles that are a CURRENT, in-scope canonical survive: a stale vector node for
+    # a renamed/removed role (or one outside a collection) drops out here.
+    present: set[UUID] = set()
+    if candidates:
+        present = set(
+            (
+                await session.scalars(
+                    base.with_only_columns(CanonicalJD.cluster_id).where(
+                        CanonicalJD.cluster_id.in_(candidates)
+                    )
+                )
+            ).all()
+        )
+    ordered = [c for c in candidates if c in present]
+
+    relevance = sort not in _ROLE_SORTS
+    descending = direction == "desc"
+    rows: list[CanonicalJD] = []
+    if ordered:
+        if relevance:
+            page_ids = ordered[offset : offset + limit]
+            fetched = {
+                r.cluster_id: r
+                for r in (
+                    await session.scalars(
+                        base.where(CanonicalJD.cluster_id.in_(page_ids))
+                    )
+                ).all()
+            }
+            rows = [fetched[c] for c in page_ids if c in fetched]
+        else:
+            column = _ROLE_SORTS[sort]
+            ordering = (column.desc() if descending else column.asc()).nulls_last()
+            rows = list(
+                (
+                    await session.scalars(
+                        base.where(CanonicalJD.cluster_id.in_(ordered))
+                        .order_by(
+                            ordering,
+                            CanonicalJD.content["title"].astext.asc(),
+                            CanonicalJD.id.asc(),
+                        )
+                        .limit(limit)
+                        .offset(offset)
+                    )
+                ).all()
+            )
+    return RolePage(
+        items=tuple(
+            _role_list_item(r, "title" if r.cluster_id in titled else "meaning")
+            for r in rows
+        ),
+        total=len(ordered),
+        limit=limit,
+        offset=offset,
+        q=query,
+        sort="relevance" if relevance else sort,
+        direction="desc" if (descending and not relevance) else "asc",
+        banner=banner,
     )
 
 
@@ -258,14 +424,27 @@ async def list_roles(
     q: str = "",
     limit: int | None = None,
     offset: int = 0,
-    sort: str = "title",
+    sort: str = "",
     direction: str = "asc",
     cluster_ids: Collection[UUID] | None = None,
+    embed_client: EmbedClient | None = None,
+    neo4j_driver: AsyncDriver | None = None,
+    rules: Rules | None = None,
 ) -> RolePage:
     """A page of harmonized roles (one per cluster, the current version), optionally
-    filtered by a title substring and sorted by a clickable column (``sort`` in
-    :data:`_ROLE_SORTS`, ``direction`` asc/desc — anything else falls back to title
-    asc). ``total`` is the pre-pagination count for the "showing N–M of TOTAL" line.
+    searched and sorted by a clickable column (``sort`` in :data:`_ROLE_SORTS`,
+    ``direction`` asc/desc). ``total`` is the pre-pagination count for the "showing N–M
+    of TOTAL" line.
+
+    **A non-blank ``q`` is a hybrid search (Track I1):** title matches first (exact,
+    then prefix, then contains), then roles found by MEANING through the same
+    role-vector pass the Builder uses, de-duplicated across the two. Rank order is the
+    default sort (``sort`` unset or ``"relevance"``); a column sort re-orders the same
+    candidate set. Each row says WHY it matched (``matched_by``) and never carries a
+    similarity. The vector pass runs only when BOTH ``embed_client`` and
+    ``neo4j_driver`` are supplied; if it fails (host down, refused, stalled past the
+    interactive budget) the page keeps its title matches and carries a ``banner`` —
+    it never raises. Without ``q`` the sort falls back to title.
 
     ``cluster_ids`` narrows the page to a named set of roles — the resolved membership
     of a functional family (Phase A2), so a collection page reuses this one query
@@ -287,10 +466,21 @@ async def list_roles(
         .subquery()
     )
     base = select(CanonicalJD).join(latest_ids, CanonicalJD.id == latest_ids.c.id)
-    if query:
-        base = base.where(CanonicalJD.content["title"].astext.ilike(f"%{query}%"))
     if cluster_ids is not None:
         base = base.where(CanonicalJD.cluster_id.in_(list(cluster_ids)))
+    if query:
+        return await _search_roles(
+            session,
+            base,
+            query=query,
+            limit=limit,
+            offset=offset,
+            sort=sort,
+            direction=direction,
+            embed_client=embed_client,
+            neo4j_driver=neo4j_driver,
+            rules=rules,
+        )
     total = await session.scalar(select(func.count()).select_from(base.subquery())) or 0
     column = _ROLE_SORTS[sort_key]
     ordering = (column.desc() if descending else column.asc()).nulls_last()
@@ -328,14 +518,25 @@ async def list_source_jds(
     offset: int = 0,
 ) -> SourcePage:
     """A page of the flat source archive (every ingested .docx), filename-ordered,
-    optionally filtered by a filename substring. Each row carries its latest parse's
-    title/group when parsed."""
+    optionally filtered by a substring of the filename OR of the CURRENT parse's title
+    (the parser version in force — a superseded parse's old title never matches). Each
+    row carries its latest parse's title/group when parsed."""
     limit = _clamp_limit(limit)
     offset = max(0, offset)
     query = q.strip()
     base = select(SourceDocument)
     if query:
-        base = base.where(SourceDocument.filename.ilike(f"%{query}%"))
+        pattern = _like_pattern(query)
+        titled = select(ParsedJDRow.source_document_id).where(
+            ParsedJDRow.parser_version == PARSER_VERSION,
+            ParsedJDRow.parsed["title"].astext.ilike(pattern, escape="\\"),
+        )
+        base = base.where(
+            or_(
+                SourceDocument.filename.ilike(pattern, escape="\\"),
+                SourceDocument.id.in_(titled),
+            )
+        )
     total = await session.scalar(select(func.count()).select_from(base.subquery())) or 0
     docs = (
         await session.scalars(

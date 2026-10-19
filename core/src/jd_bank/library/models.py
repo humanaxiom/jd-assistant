@@ -12,6 +12,7 @@ nothing in this package mutates a row.
 
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -100,6 +101,12 @@ class RoleListItem(_Frozen):
     source_count: int
     score: float | None
     grade: str | None
+    #: WHY a search returned this row: ``"title"`` (its title contains the query) or
+    #: ``"meaning"`` (found by the role-vector pass). ``None`` outside a search.
+    #: There is deliberately NO similarity field: a role's cosine is not a usable
+    #: number (an unrelated role can outscore a true twin), so the reader is told the
+    #: reason, never a percentage.
+    matched_by: Literal["title", "meaning"] | None = None
 
 
 class RolePage(_Frozen):
@@ -114,6 +121,9 @@ class RolePage(_Frozen):
     q: str
     sort: str
     direction: str
+    #: A visible notice for the page (e.g. search-by-meaning is unavailable so only
+    #: title matches are shown). ``None`` when nothing is degraded.
+    banner: str | None = None
 
 
 class SourceListItem(_Frozen):

@@ -7554,6 +7554,35 @@ decisions:
       `unknown`).
     status: open
 
+  - id: HR-237
+    question: >-
+      When someone types a search into the JD Bank library, how many of the closest
+      roles by MEANING should it consider after the roles whose title matches?
+    config:
+      file: embeddings.yaml
+      path: embeddings.library_vector_k
+    current_default: 100
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The library used to find a role only when the typed words appeared in its title,
+      so "someone who processes invoices" returned nothing (17 of 22 test searches came
+      back empty). It now lists title matches first and then the roles closest in
+      meaning. The library is a paged list, so the meaning-based tail needs a fixed
+      depth that does not change with the page size; this is that depth. It is a count of
+      candidates, never a similarity cut-off: on the live Bank an unrelated role can
+      score higher than a true twin of the same title, so any "close enough" threshold
+      would be a constant dressed as a measurement, and no similarity is shown to the
+      reader. 100 is the depth the search measurement used (a relevant role in the top
+      10 for 20 of 22 test searches).
+    impact_if_changed: >-
+      Lower: a long-tailed search shows fewer "related by meaning" roles and runs out of
+      pages sooner. Higher: more loosely related roles appear at the end of a search and
+      the page count grows, since roles are ranked and never filtered by closeness. Does
+      NOT move `rules_version`, any JD's score, grade or approvability, and does not
+      change a stored vector (outside the embed stamp, so no re-embed).
+    status: open
+
 trivial:
   # ── The tree shape: definitional given the rollups above. ──
   - config: {file: org_units.yaml, path: org_units.vpfa.children}

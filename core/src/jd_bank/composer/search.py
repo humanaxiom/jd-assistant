@@ -213,6 +213,35 @@ async def _nearest_role_ids(
     ]
 
 
+async def semantic_role_neighbours(
+    query_text: str,
+    *,
+    embed_client: EmbedClient,
+    neo4j_driver: AsyncDriver,
+    k: int,
+    rules: Rules | None = None,
+) -> list[tuple[UUID, str, str | None]]:
+    """The role-semantic pass as a reusable unit: embed ``query_text`` and return the
+    ``k`` nearest harmonized roles as ``(cluster_id, title, employee_group)``,
+    best-first.
+
+    This is the SAME pass :func:`search_similar_jds` runs as its third step — the same
+    :func:`_nearest_role_ids` read under the same live embed stamp — shared with the
+    library's search (Track I1) rather than forked. **No score is returned**: a role's
+    cosine is meaningless as an absolute number (an unrelated role can outscore a true
+    twin), so callers get the ORDER and nothing to threshold or display. A blank query
+    is never embedded. Embedding errors propagate: the caller owns the degraded path.
+    """
+    if not query_text.strip():
+        return []
+    rulebook = rules if rules is not None else get_rules()
+    vector = (await embed_client.embed_batch([query_text]))[0]
+    near = await _nearest_role_ids(
+        neo4j_driver, vector, k, live_stamp=rulebook.embeddings.stamp
+    )
+    return [(cluster_id, title, group) for cluster_id, title, group, _ in near]
+
+
 async def _load_latest_parsed(
     session: AsyncSession, ids: Sequence[UUID]
 ) -> dict[UUID, SFUJobDescription]:
@@ -236,7 +265,7 @@ async def _load_latest_parsed(
     return latest
 
 
-def _title_rank(title: str, query: str) -> int:
+def title_rank(title: str, query: str) -> int:
     """Order among title matches: exact, then prefix, then contains. Lower is better."""
     lowered, wanted = title.strip().lower(), query.strip().lower()
     if lowered == wanted:
@@ -375,7 +404,7 @@ async def _role_title_matches(
         )
         for row in rows
     ]
-    return sorted(matches, key=lambda item: _title_rank(item[1], query_text))
+    return sorted(matches, key=lambda item: title_rank(item[1], query_text))
 
 
 async def _title_matches(
@@ -406,7 +435,7 @@ async def _title_matches(
                 row.parsed
             )
     return dict(
-        sorted(latest.items(), key=lambda item: _title_rank(item[1].title, query_text))
+        sorted(latest.items(), key=lambda item: title_rank(item[1].title, query_text))
     )
 
 

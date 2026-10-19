@@ -20,6 +20,10 @@ filterable*:
 4. **Random documents are findable.** A sample of the archive, each found by exact
    filename through the same query the archive browser uses — the "anyone scanning
    random documents" test, automated.
+5. **Library search (Track I1), through the HTTP route.** A deterministic sample of live
+   roles is found by exact title; the 22-query ``search_eval_v1`` set meets its recall
+   floor; a dead embed host still returns title hits plus a banner; the archive tab
+   finds a document by its current parsed title.
 
 Marked ``live``: never part of ``make gates`` or CI (CI has no Bank). Skips, loudly,
 when ``DATABASE_URL`` is unset rather than passing vacuously.
@@ -28,6 +32,7 @@ when ``DATABASE_URL`` is unset rather than passing vacuously.
 from __future__ import annotations
 
 import os
+import re
 
 import pytest
 from sqlalchemy import text
@@ -314,3 +319,168 @@ async def test_the_document_vector_index_is_at_the_current_parser_version(  # ty
         f"document vectors are at {versions}, the Bank is at {PARSER_VERSION!r}. "
         f"Run `make embed`."
     )
+
+
+# ── 9-12. Library hybrid search (Track I1) — through the HTTP route ─────────────
+#
+# Driven through the REAL FastAPI app (httpx ASGI transport) so the route, its optional
+# embed/Neo4j dependencies and the template are all in the path. Only identity is
+# overridden: `require_ui_user` stands in for CAS (the same synthetic user `make gates`
+# runs as), and `get_session` is bound to the live database. The embed host and Neo4j
+# are the REAL ones — except in the dead-host test, which points the embed client at a
+# closed port on purpose.
+
+_ROLE_LINK = re.compile(r'href="/jd-bank/ui/role/([0-9a-f-]{36})"')
+#: Deterministic sample size for exact-title findability.
+TITLE_SAMPLE = 50
+
+
+@pytest.fixture
+async def library(session):  # type: ignore[no-untyped-def]
+    """``(http_client, run_sql)`` bound to the live Bank, with auth overridden."""
+    from fastapi import Request
+    from httpx import ASGITransport, AsyncClient
+
+    from src.api.deps import transient_dev_user
+    from src.api.main import app, get_session
+    from src.api.routes.auth import require_ui_user
+    from src.settings import get_settings
+
+    engine = create_async_engine(_DB)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def _session():  # type: ignore[no-untyped-def]
+        async with maker() as s:
+            yield s
+
+    async def _user(request: Request):  # type: ignore[no-untyped-def]
+        user = transient_dev_user(get_settings())
+        request.state.user = user
+        request.state.csrf_token = ""
+        return user
+
+    app.dependency_overrides[get_session] = _session
+    app.dependency_overrides[require_ui_user] = _user
+    transport = ASGITransport(app=app)
+    try:
+        async with AsyncClient(transport=transport, base_url="http://smoke") as client:
+            yield client
+    finally:
+        app.dependency_overrides.clear()
+        await engine.dispose()
+
+
+async def _search_ids(client, q: str, limit: int):  # type: ignore[no-untyped-def]
+    resp = await client.get("/jd-bank/ui/library", params={"q": q, "limit": limit})
+    assert resp.status_code == 200, f"/library?q={q!r} -> {resp.status_code}"
+    ids = list(dict.fromkeys(_ROLE_LINK.findall(resp.text)))
+    return resp, ids
+
+
+async def test_sampled_live_roles_are_found_by_exact_title(library, session) -> None:  # type: ignore[no-untyped-def]
+    """Typing a role's own title must find that role. A deterministic sample (md5 order,
+    so a re-run checks the same roles), through the HTTP route a person would use."""
+    rows = (
+        await session.execute(
+            text(
+                f"SELECT cluster_id, content->>'title' FROM ({_CURRENT}) cur "
+                "WHERE coalesce(content->>'title','') <> '' "
+                f"ORDER BY md5(cluster_id::text) LIMIT {TITLE_SAMPLE}"
+            )
+        )
+    ).all()
+    assert len(rows) == TITLE_SAMPLE, "the live Bank has too few titled roles to sample"
+    missed = []
+    for cluster_id, title in rows:
+        _, ids = await _search_ids(library, title, limit=200)
+        if str(cluster_id) not in ids:
+            missed.append(title)
+    assert not missed, f"{len(missed)} roles are not found by their own title: {missed}"
+
+
+async def test_search_eval_v1_meets_its_recall_floor(library, session) -> None:  # type: ignore[no-untyped-def]
+    """The 22 reviewed queries (fixtures/search_eval_v1.yaml): at least FLOOR of them
+    must put a relevant role in the first 10 results. Judged on the live roles'
+    title / department / group, never on the page's wording. If this is below the floor
+    REPORT it — do not lower the floor."""
+    from tests.search_eval import load_eval
+
+    floor, queries = load_eval()
+    hits, misses = 0, []
+    for q in queries:
+        _, ids = await _search_ids(library, q.query, limit=10)
+        top = ids[:10]
+        rows = (
+            await session.execute(
+                text(
+                    f"SELECT content->>'title', content->>'department', "
+                    f"content->>'employee_group' FROM ({_CURRENT}) cur "
+                    "WHERE cluster_id = ANY(CAST(:ids AS uuid[]))"
+                ),
+                {"ids": top},
+            )
+        ).all()
+        if any(q.relevant(t, d, g) for t, d, g in rows):
+            hits += 1
+        else:
+            misses.append(f"{q.id} {q.query!r}")
+    assert hits >= floor, (
+        f"search_eval_v1 hit@10 = {hits}/{len(queries)} (floor {floor}); "
+        f"misses: {misses}"
+    )
+
+
+async def test_dead_embed_host_keeps_title_hits_and_banner(library, session) -> None:  # type: ignore[no-untyped-def]
+    """The GPU box being off costs the meaning pass and shows a banner — not a 500,
+    and not the title hits the page already had."""
+    from openai import AsyncOpenAI
+
+    from src.api.main import app
+    from src.api.routes.library import get_optional_embed_client
+    from src.jd_bank.embeddings.client import EmbedClient
+
+    title_row = (
+        await session.execute(
+            text(
+                f"SELECT cluster_id, content->>'title' FROM ({_CURRENT}) cur "
+                "WHERE length(coalesce(content->>'title','')) > 12 "
+                "ORDER BY md5(cluster_id::text) LIMIT 1"
+            )
+        )
+    ).one()
+    # Nothing listens on port 9: every connection is refused immediately.
+    dead = AsyncOpenAI(base_url="http://127.0.0.1:9/v1", api_key="x", max_retries=0)
+    app.dependency_overrides[get_optional_embed_client] = lambda: EmbedClient(
+        client=dead
+    )
+
+    resp, ids = await _search_ids(library, title_row[1], limit=200)
+
+    assert str(title_row[0]) in ids, "title hits must survive a dead embed host"
+    assert "Search by meaning is unavailable" in resp.text
+
+
+async def test_archive_finds_documents_by_current_parsed_title(session) -> None:  # type: ignore[no-untyped-def]
+    """The archive tab used to search filenames only. Titles few documents share, so
+    the document is on the first page; deterministic sample."""
+    from src.jd_core.parser import PARSER_VERSION
+
+    rows = (
+        await session.execute(
+            text(
+                "SELECT parsed->>'title' AS title, min(source_document_id::text) "
+                "FROM parsed_jds WHERE parser_version = :v "
+                "AND length(coalesce(parsed->>'title','')) > 12 "
+                "GROUP BY 1 HAVING count(*) BETWEEN 1 AND 40 "
+                "ORDER BY md5(parsed->>'title') LIMIT 5"
+            ),
+            {"v": PARSER_VERSION},
+        )
+    ).all()
+    assert rows, "no suitable current-parse titles to sample"
+    for title, doc_id in rows:
+        page = await list_source_jds(session, q=title, limit=200)
+        assert doc_id in {str(i.source_document_id) for i in page.items}, (
+            f"document {doc_id} (title {title!r}) is not found by its current parsed "
+            "title in the archive browser"
+        )

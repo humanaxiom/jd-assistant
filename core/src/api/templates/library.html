@@ -13,16 +13,19 @@
     <a href="/jd-bank/ui/archive">source archive</a> file by file.
   </p>
   <form method="get" action="/jd-bank/ui/library">
-    <label for="q">Search roles by title</label>
-    <input id="q" name="q" value="{{ page.q }}" placeholder="e.g. financial analyst, research coordinator">
+    <label for="q">Search roles by title or by what the job does</label>
+    <input id="q" name="q" value="{{ page.q }}" placeholder="e.g. financial analyst, someone who processes invoices">
     <button type="submit">Search</button>
   </form>
 </div>
 
 <div class="panel">
   <h2>Roles{% if page.q %} matching “{{ page.q }}”{% endif %}</h2>
+  {% if page.banner %}
+  <p class="banner" role="status"><strong>Heads up:</strong> {{ page.banner }}</p>
+  {% endif %}
   {% if page.items %}
-  <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }} · click a column heading to sort</p>
+  <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }} · {% if page.q %}best matches first · {% if page.sort != 'relevance' %}<a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;limit={{ page.limit }}">sort by best match</a> · {% endif %}{% endif %}click a column heading to sort</p>
   {# A sortable column heading: links to the same query sorted by `key`, toggling
      direction if it is already the active sort; shows ▲/▼ when active. Sorting resets to
      the first page (no offset). #}
@@ -39,6 +42,7 @@
         {{ sorth('score', 'Score') }}
         {{ sorth('grade', 'Quality') }}
         {{ sorth('status', 'Status') }}
+        {% if page.q %}<th>Why it matched</th>{% endif %}
         <th></th>
       </tr>
     </thead>
@@ -50,6 +54,7 @@
         <td>{{ "%.1f"|format(item.score) if item.score is not none else "—" }}</td>
         <td>{{ item.grade or "—" }}</td>
         <td>{{ item.status }}</td>
+        {% if page.q %}<td>{{ "Title" if item.matched_by == "title" else "Related by meaning" if item.matched_by == "meaning" else "—" }}</td>{% endif %}
         <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">Open →</a></td>
       </tr>
       {% endfor %}
