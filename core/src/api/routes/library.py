@@ -25,16 +25,23 @@ Jinja autoescape is on; no ``|safe`` on JD text (archive/canonical prose is untr
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from neo4j import AsyncDriver
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import may_review
 from src.api.main import get_session
+from src.api.routes.compose import (
+    get_optional_embed_client,
+    get_optional_neo4j_driver,
+)
+from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.library import (
     build_facets,
     build_funnel,
@@ -50,9 +57,24 @@ from src.jd_bank.library import (
     resolve_members,
     scope_for,
 )
+from src.jd_bank.library.service import SEMANTIC_UNAVAILABLE_BANNER
 from src.jd_bank.library.units import resolve_unit, unit_for
 
+logger = logging.getLogger(__name__)
+
 router: APIRouter = APIRouter(prefix="/jd-bank/ui")
+
+
+async def _close_quietly(*clients: EmbedClient | AsyncDriver | None) -> None:
+    """Close each injected client independently; a failed close can't fail the page."""
+    for client in clients:
+        if client is None:
+            continue
+        try:
+            await client.close()
+        except Exception:  # noqa: BLE001
+            logger.exception("failed to close an injected client")
+
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
@@ -78,14 +100,34 @@ async def library_view(
     q: str = "",
     limit: int | None = None,
     offset: int = 0,
-    sort: str = "title",
+    sort: str = "",
     dir: str = "asc",
     session: AsyncSession = Depends(get_session),
+    embed_client: EmbedClient | None = Depends(get_optional_embed_client),
+    neo4j_driver: AsyncDriver | None = Depends(get_optional_neo4j_driver),
 ) -> HTMLResponse:
-    """Browse/search/sort the harmonized roles — HR's home for the JD content."""
-    page = await list_roles(
-        session, q=q, limit=limit, offset=offset, sort=sort, direction=dir
-    )
+    """Browse/search/sort the harmonized roles — HR's home for the JD content.
+
+    A search is hybrid (title matches, then roles found by meaning). The embedding
+    clients are the OPTIONAL factories, so a misconfigured or unreachable inference host
+    costs the meaning pass and shows a banner — it never takes the library down.
+    """
+    try:
+        page = await list_roles(
+            session,
+            q=q,
+            limit=limit,
+            offset=offset,
+            sort=sort,
+            direction=dir,
+            embed_client=embed_client,
+            neo4j_driver=neo4j_driver,
+        )
+    finally:
+        await _close_quietly(embed_client, neo4j_driver)
+    if page.q and (embed_client is None or neo4j_driver is None):
+        # A client could not even be constructed: same degraded state, same notice.
+        page = page.model_copy(update={"banner": SEMANTIC_UNAVAILABLE_BANNER})
     return templates.TemplateResponse(
         request,
         "library.html",

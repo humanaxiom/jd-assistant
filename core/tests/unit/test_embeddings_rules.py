@@ -193,6 +193,19 @@ def test_the_request_budget_does_not_move_the_embed_stamp(
     assert retuned.version == rules.version
 
 
+def test_the_library_vector_depth_is_live_and_outside_the_embed_stamp(
+    tmp_path: Path, rules: Rules
+) -> None:
+    """HR-237: how deep the library reads the role index cannot change a stored vector,
+    so retuning it must not order a re-embed."""
+    _write_valid_rules(tmp_path)
+    _patch(tmp_path, "embeddings.yaml", lambda d: d.__setitem__("library_vector_k", 7))
+    retuned = load_rules(tmp_path)
+
+    assert retuned.embeddings.library_vector_k == 7
+    assert retuned.embeddings.stamp == rules.embeddings.stamp
+
+
 # --- registered, and drift-checked -----------------------------------------------
 
 
@@ -313,7 +326,9 @@ def test_the_embeddings_defaults_are_registered_as_nobodys_standard(
         for d in rules.decision_register.decisions
         if d.config.file == "embeddings.yaml"
     ]
-    assert len(entries) == 9, "embeddings.yaml should have exactly 9 registered fields"
+    assert (
+        len(entries) == 10
+    ), "embeddings.yaml should have exactly 10 registered fields"
     for decision in entries:
         assert decision.provenance == "our_invention", decision.id
         assert decision.source_part is None, decision.id

@@ -126,3 +126,11 @@ section_vectors:
 # advisory, so timing out costs a panel, while this IS the search page — timing out
 # costs the feature. HR-198.
 interactive_timeout_seconds: 10.0
+
+# How many nearest harmonized ROLES the library search pulls from the role vector index
+# before paging over them (Track I1). The library is a PAGED list, so its semantic tail needs
+# a fixed depth that does not change with the page size. Only the ORDER of the candidates is
+# used - no similarity is shown or thresholded (measured: unrelated roles outscore true
+# twins, so a cosine cut-off cannot be trusted). 100 is the depth the search spike measured
+# (hit@10 20/22). Cannot change any stored vector, so it is outside the embed stamp. HR-237.
+library_vector_k: 100

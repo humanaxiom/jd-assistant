@@ -20,6 +20,10 @@ filterable*:
 4. **Random documents are findable.** A sample of the archive, each found by exact
    filename through the same query the archive browser uses — the "anyone scanning
    random documents" test, automated.
+5. **Library search (Track I1), through the HTTP route.** A deterministic sample of live
+   roles is found by exact title; the 22-query ``search_eval_v1`` set meets its recall
+   floor; a dead embed host still returns title hits plus a banner; the archive tab
+   finds a document by its current parsed title.
 
 Marked ``live``: never part of ``make gates`` or CI (CI has no Bank). Skips, loudly,
 when ``DATABASE_URL`` is unset rather than passing vacuously.
@@ -28,8 +32,15 @@ when ``DATABASE_URL`` is unset rather than passing vacuously.
 from __future__ import annotations
 
 import os
+import re
 
 import pytest
+
+# Module-level on purpose: with `from __future__ import annotations`, FastAPI resolves
+# the `request: Request` annotation of the auth override from module globals. Imported
+# inside the fixture it is unresolvable, `request` becomes a required QUERY param, and
+# every route call 422s (that is how these smoke tests first failed).
+from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
@@ -314,6 +325,323 @@ async def test_the_document_vector_index_is_at_the_current_parser_version(  # ty
         f"document vectors are at {versions}, the Bank is at {PARSER_VERSION!r}. "
         f"Run `make embed`."
     )
+
+
+# ── 9-12. Library hybrid search (Track I1) — through the HTTP route ─────────────
+#
+# Driven through the REAL FastAPI app (httpx ASGI transport) so the route, its optional
+# embed/Neo4j dependencies and the template are all in the path. Only identity is
+# overridden: `require_ui_user` stands in for CAS (the same synthetic user `make gates`
+# runs as), and `get_session` is bound to the live database. The embed host and Neo4j
+# are the REAL ones — except in the dead-host test, which points the embed client at a
+# closed port on purpose.
+
+_ROLE_LINK = re.compile(r'href="/jd-bank/ui/role/([0-9a-f-]{36})"')
+#: Deterministic sample size for exact-title findability.
+TITLE_SAMPLE = 50
+
+
+@pytest.fixture
+async def library(session):  # type: ignore[no-untyped-def]
+    """``(http_client, run_sql)`` bound to the live Bank, with auth overridden."""
+    from httpx import ASGITransport, AsyncClient
+
+    from src.api.deps import transient_dev_user
+    from src.api.main import app, get_session
+    from src.api.routes.auth import require_ui_user
+    from src.settings import get_settings
+
+    engine = create_async_engine(_DB)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def _session():  # type: ignore[no-untyped-def]
+        async with maker() as s:
+            yield s
+
+    async def _user(request: Request):  # type: ignore[no-untyped-def]
+        user = transient_dev_user(get_settings())
+        request.state.user = user
+        request.state.csrf_token = ""
+        return user
+
+    app.dependency_overrides[get_session] = _session
+    app.dependency_overrides[require_ui_user] = _user
+    transport = ASGITransport(app=app)
+    try:
+        async with AsyncClient(transport=transport, base_url="http://smoke") as client:
+            yield client
+    finally:
+        app.dependency_overrides.clear()
+        await engine.dispose()
+
+
+async def _search_ids(client, q: str, limit: int):  # type: ignore[no-untyped-def]
+    resp = await client.get("/jd-bank/ui/library", params={"q": q, "limit": limit})
+    assert resp.status_code == 200, f"/library?q={q!r} -> {resp.status_code}"
+    ids = list(dict.fromkeys(_ROLE_LINK.findall(resp.text)))
+    return resp, ids
+
+
+async def test_sampled_live_roles_are_found_by_exact_title(library, session) -> None:  # type: ignore[no-untyped-def]
+    """Typing a role's own title must find that role. A deterministic sample (md5 order,
+    so a re-run checks the same roles), through the HTTP route a person would use."""
+    rows = (
+        await session.execute(
+            text(
+                f"SELECT cluster_id, content->>'title' FROM ({_CURRENT}) cur "
+                "WHERE coalesce(content->>'title','') <> '' "
+                f"ORDER BY md5(cluster_id::text) LIMIT {TITLE_SAMPLE}"
+            )
+        )
+    ).all()
+    assert len(rows) == TITLE_SAMPLE, "the live Bank has too few titled roles to sample"
+    missed = []
+    for cluster_id, title in rows:
+        _, ids = await _search_ids(library, title, limit=200)
+        if str(cluster_id) not in ids:
+            missed.append(title)
+    assert not missed, f"{len(missed)} roles are not found by their own title: {missed}"
+
+
+async def test_search_eval_v1_meets_its_recall_floor(library, session) -> None:  # type: ignore[no-untyped-def]
+    """The 22 reviewed queries (fixtures/search_eval_v1.yaml): at least FLOOR of them
+    must put a relevant role in the first 10 results. Judged on the live roles'
+    title / department / group, never on the page's wording. If this is below the floor
+    REPORT it — do not lower the floor."""
+    from tests.search_eval import load_eval
+
+    floor, queries = load_eval()
+    hits, misses = 0, []
+    for q in queries:
+        _, ids = await _search_ids(library, q.query, limit=10)
+        top = ids[:10]
+        rows = (
+            await session.execute(
+                text(
+                    f"SELECT content->>'title', content->>'department', "
+                    f"content->>'employee_group' FROM ({_CURRENT}) cur "
+                    "WHERE cluster_id = ANY(CAST(:ids AS uuid[]))"
+                ),
+                {"ids": top},
+            )
+        ).all()
+        if any(q.relevant(t, d, g) for t, d, g in rows):
+            hits += 1
+        else:
+            misses.append(f"{q.id} {q.query!r}")
+    assert hits >= floor, (
+        f"search_eval_v1 hit@10 = {hits}/{len(queries)} (floor {floor}); "
+        f"misses: {misses}"
+    )
+
+
+async def test_dead_embed_host_keeps_title_hits_and_banner(library, session) -> None:  # type: ignore[no-untyped-def]
+    """The GPU box being off costs the meaning pass and shows a banner — not a 500,
+    and not the title hits the page already had."""
+    from openai import AsyncOpenAI
+
+    from src.api.main import app
+    from src.api.routes.library import get_optional_embed_client
+    from src.jd_bank.embeddings.client import EmbedClient
+
+    title_row = (
+        await session.execute(
+            text(
+                f"SELECT cluster_id, content->>'title' FROM ({_CURRENT}) cur "
+                "WHERE length(coalesce(content->>'title','')) > 12 "
+                "ORDER BY md5(cluster_id::text) LIMIT 1"
+            )
+        )
+    ).one()
+    # Nothing listens on port 9: every connection is refused immediately.
+    dead = AsyncOpenAI(base_url="http://127.0.0.1:9/v1", api_key="x", max_retries=0)
+    app.dependency_overrides[get_optional_embed_client] = lambda: EmbedClient(
+        client=dead
+    )
+
+    resp, ids = await _search_ids(library, title_row[1], limit=200)
+
+    assert str(title_row[0]) in ids, "title hits must survive a dead embed host"
+    assert "Search by meaning is unavailable" in resp.text
+
+
+async def test_archive_finds_documents_by_current_parsed_title(session) -> None:  # type: ignore[no-untyped-def]
+    """The archive tab used to search filenames only. Titles few documents share, so
+    the document is on the first page; deterministic sample."""
+    from src.jd_core.parser import PARSER_VERSION
+
+    rows = (
+        await session.execute(
+            text(
+                "SELECT parsed->>'title' AS title, min(source_document_id::text) "
+                "FROM parsed_jds WHERE parser_version = :v "
+                "AND length(coalesce(parsed->>'title','')) > 12 "
+                "GROUP BY 1 HAVING count(*) BETWEEN 1 AND 40 "
+                "ORDER BY md5(parsed->>'title') LIMIT 5"
+            ),
+            {"v": PARSER_VERSION},
+        )
+    ).all()
+    assert rows, "no suitable current-parse titles to sample"
+    for title, doc_id in rows:
+        page = await list_source_jds(session, q=title, limit=200)
+        assert doc_id in {str(i.source_document_id) for i in page.items}, (
+            f"document {doc_id} (title {title!r}) is not found by its current parsed "
+            "title in the archive browser"
+        )
+
+
+#: Per current role: its distinct padded position ids, and whether EVERY member file
+#: carries one. Derived by raw SQL, never through the builder under test.
+_CRF_ROLES = f"""
+    WITH cur AS ({_CURRENT}),
+    pos AS (
+      SELECT c.cluster_id, array_agg(DISTINCT m[1] ORDER BY m[1]) AS pids
+      FROM cur c
+      CROSS JOIN LATERAL jsonb_array_elements(c.source_document_ids) e
+      JOIN source_documents s ON s.id::text = e->>'source_id'
+      CROSS JOIN LATERAL regexp_matches(s.filename, :pat, 'g') m
+      GROUP BY c.cluster_id),
+    bad AS (
+      SELECT DISTINCT c.cluster_id
+      FROM cur c
+      CROSS JOIN LATERAL jsonb_array_elements(c.source_document_ids) e
+      LEFT JOIN source_documents s ON s.id::text = e->>'source_id'
+      WHERE s.id IS NULL OR s.filename IS NULL OR s.filename !~ :pat)
+"""
+
+
+async def _crf_fill(session, cluster_id, **kwargs):  # type: ignore[no-untyped-def]
+    import io
+
+    from pypdf import PdfReader
+
+    from src.jd_bank.forms import prefill_from_role
+    from src.jd_export.comp_requisition import fill_compensation_requisition
+
+    prefill = await prefill_from_role(session, cluster_id, **kwargs)
+    pdf = fill_compensation_requisition(prefill)
+    fields = PdfReader(io.BytesIO(pdf)).get_fields() or {}
+    return prefill, {name: f.get("/V") for name, f in fields.items()}
+
+
+async def test_crf_fills_from_a_live_single_position_role(session) -> None:  # type: ignore[no-untyped-def]
+    """K2 — fill SFU's own CRF (re-evaluation) for a LIVE single-position role.
+
+    No fixture: the role is the first current role, by cluster id, whose members ALL
+    carry a padded position id, with exactly ONE position and a title, a department and
+    an APSA/APEX group. Expected values are re-derived by raw SQL — NOT by calling the
+    builder again — so a builder that silently dropped a field cannot agree with itself.
+    """
+    from src.jd_core.rules import get_rules
+    from src.jd_export.comp_requisition import load_field_map
+
+    pattern = get_rules().segmentation.position_id_pattern.pattern
+    row = (
+        await session.execute(
+            text(_CRF_ROLES + """
+                SELECT c.cluster_id, c.content->>'title', c.content->>'department',
+                       upper(c.content->>'employee_group'), p.pids
+                FROM cur c JOIN pos p USING (cluster_id)
+                WHERE cardinality(p.pids) = 1
+                  AND c.cluster_id NOT IN (SELECT cluster_id FROM bad)
+                  AND nullif(trim(c.content->>'title'), '') IS NOT NULL
+                  AND nullif(trim(c.content->>'department'), '') IS NOT NULL
+                  AND c.content->>'employee_group' IN ('apsa', 'apex')
+                ORDER BY c.cluster_id
+                LIMIT 1
+                """),
+            {"pat": pattern},
+        )
+    ).first()
+    assert row is not None, "no live role has one position + title + dept + group"
+    cluster_id, title, department, group, pids = row
+
+    _, got = await _crf_fill(
+        session, cluster_id, request_type="reevaluation", jd_in_word_attached=True
+    )
+
+    fmap = load_field_map()
+    pf = fmap.prefill_fields
+    assert got[pf["position_number"]] == pids[0]
+    assert got[pf["position_title"]] == title.strip()
+    assert got[pf["department"]] == department.strip()
+    assert got[pf["employee_group"]] == group
+    assert got[pf["based_on_positions_b"]] == pids[0]
+    assert got[pf["based_on_positions_a"]] in (None, "")  # not a Section A request
+    assert got[pf["jd_in_word_attached"]] == fmap.checkbox_on_value
+    for name in fmap.signature_fields:
+        assert got[name] in (None, ""), f"{name} must stay empty"
+
+
+async def test_crf_caps_a_live_many_position_role(session) -> None:  # type: ignore[no-untyped-def]
+    """K2 — a live role with MORE positions than the single-line field holds.
+
+    The Section A box is ~2 ids wide; the full list must land in the Reason field and
+    the box carries the cap + a `+K more` marker, never an overflowing line.
+    """
+    from src.jd_core.rules import get_rules
+    from src.jd_export.comp_requisition import load_field_map
+
+    fmap = load_field_map()
+    ov = fmap.overflow
+    pattern = get_rules().segmentation.position_id_pattern.pattern
+    row = (
+        await session.execute(
+            text(_CRF_ROLES + """
+                SELECT c.cluster_id, p.pids
+                FROM cur c JOIN pos p USING (cluster_id)
+                WHERE cardinality(p.pids) > :n
+                  AND c.cluster_id NOT IN (SELECT cluster_id FROM bad)
+                ORDER BY cardinality(p.pids) DESC, c.cluster_id
+                LIMIT 1
+                """),
+            {"pat": pattern, "n": ov.max_ids},
+        )
+    ).first()
+    assert row is not None, "no live role has more positions than the box holds"
+    cluster_id, pids = row
+
+    prefill, got = await _crf_fill(
+        session, cluster_id, request_type="new_based_on_existing"
+    )
+
+    pf = fmap.prefill_fields
+    expected = ", ".join(pids[: ov.max_ids]) + f" +{len(pids) - ov.max_ids} more"
+    assert got[pf["based_on_positions_a"]] == expected
+    assert got[pf["position_number"]] in (None, "")  # N/A if new
+    reason = str(got[ov.details_field])
+    assert all(pid in reason for pid in pids)
+    assert str(len(pids)) in reason
+    assert list(prefill.candidate_positions) == list(pids)
+
+
+async def test_crf_never_claims_one_position_for_an_unpadded_role(session) -> None:  # type: ignore[no-untyped-def]
+    """The measured trap: a role with ONE padded id whose other member files carry only
+    unpadded ids (the pattern cannot read 508 archive files) is not a single-position
+    role. Every such live role must come back flagged with no position number."""
+    from src.jd_bank.forms import prefill_from_role
+    from src.jd_core.rules import get_rules
+
+    pattern = get_rules().segmentation.position_id_pattern.pattern
+    rows = (
+        await session.execute(
+            text(_CRF_ROLES + """
+                SELECT c.cluster_id
+                FROM cur c JOIN pos p USING (cluster_id)
+                WHERE cardinality(p.pids) = 1
+                  AND c.cluster_id IN (SELECT cluster_id FROM bad)
+                ORDER BY c.cluster_id
+                """),
+            {"pat": pattern},
+        )
+    ).all()
+    for (cluster_id,) in rows:
+        prefill = await prefill_from_role(
+            session, cluster_id, request_type="reevaluation"
+        )
+        assert prefill.positions_incomplete is True, cluster_id
+        assert prefill.position_number is None, cluster_id
 
 
 # ── 9-11. EXPORT — a live role, rendered and read back by the Bank's own parser ────

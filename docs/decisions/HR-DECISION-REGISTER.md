@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **238 decisions** (236 open · 2 ratified · 0 deferred) · 106 parameters explicitly exempted as trivial · 339 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **239 decisions** (237 open · 2 ratified · 0 deferred) · 106 parameters explicitly exempted as trivial · 340 parameters on the decision surface, all accounted for.
 
-**Of those 238, 86 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 150 are recorded for the same build check but are not yours to sign: 61 shape what a reviewer sees without deciding whether a job description passes, and 89 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 239, 86 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 151 are recorded for the same build check but are not yours to sign: 61 shape what a reviewer sees without deciding whether a job description passes, and 90 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -1523,6 +1523,7 @@ Model names, dimensions, timeouts, retries, text-matching patterns and search in
 | [HR-234](#hr-234) | What counts as a filled JDFN "Classification & Grade Approved:" value? | *a text pattern — see below* | we chose it |
 | [HR-235](#hr-235) | What counts as the modern JDFN identification-block `Grade:` field? | *a text pattern — see below* | we chose it |
 | [HR-236](#hr-236) | Which employee groups record a parsed grade under their OWN scheme name, and which fall back to `unknown`? | `apsa`, `apex`, `poly` | we chose it |
+| [HR-237](#hr-237) | When someone types a search into the JD Bank library, how many of the closest roles by MEANING should it consider after the roles whose title matches? | `100` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -2030,6 +2031,14 @@ We picked these because the system needed *a* value. There is no SFU precedent b
 - **Where the default came from:** we chose it
 - **Why it matters:** `JobClassification.scheme` exists because EACH GROUP HAS ITS OWN SCALE — a CUPE grade 8 is not an APSA grade 8 — so a grade recorded under the wrong scheme is not a cosmetic error, it is a wrong pay band. A grade read for a group not on this list is recorded as `unknown` rather than attributed to a scale we cannot name. `excluded` is deliberately ABSENT: an excluded position has no bargaining-unit grade ladder to belong to. `cupe` is absent because it never reaches this branch — it is handled by HR-233 and stamped `scheme: cupe` directly. The loader refuses a name that is not an `SFUEmployeeGroup`, and refuses an empty list: a scheme table nothing can be parsed into is a table that silently does nothing, which is this rulebook's standing objection to a gate that can never fire.
 - **If it changes:** Does NOT move `rules_version`. ⚠ DOES move `PARSER_VERSION` and requires a re-parse in the same change. Removing a group here does not lose the grade — it downgrades its `scheme` to `unknown`, which is the honest failure. Pinned by mutation (`test_classification_rules.py`: drop `apex` and an APEX grade comes back `unknown`).
+
+##### HR-237 — When someone types a search into the JD Bank library, how many of the closest roles by MEANING should it consider after the roles whose title matches?
+
+- **We ship:** `100`
+- **Configured in:** `embeddings.yaml` → `embeddings.library_vector_k`
+- **Where the default came from:** we chose it
+- **Why it matters:** The library used to find a role only when the typed words appeared in its title, so "someone who processes invoices" returned nothing (17 of 22 test searches came back empty). It now lists title matches first and then the roles closest in meaning. The library is a paged list, so the meaning-based tail needs a fixed depth that does not change with the page size; this is that depth. It is a count of candidates, never a similarity cut-off: on the live Bank an unrelated role can score higher than a true twin of the same title, so any "close enough" threshold would be a constant dressed as a measurement, and no similarity is shown to the reader. 100 is the depth the search measurement used (a relevant role in the top 10 for 20 of 22 test searches).
+- **If it changes:** Lower: a long-tailed search shows fewer "related by meaning" roles and runs out of pages sooner. Higher: more loosely related roles appear at the end of a search and the page count grows, since roles are ranked and never filtered by closeness. Does NOT move `rules_version`, any JD's score, grade or approvability, and does not change a stored vector (outside the embed stamp, so no re-embed).
 
 #### An earlier version of this tool chose it — also unratified
 
