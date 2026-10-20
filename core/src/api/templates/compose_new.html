@@ -277,8 +277,11 @@
     {% for q in group.questions %}
       {% if q.kind == "checkbox" %}
       <label>
+        {# Each box is ticked from ITS OWN value. Only the boilerplate box follows
+           `boilerplate_checked` (defaulted on); a second box ticked from that default
+           would assert a criminal record check the author never chose. #}
         <input type="checkbox" name="{{ q.target }}" value="on"
-               style="width:auto"{% if boilerplate_checked %} checked{% endif %}>
+               style="width:auto"{% if (q.target == "include_sfu_boilerplate" and boilerplate_checked) or (q.target != "include_sfu_boilerplate" and q.value == "on") %} checked{% endif %}>
         {{ q.prompt }}
       </label>
       {% elif q.kind == "rows" %}
@@ -352,6 +355,13 @@
           <input name="{{ q.target }}_allocation" value="{{ row.allocation }}" type="number" min="0" max="100"
                  placeholder="%" aria-label="Percentage of time" style="flex:0 0 5rem">
         </div>
+        {% if q.target in how_why_targets %}
+        {# The template's "How and why" sub-bullets under this duty — one per line. One
+           textarea per row, so the column stays index-aligned with the row above. #}
+        <textarea name="{{ q.target }}_how_why" aria-label="How and why (one per line)"
+                  placeholder="How and why — one per line (optional)"
+                  style="margin:0 0 .6rem 9.5rem;width:calc(100% - 9.5rem);min-height:2.5rem">{{ row.how_why }}</textarea>
+        {% endif %}
         {% endfor %}
       </div>
       {% else %}

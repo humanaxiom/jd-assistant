@@ -492,7 +492,8 @@ def wjq_answers_from_jd(
 
     Not carried over, by design: the role's grade (a harmonized role's grade is a
     cluster-level value, not this position's current classification — HR-240), and
-    ``security`` lines (no Builder field — the JDFN clone's documented limitation).
+    ``security`` lines (no WJQ Builder field; the JDFN clone transform keeps them since
+    Track J4).
     """
     rulebook = rules if rules is not None else get_rules()
     form = rulebook.cupe_form

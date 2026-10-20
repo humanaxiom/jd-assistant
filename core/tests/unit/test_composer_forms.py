@@ -161,6 +161,12 @@ def test_the_derived_render_kinds_match_the_shipped_jdfn_builder_exactly() -> No
         "experience": "list",
         "abilities": "list",
         "cloned_from_cluster_id": "hidden",
+        # Track J4 — the APSA template's / Toolkit's fields the Builder now collects.
+        "position_number": "text",
+        "supervisor_title": "text",
+        "supervisor_position_number": "text",
+        "criminal_record_check": "checkbox",
+        "security": "list",
     }
     for target, kind in expected.items():
         assert render_kind(ComposerAnswers, target) == kind, target

@@ -644,6 +644,9 @@ def test_every_jd_field_is_either_rewritable_or_preserved() -> None:
         "department",
         "grade",
         "classification",
+        # the position this one reports to (Track J4) — identity, never reworded
+        "supervisor_title",
+        "supervisor_position_number",
         # source content the model is not asked to reword (7 of the WJQ's 14 sections)
         "additional_context",
         # set explicitly, per template, after the rewrite

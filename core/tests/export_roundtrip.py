@@ -54,6 +54,7 @@ import re
 from collections import Counter
 
 from src.jd_core.models.parsed_jd import SFUJobDescription, WJQRow
+from src.jd_core.parser.headings import NEXT_LABEL_RX
 from src.jd_core.parser.segmenter import _PERCENT_RE
 from src.jd_core.rules import Rules
 
@@ -62,6 +63,11 @@ _WORD = re.compile(r"[a-z0-9]+")
 #: The parser's own duty-statement ceiling (``segmenter._MAX_DUTY_STMT``) — a rendered
 #: duty longer than this is legitimately cut on re-read.
 _MAX_DUTY_STMT = 400
+#: The parser's ceiling for a decision / problem / qualification item
+#: (``segmenter._MAX_BULLET`` / ``_MAX_QUAL``).
+_MAX_LIST_ITEM = 400
+#: ``segmenter._MAX_SUPERVISORY``.
+_MAX_SUPERVISORY = 600
 
 #: Which kind each original qualification kind reads back as, through the CUPE form.
 _CUPE_KIND_BACK = {
@@ -396,29 +402,192 @@ def _qual_text(text: str, modifier: str | None) -> str:
     return text
 
 
+def _item_survives(want: list[str], back_text: str, cap: int) -> bool:
+    """A re-read list item holds exactly the original's words — or, when the parser
+    cut it at its ceiling ``cap``, a faithful PREFIX of them (last word may be split).
+    """
+    got = words(back_text)
+    if got == want:
+        return True
+    return len(back_text) >= cap - 1 and got[:-1] == want[: len(got) - 1]
+
+
+def _supervisory_survives(want: list[str], back_text: str) -> bool:
+    """The supervisory prose came back — all its words, or, when the re-read reached
+    the parser's ceiling (``segmenter._MAX_SUPERVISORY``), every word up to the cut, in
+    order. The parser keeps the line's ``Supervisory:`` label in the prose (it files
+    every non-contact line there), so a 600-character original re-reads as label + 587
+    characters: a CEILING cut, not a loss the export can avoid."""
+    got = words(back_text)
+    if _contained(want, got):
+        return True
+    if len(back_text) < _MAX_SUPERVISORY - 1:
+        return False
+    # With or without the label word the parser keeps; the last word may be cut.
+    candidates = [got[:-1]] + ([got[1:-1]] if got[:1] == ["supervisory"] else [])
+    return any(kept and kept == want[: len(kept)] for kept in candidates)
+
+
+def _list_losses(
+    name: str, want: list[list[str]], back: list[str], cap: int
+) -> list[str]:
+    if len(want) != len(back):
+        return [f"{name}: {len(want)} exported, {len(back)} re-read"]
+    return [
+        f"{name} {i}: {w[:12]}... came back as {words(b)[:12]}..."
+        for i, (w, b) in enumerate(zip(want, back, strict=True), start=1)
+        if not _item_survives(w, b, cap)
+    ]
+
+
 def jdfn_round_trip_losses(
     original: SFUJobDescription, reparsed: SFUJobDescription
 ) -> list[str]:
-    """The APSA/JDFN round trip, over what the (unchanged) APSA export and the JDFN
-    parser actually carry between them: title and position summary.
+    """Every way ``reparsed`` failed to bring back what ``original`` held, through the
+    APSA/APEX/Poly export and the JDFN parser. Empty list = the round trip holds.
 
-    ⚠ NOT duties, and that is a measured finding, not an omission. MEASURED 2026-10-19
-    over the live Bank: 1,798 of 1,876 current non-CUPE roles come back with a
-    different duty count (typically "5 exported, 1 re-read"). Checked on a three-duty
-    JD: the APSA export prints duties as Word "List Bullet" paragraphs, whose bullet is
-    list FORMATTING with no character in the extracted text, so the JDFN parser joins
-    the lines into ONE duty — and the export's footer heading ("Territorial
-    Acknowledgement & Employment Equity") is not a heading that parser knows, so it and
-    the footer text join that duty too. J1 must leave the APSA output unchanged
-    (checked: identical in content for every live non-CUPE role), so it is reported
-    (and measurable through :func:`jdfn_duty_count_survives`), not silently fixed here.
+    History: until Track J4 this checked only title and summary, because MEASURED
+    2026-10-19 1,798 of 1,876 current non-CUPE roles came back with a different duty
+    count (typically "5 exported, 1 re-read") — the export printed Word "List Bullet"
+    paragraphs whose bullet never reaches the extracted text, so the parser joined
+    every duty, and the footer under a heading it did not know, into one. J4 fixed it
+    in the renderer; this now checks every field the parser can read:
+
+    * title, position number, employee group (when the original has one) — **equal**;
+    * position summary and additional context — **equal** word for word;
+    * duties — **same count, same order**, each re-read statement holding the original
+      verb + statement + how/why words in order (how/why print as sub-bullets of their
+      duty and the parser has no field for them, so they come back inside it);
+    * decision making, problem solving, qualifications — **same count, same order, same
+      words** (qualifications as printed: modifier prefixed when absent). Kinds are NOT
+      compared: the parser's kind is a keyword guess (``_classify_qual``);
+    * contacts — internal and external **equal**, in order; the supervisory prose's
+      words all come back (the re-read keeps its "Supervisory:" label);
+    * About SFU, territorial acknowledgement, employment equity — **present**.
+
+    ``supervisor_title`` / ``supervisor_position_number`` are printed but the parser
+    has no field for them, so they are checked in the export, not here.
     """
     losses: list[str] = []
     if original.title.strip() != reparsed.title.strip():
         losses.append(f"title: {original.title!r} came back as {reparsed.title!r}")
+    want_pos = (original.position_number or "").strip() or None
+    got_pos = (reparsed.position_number or "").strip() or None
+    if want_pos != got_pos:
+        losses.append(f"position_number: {want_pos!r} came back as {got_pos!r}")
+    if original.employee_group and original.employee_group != reparsed.employee_group:
+        losses.append(
+            f"employee_group: {original.employee_group!r} came back as "
+            f"{reparsed.employee_group!r}"
+        )
     if _norm(original.position_summary) != _norm(reparsed.position_summary):
         losses.append("position_summary changed")
+    if _norm(original.additional_context) != _norm(reparsed.additional_context):
+        losses.append("additional_context changed")
+
+    losses += _list_losses(
+        "duty",
+        [
+            _duty_words(d.action_verb, d.statement, list(d.how_why))
+            for d in original.duties
+        ],
+        [d.statement for d in reparsed.duties],
+        _MAX_DUTY_STMT,
+    )
+    for field in ("decision_making", "problem_solving"):
+        losses += _list_losses(
+            field,
+            [words(item) for item in getattr(original, field)],
+            list(getattr(reparsed, field)),
+            _MAX_LIST_ITEM,
+        )
+    losses += _list_losses(
+        "qualification",
+        [words(_qual_text(q.text, q.modifier)) for q in original.qualifications],
+        [q.text for q in reparsed.qualifications],
+        _MAX_LIST_ITEM,
+    )
+
+    rel_src, rel_back = original.relationships, reparsed.relationships
+    for side in ("internal", "external"):
+        want_c = [_norm(c) for c in (getattr(rel_src, side) if rel_src else [])]
+        got_c = [_norm(c) for c in (getattr(rel_back, side) if rel_back else [])]
+        if want_c != got_c:
+            losses.append(f"{side} contacts: {want_c} came back as {got_c}")
+    want_sup = words(rel_src.supervisory if rel_src else None)
+    back_sup = (rel_back.supervisory if rel_back else None) or ""
+    if want_sup and not _supervisory_survives(want_sup, back_sup):
+        losses.append("supervisory prose lost words")
+
+    for flag in (
+        "about_sfu_present",
+        "territorial_acknowledgement_present",
+        "employment_equity_present",
+    ):
+        if not getattr(reparsed, flag):
+            losses.append(f"{flag}: the export's boilerplate did not re-read")
     return losses
+
+
+#: ``segmenter._maybe_split_semicolons``: a logical line longer than this with at least
+#: two semicolons is split into separate duties (legacy run-on "Typical Duties").
+_SEMICOLON_SPLIT_LEN = 200
+
+
+def jdfn_parser_limits(jd: SFUJobDescription) -> dict[str, str]:
+    """Why the JDFN parser CANNOT bring a field of ``jd`` back, whatever the export
+    prints — ``{loss prefix: reason}``. Each is a documented reader limit, and fixing
+    any is a parser change (hashed heading/label vocabulary or segmenter code,
+    ``PARSER_VERSION``, archive re-parse), not an export one.
+
+    The live smoke lets a role lose a field ONLY when this names that field; any other
+    loss is an export defect and fails it. Measured 2026-10-19 over all 1,876 current
+    non-CUPE roles: 4 roles, under ``duty`` (2), ``title`` (1), ``position_number`` (1).
+    """
+    limits: dict[str, str] = {}
+    for duty in jd.duties:
+        line = " ".join(
+            [duty.action_verb, duty.statement, *duty.how_why]
+            if not duty.statement.lower().startswith(duty.action_verb.lower())
+            else [duty.statement, *duty.how_why]
+        )
+        if len(line) > _SEMICOLON_SPLIT_LEN and line.count(";") >= 2:
+            limits["duty"] = (
+                "a duty (with its how/why) over 200 characters with 2+ semicolons is "
+                "split into several duties (segmenter._maybe_split_semicolons)"
+            )
+    for field, items in (
+        ("duty", [d.statement for d in jd.duties if not d.how_why]),
+        ("decision_making", list(jd.decision_making)),
+        ("problem_solving", list(jd.problem_solving)),
+        ("qualification", [q.text for q in jd.qualifications]),
+    ):
+        if any(item.strip().endswith(":") for item in items):
+            limits[field] = "an item ending in ':' is read as an intro line and dropped"
+    if NEXT_LABEL_RX.search(jd.title):
+        limits["title"] = (
+            "the title holds a word the parser cuts a label value at "
+            "(headings.NEXT_LABEL_RX: department, date, grade, ...)"
+        )
+    if jd.position_number and not re.fullmatch(r"[A-Za-z0-9\-]+", jd.position_number):
+        limits["position_number"] = (
+            "the parser reads ONE token after 'Position #:' "
+            "(headings.POSITION_NO_LABEL_RX); this value has spaces or punctuation"
+        )
+    return limits
+
+
+def jdfn_unexplained_losses(
+    original: SFUJobDescription, reparsed: SFUJobDescription
+) -> list[str]:
+    """The round-trip losses NOT explained by a :func:`jdfn_parser_limits` entry —
+    each one an export defect."""
+    limits = jdfn_parser_limits(original)
+    return [
+        loss
+        for loss in jdfn_round_trip_losses(original, reparsed)
+        if re.split(r"[ :]", loss, maxsplit=1)[0] not in limits
+    ]
 
 
 def jdfn_duty_count_survives(

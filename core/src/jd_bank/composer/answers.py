@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.jd_core.models.parsed_jd import SFUEmployeeGroup
 
@@ -29,6 +29,20 @@ class DutyAnswer(BaseModel):
     #: assembler renders it into the duty as ``(NN%)`` (Part 10.1) so the validator's
     #: allocation gate can read it.
     allocation: int | None = Field(default=None, ge=0, le=100)
+
+
+class JDFNDutyAnswer(DutyAnswer):
+    """A JDFN (APSA/APEX/Poly) duty: the template's "ACTION VERB… WHAT by" statement
+    plus its "How and why" sub-bullets (Track J4) — ``SFUDuty.how_why``, which the
+    Builder could not fill before, so ``SFU-STRUCT-HOW-WHY`` could only be met by
+    cramming the clauses into the statement.
+
+    A subclass, not a new field on :class:`DutyAnswer`, because the WJQ form shares
+    that row and its assembler has nowhere to put a clause list: a field it silently
+    ignored is exactly the drop this track exists to remove. ``answers_json`` written
+    before J4 has no ``how_why`` key and still validates (defaults to ``[]``)."""
+
+    how_why: list[str] = Field(default_factory=list, max_length=12)
 
 
 class ModifiedQual(BaseModel):
@@ -72,8 +86,13 @@ class ComposerAnswers(AnswerContract):
 
     # 1. Identification
     title: str = Field(default="", max_length=200)
+    #: The template header's "Position #:" (Track J4).
+    position_number: str | None = Field(default=None, max_length=50)
     department: str | None = Field(default=None, max_length=200)
     employee_group: SFUEmployeeGroup | None = None
+    #: The position this one reports to (Toolkit Part 11.1; the JAQ). Track J4.
+    supervisor_title: str | None = Field(default=None, max_length=200)
+    supervisor_position_number: str | None = Field(default=None, max_length=50)
     #: The pay grade / classification VALUE the author enters (e.g. "8"). Its scheme is
     #: the ``employee_group`` scale; the assembler builds a ``JobClassification`` with
     #: ``source="entered"``. Blank -> no classification (grade lives in the HRIS for
@@ -82,7 +101,7 @@ class ComposerAnswers(AnswerContract):
     # 3. Position Summary
     position_summary: str | None = Field(default=None, max_length=4000)
     # 4. Duties
-    duties: list[DutyAnswer] = Field(default_factory=list, max_length=12)
+    duties: list[JDFNDutyAnswer] = Field(default_factory=list, max_length=12)
     # 5. Decision Making
     decision_making: list[str] = Field(default_factory=list, max_length=20)
     # 6. Problem Solving
@@ -98,8 +117,31 @@ class ComposerAnswers(AnswerContract):
     knowledge: list[ModifiedQual] = Field(default_factory=list, max_length=20)
     skills: list[ModifiedQual] = Field(default_factory=list, max_length=20)
     abilities: list[str] = Field(default_factory=list, max_length=20)
+    #: E. Security credentials (Track J4). The criminal record check is a yes/no — the
+    #: sentence is HR's (``apsa_form.security_check_sentence``, HR-257), never typed.
+    criminal_record_check: bool = False
+    #: Any OTHER security credential, verbatim — what a cloned role carried that is not
+    #: the rulebook's sentence. Pre-J4 the clone transform dropped these outright.
+    security: list[str] = Field(default_factory=list, max_length=10)
     # 2./9. SFU mandated boilerplate (About-SFU + territorial ack + EE footer) — the
     #       do-not-edit blocks the Builder inserts; required for approval.
     include_sfu_boilerplate: bool = True
     # 10. Additional Contextual Information (optional; dropped if blank)
     additional_context: str | None = Field(default=None, max_length=4000)
+
+    @field_validator("duties", mode="before")
+    @classmethod
+    def _plain_duties_are_jdfn_duties(cls, value: object) -> object:
+        """A plain :class:`DutyAnswer` (no how/why) is a valid JDFN duty — accept it,
+        so every caller that built one before J4 keeps working unchanged."""
+        if isinstance(value, list):
+            return [
+                (
+                    item.model_dump()
+                    if isinstance(item, DutyAnswer)
+                    and not isinstance(item, JDFNDutyAnswer)
+                    else item
+                )
+                for item in value
+            ]
+        return value

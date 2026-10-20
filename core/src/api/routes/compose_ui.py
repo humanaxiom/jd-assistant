@@ -35,7 +35,7 @@ import asyncio
 import logging
 import re
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, get_args
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -59,7 +59,6 @@ from src.api.routes.compose import (
 from src.jd_bank.composer import (
     DraftAssessment,
     DuplicateGuard,
-    DutyAnswer,
     ModifiedQual,
     SearchHit,
     SummarySuggestion,
@@ -234,15 +233,29 @@ def _duty_row_dicts(pairs: list[tuple[str, str]], target: str) -> list[dict[str,
     verbs = _column(pairs, f"{target}_verb")
     statements = _column(pairs, f"{target}_statement")
     allocations = _column(pairs, f"{target}_allocation")
-    count = max(len(verbs), len(statements), len(allocations))
+    how_whys = _column(pairs, f"{target}_how_why")
+    count = max(len(verbs), len(statements), len(allocations), len(how_whys))
     return [
         {
             "verb": _at(verbs, i),
             "statement": _at(statements, i),
             "allocation": _at(allocations, i),
+            "how_why": _at(how_whys, i),
         }
         for i in range(count)
     ]
+
+
+def _how_why_targets(spec: FormSpec) -> set[str]:
+    """This form's duty sections whose row model carries ``how_why`` (Track J4: the
+    JDFN duties, not the WJQ's). Read from the contract, so the WJQ never shows — and
+    never posts — a field its assembler would have nowhere to put."""
+    targets: set[str] = set()
+    for target in _targets_of_kind(spec, "duties"):
+        (row_model,) = get_args(spec.answers_model.model_fields[target].annotation)
+        if "how_why" in row_model.model_fields:
+            targets.add(target)
+    return targets
 
 
 def _modified_row_dicts(
@@ -342,6 +355,7 @@ def _structured_rows_from_answers(
                 "verb": d.action_verb,
                 "statement": d.statement,
                 "allocation": "" if d.allocation is None else str(d.allocation),
+                "how_why": "\n".join(getattr(d, "how_why", [])),
             }
             for d in getattr(answers, target)
         ]
@@ -384,25 +398,30 @@ def _pad_rows(
     return padded
 
 
-def _duty_answers(pairs: list[tuple[str, str]], target: str) -> list[DutyAnswer]:
-    """Structured duty rows -> ``DutyAnswer`` list, dropping rows with no statement.
+def _duty_answers(
+    pairs: list[tuple[str, str]], target: str, *, how_why: bool = False
+) -> list[dict[str, Any]]:
+    """Structured duty rows -> duty-row dicts, dropping rows with no statement. The
+    target's own row model validates them (``DutyAnswer``, or ``JDFNDutyAnswer`` when
+    ``how_why`` — one clause per line of the row's textarea).
 
     Raises :class:`ValueError` for a non-numeric allocation (a crafted body — the
     form uses ``<input type=number>``); the caller re-renders with the error."""
-    duties: list[DutyAnswer] = []
+    duties: list[dict[str, Any]] = []
     for row in _duty_row_dicts(pairs, target):
         statement = row["statement"].strip()
         if not statement:
             continue
         allocation_text = row["allocation"].strip()
         allocation = int(allocation_text) if allocation_text else None
-        duties.append(
-            DutyAnswer(
-                action_verb=row["verb"].strip(),
-                statement=statement,
-                allocation=allocation,
-            )
-        )
+        duty: dict[str, Any] = {
+            "action_verb": row["verb"].strip(),
+            "statement": statement,
+            "allocation": allocation,
+        }
+        if how_why:
+            duty["how_why"] = _lines(row["how_why"])
+        duties.append(duty)
     return duties
 
 
@@ -433,6 +452,7 @@ def _answers_from_form(
     :class:`ValueError` (a non-numeric %-allocation) — the caller re-renders the page
     with the error and assembles nothing."""
     data: dict[str, Any] = {}
+    how_why_targets = _how_why_targets(spec)
     for target in spec.answers_model.model_fields:
         kind = render_kind(spec.answers_model, target)
         if kind in {"text", "textarea", "select", "hidden", "choice", "date", "number"}:
@@ -459,7 +479,7 @@ def _answers_from_form(
             if items:
                 data[target] = items
         elif kind == "duties":
-            duties = _duty_answers(pairs, target)
+            duties = _duty_answers(pairs, target, how_why=target in how_why_targets)
             if duties:
                 data[target] = duties
         elif kind == "modified":
@@ -488,6 +508,11 @@ def _values_from_answers(spec: FormSpec, answers: AnswerContract) -> dict[str, s
         if kind in {"text", "textarea", "select", "hidden", "choice", "date", "number"}:
             if value is not None and str(value):
                 values[target] = str(value)
+        elif kind == "checkbox":
+            # The value a ticked box posts, so the template can re-tick it. (The
+            # boilerplate box is ticked from `boilerplate_checked` instead.)
+            if value:
+                values[target] = "on"
         elif kind == "list":
             values[target] = "\n".join(value)
         elif kind == "levels":
@@ -571,7 +596,7 @@ def _context(
     for target in _targets_of_kind(spec, "duties"):
         padded_rows[target] = _pad_rows(
             rows.get(target, []),
-            {"verb": "", "statement": "", "allocation": ""},
+            {"verb": "", "statement": "", "allocation": "", "how_why": ""},
             min_rows=_DUTY_MIN_ROWS,
             max_rows=_DUTY_MAX_ROWS,
         )
@@ -635,6 +660,8 @@ def _context(
         "employee_groups": rules.segmentation.jdfn_employee_groups,
         # The structured duty/KSA rows (padded with blanks) + their modifier options.
         "structured_rows": padded_rows,
+        # The duty sections whose rows carry "How and why" sub-bullets (JDFN only).
+        "how_why_targets": _how_why_targets(spec),
         "modifier_options": modifier_options,
         "assessment": assessment,
         # A prominent, always-visible "inclusive language" meter (coded/gendered terms

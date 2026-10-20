@@ -223,6 +223,14 @@ class SFUJobDescription(BaseModel):
     #: (the common case for JDFN, whose grade lives in the HRIS). See JobClassification.
     classification: JobClassification | None = None
     employee_group: SFUEmployeeGroup | None = None
+    #: The position this one reports to — its title and position # (Track J4). Asked
+    #: by the Toolkit (Part 11.1, "supervisor title") and the JAQ ("Position # of
+    #: Supervisor"); NOT on the 2024 APSA template, so the export prints them after the
+    #: template's own header rows. Authored in the Builder only: the parser never fills
+    #: them (no ``PARSER_VERSION`` change — a stored ``parsed`` row without the keys
+    #: deserializes to ``None``, exactly what a fresh parse writes).
+    supervisor_title: str | None = Field(default=None, max_length=200)
+    supervisor_position_number: str | None = Field(default=None, max_length=50)
     # 2. About SFU (boilerplate - presence only)
     about_sfu_present: bool = False
     # 3. Position Summary (template: 100-150 words)
