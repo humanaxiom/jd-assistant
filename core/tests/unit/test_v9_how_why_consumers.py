@@ -103,6 +103,44 @@ def test_the_rewrite_keeps_clauses_the_model_did_return() -> None:
     assert out.duties[0].how_why == reworded
 
 
+def test_clauses_the_model_folded_into_the_statement_are_not_restored_twice() -> None:
+    """Review finding (v9): the model returns the duty with its clauses moved INTO the
+    statement and an empty ``how_why`` — exactly the case the restore keys on. Carrying
+    the merge's clauses back would state every clause twice (once in the statement,
+    once under it). The words are already there, so nothing is restored."""
+    merged = MergedRole(
+        draft=_jd(_GROUPED),
+        provenance=MergeProvenance(member_count=2, skill_frequency=()),
+    )
+    llm = _jd(
+        SFUDuty(
+            action_verb="Manages",
+            statement="Manages proposal processes by tracking grant deadlines and "
+            "preparing project budgets",
+        )
+    )
+    out, _record = _apply_anti_fabrication(llm, merged, get_rules())
+
+    assert out.duties[0].how_why == []
+
+
+def test_one_source_duty_s_clauses_are_restored_onto_one_rewritten_duty() -> None:
+    """Review finding (v9): the model splits one grouped duty into two clause-less
+    duties that both match it. Restoring onto both would duplicate the clauses in the
+    draft; they go back once, onto the first match."""
+    merged = MergedRole(
+        draft=_jd(_GROUPED),
+        provenance=MergeProvenance(member_count=2, skill_frequency=()),
+    )
+    llm = _jd(
+        SFUDuty(action_verb="Manages", statement="Manages the proposal processes by"),
+        SFUDuty(action_verb="Manages", statement="Manages proposal processes"),
+    )
+    out, _record = _apply_anti_fabrication(llm, merged, get_rules())
+
+    assert [d.how_why for d in out.duties] == [_GROUPED.how_why, []]
+
+
 def test_a_v9_draft_with_a_long_duty_clones_into_the_builder() -> None:
     """A v9 draft can carry a duty longer than 400 characters (HR-261). Cloning it into
     the Builder must not raise — `DutyAnswer.statement` was narrower than the JD it is

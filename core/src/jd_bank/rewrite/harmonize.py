@@ -249,6 +249,9 @@ def _apply_anti_fabrication(
     # often the role performs it.
     flagged: list[str] = []
     duties: list[SFUDuty] = []
+    #: Merge duties whose how/why has already been carried back — at most once each, so
+    #: a model that splits one grouped duty into two cannot get its clauses twice.
+    restored_from: set[int] = set()
     for duty, tokens in zip(llm_jd.duties, llm_duty_tokens, strict=True):
         best_index, best = _closest(tokens, draft_duty_tokens)
         if best < rewrite.duty_flag_threshold:
@@ -262,8 +265,27 @@ def _apply_anti_fabrication(
         # Parser v9 (owner ruling 2026-10-20, Q1): a grounded duty's how/why clauses
         # are source content. A rewrite that returns the duty WITHOUT them has not
         # reworded them, it has dropped them — carry the merge's back, as for frequency.
-        if not duty.how_why and source.how_why:
+        #
+        # Restored only when the rewritten STATEMENT reads as the merge's headline, not
+        # as its whole duty: a model that FOLDED the clauses into the statement has
+        # kept their words, and carrying them back would state each clause twice. No
+        # threshold — the statement is compared against the headline and against the
+        # whole duty, and the closer one decides. And once per merge duty (above).
+        if (
+            not duty.how_why
+            and source.how_why
+            and best_index not in restored_from
+            and _jaccard(
+                _content_tokens(duty.statement, comparison),
+                _content_tokens(source.statement, comparison),
+            )
+            > _jaccard(
+                _content_tokens(duty.statement, comparison),
+                draft_duty_tokens[best_index],
+            )
+        ):
             restored["how_why"] = list(source.how_why)
+            restored_from.add(best_index)
         duties.append(duty.model_copy(update=restored) if restored else duty)
 
     # 🔴 EMPTY-TO-EMPTY, FOR DUTIES. A grounded draft with NO duties cannot acquire any
