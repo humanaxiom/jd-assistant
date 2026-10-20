@@ -359,3 +359,34 @@ async def test_the_typo_floor_is_read_from_the_rulebook(
 
     assert builder.hits == []
     assert library.total == 0
+
+
+@pytest.mark.asyncio
+async def test_a_database_without_0007_degrades_the_typo_fallback_not_the_request(
+    session_maker: async_sessionmaker[AsyncSession],  # noqa: F811
+) -> None:
+    """A database migration 0007 has not reached has no ``<<%`` operator. The typo
+    fallback must then be skipped INSIDE its SAVEPOINT: without it the failed statement
+    aborts the request's whole transaction, and every later query on the same session
+    (departments, the role clusters the page looks up) fails too.
+
+    Simulated for real: ``pg_trgm`` is dropped inside a transaction that is rolled back,
+    so the shared head-migrated database is untouched. MUTATION: replace
+    ``session.begin_nested()`` in ``_with_typo_floor`` with a plain block and this goes
+    red with ``InFailedSQLTransactionError``."""
+    async with session_maker() as session:
+        await _roles(session, ("Laboratory Technician", "cupe"))
+        await session.execute(text("DROP EXTENSION pg_trgm CASCADE"))
+        builder = await search_mod.search_jds(
+            "labratory techician", session=session, form=WJQ_TEMPLATE, **_dead()
+        )
+        library = await list_roles(session, q="labratory techician")
+        # The session is still usable after both degraded fallbacks.
+        survivor = await search_mod.search_jds(
+            "Laboratory Technician", session=session, form=WJQ_TEMPLATE, **_dead()
+        )
+        await session.rollback()
+
+    assert builder.hits == [] and builder.notice is not None
+    assert library.total == 0
+    assert [h.title for h in survivor.hits] == ["Laboratory Technician"]

@@ -802,6 +802,53 @@ def test_search_prefers_the_harmonized_role_clone(
     assert f"/jd-bank/ui/compose/clone/{hit.source_document_id}" not in html
 
 
+def test_role_hits_link_to_the_role_and_a_spelling_hit_shows_no_number(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two I2 template rules a route test must pin, because the search tests cannot see
+    the page: (1) a role found by MEANING has no archive document, so its "Read" link
+    must go to the role — it used to render ``/jd-bank/ui/jd/None``; (2) a hit found by
+    the typo fallback says "similar spelling" and carries NO percentage (a trigram
+    distance is not a measure of the job). MUTATION: add a number to the spelling row,
+    or restore the ``match == "role_title"`` link test, and this goes red."""
+    from src.jd_bank.composer import SearchHit
+
+    by_meaning, by_spelling = uuid.uuid4(), uuid.uuid4()
+    hits = [
+        SearchHit(
+            cluster_id=by_spelling,
+            title="Laboratory Technician",
+            employee_group="cupe",
+            match="role_title",
+            by_spelling=True,
+        ),
+        SearchHit(
+            cluster_id=by_meaning,
+            title="Research Assistant",
+            employee_group="apsa",
+            score=0.9,
+            match="semantic",
+        ),
+    ]
+
+    async def fake_search(query: str, **kwargs: object) -> SearchOutcome:
+        return SearchOutcome(hits=hits)
+
+    monkeypatch.setattr(compose_ui, "search_jds", fake_search)
+    app.dependency_overrides[compose.get_embed_client] = lambda: _FakeClose()
+    app.dependency_overrides[compose.get_neo4j_driver] = lambda: _FakeClose()
+    _override_session_object()
+
+    html = _client().get("/jd-bank/ui/compose/search?q=labratory").text
+    assert "/jd-bank/ui/jd/None" not in html
+    assert f'href="/jd-bank/ui/role/{by_meaning}"' in html
+    assert f'href="/jd-bank/ui/role/{by_spelling}"' in html
+    row_start = html.index("Laboratory Technician")
+    spelling_row = html[row_start : html.index("</tr>", row_start)]
+    assert "similar spelling" in spelling_row
+    assert not re.search(r"\d\s*%", spelling_row), spelling_row
+
+
 def test_search_without_a_query_prompts_and_does_not_search(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
