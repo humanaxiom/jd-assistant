@@ -742,28 +742,197 @@ async def test_no_live_cupe_role_exports_with_the_apsa_footer(session) -> None: 
 
 
 async def test_a_live_apsa_role_survives_export_and_reparse(session) -> None:  # type: ignore[no-untyped-def]
-    """The APSA export is unchanged by J1 and still carries its footer; a live APSA
-    role's title and position summary come back through the JDFN parser.
+    """A live APSA role exports on HR's 2024 layout and the JDFN parser reads it back
+    with the SAME number of duties, its title, summary, About SFU and footer.
 
-    ⚠ Duties are NOT asserted, and that is a measured pre-existing defect of the APSA
-    export, not a gap in this test: 1,798 of 1,876 current non-CUPE roles re-read with a
-    different duty count (``tests/export_roundtrip.py :: jdfn_round_trip_losses``). J1
-    must leave the APSA output byte-identical in content, so it is reported, not fixed.
+    History: until Track J4 duties were NOT asserted here — 1,798 of 1,876 current
+    non-CUPE roles re-read with a different duty count (usually 5 -> 1), because the
+    export's Word list bullets never reached the extracted text. J4 types the bullet
+    (HR-259); this now asserts the duty count and the whole JDFN oracle.
     """
     from src.jd_core.rules import get_rules
-    from tests.export_roundtrip import jdfn_round_trip_losses
+    from tests.export_roundtrip import jdfn_unexplained_losses
 
     rules = get_rules()
     cid, content = await _first_current(
         session,
         "c.content->>'employee_group' = 'apsa' "
-        "AND jsonb_array_length(c.content->'duties') > 0 "
+        "AND jsonb_array_length(c.content->'duties') >= 3 "
         "AND c.content->>'position_summary' IS NOT NULL",
     )
     jd, body, result = _export_and_reparse(content)
 
     assert result.template != "wjq", f"role {cid}: an APSA export read as a CUPE form"
-    losses = jdfn_round_trip_losses(jd, result.jd)
+    assert len(result.jd.duties) == len(jd.duties), (
+        f"role {cid}: {len(jd.duties)} duties exported, "
+        f"{len(result.jd.duties)} re-read"
+    )
+    assert result.jd.title.strip() == jd.title.strip(), f"role {cid}: title lost"
+    losses = jdfn_unexplained_losses(jd, result.jd)
     assert losses == [], f"role {cid} lost fields on export -> re-parse: {losses}"
-    for passage in rules.boilerplate.territorial_acknowledgement:
+    assert result.jd.about_sfu_present, f"role {cid}: About SFU did not re-read"
+    for passage in rules.boilerplate.about_sfu:
+        assert passage in body, f"role {cid}: About SFU passage missing: {passage!r}"
+    for passage in (
+        *rules.boilerplate.territorial_acknowledgement,
+        *rules.boilerplate.employment_equity,
+    ):
         assert passage in body, f"role {cid}: the APSA footer is missing"
+
+
+async def test_every_live_apsa_role_exports_and_rereads_its_duties(session) -> None:  # type: ignore[no-untyped-def]
+    """EVERY current non-CUPE role, not a sample: exported and re-read, each comes back
+    with the same number of duties — and with nothing else lost either — unless the
+    loss is one the JDFN PARSER cannot read whatever the export prints
+    (``tests/export_roundtrip.py :: jdfn_parser_limits``; each is a parser change).
+
+    MEASURED 2026-10-19 (this branch): duty count survives for 1,874 of 1,876 roles
+    (99.9%; pre-J4: 78, 4.2%); the full oracle holds for 1,872. The rest are parser
+    limits: 2 roles have a duty over 200 characters with two semicolons (split by
+    ``_maybe_split_semicolons``), 1 a title holding "Department" (``NEXT_LABEL_RX``
+    cuts the label value there), 1 a position number that is a faculty name with
+    spaces (the parser reads one token). Any OTHER loss is an export defect.
+    """
+    from src.jd_core.models.parsed_jd import SFUJobDescription
+    from src.jd_core.models.quality import WJQ_TEMPLATE
+    from src.jd_core.quality.validators import template_of
+    from tests.export_roundtrip import jdfn_parser_limits, jdfn_unexplained_losses
+
+    rows = (await session.execute(text(f"""
+                WITH cur AS ({_CURRENT})
+                SELECT cluster_id, content FROM cur c
+            """))).all()
+    total = duty_kept = 0
+    unexplained: list[str] = []
+    for cid, content in rows:
+        if template_of(SFUJobDescription.model_validate(content)) == WJQ_TEMPLATE:
+            continue
+        total += 1
+        jd, _, result = _export_and_reparse(content)
+        if len(jd.duties) == len(result.jd.duties):
+            duty_kept += 1
+        elif "duty" not in jdfn_parser_limits(jd):
+            unexplained.append(
+                f"{cid}: {len(jd.duties)} duties exported, "
+                f"{len(result.jd.duties)} re-read"
+            )
+        unexplained += [
+            f"{cid}: {loss}" for loss in jdfn_unexplained_losses(jd, result.jd)
+        ]
+    assert total, "no current non-CUPE role — an empty Bank is not a pass"
+    assert not unexplained, (
+        f"duty count survives for {duty_kept}/{total} roles; "
+        f"{len(unexplained)} losses no parser limit explains: {unexplained[:10]}"
+    )
+
+
+async def test_a_builder_apsa_draft_exports_every_new_field(session) -> None:  # type: ignore[no-untyped-def]
+    """Track J4, end to end through the HTTP routes a person uses: an APSA draft with a
+    Position #, how/why sub-bullets, a criminal record check and the supervisor's title
+    and position # is checked (the live near-duplicate guard runs against the real
+    Bank, Neo4j and embed host) and exported, and every field is in the `.docx` —
+    re-read by the Bank's own ingest path.
+
+    🔴 PERSISTS NOTHING, and proves it: the session handed to the routes refuses
+    ``commit`` (and is rolled back), and the Bank's ``canonical_jds`` row count is the
+    same before and after. Neither route writes by design (check = assess + read-only
+    guard; export = render), so this pins the design rather than trusting it.
+    """
+    import html as html_lib
+    from urllib.parse import urlencode
+
+    from httpx import ASGITransport, AsyncClient
+
+    from src.api.deps import transient_dev_user
+    from src.api.main import app, get_session
+    from src.api.routes.auth import require_ui_user
+    from src.jd_bank.db.models import DocumentFormat
+    from src.jd_bank.ingest.extract import extract_text
+    from src.jd_core.parser.segmenter import parse_jd
+    from src.jd_core.rules import get_rules
+    from src.settings import get_settings
+
+    count_sql = text("SELECT count(*) FROM canonical_jds")
+    before = (await session.execute(count_sql)).scalar_one()
+
+    engine = create_async_engine(_DB)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def _read_only_session():  # type: ignore[no-untyped-def]
+        async with maker() as s:
+
+            async def _refuse() -> None:
+                raise AssertionError("the Builder smoke must not commit to the Bank")
+
+            s.commit = _refuse  # type: ignore[method-assign]
+            try:
+                yield s
+            finally:
+                await s.rollback()
+
+    async def _user(request: Request):  # type: ignore[no-untyped-def]
+        user = transient_dev_user(get_settings())
+        request.state.user = user
+        request.state.csrf_token = ""
+        return user
+
+    app.dependency_overrides[get_session] = _read_only_session
+    app.dependency_overrides[require_ui_user] = _user
+    form = [
+        ("form", "jdfn"),
+        ("title", "Smoke Test Academic Programs Manager"),
+        ("employee_group", "apsa"),
+        ("position_number", "99990001"),
+        ("supervisor_title", "Director, Smoke Operations"),
+        ("supervisor_position_number", "99990002"),
+        ("position_summary", "Provides operational support for academic programs."),
+        ("duties_verb", "Manages"),
+        ("duties_statement", "Manages the delivery of academic programs by:"),
+        ("duties_allocation", "60"),
+        (
+            "duties_how_why",
+            "Representing the department on committees.\nPlanning work.",
+        ),
+        ("duties_verb", "Leads"),
+        ("duties_statement", "Leads staffing processes"),
+        ("duties_allocation", "40"),
+        ("duties_how_why", ""),
+        ("criminal_record_check", "on"),
+        ("include_sfu_boilerplate", "on"),
+    ]
+    headers = {"content-type": "application/x-www-form-urlencoded"}
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://smoke") as client:
+            check = await client.post(
+                "/jd-bank/ui/compose/new", content=urlencode(form), headers=headers
+            )
+            assert check.status_code == 200, check.status_code
+            found = re.search(r'name="answers_json" value="([^"]*)"', check.text)
+            assert found is not None, "the check page offers no export"
+            export = await client.post(
+                "/jd-bank/ui/compose/export",
+                content=urlencode(
+                    [
+                        ("answers_json", html_lib.unescape(found.group(1))),
+                        ("form", "jdfn"),
+                    ]
+                ),
+                headers=headers,
+            )
+    finally:
+        app.dependency_overrides.clear()
+        await engine.dispose()
+
+    assert export.status_code == 200 and export.content[:2] == b"PK"
+    body = extract_text(export.content, DocumentFormat.DOCX)
+    back = parse_jd(body).jd
+    assert back.position_number == "99990001"
+    assert len(back.duties) == 2
+    assert "Representing the department on committees" in back.duties[0].statement
+    assert "Director, Smoke Operations" in body and "99990002" in body
+    assert get_rules().apsa_form.security_check_sentence in body
+    for passage in get_rules().boilerplate.about_sfu:
+        assert passage in body
+    after = (await session.execute(count_sql)).scalar_one()
+    assert after == before, f"canonical_jds went {before} -> {after}: the smoke wrote"

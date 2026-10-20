@@ -263,8 +263,8 @@ def wjq_answers_from_jd(
     not choose; putting them all in the majors keeps every duty, in order, where the
     author can move any of them down. **Nothing is dropped, and nothing is invented.**
 
-    ``security`` qualifications have no Builder field and are dropped, matching the
-    JDFN clone transform's own documented limitation.
+    ``security`` qualifications have no WJQ Builder field and are dropped. (The JDFN
+    clone transform keeps them since Track J4; the CUPE form's own structure is J2's.)
     """
     rulebook = rules if rules is not None else get_rules()
     rel = jd.relationships

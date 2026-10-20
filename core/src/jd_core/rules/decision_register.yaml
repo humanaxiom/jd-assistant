@@ -654,7 +654,14 @@ decisions:
     why_it_matters: >-
       SFU says 100%, full stop (Part 11.6, an explicit never-approve condition).
       The 99–101 tolerance is a rounding window WE invented so that a JD whose
-      duties are 33/33/33 is not blocked over 1%.
+      duties are 33/33/33 is not blocked over 1%. ⚠ OBSERVED 2026-10-19 (Track J4):
+      HR's current APSA/APEX/Poly template (APSA_APEX_POLY_JD Template_20240530.docx)
+      does NOT ask for a percentage per duty at all — its Duties section is "ACTION
+      VERB… WHAT by" with "How and why" sub-bullets, and no allocation anywhere — while
+      our rulebook copy (Parts 10.1 and 11.6) requires them. So the question under this
+      window is really whether the allocation gate should apply to JDs written on the
+      2024 template. Not decided here; behaviour unchanged (the Builder still collects
+      and the export still prints the "(NN%)" a draft carries).
     impact_if_changed: >-
       Tightening to exactly 100 would block every JD whose percentages were written
       by hand and round; widening it lets genuinely wrong allocations through a
@@ -3101,7 +3108,19 @@ decisions:
       sentences — the third ("We celebrate the diversity...") is absent from the
       template we have. That is precisely why the block is a LIST of passages and each
       is matched on its own: a whole-paragraph match would have failed on the real
-      archive and left the false positive in place.
+      archive and left the false positive in place. ⚠ (c) THREE SOURCES NOW DISAGREE
+      (recorded 2026-10-19, Track J4). HR's 2024-05-30 APSA/APEX/Poly template
+      (APSA_APEX_POLY_JD Template_20240530.docx) pre-populates a DIFFERENT paragraph,
+      not a variant of this one: "We are a leading research university, advancing an
+      inclusive and sustainable future. Our purpose – the essence of SFU – is to create
+      and connect knowledge, learning and community for deeper understanding and
+      meaningful impact." / "We are committed to fostering excellence, innovation,
+      belonging and community in all that we do." The Toolkit (S3, 2024-03) and our
+      rulebook copy carry the "Canada's engaged university" text above; the archive's
+      new-template JDs carry its first two sentences. (d) THE EXPORT NOW PRINTS THIS
+      BLOCK: since J4 every APSA/APEX/Poly `.docx` opens with an About SFU section
+      printed from THIS list, as it stands — so the wording HR rules here is the
+      wording every exported JD carries. Not decided in J4; the text is unchanged.
     impact_if_changed: >-
       Config only. Correcting a word restores the exemption for JDs carrying the
       corrected text and withdraws it from JDs carrying the old text — so if SFU has
@@ -3141,7 +3160,16 @@ decisions:
       anyone. It exists because the acknowledgement is mandated boilerplate and
       therefore, like About SFU, exempt from the coded-term scan (HR-107); it happens
       to contain no coded term today, so the exemption is currently a no-op that
-      guards against a future lexicon addition.
+      guards against a future lexicon addition. ⚠ A FOURTH WORDING (recorded
+      2026-10-19, Track J4): HR's 2024-05-30 APSA/APEX/Poly template
+      (APSA_APEX_POLY_JD Template_20240530.docx) prints the acknowledgement with the
+      Nations' names in their own orthography — "xʷməθkʷəy̓əm (Musqueam), Sḵwx̱wú7mesh
+      Úxwumixw (Squamish), səlilwətaɬ (Tsleil-Waututh), q̓íc̓əy̓ (Katzie), kʷikʷəƛ̓əm
+      (Kwikwetlem), Qayqayt, Kwantlen, Semiahmoo and Tsawwassen" — where our text above
+      has an ASCII transliteration. The template is HR's own document, so it is the
+      strongest candidate yet; it is not adopted here, because this entry is HR's to
+      rule and the CLAUDE.md flag asks for SFU's CURRENT official text. The APSA export
+      prints THIS list as it stands.
     impact_if_changed: >-
       Must be verified against SFU's official text before ANY external distribution
       (Phase 6 sign-off; blocks publish, not development). Deciding to ENFORCE the
@@ -7699,8 +7727,147 @@ decisions:
       a non-negotiable-#1 question, not a formatting one — it needs HR's ruling, not a
       config edit. Pinned by `test_the_hr_box_and_the_sign_off_lines_are_blank`.
     status: open
+  - id: HR-256
+    question: >-
+      Should the APSA/APEX/Poly export print a heading above the territorial
+      acknowledgement and Employment Equity statement, when HR's 2024 template prints
+      them with no heading at all?
+    config:
+      file: apsa_form.yaml
+      path: apsa_form.footer_heading
+    current_default: TERRITORIAL ACKNOWLEDGEMENT AND EDI COMMITMENT
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      HR's template (APSA_APEX_POLY_JD Template_20240530.docx) prints the two
+      statements between QUALIFICATIONS and ADDITIONAL CONTEXTUAL INFORMATION with no
+      heading. The heading is OURS, and it is there for the Bank, not for the reader. Without
+      one, the Bank's own parser files the footer into the Qualifications section, and
+      an exported JD re-ingested by the Bank comes back with its last qualification
+      carrying the territorial acknowledgement glued to its end. Before J4 the export
+      printed a heading too ("Territorial Acknowledgement & Employment Equity"), but
+      one the parser did not know, so it did not help. The heading printed now is the
+      one the parser reads as the footer (`CANONICAL_HEADING[FOOTER]`); the export also
+      moved the footer to where the template puts it (after Qualifications, before
+      Additional Contextual Information).
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`; changes only the exported
+      `.docx`. Any value must be a heading the parser files under the footer
+      (`test_the_footer_heading_is_one_the_parser_knows`), so "no heading, exactly like
+      the template" is not a config edit: it needs either a parser change (hashed
+      heading vocabulary, PARSER_VERSION bump, archive re-parse) or accepting that a
+      re-ingested export loses its last qualification's boundary.
+    status: open
+  - id: HR-257
+    question: >-
+      Is this SFU's current wording for the criminal-record-check requirement the
+      Builder adds to a JD's qualifications when the author ticks "criminal record
+      check required"?
+    config:
+      file: apsa_form.yaml
+      path: apsa_form.security_check_sentence
+    current_default: >-
+      due to the nature of this position there is a bona fide occupational requirement
+      that the incumbent must have a current satisfactory criminal record check on file
+    provenance: sfu_rulebook
+    source_part: Part 10.2 (and Part 2, "Criminal Record Check language")
+    tier: hr_policy
+    why_it_matters: >-
+      The Toolkit says the qualifications "must include … E. Security credentials (if
+      applicable)", and the Builder had no way to say so — and cloning a role silently
+      DROPPED its security qualifications (gap analysis A14). The Builder now asks a
+      yes/no and inserts THIS sentence; the author never types it, so every JD that
+      needs it says it the same way. It is transcribed verbatim from OUR COPY of the
+      rulebook (lower-case first word and no full stop included), not checked against
+      SFU's live Toolkit. The criteria for when it applies (children or vulnerable
+      adults, unsupervised access, provincially licensed or funded) are the author's
+      judgement — nothing here decides them. On clone, a security qualification that
+      matches this sentence (ignoring case, spacing and a trailing full stop) comes
+      back as the ticked box; any other security line is kept verbatim.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`: no validator reads this file.
+      Changing the wording changes what NEW drafts carry; an existing draft keeps the
+      sentence it was assembled with, and on clone the old wording no longer matches,
+      so it is kept as an "other security credential" line rather than lost.
+    status: open
+  - id: HR-258
+    question: >-
+      Is the identification table the APSA/APEX/Poly export prints in its page header
+      a faithful copy of HR's 2024 template — and is printing the supervisor's title
+      and position # there, which the template does not ask for, acceptable?
+    config:
+      file: apsa_form.yaml
+      path: apsa_form.id_labels
+    current_default:
+      title: "Position Title:"
+      position_number: "Position #:"
+      employee_group: "Employee Group:"
+      initial_effective_date: "Initial Effective Date:"
+      latest_revision_date: "Latest Revision Date:"
+      supervisor_title: "Supervisor's Title:"
+      supervisor_position_number: "Supervisor's Position #:"
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The first five labels are HR's, transcribed verbatim from the page header of
+      APSA_APEX_POLY_JD Template_20240530.docx; the two
+      dates are on the template but not in the Bank's model, so they print BLANK —
+      never guessed. Before J4 the export printed only the title, and no position #.
+      The supervisor rows are OURS: the 2024 template has no supervisor field, but the
+      Toolkit asks for the supervisor's title when writing a new JD and the JAQ asks for
+      the "Position # of Supervisor", so the Builder now collects both and the export
+      prints them after the template's own rows. Title, position # and employee group
+      are spellings the Bank's own parser reads back, so an exported JD re-ingested by
+      the Bank keeps them; the supervisor labels are chosen so the parser does NOT read
+      them as the position's own title or number. Department is not printed: the 2024
+      template has no department row.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. Re-spelling title, position #
+      or employee group is only safe as a spelling the parser's label regexes match
+      (`test_the_modelled_id_labels_are_ones_the_parser_reads`); otherwise a re-ingested
+      export loses the field. A row cannot be removed: every model field the header
+      prints must have a label (`ApsaForm._labels_are_complete`).
+    status: open
+  - id: HR-259
+    question: >-
+      May the APSA/APEX/Poly export type its bullets as characters (so the Bank can read
+      its own export back) instead of using Word's list formatting as HR's template does?
+    config:
+      file: apsa_form.yaml
+      path: apsa_form.bullet_glyph
+    current_default: "•"
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      MEASURED 2026-10-19: 1,798 of 1,876 current non-CUPE roles exported and re-read by
+      the Bank came back with a different duty count — usually 5 exported, 1 re-read.
+      The export used Word's "List Bullet" style, and a Word list bullet is formatting:
+      it never reaches the text the parser reads, so every duty ran into one. The
+      archive has the same problem in reverse (measured read-only over all 9,947
+      archive .docx: of the 5,114 JDFN files whose duties are Word-formatted lists,
+      48.4% parse as ONE duty), so the parser, not the archive, is the reader that
+      cannot see Word bullets — fixing that is a parser change, not made here. The
+      export now types this mark, a tab and a hanging indent before every duty,
+      decision, problem, contact and qualification: it looks like a bullet, and it IS
+      one to the parser. The template's "How and why" sub-bullets stay Word sub-bullets
+      on purpose, so they re-read as part of their duty. The trade-off HR should know:
+      editing the exported file in Word, a new line after an item does not continue the
+      list automatically.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`; changes only the exported
+      `.docx`. The mark must be one the parser reads as a bullet
+      (`test_the_bullet_glyph_is_one_the_parser_reads`); a mark it does not read brings
+      the merged-duties defect straight back, and the live smoke
+      (`test_every_live_apsa_role_exports_and_rereads_its_duties`) goes red.
+    status: open
 
 trivial:
+  # ── The APSA export form (Track J4): HR's own wording, pinned by HR-258. ──
+  - config: {file: apsa_form.yaml, path: apsa_form.banner}
+    reason: >-
+      The two banner lines of HR's 2024 template header ("SIMON FRASER UNIVERSITY",
+      "JOB DESCRIPTION"), verbatim; part of the header-fidelity question HR-258 asks.
+    covered_by: HR-258
   # ── The CUPE export form (Track J1): HR's own wording, pinned by HR-238. ──
   - config: {file: cupe_form.yaml, path: cupe_form.font_name}
     reason: >-

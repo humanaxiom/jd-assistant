@@ -21,7 +21,7 @@ publishes (NN #1); the output is an explicit draft.
 
 from __future__ import annotations
 
-from src.jd_bank.composer.answers import ComposerAnswers, DutyAnswer, ModifiedQual
+from src.jd_bank.composer.answers import ComposerAnswers, JDFNDutyAnswer, ModifiedQual
 from src.jd_core.models.parsed_jd import (
     JobClassification,
     QualificationKind,
@@ -41,16 +41,40 @@ _SUPERVISORY_MAX: int = next(
 )
 
 
-def _duty(answer: DutyAnswer) -> SFUDuty:
+def _duty(answer: JDFNDutyAnswer) -> SFUDuty:
     statement = answer.statement.strip()
     if answer.allocation is not None:
         statement = f"{statement} ({answer.allocation}%)"
-    return SFUDuty(action_verb=answer.action_verb.strip(), statement=statement)
+    return SFUDuty(
+        action_verb=answer.action_verb.strip(),
+        statement=statement,
+        how_why=[clause.strip() for clause in answer.how_why if clause.strip()],
+    )
 
 
-def _qualifications(answers: ComposerAnswers) -> list[SFUQualification]:
+def _folded(text: str) -> str:
+    """Case, whitespace and a trailing full stop folded away — how the archive and the
+    parser re-case, re-wrap and re-punctuate the same sentence."""
+    return " ".join(text.split()).rstrip(".").strip().casefold()
+
+
+def _security(answers: ComposerAnswers, sentence: str) -> list[SFUQualification]:
+    """E. Security credentials: the rulebook's criminal-record-check sentence when the
+    author ticked it (HR-257), then any other credential verbatim — the sentence never
+    twice, however it was typed into the other list."""
+    lines = [sentence] if answers.criminal_record_check else []
+    lines += [
+        s.strip()
+        for s in answers.security
+        if s.strip() and _folded(s) != _folded(sentence)
+    ]
+    return [SFUQualification(text=line, kind="security") for line in lines]
+
+
+def _qualifications(answers: ComposerAnswers, rules: Rules) -> list[SFUQualification]:
     """Every qualification, in the Toolkit's Education -> Experience -> Knowledge ->
-    Skills -> Abilities order — built by emitting the kinds in that fixed order."""
+    Skills -> Abilities order — built by emitting the kinds in that fixed order — then
+    E. Security credentials last (Track J4; ``ksa_rank`` does not rank them)."""
     quals: list[SFUQualification] = []
     quals += [
         SFUQualification(text=t.strip(), kind="education")
@@ -69,6 +93,7 @@ def _qualifications(answers: ComposerAnswers) -> list[SFUQualification]:
         for t in answers.abilities
         if t.strip()
     ]
+    quals += _security(answers, rules.apsa_form.security_check_sentence)
     return quals
 
 
@@ -129,6 +154,10 @@ def _classification(answers: ComposerAnswers) -> JobClassification | None:
     )
 
 
+def _blank_to_none(value: str | None) -> str | None:
+    return (value or "").strip() or None
+
+
 def assemble_jd(
     answers: ComposerAnswers, *, rules: Rules | None = None
 ) -> SFUJobDescription:
@@ -144,16 +173,19 @@ def assemble_jd(
     rel_header = _standard_relationships_header(rulebook) if boilerplate else None
     return SFUJobDescription(
         title=answers.title.strip() or "Untitled role",
-        department=(answers.department or "").strip() or None,
+        position_number=_blank_to_none(answers.position_number),
+        department=_blank_to_none(answers.department),
         classification=_classification(answers),
         employee_group=answers.employee_group,
+        supervisor_title=_blank_to_none(answers.supervisor_title),
+        supervisor_position_number=_blank_to_none(answers.supervisor_position_number),
         about_sfu_present=boilerplate,
         position_summary=(answers.position_summary or "").strip() or None,
         duties=[_duty(d) for d in answers.duties],
         decision_making=[d.strip() for d in answers.decision_making if d.strip()],
         problem_solving=[p.strip() for p in answers.problem_solving if p.strip()],
         relationships=_relationships(answers, header=rel_header),
-        qualifications=_qualifications(answers),
+        qualifications=_qualifications(answers, rulebook),
         territorial_acknowledgement_present=boilerplate,
         employment_equity_present=boilerplate,
         additional_context=(answers.additional_context or "").strip() or None,
@@ -169,24 +201,40 @@ def assemble_jd(
 # direction.
 
 
-def jd_to_answers(jd: SFUJobDescription) -> ComposerAnswers:
+def jd_to_answers(
+    jd: SFUJobDescription, *, rules: Rules | None = None
+) -> ComposerAnswers:
     """Turn an existing JD back into guided-authoring answers, so the Builder can be
     pre-filled from it (the inverse of :func:`assemble_jd`).
 
-    Qualifications are split back out by kind into the answer fields; ``security``
-    qualifications have no Builder field and are dropped (the guided flow does not
-    collect them — a v1 limitation, recorded). The SFU boilerplate flag is set iff the
-    source carries all three mandated presence booleans.
+    Qualifications are split back out by kind into the answer fields. ``security``
+    qualifications were DROPPED here until Track J4; now the rulebook's
+    criminal-record-check sentence comes back as the ticked box (matched ignoring case,
+    spacing and a trailing full stop) and any other security line is kept verbatim.
+    How/why clauses, the position # and the supervisor's title / # come back too —
+    the same choice the WJQ clone makes for the position #: the author edits it. The
+    SFU boilerplate flag is set iff the source carries all three mandated presence
+    booleans.
     """
+    rulebook = rules if rules is not None else get_rules()
+    sentence = _folded(rulebook.apsa_form.security_check_sentence)
+    security = [q.text for q in jd.qualifications if q.kind == "security"]
     rel = jd.relationships
     return ComposerAnswers(
         title=jd.title,
+        position_number=jd.position_number,
         department=jd.department,
         employee_group=jd.employee_group,
+        supervisor_title=jd.supervisor_title,
+        supervisor_position_number=jd.supervisor_position_number,
         grade=jd.classification.value if jd.classification is not None else None,
         position_summary=jd.position_summary,
         duties=[
-            DutyAnswer(action_verb=d.action_verb, statement=d.statement)
+            JDFNDutyAnswer(
+                action_verb=d.action_verb,
+                statement=d.statement,
+                how_why=list(d.how_why),
+            )
             for d in jd.duties
         ],
         decision_making=list(jd.decision_making),
@@ -207,6 +255,8 @@ def jd_to_answers(jd: SFUJobDescription) -> ComposerAnswers:
             if q.kind == "skill"
         ],
         abilities=[q.text for q in jd.qualifications if q.kind == "ability"],
+        criminal_record_check=any(_folded(s) == sentence for s in security),
+        security=[s for s in security if _folded(s) != sentence],
         include_sfu_boilerplate=(
             jd.about_sfu_present
             and jd.territorial_acknowledgement_present
