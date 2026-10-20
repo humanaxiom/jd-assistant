@@ -45,7 +45,8 @@ from src.jd_bank.composer.answers import AnswerContract
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.llm.client import ChatClient
 from src.jd_core.models.parsed_jd import SFUJobDescription
-from src.jd_core.wjq_form_check import CupeFormError
+from src.jd_core.rules import get_rules
+from src.jd_core.wjq_form_check import CupeFormError, check_cupe_form
 from src.jd_export import render_sfu_docx
 from src.settings import get_settings
 
@@ -152,7 +153,13 @@ async def assist_summary(
 @router.post("/export")
 async def export_docx(jd: SFUJobDescription) -> Response:
     """Render a draft to the official SFU ``.docx`` and return it as a download.
-    Pure rendering — nothing is validated or published (NN #1)."""
+    Pure rendering — nothing is scored or published (NN #1). A CUPE form block holding
+    a value outside HR's closed lists is refused (422, with its register id): the file
+    is HR's own form, so this door gets the same check as every other (review M1)."""
+    try:
+        check_cupe_form(jd, get_rules())
+    except CupeFormError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     content = render_sfu_docx(jd)
     return Response(
         content=content,

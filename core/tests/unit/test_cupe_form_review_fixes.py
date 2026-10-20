@@ -351,3 +351,24 @@ def test_a_reviewers_supervisor_title_edit_reaches_the_cupe_export(
     assert lines[lines.index(label) + 1] == "Director, Student Services"
     assert "Office Manager" not in lines
     assert wjq_answers_from_jd(edited).supervisor_title == "Director, Student Services"
+
+
+def test_the_json_export_refuses_a_block_outside_hrs_lists() -> None:
+    """Second review (2026-10-20): ``POST /jd-bank/compose/export`` takes a raw
+    ``SFUJobDescription`` and printed HR's CUPE form with level 'Z' and frequency
+    'Annual' on it — the one door to HR's form the M1 check did not cover. It persists
+    nothing, but the file it hands back is HR's form; it is refused like every other
+    door, with the register id."""
+    from fastapi.testclient import TestClient
+
+    from tests.unit.test_review_ui import FakeSession, make_client
+
+    client: TestClient = make_client(FakeSession())
+    bad = _cupe(
+        level_of_independence=["Z"], effort=[WJQRow(item="Visual", frequency="Annual")]
+    )
+    resp = client.post("/jd-bank/compose/export", json=bad.model_dump(mode="json"))
+    assert resp.status_code == 422, resp.status_code
+    assert "HR-238" in resp.text and "HR-249" in resp.text
+    good = client.post("/jd-bank/compose/export", json=_cupe().model_dump(mode="json"))
+    assert good.status_code == 200, good.text
