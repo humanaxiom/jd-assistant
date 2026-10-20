@@ -7744,7 +7744,9 @@ decisions:
       silently (`wjq_assemble.py`), because the model holds twelve duties. HR's own
       Dec-2024 pre-classified sample (fixtures/hr/cupe/, S20) has 11 major + 3 minor =
       14 functions, so it lost its last two minor functions — including the catch-all
-      "Performs other related duties…" the writing guide asks for. J2 keeps the two
+      the writing guide asks for (S14 p.3: "Performs other duties and responsibilities
+      consistent with the job description and classification on request."; the sample
+      words it "Performs other related duties and responsibilities …"). J2 keeps the two
       sections apart (minor functions are stored on their own, not in `duties`) and
       replaces the cut with a VISIBLE limit: over it, the author is told the count, the
       limit and this entry, and nothing is removed. The numbers are ours — HR's current
