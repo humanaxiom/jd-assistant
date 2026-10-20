@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 import statistics
 import sys
 from collections import Counter, defaultdict
@@ -80,6 +81,31 @@ def _caps(
         for d in jd.duties[:limit]
     ]
     return jd.model_copy(update={"duties": duties})
+
+
+_WORD = re.compile(r"[a-z0-9]+")
+
+
+def _duty_words(jd: SFUJobDescription) -> Counter[str]:
+    words: Counter[str] = Counter()
+    for duty in jd.duties:
+        for text_ in (duty.statement, *duty.how_why):
+            words.update(_WORD.findall(text_.lower()))
+    return words
+
+
+def _lost_tokens(old: SFUJobDescription, new: SFUJobDescription) -> Counter[str]:
+    """Duty words the OLD parse carried that the NEW one does not (statement + how/why
+    on both sides, as multisets). A statement the old parser CUT (exactly 400 chars, or
+    at the new cap) may end in a partial word — its last token is forgiven, since the
+    cut, not the new parse, made it."""
+    lost = _duty_words(old) - _duty_words(new)
+    for duty in old.duties:
+        if len(duty.statement) in (_OLD_CAP, 1200):
+            tail = _WORD.findall(duty.statement.lower())
+            if tail and lost[tail[-1]] > 0:
+                lost[tail[-1]] -= 1
+    return +lost
 
 
 def _score(jd: SFUJobDescription, rules: Rules) -> tuple[float, bool, frozenset[str]]:
@@ -171,6 +197,13 @@ def measure(  # noqa: PLR0915 — one linear report, deliberately not split
     dist: dict[str, Counter[str]] = {"old": Counter(), "new": Counter()}
     stmt_lens: dict[str, list[int]] = {"old": [], "new": []}
     counts_new: dict[str, list[int]] = defaultdict(list)
+    counts_by_group_old: dict[str, list[int]] = defaultdict(list)
+    counts_by_group_new: dict[str, list[int]] = defaultdict(list)
+    lost_examples: list[str] = []
+    seg_caps = (
+        rules.segmentation.duty_how_why_max_count,
+        rules.segmentation.duty_how_why_max_chars,
+    )
     fields_changed: Counter[str] = Counter()
     rule_on: Counter[str] = Counter()
     rule_off: Counter[str] = Counter()
@@ -203,6 +236,27 @@ def measure(  # noqa: PLR0915 — one linear report, deliberately not split
         dist["old"][_bucket(no)] += 1
         dist["new"][_bucket(nn)] += 1
         counts_new[template_of(new)].append(nn)
+        counts_by_group_old[group].append(no)
+        counts_by_group_new[group].append(nn)
+        g["over5_old"] += no > 5
+        g["over5_new"] += nn > 5
+        g["13plus_old"] += no >= 13
+        g["13plus_new"] += nn >= 13
+        g["duties_with_how_why_new"] += sum(bool(d.how_why) for d in new.duties)
+        g["how_why_clauses_new"] += sum(len(d.how_why) for d in new.duties)
+        g["docs_with_how_why_new"] += any(d.how_why for d in new.duties)
+        if seg_caps is not None:
+            g["how_why_at_count_cap"] += sum(
+                len(d.how_why) == seg_caps[0] for d in new.duties
+            )
+            g["how_why_clause_at_char_cap"] += sum(
+                len(c) == seg_caps[1] for d in new.duties for c in d.how_why
+            )
+        lost = _lost_tokens(old, new)
+        if lost:
+            g["docs_losing_duty_words"] += 1
+            if len(lost_examples) < 40:
+                lost_examples.append(f"{sid}\t{sorted(lost.elements())[:12]}")
         g["one_duty_old"] += no == 1
         g["one_duty_new"] += nn == 1
         g["stmts_old"] += no
@@ -266,6 +320,11 @@ def measure(  # noqa: PLR0915 — one linear report, deliberately not split
     report["totals"] = dict(totals)
     report["duty_count_distribution"] = {k: dict(v) for k, v in dist.items()}
     report["duty_count_new_by_template"] = {k: _summ(v) for k, v in counts_new.items()}
+    report["duty_count_by_group"] = {
+        grp: {"old": _summ(counts_by_group_old[grp]), "new": _summ(vals)}
+        for grp, vals in sorted(counts_by_group_new.items())
+    }
+    report["lost_duty_word_examples"] = lost_examples
     report["statement_length"] = {k: _summ(v) for k, v in stmt_lens.items()}
     report["fields_changed"] = dict(fields_changed.most_common())
     report["rules_newly_firing"] = dict(rule_on.most_common(25))

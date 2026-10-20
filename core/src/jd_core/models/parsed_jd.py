@@ -81,7 +81,10 @@ class SFUDuty(BaseModel):
     #: OPERATIVE cap is rulebook data (`segmentation.duty_statement_max_chars`, HR-261)
     #: and must stay under this, or a long duty becomes a parse FAILURE, not a trim.
     statement: str = Field(min_length=1, max_length=4000)
-    how_why: list[str] = Field(default_factory=list, max_length=12)
+    #: The template's "how and why" points under a "… by:" headline. Filled by the
+    #: parser since v9 (owner ruling 2026-10-20); CONTRACT ceiling 100 (was 12) — the
+    #: operative caps are `segmentation.duty_how_why_max_count/_max_chars` (HR-265/266).
+    how_why: list[str] = Field(default_factory=list, max_length=100)
     #: WJQ frequency of performance (``daily`` / ``weekly`` / ``monthly`` /
     #: ``semester``), or ``None`` for a JDFN duty. Additive; see the class docstring.
     frequency: str | None = Field(default=None, max_length=20)

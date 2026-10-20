@@ -272,3 +272,15 @@ additional_context_max_chars: 16000
 duty_statement_max_chars: 1200
 duty_max_count: 120
 wjq_duty_max_count: 120
+
+# --- duty headline + how/why (parser v9, owner ruling 2026-10-20 Q1; HR-264 … 266) ----
+# Chosen against a whole-corpus re-parse of a Bank copy with the caps lifted:
+#   18,583 ":"-ending duty lines in 5,365 APSA/APEX/POLY documents, 92.6% ending "by:";
+#   how/why per duty p50 5 · p99 19 · max 36; characters per point p50 136 · p99 410.
+# Only "by:" is a headline — the rest are intro lines ("Duties include:"). HR-264.
+# Counts: 60 is ~30% over the max (cuts nothing). Chars: held at HR-261's 1,200.
+duty_headline_pattern:
+  pattern: '(?i)\bby\s*:\s*$'
+  ignore_case: false
+duty_how_why_max_count: 60
+duty_how_why_max_chars: 1200

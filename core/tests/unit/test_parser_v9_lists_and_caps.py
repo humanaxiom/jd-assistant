@@ -30,9 +30,10 @@ from docx import Document
 from docx.document import Document as DocxDocument
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls
+from docx.shared import Inches
 
 from src.jd_bank.db.models import DocumentFormat
-from src.jd_bank.ingest.extract import LIST_ITEM_MARKER, extract_text
+from src.jd_bank.ingest.extract import LIST_ITEM_MARKER, SUB_ITEM_MARKER, extract_text
 from src.jd_core.bank.shingles import shingle_hashes
 from src.jd_core.models.parsed_jd import SFUDuty, SFUJobDescription
 from src.jd_core.parser import PARSER_VERSION, parse_jd
@@ -226,13 +227,218 @@ def test_list_marker_is_invisible_to_tier2_near_dup_shingles() -> None:
     plain = "Writes funding proposals.\nReviews proposal budgets with investigators."
     marked = (
         f"{LIST_ITEM_MARKER}Writes funding proposals.\n"
-        f"{LIST_ITEM_MARKER}Reviews proposal budgets with investigators."
+        f"{SUB_ITEM_MARKER}Reviews proposal budgets with investigators."
     )
     size = get_rules().dedup.shingle_size
     marked_hashes = shingle_hashes(marked, shingle_size=size, redact_boilerplate=False)
     plain_hashes = shingle_hashes(plain, shingle_size=size, redact_boilerplate=False)
     assert len(plain_hashes) > 0
     assert marked_hashes == plain_hashes
+
+
+# ── Q1 (owner ruling 2026-10-20): a "… by:" headline is the duty, items its how/why ──
+
+
+def test_typed_by_headlines_group_their_items_as_how_why() -> None:
+    """Typed bullets throughout: the headline is the duty (kept, not dropped as at v8)
+    and the items under it are its how/why, until the next headline."""
+    text = (
+        "DUTIES AND RESPONSIBILITIES\n"
+        "• Manages complex proposal processes by:\n"
+        "• Developing and maintaining a proposals calendar.\n"
+        "• Tracking relevant grant applications.\n"
+        "• Supports Principal Investigators by:\n"
+        "• Reviewing budgets for completeness.\n"
+    )
+    duties = parse_jd(text).jd.duties
+
+    assert [d.statement for d in duties] == [
+        "Manages complex proposal processes by",
+        "Supports Principal Investigators by",
+    ]
+    assert duties[0].how_why == [
+        "Developing and maintaining a proposals calendar.",
+        "Tracking relevant grant applications.",
+    ]
+    assert duties[1].how_why == ["Reviewing budgets for completeness."]
+    assert duties[0].action_verb == "Manages"
+
+
+def test_word_list_headline_and_nested_items_group() -> None:
+    """The modern template: the headline and its sub-bullets are BOTH Word list
+    paragraphs; the sub-bullets sit one level in (a deeper numbering indent)."""
+    doc = Document()
+    doc.add_paragraph("DUTIES AND RESPONSIBILITIES")
+    doc.add_paragraph("Identifies funding opportunities by:", style="List Bullet")
+    doc.add_paragraph("Writing strategic funding proposals.", style="List Bullet 2")
+    doc.add_paragraph("Developing proposal budgets.", style="List Bullet 2")
+    doc.add_paragraph("Liaises with external funders.", style="List Bullet")
+    duties = _duties_of(_blob(doc))
+
+    assert [d.statement for d in duties] == [
+        "Identifies funding opportunities by",
+        "Liaises with external funders.",
+    ]
+    assert duties[0].how_why == [
+        "Writing strategic funding proposals.",
+        "Developing proposal budgets.",
+    ]
+
+
+def test_the_j4_export_shape_reads_back_as_duty_plus_how_why() -> None:
+    """J4 writes a duty as a TYPED bullet line and its how/why as "List Bullet 2"
+    sub-bullets — no colon. Nesting alone must group them."""
+    doc = Document()
+    doc.add_paragraph("DUTIES AND RESPONSIBILITIES")
+    for duty, clauses in (
+        ("Coordinates the grants calendar", ["so deadlines are met", "with PIs"]),
+        ("Maintains records", ["in the research database"]),
+    ):
+        item = doc.add_paragraph(f"•\t{duty}")
+        item.paragraph_format.left_indent = Inches(0.25)
+        for clause in clauses:
+            doc.add_paragraph(clause, style="List Bullet 2")
+    duties = _duties_of(_blob(doc))
+
+    assert [(d.statement, d.how_why) for d in duties] == [
+        ("Coordinates the grants calendar", ["so deadlines are met", "with PIs"]),
+        ("Maintains records", ["in the research database"]),
+    ]
+
+
+def test_a_list_with_no_headline_stays_separate_duties() -> None:
+    doc = Document()
+    doc.add_paragraph("DUTIES AND RESPONSIBILITIES")
+    for duty in _DUTIES:
+        doc.add_paragraph(duty, style="List Bullet")
+    duties = _duties_of(_blob(doc))
+
+    assert len(duties) == len(_DUTIES)
+    assert all(d.how_why == [] for d in duties)
+
+
+def test_another_intro_line_ends_the_group_and_is_kept() -> None:
+    """Only the template's "… by:" is a headline. Any other "…:" intro closes the group
+    and is KEPT as a line of its own (it was dropped before v9 — but v8 had fused it
+    into Word-list run-ons, so dropping it now lost words in 303 documents)."""
+    text = (
+        "DUTIES AND RESPONSIBILITIES\n"
+        "• Manages proposals by:\n"
+        "• Tracking deadlines.\n"
+        "• Budget and Fixed Asset Management:\n"
+        "• Orders office supplies.\n"
+    )
+    duties = parse_jd(text).jd.duties
+
+    assert [(d.statement, d.how_why) for d in duties] == [
+        ("Manages proposals by", ["Tracking deadlines."]),
+        ("Budget and Fixed Asset Management", []),
+        ("Orders office supplies.", []),
+    ]
+
+
+def test_a_headline_fused_onto_a_run_on_keeps_the_run_on() -> None:
+    """Unbulleted paragraphs fuse into the item before them, so a "by:" headline can
+    arrive as the LAST sentence of a run-on. Only that sentence is the headline."""
+    text = (
+        "DUTIES AND RESPONSIBILITIES\n"
+        "• Researches current web solutions. Conducts pre-release testing of new "
+        "features. Maintains the website by:\n"
+        "• Editing existing material.\n"
+    )
+    duties = parse_jd(text).jd.duties
+
+    assert [(d.statement, d.how_why) for d in duties] == [
+        (
+            "Researches current web solutions. Conducts pre-release testing of new "
+            "features.",
+            [],
+        ),
+        ("Maintains the website by", ["Editing existing material."]),
+    ]
+
+
+def test_an_over_cap_run_on_before_a_headline_is_cut_at_sentences_not_lost() -> None:
+    """MEASURED (6 documents): a run-on longer than the statement cap, fused before a
+    headline, lost its tail to the cap. It is split at sentence breaks instead."""
+    sentences = [f"Performs duty number {i} for the unit." for i in range(60)]
+    run_on = " ".join(sentences)
+    cap = get_rules().segmentation.duty_statement_max_chars
+    assert len(run_on) > cap
+    text = (
+        f"DUTIES AND RESPONSIBILITIES\n• {run_on} Maintains the site by:\n• Editing.\n"
+    )
+    duties = parse_jd(text).jd.duties
+
+    kept = " ".join(d.statement for d in duties[:-1])
+    assert kept == run_on
+    assert all(len(d.statement) <= cap for d in duties)
+    assert (duties[-1].statement, duties[-1].how_why) == (
+        "Maintains the site by",
+        ["Editing."],
+    )
+
+
+def test_a_semicolon_run_ending_in_an_intro_keeps_its_duties() -> None:
+    """MEASURED on the copy: a long semicolon run whose LAST part is an intro
+    ("… including:") was dropped whole by the first grouped build (148 documents lost
+    duty words). Each part is placed on its own; the intro part is kept as a line."""
+    run = (
+        "Identifies sponsorship needs for the campus programs each year; prepares "
+        "proposals to vendors and community partners for every event; organizes the "
+        "annual signature events and engagement programs, including:"
+    )
+    assert len(run) > 200
+    duties = parse_jd(f"DUTIES AND RESPONSIBILITIES\n• {run}\n").jd.duties
+
+    assert [d.statement for d in duties] == [
+        "Identifies sponsorship needs for the campus programs each year",
+        "prepares proposals to vendors and community partners for every event",
+        "organizes the annual signature events and engagement programs, including",
+    ]
+
+
+def test_a_long_how_why_clause_is_kept_whole() -> None:
+    clause = (
+        "Reviewing " + "the financial and compliance aspects of applications, " * 12
+    )
+    text = f"DUTIES AND RESPONSIBILITIES\n• Supports applicants by:\n• {clause}\n"
+    duty = parse_jd(text).jd.duties[0]
+
+    assert len(clause.strip()) > 400
+    assert duty.how_why == [clause.strip()]
+
+
+def test_the_how_why_caps_and_headline_are_rulebook_data(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import re
+
+    from src.jd_core import rules as rules_mod
+
+    real = get_rules()
+    tuned = real.model_copy(
+        update={
+            "segmentation": real.segmentation.model_copy(
+                update={
+                    "duty_how_why_max_count": 1,
+                    "duty_how_why_max_chars": 5,
+                    "duty_headline_pattern": re.compile(r"(?i)\bthrough\s*:\s*$"),
+                }
+            )
+        }
+    )
+    monkeypatch.setattr(rules_mod, "get_rules", lambda: tuned)
+    text = (
+        "DUTIES AND RESPONSIBILITIES\n"
+        "• Recruits students through:\n"
+        "• Presentations on campus.\n"
+        "• Open houses.\n"
+    )
+    duty = parse_jd(text).jd.duties[0]
+
+    assert duty.statement == "Recruits students through"
+    assert duty.how_why == ["Prese"]
 
 
 # ── Defect 2: the 400-character duty statement ───────────────────────────────

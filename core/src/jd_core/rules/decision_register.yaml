@@ -5687,7 +5687,7 @@ decisions:
     config:
       file: rewrite.yaml
       path: rewrite.prompt_version
-    current_default: jd_harmonize_v2
+    current_default: jd_harmonize_v3
     provenance: our_invention
     tier: technical
     why_it_matters: >-
@@ -5710,6 +5710,10 @@ decisions:
       bar while missing seven duties its sources stated. v2 takes both numbers as
       variables resolved from `thresholds_for(template_of(draft))` — one rulebook fact,
       one home — and adds the instruction not to write a section the input does not have.
+      v3 (parser v9, owner ruling 2026-10-20) exists because duties now CARRY how/why
+      clauses: the input shows each duty with its clauses indented under it
+      (`jd_text.outline_jd`) and rule 3 tells the model to keep that shape, and the
+      rewrite restores a matched duty's clauses if the model returns it without them.
     impact_if_changed: >-
       Does NOT move `rules_version`. Pinned by mutation in the prompt-loader test (the
       loaded prompt's `.version` is stamped onto `RewrittenDraft.prompt_version`; a missing
@@ -7798,6 +7802,76 @@ decisions:
       not blocking), so a re-parsed CUPE source with more than 12 functions now draws
       `SFU-STRUCT-DUTIES-TOO-MANY` where at v8 the cap made that impossible (HR-202's
       impact text is updated to say so).
+    status: open
+
+  - id: HR-264
+    question: >-
+      Which line in a job description's duties is a DUTY HEADLINE — the template's
+      "ACTION VERB … WHAT by:" — so that the bullet points under it are read as that
+      duty's "how and why", not as duties of their own?
+    config:
+      file: segmentation.yaml
+      path: segmentation.duty_headline_pattern
+    current_default: '(?i)\bby\s*:\s*$'
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Owner ruling 2026-10-20: a "… by:" headline IS the duty and its sub-bullets are
+      its how/why. Until parser v9 every duty line ending in ":" was DROPPED — MEASURED
+      over the archive, 18,583 such lines in 5,365 APSA/APEX/POLY documents, 17,209
+      (92.6%) of them ending "by:" — and once Word lists were read (v9) each sub-bullet
+      became a duty of its own, so a document following the template drew
+      `SFU-STRUCT-DUTIES-TOO-MANY`. Only "by:" is matched, deliberately: the other 7%
+      are mostly intro lines ("Duties include:", and 200 copies of the old
+      questionnaire's instruction "Starting with those you consider…"), and grouping
+      every duty under one of those would collapse a whole section into one duty (such
+      an intro is now KEPT as a line of its own instead of dropped, so no words are lost). A
+      list with no headline above it stays as separate duties. Measured effect on a
+      copy of the Bank: docs/plans/PARSER-V9-LISTS-AND-CAPS.md §4.
+    impact_if_changed: >-
+      Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version` —
+      but changes what a parsed JD contains: bump `PARSER_VERSION` and re-parse. A
+      broader pattern (any ":") groups whole sections under intro lines; a narrower one
+      returns the headline-dropping behaviour. CUPE questionnaires are not affected
+      (their reader does not group). Pinned by `test_parser_v9_lists_and_caps.py`.
+    status: open
+
+  - id: HR-265
+    question: >-
+      How many "how and why" points does the parser keep under one duty?
+    config:
+      file: segmentation.yaml
+      path: segmentation.duty_how_why_max_count
+    current_default: 60
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A fidelity bound, not a policy. MEASURED on a v9 re-parse of a copy of the Bank:
+      18,245 duties carry how/why (in 5,127 documents), p50 5 · p90 11 · p99 19 · max 36
+      points per duty (the cap-lifted run of an earlier build peaked at 45). 60 is over both and
+      cuts no duty today. The model's own ceiling is 100 (loader-enforced).
+    impact_if_changed: >-
+      As HR-264. Lowering it below the corpus maximum silently drops the tail of a
+      duty's how/why.
+    status: open
+
+  - id: HR-266
+    question: >-
+      How many characters of ONE "how and why" point does the parser keep?
+    config:
+      file: segmentation.yaml
+      path: segmentation.duty_how_why_max_chars
+    current_default: 1200
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Held at the duty statement's value (HR-261) — a how/why point is the same kind of
+      text. MEASURED with the cap lifted to 4,000: ~106k points, p50 136 · p90 246 ·
+      p99 410 characters (final build at 1,200: 111,858 points, 120 cut) — the same whole-paragraph run-on
+      shape HR-261 records (a headline followed by an unbulleted paragraph), which no cap
+      repairs.
+    impact_if_changed: >-
+      As HR-264. Must stay at or below the statement ceiling (4,000; loader-enforced).
     status: open
 
 trivial:

@@ -819,16 +819,35 @@ class Segmentation(_RuleFile):
     duty_max_count: int = Field(gt=0)
     wjq_duty_max_count: int = Field(gt=0)
 
+    #: Parser v9, owner ruling 2026-10-20 (Q1, HR-264 … HR-266). The line shape that is
+    #: a DUTY HEADLINE — SFU's "ACTION VERB … WHAT by:" — whose following items become
+    #: its ``how_why``; and how many how/why clauses per duty, and characters per
+    #: clause, the parser keeps (APSA/APEX/POLY reader only).
+    duty_headline_pattern: Regex
+    duty_how_why_max_count: int = Field(gt=0)
+    duty_how_why_max_chars: int = Field(gt=0)
+
     @model_validator(mode="after")
     def _the_duty_caps_fit_the_model(self) -> Segmentation:
         """A cap above the contract ceiling turns a lossy parse into a ValidationError
         — every long document would fail to parse at all. Refuse at load instead."""
         stmt_ceiling = _field_max_length(SFUDuty, "statement")
         count_ceiling = _field_max_length(SFUJobDescription, "duties")
+        how_why_ceiling = _field_max_length(SFUDuty, "how_why")
         if self.duty_statement_max_chars > stmt_ceiling:
             raise ValueError(
                 f"duty_statement_max_chars ({self.duty_statement_max_chars}) exceeds "
                 f"SFUDuty.statement's max_length ({stmt_ceiling})"
+            )
+        if self.duty_how_why_max_count > how_why_ceiling:
+            raise ValueError(
+                f"duty_how_why_max_count ({self.duty_how_why_max_count}) exceeds "
+                f"SFUDuty.how_why's max_length ({how_why_ceiling})"
+            )
+        if self.duty_how_why_max_chars > stmt_ceiling:
+            raise ValueError(
+                f"duty_how_why_max_chars ({self.duty_how_why_max_chars}) exceeds the "
+                f"statement ceiling ({stmt_ceiling}) a clause is held to"
             )
         for name in ("duty_max_count", "wjq_duty_max_count"):
             if getattr(self, name) > count_ceiling:

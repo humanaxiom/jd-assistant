@@ -24,7 +24,10 @@ class DutyAnswer(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     action_verb: str = Field(default="", max_length=60)
-    statement: str = Field(min_length=1, max_length=400)
+    #: Held at `SFUDuty.statement`'s own ceiling (parser v9). At 400 it was narrower
+    #: than the JD it is cloned FROM: a v9 draft can carry a 1,200-character duty
+    #: (HR-261), and `jd_to_answers` would raise instead of opening the Builder.
+    statement: str = Field(min_length=1, max_length=4000)
     #: Percentage of the role's time (0-100), or ``None`` if not yet allocated. The
     #: assembler renders it into the duty as ``(NN%)`` (Part 10.1) so the validator's
     #: allocation gate can read it.

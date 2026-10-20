@@ -25,8 +25,10 @@ from collections.abc import Sequence
 from typing import Any, Final
 
 from src.jd_bank.jd_text import flatten_jd as _flatten_jd
+from src.jd_bank.jd_text import outline_jd
 from src.jd_bank.llm.client import ChatClient
 from src.jd_bank.llm.prompts import load_prompt
+from src.jd_core.bank.merge import duty_text
 from src.jd_core.models.bank import (
     AntiFabricationRecord,
     MergedRole,
@@ -231,10 +233,10 @@ def _apply_anti_fabrication(
 
     # Duties, reconciled against the merge draft in BOTH directions on one threshold.
     draft_duty_tokens = [
-        _content_tokens(duty.statement, comparison) for duty in merged.draft.duties
+        _content_tokens(duty_text(duty), comparison) for duty in merged.draft.duties
     ]
     llm_duty_tokens = [
-        _content_tokens(duty.statement, comparison) for duty in llm_jd.duties
+        _content_tokens(duty_text(duty), comparison) for duty in llm_jd.duties
     ]
 
     # → What did the model ADD? (unchanged: flagged, never dropped — a duty may reword.)
@@ -254,11 +256,15 @@ def _apply_anti_fabrication(
             duties.append(duty)
             continue
         source = merged.draft.duties[best_index]
-        duties.append(
-            duty
-            if duty.frequency is not None
-            else duty.model_copy(update={"frequency": source.frequency})
-        )
+        restored: dict[str, Any] = {}
+        if duty.frequency is None:
+            restored["frequency"] = source.frequency
+        # Parser v9 (owner ruling 2026-10-20, Q1): a grounded duty's how/why clauses
+        # are source content. A rewrite that returns the duty WITHOUT them has not
+        # reworded them, it has dropped them — carry the merge's back, as for frequency.
+        if not duty.how_why and source.how_why:
+            restored["how_why"] = list(source.how_why)
+        duties.append(duty.model_copy(update=restored) if restored else duty)
 
     # 🔴 EMPTY-TO-EMPTY, FOR DUTIES. A grounded draft with NO duties cannot acquire any
     # from a rewording pass, and until 2026-08-22 it could and did.
@@ -406,7 +412,7 @@ async def rewrite_merged_role(
         rewrite.prompt_version,
         member_count=merged.provenance.member_count,
         skill_frequency=_skill_frequency_lines(merged.provenance.skill_frequency),
-        member_jds=_flatten_jd(merged.draft),
+        member_jds=outline_jd(merged.draft),
         duties_min=duties_min,
         duties_max=thresholds.duties_max,
         summary_min_words=thresholds.summary_min_words,

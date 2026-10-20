@@ -774,26 +774,34 @@ async def test_a_live_apsa_role_survives_export_and_reparse(session) -> None:  #
 # Both read the CURRENT parse only, so they go red the moment the code is at v9 and the
 # Bank is not — which is exactly the "bump without re-parse" state they must catch.
 
-#: A real archive file whose duties are a Word list (`ListParagraph` + direct `numPr`).
-#: At v8 it parsed to ONE duty (cut at 400 characters); at v9, 19.
+#: A real archive file in SFU's template shape: four "ACTION VERB … by:" duties as Word
+#: list paragraphs, each with nested how/why sub-bullets (19 in all). At v8 it parsed to
+#: ONE duty cut at 400 characters; at v9 to exactly the template's 4 duties + 19 points.
 _WORD_LIST_FILE = "/archive/20260702_00138566_JDFN_APSA_20260626.docx"
 
 
-async def test_a_word_list_archive_file_parses_to_separate_duties(session) -> None:  # type: ignore[no-untyped-def]
+async def test_a_word_list_archive_file_parses_to_the_template_shape(session) -> None:  # type: ignore[no-untyped-def]
     from src.jd_core.parser import PARSER_VERSION
 
-    n = (
+    row = (
         await session.execute(
             text(
-                "SELECT jsonb_array_length(p.parsed->'duties') FROM parsed_jds p "
+                "SELECT jsonb_array_length(p.parsed->'duties'), "
+                "(SELECT coalesce(sum(jsonb_array_length(e->'how_why')), 0) "
+                " FROM jsonb_array_elements(p.parsed->'duties') e) "
+                "FROM parsed_jds p "
                 "JOIN source_documents s ON s.id = p.source_document_id "
                 "WHERE s.storage_ref = :ref AND p.parser_version = :v"
             ),
             {"ref": _WORD_LIST_FILE, "v": PARSER_VERSION},
         )
-    ).scalar_one_or_none()
-    assert n is not None, f"{_WORD_LIST_FILE} has no parse at {PARSER_VERSION}"
-    assert n > 5, f"{_WORD_LIST_FILE} parses to {n} duties — Word list items fused"
+    ).one_or_none()
+    assert row is not None, f"{_WORD_LIST_FILE} has no parse at {PARSER_VERSION}"
+    duties, clauses = row
+    assert (duties, clauses) == (4, 19), (
+        f"{_WORD_LIST_FILE} parses to {duties} duties / {clauses} how-why points — "
+        "expected the template's 4 headlines with their 19 sub-bullets"
+    )
 
 
 async def test_no_current_parse_is_cut_at_the_old_400_char_cap(session) -> None:  # type: ignore[no-untyped-def]

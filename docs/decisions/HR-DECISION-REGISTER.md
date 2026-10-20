@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **242 decisions** (240 open · 2 ratified · 0 deferred) · 106 parameters explicitly exempted as trivial · 343 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **245 decisions** (243 open · 2 ratified · 0 deferred) · 106 parameters explicitly exempted as trivial · 346 parameters on the decision surface, all accounted for.
 
-**Of those 242, 86 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 154 are recorded for the same build check but are not yours to sign: 64 shape what a reviewer sees without deciding whether a job description passes, and 90 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 245, 86 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 157 are recorded for the same build check but are not yours to sign: 67 shape what a reviewer sees without deciding whether a job description passes, and 90 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -924,6 +924,9 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-261](#hr-261) | How many characters of ONE duty statement does the parser keep when it reads an archive job description? Anything longer is cut off. | `1200` | we chose it |
 | [HR-262](#hr-262) | How many duties does the parser keep from one APSA/APEX/POLY (or unrecognised) archive job description? Duties past this number are dropped. | `120` | we chose it |
 | [HR-263](#hr-263) | How many functions does the parser keep from one CUPE questionnaire (major functions first, then minor)? Functions past this number are dropped. | `120` | we chose it |
+| [HR-264](#hr-264) | Which line in a job description's duties is a DUTY HEADLINE — the template's "ACTION VERB … WHAT by:" — so that the bullet points under it are read as that duty's "how and why", not as duties of their own? | *a text pattern — see below* | we chose it |
+| [HR-265](#hr-265) | How many "how and why" points does the parser keep under one duty? | `60` | we chose it |
+| [HR-266](#hr-266) | How many characters of ONE "how and why" point does the parser keep? | `1200` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -1271,6 +1274,30 @@ The two bands now say two different, true things. The merged band said one false
 - **Why it matters:** It was 12, majors first — so every minor function of a full questionnaire was lost, and the "77.4% of CUPE JDs carry exactly twelve duties" that HR-202 cites was this cap, not the documents. HR's own Dec-2024 CUPE sample carries 14 functions, and the Builder now writes up to 24 (12 major + 12 minor, HR-246). MEASURED on a v9 re-parse of a copy of the Bank with the cap lifted to 150: CUPE documents carry p50 24 · p90 42 · p99 63 functions, max 92 (continuation pages of the form; read and confirmed on the 103-function maximum of an earlier run). 120 is ~30% over the measured maximum and cuts no document today.
 - **If it changes:** Same as HR-261/262. Also read by the CUPE Builder's assembler (`composer/wjq_assemble.py`) so an authored and a parsed CUPE JD keep the same functions. ⚠ Interacts with HR-202: `thresholds.wjq.duties_max` is 12 (advisory, not blocking), so a re-parsed CUPE source with more than 12 functions now draws `SFU-STRUCT-DUTIES-TOO-MANY` where at v8 the cap made that impossible (HR-202's impact text is updated to say so).
 
+##### HR-264 — Which line in a job description's duties is a DUTY HEADLINE — the template's "ACTION VERB … WHAT by:" — so that the bullet points under it are read as that duty's "how and why", not as duties of their own?
+
+- **We ship:** `(?i)\bby\s*:\s*$`
+- **Configured in:** `segmentation.yaml` → `segmentation.duty_headline_pattern`
+- **Where the default came from:** we chose it
+- **Why it matters:** Owner ruling 2026-10-20: a "… by:" headline IS the duty and its sub-bullets are its how/why. Until parser v9 every duty line ending in ":" was DROPPED — MEASURED over the archive, 18,583 such lines in 5,365 APSA/APEX/POLY documents, 17,209 (92.6%) of them ending "by:" — and once Word lists were read (v9) each sub-bullet became a duty of its own, so a document following the template drew `SFU-STRUCT-DUTIES-TOO-MANY`. Only "by:" is matched, deliberately: the other 7% are mostly intro lines ("Duties include:", and 200 copies of the old questionnaire's instruction "Starting with those you consider…"), and grouping every duty under one of those would collapse a whole section into one duty (such an intro is now KEPT as a line of its own instead of dropped, so no words are lost). A list with no headline above it stays as separate duties. Measured effect on a copy of the Bank: docs/plans/PARSER-V9-LISTS-AND-CAPS.md §4.
+- **If it changes:** Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version` — but changes what a parsed JD contains: bump `PARSER_VERSION` and re-parse. A broader pattern (any ":") groups whole sections under intro lines; a narrower one returns the headline-dropping behaviour. CUPE questionnaires are not affected (their reader does not group). Pinned by `test_parser_v9_lists_and_caps.py`.
+
+##### HR-265 — How many "how and why" points does the parser keep under one duty?
+
+- **We ship:** `60`
+- **Configured in:** `segmentation.yaml` → `segmentation.duty_how_why_max_count`
+- **Where the default came from:** we chose it
+- **Why it matters:** A fidelity bound, not a policy. MEASURED on a v9 re-parse of a copy of the Bank: 18,245 duties carry how/why (in 5,127 documents), p50 5 · p90 11 · p99 19 · max 36 points per duty (the cap-lifted run of an earlier build peaked at 45). 60 is over both and cuts no duty today. The model's own ceiling is 100 (loader-enforced).
+- **If it changes:** As HR-264. Lowering it below the corpus maximum silently drops the tail of a duty's how/why.
+
+##### HR-266 — How many characters of ONE "how and why" point does the parser keep?
+
+- **We ship:** `1200`
+- **Configured in:** `segmentation.yaml` → `segmentation.duty_how_why_max_chars`
+- **Where the default came from:** we chose it
+- **Why it matters:** Held at the duty statement's value (HR-261) — a how/why point is the same kind of text. MEASURED with the cap lifted to 4,000: ~106k points, p50 136 · p90 246 · p99 410 characters (final build at 1,200: 111,858 points, 120 cut) — the same whole-paragraph run-on shape HR-261 records (a headline followed by an unbulleted paragraph), which no cap repairs.
+- **If it changes:** As HR-264. Must stay at or below the statement ceiling (4,000; loader-enforced).
+
 #### An earlier version of this tool chose it — also unratified
 
 Numbers an earlier version of this software already used, which we kept. SFU has never published a scoring model, so these are **not** SFU rules and **not** industry standards — they are engineering guesses that happen to be older than the rest. They need your ruling exactly as much as the group above.
@@ -1531,7 +1558,7 @@ Model names, dimensions, timeouts, retries, text-matching patterns and search in
 | [HR-177](#hr-177) | At what sampling temperature should the rewrite model run? | `0.0` | we chose it |
 | [HR-178](#hr-178) | What token budget should one rewrite completion get? | `2048` | we chose it |
 | [HR-179](#hr-179) | How many times should an invalid-JSON rewrite response be re-requested before the pass gives up? | `1` | we chose it |
-| [HR-180](#hr-180) | Which prompt template should the rewrite pass use? | `jd_harmonize_v2` | we chose it |
+| [HR-180](#hr-180) | Which prompt template should the rewrite pass use? | `jd_harmonize_v3` | we chose it |
 | [HR-182](#hr-182) | How should the guard decide a rewritten qualification is grounded in the merge draft's vocabulary? | `token_overlap` | we chose it |
 | [HR-183](#hr-183) | What fraction of a rewritten qualification's content tokens must be grounded in the merge draft for it to be kept? | `0.5` | we chose it |
 | [HR-185](#hr-185) | Which self-hosted chat model should run the nuanced quality audit of a JD? | `gpt-oss:120b` | we chose it |
@@ -1909,10 +1936,10 @@ We picked these because the system needed *a* value. There is no SFU precedent b
 
 ##### HR-180 — Which prompt template should the rewrite pass use?
 
-- **We ship:** `jd_harmonize_v2`
+- **We ship:** `jd_harmonize_v3`
 - **Configured in:** `rewrite.yaml` → `rewrite.prompt_version`
 - **Where the default came from:** we chose it
-- **Why it matters:** Names the versioned template pair under `jd_bank/llm/templates/` (`jd_harmonize_v2.system.j2` + `.user.j2`). The loaded template's own version is what stamps `RewrittenDraft.prompt_version`, so provenance traces to the exact wording. Swapping this selects a different template version. PROVISIONAL — the prompt is refined at the 4.5 pilot, and each refinement is a new versioned template, not an in-place edit (v1 stays on disk unedited: every draft in the archive today carries its stamp, and a stamp you cannot read back is not provenance). 🔴 WHY v2 EXISTS, and it is a defect rather than a refinement: v1 INLINED SFU's JDFN guidance as prompt text — "Write 3–5 major duties", "Position Summary: 100–150 words". Those are rulebook numbers (HR-020…HR-022) hardcoded in a prompt, which was harmless only while JDFN was the one form the producer ever drafted. On a CUPE draft it is destructive: the WJQ form has twelve duty slots and 77.4% of CUPE JDs fill all twelve, so a rewrite asked for three-to-five duties DELETES most of the role — and the anti-fabrication guard cannot catch it, because that guard exists to stop the model ADDING content. Nothing downstream would have flagged the loss either, since the WJQ profile's `duties_min` is 3 (HR-203): a five-duty CUPE draft passes its own bar while missing seven duties its sources stated. v2 takes both numbers as variables resolved from `thresholds_for(template_of(draft))` — one rulebook fact, one home — and adds the instruction not to write a section the input does not have.
+- **Why it matters:** Names the versioned template pair under `jd_bank/llm/templates/` (`jd_harmonize_v2.system.j2` + `.user.j2`). The loaded template's own version is what stamps `RewrittenDraft.prompt_version`, so provenance traces to the exact wording. Swapping this selects a different template version. PROVISIONAL — the prompt is refined at the 4.5 pilot, and each refinement is a new versioned template, not an in-place edit (v1 stays on disk unedited: every draft in the archive today carries its stamp, and a stamp you cannot read back is not provenance). 🔴 WHY v2 EXISTS, and it is a defect rather than a refinement: v1 INLINED SFU's JDFN guidance as prompt text — "Write 3–5 major duties", "Position Summary: 100–150 words". Those are rulebook numbers (HR-020…HR-022) hardcoded in a prompt, which was harmless only while JDFN was the one form the producer ever drafted. On a CUPE draft it is destructive: the WJQ form has twelve duty slots and 77.4% of CUPE JDs fill all twelve, so a rewrite asked for three-to-five duties DELETES most of the role — and the anti-fabrication guard cannot catch it, because that guard exists to stop the model ADDING content. Nothing downstream would have flagged the loss either, since the WJQ profile's `duties_min` is 3 (HR-203): a five-duty CUPE draft passes its own bar while missing seven duties its sources stated. v2 takes both numbers as variables resolved from `thresholds_for(template_of(draft))` — one rulebook fact, one home — and adds the instruction not to write a section the input does not have. v3 (parser v9, owner ruling 2026-10-20) exists because duties now CARRY how/why clauses: the input shows each duty with its clauses indented under it (`jd_text.outline_jd`) and rule 3 tells the model to keep that shape, and the rewrite restores a matched duty's clauses if the model returns it without them.
 - **If it changes:** Does NOT move `rules_version`. Pinned by mutation in the prompt-loader test (the loaded prompt's `.version` is stamped onto `RewrittenDraft.prompt_version`; a missing template variable RAISES rather than shipping a `{{ x }}` in the prompt), and by a test asserting the rendered prompt carries the DRAFTED FORM's numbers — 12 duties for a CUPE draft, 5 for a JDFN one. Reverting to `jd_harmonize_v1` still loads and still runs; it silently reinstates the JDFN numbers for both forms, which is exactly the failure mode above and is why the test reads the rendered text rather than the knob.
 
 ##### HR-182 — How should the guard decide a rewritten qualification is grounded in the merge draft's vocabulary?

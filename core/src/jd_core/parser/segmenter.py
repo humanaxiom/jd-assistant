@@ -18,8 +18,9 @@ Approach (all deterministic):
    section. Duplicate headings (e.g. ``SUPERVISION RECEIVED`` +
    ``SUPERVISION EXERCISED``) concatenate.
 3. **Structure best-effort**: identification fields from inline labels; duties
-   into :class:`SFUDuty` (leading ``action_verb`` heuristic, ``how_why`` left
-   empty); qualifications into :class:`SFUQualification` (K/S/A ``kind`` +
+   into :class:`SFUDuty` (leading ``action_verb`` heuristic; since v9 a "… by:"
+   headline's items, or nested items, become its ``how_why``); qualifications
+   into :class:`SFUQualification` (K/S/A ``kind`` +
    modifier classified heuristically); decision/problem bullets into ``list[str]``;
    relationships into supervisory / internal / external; presence-booleans from
    footer detection.
@@ -36,7 +37,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from src.jd_core.models.parsed_jd import (
     SFUDuty,
@@ -48,6 +49,9 @@ from src.jd_core.models.parsed_jd import (
 from src.jd_core.parser import headings as hd
 from src.jd_core.parser.classification import extract_classification
 from src.jd_core.parser.headings import Era, SectionKey
+
+if TYPE_CHECKING:  # the rules package imports the models; keep this module cycle-free
+    from src.jd_core.rules import Segmentation
 
 #: Bumped v1 -> v2 for the WJQ template router (Phase 3.4): ``parse_jd`` now classifies
 #: a document ``wjq`` or ``jdfn`` and dispatches WJQ to :mod:`src.jd_core.parser.wjq`.
@@ -140,7 +144,10 @@ _FALLBACK_TITLE = FALLBACK_TITLE
 _BULLET_RE = re.compile(r"^\s*(?:[-•*·▪‣◦]|\(?\d{1,2}[.)]|[ivx]{1,4}[.)])\s+", re.I)
 _PERCENT_RE = re.compile(r"\(\s*\d{1,3}\s*%\s*\)")
 #: The bullet glyph the docx extractor leads a Word list paragraph with (v9).
-_LIST_GLYPH_RE = re.compile(r"^•\s+")
+_LIST_GLYPH_RE = re.compile(r"^[•◦]\s+")
+#: The glyph that marks a SUB-item — a nested Word list paragraph (the extractor's
+#: ``SUB_ITEM_MARKER``) or a typed one. A how/why clause, never a duty of its own.
+_SUB_GLYPH = "◦"
 _REL_LABEL_RE = re.compile(
     r"(?i)^(?:internal connections?|external connections?|"
     r"supervision (?:received|exercised)|supervisory|primary working relationships)\b"
@@ -290,26 +297,137 @@ def _leading_verb(statement: str) -> str:
     return m.group(0)[:_MAX_VERB] if m else ""
 
 
-def _structure_duties(block: str, *, max_count: int, max_chars: int) -> list[SFUDuty]:
-    """One :class:`SFUDuty` per logical line (semicolon runs split). Both caps are
-    rulebook data since v9 — ``segmentation.duty_max_count`` (HR-262) and
-    ``segmentation.duty_statement_max_chars`` (HR-261) — where they were the code
-    constants 12 and 400, the second unregistered and silently cutting a quarter of
-    every duty statement in the Bank."""
-    duties: list[SFUDuty] = []
-    for item in _logical_lines(block):
+_SENTENCE_BREAK = re.compile(r"(?<=[.;!?])\s+(?=[A-Z])")
+
+
+def _split_last_sentence(text: str) -> tuple[str, str]:
+    """``(everything before the last sentence, the last sentence)`` — ``("", text)``
+    when ``text`` is one sentence."""
+    breaks = list(_SENTENCE_BREAK.finditer(text))
+    if not breaks:
+        return "", text
+    last = breaks[-1]
+    return text[: last.start()].strip(), text[last.end() :].strip()
+
+
+def _sentence_chunks(text: str, max_chars: int) -> list[str]:
+    """``text`` whole when it fits ``max_chars``; otherwise cut at sentence breaks into
+    pieces that do (a single over-long sentence stays one piece and is capped later).
+    Only for the run-on a "by:" headline arrives fused to — so the statement cap cannot
+    cut words the pre-v9 reading stored (measured: 6 documents)."""
+    if len(text) <= max_chars:
+        return [text]
+    chunks: list[str] = []
+    current = ""
+    start = 0
+    for brk in [*_SENTENCE_BREAK.finditer(text), None]:
+        end = brk.start() if brk is not None else len(text)
+        sentence = text[start:end].strip()
+        start = brk.end() if brk is not None else len(text)
+        if current and len(current) + 1 + len(sentence) > max_chars:
+            chunks.append(current)
+            current = sentence
+        else:
+            current = f"{current} {sentence}".strip()
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def _duty_lines(block: str) -> list[tuple[str, bool]]:
+    """:func:`_logical_lines` for the DUTIES block, keeping one more fact per item:
+    whether it was led by the SUB-item glyph ``◦`` — a nested Word list paragraph
+    (the extractor's ``SUB_ITEM_MARKER``) or a typed one."""
+    out: list[tuple[str, bool]] = []
+    current: list[str] | None = None
+    current_sub = False
+    for raw in block.splitlines():
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        if _BULLET_RE.match(stripped):
+            if current is not None:
+                out.append((" ".join(current), current_sub))
+            current_sub = stripped.startswith(_SUB_GLYPH)
+            current = [_BULLET_RE.sub("", stripped, count=1)]
+        elif current is None:
+            current, current_sub = [stripped], False
+        else:
+            current.append(stripped)
+    if current is not None:
+        out.append((" ".join(current), current_sub))
+    return [(text.strip(), sub) for text, sub in out if text.strip()]
+
+
+def _structure_duties(block: str, seg: Segmentation) -> list[SFUDuty]:
+    """The DUTIES block as SFU's template shapes it: "ACTION VERB … WHAT by" + its
+    how/why (owner ruling 2026-10-20, Q1).
+
+    * A line matching ``segmentation.duty_headline_pattern`` (HR-264 — the template's
+      "… by:") is a DUTY; the items after it become that duty's ``how_why`` until the
+      next headline or the next other ``…:`` intro line. Until v9 such a headline was
+      DROPPED (any item ending ``:`` was) — 18,583 major-duty headlines in 5,365 JDFN
+      documents — and its sub-bullets became duties of their own.
+    * An item led by the sub-item glyph (a nested list paragraph) is a how/why clause
+      of the duty above it, headline or not — the J4 export's shape.
+    * Anything else is a duty of its own, as before (semicolon runs split).
+
+    Every cap is rulebook data: duty count and statement length (HR-261…263), how/why
+    clauses per duty and characters per clause (HR-265/266)."""
+    headline = seg.duty_headline_pattern
+    max_chars = seg.duty_statement_max_chars
+    raw: list[tuple[str, list[str]]] = []
+    grouping = False
+    nested_group = False  # this group's clauses arrived NESTED — the doc shows depth
+    # Each item is first split exactly as before v9 (a long legacy semicolon run is
+    # several duties), and EACH PART is then placed — so grouping never fuses what the
+    # flat reading kept apart. MEASURED: deciding on the whole item instead lost duty
+    # words in 148 documents on the Bank copy.
+    for item, is_sub in _duty_lines(block):
         for part in _maybe_split_semicolons(item):
-            stmt = _clean(_PERCENT_RE.sub("", part)).strip(" -–—•*")
-            if not stmt or stmt.endswith(":"):
+            stmt = _clean(_PERCENT_RE.sub("", part)).strip(" -–—•◦*")
+            if not stmt:
                 continue
-            duties.append(
-                SFUDuty(
-                    action_verb=_leading_verb(stmt),
-                    statement=stmt[:max_chars],
+            if headline.search(stmt):
+                # A headline fused onto the run-on before it (unbulleted paragraphs)
+                # keeps that run-on as its own duty: only the LAST sentence is the
+                # headline. Otherwise the statement cap would cut the run-on's text.
+                lead, head = _split_last_sentence(stmt)
+                raw.extend(
+                    (chunk, []) for chunk in _sentence_chunks(lead, max_chars) if chunk
                 )
+                raw.append((head.rstrip(" :"), []))
+                grouping, nested_group = True, False
+            elif stmt.endswith(":"):
+                # Any other intro ("Duties include:", "Budget Management:") ends a group
+                # and is KEPT as a line of its own. Until v9 it was dropped — but in a
+                # Word-list document v8 had fused it into a run-on, so dropping it now
+                # would lose words v8 stored (measured: 303 documents, 7,536 words).
+                grouping = False
+                raw.append((stmt.rstrip(" :"), []))
+            elif raw and is_sub:
+                raw[-1][1].append(stmt)
+                nested_group = True
+            elif grouping and not nested_group:
+                # A flat list (typed bullets, or one Word level) cannot show depth, so
+                # the headline owns what follows it until the next headline or intro.
+                raw[-1][1].append(stmt)
+            else:
+                # A top-level item after NESTED clauses is the headline's sibling.
+                grouping = False
+                raw.append((stmt, []))
+    duties: list[SFUDuty] = []
+    for stmt, how_why in raw[: seg.duty_max_count]:
+        duties.append(
+            SFUDuty(
+                action_verb=_leading_verb(stmt),
+                statement=stmt[: seg.duty_statement_max_chars],
+                how_why=[
+                    clause[: seg.duty_how_why_max_chars]
+                    for clause in how_why[: seg.duty_how_why_max_count]
+                ],
             )
-            if len(duties) >= max_count:
-                return duties
+        )
     return duties
 
 
@@ -520,11 +638,8 @@ def parse_jd(text: str) -> ParseResult:
     # Body sections.
     summary_block = sections.get(SectionKey.POSITION_SUMMARY)
     position_summary = _clean(summary_block)[:_MAX_SUMMARY] if summary_block else None
-    seg_rules = get_rules().segmentation
     duties = _structure_duties(
-        sections.get(SectionKey.DUTIES, ""),
-        max_count=seg_rules.duty_max_count,
-        max_chars=seg_rules.duty_statement_max_chars,
+        sections.get(SectionKey.DUTIES, ""), get_rules().segmentation
     )
     decision_making = _structure_bullets(sections.get(SectionKey.DECISION_MAKING, ""))
     problem_solving = _structure_bullets(sections.get(SectionKey.PROBLEM_SOLVING, ""))

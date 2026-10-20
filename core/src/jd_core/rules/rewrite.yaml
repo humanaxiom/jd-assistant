@@ -59,7 +59,10 @@ max_retries: 1
 # the drafted form's own profile, instead of inlining SFU's JDFN guidance ("3–5 major
 # duties", "100–150 words"). v1 is kept on disk, unedited, because a stamped
 # `prompt_version` has to be readable back — every draft in the archive today carries it.
-prompt_version: jd_harmonize_v2
+# v3 (parser v9, owner ruling 2026-10-20 Q1): duties carry how/why clauses now. The input
+# shows each duty as a "- " line with its clauses indented under it (`jd_text.outline_jd`),
+# and rule 3 says to keep that shape. v2 stays on disk unedited, for read-back.
+prompt_version: jd_harmonize_v3
 
 # --- anti-fabrication guard (the heart of 4.2a) ------------------------------------
 # Whether the guard runs at all. `true` scrubs ungrounded qualifications and flags

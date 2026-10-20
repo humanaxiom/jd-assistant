@@ -20,6 +20,7 @@ import re
 import subprocess
 import tempfile
 from collections.abc import Iterator
+from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
 from typing import cast
@@ -127,6 +128,13 @@ def _decode(blob: bytes) -> str:
 #: Inert to Tier-2 near-dup: its tokenizer keeps ``[a-z0-9]+`` only (pinned by test).
 LIST_ITEM_MARKER = "• "
 
+#: The marker a NESTED Word list paragraph is emitted with — one indented beyond the
+#: most recent top-level item. The JDFN segmenter reads a line led by it as a how/why
+#: clause of the duty above it, which is the SFU template's own shape ("ACTION VERB …
+#: WHAT by" + how/why sub-bullets) and exactly what the J4 export writes. Owner ruling
+#: 2026-10-20 (Q1). Also inert to Tier-2 near-dup (not ``[a-z0-9]``).
+SUB_ITEM_MARKER = "◦ "
+
 _P = qn("w:p")
 _TBL = qn("w:tbl")
 _TR = qn("w:tr")
@@ -141,6 +149,17 @@ _VAL = qn("w:val")
 _STYLE = qn("w:style")
 _STYLE_ID = qn("w:styleId")
 _BASED_ON = qn("w:basedOn")
+_ILVL = qn("w:ilvl")
+_IND = qn("w:ind")
+_LEFT = qn("w:left")
+_START = qn("w:start")
+_LVL = qn("w:lvl")
+_ILVL_ATTR = qn("w:ilvl")
+_NUM = qn("w:num")
+_NUM_ID_ATTR = qn("w:numId")
+_ABSTRACT_NUM = qn("w:abstractNum")
+_ABSTRACT_NUM_ID = qn("w:abstractNumId")
+_ABSTRACT_NUM_ID_ATTR = qn("w:abstractNumId")
 
 #: ``numId="0"`` is Word's explicit "no numbering" — it switches a numbered style off.
 _NO_NUMBERING = "0"
@@ -214,9 +233,133 @@ def _is_structural_line(text: str) -> bool:
     return any(rx.search(text) for rx in _ID_LABEL_RXS)
 
 
-def _paragraph_line(p: BaseOxmlElement, numbered_styles: frozenset[str] | None) -> str:
-    """``p``'s text, led by :data:`LIST_ITEM_MARKER` when Word shows it as a list item
-    (never when ``numbered_styles`` is ``None`` — the unmarked, pre-v9 reading).
+def _twips(ppr: BaseOxmlElement | None) -> int | None:
+    """The left indent a ``<w:pPr>`` states directly (``w:left`` or ``w:start``)."""
+    if ppr is None:
+        return None
+    ind = ppr.find(_IND)
+    if ind is None:
+        return None
+    for attr in (_LEFT, _START):
+        value = ind.get(attr)
+        if value is not None:
+            try:
+                return int(value)
+            except ValueError:
+                return None
+    return None
+
+
+def _num_ref(numpr: BaseOxmlElement | None) -> tuple[str | None, int | None]:
+    if numpr is None:
+        return None, None
+    numid = numpr.find(_NUMID)
+    ilvl = numpr.find(_ILVL)
+    return (
+        str(numid.get(_VAL)) if numid is not None else None,
+        int(str(ilvl.get(_VAL))) if ilvl is not None else None,
+    )
+
+
+@dataclass
+class _ListContext:
+    """What the docx walk needs to mark list paragraphs (parser v9), resolved once per
+    document, plus the one piece of walk STATE: the left indent of the most recent
+    top-level item, so a list paragraph indented beyond it reads as a SUB-item.
+
+    Indentation, not ``ilvl``, is the depth signal because both shapes occur: the
+    modern template nests with ``ilvl`` 1 (and a deeper indent), while a "List Bullet
+    2" style is a separate numbering whose level 0 simply sits further in — which is
+    exactly how the J4 export writes a duty's how/why sub-bullets."""
+
+    numbered_styles: frozenset[str]
+    #: style id -> (numId, ilvl) its chain numbers with; style id -> its chain's indent
+    style_num: dict[str, tuple[str | None, int | None]]
+    style_indent: dict[str, int]
+    #: (numId, ilvl) -> the numbering level's own left indent
+    num_indent: dict[tuple[str, int], int]
+    top_indent: int | None = None
+
+    def indent(self, p: BaseOxmlElement) -> int:
+        """Word's precedence: direct indent, then the numbering level's, then the
+        style chain's, else 0."""
+        ppr = p.find(_PPR)
+        direct = _twips(ppr)
+        if direct is not None:
+            return direct
+        pstyle = ppr.find(_PSTYLE) if ppr is not None else None
+        style_id = str(pstyle.get(_VAL)) if pstyle is not None else None
+        num_id, ilvl = _num_ref(ppr.find(_NUMPR) if ppr is not None else None)
+        s_num, s_ilvl = self.style_num.get(style_id or "", (None, None))
+        num_id = num_id or s_num
+        level = ilvl if ilvl is not None else (s_ilvl or 0)
+        if num_id is not None and (num_id, level) in self.num_indent:
+            return self.num_indent[(num_id, level)]
+        return self.style_indent.get(style_id or "", 0)
+
+
+def _list_context(doc: DocxDocument) -> _ListContext:
+    styles = {
+        str(s.get(_STYLE_ID)): s
+        for s in doc.styles.element.findall(_STYLE)
+        if s.get(_STYLE_ID)
+    }
+
+    def chain(style_id: str) -> Iterator[BaseOxmlElement]:
+        seen: set[str] = set()
+        current: str | None = style_id
+        while current is not None and current not in seen and current in styles:
+            seen.add(current)
+            yield styles[current]
+            based_on = styles[current].find(_BASED_ON)
+            current = str(based_on.get(_VAL)) if based_on is not None else None
+
+    style_num: dict[str, tuple[str | None, int | None]] = {}
+    style_indent: dict[str, int] = {}
+    for sid in styles:
+        for style in chain(sid):
+            ppr = style.find(_PPR)
+            numpr = ppr.find(_NUMPR) if ppr is not None else None
+            if numpr is not None and sid not in style_num:
+                style_num[sid] = _num_ref(numpr)
+            twips = _twips(ppr)
+            if twips is not None and sid not in style_indent:
+                style_indent[sid] = twips
+
+    num_indent: dict[tuple[str, int], int] = {}
+    try:
+        numbering = doc.part.numbering_part.element
+    except (KeyError, NotImplementedError):  # pragma: no cover - no numbering part
+        numbering = None
+    if numbering is not None:
+        abstract: dict[str, dict[int, int]] = {}
+        for absn in numbering.findall(_ABSTRACT_NUM):
+            levels: dict[int, int] = {}
+            for lvl in absn.findall(_LVL):
+                twips = _twips(lvl.find(_PPR))
+                if twips is not None:
+                    levels[int(str(lvl.get(_ILVL_ATTR)))] = twips
+            abstract[str(absn.get(_ABSTRACT_NUM_ID_ATTR))] = levels
+        for num in numbering.findall(_NUM):
+            ref = num.find(_ABSTRACT_NUM_ID)
+            if ref is None:
+                continue
+            for level, twips in abstract.get(str(ref.get(_VAL)), {}).items():
+                num_indent[(str(num.get(_NUM_ID_ATTR)), level)] = twips
+
+    return _ListContext(
+        numbered_styles=_numbered_style_ids(doc),
+        style_num=style_num,
+        style_indent=style_indent,
+        num_indent=num_indent,
+    )
+
+
+def _paragraph_line(p: BaseOxmlElement, ctx: _ListContext | None) -> str:
+    """``p``'s text, led by :data:`LIST_ITEM_MARKER` when Word shows it as a list item,
+    or by :data:`SUB_ITEM_MARKER` when that item is indented beyond the most recent
+    top-level item (never either when ``ctx`` is ``None`` — the unmarked, pre-v9
+    reading).
 
     ``parent=None`` is safe here: `Paragraph.text` only reads ``self._p.text`` and
     never touches ``parent`` (verified against the installed python-docx).
@@ -224,19 +367,27 @@ def _paragraph_line(p: BaseOxmlElement, numbered_styles: frozenset[str] | None) 
     this call path never takes, so the cast is a documented "runtime-safe, type-only"
     gap rather than a blind ignore."""
     text = Paragraph(p, cast(docx_types.ProvidesStoryPart, None)).text
-    if (
-        numbered_styles is not None
-        and text.strip()
-        and _is_list_paragraph(p, numbered_styles)
-        and not _ALREADY_MARKED.match(text)
-        and not _is_structural_line(text)
-    ):
-        return f"{LIST_ITEM_MARKER}{text.lstrip()}"
-    return text
+    if ctx is None or not text.strip():
+        return text
+    if _is_structural_line(text):
+        ctx.top_indent = None
+        return text
+    if _ALREADY_MARKED.match(text):
+        # A typed bullet is a top-level item whose depth still anchors what follows —
+        # the J4 export's duty line is typed, its how/why sub-bullets are Word lists.
+        ctx.top_indent = ctx.indent(p)
+        return text
+    if not _is_list_paragraph(p, ctx.numbered_styles):
+        return text
+    indent = ctx.indent(p)
+    if ctx.top_indent is not None and indent > ctx.top_indent:
+        return f"{SUB_ITEM_MARKER}{text.lstrip()}"
+    ctx.top_indent = indent
+    return f"{LIST_ITEM_MARKER}{text.lstrip()}"
 
 
 def _iter_docx_block_text(
-    el: BaseOxmlElement, numbered_styles: frozenset[str] | None = frozenset()
+    el: BaseOxmlElement, ctx: _ListContext | None = None
 ) -> Iterator[str]:
     """Walk ``el``'s children in document order, yielding paragraph text.
 
@@ -248,22 +399,21 @@ def _iter_docx_block_text(
     recognise (e.g. the trailing ``<w:sectPr>``) are silently skipped — they
     carry no paragraph text.
 
-    A Word LIST paragraph is led by :data:`LIST_ITEM_MARKER` (parser v9).
-    ``numbered_styles`` are the style ids that number a paragraph by inheritance
-    (:func:`_numbered_style_ids`); a direct ``numPr`` needs no lookup. ``None``
-    disables marking altogether (see :func:`_extract_docx` for when).
+    A Word LIST paragraph is led by :data:`LIST_ITEM_MARKER`, a nested one by
+    :data:`SUB_ITEM_MARKER` (parser v9), using ``ctx`` (:func:`_list_context`).
+    ``None`` disables marking altogether (see :func:`_extract_docx` for when).
     """
     for child in el.iterchildren():
         if child.tag == _P:
-            yield _paragraph_line(child, numbered_styles)
+            yield _paragraph_line(child, ctx)
         elif child.tag == _TBL:
             for row in child.findall(_TR):
                 for cell in row.findall(_TC):
-                    yield from _iter_docx_block_text(cell, numbered_styles)
+                    yield from _iter_docx_block_text(cell, ctx)
         elif child.tag == _SDT:
             content = child.find(_SDT_CONTENT)
             if content is not None:
-                yield from _iter_docx_block_text(content, numbered_styles)
+                yield from _iter_docx_block_text(content, ctx)
 
 
 #: The heading the recovered header identification block is emitted under. Taken from
@@ -405,7 +555,7 @@ def _extract_docx(blob: bytes) -> str:
     except Exception as exc:  # noqa: BLE001 — normalise any python-docx failure
         raise ExtractionError(f"docx parse failed: {exc}") from exc
     identification = _docx_identification_block(doc)
-    text = _join_docx(doc, identification, _numbered_style_ids(doc))
+    text = _join_docx(doc, identification, _list_context(doc))
     # 🔴 A CUPE/WJQ questionnaire keeps the UNMARKED (pre-v9) reading. The WJQ duty
     # reader switches into "bulleted" mode as soon as ONE bullet appears and then treats
     # every unbulleted line as a wrapped continuation — right for antiword's `.doc`
@@ -417,17 +567,14 @@ def _extract_docx(blob: bytes) -> str:
     from src.jd_core.parser.wjq import is_wjq  # noqa: PLC0415
     from src.jd_core.rules import get_rules  # noqa: PLC0415
 
-    if LIST_ITEM_MARKER in text and is_wjq(text, get_rules().wjq):
+    marked = LIST_ITEM_MARKER in text or SUB_ITEM_MARKER in text
+    if marked and is_wjq(text, get_rules().wjq):
         return _join_docx(doc, identification, None)
     return text
 
 
-def _join_docx(
-    doc: DocxDocument, identification: str, numbered_styles: frozenset[str] | None
-) -> str:
-    body = "\n".join(
-        t for t in _iter_docx_block_text(doc.element.body, numbered_styles) if t
-    )
+def _join_docx(doc: DocxDocument, identification: str, ctx: _ListContext | None) -> str:
+    body = "\n".join(t for t in _iter_docx_block_text(doc.element.body, ctx) if t)
     if not identification:
         return body
     block = f"{IDENTIFICATION_MARKER}\n{identification}"
