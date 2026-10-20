@@ -77,6 +77,7 @@ from src.jd_core.quality.gates import apply_overrides, evaluate_gates
 from src.jd_core.quality.scoring import score_issues
 from src.jd_core.quality.validators import evaluate_jd_rules, template_of_content
 from src.jd_core.rules import Rules, get_rules
+from src.jd_core.wjq_form_check import check_cupe_form
 
 __all__ = [
     "approve",
@@ -762,6 +763,11 @@ async def edit(
         raise MissingReasonError("edit")
     written = reason.strip()
     rulebook = rules if rules is not None else get_rules()
+    # The CUPE form block's closed lists (Track J2, review M1) — the SAME check the
+    # Builder's assembler runs, BEFORE the Bank is read or written, so neither the
+    # structured page nor the JSON API can store a level, code or scale value HR's form
+    # does not have. Raises CupeFormError naming the register entry.
+    check_cupe_form(SFUJobDescription.model_validate(new_content), rulebook)
 
     prior = await _get_for_update(session, canonical_id)
     _require_editable(prior, action="edit")

@@ -454,8 +454,10 @@ def test_cloning_a_parsed_cupe_role_keeps_every_duty_and_its_frequency() -> None
 
 def test_a_legacy_cupe_draft_with_ksa_clones_into_the_one_skills_list() -> None:
     """The 627 live CUPE roles carry knowledge / skill / ability kinds (measured
-    2026-10-19: 1,285 / 3,093 / 3,552 lines). None may be lost; all land in the one
-    Occupational Skills list, the helper restoring what the kind meant."""
+    2026-10-19: 1,285 / 3,093 / 3,552 lines). None may be lost. Knowledge + skill land
+    in the one Occupational Skills list ("Knowledge of" only before a bare topic,
+    HR-253); ability lines go to Occupational Requirement(s) — owner ruling
+    2026-10-19, "Abilities → Requirements" (HR-251)."""
     jd = SFUJobDescription(
         title="Clerk",
         employee_group="cupe",
@@ -473,32 +475,45 @@ def test_a_legacy_cupe_draft_with_ksa_clones_into_the_one_skills_list() -> None:
         SkillAnswer(helper="Knowledge of", text="Health terminology"),
         SkillAnswer(text="Good knowledge of accounting"),
         SkillAnswer(text="intermediate Keyboarding"),
-        SkillAnswer(helper="Ability to", text="Exercise mature judgment"),
-        SkillAnswer(helper="Ability to", text="follow instructions"),
     ]
-    assert answers.occupational_requirements == []
+    assert answers.occupational_requirements == [
+        "Exercise mature judgment",
+        "Ability to follow instructions",
+    ]
     # ...and it assembles back without losing a line.
     rebuilt = assemble_wjq_jd(answers)
-    assert len([q for q in rebuilt.qualifications if q.kind == "skill"]) == 5
+    assert len([q for q in rebuilt.qualifications if q.kind == "skill"]) == 3
+    assert rebuilt.wjq_form is not None
+    assert len(rebuilt.wjq_form.occupational_requirements) == 2
 
 
 def test_a_live_sized_legacy_role_with_38_ksa_lines_still_clones() -> None:
-    """MEASURED 2026-10-19: 34 of 627 live CUPE roles carry more than 20 K/S/A lines
-    (the most, 38). The three old lists held 20 each; the ONE list must hold them all
-    or those roles stop being clonable."""
+    """MEASURED 2026-10-19: the most knowledge + skill lines on one live CUPE role is
+    38 (the old lists held 20 each), and the most ability lines 20 (the requirements
+    box holds 20). Both extremes must still clone and reassemble."""
     jd = SFUJobDescription(
         title="Clerk",
         employee_group="cupe",
         qualifications=[
-            SFUQualification(
-                text=f"Line {i}", kind=("knowledge", "skill", "ability")[i % 3]
-            )
-            for i in range(38)
+            *(
+                SFUQualification(text=f"Line {i}", kind=("knowledge", "skill")[i % 2])
+                for i in range(38)
+            ),
         ],
     )
     answers = wjq_answers_from_jd(jd)
     assert len(answers.occupational_skills) == 38
     assert len(assemble_wjq_jd(answers).qualifications) == 38
+    abilities = SFUJobDescription(
+        title="Clerk",
+        employee_group="cupe",
+        qualifications=[
+            SFUQualification(text=f"Can do {i}", kind="ability") for i in range(20)
+        ],
+    )
+    rebuilt = assemble_wjq_jd(wjq_answers_from_jd(abilities))
+    assert rebuilt.wjq_form is not None
+    assert len(rebuilt.wjq_form.occupational_requirements) == 20
 
 
 def test_a_role_with_a_long_point_factor_section_still_clones(rules: Rules) -> None:
@@ -549,8 +564,9 @@ def test_a_legacy_answers_payload_still_loads() -> None:
     assert [s.text for s in answers.occupational_skills] == [
         "working office procedures",
         "keyboarding",
-        "Work occasional evenings",
     ]
+    # Abilities -> Occupational Requirement(s) (owner ruling 2026-10-19, HR-251).
+    assert answers.occupational_requirements == ["Work occasional evenings"]
     jd = assemble_wjq_jd(answers)
     assert "(40%)" in jd.duties[0].statement  # the old allocation is not dropped
 

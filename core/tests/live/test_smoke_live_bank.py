@@ -978,8 +978,10 @@ async def test_a_live_cupe_role_clones_into_the_j2_form_and_exports_whole(  # ty
     library, session
 ) -> None:
     """A live CUPE role holding knowledge AND ability lines, cloned through the route:
-    every K/S/A line lands in the one Occupational Skills list (Q9, option C), and the
-    clone exports and re-parses with no loss."""
+    knowledge + skill lines land in the one Occupational Skills list (Q9, option C);
+    every ABILITY line lands in Occupational Requirement(s) (owner ruling 2026-10-19,
+    "Abilities → Requirements", HR-251) and the export prints it under that block —
+    where the role's own export already puts it; the clone re-parses with no loss."""
     from src.jd_bank.composer.wjq_answers import WJQAnswers
     from src.jd_bank.composer.wjq_assemble import assemble_wjq_jd
     from src.jd_core.parser.segmenter import parse_jd
@@ -1000,15 +1002,32 @@ async def test_a_live_cupe_role_clones_into_the_j2_form_and_exports_whole(  # ty
     assert "Could not read the draft" not in page.text, f"clone {cid} refused"
     raw = _answers_json(page.text)
     answers = WJQAnswers.model_validate_json(raw)
-    ksa = [
-        q
-        for q in content["qualifications"]
-        if q["kind"] in {"knowledge", "skill", "ability"}
+    ks = [q for q in content["qualifications"] if q["kind"] in {"knowledge", "skill"}]
+    abilities = [
+        q["text"].strip() for q in content["qualifications"] if q["kind"] == "ability"
     ]
-    assert len(answers.occupational_skills) == len(ksa), f"role {cid}: K/S/A lost"
+    assert abilities, f"role {cid} has no ability line — the query picked badly"
+    assert len(answers.occupational_skills) == len(ks), f"role {cid}: K/S lost"
+    assert answers.occupational_requirements == abilities, f"role {cid}: A misplaced"
     assert len(answers.major_functions) == len(content["duties"])
 
     lines = await _export_lines(library, raw)
+    norm = [" ".join(ln.split()) for ln in lines]
+    form = rules.cupe_form
+    requirements_at = norm.index(
+        " ".join(form.qualifications_requirements_prompt.split())
+    )
+    sign_off_at = next(
+        i
+        for i, ln in enumerate(norm)
+        if ln.endswith(rules.wjq.section_headings["approval_review"][0])
+    )
+    for line in abilities:
+        where = [i for i, ln in enumerate(norm) if ln == " ".join(line.split())]
+        assert any(requirements_at < i < sign_off_at for i in where), (
+            f"role {cid}: ability line {line[:40]!r} is not printed under "
+            "Occupational Requirement(s)"
+        )
     jd = assemble_wjq_jd(answers)
     result = parse_jd("\n".join(lines))
     assert result.template == "wjq"
@@ -1038,14 +1057,14 @@ async def test_every_live_cupe_role_still_clones_and_reassembles(session) -> Non
         except ValueError as exc:  # pydantic's ValidationError is a ValueError
             broken.append(f"{cid}: {str(exc)[:120]}")
             continue
-        ksa = [
-            q for q in jd.qualifications if q.kind in {"knowledge", "skill", "ability"}
-        ]
+        ks = [q for q in jd.qualifications if q.kind in {"knowledge", "skill"}]
+        abilities = [q for q in jd.qualifications if q.kind == "ability"]
         rel = jd.relationships
         contacts = len(rel.internal) + len(rel.external) if rel else 0
         if (
             len(again.duties) != len(jd.duties)
-            or len(answers.occupational_skills) != len(ksa)
+            or len(answers.occupational_skills) != len(ks)
+            or len(answers.occupational_requirements) != len(abilities)
             or len(answers.contacts) != contacts
         ):
             broken.append(f"{cid}: content lost on clone")

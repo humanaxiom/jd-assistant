@@ -65,6 +65,7 @@ from src.jd_core.models.parsed_jd import QualificationKind, SFUEmployeeGroup
 from src.jd_core.models.quality import GateOverride, GateReason
 from src.jd_core.quality.validators import template_of_content
 from src.jd_core.rules import Rules, get_rules
+from src.jd_core.wjq_form_check import CupeFormError
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,9 @@ _SERVICE_ERRORS: tuple[type[Exception], ...] = (
     GateOverrideError,
     MissingReasonError,
     ValidationError,
+    # A CUPE form block outside HR's lists (Track J2, review M1) — refused by the
+    # service before the Bank is touched; shown on the page with its register id.
+    CupeFormError,
 )
 
 #: Phase 8.3c — where each SFU template section lives in the Edit form.
@@ -512,6 +516,8 @@ def _friendly_error(exc: Exception) -> str:
         return f"That override can't be applied: {exc}"
     if isinstance(exc, ValidationError):
         return f"The draft couldn't be saved — a field is invalid: {exc}"
+    if isinstance(exc, CupeFormError):
+        return f"The draft couldn't be saved — {exc} Nothing was changed."
     return str(exc)
 
 

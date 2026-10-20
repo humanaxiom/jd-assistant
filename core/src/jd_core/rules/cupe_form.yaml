@@ -274,6 +274,17 @@ occupational_skills_helpers:
   knowledge: Knowledge of
   ability: Ability to
 
+# A pre-J2 KNOWLEDGE line folding into the one list gets "Knowledge of" in front ONLY
+# if it is a bare topic ("Health terminology"). A line matching this pattern already
+# reads as a phrase ("Good knowledge of …", "Proficiency with …", "Functional fluency
+# in …") and is left as written — a phrase in front of it would make a sentence nobody
+# wrote (review 2026-10-19: "Ability to | Excellent interpersonal…"). HR-253.
+# MEASURED 2026-10-19 over the 627 live CUPE roles: 1,269 of 1,285 knowledge lines
+# match; the 16 that do not are bare topics ("Standard office practices …").
+occupational_skills_full_phrase_pattern:
+  pattern: '(?i)\b(?:knowledge|proficien|familiar|understand|skill|experience|abilit|able|competen|expert|aware|capab|complet|valid|course|train|certif|formal|fluen|good|excellent|basic|intermediate|advanced|working|thorough|strong|some|general|comprehensive|demonstrat|extensive|beginner|current|sound|solid)'
+  ignore_case: false
+
 # S14 §13: "If you make this choice [not acceptable], you must describe the rationale."
 # true = the Builder refuses a "not acceptable" with no rationale (HR-252).
 equivalency_rationale_required: true

@@ -42,7 +42,9 @@ Nothing here approves or publishes (NN #1); the output is an explicit draft.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
+
+from pydantic import BaseModel
 
 from src.jd_bank.composer.wjq_answers import (
     WJQ_CONTEXT_TARGETS,
@@ -56,7 +58,6 @@ from src.jd_bank.composer.wjq_answers import (
     SkillAnswer,
     WJQAnswers,
     fold_legacy_quals,
-    split_helper,
 )
 from src.jd_core.models.parsed_jd import (
     SFUDuty,
@@ -68,6 +69,11 @@ from src.jd_core.models.parsed_jd import (
 )
 from src.jd_core.models.quality import WJQ_EMPLOYEE_GROUP
 from src.jd_core.rules import CupeForm, Rules, WjqSection, get_rules
+from src.jd_core.wjq_form_check import (
+    CupeFormError,
+    check_cupe_form,
+    check_function_counts,
+)
 
 __all__ = ["assemble_wjq_jd", "wjq_answers_from_jd"]
 
@@ -81,18 +87,21 @@ _CONTEXT_MAX: int = next(
     if getattr(meta, "max_length", None) is not None
 )
 
-#: A qualification line's ceiling, read off the model.
-_QUAL_MAX: int = next(
-    int(meta.max_length)
-    for meta in SFUQualification.model_fields["text"].metadata
-    if getattr(meta, "max_length", None) is not None
-)
 
-#: The human name of each limited section, for the message the author reads.
-_SECTION_NAMES = {
-    "major_functions": "3 · Major Functions",
-    "minor_functions": "4 · Minor Functions",
-}
+def _ceiling(model: type[BaseModel], field: str) -> int:
+    """A field's ``max_length``, read off the model rather than restated."""
+    return next(
+        int(meta.max_length)
+        for meta in model.model_fields[field].metadata
+        if getattr(meta, "max_length", None) is not None
+    )
+
+
+#: The draft model's own ceilings the answer counts are checked against (review L2).
+_QUAL_MAX: int = _ceiling(SFUQualification, "text")
+_QUALS_MAX: int = _ceiling(SFUJobDescription, "qualifications")
+_REQUIREMENTS_MAX: int = _ceiling(WJQForm, "occupational_requirements")
+_CONTACTS_MAX: int = _ceiling(SFURelationships, "internal")
 
 
 def _duty(
@@ -109,63 +118,76 @@ def _duty(
     )
 
 
-def _check_limits(answers: WJQAnswers, form: CupeForm) -> None:
-    """HR-246: over a limit, REFUSE with the numbers — never cut (the J2 fix)."""
-    for section in ("major_functions", "minor_functions"):
-        count = len(getattr(answers, section))
-        limit = form.function_limits[section]
-        if count > limit:
-            raise ValueError(
-                f"{_SECTION_NAMES[section]} lists {count} functions; the Builder takes "
-                f"at most {limit} (cupe_form.function_limits, HR-246). Nothing was "
-                "removed — combine or delete "
-                f"{count - limit} of them, then check again."
+def _check_counts(answers: WJQAnswers, form: CupeForm) -> None:
+    """Every count the draft model has a ceiling for, checked on the ANSWERS — before a
+    model is built — so the author reads the limit and its register id, never
+    pydantic's raw "at most 12 items" (review L1), and a pre-J2 answer set that folds
+    into more lines than a draft holds still LOADS and is refused here (review L2).
+    Nothing is ever cut."""
+    problems = check_function_counts(
+        len(answers.major_functions), len(answers.minor_functions), form
+    )
+    quals = (
+        len([t for t in answers.education if t.strip()])
+        + len([t for t in answers.experience if t.strip()])
+        + len(answers.occupational_skills)
+    )
+    for what, count, ceiling in (
+        (
+            "Section 13 (education, experience and Occupational Skills)",
+            quals,
+            _QUALS_MAX,
+        ),
+        (
+            "Occupational Requirement(s)",
+            len(answers.occupational_requirements),
+            _REQUIREMENTS_MAX,
+        ),
+        (
+            "Contacts inside SFU",
+            len([c for c in answers.contacts if c.scope == "internal"]),
+            _CONTACTS_MAX,
+        ),
+        (
+            "Contacts outside SFU",
+            len([c for c in answers.contacts if c.scope == "external"]),
+            _CONTACTS_MAX,
+        ),
+    ):
+        if count > ceiling:
+            problems.append(
+                f"{what} lists {count} lines; a draft holds at most {ceiling}. "
+                f"Nothing was removed — combine or delete {count - ceiling} of them"
             )
+    if problems:
+        raise CupeFormError("CUPE form: " + "; ".join(problems) + ".")
 
 
-def _checked(
-    value: str | None, allowed: Sequence[str], what: str, entry: str
-) -> str | None:
-    """``value`` if it is one of ``allowed`` (or blank), else a refusal naming the
-    register entry — a crafted post must not store a value the form does not have."""
-    text = (value or "").strip() or None
-    if text is not None and text not in allowed:
-        raise ValueError(
-            f"{what} {text!r} is not on HR's scale ({', '.join(allowed)}; {entry})"
-        )
-    return text
+def _levels(answers: WJQAnswers) -> dict[str, list[str]]:
+    """Each checkbox section's ticked letters, de-duplicated and in HR's order. Whether
+    they are HR's levels is :func:`check_cupe_form`'s question, asked of the draft."""
+    return {
+        section: sorted(dict.fromkeys(getattr(answers, target)))
+        for section, target in WJQ_LEVEL_TARGETS.items()
+    }
 
 
-def _levels(answers: WJQAnswers, form: CupeForm) -> dict[str, list[str]]:
-    """Each checkbox section's ticked letters, checked against HR's options."""
-    out: dict[str, list[str]] = {}
-    for section, target in WJQ_LEVEL_TARGETS.items():
-        letters = list(dict.fromkeys(getattr(answers, target)))  # de-dup, keep order
-        known = form.level_letters(section)  # type: ignore[arg-type]
-        unknown = [x for x in letters if x not in known]
-        if unknown:
-            raise ValueError(
-                f"section {section!r} has no level {unknown[0]!r} on HR's form "
-                f"(levels {', '.join(known)})"
-            )
-        if section in form.single_choice_sections and len(letters) > 1:
-            raise ValueError(
-                f'HR\'s form takes one level only for {section!r} ("Check one box"); '
-                f"{len(letters)} were ticked"
-            )
-        out[section] = sorted(letters)
-    return out
+def _blank_to_none(value: str | None) -> str | None:
+    return (value or "").strip() or None
 
 
 def _skill_text(skill: SkillAnswer, form: CupeForm) -> str:
-    """An Occupational Skills line: the lead phrase (HR-251) joined to the text."""
+    """An Occupational Skills line: the lead phrase (HR-251) joined to the text. The
+    phrase is not stored on its own, so it is checked HERE, at the one point it exists
+    as a choice."""
     text = skill.text.strip()
-    helper = _checked(
-        skill.helper,
-        tuple(form.occupational_skills_helpers.values()),
-        "Occupational Skills lead phrase",
-        "cupe_form.occupational_skills_helpers, HR-251",
-    )
+    helper = _blank_to_none(skill.helper)
+    helpers = tuple(form.occupational_skills_helpers.values())
+    if helper is not None and helper not in helpers:
+        raise CupeFormError(
+            f"Occupational Skills lead phrase {helper!r} is not one the form offers "
+            f"({', '.join(helpers)}; cupe_form.occupational_skills_helpers, HR-251)"
+        )
     if helper is None or text.lower().startswith(f"{helper.lower()} "):
         return text
     joined = f"{helper} {text}"
@@ -213,46 +235,25 @@ def _relationships(answers: WJQAnswers) -> SFURelationships | None:
 
 
 def _rows(
-    items: Iterable[tuple[str, str | None, str | None, str | None]], form: CupeForm
+    items: Iterable[tuple[str, str | None, str | None, str | None]],
 ) -> list[WJQRow]:
-    """``(item, duration, frequency, hours)`` table rows, each scale value checked."""
-    rows: list[WJQRow] = []
-    for item, duration, frequency, hours in items:
-        if not item.strip():
-            continue
-        rows.append(
-            WJQRow(
-                item=item.strip(),
-                duration=_checked(
-                    duration,
-                    form.table_durations,
-                    "duration",
-                    "cupe_form.table_durations, HR-248",
-                ),
-                frequency=_checked(
-                    frequency,
-                    form.table_frequencies,
-                    "frequency",
-                    "cupe_form.table_frequencies, HR-249",
-                ),
-                hours=(hours or "").strip() or None,
-            )
+    """``(item, duration, frequency, hours)`` table rows, blanks as ``None``. The scale
+    values are :func:`check_cupe_form`'s to judge (HR-248 / HR-249)."""
+    return [
+        WJQRow(
+            item=item.strip(),
+            duration=_blank_to_none(duration),
+            frequency=_blank_to_none(frequency),
+            hours=_blank_to_none(hours),
         )
-    return rows
+        for item, duration, frequency, hours in items
+        if item.strip()
+    ]
 
 
-def _wjq_form(answers: WJQAnswers, form: CupeForm) -> WJQForm:
-    rationale = (answers.equivalency_rationale or "").strip() or None
-    if (
-        answers.equivalency == "not_acceptable"
-        and rationale is None
-        and form.equivalency_rationale_required
-    ):
-        raise ValueError(
-            "the equivalency is marked NOT acceptable, so HR's form needs the reason "
-            '("…is not acceptable because: (please explain)"; HR-252)'
-        )
-    levels = _levels(answers, form)
+def _wjq_form(answers: WJQAnswers) -> WJQForm:
+    rationale = _blank_to_none(answers.equivalency_rationale)
+    levels = _levels(answers)
     return WJQForm(
         current_classification=(answers.current_classification or "").strip() or None,
         supervisor_title=(answers.supervisor_title or "").strip() or None,
@@ -264,25 +265,19 @@ def _wjq_form(answers: WJQAnswers, form: CupeForm) -> WJQForm:
         direction_exercised=levels["direction_exercised"],
         continuing_education=levels["continuing_education"],
         contacts=_rows(
-            ((c.contact, c.duration, c.frequency, None) for c in answers.contacts), form
+            (c.contact, c.duration, c.frequency, None) for c in answers.contacts
         ),
         effort=_rows(
-            ((e.effort, e.duration, e.frequency, None) for e in answers.effort_rows),
-            form,
+            (e.effort, e.duration, e.frequency, None) for e in answers.effort_rows
         ),
         locations=_rows(
-            ((loc.location, None, None, loc.hours) for loc in answers.location_rows),
-            form,
+            (loc.location, None, None, loc.hours) for loc in answers.location_rows
         ),
         uncomfortable=_rows(
-            (
-                (x.condition, None, x.frequency, None)
-                for x in answers.uncomfortable_rows
-            ),
-            form,
+            (x.condition, None, x.frequency, None) for x in answers.uncomfortable_rows
         ),
         hazards=_rows(
-            ((x.condition, None, x.frequency, None) for x in answers.hazard_rows), form
+            (x.condition, None, x.frequency, None) for x in answers.hazard_rows
         ),
         certification=[c.strip() for c in answers.certification if c.strip()],
         experience_years=answers.experience_years,
@@ -342,20 +337,9 @@ def assemble_wjq_jd(
     """
     rulebook = rules if rules is not None else get_rules()
     form = rulebook.cupe_form
-    _check_limits(answers, form)
-    duties = [
-        _duty(
-            f,
-            _checked(
-                f.frequency,
-                form.function_frequencies,
-                "frequency",
-                "cupe_form.function_frequencies, HR-247",
-            ),
-        )
-        for f in answers.major_functions
-    ]
-    return SFUJobDescription(
+    _check_counts(answers, form)
+    duties = [_duty(f, _blank_to_none(f.frequency)) for f in answers.major_functions]
+    jd = SFUJobDescription(
         title=answers.title.strip() or "Untitled role",
         department=(answers.department or "").strip() or None,
         position_number=(answers.position_number or "").strip() or None,
@@ -375,8 +359,12 @@ def assemble_wjq_jd(
         territorial_acknowledgement_present=False,
         employment_equity_present=False,
         additional_context=_additional_context(answers, rulebook),
-        wjq_form=_wjq_form(answers, form),
+        wjq_form=_wjq_form(answers),
     )
+    # The ONE check of HR's closed lists — the same one the review edit and the clone
+    # run (review M1), so no door stores what another refuses.
+    check_cupe_form(jd, rulebook)
+    return jd
 
 
 # --- the clone transform: a CUPE JD back into WJQ answers -----------------------------
@@ -456,27 +444,31 @@ def _contacts_back(jd: SFUJobDescription) -> list[ContactAnswer]:
 
 
 def _skills_back(jd: SFUJobDescription, form: CupeForm) -> list[SkillAnswer]:
-    """Every knowledge / skill / ability line as the ONE Occupational Skills list (Q9,
-    option C — HR-251), in order. A J2 draft's lines are all ``skill`` and split back
-    into phrase + text; an older draft's K/A lines get the phrase for their kind."""
+    """Every knowledge / skill line as the ONE Occupational Skills list (Q9, option C —
+    HR-251), in order. A J2 draft's lines are ``skill`` and split back into phrase +
+    text; an older line gets "Knowledge of" only when it is a bare topic (HR-253).
+    ``ability`` lines are not here — see :func:`_requirements_back`."""
     lines = [
         (q.kind, q.text, q.modifier)
         for q in jd.qualifications
-        if q.kind in {"knowledge", "skill", "ability"}
+        if q.kind in {"knowledge", "skill"}
     ]
-    if jd.wjq_form is not None:
-        phrases = tuple(form.occupational_skills_helpers.values())
-        out: list[SkillAnswer] = []
-        for kind, text, modifier in lines:
-            if kind != "skill" or modifier:
-                out += fold_legacy_quals(
-                    [(kind, text, modifier)], form.occupational_skills_helpers
-                )
-                continue
-            helper, rest = split_helper(text, phrases)
-            out.append(SkillAnswer(helper=helper, text=rest))
-        return out
-    return fold_legacy_quals(lines, form.occupational_skills_helpers)
+    return fold_legacy_quals(
+        lines,
+        form.occupational_skills_helpers,
+        form.occupational_skills_full_phrase_pattern,
+    )
+
+
+def _requirements_back(jd: SFUJobDescription) -> list[str]:
+    """Occupational Requirement(s): every ``ability`` line, then the CUPE form block's
+    own requirements. Owner ruling 2026-10-19 ("Abilities → Requirements"; HR-239 /
+    HR-251): on a parsed role ``ability`` IS what the parser read from the Occupational
+    Requirement(s) block, and the export prints ability lines there today — so a clone
+    puts them back where the role came from, and where its own export puts them."""
+    abilities = [q.text.strip() for q in jd.qualifications if q.kind == "ability"]
+    stored = list(jd.wjq_form.occupational_requirements) if jd.wjq_form else []
+    return [line for line in (*abilities, *stored) if line]
 
 
 def wjq_answers_from_jd(
@@ -491,8 +483,12 @@ def wjq_answers_from_jd(
     For a role parsed from the archive, or a draft written before J2 (no ``wjq_form``):
     every duty comes back as a MAJOR function with its frequency — the parser merged
     sections 3 and 4, and guessing a split would put the author's minor functions
-    somewhere they did not choose; knowledge / skill / ability fold into the one
-    Occupational Skills list (HR-251). **Nothing is dropped, and nothing is invented.**
+    somewhere they did not choose; knowledge / skill fold into the one Occupational
+    Skills list (HR-251) and ability lines go to Occupational Requirement(s) (owner
+    ruling 2026-10-19). **Nothing is dropped, and nothing is invented.**
+
+    Raises :class:`~src.jd_core.wjq_form_check.CupeFormError` when the stored CUPE form
+    block holds a value outside HR's lists — the Builder routes render it as a refusal.
 
     Not carried over, by design: the role's grade (a harmonized role's grade is a
     cluster-level value, not this position's current classification — HR-240), and
@@ -500,6 +496,9 @@ def wjq_answers_from_jd(
     """
     rulebook = rules if rules is not None else get_rules()
     form = rulebook.cupe_form
+    # Stored data outside HR's lists (review M1) is refused HERE with its register id,
+    # rather than surfacing as a raw ValidationError from the answer contract below.
+    check_cupe_form(jd, rulebook)
     context = _split_context_blocks(jd.additional_context, rulebook)
     extra = jd.wjq_form
     levels = (
@@ -557,9 +556,7 @@ def wjq_answers_from_jd(
         ),
         equivalency_rationale=extra.equivalency_rationale if extra else None,
         occupational_skills=_skills_back(jd, form),
-        occupational_requirements=(
-            list(extra.occupational_requirements) if extra else []
-        ),
+        occupational_requirements=_requirements_back(jd),
         **levels,
         **context,
     )

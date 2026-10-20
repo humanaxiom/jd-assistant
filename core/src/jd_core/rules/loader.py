@@ -1999,6 +1999,9 @@ class CupeForm(_RuleFile):
     occupational_skills_helpers: Annotated[
         Mapping[CupeSkillHelperKind, str], AfterValidator(_freeze)
     ]
+    #: A folded knowledge line matching this already reads as a phrase and gets no
+    #: lead phrase (HR-253).
+    occupational_skills_full_phrase_pattern: Regex
     #: Refuse "not acceptable" equivalency without its rationale (HR-252).
     equivalency_rationale_required: bool
 

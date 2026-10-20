@@ -28,6 +28,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from neo4j import AsyncDriver, AsyncGraphDatabase
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.main import get_session
@@ -44,6 +45,7 @@ from src.jd_bank.composer.answers import AnswerContract
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.llm.client import ChatClient
 from src.jd_core.models.parsed_jd import SFUJobDescription
+from src.jd_core.wjq_form_check import CupeFormError
 from src.jd_export import render_sfu_docx
 from src.settings import get_settings
 
@@ -202,7 +204,12 @@ async def clone(
     old narrow pin, not less. ``None`` disables the filtering so each form's answers are
     serialized whole.
     """
-    answers = await load_clone_answers(session, source_document_id)
+    try:
+        answers = await load_clone_answers(session, source_document_id)
+    except (CupeFormError, ValidationError) as exc:
+        # Stored data the Builder's contract cannot hold (Track J2, review M1): a
+        # stated refusal, never a 500.
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if answers is None:
         raise HTTPException(status_code=404, detail="no parsed JD to clone")
     return answers

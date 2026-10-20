@@ -7657,9 +7657,13 @@ decisions:
       under Occupational Requirement(s). The table below still governs content the
       Builder did not author — the 627 CUPE roles harmonized from the archive and any
       draft written before J2 — and is unchanged, because for those `ability` is mostly
-      where the PARSER read the Occupational Requirement(s) block. Their knowledge /
-      skill / ability lines fold into the one list when loaded or cloned into the
-      Builder (HR-251) — in code, no data migration. Also decided here (trivial
+      where the PARSER read the Occupational Requirement(s) block. ✅ Second owner ruling
+      2026-10-19, "Abilities → Requirements", recorded the same way (open, not
+      ratified): when such a role is loaded or cloned into the Builder, its `ability`
+      lines go to the Occupational Requirement(s) box — consistent with this table, so
+      a clone prints them where the role's own export does — and only its knowledge +
+      skill lines fold into the one Occupational Skills list (HR-251, HR-253). In code,
+      no data migration. Also decided here (trivial
       exemptions point at this entry): the Relationships section's supervisory scope
       prints under DIRECTION EXERCISED; problem-solving / decision-making prose (empty on
       every live CUPE role) under LEVEL OF INDEPENDENCE; each duty's how/why clauses
@@ -7872,8 +7876,8 @@ decisions:
   - id: HR-251
     question: >-
       On a CUPE draft, which lead phrases may the author pick for an Occupational
-      Skills line — and how do an older draft's knowledge / skill / ability lines map
-      onto the one list?
+      Skills line — and where do an older draft's knowledge / skill / ability lines go
+      when it is loaded or cloned into the Builder?
     config:
       file: cupe_form.yaml
       path: cupe_form.occupational_skills_helpers
@@ -7883,27 +7887,69 @@ decisions:
     provenance: our_invention
     tier: hr_informed
     why_it_matters: >-
-      Owner ruling 2026-10-19 (plan Q9, option C): a CUPE draft collects ONE
-      "Occupational Skills" list, as HR's form and its Dec-2024 sample have, with
-      optional "knowledge of / ability to" phrase helpers inside it, plus a separate
-      Occupational Requirement(s) box. The Builder had asked CUPE authors for knowledge,
-      skills and abilities with the APSA Toolkit's modifiers — concepts HR's CUPE form
-      does not have. The two phrases are the owner's; each is keyed by the older kind it
-      stands for, because existing CUPE drafts must keep loading and cloning: their
-      knowledge and ability lines fold into the one list with that phrase in front
-      (unless the line already says "knowledge" / "ability"), and a modifier is kept
-      as text (the J1 export's rule). MEASURED 2026-10-19 over the 627 current CUPE
-      roles: 1,285 knowledge, 3,093 skill and 3,552 ability lines; 2,925 of the ability
-      lines start "Ability…", and ~930 look like occupational REQUIREMENTS by keyword
-      (licence, shifts, travel, lifting, evenings…) — those land in the skills list too
-      on clone, visible and editable, because a keyword is not a ruling. Done in code,
-      no data migration: nothing stored is rewritten.
+      Two owner rulings, both 2026-10-19, RECORDED here rather than ratified — they are
+      the project owner's product calls, not an HR signature, so this entry stays open.
+      (1) Plan Q9, option C: a CUPE draft collects ONE "Occupational Skills" list, as
+      HR's form and its Dec-2024 sample have, with optional "knowledge of / ability to"
+      phrase helpers inside it, plus a separate Occupational Requirement(s) box. The
+      Builder had asked CUPE authors for knowledge, skills and abilities with the APSA
+      Toolkit's modifiers — concepts HR's CUPE form does not have. The two phrases are
+      the owner's. (2) "Abilities → Requirements" (after review): when a role with no
+      CUPE form block — a role harmonized from the archive, or a draft written before
+      J2 — is cloned or its old answers are loaded, its `ability` lines go to
+      Occupational Requirement(s), and only its knowledge + skill lines to the one
+      Occupational Skills list. That is where the PARSER read them (it files the
+      Occupational Requirement(s) block as `ability`) and where the same role's export
+      prints them today (HR-239), so a clone no longer moves them. A knowledge line gets
+      "Knowledge of" in front only when it is a bare topic — never when it already reads
+      as a phrase (HR-253) or carries a Toolkit modifier, which is kept as text (the J1
+      export's rule); this replaced the first J2 fold, which also put "Ability to" in
+      front of ability lines and so produced "Ability to Excellent interpersonal…".
+      MEASURED 2026-10-19 over the 627 current CUPE roles: 1,285 knowledge, 3,093 skill
+      and 3,552 ability lines; at most 20 ability lines on any one role (the
+      requirements box holds 20) and at most 38 knowledge + skill lines (the draft holds
+      40 qualification lines). ⚖ Not every ability line is a requirement by HR's
+      definition — 2,925 of them start "Ability…" and many read as skills
+      ("Ability to follow oral and written instructions"); they now land in the
+      requirements box on clone, visible and editable, which is the owner's call, not a
+      keyword guess. Done in code, no data migration: nothing stored is rewritten.
     impact_if_changed: >-
       Does NOT move `rules_version` or `PARSER_VERSION`. A phrase removed here makes an
       answer that uses it refuse to assemble (visibly, with this id); renaming one
-      changes the text a folded legacy line gets on its next clone. Pinned by
-      `test_a_legacy_cupe_draft_with_ksa_clones_into_the_one_skills_list` and
-      `test_a_helper_that_is_not_hrs_phrase_is_refused`.
+      changes the text a folded legacy knowledge line gets on its next clone. Pinned by
+      `test_a_parsed_roles_abilities_clone_into_occupational_requirements`,
+      `test_no_lead_phrase_goes_in_front_of_a_line_that_is_already_a_phrase` and
+      `test_a_helper_that_is_not_hrs_phrase_is_refused`; live by
+      `test_a_live_cupe_role_clones_into_the_j2_form_and_exports_whole`.
+    status: open
+
+  - id: HR-253
+    question: >-
+      When an older CUPE draft's knowledge line folds into the one Occupational Skills
+      list, which lines already read as a phrase and so get no "Knowledge of" in front?
+    config:
+      file: cupe_form.yaml
+      path: cupe_form.occupational_skills_full_phrase_pattern
+    current_default: >-
+      (?i)\b(?:knowledge|proficien|familiar|understand|skill|experience|abilit|able|competen|expert|aware|capab|complet|valid|course|train|certif|formal|fluen|good|excellent|basic|intermediate|advanced|working|thorough|strong|some|general|comprehensive|demonstrat|extensive|beginner|current|sound|solid)
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Review 2026-10-19 found the J2 fold making sentences nobody wrote ("Ability to
+      Excellent interpersonal…"). A knowledge line now gets the owner's "Knowledge of"
+      only when it is a bare topic ("Health terminology"); a line containing one of
+      these word-starts already reads as a phrase ("Good knowledge of …", "Proficiency
+      with …", "Functional fluency in …") and is left exactly as written. MEASURED
+      2026-10-19 over the 627 live CUPE roles: 1,269 of the 1,285 knowledge lines match
+      and are left alone; the 16 that do not are bare topics ("Standard office
+      practices and record-keeping procedures", "University regulations, policies and
+      procedures") that read correctly with the phrase. The author sees, and can change,
+      the result in the Builder before anything is saved.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION` (cupe_form.yaml is unhashed).
+      Changes only which folded knowledge lines a clone puts "Knowledge of" in front of;
+      nothing stored is rewritten. Pinned by
+      `test_no_lead_phrase_goes_in_front_of_a_line_that_is_already_a_phrase`.
     status: open
 
   - id: HR-252

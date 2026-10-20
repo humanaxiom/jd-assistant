@@ -93,6 +93,7 @@ from src.jd_core.models.quality import (
     SFUSection,
 )
 from src.jd_core.rules import get_rules
+from src.jd_core.wjq_form_check import CupeFormError
 from src.jd_export import render_sfu_docx
 
 logger = logging.getLogger(__name__)
@@ -1196,7 +1197,10 @@ async def clone_role(
     reader got ``{"detail":"no harmonized JD for this role"}``. It is true now because
     :mod:`src.api.errors` made it true for every route at once, rather than because this
     one grew a template of its own."""
-    answers = await load_role_clone_answers(session, cluster_id)
+    try:
+        answers = await load_role_clone_answers(session, cluster_id)
+    except (CupeFormError, ValidationError) as exc:
+        return _clone_refused(request, exc)
     if answers is None:
         raise HTTPException(status_code=404, detail="no harmonized JD for this role")
     return _render_clone(request, answers)
@@ -1212,10 +1216,38 @@ async def clone_draft(
     with no harmonized role (prefer :func:`clone_role` when a role exists). 404 (an HTML
     page for a browser — see :func:`clone_role`) if the document has no parsed JD to
     clone. Read-only — nothing persists (NN #1)."""
-    answers = await load_clone_answers(session, source_document_id)
+    try:
+        answers = await load_clone_answers(session, source_document_id)
+    except (CupeFormError, ValidationError) as exc:
+        return _clone_refused(request, exc)
     if answers is None:
         raise HTTPException(status_code=404, detail="no parsed JD to clone")
     return _render_clone(request, answers)
+
+
+def _clone_refused(request: Request, exc: Exception) -> HTMLResponse:
+    """The source's stored content cannot be loaded into the Builder — a CUPE form block
+    holding a value outside HR's lists (review M1), or anything else the answer contract
+    refuses. A page that SAYS so, with the register id, never a 500. 422: the request
+    was understood; the stored data is what cannot be used."""
+    return templates.TemplateResponse(
+        request,
+        "compose_new.html",
+        _context(
+            request,
+            values={},
+            assessment=None,
+            error=(
+                "This role cannot be cloned as stored — fix it in the review editor "
+                f"first. {exc}"
+            ),
+            boilerplate_checked=True,
+            spec=FORMS[
+                WJQ_TEMPLATE if isinstance(exc, CupeFormError) else DEFAULT_TEMPLATE
+            ],
+        ),
+        status_code=422,
+    )
 
 
 @router.post("/submit")

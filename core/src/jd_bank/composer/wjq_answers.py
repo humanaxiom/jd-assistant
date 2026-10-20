@@ -34,6 +34,7 @@ requires — same rule as the JDFN contract.
 from __future__ import annotations
 
 import datetime as dt
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any, ClassVar, Literal, NamedTuple
 
@@ -115,6 +116,12 @@ _SECTION_MAX: int = next(
     for meta in SFUJobDescription.model_fields["additional_context"].metadata
     if getattr(meta, "max_length", None) is not None
 )
+
+#: A request-size guard for the lists whose REAL limit is checked by the assembler
+#: (function limits, the draft's qualification / requirement ceilings): high enough
+#: that any over-limit answer reaches that check's message, bounded so a crafted body
+#: cannot post an unbounded list.
+_LIST_GUARD = 120
 
 #: A level of a checkbox section, by the letter HR's form uses for it (A = the first
 #: option printed). The rulebook decides how many each section has; five is the most.
@@ -283,16 +290,21 @@ def split_helper(text: str, helpers: Sequence[str]) -> tuple[str | None, str]:
 
 
 def fold_legacy_quals(
-    lines: Sequence[tuple[str, str, str | None]], helpers: Mapping[Any, str]
+    lines: Sequence[tuple[str, str, str | None]],
+    helpers: Mapping[Any, str],
+    full_phrase: re.Pattern[str],
 ) -> list[SkillAnswer]:
-    """Older CUPE knowledge / skill / ability lines as ONE Occupational Skills list
-    (Q9, option C — HR-251), in the order given, NOTHING dropped.
+    """Older CUPE knowledge / skill lines as ONE Occupational Skills list (Q9, option
+    C — HR-251), in the order given, NOTHING dropped. (``ability`` lines are not folded
+    here: owner ruling 2026-10-19, "Abilities → Requirements" — the caller sends them
+    to Occupational Requirement(s), where the parser read them and the export prints
+    them, HR-239.)
 
-    ``lines`` are ``(kind, text, modifier)``. A knowledge or ability line gets the
-    rulebook's lead phrase for its kind (``helpers``) — unless it already opens with
-    one, which is split back out, or already names its kind ("Good knowledge of …"),
-    or carries a Toolkit modifier, which is kept as text instead ("working office
-    procedures"): a modifier and a phrase together would make a sentence nobody wrote.
+    ``lines`` are ``(kind, text, modifier)``. A line that already opens with a lead
+    phrase is split back into phrase + text. Otherwise a KNOWLEDGE line gets its kind's
+    phrase ("Knowledge of") only when it is a bare topic — never when it carries a
+    Toolkit modifier (kept as text: "working office procedures") or already reads as a
+    phrase (``full_phrase``, HR-253: "Good knowledge of …", "Proficiency with …").
     """
     phrases = list(helpers.values())
     out: list[SkillAnswer] = []
@@ -304,12 +316,11 @@ def fold_legacy_quals(
         if helper is not None:
             out.append(SkillAnswer(helper=helper, text=rest))
             continue
-        phrase = helpers.get(kind)
-        word = kind.lower()
+        phrase = helpers.get(kind) if kind == "knowledge" else None
         if (
             phrase is not None
             and not (modifier or "").strip()
-            and word not in text.lower()
+            and not full_phrase.search(text)
             and len(phrase) + 1 + len(text) <= _QUAL_MAX
         ):
             out.append(SkillAnswer(helper=phrase, text=text))
@@ -338,12 +349,16 @@ class WJQAnswers(AnswerContract):
     position_summary: str | None = Field(default=None, max_length=4000)
 
     # --- 3/4. Major + minor functions, kept APART (J2) ---
-    #: Ceilings are the MODEL's (twelve duties; twenty minor functions); the limit the
-    #: author is held to is ``cupe_form.function_limits`` (HR-246), checked — never
-    #: truncated to — by the assembler.
-    major_functions: list[FunctionAnswer] = Field(default_factory=list, max_length=12)
+    #: The limit the author is held to is ``cupe_form.function_limits`` (HR-246),
+    #: checked — never truncated to — by the assembler, with the register id. These
+    #: ``max_length`` values are only the request-size guard, set ABOVE any limit the
+    #: model can hold, so a 13th function reaches that message rather than pydantic's
+    #: raw "at most 12 items" (review L1).
+    major_functions: list[FunctionAnswer] = Field(
+        default_factory=list, max_length=_LIST_GUARD
+    )
     minor_functions: list[MinorFunctionAnswer] = Field(
-        default_factory=list, max_length=20
+        default_factory=list, max_length=_LIST_GUARD
     )
 
     # --- 5, 6, 7: levels (ticked letters) + the section's own text ---
@@ -385,12 +400,17 @@ class WJQAnswers(AnswerContract):
     experience: list[str] = Field(default_factory=list, max_length=10)
     equivalency: Literal["acceptable", "not_acceptable"] | None = None
     equivalency_rationale: str | None = Field(default=None, max_length=1000)
-    #: Forty, the model's own qualifications ceiling — NOT the twenty each of the old
-    #: knowledge / skills / abilities lists had: MEASURED 2026-10-19, 34 of the 627
-    #: live CUPE roles carry more than 20 K/S/A lines (one carries 38), and folding them
-    #: into one list must not make those roles impossible to clone.
-    occupational_skills: list[SkillAnswer] = Field(default_factory=list, max_length=40)
-    occupational_requirements: list[str] = Field(default_factory=list, max_length=20)
+    #: Request-size guards only. The draft holds at most forty qualification lines and
+    #: twenty requirements; the assembler checks those with a message (review L2), so a
+    #: pre-J2 answer set that FOLDS into more lines than a draft holds still loads and
+    #: is told, never crashed. (MEASURED 2026-10-19: 34 of the 627 live CUPE roles carry
+    #: more than 20 knowledge / skill / ability lines; one carries 38.)
+    occupational_skills: list[SkillAnswer] = Field(
+        default_factory=list, max_length=_LIST_GUARD
+    )
+    occupational_requirements: list[str] = Field(
+        default_factory=list, max_length=_LIST_GUARD
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -401,8 +421,10 @@ class WJQAnswers(AnswerContract):
         * ``grade`` ("the approved classification and grade", which J2 stopped asking —
           HR-240) becomes the author's ``current_classification``;
         * ``internal`` / ``external`` lines become contact rows of that scope;
-        * ``knowledge`` / ``skills`` / ``abilities`` fold into the ONE Occupational
-          Skills list (Q9 option C, HR-251) — the one place this reads the rulebook.
+        * ``knowledge`` / ``skills`` fold into the ONE Occupational Skills list (Q9
+          option C, HR-251) — the one place this reads the rulebook; ``abilities`` go to
+          Occupational Requirement(s) (owner ruling 2026-10-19, "Abilities →
+          Requirements"), as they do on clone.
         """
         if not isinstance(data, dict):
             return data
@@ -420,12 +442,14 @@ class WJQAnswers(AnswerContract):
                     contacts.append({"contact": str(line).strip(), "scope": scope})
         if contacts:
             data["contacts"] = contacts
+        abilities = [str(a).strip() for a in data.pop("abilities", None) or []]
+        if any(abilities):
+            data["occupational_requirements"] = [
+                *(data.get("occupational_requirements") or []),
+                *(a for a in abilities if a),
+            ]
         lines: list[tuple[str, str, str | None]] = []
-        for key, kind in (
-            ("knowledge", "knowledge"),
-            ("skills", "skill"),
-            ("abilities", "ability"),
-        ):
+        for key, kind in (("knowledge", "knowledge"), ("skills", "skill")):
             for item in data.pop(key, None) or []:
                 if isinstance(item, Mapping):
                     lines.append(
@@ -436,10 +460,14 @@ class WJQAnswers(AnswerContract):
         if lines:
             from src.jd_core.rules import get_rules  # noqa: PLC0415 — legacy path only
 
-            helpers = get_rules().cupe_form.occupational_skills_helpers
-            folded = [s.model_dump() for s in fold_legacy_quals(lines, helpers)]
+            form = get_rules().cupe_form
+            folded = fold_legacy_quals(
+                lines,
+                form.occupational_skills_helpers,
+                form.occupational_skills_full_phrase_pattern,
+            )
             data["occupational_skills"] = [
                 *(data.get("occupational_skills") or []),
-                *folded,
+                *(s.model_dump() for s in folded),
             ]
         return data
