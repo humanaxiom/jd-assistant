@@ -169,11 +169,20 @@ The `.env` (git-ignored, one per checkout) carries the whole identity:
 | `JD_API_PORT` … `JD_REDIS_PORT` | 26800 / 26432 / 26474 / 26687 / 26379 | host ports (live is 25xxx) |
 | `CAS_SERVICE_BASE_URL`, `ALLOWED_SERVICE_ORIGINS` | `http://localhost:26800` | CAS returns to *this* Bank; ships `CAS_ENABLED=false` |
 
-`docker compose` reads `.env` itself; every script and `make` target resolves the same
-values the same way (**shell environment → `.env` → live defaults**), cross-checks the
-answer with `docker compose config`, and **prints which project, tag and ports it is about
-to act on before acting** (`make bank-target` prints it on its own). With no `.env`
+`docker compose` reads `.env` itself, so every `make` target acts on this checkout's
+Bank. The scripts (build / launch / teardown / bundle / install) and `make up` / `down` /
+`migrate` / `gates` / `gates-fast` / `smoke` resolve the same values the same way
+(**shell environment → `.env` → live defaults**) and **print which project, tag and ports
+they are about to act on before acting**; the guarded ones also cross-check the answer
+with `docker compose config` (`make bank-target` prints it on its own). With no `.env`
 nothing changes: `docker compose config` on the live checkout is identical to before.
+
+⚠ **The producer targets are NOT guarded and do not print** — `make ingest`, `embed`,
+`embed-roles`, `dedup`, `near-dup`, `dedup-role`, `cluster`, `harmonize-measure`,
+`canonical-drafts`, `bank-audit`, `singletons`, `field-audit`, `baseline`. In a second
+checkout **with no `.env`** they run *that checkout's code* against the **LIVE** Bank
+(project `jd-bank`). Create the `.env` before the first command; `make bank-target`
+says which Bank a bare `make` would hit.
 
 `make gates` / `make smoke` need nothing extra: `gates` reaches `postgres:5432` by service
 name on the project's own network, so in the second checkout it hits the second Bank.
