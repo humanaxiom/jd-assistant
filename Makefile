@@ -5,7 +5,7 @@
 .PHONY: up down gates gates-fast gates-integration gates-live smoke migrate logs shell \
         hook-install register register-check baseline dedup ingest embed embed-roles \
         near-dup dedup-role cluster harmonize-measure canonical-drafts rewrite-golden \
-        quality-golden bank-audit singletons field-audit bundle deploy-check
+        quality-golden bank-audit singletons field-audit bundle deploy-check bank-target
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -35,10 +35,25 @@ CANONICAL_ARGS  ?=
 export JD_ARCHIVE_PATH
 export JD_BASELINE_OUT
 
+# ── WHICH Bank (P-stack) ───────────────────────────────────────────────────
+# Every target below runs plain docker compose, which acts on THIS checkout's project:
+# COMPOSE_PROJECT_NAME / JD_IMAGE_TAG / JD_*_PORT from the environment, then the
+# checkout's git-ignored .env, then the live defaults (jd-bank, latest, 25xxx). A
+# second Bank is a second checkout with its own .env — deploy/parallel-bank.env.example.
+# BANK_GUARD prints the target and REFUSES (exit 1) to recreate a project another
+# checkout owns; BANK_SHOW only prints (and never fails the target it precedes).
+BANK_GUARD = @pwsh -NoProfile -File deploy/bank-target.ps1 -Guard
+BANK_SHOW  = -@pwsh -NoProfile -File deploy/bank-target.ps1
+
+bank-target:      ## Print which Bank (project, image tag, ports) this checkout acts on
+	@pwsh -NoProfile -File deploy/bank-target.ps1
+
 up:               ## Start the full stack (Ollama must be running on host)
+	$(BANK_GUARD) -Builds
 	docker compose up -d
 
 down:
+	$(BANK_GUARD)
 	docker compose down
 
 logs:
@@ -52,6 +67,7 @@ shell:            ## Interactive shell inside the api container
 # Full suite runs in the one-shot `gates` service (has the Docker socket for testcontainers);
 # CI runs the exact same command. Self-contained: does not require `make up` first.
 gates:            ## Full gate suite (what agents and CI run): static + unit + integration + coverage
+	$(BANK_SHOW)
 	docker compose run --rm gates sh -c '\
 		ruff check src tests && \
 		black --check src tests && \
@@ -60,6 +76,7 @@ gates:            ## Full gate suite (what agents and CI run): static + unit + i
 	@echo "✅ ALL GATES GREEN"
 
 gates-fast:       ## Pre-commit subset (static + unit, no integration) — quick edit-loop gate
+	$(BANK_SHOW)
 	docker compose run --rm gates sh -c '\
 		ruff check src tests && \
 		black --check src tests && \
@@ -83,7 +100,8 @@ gates-live:       ## Opt-in, LOCAL-ONLY live embedding golden tests (never in CI
 # collection membership is a true union of its signals (the filename-only regression
 # cannot silently return); and a random sample is findable by exact filename through
 # the archive browser query. Needs the live stack (`make up`); never CI.
-smoke:            ## END-TO-END SMOKE against the LIVE Bank: parsing, dedup, categorize, filterable
+smoke:            ## END-TO-END SMOKE against THIS checkout's Bank (live by default): parsing, dedup, categorize, filterable
+	$(BANK_SHOW)
 	docker compose run --rm gates pytest tests/live/test_smoke_live_bank.py -m live --timeout=300 -q
 	@echo "✅ SMOKE GREEN — every document in the live Bank is accounted for and findable"
 
@@ -313,6 +331,7 @@ field-audit:      ## Read-only: identification fields vs the raw archive (P3b)
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).
 # Neo4j constraints + vector indexes via each cypher file piped into cypher-shell.
 migrate:          ## Postgres (alembic) + Neo4j (cypher: 001 core, 002 JD vectors, 003 role vectors)
+	$(BANK_GUARD)
 	docker compose exec api alembic upgrade head
 	cat core/db/migrations/001_init.cypher | \
 		docker compose exec -T neo4j cypher-shell -u neo4j -p harnesspass

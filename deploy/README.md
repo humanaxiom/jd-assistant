@@ -136,10 +136,72 @@ $env:JD_NEO4J_HTTP_PORT='25574'; $env:JD_NEO4J_BOLT_PORT='25587'; $env:JD_REDIS_
 .\deploy\install.ps1 -BundleDir .\dist\jd-bank-bundle -ProjectName jd-bank-verify -NoCas
 ```
 
-Tear it down with `docker compose --project-name jd-bank-verify down -v`.
+Tear it down with `.\teardown.ps1 -ProjectName jd-bank-verify -Volumes` (add
+`-AllowForeignProject` if its containers are already gone — see the guard below).
 
 This is how the workflow was validated, and it is the honest way to test a change to the
 deploy path — the alternative is finding out on the box that matters.
+
+---
+
+## Running a second Bank beside the live one
+
+For a Bank built from a different branch (e.g. a new parser version) that must leave the
+live Bank, its database and its images alone. **One rule: a second Bank is a second
+checkout with its own `.env`.**
+
+```powershell
+git worktree add C:\repos\JD-Assistant-v9 parser-v9          # any branch
+copy deploy\parallel-bank.env.example C:\repos\JD-Assistant-v9\.env
+cd C:\repos\JD-Assistant-v9
+.\build.ps1                     # jd-bank-api:v9 / jd-bank-worker:v9 — :latest untouched
+.\launch.ps1 -NoCas             # project jd-bank-v9, http://localhost:26800
+make smoke                      # runs against jd-bank-v9's Postgres, not the live one
+.\teardown.ps1 -Volumes         # discards jd-bank-v9 ONLY
+```
+
+The `.env` (git-ignored, one per checkout) carries the whole identity:
+
+| key | example | what it isolates |
+|---|---|---|
+| `COMPOSE_PROJECT_NAME` | `jd-bank-v9` | containers, volumes (`jd-bank-v9_pgdata` …), network |
+| `JD_IMAGE_TAG` | `v9` | `jd-bank-api:v9` / `jd-bank-worker:v9`; tool images are `<project>-<service>` already |
+| `JD_API_PORT` … `JD_REDIS_PORT` | 26800 / 26432 / 26474 / 26687 / 26379 | host ports (live is 25xxx) |
+| `CAS_SERVICE_BASE_URL`, `ALLOWED_SERVICE_ORIGINS` | `http://localhost:26800` | CAS returns to *this* Bank; ships `CAS_ENABLED=false` |
+
+`docker compose` reads `.env` itself; every script and `make` target resolves the same
+values the same way (**shell environment → `.env` → live defaults**), cross-checks the
+answer with `docker compose config`, and **prints which project, tag and ports it is about
+to act on before acting** (`make bank-target` prints it on its own). With no `.env`
+nothing changes: `docker compose config` on the live checkout is identical to before.
+
+`make gates` / `make smoke` need nothing extra: `gates` reaches `postgres:5432` by service
+name on the project's own network, so in the second checkout it hits the second Bank.
+
+### The guard — what the scripts refuse
+
+`build.ps1`, `launch.ps1`, `teardown.ps1`, `deploy\bundle.ps1`, `deploy\install.ps1` and
+`make up` / `down` / `migrate` refuse (with the reason) when:
+
+1. **the project's containers were created from another checkout** — compose stamps each
+   container with the directory it came from, so `teardown.ps1 -ProjectName jd-bank
+   -Volumes` typed in the v9 checkout is refused while the live stack exists;
+2. **a linked git worktree aims at the live project name** `jd-bank` (no `.env` of its
+   own) — this covers the case where the live stack is down and only its volumes remain.
+   Chosen over "path is `C:\repos\JD-Assistant` on `main`" because paths differ per box
+   and the live checkout is often on a feature branch;
+3. **a destructive action** (`teardown -Volumes`, `install -Force`) targets a project that
+   is not this checkout's and no container proves this checkout created it;
+4. **a second project is still on tag `latest`**, or the tag is in use by another
+   project's containers — its build would replace images another Bank runs on.
+
+`-AllowForeignProject` overrides, and is meant to be typed by a person who has read the
+reason. Code: `deploy\BankTarget.ps1`; tests: `deploy\tests\bank-target.tests.ps1` (run by
+`make deploy-check`).
+
+**Not covered:** a second *full clone* (not a worktree) with no `.env`, while the live
+stack is down — nothing on the box then says which checkout the volumes belong to. Give
+every second checkout its `.env` before its first command.
 
 ---
 

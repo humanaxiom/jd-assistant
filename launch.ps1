@@ -37,21 +37,26 @@
     Start the API with CAS SSO forced OFF for this run, regardless of .env. Gives you the
     frictionless dev-admin mode instead of an SFU login redirect. Does not edit .env.
 
+.PARAMETER AllowForeignProject
+    Override the bank-target guard (deploy\BankTarget.ps1), which refuses to launch a
+    project whose containers another checkout created — e.g. the LIVE `jd-bank` from a
+    second checkout, which would recreate the live api/worker on THIS checkout's code.
+
 .PARAMETER ArchivePath
     Path to the read-only SFU JD archive. Only the `tools` services bind it, so this is
     just exported for the follow-up commands the summary suggests (`make ingest`,
     `make baseline`). Never written to.
 
 .EXAMPLE
-    .aunch.ps1
+    .\launch.ps1
     Cold boot: build, start, migrate, report.
 
 .EXAMPLE
-    .aunch.ps1 -NoCas
+    .\launch.ps1 -NoCas
     Same, but skip the SFU CAS login so you land straight in the UI as a dev admin.
 
 .EXAMPLE
-    .aunch.ps1 -Rebuild -ArchivePath C:\repos\hris\fixtures\SFU_JDs
+    .\launch.ps1 -Rebuild -ArchivePath C:\repos\hris\fixtures\SFU_JDs
     Rebuild images after a dependency change and set the archive path for later jobs.
 
 #>
@@ -60,6 +65,7 @@ param(
     [switch]$Rebuild,
     [switch]$SkipMigrate,
     [switch]$NoCas,
+    [switch]$AllowForeignProject,
     [string]$ArchivePath = $env:JD_ARCHIVE_PATH
 )
 
@@ -69,13 +75,17 @@ Set-StrictMode -Version Latest
 # Run from the repo root no matter where the caller invoked us from.
 Set-Location -LiteralPath $PSScriptRoot
 
-# The host ports this project publishes. NOT the service defaults: this dev box runs
-# several Docker projects at once and the standard ports are already taken, so claiming
-# them makes `up` die with "port is already allocated". See the docker-compose.yml header.
-$ApiPort   = if ($env:JD_API_PORT)        { $env:JD_API_PORT }        else { '25800' }
-$PgPort    = if ($env:JD_PG_PORT)         { $env:JD_PG_PORT }         else { '25432' }
-$Neo4jPort = if ($env:JD_NEO4J_HTTP_PORT) { $env:JD_NEO4J_HTTP_PORT } else { '25474' }
-$RedisPort = if ($env:JD_REDIS_PORT)      { $env:JD_REDIS_PORT }      else { '25379' }
+# WHICH Bank, and on which ports — resolved exactly as compose resolves them (shell env,
+# then this checkout's `.env`, then the defaults), so a second checkout with its own
+# `.env` (deploy\parallel-bank.env.example) reports and polls ITS ports, not 25xxx.
+# The ports are NOT the service defaults: this dev box runs several Docker projects at
+# once. See the docker-compose.yml header.
+. (Join-Path $PSScriptRoot 'deploy/BankTarget.ps1')
+$Target    = Resolve-BankTarget -Root $PSScriptRoot
+$ApiPort   = $Target.ApiPort
+$PgPort    = $Target.PgPort
+$Neo4jPort = $Target.Neo4jHttpPort
+$RedisPort = $Target.RedisPort
 
 $Services = @('postgres', 'neo4j', 'redis', 'api', 'worker')
 
@@ -112,6 +122,10 @@ Write-Ok 'Docker daemon is up'
 if (-not (Test-Path 'docker-compose.yml')) {
     throw "No docker-compose.yml in $PSScriptRoot — run this from the JD-Assistant repo root."
 }
+
+Write-BankTarget -Target $Target
+Assert-ComposeAgrees -Target $Target
+Assert-BankAction -Target $Target -Builds -AllowForeignProject:$AllowForeignProject
 
 if ($ArchivePath) {
     if (Test-Path -LiteralPath $ArchivePath) {
@@ -301,7 +315,7 @@ Write-Info "  Neo4j        http://localhost:$Neo4jPort  (neo4j / harnesspass)"
 Write-Info "  Postgres     localhost:$PgPort  ·  Redis localhost:$RedisPort"
 if ($casOn) {
     Write-Warn '  CAS SSO is ON — you will be redirected to cas.sfu.ca to sign in.'
-    Write-Info '  For frictionless dev access instead: .aunch.ps1 -NoCas'
+    Write-Info '  For frictionless dev access instead: .\launch.ps1 -NoCas'
 }
 else {
     Write-Ok 'CAS is OFF — the UI is open in dev-admin mode.'
@@ -310,6 +324,7 @@ else {
 Write-Host "`n  Next:" -ForegroundColor Cyan
 Write-Info '  make gates                                   full CI-identical suite'
 Write-Info '  make ingest JD_ARCHIVE_PATH=<archive>        (re)parse the archive'
+Write-Info "  (all of the above act on project '$($Target.Project)' — this checkout's Bank)"
 Write-Info '  .\teardown.ps1                               stop, keep the data'
 Write-Info '  .\teardown.ps1 -Volumes                      ...and DISCARD the Bank'
 Write-Host ''

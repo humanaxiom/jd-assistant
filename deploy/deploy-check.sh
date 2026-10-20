@@ -66,8 +66,35 @@ else
     comm -13 <(printf '%s\n' "$images_default") <(printf '%s\n' "$images_other") | sed 's/^/           /'
 fi
 
+step 'The app image TAG follows JD_IMAGE_TAG (a second Bank builds its own images)'
+# P-stack: a second checkout with its own `.env` must not overwrite the live
+# `jd-bank-*:latest`. The tag is a variable; the NAME is not — so this does not weaken
+# the project-independence check above (the tag is not the project).
+images_tagged="$(JD_IMAGE_TAG=deploycheck docker compose --project-name jd-bank config --images 2>/dev/null | sort -u)"
+for svc in api worker; do
+    if printf '%s\n' "$images_tagged" | grep -qx "jd-bank-${svc}:deploycheck"; then
+        ok "jd-bank-${svc} follows JD_IMAGE_TAG"
+    else
+        bad "jd-bank-${svc} does NOT follow JD_IMAGE_TAG — a second Bank's build overwrites the live image"
+    fi
+done
+
+step 'The bank-target guard decides correctly (deploy/tests/bank-target.tests.ps1)'
+# The resolver + guard every script uses to refuse acting on another checkout's Bank.
+# Pure PowerShell, no Docker. pwsh ships on GitHub's ubuntu runners and is what every
+# deploy script already needs, so its absence is a failure, not a skip.
+if command -v pwsh >/dev/null 2>&1; then
+    if pwsh -NoProfile -File deploy/tests/bank-target.tests.ps1; then
+        ok 'bank-target tests green'
+    else
+        bad 'bank-target tests FAILED — the scripts may act on the wrong Bank'
+    fi
+else
+    bad 'pwsh not found — cannot run deploy/tests/bank-target.tests.ps1'
+fi
+
 step 'The deploy kit is present'
-for f in deploy/bundle.ps1 deploy/install.ps1 deploy/README.md; do
+for f in deploy/bundle.ps1 deploy/install.ps1 deploy/BankTarget.ps1 deploy/bank-target.ps1 deploy/parallel-bank.env.example deploy/README.md; do
     if [ -f "$f" ]; then ok "$f"; else bad "missing $f"; fi
 done
 

@@ -24,8 +24,19 @@
     touched.
 
 .PARAMETER ProjectName
-    Which compose project to tear down. Default `jd-bank`. Use `jd-bank-test` to remove
-    the isolated stack that `deploy\install.ps1 -Isolated` creates.
+    Which compose project to tear down. Default: THIS CHECKOUT'S project, resolved the
+    way compose resolves it — `COMPOSE_PROJECT_NAME` from the environment, then the
+    checkout's `.env`, then the compose file's `name:` (`jd-bank`). It used to default
+    to a literal `jd-bank`, so `-Volumes` typed in a SECOND checkout destroyed the LIVE
+    Bank. Use `jd-bank-test` to remove the stack `deploy\install.ps1 -Isolated` creates.
+
+    GUARDED (deploy\BankTarget.ps1): refused if the project's containers were created
+    from a different checkout, if this is a linked git worktree aiming at the live
+    project name, or if -Volumes targets a project that is not this checkout's own and
+    no container proves this checkout created it.
+
+.PARAMETER AllowForeignProject
+    Override the guard above. Typed by a person, on purpose, or not at all.
 
 .PARAMETER Bundle
     ALSO delete the offline deploy bundle in .\dist. It is a build artifact — `make
@@ -45,7 +56,8 @@
 .EXAMPLE
     .\teardown.ps1 -ProjectName jd-bank-test -Volumes -Force
     Remove the isolated test stack completely — the normal way to clean up after
-    rehearsing a deploy.
+    rehearsing a deploy. (If its containers are already gone, the guard cannot see that
+    this checkout created it: add -AllowForeignProject.)
 
 .EXAMPLE
     .\teardown.ps1 -Volumes
@@ -55,9 +67,10 @@
 param(
     [switch]$Volumes,
     [switch]$Orphans,
-    [string]$ProjectName = 'jd-bank',
+    [string]$ProjectName,
     [switch]$Bundle,
-    [switch]$Force
+    [switch]$Force,
+    [switch]$AllowForeignProject
 )
 
 $ErrorActionPreference = 'Stop'
@@ -69,20 +82,35 @@ function Write-Ok { param([string]$T) Write-Host "  [ok]   $T" -ForegroundColor 
 function Write-Warn { param([string]$T) Write-Host "  [warn] $T" -ForegroundColor Yellow }
 function Write-Info { param([string]$T) Write-Host "  $T" }
 
-$Compose = @('--project-name', $ProjectName)
+. (Join-Path $PSScriptRoot 'deploy/BankTarget.ps1')
 
 Write-Step 'Preflight'
 & docker info *> $null
 if ($LASTEXITCODE -ne 0) { throw 'Docker is not running.' }
-Write-Ok "Docker daemon is up (project: $ProjectName)"
+Write-Ok 'Docker daemon is up'
+
+# WHICH Bank — resolved like compose, printed, then guarded, all before anything moves.
+$Target = Resolve-BankTarget -Root $PSScriptRoot
+$typedProject = [bool]$ProjectName
+if (-not $typedProject) {
+    $ProjectName = $Target.Project
+    Assert-ComposeAgrees -Target $Target
+}
+Write-BankTarget -Target $Target -Project $ProjectName
+Assert-BankAction -Target $Target -Project $ProjectName -Destructive:$Volumes `
+    -AllowForeignProject:$AllowForeignProject
+
+$Compose = @('--project-name', $ProjectName)
+$ProjectLabel = "label=com.docker.compose.project=$ProjectName"
 
 # ── What is about to be lost? ───────────────────────────────────────────────
 # Shown BEFORE anything is removed. A destructive command that reports what it did is
 # not the same as one that says what it is about to do.
 if ($Volumes) {
     Write-Step 'What -Volumes will DESTROY'
-    $vols = @(& docker volume ls --format '{{.Name}}' |
-        Where-Object { $_ -like "${ProjectName}_*" })
+    # By compose's project LABEL, not a name prefix: `jd-bank_*` and `jd-bank-v9_*` are
+    # different Banks, and a prefix is one typo from conflating them.
+    $vols = @(& docker volume ls --filter $ProjectLabel --format '{{.Name}}')
     if (-not $vols) { Write-Info '  (no named volumes for this project)' }
     foreach ($v in $vols) {
         $size = (& docker system df -v --format '{{range .Volumes}}{{.Name}} {{.Size}}
@@ -116,10 +144,11 @@ else { Write-Ok 'Stopped. Named volumes were KEPT — the Bank is intact.' }
 # ── One-shot leftovers compose does not manage ──────────────────────────────
 if ($Orphans) {
     Write-Step 'Clearing stale one-shot containers'
-    # EXITED only, and matched by name prefix. A running container is never touched:
-    # a long producer run must not be killed by a teardown of the app stack.
-    $stale = @(& docker ps -a --filter 'status=exited' --format '{{.Names}}' |
-        Where-Object { $_ -like 'jd-canonical-*' -or $_ -like "$ProjectName-*-run-*" })
+    # EXITED only, and matched by compose's project LABEL (the `jd-canonical-*` producer
+    # runs carry it — they are `docker compose run --name ...`). A name prefix matched
+    # `jd-bank-v9-*-run-*` from the live checkout: another Bank's leftovers. A running
+    # container is never touched: a long producer run must not be killed by a teardown.
+    $stale = @(& docker ps -a --filter 'status=exited' --filter $ProjectLabel --format '{{.Names}}')
     if (-not $stale) { Write-Ok 'None found' }
     foreach ($c in $stale) {
         & docker rm $c *> $null
@@ -142,7 +171,7 @@ if ($Bundle) {
 
 # ── What is left ────────────────────────────────────────────────────────────
 Write-Step 'Remaining'
-$left = @(& docker ps -a --format '{{.Names}}' | Where-Object { $_ -like "$ProjectName*" })
+$left = @(& docker ps -a --filter $ProjectLabel --format '{{.Names}}')
 if ($left) { foreach ($c in $left) { Write-Info "  $c" } }
 else { Write-Ok "no $ProjectName containers remain" }
 
