@@ -175,6 +175,13 @@ CLASSIFICATION_FILE: Final[str] = "classification.yaml"
 #: (:data:`_UNHASHED_FILES`), and it does NOT move ``PARSER_VERSION``.
 CUPE_FORM_FILE: Final[str] = "cupe_form.yaml"
 
+#: SFU's APSA/APEX/Poly form as EXPORTED (Track J, PR J4): the page-header
+#: identification table, the typed list bullet, the footer heading, and the
+#: criminal-record-check sentence the Builder inserts. No validator reads it and the
+#: parser never sees it — registered and on the surface but NOT hashed
+#: (:data:`_UNHASHED_FILES`), and it does NOT move ``PARSER_VERSION``.
+APSA_FORM_FILE: Final[str] = "apsa_form.yaml"
+
 #: The content-bearing SFU sections an embedding may be built from — the subset of
 #: :data:`~src.jd_core.models.quality.SFUSection` that carries free text at all.
 #: ``identification`` is structured columns, not prose; ``about_sfu`` /
@@ -1988,6 +1995,59 @@ class CupeForm(_RuleFile):
         return self
 
 
+#: The identification fields the APSA export's page header prints, one row each.
+ApsaIdField = Literal[
+    "title",
+    "position_number",
+    "employee_group",
+    "initial_effective_date",
+    "latest_revision_date",
+    "supervisor_title",
+    "supervisor_position_number",
+]
+
+
+class ApsaForm(_RuleFile):
+    """SFU's APSA/APEX/Poly job-description form, as EXPORTED — plus the one sentence
+    the Builder inserts for a criminal record check (``apsa_form.yaml``, Track J PR J4).
+
+    The page-header identification table (HR-258), the bullet typed in front of every
+    list item so the Bank's parser can see it (HR-259), the heading over the mandated
+    footer that HR's template does not have (HR-256), and the criminal-record-check
+    sentence (HR-257).
+
+    **On the register, but NOT in the content hash** (:data:`_UNHASHED_FILES`): no
+    validator reads it and the parser never sees it, so it cannot move a JD's score,
+    and it does not move ``PARSER_VERSION``. The section HEADINGS are deliberately
+    absent — the export prints ``parser.headings.CANONICAL_HEADING`` so the Bank can
+    read its own export back; and the boilerplate TEXT is ``boilerplate.yaml``'s.
+
+    Shaped **flat** (:data:`_FLAT_SURFACE_FILES`).
+    """
+
+    banner: tuple[str, ...] = Field(min_length=1)
+    id_labels: Annotated[Mapping[ApsaIdField, str], AfterValidator(_freeze)]
+    bullet_glyph: str = Field(min_length=1, max_length=3)
+    footer_heading: str = Field(min_length=1)
+    security_check_sentence: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _labels_are_complete(self) -> ApsaForm:
+        """Every header row names a label: a field with no label would be silently
+        left off the export (the failure this file exists to prevent)."""
+        wanted = set(get_args(ApsaIdField))
+        if set(self.id_labels) != wanted:
+            raise ValueError(
+                f"apsa_form.id_labels must name exactly {sorted(wanted)}; "
+                f"got {sorted(self.id_labels)}"
+            )
+        if any(not label.strip() for label in self.id_labels.values()):
+            raise ValueError("apsa_form.id_labels needs non-blank labels")
+        if self.bullet_glyph.strip() != self.bullet_glyph or not self.bullet_glyph:
+            raise ValueError("apsa_form.bullet_glyph must be a visible mark, no spaces")
+        return self
+
+
 class RestrictedTitle(BaseModel):
     """One SFU-reserved title phrase."""
 
@@ -3626,6 +3686,8 @@ class Rules(BaseModel):
     classification: Classification
     #: On the register, but NOT in the content hash — see :class:`CupeForm` (Track J1).
     cupe_form: CupeForm
+    #: On the register, but NOT in the content hash — see :class:`ApsaForm` (Track J4).
+    apsa_form: ApsaForm
     decision_register: DecisionRegister
 
     def thresholds_for(self, template: JDTemplate) -> Thresholds:
@@ -4125,6 +4187,7 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "quality",
     "classification",
     "cupe_form",
+    "apsa_form",
 )
 
 
@@ -4399,6 +4462,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     (ORG_UNITS_FILE, "org_units", OrgUnits),
     (CLASSIFICATION_FILE, "classification", Classification),
     (CUPE_FORM_FILE, "cupe_form", CupeForm),
+    (APSA_FORM_FILE, "apsa_form", ApsaForm),
     (REGISTER_FILE, "decision_register", DecisionRegister),
 )
 
@@ -4422,6 +4486,9 @@ RULE_FILES: Final[tuple[str, ...]] = tuple(name for name, _, _ in _FILE_MODELS)
 #:   ``PARSER_VERSION``, because it changes what the parser writes.
 #: * ``cupe_form.yaml`` decides what an exported CUPE ``.docx`` LOOKS like (Track J1) —
 #:   wording and placement only; nothing reads it back.
+#: * ``apsa_form.yaml`` decides what an exported APSA/APEX/Poly ``.docx`` LOOKS like
+#:   (Track J4), plus the criminal-record-check sentence the Builder inserts — which
+#:   then reaches the validator only as a JD's own qualification text, never as rule.
 #:
 #: Hashing any of them would mean a copy-edit to an HR-facing paragraph, a re-banding of
 #: the archive's eras, retuning ``max_chars``, retuning ``jaccard_min``, or retuning a
@@ -4440,6 +4507,7 @@ _UNHASHED_FILES: Final[frozenset[str]] = frozenset(
         ORG_UNITS_FILE,
         CLASSIFICATION_FILE,
         CUPE_FORM_FILE,
+        APSA_FORM_FILE,
     }
 )
 

@@ -288,6 +288,12 @@ def _content_from_form(pairs: list[tuple[str, str]]) -> dict[str, Any]:
         "grade": None,
         "classification": _classification_from_form(pairs),
         "employee_group": _scalar_or_none(pairs, "employee_group"),
+        # Track J4: the position this one reports to. On the form so a reviewer's edit
+        # keeps what the Builder collected rather than silently dropping it.
+        "supervisor_title": _scalar_or_none(pairs, "supervisor_title"),
+        "supervisor_position_number": _scalar_or_none(
+            pairs, "supervisor_position_number"
+        ),
         "about_sfu_present": first_value(pairs, "about_sfu_present") == "on",
         "position_summary": _scalar_or_none(pairs, "position_summary"),
         "duties": _duty_dicts(pairs),

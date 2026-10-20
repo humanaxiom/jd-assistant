@@ -181,7 +181,9 @@ def test_a_jdfn_jd_is_rendered_exactly_as_before(rules: Rules) -> None:
     jd = _cupe_jd(rules, employee_group="apsa", additional_context=None)
     assert _members(render_sfu_docx(jd)) == _members(render_jdfn_docx(jd))
     texts = _texts(render_sfu_docx(jd))
-    assert "Duties and Responsibilities" in texts
+    # Track J4 moved the APSA headings to the template's upper case; the APSA layout
+    # itself is pinned by its own golden file (test_jd_export_apsa).
+    assert "DUTIES AND RESPONSIBILITIES" in texts
 
 
 def test_the_cupe_export_carries_no_apsa_footer(rules: Rules) -> None:
