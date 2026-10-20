@@ -24,6 +24,12 @@ filterable*:
    roles is found by exact title; the 22-query ``search_eval_v1`` set meets its recall
    floor; a dead embed host still returns title hits plus a banner; the archive tab
    finds a document by its current parsed title.
+7. **CUPE export (Tracks J1 + J2).** Live CUPE / APSA roles export on their own form
+   and re-parse; a 14-function CUPE draft authored through the Builder's routes (HR's
+   Dec-2024 sample shape) exports whole — split, frequencies, ticks, table rows,
+   section 13 — and loses on re-parse only the WJQ parser's twelve-function ceiling; a
+   live CUPE role clones into the J2 form through the route and round-trips; every
+   live CUPE role still clones and reassembles. Read-only: the row count is checked.
 6. **Builder search (Track I2), through the HTTP route.** Migration 0007's trigram
    indexes exist and are valid; a dead embed host keeps the title hits plus a banner;
    no document title hit comes from a superseded parse; the two typo queries find a
@@ -747,31 +753,496 @@ async def test_no_live_cupe_role_exports_with_the_apsa_footer(session) -> None: 
 
 
 async def test_a_live_apsa_role_survives_export_and_reparse(session) -> None:  # type: ignore[no-untyped-def]
-    """The APSA export is unchanged by J1 and still carries its footer; a live APSA
-    role's title and position summary come back through the JDFN parser.
+    """A live APSA role exports on HR's 2024 layout and the JDFN parser reads it back
+    with the SAME number of duties, its title, summary, About SFU and footer.
 
-    ⚠ Duties are NOT asserted, and that is a measured pre-existing defect of the APSA
-    export, not a gap in this test: 1,798 of 1,876 current non-CUPE roles re-read with a
-    different duty count (``tests/export_roundtrip.py :: jdfn_round_trip_losses``). J1
-    must leave the APSA output byte-identical in content, so it is reported, not fixed.
+    History: until Track J4 duties were NOT asserted here — 1,798 of 1,876 current
+    non-CUPE roles re-read with a different duty count (usually 5 -> 1), because the
+    export's Word list bullets never reached the extracted text. J4 types the bullet
+    (HR-259); this now asserts the duty count and the whole JDFN oracle.
     """
     from src.jd_core.rules import get_rules
-    from tests.export_roundtrip import jdfn_round_trip_losses
+    from tests.export_roundtrip import jdfn_unexplained_losses
 
     rules = get_rules()
     cid, content = await _first_current(
         session,
         "c.content->>'employee_group' = 'apsa' "
-        "AND jsonb_array_length(c.content->'duties') > 0 "
+        "AND jsonb_array_length(c.content->'duties') >= 3 "
         "AND c.content->>'position_summary' IS NOT NULL",
     )
     jd, body, result = _export_and_reparse(content)
 
     assert result.template != "wjq", f"role {cid}: an APSA export read as a CUPE form"
-    losses = jdfn_round_trip_losses(jd, result.jd)
+    assert len(result.jd.duties) == len(jd.duties), (
+        f"role {cid}: {len(jd.duties)} duties exported, "
+        f"{len(result.jd.duties)} re-read"
+    )
+    assert result.jd.title.strip() == jd.title.strip(), f"role {cid}: title lost"
+    losses = jdfn_unexplained_losses(jd, result.jd)
     assert losses == [], f"role {cid} lost fields on export -> re-parse: {losses}"
-    for passage in rules.boilerplate.territorial_acknowledgement:
+    assert result.jd.about_sfu_present, f"role {cid}: About SFU did not re-read"
+    for passage in rules.boilerplate.about_sfu:
+        assert passage in body, f"role {cid}: About SFU passage missing: {passage!r}"
+    for passage in (
+        *rules.boilerplate.territorial_acknowledgement,
+        *rules.boilerplate.employment_equity,
+    ):
         assert passage in body, f"role {cid}: the APSA footer is missing"
+
+
+async def test_every_live_apsa_role_exports_and_rereads_its_duties(session) -> None:  # type: ignore[no-untyped-def]
+    """EVERY current non-CUPE role, not a sample: exported and re-read, each comes back
+    with the same number of duties — and with nothing else lost either — unless the
+    loss is one the JDFN PARSER cannot read whatever the export prints
+    (``tests/export_roundtrip.py :: jdfn_parser_limits``; each is a parser change).
+
+    MEASURED 2026-10-19 (this branch): duty count survives for 1,874 of 1,876 roles
+    (99.9%; pre-J4: 78, 4.2%); the full oracle holds for 1,872. The rest are parser
+    limits: 2 roles have a duty over 200 characters with two semicolons (split by
+    ``_maybe_split_semicolons``), 1 a title holding "Department" (``NEXT_LABEL_RX``
+    cuts the label value there), 1 a position number that is a faculty name with
+    spaces (the parser reads one token). Any OTHER loss is an export defect.
+    """
+    from src.jd_core.models.parsed_jd import SFUJobDescription
+    from src.jd_core.models.quality import WJQ_TEMPLATE
+    from src.jd_core.quality.validators import template_of
+    from tests.export_roundtrip import jdfn_parser_limits, jdfn_unexplained_losses
+
+    rows = (await session.execute(text(f"""
+                WITH cur AS ({_CURRENT})
+                SELECT cluster_id, content FROM cur c
+            """))).all()
+    total = duty_kept = 0
+    unexplained: list[str] = []
+    for cid, content in rows:
+        if template_of(SFUJobDescription.model_validate(content)) == WJQ_TEMPLATE:
+            continue
+        total += 1
+        jd, _, result = _export_and_reparse(content)
+        if len(jd.duties) == len(result.jd.duties):
+            duty_kept += 1
+        elif "duty" not in jdfn_parser_limits(jd):
+            unexplained.append(
+                f"{cid}: {len(jd.duties)} duties exported, "
+                f"{len(result.jd.duties)} re-read"
+            )
+        unexplained += [
+            f"{cid}: {loss}" for loss in jdfn_unexplained_losses(jd, result.jd)
+        ]
+    assert total, "no current non-CUPE role — an empty Bank is not a pass"
+    assert not unexplained, (
+        f"duty count survives for {duty_kept}/{total} roles; "
+        f"{len(unexplained)} losses no parser limit explains: {unexplained[:10]}"
+    )
+
+
+async def test_a_builder_apsa_draft_exports_every_new_field(session) -> None:  # type: ignore[no-untyped-def]
+    """Track J4, end to end through the HTTP routes a person uses: an APSA draft with a
+    Position #, how/why sub-bullets, a criminal record check and the supervisor's title
+    and position # is checked (the live near-duplicate guard runs against the real
+    Bank, Neo4j and embed host) and exported, and every field is in the `.docx` —
+    re-read by the Bank's own ingest path.
+
+    🔴 PERSISTS NOTHING, and proves it: the session handed to the routes refuses
+    ``commit`` (and is rolled back), and the Bank's ``canonical_jds`` row count is the
+    same before and after. Neither route writes by design (check = assess + read-only
+    guard; export = render), so this pins the design rather than trusting it.
+    """
+    import html as html_lib
+    from urllib.parse import urlencode
+
+    from httpx import ASGITransport, AsyncClient
+
+    from src.api.deps import transient_dev_user
+    from src.api.main import app, get_session
+    from src.api.routes.auth import require_ui_user
+    from src.jd_bank.db.models import DocumentFormat
+    from src.jd_bank.ingest.extract import extract_text
+    from src.jd_core.parser.segmenter import parse_jd
+    from src.jd_core.rules import get_rules
+    from src.settings import get_settings
+
+    count_sql = text("SELECT count(*) FROM canonical_jds")
+    before = (await session.execute(count_sql)).scalar_one()
+
+    engine = create_async_engine(_DB)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def _read_only_session():  # type: ignore[no-untyped-def]
+        async with maker() as s:
+
+            async def _refuse() -> None:
+                raise AssertionError("the Builder smoke must not commit to the Bank")
+
+            s.commit = _refuse  # type: ignore[method-assign]
+            try:
+                yield s
+            finally:
+                await s.rollback()
+
+    async def _user(request: Request):  # type: ignore[no-untyped-def]
+        user = transient_dev_user(get_settings())
+        request.state.user = user
+        request.state.csrf_token = ""
+        return user
+
+    app.dependency_overrides[get_session] = _read_only_session
+    app.dependency_overrides[require_ui_user] = _user
+    form = [
+        ("form", "jdfn"),
+        ("title", "Smoke Test Academic Programs Manager"),
+        ("employee_group", "apsa"),
+        ("position_number", "99990001"),
+        ("supervisor_title", "Director, Smoke Operations"),
+        ("supervisor_position_number", "99990002"),
+        ("position_summary", "Provides operational support for academic programs."),
+        ("duties_verb", "Manages"),
+        ("duties_statement", "Manages the delivery of academic programs by:"),
+        ("duties_allocation", "60"),
+        (
+            "duties_how_why",
+            "Representing the department on committees.\nPlanning work.",
+        ),
+        ("duties_verb", "Leads"),
+        ("duties_statement", "Leads staffing processes"),
+        ("duties_allocation", "40"),
+        ("duties_how_why", ""),
+        ("criminal_record_check", "on"),
+        ("include_sfu_boilerplate", "on"),
+    ]
+    headers = {"content-type": "application/x-www-form-urlencoded"}
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://smoke") as client:
+            check = await client.post(
+                "/jd-bank/ui/compose/new", content=urlencode(form), headers=headers
+            )
+            assert check.status_code == 200, check.status_code
+            found = re.search(r'name="answers_json" value="([^"]*)"', check.text)
+            assert found is not None, "the check page offers no export"
+            export = await client.post(
+                "/jd-bank/ui/compose/export",
+                content=urlencode(
+                    [
+                        ("answers_json", html_lib.unescape(found.group(1))),
+                        ("form", "jdfn"),
+                    ]
+                ),
+                headers=headers,
+            )
+    finally:
+        app.dependency_overrides.clear()
+        await engine.dispose()
+
+    assert export.status_code == 200 and export.content[:2] == b"PK"
+    body = extract_text(export.content, DocumentFormat.DOCX)
+    back = parse_jd(body).jd
+    assert back.position_number == "99990001"
+    assert len(back.duties) == 2
+    assert "Representing the department on committees" in back.duties[0].statement
+    assert "Director, Smoke Operations" in body and "99990002" in body
+    assert get_rules().apsa_form.security_check_sentence in body
+    for passage in get_rules().boilerplate.about_sfu:
+        assert passage in body
+    after = (await session.execute(count_sql)).scalar_one()
+    assert after == before, f"canonical_jds went {before} -> {after}: the smoke wrote"
+
+
+# ── CUPE FORM STRUCTURE (Track J2) — authored through the HTTP routes ──────
+#
+# The unit suite proves the J2 structure on fixtures. These drive the REAL app (the
+# `library` fixture: httpx ASGI transport, live session, CAS overridden) through the
+# routes a CUPE author uses — Check (POST /compose/new), Clone (GET /clone-role/{id})
+# and Export (POST /compose/export) — then read the `.docx` back with the Bank's own
+# `extract_text` -> `parse_jd`.
+#
+# 🔴 READ-ONLY. None of those three routes persists anything (only /compose/submit
+# writes, and it is never called here); the first test also COUNTS `canonical_jds`
+# before and after, so "it wrote nothing" is checked on the Bank, not assumed.
+#
+# 🔴 PARSER BOUNDARY, stated, not hidden: the WJQ parser reads at most twelve functions
+# back (`segmenter._MAX_DUTIES`, majors first). HR's own Dec-2024 sample has 14, so the
+# 14-function draft is asserted WHOLE on the export text, and on re-parse asserted to
+# lose exactly that count and nothing else. Raising the parser's ceiling is a
+# PARSER_VERSION change + archive re-parse — out of J2's scope.
+
+#: HR's Dec-2024 pre-classified sample (fixtures/hr/cupe/, S20): 11 major + 3 minor.
+_J2_MAJORS: list[tuple[str, str, str]] = [
+    ("Responds", "Responds to requests for information", "daily"),
+    ("Types", "Types letters, reports and general correspondence", "daily"),
+    ("Processes", "Processes a variety of forms and documents", "daily"),
+    ("Creates", "Creates and maintains system and paper based records", "daily"),
+    ("Responds", "Responds to routine and general problems", "daily"),
+    ("Provides", "Provides secretarial support for travel and events", "weekly"),
+    ("Conducts", "Conducts preliminary reviews of information", "weekly"),
+    ("Coordinates", "Coordinates meetings and arranges appointments", "weekly"),
+    ("Maintains", "Maintains office files", "weekly"),
+    ("Processes", "Processes mail outs", "semester"),
+    ("Maintains", "Maintains the integrity of information databases", "semester"),
+]
+_J2_MINORS: list[tuple[str, str]] = [
+    ("Purges", "Purges and archives records"),
+    ("Conducts", "Conducts simple information system and database searches"),
+    (
+        "Performs",
+        "Performs other related duties and responsibilities consistent with the job "
+        "description and classification on request",
+    ),
+]
+
+
+def _j2_pairs() -> list[tuple[str, str]]:
+    """The Builder form as a browser posts it, every J2 control used."""
+    pairs: list[tuple[str, str]] = [
+        ("form", "wjq"),
+        ("title", "Department Secretary (J2 smoke)"),
+        ("department", "Department of History"),
+        ("position_number", "40001"),
+        ("current_classification", "Secretary Grade 6"),
+        ("supervisor_title", "Department Manager"),
+        ("date_completed", "2026-10-19"),
+        ("completed_by", "supervisor"),
+        ("position_summary", "Provides secretarial support to the department."),
+    ]
+    for verb, statement, frequency in _J2_MAJORS:
+        pairs += [
+            ("major_functions_action_verb", verb),
+            ("major_functions_statement", statement),
+            ("major_functions_frequency", frequency),
+        ]
+    for verb, statement in _J2_MINORS:
+        pairs += [
+            ("minor_functions_action_verb", verb),
+            ("minor_functions_statement", statement),
+        ]
+    pairs += [
+        ("level_of_independence_levels", "B"),
+        ("level_of_independence", "Works from general instructions."),
+        ("training_exercised_levels", "B"),
+        ("training_exercised_levels", "C"),
+        ("direction_exercised_levels", "A"),
+        ("continuing_education_levels", "B"),
+        ("continuing_education_levels", "D"),
+        ("contacts_contact", "Students"),
+        ("contacts_scope", "internal"),
+        ("contacts_duration", "< 1 hour"),
+        ("contacts_frequency", "Frequent"),
+        ("contacts_contact", "General public"),
+        ("contacts_scope", "external"),
+        ("contacts_duration", "1-2 hours"),
+        ("contacts_frequency", "Occasional"),
+        ("impact_of_errors", "Typing errors are caught by the reader."),
+        ("effort_rows_effort", "Visual"),
+        ("effort_rows_duration", "1-2 hours"),
+        ("effort_rows_frequency", "Frequent"),
+        ("location_rows_location", "General office"),
+        ("location_rows_hours", "35 / 35"),
+        ("uncomfortable_rows_condition", "Distracting noise"),
+        ("uncomfortable_rows_frequency", "Occasional"),
+        ("hazard_rows_condition", "Dealing with complaints"),
+        ("hazard_rows_frequency", "Occasional"),
+        ("education", "High school graduation"),
+        ("certification", "Office administration certificate"),
+        ("experience_years", "2"),
+        ("experience", "Related office experience"),
+        ("equivalency", "not_acceptable"),
+        ("equivalency_rationale", "The certificate is required by the funder."),
+        ("occupational_skills_text", "use standard office applications"),
+        ("occupational_skills_helper", "Ability to"),
+        ("occupational_skills_text", "university records procedures"),
+        ("occupational_skills_helper", "Knowledge of"),
+        ("occupational_skills_text", "55 wpm keyboarding skill"),
+        ("occupational_skills_helper", ""),
+        ("occupational_requirements", "Valid driver's licence"),
+    ]
+    return pairs
+
+
+_FORM_HEADERS = {"content-type": "application/x-www-form-urlencoded"}
+_ANSWERS_JSON = re.compile(r'name="answers_json" value="([^"]*)"')
+
+
+def _answers_json(page: str) -> str:
+    from html import unescape
+
+    match = _ANSWERS_JSON.search(page)
+    assert match is not None, "the Builder page carries no answers_json"
+    return unescape(match.group(1))
+
+
+async def _export_lines(client, raw: str) -> list[str]:  # type: ignore[no-untyped-def]
+    from urllib.parse import urlencode
+
+    from src.jd_bank.db.models import DocumentFormat
+    from src.jd_bank.ingest.extract import extract_text
+
+    resp = await client.post(
+        "/jd-bank/ui/compose/export",
+        content=urlencode([("form", "wjq"), ("answers_json", raw)]),
+        headers=_FORM_HEADERS,
+    )
+    assert resp.status_code == 200, f"export -> {resp.status_code}"
+    assert resp.content[:2] == b"PK", "export did not return a .docx"
+    return extract_text(resp.content, DocumentFormat.DOCX).splitlines()
+
+
+async def test_a_fourteen_function_cupe_draft_authored_through_the_routes_exports_whole(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    """HR's 11 + 3 sample, authored through Check, exported through Export: every
+    function in its section, the (D)/(W)/(M)/(S) codes, the ticked levels, the table
+    rows, section 13's certification / years / equivalency / requirements and the
+    Occupational Skills helpers are all ON the form; HR's box is blank; no APSA footer;
+    on re-parse only the parser's twelve-function ceiling costs anything; and the Bank
+    gained no row."""
+    from urllib.parse import urlencode
+
+    from src.jd_bank.composer.wjq_answers import WJQAnswers
+    from src.jd_bank.composer.wjq_assemble import assemble_wjq_jd
+    from src.jd_core.parser.segmenter import _MAX_DUTIES, parse_jd
+    from src.jd_core.rules import get_rules
+    from tests.export_roundtrip import cupe_export_text_losses, cupe_round_trip_losses
+
+    rules = get_rules()
+    count = text("SELECT count(*) FROM canonical_jds")
+    before = (await session.execute(count)).scalar_one()
+
+    page = await library.post(
+        "/jd-bank/ui/compose/new", content=urlencode(_j2_pairs()), headers=_FORM_HEADERS
+    )
+    assert page.status_code == 200, f"Check -> {page.status_code}"
+    assert "Could not read the draft" not in page.text, "the Builder refused the draft"
+    raw = _answers_json(page.text)
+    answers = WJQAnswers.model_validate_json(raw)
+    assert len(answers.major_functions) == len(_J2_MAJORS)
+    assert len(answers.minor_functions) == len(_J2_MINORS)
+    assert [f.frequency for f in answers.major_functions] == [f for *_, f in _J2_MAJORS]
+
+    lines = await _export_lines(library, raw)
+    jd = assemble_wjq_jd(answers)
+    assert jd.wjq_form is not None
+    # Nothing dropped on the way OUT — checked on the export text, so the parser's own
+    # ceilings cannot hide a loss.
+    assert cupe_export_text_losses(jd, lines, rules) == []
+    body = "\n".join(lines)
+    for _, statement, _ in _J2_MAJORS:
+        assert statement in body
+    for _, statement in _J2_MINORS:
+        assert statement in body, f"minor function {statement[:30]!r} dropped"
+    for line in rules.cupe_form.banner:
+        assert line in body, f"CUPE banner line {line!r} missing"
+    for skill in (
+        "Ability to use standard office applications",
+        "Knowledge of university records procedures",
+    ):
+        assert skill in body, f"Occupational Skills helper lost: {skill!r}"
+
+    # ...and back IN through the Bank's own parser: the only loss is its ceiling.
+    result = parse_jd(body)
+    assert result.template == "wjq", "the export is not read as a CUPE form"
+    losses = cupe_round_trip_losses(jd, result.jd, rules)
+    assert losses == [f"duties: 14 exported, {_MAX_DUTIES} re-read"], losses
+
+    after = (await session.execute(count)).scalar_one()
+    assert after == before, f"the smoke WROTE to the live Bank: {before} -> {after}"
+
+
+async def test_a_live_cupe_role_clones_into_the_j2_form_and_exports_whole(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    """A live CUPE role holding knowledge AND ability lines, cloned through the route:
+    knowledge + skill lines land in the one Occupational Skills list (Q9, option C);
+    every ABILITY line lands in Occupational Requirement(s) (owner ruling 2026-10-19,
+    "Abilities → Requirements", HR-251) and the export prints it under that block —
+    where the role's own export already puts it; the clone re-parses with no loss."""
+    from src.jd_bank.composer.wjq_answers import WJQAnswers
+    from src.jd_bank.composer.wjq_assemble import assemble_wjq_jd
+    from src.jd_core.parser.segmenter import parse_jd
+    from src.jd_core.rules import get_rules
+    from tests.export_roundtrip import cupe_round_trip_losses
+
+    rules = get_rules()
+    cid, content = await _first_current(
+        session,
+        "c.content->>'employee_group' = 'cupe' "
+        "AND jsonb_array_length(c.content->'duties') > 0 "
+        "AND jsonb_array_length(c.content->'qualifications') BETWEEN 5 AND 30 "
+        "AND c.content->'qualifications' @> '[{\"kind\": \"knowledge\"}]' "
+        "AND c.content->'qualifications' @> '[{\"kind\": \"ability\"}]'",
+    )
+    page = await library.get(f"/jd-bank/ui/compose/clone-role/{cid}")
+    assert page.status_code == 200, f"clone {cid} -> {page.status_code}"
+    assert "Could not read the draft" not in page.text, f"clone {cid} refused"
+    raw = _answers_json(page.text)
+    answers = WJQAnswers.model_validate_json(raw)
+    ks = [q for q in content["qualifications"] if q["kind"] in {"knowledge", "skill"}]
+    abilities = [
+        q["text"].strip() for q in content["qualifications"] if q["kind"] == "ability"
+    ]
+    assert abilities, f"role {cid} has no ability line — the query picked badly"
+    assert len(answers.occupational_skills) == len(ks), f"role {cid}: K/S lost"
+    assert answers.occupational_requirements == abilities, f"role {cid}: A misplaced"
+    assert len(answers.major_functions) == len(content["duties"])
+
+    lines = await _export_lines(library, raw)
+    norm = [" ".join(ln.split()) for ln in lines]
+    form = rules.cupe_form
+    requirements_at = norm.index(
+        " ".join(form.qualifications_requirements_prompt.split())
+    )
+    sign_off_at = next(
+        i
+        for i, ln in enumerate(norm)
+        if ln.endswith(rules.wjq.section_headings["approval_review"][0])
+    )
+    for line in abilities:
+        where = [i for i, ln in enumerate(norm) if ln == " ".join(line.split())]
+        assert any(requirements_at < i < sign_off_at for i in where), (
+            f"role {cid}: ability line {line[:40]!r} is not printed under "
+            "Occupational Requirement(s)"
+        )
+    jd = assemble_wjq_jd(answers)
+    result = parse_jd("\n".join(lines))
+    assert result.template == "wjq"
+    losses = cupe_round_trip_losses(jd, result.jd, rules)
+    assert losses == [], f"role {cid}: the J2 clone lost fields: {losses}"
+
+
+async def test_every_live_cupe_role_still_clones_and_reassembles(session) -> None:  # type: ignore[no-untyped-def]
+    """Every current CUPE role, not a sample: the J2 contract must still load it
+    (the answers model is stricter than the old one in places), keep every duty,
+    contact and K/S/A line, and reassemble — or the Builder would refuse to clone it."""
+    from src.jd_bank.composer.wjq_assemble import assemble_wjq_jd, wjq_answers_from_jd
+    from src.jd_core.models.parsed_jd import SFUJobDescription
+
+    rows = (await session.execute(text(f"""
+                WITH cur AS ({_CURRENT})
+                SELECT cluster_id, content FROM cur c
+                WHERE c.content->>'employee_group' = 'cupe'
+            """))).all()
+    assert rows, "no current CUPE role — an empty Bank is not a pass"
+    broken: list[str] = []
+    for cid, content in rows:
+        jd = SFUJobDescription.model_validate(content)
+        try:
+            answers = wjq_answers_from_jd(jd)
+            again = assemble_wjq_jd(answers)
+        except ValueError as exc:  # pydantic's ValidationError is a ValueError
+            broken.append(f"{cid}: {str(exc)[:120]}")
+            continue
+        ks = [q for q in jd.qualifications if q.kind in {"knowledge", "skill"}]
+        abilities = [q for q in jd.qualifications if q.kind == "ability"]
+        rel = jd.relationships
+        contacts = len(rel.internal) + len(rel.external) if rel else 0
+        if (
+            len(again.duties) != len(jd.duties)
+            or len(answers.occupational_skills) != len(ks)
+            or len(answers.occupational_requirements) != len(abilities)
+            or len(answers.contacts) != contacts
+        ):
+            broken.append(f"{cid}: content lost on clone")
+    assert not broken, f"{len(broken)} of {len(rows)} CUPE roles: {broken[:5]}"
 
 
 # ── 13-17. Builder search (Track I2) — dead host, current parse, typos, latency ────

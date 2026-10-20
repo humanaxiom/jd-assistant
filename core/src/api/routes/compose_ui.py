@@ -35,14 +35,14 @@ import asyncio
 import logging
 import re
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, get_args
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from neo4j import AsyncDriver
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.db.models import User
@@ -59,7 +59,6 @@ from src.api.routes.compose import (
 from src.jd_bank.composer import (
     DraftAssessment,
     DuplicateGuard,
-    DutyAnswer,
     ModifiedQual,
     SearchHit,
     SummarySuggestion,
@@ -77,10 +76,12 @@ from src.jd_bank.composer.answers import AnswerContract, ComposerAnswers
 from src.jd_bank.composer.forms import (
     FORMS,
     FormSpec,
+    choice_values,
     form_from_request,
     render_kind,
+    row_model,
 )
-from src.jd_bank.composer.wjq_answers import WJQAnswers
+from src.jd_bank.composer.wjq_answers import WJQ_LEVEL_TARGETS, Column, WJQAnswers
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.llm.client import ChatClient
 from src.jd_core.models.parsed_jd import SFUJobDescription
@@ -91,6 +92,7 @@ from src.jd_core.models.quality import (
     SFUSection,
 )
 from src.jd_core.rules import get_rules
+from src.jd_core.wjq_form_check import CupeFormError
 from src.jd_export import render_sfu_docx
 
 logger = logging.getLogger(__name__)
@@ -231,15 +233,29 @@ def _duty_row_dicts(pairs: list[tuple[str, str]], target: str) -> list[dict[str,
     verbs = _column(pairs, f"{target}_verb")
     statements = _column(pairs, f"{target}_statement")
     allocations = _column(pairs, f"{target}_allocation")
-    count = max(len(verbs), len(statements), len(allocations))
+    how_whys = _column(pairs, f"{target}_how_why")
+    count = max(len(verbs), len(statements), len(allocations), len(how_whys))
     return [
         {
             "verb": _at(verbs, i),
             "statement": _at(statements, i),
             "allocation": _at(allocations, i),
+            "how_why": _at(how_whys, i),
         }
         for i in range(count)
     ]
+
+
+def _how_why_targets(spec: FormSpec) -> set[str]:
+    """This form's duty sections whose row model carries ``how_why`` (Track J4: the
+    JDFN duties, not the WJQ's). Read from the contract, so the WJQ never shows — and
+    never posts — a field its assembler would have nowhere to put."""
+    targets: set[str] = set()
+    for target in _targets_of_kind(spec, "duties"):
+        (row_model,) = get_args(spec.answers_model.model_fields[target].annotation)
+        if "how_why" in row_model.model_fields:
+            targets.add(target)
+    return targets
 
 
 def _modified_row_dicts(
@@ -252,6 +268,57 @@ def _modified_row_dicts(
     return [
         {"text": _at(texts, i), "modifier": _at(modifiers, i)} for i in range(count)
     ]
+
+
+def _row_cls(spec: FormSpec, target: str) -> type[BaseModel]:
+    """The row model of a ``rows`` target (J2) — its ``COLUMNS`` drive the editor."""
+    model = row_model(spec.answers_model.model_fields[target].annotation)
+    assert model is not None, f"{target!r} is not a rows field"
+    return model
+
+
+def _columns_of(model: type[BaseModel]) -> tuple[Column, ...]:
+    columns: tuple[Column, ...] = getattr(model, "COLUMNS", ())
+    return columns
+
+
+def _row_dicts(
+    pairs: list[tuple[str, str]], target: str, model: type[BaseModel]
+) -> list[dict[str, str]]:
+    """The submitted rows of a ``rows`` target as raw ``{column: value}`` dicts (strs,
+    so they repopulate the page even when a value fails validation). Index-aligned
+    parallel arrays, ``<target>_<column>`` × N — each rendered row emits every column,
+    hidden ones included, so the arrays stay aligned."""
+    fields = [c.field for c in _columns_of(model)]
+    columns = {f: _column(pairs, f"{target}_{f}") for f in fields}
+    count = max((len(v) for v in columns.values()), default=0)
+    return [{f: _at(columns[f], i) for f in fields} for i in range(count)]
+
+
+def _row_answers(
+    pairs: list[tuple[str, str]], target: str, model: type[BaseModel]
+) -> list[dict[str, str]]:
+    """Submitted rows -> the row model's input, dropping SPARE rows (first column
+    blank). Blank cells are left out, so each takes the model's default (``None`` for a
+    scale value, ``""`` for an action verb) instead of an empty string the assembler
+    would refuse as off-scale."""
+    first = _columns_of(model)[0].field
+    out: list[dict[str, str]] = []
+    for row in _row_dicts(pairs, target, model):
+        if not row[first].strip():
+            continue
+        out.append({k: v.strip() for k, v in row.items() if v.strip()})
+    return out
+
+
+def _form_values(spec: FormSpec, pairs: list[tuple[str, str]]) -> dict[str, str]:
+    """``_first_values`` plus every ``levels`` target's ticked letters, comma-joined
+    (a checkbox group posts one pair per ticked box, and the first alone would lose
+    the rest on a re-render)."""
+    values = _first_values(pairs)
+    for target in _targets_of_kind(spec, "levels"):
+        values[target] = ",".join(_column(pairs, target))
+    return values
 
 
 def _targets_of_kind(spec: FormSpec, kind: str) -> list[str]:
@@ -273,6 +340,8 @@ def _structured_rows_from_pairs(
         rows[target] = _duty_row_dicts(pairs, target)
     for target in _targets_of_kind(spec, "modified"):
         rows[target] = _modified_row_dicts(pairs, target)
+    for target in _targets_of_kind(spec, "rows"):
+        rows[target] = _row_dicts(pairs, target, _row_cls(spec, target))
     return rows
 
 
@@ -286,6 +355,7 @@ def _structured_rows_from_answers(
                 "verb": d.action_verb,
                 "statement": d.statement,
                 "allocation": "" if d.allocation is None else str(d.allocation),
+                "how_why": "\n".join(getattr(d, "how_why", [])),
             }
             for d in getattr(answers, target)
         ]
@@ -293,6 +363,17 @@ def _structured_rows_from_answers(
         rows[target] = [
             {"text": q.text, "modifier": q.modifier or ""}
             for q in getattr(answers, target)
+        ]
+    for target in _targets_of_kind(spec, "rows"):
+        columns = _columns_of(_row_cls(spec, target))
+        rows[target] = [
+            {
+                c.field: (
+                    "" if getattr(row, c.field) is None else str(getattr(row, c.field))
+                )
+                for c in columns
+            }
+            for row in getattr(answers, target)
         ]
     return rows
 
@@ -317,25 +398,30 @@ def _pad_rows(
     return padded
 
 
-def _duty_answers(pairs: list[tuple[str, str]], target: str) -> list[DutyAnswer]:
-    """Structured duty rows -> ``DutyAnswer`` list, dropping rows with no statement.
+def _duty_answers(
+    pairs: list[tuple[str, str]], target: str, *, how_why: bool = False
+) -> list[dict[str, Any]]:
+    """Structured duty rows -> duty-row dicts, dropping rows with no statement. The
+    target's own row model validates them (``DutyAnswer``, or ``JDFNDutyAnswer`` when
+    ``how_why`` — one clause per line of the row's textarea).
 
     Raises :class:`ValueError` for a non-numeric allocation (a crafted body — the
     form uses ``<input type=number>``); the caller re-renders with the error."""
-    duties: list[DutyAnswer] = []
+    duties: list[dict[str, Any]] = []
     for row in _duty_row_dicts(pairs, target):
         statement = row["statement"].strip()
         if not statement:
             continue
         allocation_text = row["allocation"].strip()
         allocation = int(allocation_text) if allocation_text else None
-        duties.append(
-            DutyAnswer(
-                action_verb=row["verb"].strip(),
-                statement=statement,
-                allocation=allocation,
-            )
-        )
+        duty: dict[str, Any] = {
+            "action_verb": row["verb"].strip(),
+            "statement": statement,
+            "allocation": allocation,
+        }
+        if how_why:
+            duty["how_why"] = _lines(row["how_why"])
+        duties.append(duty)
     return duties
 
 
@@ -366,16 +452,26 @@ def _answers_from_form(
     :class:`ValueError` (a non-numeric %-allocation) — the caller re-renders the page
     with the error and assembles nothing."""
     data: dict[str, Any] = {}
+    how_why_targets = _how_why_targets(spec)
     for target in spec.answers_model.model_fields:
         kind = render_kind(spec.answers_model, target)
-        if kind in {"text", "textarea", "select", "hidden"}:
+        if kind in {"text", "textarea", "select", "hidden", "choice", "date", "number"}:
             # `hidden` is the cloned-from lineage: not content, carried through the form
             # so a Check keeps it (the near-duplicate guard excludes that role, and
             # submit/export rebuild from the same answers). A tampered value fails
             # validation and re-renders with the error, like any other bad field.
+            # `choice` / `date` / `number` (J2) post one string the model parses.
             text = values.get(target, "").strip()
             if text:
                 data[target] = text
+        elif kind == "levels":
+            letters = [v.strip() for v in _column(pairs, target) if v.strip()]
+            if letters:
+                data[target] = letters
+        elif kind == "rows":
+            row_values = _row_answers(pairs, target, _row_cls(spec, target))
+            if row_values:
+                data[target] = row_values
         elif kind == "checkbox":
             data[target] = values.get(target) == "on"
         elif kind == "list":
@@ -383,7 +479,7 @@ def _answers_from_form(
             if items:
                 data[target] = items
         elif kind == "duties":
-            duties = _duty_answers(pairs, target)
+            duties = _duty_answers(pairs, target, how_why=target in how_why_targets)
             if duties:
                 data[target] = duties
         elif kind == "modified":
@@ -409,11 +505,18 @@ def _values_from_answers(spec: FormSpec, answers: AnswerContract) -> dict[str, s
     for target in spec.answers_model.model_fields:
         kind = render_kind(spec.answers_model, target)
         value = getattr(answers, target)
-        if kind in {"text", "textarea", "select", "hidden"}:
+        if kind in {"text", "textarea", "select", "hidden", "choice", "date", "number"}:
             if value is not None and str(value):
                 values[target] = str(value)
+        elif kind == "checkbox":
+            # The value a ticked box posts, so the template can re-tick it. (The
+            # boilerplate box is ticked from `boilerplate_checked` instead.)
+            if value:
+                values[target] = "on"
         elif kind == "list":
             values[target] = "\n".join(value)
+        elif kind == "levels":
+            values[target] = ",".join(value)
     return values
 
 
@@ -493,7 +596,7 @@ def _context(
     for target in _targets_of_kind(spec, "duties"):
         padded_rows[target] = _pad_rows(
             rows.get(target, []),
-            {"verb": "", "statement": "", "allocation": ""},
+            {"verb": "", "statement": "", "allocation": "", "how_why": ""},
             min_rows=_DUTY_MIN_ROWS,
             max_rows=_DUTY_MAX_ROWS,
         )
@@ -518,6 +621,8 @@ def _context(
         target: (knowledge_options if target == "knowledge" else skill_options)
         for target in _targets_of_kind(spec, "modified")
     }
+    structure = _structured_editors(spec, rules, rows)
+    padded_rows.update(structure.pop("padded_rows"))
     # Tag each guidance/finding with the section it belongs to, so the "Still to write"
     # and "Fix these" lists can each link to the offending section's fields. The issue
     # objects in `guidance`/`findings` are the SAME objects held in `sections[].issues`
@@ -555,6 +660,8 @@ def _context(
         "employee_groups": rules.segmentation.jdfn_employee_groups,
         # The structured duty/KSA rows (padded with blanks) + their modifier options.
         "structured_rows": padded_rows,
+        # The duty sections whose rows carry "How and why" sub-bullets (JDFN only).
+        "how_why_targets": _how_why_targets(spec),
         "modifier_options": modifier_options,
         "assessment": assessment,
         # A prominent, always-visible "inclusive language" meter (coded/gendered terms
@@ -608,6 +715,110 @@ def _context(
         # An LLM Position-Summary suggestion (5.5), when the author asked for one — the
         # author reviews it in the prefilled textarea before accepting (NN #1).
         "suggestion": suggestion,
+        # The CUPE form's structured editors (Track J2): row columns + their option
+        # lists, HR's level texts, the choice labels and the function limits shown.
+        **structure,
+    }
+
+
+#: How many rows a structured (J2) editor shows at least — the filled rows plus spares
+#: are shown up to the section's limit (no-client-JS "add a row", like the duty rows).
+_ROWS_MIN: dict[str, int] = {"major_functions": 5, "occupational_skills": 5}
+_ROWS_MIN_DEFAULT = 3
+
+
+def _field_ceiling(spec: FormSpec, target: str) -> int:
+    """A list field's model ``max_length`` — the amplification guard's bound."""
+    return next(
+        int(meta.max_length)
+        for meta in spec.answers_model.model_fields[target].metadata
+        if getattr(meta, "max_length", None) is not None
+    )
+
+
+def _structured_editors(
+    spec: FormSpec, rules: Any, rows: dict[str, list[dict[str, str]]]
+) -> dict[str, Any]:
+    """The Builder's J2 editors for this form: every option list is ``cupe_form.yaml``
+    (rulebook data, NN #2), so a rulebook change reaches the page with no edit here.
+
+    ⚠ **Rows are never cut below what the author has.** The function limits
+    (HR-246) cap the SPARE rows offered; a draft already over its limit (a lowered
+    limit, a clone) shows every filled row — up to the model's own ceiling, which is the
+    amplification guard — so the refusal message the author reads is about rows they
+    can still see and combine, not rows the page quietly stopped rendering."""
+    form = rules.cupe_form
+    letters = {
+        meaning: letter for letter, meaning in rules.wjq.frequency_markers.items()
+    }
+    option_lists: dict[str, list[tuple[str, str]]] = {
+        "function_frequencies": [
+            (f, f"{f.capitalize()} ({letters.get(f, '?')})")
+            for f in form.function_frequencies
+        ],
+        "table_durations": [(v, v) for v in form.table_durations],
+        "table_frequencies": [(v, v) for v in form.table_frequencies],
+        "occupational_skills_helpers": [
+            (v, v) for v in form.occupational_skills_helpers.values()
+        ],
+        "scope": [("internal", "Inside SFU"), ("external", "Outside SFU")],
+    }
+    limits = {str(k): v for k, v in form.function_limits.items()}
+    padded: dict[str, list[dict[str, str]]] = {}
+    row_columns: dict[str, list[dict[str, Any]]] = {}
+    row_limits: dict[str, int] = {}
+    for target in _targets_of_kind(spec, "rows"):
+        columns = _columns_of(_row_cls(spec, target))
+        row_columns[target] = [
+            {
+                "field": c.field,
+                "label": c.label,
+                "width": c.width,
+                "hidden": c.hidden,
+                "options": option_lists.get(c.options) if c.options else None,
+            }
+            for c in columns
+        ]
+        ceiling = _field_ceiling(spec, target)
+        limit = limits.get(target, ceiling)
+        if target in limits:
+            row_limits[target] = limit
+        filled = list(rows.get(target, []))[:ceiling]
+        wanted = min(
+            limit,
+            max(_ROWS_MIN.get(target, _ROWS_MIN_DEFAULT), len(filled) + _ROW_SPARE),
+        )
+        blank = {c.field: "" for c in columns}
+        padded[target] = filled + [
+            dict(blank) for _ in range(max(0, wanted - len(filled)))
+        ]
+    level_options = {
+        target: list(
+            zip(
+                form.level_letters(section), form.checkbox_options[section], strict=True
+            )
+        )
+        for section, target in WJQ_LEVEL_TARGETS.items()
+        if target in spec.answers_model.model_fields
+    }
+    choice_labels: dict[str, tuple[str, ...]] = {
+        "completed_by": form.completed_by_options,
+        "equivalency": form.qualifications_equivalency_options,
+    }
+    choice_options: dict[str, list[tuple[str, str]]] = {}
+    for target in _targets_of_kind(spec, "choice"):
+        values = choice_values(spec.answers_model, target)
+        labels = choice_labels.get(target, values)
+        choice_options[target] = list(zip(values, labels, strict=False))
+    return {
+        "padded_rows": padded,
+        "row_columns": row_columns,
+        "row_limits": row_limits,
+        "level_options": level_options,
+        "single_choice_levels": {
+            WJQ_LEVEL_TARGETS[s] for s in form.single_choice_sections
+        },
+        "choice_options": choice_options,
     }
 
 
@@ -730,6 +941,7 @@ async def check_draft(
         # Repopulation rows come from the RAW submitted pairs, so a validation error
         # still shows the author what they typed (never a silently emptied section).
         spec = form_from_request(values.get("form"))
+        values = _form_values(spec, pairs)
         rows = _structured_rows_from_pairs(spec, pairs)
         try:
             answers = _answers_from_form(spec, values, pairs)
@@ -795,6 +1007,7 @@ async def assist_draft(
     values = _first_values(pairs)
     checked = values.get("include_sfu_boilerplate") == "on"
     spec = form_from_request(values.get("form"))
+    values = _form_values(spec, pairs)
     rows = _structured_rows_from_pairs(spec, pairs)
     try:
         answers = _answers_from_form(spec, values, pairs)
@@ -1003,7 +1216,10 @@ async def clone_role(
     reader got ``{"detail":"no harmonized JD for this role"}``. It is true now because
     :mod:`src.api.errors` made it true for every route at once, rather than because this
     one grew a template of its own."""
-    answers = await load_role_clone_answers(session, cluster_id)
+    try:
+        answers = await load_role_clone_answers(session, cluster_id)
+    except (CupeFormError, ValidationError) as exc:
+        return _clone_refused(request, exc)
     if answers is None:
         raise HTTPException(status_code=404, detail="no harmonized JD for this role")
     return _render_clone(request, answers)
@@ -1019,10 +1235,38 @@ async def clone_draft(
     with no harmonized role (prefer :func:`clone_role` when a role exists). 404 (an HTML
     page for a browser — see :func:`clone_role`) if the document has no parsed JD to
     clone. Read-only — nothing persists (NN #1)."""
-    answers = await load_clone_answers(session, source_document_id)
+    try:
+        answers = await load_clone_answers(session, source_document_id)
+    except (CupeFormError, ValidationError) as exc:
+        return _clone_refused(request, exc)
     if answers is None:
         raise HTTPException(status_code=404, detail="no parsed JD to clone")
     return _render_clone(request, answers)
+
+
+def _clone_refused(request: Request, exc: Exception) -> HTMLResponse:
+    """The source's stored content cannot be loaded into the Builder — a CUPE form block
+    holding a value outside HR's lists (review M1), or anything else the answer contract
+    refuses. A page that SAYS so, with the register id, never a 500. 422: the request
+    was understood; the stored data is what cannot be used."""
+    return templates.TemplateResponse(
+        request,
+        "compose_new.html",
+        _context(
+            request,
+            values={},
+            assessment=None,
+            error=(
+                "This role cannot be cloned as stored — fix it in the review editor "
+                f"first. {exc}"
+            ),
+            boilerplate_checked=True,
+            spec=FORMS[
+                WJQ_TEMPLATE if isinstance(exc, CupeFormError) else DEFAULT_TEMPLATE
+            ],
+        ),
+        status_code=422,
+    )
 
 
 @router.post("/submit")

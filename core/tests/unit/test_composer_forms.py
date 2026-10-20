@@ -14,7 +14,7 @@ from typing import get_args
 import pytest
 from pydantic import ValidationError
 
-from src.jd_bank.composer.answers import ComposerAnswers, DutyAnswer, ModifiedQual
+from src.jd_bank.composer.answers import ComposerAnswers
 from src.jd_bank.composer.forms import (
     FORMS,
     FormSpec,
@@ -24,7 +24,14 @@ from src.jd_bank.composer.forms import (
     render_kind,
 )
 from src.jd_bank.composer.questions import load_question_set
-from src.jd_bank.composer.wjq_answers import WJQ_CONTEXT_TARGETS, WJQAnswers
+from src.jd_bank.composer.wjq_answers import (
+    WJQ_CONTEXT_TARGETS,
+    ContactAnswer,
+    FunctionAnswer,
+    MinorFunctionAnswer,
+    SkillAnswer,
+    WJQAnswers,
+)
 from src.jd_bank.composer.wjq_assemble import assemble_wjq_jd, wjq_answers_from_jd
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.models.quality import JDTemplate, SFUSection
@@ -154,6 +161,12 @@ def test_the_derived_render_kinds_match_the_shipped_jdfn_builder_exactly() -> No
         "experience": "list",
         "abilities": "list",
         "cloned_from_cluster_id": "hidden",
+        # Track J4 — the APSA template's / Toolkit's fields the Builder now collects.
+        "position_number": "text",
+        "supervisor_title": "text",
+        "supervisor_position_number": "text",
+        "criminal_record_check": "checkbox",
+        "security": "list",
     }
     for target, kind in expected.items():
         assert render_kind(ComposerAnswers, target) == kind, target
@@ -172,16 +185,27 @@ def test_an_unknown_target_raises_rather_than_rendering_as_a_line_list() -> None
 
 
 def test_the_wjq_fields_render_as_the_form_needs_rather_than_as_lines() -> None:
-    """What the fallback would have got wrong, stated positively."""
-    assert render_kind(WJQAnswers, "major_functions") == "duties"
-    assert render_kind(WJQAnswers, "minor_functions") == "duties"
+    """What the fallback would have got wrong, stated positively — with HR's form
+    structure since J2: function and table sections are column ROWS, the checkbox
+    sections are LEVELS, the identification choices are CHOICES."""
+    assert render_kind(WJQAnswers, "major_functions") == "rows"
+    assert render_kind(WJQAnswers, "minor_functions") == "rows"
+    assert render_kind(WJQAnswers, "contacts") == "rows"
+    assert render_kind(WJQAnswers, "effort_rows") == "rows"
+    assert render_kind(WJQAnswers, "occupational_skills") == "rows"
+    assert render_kind(WJQAnswers, "level_of_independence_levels") == "levels"
+    assert render_kind(WJQAnswers, "completed_by") == "choice"
+    assert render_kind(WJQAnswers, "equivalency") == "choice"
+    assert render_kind(WJQAnswers, "date_completed") == "date"
+    assert render_kind(WJQAnswers, "experience_years") == "number"
     assert render_kind(WJQAnswers, "level_of_independence") == "textarea"
     assert render_kind(WJQAnswers, "working_conditions") == "textarea"
     assert render_kind(WJQAnswers, "title") == "text"
-    assert render_kind(WJQAnswers, "internal") == "list"
-    assert render_kind(WJQAnswers, "knowledge") == "modified"
-    # The WJQ never asks for the employee group — the assembler fixes it.
-    assert "employee_group" not in WJQAnswers.model_fields
+    assert render_kind(WJQAnswers, "occupational_requirements") == "list"
+    # The WJQ never asks for the employee group — the assembler fixes it — nor, since
+    # J2, for HR's approved grade (HR-240) or for K/S/A (Q9, option C).
+    for gone in ("employee_group", "grade", "knowledge", "skills", "abilities"):
+        assert gone not in WJQAnswers.model_fields
 
 
 def test_every_question_in_every_set_has_a_render_kind() -> None:
@@ -201,18 +225,26 @@ def _filled() -> WJQAnswers:
     return WJQAnswers(
         title="Departmental Assistant",
         department="Chemistry",
-        grade="9",
+        current_classification="9",
         position_summary="Provides administrative support to the department.",
         major_functions=[
-            DutyAnswer(action_verb="Processes", statement="Processes purchase orders")
+            FunctionAnswer(
+                action_verb="Processes",
+                statement="Processes purchase orders",
+                frequency="daily",
+            )
         ],
         minor_functions=[
-            DutyAnswer(action_verb="Maintains", statement="Maintains the supply room")
+            MinorFunctionAnswer(
+                action_verb="Maintains", statement="Maintains the supply room"
+            )
         ],
-        internal=["Department chair"],
-        external=["Vendors"],
+        contacts=[
+            ContactAnswer(contact="Department chair", scope="internal"),
+            ContactAnswer(contact="Vendors", scope="external"),
+        ],
         education=["High school graduation"],
-        knowledge=[ModifiedQual(text="Working knowledge of purchasing", modifier=None)],
+        occupational_skills=[SkillAnswer(text="Working knowledge of purchasing")],
         level_of_independence="Works under general supervision.",
         impact_of_errors="Delays in ordering.",
         working_conditions="Standard office environment.",
@@ -258,25 +290,32 @@ def test_a_cupe_draft_claims_no_boilerplate_and_no_hay_prose() -> None:
     assert "Delays in ordering" in (jd.additional_context or "")
 
 
-def test_major_and_minor_functions_truncate_the_way_the_parser_truncates() -> None:
-    """The two function sections can carry 24 answers against a 12-duty model, so
-    something must give. ``parser/wjq._structure_duties`` takes majors first and stops
-    at twelve; matching it means an authored CUPE JD and a parsed one drop the same
-    functions, rather than the Builder inventing a second truncation rule."""
+def test_major_and_minor_functions_are_kept_apart_and_nothing_is_cut() -> None:
+    """🔴 REVERSED in J2. This test used to pin the defect: majors and minors were
+    merged into one list and cut at twelve "the way the parser truncates", so twelve
+    majors + five minors silently lost all five — and HR's own Dec-2024 sample (11 + 3)
+    lost its catch-all. Minor functions now live on the CUPE form block, out of the
+    twelve-duty list, and a section over its limit is REFUSED with the count, not cut
+    (``cupe_form.function_limits``, HR-246; ``test_cupe_form_structure.py``)."""
     answers = WJQAnswers(
         title="Clerk",
         major_functions=[
-            DutyAnswer(action_verb="Does", statement=f"Major function {i}")
+            FunctionAnswer(action_verb="Does", statement=f"Major function {i}")
             for i in range(12)
         ],
         minor_functions=[
-            DutyAnswer(action_verb="Does", statement="Minor function") for _ in range(5)
+            MinorFunctionAnswer(action_verb="Does", statement=f"Minor function {i}")
+            for i in range(5)
         ],
     )
     jd = assemble_wjq_jd(answers)
 
     assert len(jd.duties) == 12
     assert all("Major function" in d.statement for d in jd.duties)
+    assert jd.wjq_form is not None
+    assert [d.statement for d in jd.wjq_form.minor_functions] == [
+        f"Minor function {i}" for i in range(5)
+    ]
 
 
 def test_a_cupe_draft_is_judged_by_the_wjq_bar_with_no_further_wiring() -> None:
@@ -321,32 +360,33 @@ def test_a_cupe_draft_clones_back_into_the_answers_that_built_it() -> None:
 
     assert cloned.title == original.title
     assert cloned.department == original.department
-    assert cloned.grade == original.grade
+    assert cloned.current_classification == original.current_classification
     assert cloned.position_summary == original.position_summary
     assert cloned.level_of_independence == original.level_of_independence
     assert cloned.impact_of_errors == original.impact_of_errors
     assert cloned.working_conditions == original.working_conditions
-    assert cloned.internal == original.internal
-    assert cloned.external == original.external
+    assert cloned.contacts == original.contacts
     assert cloned.education == original.education
-    assert [q.text for q in cloned.knowledge] == [q.text for q in original.knowledge]
+    assert cloned.occupational_skills == original.occupational_skills
+    # ...and, field by field being a list that can miss one, the whole contract.
+    assert cloned == original
 
 
-def test_cloning_returns_every_duty_as_a_major_function() -> None:
-    """⚠ The major/minor split is a property of the FORM, and both the assembler and the
-    parser merge them into one ``duties`` list — so by the time a JD exists the
-    distinction is gone. Guessing a split would put the author's minor functions
-    somewhere they did not choose; returning them all as majors keeps every duty, in
-    order, where the author can move any of them. Nothing dropped, nothing invented."""
+def test_cloning_keeps_the_major_minor_split_of_an_authored_draft() -> None:
+    """J2: the split is stored (``wjq_form.minor_functions``), so a clone of a draft
+    authored on the Builder puts each function back in the section it was authored in.
+    Only a role PARSED from the archive — whose sections 3 and 4 the parser merged —
+    comes back all-major (``test_cupe_form_structure.py``). Nothing dropped, nothing
+    invented."""
     original = _filled()
     cloned = wjq_answers_from_jd(assemble_wjq_jd(original))
 
-    statements = [d.statement for d in cloned.major_functions]
-    assert statements == [
-        "Processes purchase orders",
-        "Maintains the supply room",  # the MINOR function, kept — not lost
+    assert [d.statement for d in cloned.major_functions] == [
+        "Processes purchase orders"
     ]
-    assert cloned.minor_functions == []
+    assert [d.statement for d in cloned.minor_functions] == [
+        "Maintains the supply room"
+    ]
 
 
 def test_a_cupe_role_clones_into_the_wjq_contract_not_the_jdfn_one() -> None:

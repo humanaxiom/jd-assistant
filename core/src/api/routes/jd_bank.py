@@ -46,6 +46,7 @@ from src.jd_bank.review import (
     service,
 )
 from src.jd_core.models.quality import GateOverride
+from src.jd_core.wjq_form_check import CupeFormError
 
 router: APIRouter = APIRouter(prefix="/jd-bank")
 
@@ -136,6 +137,9 @@ _ERROR_STATUS: tuple[tuple[type[Exception], int], ...] = (
     (GateOverrideError, 422),
     (MissingReasonError, 422),
     (ValidationError, 422),
+    # A CUPE form block outside HR's lists (Track J2, review M1) — the detail names
+    # the register entry.
+    (CupeFormError, 422),
 )
 
 

@@ -986,6 +986,71 @@ def test_reconstructed_edit_content_is_a_valid_jd(
     assert jd.model_dump(mode="json") == content
 
 
+def test_a_reviewer_edit_keeps_the_supervisor_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Track J4: the Builder collects the supervisor's title and position #. A
+    reviewer editing an unrelated field must not silently drop them — the edit form
+    prefills both, and the reconstruction carries them into the new version."""
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    packet = _packet(canonical_id=canonical_id).model_copy(
+        update={
+            "content": {
+                **_rich_content(),
+                "supervisor_title": "Director, Academic Operations",
+                "supervisor_position_number": "00054321",
+            }
+        }
+    )
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+    page = client.get(f"/jd-bank/ui/review/{canonical_id}").text
+    assert 'name="supervisor_title" value="Director, Academic Operations"' in page
+    assert 'name="supervisor_position_number" value="00054321"' in page
+
+    fake = FakeCanonical(
+        canonical_id=uuid.uuid4(),
+        cluster_id=uuid.uuid4(),
+        version=2,
+        status=CanonicalStatus.DRAFT,
+    )
+    mock = AsyncMock(return_value=fake)
+    monkeypatch.setattr(ui.service, "edit", mock)
+    resp = client.post(
+        f"/jd-bank/ui/review/{canonical_id}/edit",
+        data=_edit_form_body(
+            supervisor_title="Director, Academic Operations",
+            supervisor_position_number="00054321",
+        ),
+    )
+
+    assert resp.status_code == 303
+    content = mock.await_args.kwargs["new_content"]
+    assert content["supervisor_title"] == "Director, Academic Operations"
+    assert content["supervisor_position_number"] == "00054321"
+    jd = SFUJobDescription.model_validate(content)
+    assert jd.supervisor_title == "Director, Academic Operations"
+
+
+def test_the_supervisor_fields_reach_the_edit_form_escaped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A supervisor title is author text: it must reach the edit form's ``value``
+    attribute escaped, never as markup."""
+    session = FakeSession()
+    client = make_client(session)
+    canonical_id = uuid.uuid4()
+    payload = '"><script>alert(1)</script>'
+    packet = _packet(canonical_id=canonical_id).model_copy(
+        update={"content": {**_rich_content(), "supervisor_title": payload}}
+    )
+    monkeypatch.setattr(ui.service, "get_review_packet", AsyncMock(return_value=packet))
+    page = client.get(f"/jd-bank/ui/review/{canonical_id}").text
+    assert "<script>alert(1)</script>" not in page
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in page
+
+
 def test_edit_qual_kind_and_modifier_captured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

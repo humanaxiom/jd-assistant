@@ -122,7 +122,19 @@ def test_editing_a_wjq_heading_moves_rules_version(
         ("corroborating_min", 1),
         ("employee_group", "excluded"),
         ("continued_marker", "(CONT'D)"),
-        ("frequency_markers", {"D": "daily"}),
+        # Keeps every meaning the CUPE Builder offers (`cupe_form.function_frequencies`,
+        # HR-247): since J2 the loader refuses a marker set the Builder's frequencies
+        # cannot be read back through (`check_cupe_frequencies_are_parser_readable`).
+        (
+            "frequency_markers",
+            {
+                "D": "daily",
+                "W": "weekly",
+                "M": "monthly",
+                "S": "semester",
+                "A": "annual",
+            },
+        ),
         ("frequency_headings", {"DAILY": "daily"}),
         ("instruction_markers", ["check one"]),
     ],

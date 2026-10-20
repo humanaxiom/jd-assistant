@@ -69,7 +69,12 @@ from src.jd_core.models.bank import (
     TitleFamily,
     TitleFunction,
 )
-from src.jd_core.models.parsed_jd import QualificationKind, SFUEmployeeGroup
+from src.jd_core.models.parsed_jd import (
+    QualificationKind,
+    SFUEmployeeGroup,
+    SFUJobDescription,
+    WJQForm,
+)
 from src.jd_core.models.quality import (
     DEFAULT_TEMPLATE,
     JDGrade,
@@ -174,6 +179,13 @@ CLASSIFICATION_FILE: Final[str] = "classification.yaml"
 #: it and the parser never sees it — registered and on the surface but NOT hashed
 #: (:data:`_UNHASHED_FILES`), and it does NOT move ``PARSER_VERSION``.
 CUPE_FORM_FILE: Final[str] = "cupe_form.yaml"
+
+#: SFU's APSA/APEX/Poly form as EXPORTED (Track J, PR J4): the page-header
+#: identification table, the typed list bullet, the footer heading, and the
+#: criminal-record-check sentence the Builder inserts. No validator reads it and the
+#: parser never sees it — registered and on the surface but NOT hashed
+#: (:data:`_UNHASHED_FILES`), and it does NOT move ``PARSER_VERSION``.
+APSA_FORM_FILE: Final[str] = "apsa_form.yaml"
 
 #: The content-bearing SFU sections an embedding may be built from — the subset of
 #: :data:`~src.jd_core.models.quality.SFUSection` that carries free text at all.
@@ -1849,8 +1861,9 @@ class Classification(_RuleFile):
         return schemes
 
 
-#: The CUPE form's identification fields the export prints a label for. The first
-#: three are carried by the model; the rest are on HR's form and not yet modelled (J2).
+#: The CUPE form's identification fields the export prints a label for. Title,
+#: department and position number are top-level model fields (the parser reads them);
+#: since J2 the other three are an authored draft's ``wjq_form`` (blank when parsed).
 CupeIdField = Literal[
     "department",
     "position_number",
@@ -1878,6 +1891,39 @@ CupePointFactorSection = Literal[
 ]
 #: The four blocks of section 13 a qualification can be printed in.
 CupeQualificationBlock = Literal["education", "experience", "skills", "requirements"]
+
+
+def _max_length(model: type[BaseModel], field: str) -> int:
+    """A list field's ``max_length``, read off the model rather than restated — so a
+    rulebook limit is checked against the ceiling the model actually enforces."""
+    return next(
+        int(meta.max_length)
+        for meta in model.model_fields[field].metadata
+        if getattr(meta, "max_length", None) is not None
+    )
+
+
+def check_cupe_frequencies_are_parser_readable(cupe_form: CupeForm, wjq: Wjq) -> None:
+    """Every function frequency the Builder offers (HR-247) must be one the Bank's WJQ
+    parser has a ``(X)`` letter for (``wjq.frequency_markers``, HR-142). A frequency
+    with no letter would be authored, exported as a bare word and read back as
+    ``None`` — a value that silently disappears on the first re-ingest. Raises
+    ``ValueError``; called from :class:`Rules` so a bad edit fails at load."""
+    readable = set(wjq.frequency_markers.values())
+    unreadable = sorted(set(cupe_form.function_frequencies) - readable)
+    if unreadable:
+        raise ValueError(
+            f"cupe_form.function_frequencies offers {unreadable}, which the WJQ parser "
+            f"has no marker for (wjq.frequency_markers: {sorted(readable)}); a new "
+            "one is a parser change (hashed wjq.yaml, PARSER_VERSION, re-parse)"
+        )
+
+
+#: The two function sections the Builder limits (J2, HR-246).
+CupeFunctionSection = Literal["major_functions", "minor_functions"]
+#: The older qualification kinds a CUPE "Occupational Skills" lead phrase stands for
+#: (J2, HR-251 — Q9 option C). A skill line takes no phrase.
+CupeSkillHelperKind = Literal["knowledge", "ability"]
 #: The form's tables that offer a fixed number of empty rows.
 CupeTable = Literal[
     "contacts",
@@ -1956,6 +2002,72 @@ class CupeForm(_RuleFile):
     approval_supervisor_labels: tuple[str, ...] = Field(min_length=1)
     approval_employee_statement: str = Field(min_length=1)
     approval_employee_labels: tuple[str, ...] = Field(min_length=1)
+    # ── J2: what the Builder offers a CUPE author (HR-246 … HR-252) ──
+    #: The glyph a TICKED level prints with (an authored draft's stored choice).
+    checkbox_ticked_glyph: str = Field(min_length=1)
+    #: The checkbox sections HR's form says to tick ONE box in.
+    single_choice_sections: tuple[CupeCheckboxSection, ...]
+    #: How many functions sections 3 and 4 accept (HR-246).
+    function_limits: Annotated[
+        Mapping[CupeFunctionSection, int], AfterValidator(_freeze)
+    ]
+    #: The frequency meanings a major function may carry (HR-247).
+    function_frequencies: tuple[str, ...] = Field(min_length=1)
+    #: The duration / frequency scales of the 8, 10, 11 tables (HR-248, HR-249).
+    table_durations: tuple[str, ...] = Field(min_length=1)
+    table_frequencies: tuple[str, ...] = Field(min_length=1)
+    #: The Occupational Skills lead phrases, by the older kind each stands for (HR-251).
+    occupational_skills_helpers: Annotated[
+        Mapping[CupeSkillHelperKind, str], AfterValidator(_freeze)
+    ]
+    #: A folded knowledge line matching this already reads as a phrase and gets no
+    #: lead phrase (HR-253).
+    occupational_skills_full_phrase_pattern: Regex
+    #: Refuse "not acceptable" equivalency without its rationale (HR-252).
+    equivalency_rationale_required: bool
+
+    def level_letters(self, section: CupeCheckboxSection) -> tuple[str, ...]:
+        """The letters of ``section``'s options, A first, in HR's printed order."""
+        return tuple(
+            chr(ord("A") + i) for i in range(len(self.checkbox_options[section]))
+        )
+
+    @model_validator(mode="after")
+    def _builder_structure_is_sound(self) -> CupeForm:
+        """J2's lists must be usable as closed choices, and a function limit may not
+        promise more than the model can hold — the model would refuse the draft with a
+        raw validation error instead of the limit's own message."""
+        ceilings = {
+            "major_functions": _max_length(SFUJobDescription, "duties"),
+            "minor_functions": _max_length(WJQForm, "minor_functions"),
+        }
+        if set(self.function_limits) != set(get_args(CupeFunctionSection)):
+            raise ValueError(
+                "cupe_form.function_limits must name exactly "
+                f"{sorted(get_args(CupeFunctionSection))}"
+            )
+        for section, limit in self.function_limits.items():
+            if not 1 <= limit <= ceilings[section]:
+                raise ValueError(
+                    f"cupe_form.function_limits.{section} = {limit} is outside 1.."
+                    f"{ceilings[section]} — the model holds at most "
+                    f"{ceilings[section]}, so a higher limit would promise the author "
+                    "room the draft cannot store"
+                )
+        for label, values in (
+            ("function_frequencies", self.function_frequencies),
+            ("table_durations", self.table_durations),
+            ("table_frequencies", self.table_frequencies),
+            (
+                "occupational_skills_helpers",
+                tuple(self.occupational_skills_helpers.values()),
+            ),
+        ):
+            if any(not v.strip() for v in values) or len(set(values)) != len(values):
+                raise ValueError(f"cupe_form.{label} needs distinct, non-blank values")
+        if len(set(self.single_choice_sections)) != len(self.single_choice_sections):
+            raise ValueError("cupe_form.single_choice_sections must not repeat")
+        return self
 
     @model_validator(mode="after")
     def _tables_are_complete(self) -> CupeForm:
@@ -1985,6 +2097,59 @@ class CupeForm(_RuleFile):
                 )
         if any(n < 0 for n in self.blank_rows.values()):
             raise ValueError("cupe_form.blank_rows must not be negative")
+        return self
+
+
+#: The identification fields the APSA export's page header prints, one row each.
+ApsaIdField = Literal[
+    "title",
+    "position_number",
+    "employee_group",
+    "initial_effective_date",
+    "latest_revision_date",
+    "supervisor_title",
+    "supervisor_position_number",
+]
+
+
+class ApsaForm(_RuleFile):
+    """SFU's APSA/APEX/Poly job-description form, as EXPORTED — plus the one sentence
+    the Builder inserts for a criminal record check (``apsa_form.yaml``, Track J PR J4).
+
+    The page-header identification table (HR-258), the bullet typed in front of every
+    list item so the Bank's parser can see it (HR-259), the heading over the mandated
+    footer that HR's template does not have (HR-256), and the criminal-record-check
+    sentence (HR-257).
+
+    **On the register, but NOT in the content hash** (:data:`_UNHASHED_FILES`): no
+    validator reads it and the parser never sees it, so it cannot move a JD's score,
+    and it does not move ``PARSER_VERSION``. The section HEADINGS are deliberately
+    absent — the export prints ``parser.headings.CANONICAL_HEADING`` so the Bank can
+    read its own export back; and the boilerplate TEXT is ``boilerplate.yaml``'s.
+
+    Shaped **flat** (:data:`_FLAT_SURFACE_FILES`).
+    """
+
+    banner: tuple[str, ...] = Field(min_length=1)
+    id_labels: Annotated[Mapping[ApsaIdField, str], AfterValidator(_freeze)]
+    bullet_glyph: str = Field(min_length=1, max_length=3)
+    footer_heading: str = Field(min_length=1)
+    security_check_sentence: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _labels_are_complete(self) -> ApsaForm:
+        """Every header row names a label: a field with no label would be silently
+        left off the export (the failure this file exists to prevent)."""
+        wanted = set(get_args(ApsaIdField))
+        if set(self.id_labels) != wanted:
+            raise ValueError(
+                f"apsa_form.id_labels must name exactly {sorted(wanted)}; "
+                f"got {sorted(self.id_labels)}"
+            )
+        if any(not label.strip() for label in self.id_labels.values()):
+            raise ValueError("apsa_form.id_labels needs non-blank labels")
+        if self.bullet_glyph.strip() != self.bullet_glyph or not self.bullet_glyph:
+            raise ValueError("apsa_form.bullet_glyph must be a visible mark, no spaces")
         return self
 
 
@@ -3626,6 +3791,8 @@ class Rules(BaseModel):
     classification: Classification
     #: On the register, but NOT in the content hash — see :class:`CupeForm` (Track J1).
     cupe_form: CupeForm
+    #: On the register, but NOT in the content hash — see :class:`ApsaForm` (Track J4).
+    apsa_form: ApsaForm
     decision_register: DecisionRegister
 
     def thresholds_for(self, template: JDTemplate) -> Thresholds:
@@ -3725,6 +3892,12 @@ class Rules(BaseModel):
             raise ValueError(
                 f"titles.yaml names rule_id(s) absent from rule_catalog.yaml: {unknown}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _cupe_frequencies_are_parser_readable(self) -> Rules:
+        """J2: the Builder may only offer frequencies the WJQ parser reads back."""
+        check_cupe_frequencies_are_parser_readable(self.cupe_form, self.wjq)
         return self
 
     @model_validator(mode="after")
@@ -4125,6 +4298,7 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "quality",
     "classification",
     "cupe_form",
+    "apsa_form",
 )
 
 
@@ -4399,6 +4573,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     (ORG_UNITS_FILE, "org_units", OrgUnits),
     (CLASSIFICATION_FILE, "classification", Classification),
     (CUPE_FORM_FILE, "cupe_form", CupeForm),
+    (APSA_FORM_FILE, "apsa_form", ApsaForm),
     (REGISTER_FILE, "decision_register", DecisionRegister),
 )
 
@@ -4422,6 +4597,9 @@ RULE_FILES: Final[tuple[str, ...]] = tuple(name for name, _, _ in _FILE_MODELS)
 #:   ``PARSER_VERSION``, because it changes what the parser writes.
 #: * ``cupe_form.yaml`` decides what an exported CUPE ``.docx`` LOOKS like (Track J1) —
 #:   wording and placement only; nothing reads it back.
+#: * ``apsa_form.yaml`` decides what an exported APSA/APEX/Poly ``.docx`` LOOKS like
+#:   (Track J4), plus the criminal-record-check sentence the Builder inserts — which
+#:   then reaches the validator only as a JD's own qualification text, never as rule.
 #:
 #: Hashing any of them would mean a copy-edit to an HR-facing paragraph, a re-banding of
 #: the archive's eras, retuning ``max_chars``, retuning ``jaccard_min``, or retuning a
@@ -4440,6 +4618,7 @@ _UNHASHED_FILES: Final[frozenset[str]] = frozenset(
         ORG_UNITS_FILE,
         CLASSIFICATION_FILE,
         CUPE_FORM_FILE,
+        APSA_FORM_FILE,
     }
 )
 

@@ -494,6 +494,9 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         # `cupe_form.yaml` (Track J1) — HR's CUPE form as EXPORTED: wording and where
         # each model field prints. Unhashed: nothing reads it back.
         "cupe_form",
+        # `apsa_form.yaml` (Track J4) — the APSA/APEX/Poly form as EXPORTED, plus the
+        # criminal-record-check sentence the Builder inserts. Unhashed, same class.
+        "apsa_form",
     }
     # ...and that is every rule file there is, bar the register itself.
     described = {name.removesuffix(".yaml") for name in RULE_FILES}
@@ -535,6 +538,10 @@ def test_the_unhashed_files_are_the_ones_that_cannot_change_a_jds_score() -> Non
         # `cupe_form.yaml` (Track J1) decides what an exported CUPE `.docx` looks like.
         # Nothing reads it back: it moves neither `rules_version` nor `PARSER_VERSION`.
         "cupe_form.yaml",
+        # `apsa_form.yaml` (Track J4) — the APSA export's look + the Builder's
+        # criminal-record-check sentence. No validator reads the FILE (the sentence
+        # reaches one only as a draft's own text), so it moves neither stamp.
+        "apsa_form.yaml",
     }
     hashed = set(loader._HASHED_FIELDS)
     assert "segmentation" not in hashed
