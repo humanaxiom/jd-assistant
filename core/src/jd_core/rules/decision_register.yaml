@@ -7583,6 +7583,66 @@ decisions:
       change a stored vector (outside the embed stamp, so no re-embed).
     status: open
 
+  # ═══ TITLE SEARCH — TYPOS AND SPEED (Track I, PR I2) ═══════════════════════════
+  - id: HR-241
+    question: >-
+      When nobody's job title contains the words someone typed into a search, how closely
+      must a title's spelling match each of those words before we offer it as "similar
+      spelling"?
+    config:
+      file: embeddings.yaml
+      path: embeddings.title_typo_min_similarity
+    current_default: 0.5
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      A search for "labratory techician" or "adminstrative cordinator" used to find
+      nothing by title — no title contains those letters — and fell through to the
+      search by meaning, which returned unrelated roles. Both the JD Bank library and the
+      Builder's "start from an existing JD" search now fall back, only in that case, to
+      titles whose every word is spelled close to a word typed. This number (0 to 1) is
+      how close is close enough. It is used to put the closest spellings first and to
+      decide which titles qualify; it is never shown. Measured over the live titles on
+      2026-10-19: a one-letter slip scores between 0.50 and 0.77 ("labratory" against
+      "laboratory" 0.62, "cordinator" 0.77, "manger" 0.50), while abbreviations score
+      far lower ("coord" 0.39, "coop" 0.21, "dev" 0.27). At 0.5 the typos are recovered
+      and abbreviations are left to the meaning search, which handles them better.
+    impact_if_changed: >-
+      Lower: more two-letter slips are caught, but short abbreviations start matching
+      unrelated titles ("coord" would match every "Coordinator" role), and those would
+      be listed ahead of the meaning-based results. Higher: fewer typos are recovered;
+      at about 0.62 "labratory techician" stops finding Laboratory Technician. Does NOT
+      move `rules_version`, any JD's score, grade or approvability, and changes no stored
+      vector, so it never requires a re-embed.
+    status: open
+  - id: HR-242
+    question: >-
+      How fast must the Builder's "start from an existing JD" search answer — in the
+      slowest one in twenty searches — before the system check counts it as too slow?
+    config:
+      file: embeddings.yaml
+      path: embeddings.builder_search_p95_budget_seconds
+    current_default: 1.0
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The end-to-end system check (`make smoke`) times a fixed set of 24 searches
+      through the Builder and fails if the slowest one in twenty takes longer than this.
+      It is an acceptance bar, not a timeout: no search is ever cut off at this number
+      (how long a search waits for the inference host is HR-198). Measured on 2026-10-19:
+      before this change the search took 3.1 seconds typically and 3.6 seconds at that
+      slow end, almost all of it one scan of every archive document's title in every
+      version ever parsed; after it, 0.2 seconds at the slow end. One second leaves
+      about five times that for a busy server, and fails well before the old 3.6 seconds
+      could quietly return.
+    impact_if_changed: >-
+      Lower: the check fails more readily — on a busy inference host, or the first search
+      after a quiet period — so it may block a release over something users would not
+      notice. Higher: a real slowdown can return without the check noticing. Changes
+      nothing a person sees and nothing about any JD; it only decides when the system
+      check calls search too slow.
+    status: open
+
   # ═══ THE CUPE EXPORT FORM (Track J, PR J1) ════════════════════════════════════
   - id: HR-238
     question: >-
