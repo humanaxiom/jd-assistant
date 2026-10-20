@@ -195,6 +195,25 @@ if (Test-Path -LiteralPath $manifest) {
 }
 else { Write-Warn 'No MANIFEST.txt — cannot cross-check what was cut.' }
 
+# The bundle's image TAG must be the tag this install will run. `docker load` re-tags
+# whatever images.tar holds, so loading a `:latest` bundle from a checkout whose `.env`
+# says `JD_IMAGE_TAG=v9` would replace the LIVE `jd-bank-*:latest` — and then fail the
+# image check below anyway, because compose wants `:v9`. Refuse BEFORE the load.
+# A manifest older than `image_tag` was cut from `:latest` (the only tag there was).
+if (-not $SkipImages -and (Test-Path -LiteralPath $manifest)) {
+    $bundleTag = 'latest'
+    $m = Get-Content -LiteralPath $manifest | Where-Object { $_ -match '^image_tag\s*:\s*\S+' } | Select-Object -First 1
+    if ($m -and $m -match '^image_tag\s*:\s*(\S+)') { $bundleTag = $Matches[1] }
+    if ($bundleTag -ne $Target.Tag) {
+        throw ("This bundle's images are tagged '$bundleTag' but this install runs tag " +
+            "'$($Target.Tag)' ($($Target.TagSource)). Loading it would re-tag " +
+            "jd-bank-api:$bundleTag / jd-bank-worker:$bundleTag on this box (another Bank's " +
+            "images, if one runs that tag) and still leave compose without its images. " +
+            "Re-cut the bundle from the checkout that runs '$($Target.Tag)', or install it " +
+            "where '$bundleTag' is that checkout's own tag.")
+    }
+}
+
 if ($NoCas) {
     $env:CAS_ENABLED = 'false'
     Write-Ok 'CAS forced OFF for this run (dev-admin mode; .env not modified)'

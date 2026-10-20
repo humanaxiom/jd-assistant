@@ -147,6 +147,12 @@ foreach ($pair in @(
         ($g -gt 0) -and ($a -gt $g)
     }
 }
+Check 'deploy/install.ps1: bundle image_tag is cross-checked BEFORE docker load' {
+    $text = Get-Content -LiteralPath (Join-Path $repo 'deploy/install.ps1') -Raw
+    $c = $text.IndexOf('$bundleTag -ne $Target.Tag')
+    $a = $text.IndexOf("Invoke-Checked 'docker load'")
+    ($c -gt 0) -and ($a -gt $c)
+}
 Check 'teardown.ps1 no longer defaults -ProjectName to a literal' {
     -not ((Get-Content -LiteralPath (Join-Path $repo 'teardown.ps1') -Raw) -match "\[string\]\`$ProjectName\s*=\s*'jd-bank'")
 }
