@@ -418,6 +418,14 @@
 
     <h3 id="edit-additional_context">10 · Additional context</h3>
     <textarea name="additional_context" rows="3">{{ edit.content.get('additional_context') or '' }}</textarea>
+    {# The CUPE form block of a draft authored on the Builder (Track J2): its minor
+       functions, ticked levels, table rows and section-13 details. This editor has no
+       fields for it, so it rides through UNCHANGED — the rebuilt content keeps every
+       field (an edit here must never wipe a CUPE author's structure). Edit it in the
+       Builder. `tojson` is HTML-safe inside a single-quoted attribute. #}
+    {% if edit.content.get('wjq_form') %}
+    <input type="hidden" name="wjq_form_json" value='{{ edit.content.get("wjq_form") | tojson }}'>
+    {% endif %}
 
     <button type="submit">{% if is_published %}Save as a new draft version{% else %}Save edit{% endif %}</button>
   </form>

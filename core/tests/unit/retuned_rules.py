@@ -21,13 +21,14 @@ from typing import Any
 
 import yaml
 
-from src.jd_core.rules import Comparison, Dedup, Embeddings, Rewrite, Rules
+from src.jd_core.rules import Comparison, CupeForm, Dedup, Embeddings, Rewrite, Rules
 
 _PKG_DIR = Path(__file__).resolve().parents[2] / "src" / "jd_core" / "rules"
 _COMPARISON = _PKG_DIR / "comparison.yaml"
 _DEDUP = _PKG_DIR / "dedup.yaml"
 _EMBEDDINGS = _PKG_DIR / "embeddings.yaml"
 _REWRITE = _PKG_DIR / "rewrite.yaml"
+_CUPE_FORM = _PKG_DIR / "cupe_form.yaml"
 
 
 def raw_comparison() -> dict[str, Any]:
@@ -77,3 +78,15 @@ def retuned_rewrite(rules: Rules, **fields: Any) -> Rules:
     """``rules`` with ``rewrite.yaml`` re-validated, ``fields`` overridden."""
     rewrite = Rewrite.model_validate({**raw_rewrite(), **fields})
     return rules.model_copy(update={"rewrite": rewrite})
+
+
+def raw_cupe_form() -> dict[str, Any]:
+    """The shipped ``cupe_form.yaml``, as the loader sees it before validation."""
+    data: dict[str, Any] = yaml.safe_load(_CUPE_FORM.read_text(encoding="utf-8"))
+    return data
+
+
+def retuned_cupe_form(rules: Rules, **fields: Any) -> Rules:
+    """``rules`` with ``cupe_form.yaml`` re-validated, ``fields`` overridden (J2)."""
+    cupe_form = CupeForm.model_validate({**raw_cupe_form(), **fields})
+    return rules.model_copy(update={"cupe_form": cupe_form})

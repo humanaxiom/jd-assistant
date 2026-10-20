@@ -7734,17 +7734,34 @@ decisions:
       (`wjq.qualification_cues` reads that block back as ability) so an export
       round-trips its kinds. ⚠ The model's `ability` is not HR's distinction: the rewrite
       pass files "Ability to exercise mature judgment" as an ability, which HR would put
-      under Occupational Skills. Also decided here (trivial exemptions point at this
-      entry): the Relationships section's supervisory scope prints under DIRECTION
-      EXERCISED; problem-solving / decision-making prose (empty on every live CUPE role)
-      under LEVEL OF INDEPENDENCE; each duty's how/why clauses print inside its duty
-      sentence, as HR's form asks ("what + how + why"). And, NOT a knob because the model
-      cannot express it until J2: every duty prints under MAJOR FUNCTIONS and MINOR
-      FUNCTIONS is left blank, because the major/minor split is lost on assembly and
-      parse (gap analysis §2a item 4); the checkbox sections print every option UNTICKED
-      and the contact / effort / working-conditions tables print duration, frequency and
-      hours BLANK, because the model stores those sections as free text, not choices. The
-      free text itself is printed inside its section, minus the form's own instruction /
+      under Occupational Skills. ✅ Owner ruling 2026-10-19 (plan Q9, option C), applied
+      in J2 and RECORDED here rather than ratified — it is the project owner's product
+      call, not an HR signature, so this entry stays open: a CUPE draft COLLECTS ONE
+      "Occupational Skills" list, with optional "Knowledge of / Ability to" lead phrases
+      (HR-251), and a separate Occupational Requirement(s) box. So a draft authored on
+      the J2 Builder has no K/S/A for this table to place: its Occupational Skills are
+      all `skill` lines (printed under Occupational Skills) and its requirements are
+      stored on the CUPE form block (`wjq_form.occupational_requirements`) and printed
+      under Occupational Requirement(s). The table below still governs content the
+      Builder did not author — the 627 CUPE roles harmonized from the archive and any
+      draft written before J2 — and is unchanged, because for those `ability` is mostly
+      where the PARSER read the Occupational Requirement(s) block. ✅ Second owner ruling
+      2026-10-19, "Abilities → Requirements", recorded the same way (open, not
+      ratified): when such a role is loaded or cloned into the Builder, its `ability`
+      lines go to the Occupational Requirement(s) box — consistent with this table, so
+      a clone prints them where the role's own export does — and only its knowledge +
+      skill lines fold into the one Occupational Skills list (HR-251, HR-253). In code,
+      no data migration. Also decided here (trivial
+      exemptions point at this entry): the Relationships section's supervisory scope
+      prints under DIRECTION EXERCISED; problem-solving / decision-making prose (empty on
+      every live CUPE role) under LEVEL OF INDEPENDENCE; each duty's how/why clauses
+      print inside its duty sentence, as HR's form asks ("what + how + why"). ✅ Since J2
+      an AUTHORED draft keeps its major/minor split (minor functions print under MINOR
+      FUNCTIONS), its ticked levels (HR-250) and its table rows. A role PARSED from the
+      archive carries none of that — the parser merges sections 3 and 4 and stores 5-12
+      as text — so for it every duty still prints under MAJOR FUNCTIONS, every option
+      prints UNTICKED and the duration, frequency and hours cells print BLANK: a split
+      or a tick there would be a guess. The free text itself is printed inside its section, minus the form's own instruction /
       prompt sentences (archive-parsed roles store them flattened into the section), but
       WITH its options and column headings: an archive form types its tick beside an
       option ("_X An equivalent combination …"), and that tick is the only record of the
@@ -7781,11 +7798,276 @@ decisions:
       files it is a cluster-level value, and the Builder currently asks the AUTHOR for
       "the approved classification and grade" — the inversion the gap analysis flags
       (§2a item 1h). Consequence, stated plainly: an exported CUPE draft re-ingested by
-      the Bank comes back with no grade. J2 adds a proper "current classification" field.
+      the Bank comes back with no grade. ✅ J2 (2026-10-19) removed that inversion: the
+      CUPE Builder no longer asks the author for "the approved classification and
+      grade" at all. It asks for the position's CURRENT classification, the evaluating
+      supervisor's title, the date completed and who completed Part 1 (employee or
+      evaluating supervisor) — the left half of section 1 — and prints those; HR's box
+      stays blank whatever the author typed. A pre-J2 answer set's `grade` is read as
+      that current classification (the author's own typed value, shown for editing).
+      Cloning a role does NOT copy its grade into the current classification: a
+      harmonized role's grade is a cluster-level value, not this position's.
     impact_if_changed: >-
       Does NOT move `rules_version` or `PARSER_VERSION`. Printing a grade into HR's box is
       a non-negotiable-#1 question, not a formatting one — it needs HR's ruling, not a
-      config edit. Pinned by `test_the_hr_box_and_the_sign_off_lines_are_blank`.
+      config edit. Pinned by `test_the_hr_box_and_the_sign_off_lines_are_blank` and
+      `test_the_hr_box_stays_blank_even_with_a_current_classification`.
+    status: open
+
+  # ═══ THE CUPE FORM'S STRUCTURE IN THE BUILDER (Track J, PR J2) ═════════════════════
+  # What a CUPE author is offered and what is accepted. None of it moves a score: no
+  # validator reads cupe_form.yaml. Each knob is enforced when a draft is assembled —
+  # an answer outside it is REFUSED with the entry's id, never stored or dropped.
+
+  - id: HR-246
+    question: >-
+      How many major functions (section 3) and minor functions (section 4) may a CUPE
+      job description list in the Builder?
+    config:
+      file: cupe_form.yaml
+      path: cupe_form.function_limits
+    current_default:
+      major_functions: 12
+      minor_functions: 12
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Until J2 the Builder MERGED majors and minors into one list and CUT it at twelve,
+      silently (`wjq_assemble.py`), because the model holds twelve duties. HR's own
+      Dec-2024 pre-classified sample (fixtures/hr/cupe/, S20) has 11 major + 3 minor =
+      14 functions, so it lost its last two minor functions — including the catch-all
+      the writing guide asks for (S14 p.3: "Performs other duties and responsibilities
+      consistent with the job description and classification on request."; the sample
+      words it "Performs other related duties and responsibilities …"). J2 keeps the two
+      sections apart (minor functions are stored on their own, not in `duties`) and
+      replaces the cut with a VISIBLE limit: over it, the author is told the count, the
+      limit and this entry, and nothing is removed. The numbers are ours — HR's current
+      template (S13, rev. 2026-05-12) has no numbered slots at all (two blank paragraphs
+      under section 3, eleven under section 4); twelve majors is the model's own ceiling
+      and the WJQ's historical slot count (HR-202). ⚠ PARSER LIMIT, not settled here:
+      the Bank's WJQ parser reads at most TWELVE functions back from any form, majors
+      first (`segmenter._MAX_DUTIES`), so an export with more re-ingests short. Raising
+      that is a parser change (PARSER_VERSION + re-parse of the archive), deliberately
+      out of J2's scope.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION` (cupe_form.yaml is unhashed). A
+      lower limit refuses, with this id, a draft that already holds more — it never
+      trims it. The major limit may not exceed the model's twelve and the minor limit
+      not its twenty (refused at load, `CupeForm._builder_structure_is_sound`). Pinned
+      by `test_over_the_limit_the_author_is_told_and_nothing_is_cut` and the UI twin
+      `test_over_the_limit_the_author_is_told_and_every_row_is_kept`.
+    status: open
+
+  - id: HR-247
+    question: >-
+      Which frequency codes may a CUPE major function carry — is "Annual" one of them?
+    config:
+      file: cupe_form.yaml
+      path: cupe_form.function_frequencies
+    current_default: [daily, weekly, monthly, semester]
+    provenance: sfu_rulebook
+    source_part: >-
+      SFU HR "WJQ Custom Part I: Job Description Template" (S13, section 3): "(D) Daily;
+      (W) Weekly; (M) Monthly; (S) Semester". Contradicted by the CUPE JD Writing Guide
+      (S14, p.3), which adds "Annual".
+    tier: hr_policy
+    why_it_matters: >-
+      HR's form asks for each major function's frequency, not a percentage of time; the
+      Builder used to ask CUPE authors for "% of time" (a JDFN concept) and could not
+      set the frequency at all, although `SFUDuty.frequency` existed and the parser
+      fills it. J2 offers exactly the template's four codes and prints the letter after
+      each function, as HR's sample does. ⚖ HR's own sources disagree on a fifth: the
+      writing guide adds "Annual", the template omits it and puts annual work under
+      MINOR FUNCTIONS ("duties and responsibilities that occur annually and
+      periodically"). Not ours to decide, so "annual" is NOT offered. Adding it also
+      needs a parser letter: the loader refuses any frequency `wjq.frequency_markers`
+      has no letter for, because it would be exported and read back as nothing.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. Removing a code makes drafts
+      that use it refuse to assemble (visibly, with this id). ADDING "annual" is NOT a
+      one-line change: `wjq.yaml` (hashed) needs a marker letter for it, which moves
+      `rules_version` and `PARSER_VERSION` and owes an archive re-parse. Pinned by
+      `test_a_frequency_hrs_template_does_not_offer_is_refused` and
+      `test_every_offered_frequency_is_one_the_parser_reads_back`.
+    status: open
+
+  - id: HR-248
+    question: >-
+      What duration scale do the CUPE form's contacts (section 8) and effort (section
+      10) tables use?
+    config:
+      file: cupe_form.yaml
+      path: cupe_form.table_durations
+    current_default: ["< 1 hour", "1-2 hours", "> 2 hours"]
+    provenance: sfu_rulebook
+    source_part: >-
+      SFU HR "WJQ Custom Part I" (S13), sections 8 and 10: "less than 1 hour at a time,
+      1-2 hours at a time, more than 2 hours at a time"; spelled as HR's Dec-2024 sample
+      (S20) prints it ("< 1 hour", "1-2 hours").
+    tier: hr_informed
+    why_it_matters: >-
+      Sections 8 and 10 are TABLES on HR's form — type / duration / frequency — and the
+      Builder collected them as free text, so the export printed the durations blank.
+      The three levels are HR's. The spellings are HR's sample's, except "> 2 hours",
+      which is ours in the same style: the sample has no row at that level.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. A value removed here makes
+      drafts that use it refuse to assemble (visibly, with this id). The parser stores
+      these cells as text, so any spelling re-ingests.
+    status: open
+
+  - id: HR-249
+    question: >-
+      What frequency scale do the CUPE form's tables use (contacts, effort, and the
+      working-conditions exposures)?
+    config:
+      file: cupe_form.yaml
+      path: cupe_form.table_frequencies
+    current_default: [Occasional, Frequent, Continuous]
+    provenance: sfu_rulebook
+    source_part: >-
+      SFU HR "WJQ Custom Part I" (S13), sections 8, 10 and 11: "occasional, frequent, or
+      continuous"; capitalised as HR's Dec-2024 sample (S20) prints them.
+    tier: hr_informed
+    why_it_matters: >-
+      The same three words on all four of the form's frequency columns. Collected as a
+      choice so the export fills HR's column instead of printing it blank.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. As HR-248.
+    status: open
+
+  - id: HR-250
+    question: >-
+      How does the CUPE export show a level the author ticked in sections 5, 6, 7 and
+      12 (and the "completed by" and equivalency choices)?
+    config:
+      file: cupe_form.yaml
+      path: cupe_form.checkbox_ticked_glyph
+    current_default: "☒"
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      HR's form uses Word check-box form fields; the export writes a glyph instead —
+      `☐` for an option not chosen (HR-238) and this one for a chosen one — so the
+      document reads correctly in any viewer and the Bank's own parser keeps the tick
+      in the section's text when the export is read back (a form field's state is
+      invisible to antiword, which is why archive forms carry no readable tick). Only
+      an AUTHORED draft has a stored choice; a role parsed from the archive still
+      prints every option unticked (HR-239), because ticking one would be a guess.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. Changes only how a tick looks.
+      Pinned by `test_the_export_ticks_only_the_chosen_levels` and the round-trip oracle
+      (`tests/export_roundtrip.py`), which looks for this glyph beside each chosen
+      level after re-parse.
+    status: open
+
+  - id: HR-251
+    question: >-
+      On a CUPE draft, which lead phrases may the author pick for an Occupational
+      Skills line — and where do an older draft's knowledge / skill / ability lines go
+      when it is loaded or cloned into the Builder?
+    config:
+      file: cupe_form.yaml
+      path: cupe_form.occupational_skills_helpers
+    current_default:
+      knowledge: Knowledge of
+      ability: Ability to
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Two owner rulings, both 2026-10-19, RECORDED here rather than ratified — they are
+      the project owner's product calls, not an HR signature, so this entry stays open.
+      (1) Plan Q9, option C: a CUPE draft collects ONE "Occupational Skills" list, as
+      HR's form and its Dec-2024 sample have, with optional "knowledge of / ability to"
+      phrase helpers inside it, plus a separate Occupational Requirement(s) box. The
+      Builder had asked CUPE authors for knowledge, skills and abilities with the APSA
+      Toolkit's modifiers — concepts HR's CUPE form does not have. The two phrases are
+      the owner's. (2) "Abilities → Requirements" (after review): when a role with no
+      CUPE form block — a role harmonized from the archive, or a draft written before
+      J2 — is cloned or its old answers are loaded, its `ability` lines go to
+      Occupational Requirement(s), and only its knowledge + skill lines to the one
+      Occupational Skills list. That is where the PARSER read them (it files the
+      Occupational Requirement(s) block as `ability`) and where the same role's export
+      prints them today (HR-239), so a clone no longer moves them. A knowledge line gets
+      "Knowledge of" in front only when it is a bare topic — never when it already reads
+      as a phrase (HR-253) or carries a Toolkit modifier, which is kept as text (the J1
+      export's rule); this replaced the first J2 fold, which also put "Ability to" in
+      front of ability lines and so produced "Ability to Excellent interpersonal…".
+      MEASURED 2026-10-19 over the 627 current CUPE roles: 1,285 knowledge, 3,093 skill
+      and 3,552 ability lines; at most 20 ability lines on any one role (the
+      requirements box holds 20) and at most 38 knowledge + skill lines (the draft holds
+      40 qualification lines). ⚖ Not every ability line is a requirement by HR's
+      definition — 2,925 of them start "Ability…" and many read as skills
+      ("Ability to follow oral and written instructions"); they now land in the
+      requirements box on clone, visible and editable, which is the owner's call, not a
+      keyword guess. Done in code, no data migration: nothing stored is rewritten.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. A phrase removed here makes an
+      answer that uses it refuse to assemble (visibly, with this id); renaming one
+      changes the text a folded legacy knowledge line gets on its next clone. Pinned by
+      `test_a_parsed_roles_abilities_clone_into_occupational_requirements`,
+      `test_no_lead_phrase_goes_in_front_of_a_line_that_is_already_a_phrase` and
+      `test_a_helper_that_is_not_hrs_phrase_is_refused`; live by
+      `test_a_live_cupe_role_clones_into_the_j2_form_and_exports_whole`.
+    status: open
+
+  - id: HR-253
+    question: >-
+      When an older CUPE draft's knowledge line folds into the one Occupational Skills
+      list, which lines already read as a phrase and so get no "Knowledge of" in front?
+    config:
+      file: cupe_form.yaml
+      path: cupe_form.occupational_skills_full_phrase_pattern
+    current_default: >-
+      (?i)\b(?:knowledge|proficien|familiar|understand|skill|experience|abilit|able|competen|expert|aware|capab|complet|valid|course|train|certif|formal|fluen|good|excellent|basic|intermediate|advanced|working|thorough|strong|some|general|comprehensive|demonstrat|extensive|beginner|current|sound|solid)
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Review 2026-10-19 found the J2 fold making sentences nobody wrote ("Ability to
+      Excellent interpersonal…"). A knowledge line now gets the owner's "Knowledge of"
+      only when it is a bare topic ("Health terminology"); a line containing one of
+      these word-starts already reads as a phrase ("Good knowledge of …", "Proficiency
+      with …", "Functional fluency in …") and is left exactly as written. MEASURED
+      2026-10-19 over the 627 live CUPE roles: 1,269 of the 1,285 knowledge lines match
+      and are left alone; the 16 that do not are bare topics ("Standard office
+      practices and record-keeping procedures", "University regulations, policies and
+      procedures") that read correctly with the phrase. The author sees, and can change,
+      the result in the Builder before anything is saved.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION` (cupe_form.yaml is unhashed).
+      Changes only which folded knowledge lines a clone puts "Knowledge of" in front of;
+      nothing stored is rewritten. Pinned by
+      `test_no_lead_phrase_goes_in_front_of_a_line_that_is_already_a_phrase`.
+    status: open
+
+  - id: HR-252
+    question: >-
+      Must a CUPE author who marks the equivalency "not acceptable" give the reason
+      before the draft can be checked?
+    config:
+      file: cupe_form.yaml
+      path: cupe_form.equivalency_rationale_required
+    current_default: true
+    provenance: sfu_rulebook
+    source_part: >-
+      CUPE JD Writing Guide & Glossary (S14), section 13: "If you make this choice, you
+      must describe the rationale." HR's template (S13): "…is not acceptable because:
+      (please explain)".
+    tier: hr_informed
+    why_it_matters: >-
+      Section 13 asks the author to tick whether an equivalent combination of
+      education, certification and experience is acceptable, and to explain if it is
+      not; the Builder had neither. J2 adds the choice, the explanation, the
+      certification / program of study and the NUMBER of years. With this on, "not
+      acceptable" with no explanation is refused with this id rather than exported with
+      a blank where HR requires a reason.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. false lets such a draft export
+      with the explanation line blank. ⚠ PARSER LIMIT: the WJQ parser drops the
+      equivalency OPTION lines as form instructions (`wjq.instruction_markers`: "an
+      equivalent combination of"), so the tick does not survive a re-ingest of the
+      export; the explanation line does. Pinned by
+      `test_not_acceptable_equivalency_needs_its_rationale`.
     status: open
   - id: HR-256
     question: >-
@@ -7968,8 +8250,14 @@ trivial:
     covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.checkbox_options}
     reason: >-
-      The option text of sections 5, 6, 7 and 12, verbatim from HR's form; printed
-      unticked (HR-239 says why).
+      The option text of sections 5, 6, 7 and 12, verbatim from HR's form, lettered A…
+      in printed order as HR's form refers to them. Ticked only for an authored draft's
+      stored choice (HR-250); a parsed role's print unticked (HR-239 says why).
+    covered_by: HR-238
+  - config: {file: cupe_form.yaml, path: cupe_form.single_choice_sections}
+    reason: >-
+      Transcribed from HR's form instruction, not chosen: section 5 says "Check one box",
+      the other checkbox sections say "check each description that applies".
     covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.contacts_columns}
     reason: Section 8's column headings, verbatim from HR's form.
@@ -8014,7 +8302,9 @@ trivial:
     reason: Section 13's formal-education prompt, verbatim from HR's form.
     covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.qualifications_certification_prompt}
-    reason: Section 13's certification prompt, verbatim; its value is not modelled (J2).
+    reason: >-
+      Section 13's certification prompt, verbatim; since J2 an authored draft's
+      certification lines print under it.
     covered_by: HR-238
   - config: {file: cupe_form.yaml, path: cupe_form.qualifications_experience_prompt}
     reason: Section 13's minimum-experience prompt, verbatim from HR's form.

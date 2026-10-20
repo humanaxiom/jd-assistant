@@ -653,6 +653,10 @@ def test_every_jd_field_is_either_rewritable_or_preserved() -> None:
         "about_sfu_present",
         "territorial_acknowledgement_present",
         "employment_equity_present",
+        # the CUPE form's structure (Track J2) — an AUTHORED draft's minor functions,
+        # ticks and table rows. The model is never asked to reword it; a merged role
+        # has none (None comes back from the grounded draft).
+        "wjq_form",
     }
 
 

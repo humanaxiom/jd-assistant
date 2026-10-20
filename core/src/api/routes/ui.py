@@ -33,6 +33,7 @@ the normal ``{{ }}`` escaping. Nothing here uses ``|safe`` on draft text (untrus
 
 from __future__ import annotations
 
+import json
 import logging
 from functools import partial
 from pathlib import Path
@@ -64,6 +65,7 @@ from src.jd_core.models.parsed_jd import QualificationKind, SFUEmployeeGroup
 from src.jd_core.models.quality import GateOverride, GateReason
 from src.jd_core.quality.validators import template_of_content
 from src.jd_core.rules import Rules, get_rules
+from src.jd_core.wjq_form_check import CupeFormError
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +96,9 @@ _SERVICE_ERRORS: tuple[type[Exception], ...] = (
     GateOverrideError,
     MissingReasonError,
     ValidationError,
+    # A CUPE form block outside HR's lists (Track J2, review M1) — refused by the
+    # service before the Bank is touched; shown on the page with its register id.
+    CupeFormError,
 )
 
 #: Phase 8.3c — where each SFU template section lives in the Edit form.
@@ -279,7 +284,7 @@ def _content_from_form(pairs: list[tuple[str, str]]) -> dict[str, Any]:
     is handed to ``service.edit``, which re-validates it via ``SFUJobDescription`` —
     an empty title, a bad enum, an over-long field, etc. raise there (caught by the
     handler), keeping the service the sole validator-as-oracle authority (NN #3)."""
-    return {
+    content: dict[str, Any] = {
         "title": first_value(pairs, "title").strip(),
         "position_number": _scalar_or_none(pairs, "position_number"),
         "department": _scalar_or_none(pairs, "department"),
@@ -310,6 +315,26 @@ def _content_from_form(pairs: list[tuple[str, str]]) -> dict[str, Any]:
         ),
         "additional_context": _scalar_or_none(pairs, "additional_context"),
     }
+    # The CUPE form block (Track J2) has no editor here; the page carries it as one
+    # hidden JSON field so an edit keeps it. Malformed JSON fails the service's
+    # re-validation (a ValidationError the handler already renders), never a 500.
+    # Absent -> no key at all, exactly as the model dumps a JD that has none.
+    wjq_form = _json_or_none(pairs, "wjq_form_json")
+    if wjq_form is not None:
+        content["wjq_form"] = wjq_form
+    return content
+
+
+def _json_or_none(pairs: list[tuple[str, str]], key: str) -> Any:
+    """A hidden field's JSON value, or ``None`` when absent / blank. Invalid JSON is
+    passed on as the raw string so the model's validation refuses it visibly."""
+    raw = first_value(pairs, key).strip()
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return raw
 
 
 def _parse_overrides(
@@ -497,6 +522,8 @@ def _friendly_error(exc: Exception) -> str:
         return f"That override can't be applied: {exc}"
     if isinstance(exc, ValidationError):
         return f"The draft couldn't be saved — a field is invalid: {exc}"
+    if isinstance(exc, CupeFormError):
+        return f"The draft couldn't be saved — {exc} Nothing was changed."
     return str(exc)
 
 
