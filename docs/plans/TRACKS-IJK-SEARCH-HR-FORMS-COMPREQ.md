@@ -179,11 +179,11 @@ the package).
 |---|---|---|
 | Q1 | Narrow triage row 6 to "prefill + download, no request store"? | K0–K3 |
 | Q2 | CRF is per position; a role spans many. Pick the position in the Builder? | K3 |
-| Q3 | Who runs the PeopleSoft position export? Include reports-to, FTE, hours? Grade data's FIPPA review — started? | K1 real data |
+| Q3 | Who runs the PeopleSoft position export? Include reports-to, FTE, hours? Grade data's FIPPA review — started? **Owner, 2026-10-19: TBD — K1 on hold.** (K2 does not need it: dept code + grade stay blank.) | K1 real data |
 | Q4 | Prefill *Anticipated grade* at all (outside true clones), or only show reference grades? | K2 |
 | Q5 | Is a real Word **track-changes** `.docx` in scope for re-evaluations (CRF §B/§C ask for it)? | J5 |
 | Q6 | CUPE: CRF only for request types A, C, D, E? (the form routes CUPE re-evals to a separate form) | K3 |
 | Q7 | Faculty → department list for search | I1 facets / I3 |
 | Q8 | LLM search model — gpt-oss:20b matched 120b at lower latency; ships **off** by default. HR/ITS ruling | I3 enable |
-| Q9 | CUPE: keep K/S/A, or render only HR's "Occupational Skills"? | J2 |
+| Q9 | CUPE: keep K/S/A, or render only HR's "Occupational Skills"? ✅ **Owner, 2026-10-19: option C (hybrid)** — one "Occupational Skills" list as on HR's form, with optional "knowledge of / ability to" phrase helpers inside it; Occupational Requirement(s) a separate box. Applied in J2, which updates HR-239 (today: K+S → Occupational Skills, A → Occupational Requirement(s)) and migrates existing CUPE drafts' K/S/A into the one list. | J2 |
 | Q10 | HR-023 % per duty — the 2024 APSA template doesn't ask for it | J4 |
