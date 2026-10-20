@@ -538,3 +538,35 @@ def _max_length(model: type[object], field: str) -> int:
             if getattr(m, "max_length", None) is not None
         )
     )
+
+
+@pytest.mark.parametrize(
+    ("knob", "model", "field"),
+    [
+        ("duty_statement_max_chars", SFUDuty, "statement"),
+        ("duty_how_why_max_chars", SFUDuty, "statement"),
+        ("duty_how_why_max_count", SFUDuty, "how_why"),
+        ("duty_max_count", SFUJobDescription, "duties"),
+        ("wjq_duty_max_count", SFUJobDescription, "duties"),
+    ],
+)
+def test_a_cap_above_the_model_ceiling_is_refused_at_load(
+    knob: str, model: type[object], field: str
+) -> None:
+    """Review (v9): the loader's ceiling check had no test of its own — removing it
+    left the suite green, because the shipped values comply. Over the ceiling a long
+    document is a parse FAILURE, not a trim, so the rulebook must refuse to load."""
+    from pathlib import Path
+
+    import yaml
+    from pydantic import ValidationError
+
+    import src.jd_core.rules as rules_pkg
+    from src.jd_core.rules import Segmentation
+
+    raw = Path(rules_pkg.__file__).with_name("segmentation.yaml").read_text("utf-8")
+    data = yaml.safe_load(raw)
+    Segmentation.model_validate(data)  # the shipped file loads
+    data[knob] = _max_length(model, field) + 1
+    with pytest.raises(ValidationError, match=knob):
+        Segmentation.model_validate(data)

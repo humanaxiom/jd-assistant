@@ -1003,7 +1003,12 @@ async def test_a_builder_apsa_draft_exports_every_new_field(session) -> None:  #
     back = parse_jd(body).jd
     assert back.position_number == "99990001"
     assert len(back.duties) == 2
-    assert "Representing the department on committees" in back.duties[0].statement
+    # Parser v9 (HR-264): the "… by:" headline re-reads as the duty and its sub-bullets
+    # as its how_why — no longer fused into the statement.
+    assert back.duties[0].statement.startswith(
+        "Manages the delivery of academic programs"
+    )
+    assert "Representing the department on committees." in back.duties[0].how_why
     assert "Director, Smoke Operations" in body and "99990002" in body
     assert get_rules().apsa_form.security_check_sentence in body
     for passage in get_rules().boilerplate.about_sfu:

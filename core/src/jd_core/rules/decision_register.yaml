@@ -8236,7 +8236,7 @@ decisions:
       on the CUPE form. 1,200 is about 1.6x the CUPE p99. ABOVE it the population is a
       different thing — roughly one statement per document, a whole duty section with no
       bullets that the parser cannot split (the older questionnaire's instruction text
-      plus every duty, in one paragraph). At 1,200, 4,498 statements in 3,381 documents
+      plus every duty, in one paragraph). At 1,200, 4,504 statements (as shipped, grouped; 4,498 in 3,381 documents read flat)
       are still cut: that is the residual run-on defect, recorded in
       docs/plans/PARSER-V9-LISTS-AND-CAPS.md, and no cap value fixes it — a bigger cap
       only stores a longer run-on. Filed `hr_informed`: this is fidelity, not policy, but
@@ -8264,17 +8264,19 @@ decisions:
     tier: hr_informed
     why_it_matters: >-
       It was 12, a code constant shared with the CUPE reader. Once Word list items are
-      read as items (parser v9), SFU's "ACTION VERB ... by:" duty shape yields one item
-      per sub-bullet, and MEASURED on a v9 re-parse of a copy of the Bank with the cap
-      lifted to 150, APSA/APEX/POLY documents carry p50 20 · p90 34 · p99 46 duties, max
-      82 (ungrouped documents max 93). At 12, 9,813 documents would have been cut. 120 is
-      ~30% over the measured corpus maximum (93), the same headroom rule HR-200 uses, and
-      cuts NO document today. This is what a PARSED SOURCE may carry, not what a draft
-      may: a canonical draft is still held to `harmonization.max_duties` (HR-172), and
-      the validator still marks a JDFN JD down above `thresholds.duties_max` (HR-022) —
-      neither is changed here. Whether a source with 30 sub-bullets should be grouped
-      back into "major duty + how/why" (the template's own shape, and the model's unused
-      `how_why` field) is an open engineering question in the plan.
+      read as items (parser v9), MEASURED on a v9 re-parse of a copy of the Bank with the
+      cap lifted to 150: read FLAT (every sub-bullet a duty), APSA/APEX/POLY documents
+      carry p50 20 · p90 34 · p99 46 duties, max 82 (ungrouped documents max 93), and at
+      12 9,813 documents would have been cut. As SHIPPED, the "… by:" headline groups its
+      sub-bullets into `how_why` (HR-264, owner ruling 2026-10-20), so the counts are
+      lower — p50 / p99 APSA 4 / 25, APEX 3 / 11, POLY 5 / 82, ungrouped 5 / 49 — but a
+      list with no headline above it still yields one duty per item, and 1,471
+      non-CUPE documents still carry 13 or more (docs/plans/PARSER-V9-LISTS-AND-CAPS.md
+      §4.1). 120 is ~30% over the flat corpus maximum (93), the same headroom rule
+      HR-200 uses, and cuts NO document today. This is what a PARSED SOURCE may carry,
+      not what a draft may: a canonical draft is still held to `harmonization.max_duties`
+      (HR-172), and the validator still marks a JDFN JD down above
+      `thresholds.duties_max` (HR-022) — neither is changed here.
     impact_if_changed: >-
       Same as HR-261: unhashed, moves `Segmentation.stamp`, needs a `PARSER_VERSION`
       bump + full re-parse + `make embed`. Must stay at or below
