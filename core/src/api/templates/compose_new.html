@@ -281,6 +281,58 @@
                style="width:auto"{% if boilerplate_checked %} checked{% endif %}>
         {{ q.prompt }}
       </label>
+      {% elif q.kind == "rows" %}
+      {# CUPE form rows (Track J2): one column per field the row model declares
+         (`COLUMNS`), posted as index-aligned `<target>_<field>` arrays. Selects draw
+         their options from cupe_form.yaml. A hidden column carries a value the page
+         does not ask for (a pre-J2 %-allocation), so it is kept, never dropped. #}
+      <p class="label" style="margin:.5rem 0 .25rem">{{ q.prompt }}</p>
+      {% if row_limits.get(q.target) %}
+      <p class="meta">Up to {{ row_limits[q.target] }} functions. Over that the Builder tells you — nothing is cut.</p>
+      {% endif %}
+      <div class="rows">
+        {% for row in structured_rows[q.target] %}
+        <div style="display:flex;gap:.5rem;margin-bottom:.4rem">
+          {% for col in row_columns[q.target] %}
+          {% if col.hidden %}
+          <input type="hidden" name="{{ q.target }}_{{ col.field }}" value="{{ row[col.field] }}">
+          {% elif col.options %}
+          <select name="{{ q.target }}_{{ col.field }}" aria-label="{{ col.label }}"
+                  style="flex:{{ col.width }};background:#0d1117;color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:.5rem">
+            <option value="">— {{ col.label | lower }} —</option>
+            {% for value, label in col.options %}
+            <option value="{{ value }}"{% if row[col.field] == value %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          {% else %}
+          <input name="{{ q.target }}_{{ col.field }}" value="{{ row[col.field] }}" placeholder="{{ col.label }}"
+                 aria-label="{{ col.label }}" style="flex:{{ col.width }}">
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+      {% elif q.kind == "levels" %}
+      {# HR's fixed levels for sections 5, 6, 7, 12 (Track J2), in HR's wording. #}
+      <p class="label" style="margin:.5rem 0 .25rem">{{ q.prompt }}</p>
+      {% set selected = q.value.split(",") %}
+      {% for letter, text in level_options[q.target] %}
+      <label style="display:flex;gap:.5rem;align-items:flex-start">
+        <input type="{{ 'radio' if q.target in single_choice_levels else 'checkbox' }}" name="{{ q.target }}" value="{{ letter }}"{% if letter in selected %} checked{% endif %} style="width:auto">
+        <span>{{ letter }}. {{ text }}</span>
+      </label>
+      {% endfor %}
+      {% elif q.kind == "choice" %}
+      <p class="label" style="margin:.5rem 0 .25rem">{{ q.prompt }}</p>
+      {% for value, label in choice_options[q.target] %}
+      <label style="display:flex;gap:.5rem;align-items:flex-start">
+        <input type="radio" name="{{ q.target }}" value="{{ value }}"{% if q.value == value %} checked{% endif %} style="width:auto">
+        <span>{{ label }}</span>
+      </label>
+      {% endfor %}
+      {% elif q.kind in ("date", "number") %}
+      <label for="f-{{ q.target }}">{{ q.prompt }}</label>
+      <input id="f-{{ q.target }}" name="{{ q.target }}" type="{{ q.kind }}" value="{{ q.value }}"{% if q.kind == "number" %} min="0"{% endif %}>
       {% elif q.kind in ("duties", "modified") %}
       {# Structured multi-input rows: the group's controls carry their own aria-labels,
          so the section prompt is a plain heading, not a `for=` label that would dangle. #}

@@ -1544,9 +1544,9 @@ def test_a_wjq_check_assembles_a_cupe_draft_judged_by_the_wjq_bar() -> None:
             "form": "wjq",
             "title": "Departmental Assistant",
             "position_summary": "Provides administrative support to the department.",
-            "major_functions_verb": "Processes",
+            "major_functions_action_verb": "Processes",
             "major_functions_statement": "Processes purchase orders for the unit",
-            "major_functions_allocation": "40",
+            "major_functions_frequency": "weekly",
             "level_of_independence": "Works under general supervision.",
         },
     )
@@ -1591,9 +1591,11 @@ _WJQ_ANSWERS: list[tuple[str, str]] = [
     ("form", "wjq"),
     ("title", "Departmental Assistant"),
     ("position_summary", "Provides administrative support to the department."),
-    ("major_functions_verb", "Processes"),
+    # J2: the CUPE function rows post their row model's columns (`<target>_<field>`),
+    # with HR's frequency code instead of the JDFN %-allocation.
+    ("major_functions_action_verb", "Processes"),
     ("major_functions_statement", "Processes purchase orders for the unit"),
-    ("major_functions_allocation", "40"),
+    ("major_functions_frequency", "weekly"),
     ("level_of_independence", "Works under general supervision."),
 ]
 

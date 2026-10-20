@@ -33,6 +33,7 @@ the normal ``{{ }}`` escaping. Nothing here uses ``|safe`` on draft text (untrus
 
 from __future__ import annotations
 
+import json
 import logging
 from functools import partial
 from pathlib import Path
@@ -279,7 +280,7 @@ def _content_from_form(pairs: list[tuple[str, str]]) -> dict[str, Any]:
     is handed to ``service.edit``, which re-validates it via ``SFUJobDescription`` —
     an empty title, a bad enum, an over-long field, etc. raise there (caught by the
     handler), keeping the service the sole validator-as-oracle authority (NN #3)."""
-    return {
+    content: dict[str, Any] = {
         "title": first_value(pairs, "title").strip(),
         "position_number": _scalar_or_none(pairs, "position_number"),
         "department": _scalar_or_none(pairs, "department"),
@@ -304,6 +305,26 @@ def _content_from_form(pairs: list[tuple[str, str]]) -> dict[str, Any]:
         ),
         "additional_context": _scalar_or_none(pairs, "additional_context"),
     }
+    # The CUPE form block (Track J2) has no editor here; the page carries it as one
+    # hidden JSON field so an edit keeps it. Malformed JSON fails the service's
+    # re-validation (a ValidationError the handler already renders), never a 500.
+    # Absent -> no key at all, exactly as the model dumps a JD that has none.
+    wjq_form = _json_or_none(pairs, "wjq_form_json")
+    if wjq_form is not None:
+        content["wjq_form"] = wjq_form
+    return content
+
+
+def _json_or_none(pairs: list[tuple[str, str]], key: str) -> Any:
+    """A hidden field's JSON value, or ``None`` when absent / blank. Invalid JSON is
+    passed on as the raw string so the model's validation refuses it visibly."""
+    raw = first_value(pairs, key).strip()
+    if not raw:
+        return None
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return raw
 
 
 def _parse_overrides(

@@ -29,8 +29,10 @@ refuses that at construction rather than leaving it to be noticed in a score.
 
 from __future__ import annotations
 
+import datetime as dt
+import types
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -47,7 +49,14 @@ from src.jd_core.models.quality import (
 )
 from src.jd_core.quality.validators import template_of
 
-__all__ = ["FORMS", "FormSpec", "form_for", "form_for_template"]
+__all__ = [
+    "FORMS",
+    "FormSpec",
+    "choice_values",
+    "form_for",
+    "form_for_template",
+    "row_model",
+]
 
 
 class FormSpec(BaseModel):
@@ -209,6 +218,58 @@ FORMS: Mapping[JDTemplate, FormSpec] = {
 _TEXTAREA_MIN_LENGTH: int = 1000
 
 
+def _without_none(annotation: Any) -> Any:
+    """``X | None`` -> ``X``; anything else unchanged."""
+    if get_origin(annotation) in (Union, types.UnionType):
+        args = [a for a in get_args(annotation) if a is not type(None)]
+        if len(args) == 1:
+            return args[0]
+    return annotation
+
+
+def row_model(annotation: Any) -> type[BaseModel] | None:
+    """The row model of a ``list[Row]`` field whose rows declare editor ``COLUMNS``
+    (the CUPE form's tables and function lists, Track J2), else ``None``."""
+    if get_origin(annotation) is not list:
+        return None
+    (item,) = get_args(annotation) or (None,)
+    if (
+        isinstance(item, type)
+        and issubclass(item, BaseModel)
+        and bool(getattr(item, "COLUMNS", None))
+    ):
+        return item
+    return None
+
+
+def _structured_kind(annotation: Any) -> str | None:
+    """The J2 kinds, read off the TYPE (not its string — ``"int"`` is a substring of
+    ``Literal['internal', …]``): ``rows`` (a list of column-declaring rows), ``levels``
+    (a list of level letters — HR's checkbox sections), ``choice`` (a ``Literal``),
+    ``date`` and ``number``. ``None`` = not one of them; the older rules decide."""
+    if row_model(annotation) is not None:
+        return "rows"
+    if get_origin(annotation) is list:
+        (item,) = get_args(annotation) or (None,)
+        if get_origin(item) is Literal:
+            return "levels"
+        return None
+    bare = _without_none(annotation)
+    if get_origin(bare) is Literal:
+        return "choice"
+    if bare is dt.date:
+        return "date"
+    if bare is int:
+        return "number"
+    return None
+
+
+def choice_values(answers_model: type[AnswerContract], target: str) -> tuple[str, ...]:
+    """The values a ``choice`` target's ``Literal`` allows, in declaration order."""
+    annotation = _without_none(answers_model.model_fields[target].annotation)
+    return tuple(str(v) for v in get_args(annotation))
+
+
 def render_kind(answers_model: type[AnswerContract], target: str) -> str:
     """How ``target`` is rendered and read back — DERIVED from the answer contract.
 
@@ -231,6 +292,9 @@ def render_kind(answers_model: type[AnswerContract], target: str) -> str:
         )
     if target == "employee_group":
         return "select"
+    structured = _structured_kind(field.annotation)
+    if structured is not None:
+        return structured
     annotation = str(field.annotation)
     if "bool" in annotation:
         return "checkbox"

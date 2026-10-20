@@ -13,19 +13,26 @@ checkbox options and tables — and fills in only what the Bank's model actually
 read back through ``extract_text`` -> ``parse_jd`` lands every field where it came from.
 That round trip is the contract (``tests/export_roundtrip.py``; live in the smoke).
 
+**Track J2 fills the form's structure** for a draft AUTHORED on the Builder
+(``jd.wjq_form``): the author's identification fields and "completed by" tick, the
+minor functions under MINOR FUNCTIONS, the ticked levels of sections 5/6/7/12
+(``checkbox_ticked_glyph``, HR-250), the duration / frequency / hours of the 8/10/11
+tables, and section 13's certification, number of years, equivalency tick + reason and
+Occupational Requirement(s).
+
 What is deliberately NOT filled in (registered in HR-239 / HR-240):
 
 * the **Approval and Review** lines and HR's **"FOR USE BY HUMAN RESOURCES"** box are
-  always blank, and the draft's grade is printed nowhere (non-negotiable #1);
-* the **checkbox** sections print every option unticked, and the contact / effort /
-  working-conditions tables print duration, frequency and hours blank — the model keeps
-  those sections as free text, not as choices, and a tick would be a guess. The free
-  text is printed inside its section, minus the form's own instruction / prompt
-  sentences (an archive-parsed role stores them flattened into the section) — but WITH
-  its options and column headings, because an archive form types its tick beside an
-  option and that tick is the only record of the choice;
-* every duty prints under **MAJOR FUNCTIONS**; MINOR FUNCTIONS is left blank because the
-  model has no major/minor split (Track J2 adds it).
+  always blank, and the draft's grade is printed nowhere (non-negotiable #1) — the
+  author's CURRENT classification prints in its own cell, never in HR's box;
+* for a role PARSED from the archive (no ``wjq_form``) the checkbox sections print
+  every option unticked and the tables print duration, frequency and hours blank — a
+  tick there would be a guess — and every duty prints under MAJOR FUNCTIONS (the parser
+  merges sections 3 and 4). The free text is printed inside its section, minus the
+  form's own instruction / prompt sentences (an archive-parsed role stores them
+  flattened into the section) — but WITH its options and column headings, because an
+  archive form types its tick beside an option and that tick is the only record of the
+  choice.
 
 Deterministic in CONTENT and pure of I/O beyond building bytes (the raw bytes are not
 reproducible across seconds: python-docx stamps each zip entry with the wall clock —
@@ -45,7 +52,13 @@ from docx.shared import Pt
 from docx.table import Table, _Cell
 from docx.text.paragraph import Paragraph
 
-from src.jd_core.models.parsed_jd import SFUDuty, SFUJobDescription, SFUQualification
+from src.jd_core.models.parsed_jd import (
+    SFUDuty,
+    SFUJobDescription,
+    SFUQualification,
+    WJQForm,
+    WJQRow,
+)
 from src.jd_core.rules import CupeForm, Rules, Wjq, WjqSection, get_rules
 
 __all__ = ["render_cupe_docx"]
@@ -178,16 +191,6 @@ def _row(table: Table, values: Sequence[str], *, bold: bool = False) -> None:
         _set(cell, value, bold=bold)
 
 
-def _rows(table: Table, values: Sequence[str], minimum: int) -> None:
-    """One row per value in the first column, padded with blank rows to ``minimum`` —
-    the empty lines HR's form offers. Never truncates."""
-    width = len(table.columns)
-    for value in values:
-        _row(table, [value, *([""] * (width - 1))])
-    for _ in range(max(0, minimum - len(values))):
-        _row(table, [""] * width)
-
-
 def _text_rows(table: Table, text: str) -> None:
     """The draft's free text for a section, as full-width rows inside its table."""
     for line in text.splitlines():
@@ -238,9 +241,12 @@ def _identification(
     doc: DocxDocument, jd: SFUJobDescription, form: CupeForm, heading: str
 ) -> None:
     """Section 1: the draft's identification on the left, HR's box on the right —
-    whose values are ALWAYS blank (HR-240, non-negotiable #1)."""
+    whose values are ALWAYS blank (HR-240, non-negotiable #1). The author's current
+    classification, supervisor title, date and "completed by" come from ``wjq_form``
+    (J2) and are blank for a role that has none."""
     labels = form.id_labels
     hr = list(form.hr_box_labels)
+    extra = jd.wjq_form or WJQForm()
     table = _table(doc, 4)
     top = _new_row(table)
     _set(_merge(top[0], top[1]), heading, bold=True)
@@ -248,10 +254,13 @@ def _identification(
     left: list[tuple[str, str]] = [
         (labels["department"], (jd.department or "").strip()),
         (labels["position_number"], (jd.position_number or "").strip()),
-        (labels["current_classification"], ""),
+        (labels["current_classification"], extra.current_classification or ""),
         (labels["title"], jd.title.strip()),
-        (labels["supervisor_title"], ""),
-        (labels["date_completed"], ""),
+        (labels["supervisor_title"], extra.supervisor_title or ""),
+        (
+            labels["date_completed"],
+            extra.date_completed.isoformat() if extra.date_completed else "",
+        ),
     ]
     # HR's box sits beside rows 1, 4, 5 and 6 on the form.
     right: list[str] = [hr[0], "", "", *hr[1:]]
@@ -261,12 +270,19 @@ def _identification(
         _set(cells[1], value)
         if i < len(right) and right[i]:
             _set(cells[2], right[i], bold=True)
-    glyph = form.checkbox_glyph
+    # HR's two options print in the form's order (Employee, then Evaluating
+    # Supervisor), which is the order of `WJQCompletedBy`.
+    chosen = {"employee": 0, "supervisor": 1}.get(extra.completed_by or "", -1)
     for i, option in enumerate(form.completed_by_options):
         cells = _new_row(table)
         if i == 0:
             _set(cells[0], form.completed_by_label, bold=True)
-        _set(cells[1], f"{glyph} {option}")
+        _set(cells[1], f"{_box(form, i == chosen)} {option}")
+
+
+def _box(form: CupeForm, ticked: bool) -> str:
+    """The glyph for one option: HR-250's tick, or the form's empty box."""
+    return form.checkbox_ticked_glyph if ticked else form.checkbox_glyph
 
 
 def _checkbox_section(
@@ -274,16 +290,19 @@ def _checkbox_section(
     heading: str,
     instructions: Sequence[str],
     options: Sequence[str],
-    glyph: str,
+    form: CupeForm,
+    chosen: Sequence[str],
     text: str,
 ) -> None:
-    """Sections 5, 6, 7, 12: every option with an UNTICKED box, then the draft's own
-    text for the section with the form's instruction taken out of it (options are kept
-    in it — an archive form's tick is typed beside them; see :func:`_without`)."""
+    """Sections 5, 6, 7, 12: every option with its box — TICKED for the levels the
+    author chose (``chosen`` letters, A = first option; J2), empty otherwise — then the
+    draft's own text for the section with the form's instruction taken out of it
+    (options are kept in it — an archive form's tick is typed beside them; see
+    :func:`_without`)."""
     table = _table(doc, 1)
     _heading_row(table, heading, instructions)
-    for option in options:
-        _full_row(table, f"{glyph} {option}")
+    for i, option in enumerate(options):
+        _full_row(table, f"{_box(form, chr(ord('A') + i) in chosen)} {option}")
     _text_rows(table, _without(text, instructions))
     doc.add_paragraph()
 
@@ -291,18 +310,48 @@ def _checkbox_section(
 def _contacts(
     doc: DocxDocument, jd: SFUJobDescription, form: CupeForm, heading: str
 ) -> None:
-    """Section 8: one row per contact. Duration and frequency are not modelled (J2)."""
+    """Section 8: one row per contact. WHICH contacts is ``relationships`` (what a
+    reviewer edits); each one's duration and frequency come from ``wjq_form.contacts``
+    matched by text (J2) — so a contact edited after authoring prints with blank cells
+    rather than someone else's duration. Blank for a role with no ``wjq_form``."""
     rel = jd.relationships
     contacts = [
         c.strip() for c in ([*rel.internal, *rel.external] if rel else []) if c.strip()
     ]
+    pool = list(jd.wjq_form.contacts) if jd.wjq_form is not None else []
+    rows: list[list[str]] = []
+    for contact in contacts:
+        match = next((r for r in pool if _same(r.item, contact)), None)
+        if match is not None:
+            pool.remove(match)
+        rows.append(
+            [
+                contact,
+                (match.duration or "") if match else "",
+                (match.frequency or "") if match else "",
+            ]
+        )
     table = _table(doc, len(form.contacts_columns))
     _heading_row(
         table, heading, form.instructions.get("internal_external_contacts", ())
     )
     _row(table, form.contacts_columns, bold=True)
-    _rows(table, contacts, form.blank_rows["contacts"])
+    _table_rows(table, rows, form.blank_rows["contacts"])
     doc.add_paragraph()
+
+
+def _same(a: str, b: str) -> bool:
+    return " ".join(a.lower().split()) == " ".join(b.lower().split())
+
+
+def _table_rows(table: Table, rows: Sequence[Sequence[str]], minimum: int) -> None:
+    """Filled rows, padded with blank rows to ``minimum`` — the empty lines HR's form
+    offers. Never truncates."""
+    width = len(table.columns)
+    for values in rows:
+        _row(table, [*values, *([""] * (width - len(values)))][:width])
+    for _ in range(max(0, minimum - len(rows))):
+        _row(table, [""] * width)
 
 
 def _impact_of_errors(
@@ -329,51 +378,74 @@ def _impact_of_errors(
     doc.add_paragraph()
 
 
-def _effort(doc: DocxDocument, form: CupeForm, heading: str, text: str) -> None:
+def _effort(
+    doc: DocxDocument,
+    form: CupeForm,
+    heading: str,
+    text: str,
+    rows: Sequence[WJQRow],
+) -> None:
+    """Section 10: the author's effort rows (type / duration / frequency, J2), padded
+    to the form's blank rows, then any further text for the section."""
     instructions = form.instructions.get("effort", ())
     table = _table(doc, len(form.effort_columns))
     _heading_row(table, heading, instructions)
     _row(table, form.effort_columns, bold=True)
-    _rows(table, [], form.blank_rows["effort"])
+    _table_rows(
+        table,
+        [[r.item, r.duration or "", r.frequency or ""] for r in rows],
+        form.blank_rows["effort"],
+    )
     _text_rows(table, _without(text, instructions))
     doc.add_paragraph()
 
 
 def _working_conditions(
-    doc: DocxDocument, form: CupeForm, heading: str, text: str
+    doc: DocxDocument, form: CupeForm, heading: str, text: str, extra: WJQForm
 ) -> None:
-    """Section 11's three sub-tables. A stored section is split at the three prompts;
-    each part is printed under its own sub-table (column headings kept — see
-    :func:`_without`)."""
+    """Section 11's three sub-tables. The author's rows (J2) fill each one — location /
+    hours, condition / frequency, hazard / frequency. A stored section's text is split
+    at the three prompts; each part is printed under its own sub-table (column headings
+    kept — see :func:`_without`)."""
     parts = (
         (
             form.working_conditions_location_prompt,
             form.working_conditions_location_columns,
             "working_conditions_location",
+            [[r.item, r.hours or ""] for r in extra.locations],
         ),
         (
             form.working_conditions_uncomfortable_prompt,
             form.working_conditions_uncomfortable_columns,
             "working_conditions_uncomfortable",
+            [[r.item, r.frequency or ""] for r in extra.uncomfortable],
         ),
         (
             form.working_conditions_hazards_prompt,
             form.working_conditions_hazards_columns,
             "working_conditions_hazards",
+            [[r.item, r.frequency or ""] for r in extra.hazards],
         ),
     )
-    chunks = _split_at(text, [p for p, _, _ in parts])
-    width = max(len(cols) for _, cols, _ in parts)
+    chunks = _split_at(text, [p for p, _, _, _ in parts])
+    width = max(len(cols) for _, cols, _, _ in parts)
     table = _table(doc, width)
     _heading_row(table, heading, ())
-    for (prompt, columns, rows_key), chunk in zip(parts, chunks, strict=True):
+    for (prompt, columns, rows_key, rows), chunk in zip(parts, chunks, strict=True):
         _full_row(table, prompt)
         _row(table, columns, bold=True)
         # The split already consumed each prompt once — the once the form prints it. A
         # source form that REPEATS a prompt (MEASURED: one prints the "uncomfortable"
         # prompt where the hazards prompt belongs) keeps the repeat.
-        _text_rows(table, _without(chunk, ()))
-        _rows(table, [], form.blank_rows[rows_key])  # type: ignore[index]
+        minimum = form.blank_rows[rows_key]  # type: ignore[index]
+        if rows:
+            # The author's rows sit under the column headings, as on HR's form.
+            _table_rows(table, rows, minimum)
+            _text_rows(table, _without(chunk, ()))
+        else:
+            # Unchanged from J1 for a role with no rows: its text, then blank rows.
+            _text_rows(table, _without(chunk, ()))
+            _table_rows(table, [], minimum)
     doc.add_paragraph()
 
 
@@ -391,20 +463,28 @@ def _qualifications(
     for qual in jd.qualifications:
         if qual.text.strip():
             blocks[form.qualification_blocks[qual.kind]].append(_qual_text(qual))
+    extra = jd.wjq_form or WJQForm()
+    # A J2 draft keeps its Occupational Requirement(s) on the form block (Q9, option C);
+    # they print after any `ability` / `security` lines HR-239 places there.
+    blocks["requirements"] += [r for r in extra.occupational_requirements if r.strip()]
 
     table = _table(doc, 2)
     _heading_row(table, heading, form.instructions.get("qualifications", ()))
     _full_row(table, form.qualifications_education_prompt)
     _rows_full(table, blocks["education"])
     _full_row(table, form.qualifications_certification_prompt)
-    _full_row(table, "")  # certification / program of study — not modelled (J2)
+    _rows_full(table, list(extra.certification))
     _full_row(table, form.qualifications_experience_prompt)
-    _row(table, ["", form.qualifications_experience_unit])  # the number — not modelled
+    years = "" if extra.experience_years is None else str(extra.experience_years)
+    _row(table, [years, form.qualifications_experience_unit])
     _rows_full(table, blocks["experience"])
     _full_row(table, form.qualifications_equivalency_heading, bold=True)
-    for option in form.qualifications_equivalency_options:
-        _full_row(table, f"{form.checkbox_glyph} {option}")
-    _full_row(table, "")  # the "not acceptable because" explanation — not modelled
+    # Option 0 = "is acceptable", option 1 = "is not acceptable because:" (HR's order).
+    acceptable = extra.equivalency_acceptable
+    chosen = -1 if acceptable is None else (0 if acceptable else 1)
+    for i, option in enumerate(form.qualifications_equivalency_options):
+        _full_row(table, f"{_box(form, i == chosen)} {option}")
+    _full_row(table, extra.equivalency_rationale or "")
     doc.add_paragraph()
 
     for prompt, key in (
@@ -456,6 +536,9 @@ def render_cupe_docx(jd: SFUJobDescription, *, rules: Rules | None = None) -> by
     wjq = rulebook.wjq
     headings = _headings(wjq)
     letters = {meaning: letter for letter, meaning in wjq.frequency_markers.items()}
+    # The CUPE form block of an authored draft (J2); empty for a parsed role, which
+    # then prints exactly as J1 did.
+    extra = jd.wjq_form or WJQForm()
 
     context = _context_sections(jd.additional_context, wjq)
     # The model's fields that have no slot of their own on the CUPE form (HR-239).
@@ -511,7 +594,12 @@ def render_cupe_docx(jd: SFUJobDescription, *, rules: Rules | None = None) -> by
         headings["minor_functions"],
         form.instructions.get("minor_functions", ()),
     )
-    doc.add_paragraph()  # the major/minor split is not modelled yet (J2)
+    # A J2 draft keeps its minor functions apart; a parsed role has none (the parser
+    # merges sections 3 and 4, so its duties all printed under MAJOR FUNCTIONS above).
+    for number, duty in enumerate(extra.minor_functions, start=1):
+        doc.add_paragraph(f"{number}. {_duty_text(duty, letters)}")
+    if not extra.minor_functions:
+        doc.add_paragraph()
     doc.add_paragraph()
 
     for section in (
@@ -524,23 +612,29 @@ def render_cupe_docx(jd: SFUJobDescription, *, rules: Rules | None = None) -> by
             headings[section],
             form.instructions.get(section, ()),
             form.checkbox_options[section],
-            form.checkbox_glyph,
+            form,
+            getattr(extra, section),
             section_text(section),
         )
     _contacts(doc, jd, form, headings["internal_external_contacts"])
     _impact_of_errors(
         doc, form, headings["impact_of_errors"], section_text("impact_of_errors")
     )
-    _effort(doc, form, headings["effort"], section_text("effort"))
+    _effort(doc, form, headings["effort"], section_text("effort"), extra.effort)
     _working_conditions(
-        doc, form, headings["working_conditions"], section_text("working_conditions")
+        doc,
+        form,
+        headings["working_conditions"],
+        section_text("working_conditions"),
+        extra,
     )
     _checkbox_section(
         doc,
         headings["continuing_education"],
         form.instructions.get("continuing_education", ()),
         form.checkbox_options["continuing_education"],
-        form.checkbox_glyph,
+        form,
+        extra.continuing_education,
         section_text("continuing_education"),
     )
     _qualifications(doc, jd, form, headings["qualifications"])

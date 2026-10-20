@@ -28,6 +28,24 @@ equality, it says why:
 * point-factor sections (5-7, 9-12) — every WORD of the original section comes back in
   the same section. Word-multiset containment, not equality, because the form itself
   prints its own instructions and options around the content.
+
+Track J2 — an AUTHORED draft's CUPE form block (``wjq_form``):
+
+* minor functions come back AFTER the majors in the one duty list the parser builds
+  (it merges sections 3 and 4) — same count, order and words. ⚠ The parser stops at
+  twelve (``segmenter._MAX_DUTIES``), so more than twelve functions re-read short; this
+  oracle REPORTS that as a loss rather than excusing it, and a caller that knows it is
+  past the ceiling asserts the exact message;
+* every ticked level comes back as ``<ticked glyph> <option>`` in its section's text;
+* every table row's words (item + duration / frequency / hours) come back in its
+  section (contacts: the contact itself, as above);
+* certification comes back as ``education`` (HR's prompt sits in the education cue),
+  Occupational Requirement(s) as ``ability``.
+
+What the PARSER cannot carry, and so is checked on the export TEXT instead
+(:func:`cupe_export_text_losses`): the identification fields it has no label for, the
+"completed by" tick, and the equivalency tick (its option lines are dropped as form
+instructions, ``wjq.instruction_markers``).
 """
 
 from __future__ import annotations
@@ -35,7 +53,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 
-from src.jd_core.models.parsed_jd import SFUJobDescription
+from src.jd_core.models.parsed_jd import SFUJobDescription, WJQRow
 from src.jd_core.parser.segmenter import _PERCENT_RE
 from src.jd_core.rules import Rules
 
@@ -117,12 +135,15 @@ def cupe_round_trip_losses(
     if _norm(original.position_summary) != _norm(reparsed.position_summary):
         losses.append("position_summary changed")
 
-    if len(original.duties) != len(reparsed.duties):
+    extra = original.wjq_form
+    # The parser reads section 4 into the same list, after section 3 (J2).
+    exported = [*original.duties, *(extra.minor_functions if extra else [])]
+    if len(exported) != len(reparsed.duties):
         losses.append(
-            f"duties: {len(original.duties)} exported, {len(reparsed.duties)} re-read"
+            f"duties: {len(exported)} exported, {len(reparsed.duties)} re-read"
         )
     for i, (src, back) in enumerate(
-        zip(original.duties, reparsed.duties, strict=False), start=1
+        zip(exported, reparsed.duties, strict=False), start=1
     ):
         if src.frequency != back.frequency:
             losses.append(
@@ -178,12 +199,192 @@ def cupe_round_trip_losses(
             w for line in original.problem_solving for w in words(line)
         ],
     }
+    if extra is not None:
+        extras["effort"] = extras.get("effort", []) + _row_words(extra.effort)
+        extras["working_conditions"] = extras.get("working_conditions", []) + [
+            *_row_words(extra.locations),
+            *_row_words(extra.uncomfortable),
+            *_row_words(extra.hazards),
+        ]
     for section in rules.wjq.context_sections:
         want_words = src_ctx.get(section, []) + extras.get(section, [])
         if want_words and not _contained(want_words, back_ctx.get(section, [])):
             missing = Counter(want_words) - Counter(back_ctx.get(section, []))
             losses.append(f"{section}: words lost {sorted(missing)[:10]}")
+    if extra is not None:
+        losses += _form_block_losses(original, reparsed, rules)
     return losses
+
+
+def _row_words(rows: list[WJQRow]) -> list[str]:
+    out: list[str] = []
+    for row in rows:
+        for value in (row.item, row.duration, row.frequency, row.hours):
+            out += words(value)
+    return out
+
+
+def raw_sections(context: str | None, rules: Rules) -> dict[str, str]:
+    """``additional_context`` as ``{section: whitespace-collapsed raw text}`` — for the
+    checks that need more than words (a tick glyph is not a word)."""
+    headings = {rules.wjq.section_headings[s][0]: s for s in rules.wjq.context_sections}
+    current = rules.wjq.context_sections[0]
+    out: dict[str, list[str]] = {}
+    for line in (context or "").splitlines():
+        if line.strip() in headings:
+            current = headings[line.strip()]
+            out.setdefault(current, [])
+            continue
+        out.setdefault(current, []).append(line)
+    return {k: " ".join(" ".join(v).split()) for k, v in out.items()}
+
+
+def _form_block_losses(
+    original: SFUJobDescription, reparsed: SFUJobDescription, rules: Rules
+) -> list[str]:
+    """J2: the parts of ``wjq_form`` the parser CAN read back."""
+    extra = original.wjq_form
+    assert extra is not None
+    losses: list[str] = []
+    form = rules.cupe_form
+    sections = raw_sections(reparsed.additional_context, rules)
+    for section in (
+        "level_of_independence",
+        "training_exercised",
+        "direction_exercised",
+        "continuing_education",
+    ):
+        options = form.checkbox_options[section]  # type: ignore[index]
+        text = sections.get(section, "")
+        for letter in getattr(extra, section):
+            option = " ".join(options[ord(letter) - ord("A")].split())
+            if f"{form.checkbox_ticked_glyph} {option}" not in text:
+                losses.append(f"{section}: tick on level {letter} lost")
+    back_kinds = Counter((_norm(q.text), q.kind) for q in reparsed.qualifications)
+    for text, kind in (
+        *((c, "education") for c in extra.certification),
+        *((r, "ability") for r in extra.occupational_requirements),
+    ):
+        if back_kinds[(_norm(text), kind)] < 1:
+            losses.append(f"qualification {text!r} did not come back as {kind}")
+    return losses
+
+
+def cupe_export_text_losses(
+    jd: SFUJobDescription, lines: list[str], rules: Rules
+) -> list[str]:
+    """Every part of an authored draft's CUPE form block (``wjq_form``) that is missing
+    from the export's extracted TEXT — the Bank's own ``extract_text`` lines, in
+    document order. Covers what the parser cannot carry (identification, the
+    completed-by and equivalency ticks) as well as what it can, so a caller can assert
+    "nothing dropped on export" independently of the parser's ceilings. Also: no APSA
+    footer, and HR's box blank. Empty list = the export holds everything."""
+    losses: list[str] = []
+    form = rules.cupe_form
+    extra = jd.wjq_form
+    norm = [" ".join(ln.split()) for ln in lines]
+    have = set(norm)
+
+    def need(text: str, what: str) -> None:
+        if " ".join(text.split()) not in have:
+            losses.append(f"{what}: {text!r} not on the export")
+
+    body = "\n".join(lines)
+    boilerplate = rules.boilerplate
+    for passage in (
+        *boilerplate.territorial_acknowledgement,
+        *boilerplate.employment_equity,
+        *boilerplate.about_sfu,
+    ):
+        if passage in body:
+            losses.append("APSA boilerplate printed on the CUPE form")
+            break
+    # Each HR-box label is followed by the NEXT label on the form, never a value
+    # (python-docx drops an empty cell from the extracted text).
+    labels = {*form.id_labels.values(), *form.hr_box_labels, form.completed_by_label}
+    for label in form.hr_box_labels:
+        if label in have:
+            i = norm.index(label)
+            nxt = norm[i + 1] if i + 1 < len(norm) else ""
+            if nxt and nxt not in labels:
+                losses.append(f"HR box {label!r} is not blank (next: {nxt!r})")
+    if extra is None:
+        return losses
+
+    for value, what in (
+        (extra.current_classification, "current classification"),
+        (extra.supervisor_title, "supervisor title"),
+        (extra.date_completed.isoformat() if extra.date_completed else None, "date"),
+    ):
+        if value:
+            need(value, what)
+    if extra.completed_by is not None:
+        option = form.completed_by_options[0 if extra.completed_by == "employee" else 1]
+        need(f"{form.checkbox_ticked_glyph} {option}", "completed by")
+
+    # Minor functions: under section 4's heading and before section 5's.
+    minor_at = _index_of(norm, rules.wjq.section_headings["minor_functions"][0])
+    level_at = _index_of(norm, rules.wjq.section_headings["level_of_independence"][0])
+    for duty in extra.minor_functions:
+        found = [
+            i
+            for i, ln in enumerate(norm)
+            if " ".join(duty.statement.split()) in ln and minor_at < i < level_at
+        ]
+        if not found:
+            losses.append(f"minor function {duty.statement[:40]!r} not under section 4")
+    for section in (
+        "level_of_independence",
+        "training_exercised",
+        "direction_exercised",
+        "continuing_education",
+    ):
+        options = form.checkbox_options[section]  # type: ignore[index]
+        for letter in getattr(extra, section):
+            need(
+                f"{form.checkbox_ticked_glyph} {options[ord(letter) - ord('A')]}",
+                f"{section} tick",
+            )
+    for name, rows in (
+        ("contacts", extra.contacts),
+        ("effort", extra.effort),
+        ("locations", extra.locations),
+        ("uncomfortable", extra.uncomfortable),
+        ("hazards", extra.hazards),
+    ):
+        for row in rows:
+            cells = [c for c in (row.item, row.duration, row.frequency, row.hours) if c]
+            if not _consecutive(norm, cells):
+                losses.append(f"{name} row {cells} not printed as one row")
+    for text in (*extra.certification, *extra.occupational_requirements):
+        need(text, "section 13")
+    if extra.experience_years is not None:
+        if not _consecutive(
+            norm, [str(extra.experience_years), form.qualifications_experience_unit]
+        ):
+            losses.append("years of experience not printed")
+    if extra.equivalency_acceptable is not None:
+        option = form.qualifications_equivalency_options[
+            0 if extra.equivalency_acceptable else 1
+        ]
+        need(f"{form.checkbox_ticked_glyph} {option}", "equivalency")
+    if extra.equivalency_rationale:
+        need(extra.equivalency_rationale, "equivalency rationale")
+    return losses
+
+
+def _index_of(lines: list[str], heading: str) -> int:
+    for i, ln in enumerate(lines):
+        if ln.endswith(heading):
+            return i
+    return -1
+
+
+def _consecutive(lines: list[str], cells: list[str]) -> bool:
+    """``cells`` appear as consecutive lines — one table row in extracted text."""
+    want = [" ".join(c.split()) for c in cells]
+    n = len(want)
+    return any(lines[i : i + n] == want for i in range(len(lines) - n + 1))
 
 
 def _qual_text(text: str, modifier: str | None) -> str:

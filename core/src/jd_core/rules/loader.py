@@ -69,7 +69,12 @@ from src.jd_core.models.bank import (
     TitleFamily,
     TitleFunction,
 )
-from src.jd_core.models.parsed_jd import QualificationKind, SFUEmployeeGroup
+from src.jd_core.models.parsed_jd import (
+    QualificationKind,
+    SFUEmployeeGroup,
+    SFUJobDescription,
+    WJQForm,
+)
 from src.jd_core.models.quality import (
     DEFAULT_TEMPLATE,
     JDGrade,
@@ -1835,8 +1840,9 @@ class Classification(_RuleFile):
         return schemes
 
 
-#: The CUPE form's identification fields the export prints a label for. The first
-#: three are carried by the model; the rest are on HR's form and not yet modelled (J2).
+#: The CUPE form's identification fields the export prints a label for. Title,
+#: department and position number are top-level model fields (the parser reads them);
+#: since J2 the other three are an authored draft's ``wjq_form`` (blank when parsed).
 CupeIdField = Literal[
     "department",
     "position_number",
@@ -1864,6 +1870,39 @@ CupePointFactorSection = Literal[
 ]
 #: The four blocks of section 13 a qualification can be printed in.
 CupeQualificationBlock = Literal["education", "experience", "skills", "requirements"]
+
+
+def _max_length(model: type[BaseModel], field: str) -> int:
+    """A list field's ``max_length``, read off the model rather than restated — so a
+    rulebook limit is checked against the ceiling the model actually enforces."""
+    return next(
+        int(meta.max_length)
+        for meta in model.model_fields[field].metadata
+        if getattr(meta, "max_length", None) is not None
+    )
+
+
+def check_cupe_frequencies_are_parser_readable(cupe_form: CupeForm, wjq: Wjq) -> None:
+    """Every function frequency the Builder offers (HR-247) must be one the Bank's WJQ
+    parser has a ``(X)`` letter for (``wjq.frequency_markers``, HR-142). A frequency
+    with no letter would be authored, exported as a bare word and read back as
+    ``None`` — a value that silently disappears on the first re-ingest. Raises
+    ``ValueError``; called from :class:`Rules` so a bad edit fails at load."""
+    readable = set(wjq.frequency_markers.values())
+    unreadable = sorted(set(cupe_form.function_frequencies) - readable)
+    if unreadable:
+        raise ValueError(
+            f"cupe_form.function_frequencies offers {unreadable}, which the WJQ parser "
+            f"has no marker for (wjq.frequency_markers: {sorted(readable)}); a new "
+            "one is a parser change (hashed wjq.yaml, PARSER_VERSION, re-parse)"
+        )
+
+
+#: The two function sections the Builder limits (J2, HR-246).
+CupeFunctionSection = Literal["major_functions", "minor_functions"]
+#: The older qualification kinds a CUPE "Occupational Skills" lead phrase stands for
+#: (J2, HR-251 — Q9 option C). A skill line takes no phrase.
+CupeSkillHelperKind = Literal["knowledge", "ability"]
 #: The form's tables that offer a fixed number of empty rows.
 CupeTable = Literal[
     "contacts",
@@ -1942,6 +1981,69 @@ class CupeForm(_RuleFile):
     approval_supervisor_labels: tuple[str, ...] = Field(min_length=1)
     approval_employee_statement: str = Field(min_length=1)
     approval_employee_labels: tuple[str, ...] = Field(min_length=1)
+    # ── J2: what the Builder offers a CUPE author (HR-246 … HR-252) ──
+    #: The glyph a TICKED level prints with (an authored draft's stored choice).
+    checkbox_ticked_glyph: str = Field(min_length=1)
+    #: The checkbox sections HR's form says to tick ONE box in.
+    single_choice_sections: tuple[CupeCheckboxSection, ...]
+    #: How many functions sections 3 and 4 accept (HR-246).
+    function_limits: Annotated[
+        Mapping[CupeFunctionSection, int], AfterValidator(_freeze)
+    ]
+    #: The frequency meanings a major function may carry (HR-247).
+    function_frequencies: tuple[str, ...] = Field(min_length=1)
+    #: The duration / frequency scales of the 8, 10, 11 tables (HR-248, HR-249).
+    table_durations: tuple[str, ...] = Field(min_length=1)
+    table_frequencies: tuple[str, ...] = Field(min_length=1)
+    #: The Occupational Skills lead phrases, by the older kind each stands for (HR-251).
+    occupational_skills_helpers: Annotated[
+        Mapping[CupeSkillHelperKind, str], AfterValidator(_freeze)
+    ]
+    #: Refuse "not acceptable" equivalency without its rationale (HR-252).
+    equivalency_rationale_required: bool
+
+    def level_letters(self, section: CupeCheckboxSection) -> tuple[str, ...]:
+        """The letters of ``section``'s options, A first, in HR's printed order."""
+        return tuple(
+            chr(ord("A") + i) for i in range(len(self.checkbox_options[section]))
+        )
+
+    @model_validator(mode="after")
+    def _builder_structure_is_sound(self) -> CupeForm:
+        """J2's lists must be usable as closed choices, and a function limit may not
+        promise more than the model can hold — the model would refuse the draft with a
+        raw validation error instead of the limit's own message."""
+        ceilings = {
+            "major_functions": _max_length(SFUJobDescription, "duties"),
+            "minor_functions": _max_length(WJQForm, "minor_functions"),
+        }
+        if set(self.function_limits) != set(get_args(CupeFunctionSection)):
+            raise ValueError(
+                "cupe_form.function_limits must name exactly "
+                f"{sorted(get_args(CupeFunctionSection))}"
+            )
+        for section, limit in self.function_limits.items():
+            if not 1 <= limit <= ceilings[section]:
+                raise ValueError(
+                    f"cupe_form.function_limits.{section} = {limit} is outside 1.."
+                    f"{ceilings[section]} — the model holds at most "
+                    f"{ceilings[section]}, so a higher limit would promise the author "
+                    "room the draft cannot store"
+                )
+        for label, values in (
+            ("function_frequencies", self.function_frequencies),
+            ("table_durations", self.table_durations),
+            ("table_frequencies", self.table_frequencies),
+            (
+                "occupational_skills_helpers",
+                tuple(self.occupational_skills_helpers.values()),
+            ),
+        ):
+            if any(not v.strip() for v in values) or len(set(values)) != len(values):
+                raise ValueError(f"cupe_form.{label} needs distinct, non-blank values")
+        if len(set(self.single_choice_sections)) != len(self.single_choice_sections):
+            raise ValueError("cupe_form.single_choice_sections must not repeat")
+        return self
 
     @model_validator(mode="after")
     def _tables_are_complete(self) -> CupeForm:
@@ -3711,6 +3813,12 @@ class Rules(BaseModel):
             raise ValueError(
                 f"titles.yaml names rule_id(s) absent from rule_catalog.yaml: {unknown}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _cupe_frequencies_are_parser_readable(self) -> Rules:
+        """J2: the Builder may only offer frequencies the WJQ parser reads back."""
+        check_cupe_frequencies_are_parser_readable(self.cupe_form, self.wjq)
         return self
 
     @model_validator(mode="after")

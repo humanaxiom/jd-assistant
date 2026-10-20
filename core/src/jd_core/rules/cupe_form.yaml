@@ -26,13 +26,22 @@
 # the University and the Union". Registered `open` (HR-238): HR confirms this is the
 # current form before any export is circulated.
 #
-# WHAT IS NOT YET MODELLED (Track J, PR J2)
-# -----------------------------------------
-# The Bank's model carries no checkbox choice, no contact duration/frequency, no
-# major/minor split, no equivalency choice, no current classification, no evaluating
-# supervisor. Those parts of the form are rendered in the form's SHAPE with BLANK cells —
-# never guessed. The Approval and Review lines and the HR-only box are ALWAYS blank
-# (non-negotiable #1: nothing here asserts an approval that did not happen).
+# WHAT J2 ADDED (Track J, PR J2)
+# ------------------------------
+# The Builder now COLLECTS the form's structure for an authored CUPE draft
+# (`SFUJobDescription.wjq_form`): the major/minor split, a (D)/(W)/(M)/(S) code per major
+# function, the ticked levels of sections 5/6/7/12, the duration / frequency / hours of
+# the 8/10/11 tables, certification, years of experience, the equivalency choice, the
+# current classification, the evaluating supervisor's title, the date and who completed
+# it — and the export fills those cells. The option lists and limits the Builder offers
+# are at the end of this file ("THE BUILDER'S CUPE STRUCTURE") and are registered
+# (HR-246 … HR-252). Still read by no validator and never by the parser — still
+# UNHASHED, still no `PARSER_VERSION` move.
+#
+# A role PARSED from the archive has no `wjq_form`, so its checkbox and table cells are
+# still printed in the form's SHAPE with BLANK values — never guessed. The Approval and
+# Review lines and the HR-only box are ALWAYS blank (non-negotiable #1: nothing here
+# asserts an approval that did not happen).
 
 version: jd_rules_sfu_v4
 
@@ -94,10 +103,18 @@ instructions:
     - Minimum required to satisfactorily perform the work.
 
 # --- the four checkbox sections (5, 6, 7, 12) ---------------------------------------
-# Every option is printed with an UNTICKED box: the model stores these sections as
-# free text, not as a chosen level (measured unreliable in the archive — wjq.yaml), so
-# ticking one would be a guess.
+# Options are lettered A, B, C … in the order below — HR's own form refers to them that
+# way ("In addition to C and D, guides project teams"). An authored CUPE draft stores
+# the LETTERS it ticked (J2); those print with `checkbox_ticked_glyph`, every other
+# option with `checkbox_glyph`. A role parsed from the archive has no stored choice (the
+# archive's ticks are Word form fields antiword cannot read — wjq.yaml), so all of its
+# options print unticked: ticking one would be a guess.
 checkbox_glyph: "☐"
+checkbox_ticked_glyph: "☒"
+# HR's form says "Check ONE box" for section 5 and "check each description that
+# applies" for the others — so section 5 takes a single level.
+single_choice_sections:
+  - level_of_independence
 checkbox_options:
   level_of_independence:
     - Work is provided with specific instructions describing how and when it should be completed.
@@ -165,7 +182,10 @@ qualifications_skills_prompt: "Occupational Skills:  Identify skills specificall
 qualifications_requirements_prompt: "Occupational Requirement(s): Identify non-skill requirements to perform the work such as ability to work shifts and/or be on-call; ability to travel periodically outside the lower mainland; have a valid driver's license; ability to lift, move or carry equipment or materials over 10 kg; etc."
 
 # Which block of section 13 each of the model's qualification kinds is printed in
-# (HR-239). `ability` -> Occupational Requirement(s) mirrors the parser, which reads that
+# (HR-239). ⚠ Since J2 (Q9, option C) a draft AUTHORED on the Builder has only `skill`
+# lines (its one Occupational Skills list) and keeps its Occupational Requirement(s) on
+# the CUPE form block; this table governs content the Builder did not author — roles
+# harmonized from the archive and drafts written before J2. `ability` -> Occupational Requirement(s) mirrors the parser, which reads that
 # block back as `ability` (`wjq.qualification_cues`), so an export round-trips its kinds.
 # `knowledge` has no block on HR's form and no parser cue; HR's Dec-2024 sample prints
 # knowledge-type lines under Occupational Skills, so it goes there (and re-parses as
@@ -198,3 +218,62 @@ approval_employee_labels:
   - Name of Employee
   - Signature of Employee
   - Date
+
+# ═══ THE BUILDER'S CUPE STRUCTURE (Track J, PR J2) ═══════════════════════════════════
+# What the Builder OFFERS a CUPE author and what it accepts. Every value is checked when
+# a draft is assembled; an answer outside these lists is REFUSED with a message naming
+# the register entry — never stored, never silently dropped.
+
+# How many functions sections 3 and 4 accept (HR-246). HR's current template has NO
+# numbered slots (two blank paragraphs under section 3, eleven under section 4) and HR's
+# Dec-2024 sample has 11 major + 3 minor, so these are OUR limits. Past one, the author
+# is told the number and nothing is removed — the replacement for the old silent "merge
+# majors and minors and cut at twelve". The major limit may not exceed the model's own
+# twelve-duty ceiling (refused at load), the minor one not its twenty.
+# ⚠ The Bank's own WJQ parser reads at most twelve functions back from an export
+# (majors first); an export with more re-ingests short. That is a parser limit, not
+# this file's.
+function_limits:
+  major_functions: 12
+  minor_functions: 12
+
+# The frequency codes a major function may carry (HR-247), as the parser's meanings
+# (`wjq.frequency_markers` maps each to its letter, which is what the export prints).
+# HR's template (S13) lists (D) Daily; (W) Weekly; (M) Monthly; (S) Semester. HR's
+# writing guide (S14 p.3) adds "Annual", while the template files annual work under
+# MINOR FUNCTIONS — an HR-source contradiction, so "annual" is NOT offered until HR
+# rules. Each value must be one the parser has a letter for (refused at load).
+function_frequencies:
+  - daily
+  - weekly
+  - monthly
+  - semester
+
+# The duration scale of the section 8 and 10 tables (HR-248). HR's form: "less than 1
+# hour at a time, 1-2 hours at a time, more than 2 hours at a time". Spelled as HR's
+# Dec-2024 sample spells them ("< 1 hour", "1-2 hours"); "> 2 hours" is ours, in the
+# same style — the sample has no row at that level.
+table_durations:
+  - "< 1 hour"
+  - "1-2 hours"
+  - "> 2 hours"
+
+# The frequency scale of the section 8, 10 and 11 tables (HR-249): "occasional,
+# frequent, or continuous" (HR's form), capitalised as HR's sample prints them.
+table_frequencies:
+  - Occasional
+  - Frequent
+  - Continuous
+
+# Q9, owner ruling 2026-10-19 (option C): a CUPE draft collects ONE "Occupational
+# Skills" list, as HR's form has, with optional lead phrases the author may pick (HR-251).
+# Keyed by the older qualification KIND each phrase stands for, because the same table
+# folds a pre-J2 draft's knowledge / ability lines into that one list on load and on
+# clone (a skill line gets no phrase).
+occupational_skills_helpers:
+  knowledge: Knowledge of
+  ability: Ability to
+
+# S14 §13: "If you make this choice [not acceptable], you must describe the rationale."
+# true = the Builder refuses a "not acceptable" with no rationale (HR-252).
+equivalency_rationale_required: true

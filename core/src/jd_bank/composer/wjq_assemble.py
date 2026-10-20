@@ -1,4 +1,4 @@
-"""Assemble CUPE (WJQ) answers into an SFU JD draft — Phase E.
+"""Assemble CUPE (WJQ) answers into an SFU JD draft — Phase E, restructured in J2.
 
 :func:`assemble_wjq_jd` is the WJQ counterpart of
 :func:`~src.jd_bank.composer.assemble.assemble_jd`: the deterministic bridge from what
@@ -8,46 +8,66 @@ LLM, no DB.
 
 **It is written against the PARSER, not against the JDFN assembler.** ``parser/wjq.py``
 turns a real CUPE questionnaire into an ``SFUJobDescription`` a particular way; this
-turns authored answers into one *the same* way, so an authored CUPE JD and a parsed one
-are the same shape. Three consequences, each of which is why some JDFN behaviour is
-deliberately absent here:
+turns authored answers into one *the same* way where the parser can see it, so an
+authored CUPE JD and a parsed one share their shape. Three consequences, each of which
+is why some JDFN behaviour is deliberately absent here:
 
-* **The point-factor sections go to ``additional_context`` under their own headings** —
-  the rulebook's ``wjq.section_headings`` vocabulary, so the text this writes is text
-  the parser would read back. Not ``decision_making`` / ``problem_solving``: the WJQ has
-  no Hay Accountability or Problem-Solving prose, and ``wjq.yaml`` records that
-  force-mapping IMPACT OF ERRORS onto ``decision_making`` would feed the Hay signals a
-  bogus input. Empty is honest.
-* **No SFU boilerplate is asserted.** The JDFN assembler sets ``about_sfu_present`` /
-  ``territorial_acknowledgement_present`` / ``employment_equity_present`` and inserts
-  the mandated Relationships header. The WJQ form has none of those blocks — the
-  measured fact behind HR-201 — so asserting them would state something untrue about the
-  document, in exactly the fields a reviewer takes at face value (the same correction
-  Phase D made to the rewrite pass). It costs no score either: ``applies_to`` (Phase B)
-  withholds all four rules from the WJQ.
+* **The point-factor sections' TEXT goes to ``additional_context`` under their own
+  headings** — the rulebook's ``wjq.section_headings`` vocabulary, so the text this
+  writes is text the parser would read back. Not ``decision_making`` /
+  ``problem_solving``: the WJQ has no Hay Accountability or Problem-Solving prose.
+* **No SFU boilerplate is asserted.** The WJQ form has none of the About-SFU /
+  territorial / equity blocks (HR-201), so asserting them would state something untrue
+  about the document. ``applies_to`` (Phase B) withholds all four rules from the WJQ.
 * **``employee_group`` is fixed to ``cupe``**, not asked. It is what makes the draft a
   WJQ document to ``template_of`` — and therefore what makes the validator judge it by
-  the WJQ rules (Phase B) and numbers (Phase C) with no other wiring. Letting an author
-  set it would let them silently change which bar their own draft is scored against.
+  the WJQ rules (Phase B) and numbers (Phase C). Letting an author set it would let
+  them silently change which bar their own draft is scored against.
+
+**J2: the form's STRUCTURE goes on ``wjq_form``** (:class:`~src.jd_core.models.
+parsed_jd.WJQForm`) — minor functions, ticked levels, table rows, certification,
+years, equivalency, requirements, the author's identification fields. Minor functions
+stay OUT of ``duties`` (which the validator, rewrite and merge read, and which holds
+twelve), so nothing has to be merged and cut to fit: the old silent "majors + minors,
+truncated at twelve" is replaced by ``cupe_form.function_limits`` (HR-246), which
+REFUSES — with the count, the limit and the id — rather than drops.
+
+Every closed choice (frequency, level, duration, helper …) is checked against
+``cupe_form.yaml`` here, and an answer outside it raises :class:`ValueError` naming the
+register entry — which every Builder handler renders as the page's error, with the
+author's rows still on it.
 
 Nothing here approves or publishes (NN #1); the output is an explicit draft.
 """
 
 from __future__ import annotations
 
-from src.jd_bank.composer.answers import DutyAnswer, ModifiedQual
-from src.jd_bank.composer.wjq_answers import WJQ_CONTEXT_TARGETS, WJQAnswers
+from collections.abc import Iterable, Sequence
+
+from src.jd_bank.composer.wjq_answers import (
+    WJQ_CONTEXT_TARGETS,
+    WJQ_LEVEL_TARGETS,
+    ContactAnswer,
+    EffortAnswer,
+    ExposureAnswer,
+    FunctionAnswer,
+    LocationAnswer,
+    MinorFunctionAnswer,
+    SkillAnswer,
+    WJQAnswers,
+    fold_legacy_quals,
+    split_helper,
+)
 from src.jd_core.models.parsed_jd import (
-    JobClassification,
-    QualificationKind,
     SFUDuty,
     SFUJobDescription,
     SFUQualification,
     SFURelationships,
+    WJQForm,
+    WJQRow,
 )
 from src.jd_core.models.quality import WJQ_EMPLOYEE_GROUP
-from src.jd_core.parser.segmenter import _MAX_DUTIES
-from src.jd_core.rules import Rules, WjqSection, get_rules
+from src.jd_core.rules import CupeForm, Rules, WjqSection, get_rules
 
 __all__ = ["assemble_wjq_jd", "wjq_answers_from_jd"]
 
@@ -61,35 +81,107 @@ _CONTEXT_MAX: int = next(
     if getattr(meta, "max_length", None) is not None
 )
 
-#: The model's own duty ceiling. Imported from the PARSER rather than restated, because
-#: this assembler's whole contract is "produce what the parser would produce": a real
-#: CUPE questionnaire with more than twelve functions is truncated there
-#: (``parser/wjq._structure_duties``, majors first), so an authored one must be too. If
-#: that cap ever moves, both sides move together or the round trip stops holding.
-_MAX_DUTIES_TOTAL: int = _MAX_DUTIES
+#: A qualification line's ceiling, read off the model.
+_QUAL_MAX: int = next(
+    int(meta.max_length)
+    for meta in SFUQualification.model_fields["text"].metadata
+    if getattr(meta, "max_length", None) is not None
+)
+
+#: The human name of each limited section, for the message the author reads.
+_SECTION_NAMES = {
+    "major_functions": "3 · Major Functions",
+    "minor_functions": "4 · Minor Functions",
+}
 
 
-def _duty(answer: DutyAnswer) -> SFUDuty:
-    """One authored function. Allocation is rendered as ``(NN%)`` exactly as the JDFN
-    assembler does — ``SFU-GATE-DUTY-PCT`` reads that form, and although the gate is
-    withheld from the WJQ today (Phase B), writing the number in a shape the validator
-    would not recognise would be a trap for whoever un-withholds it."""
+def _duty(
+    answer: FunctionAnswer | MinorFunctionAnswer, frequency: str | None
+) -> SFUDuty:
+    """One authored function. A pre-J2 %-allocation is still rendered as ``(NN%)``
+    exactly as the JDFN assembler does — never dropped — but J2 no longer asks for one
+    (HR's form asks how OFTEN, which is ``frequency``)."""
     statement = answer.statement.strip()
     if answer.allocation is not None:
         statement = f"{statement} ({answer.allocation}%)"
-    return SFUDuty(action_verb=answer.action_verb.strip(), statement=statement)
+    return SFUDuty(
+        action_verb=answer.action_verb.strip(), statement=statement, frequency=frequency
+    )
 
 
-def _modified(qual: ModifiedQual, kind: QualificationKind) -> SFUQualification:
-    modifier = (qual.modifier or "").strip() or None
-    return SFUQualification(text=qual.text.strip(), kind=kind, modifier=modifier)
+def _check_limits(answers: WJQAnswers, form: CupeForm) -> None:
+    """HR-246: over a limit, REFUSE with the numbers — never cut (the J2 fix)."""
+    for section in ("major_functions", "minor_functions"):
+        count = len(getattr(answers, section))
+        limit = form.function_limits[section]
+        if count > limit:
+            raise ValueError(
+                f"{_SECTION_NAMES[section]} lists {count} functions; the Builder takes "
+                f"at most {limit} (cupe_form.function_limits, HR-246). Nothing was "
+                "removed — combine or delete "
+                f"{count - limit} of them, then check again."
+            )
 
 
-def _qualifications(answers: WJQAnswers) -> list[SFUQualification]:
-    """Education -> Experience -> Knowledge -> Skills -> Abilities, the Toolkit's KSA
-    order. Kept even though ``SFU-APPROVE-KSA-ORDER`` is JDFN-only: the order is how a
-    reader expects to find them, and emitting them in answer-arrival order instead would
-    make an authored CUPE JD read differently from a parsed one for no reason."""
+def _checked(
+    value: str | None, allowed: Sequence[str], what: str, entry: str
+) -> str | None:
+    """``value`` if it is one of ``allowed`` (or blank), else a refusal naming the
+    register entry — a crafted post must not store a value the form does not have."""
+    text = (value or "").strip() or None
+    if text is not None and text not in allowed:
+        raise ValueError(
+            f"{what} {text!r} is not on HR's scale ({', '.join(allowed)}; {entry})"
+        )
+    return text
+
+
+def _levels(answers: WJQAnswers, form: CupeForm) -> dict[str, list[str]]:
+    """Each checkbox section's ticked letters, checked against HR's options."""
+    out: dict[str, list[str]] = {}
+    for section, target in WJQ_LEVEL_TARGETS.items():
+        letters = list(dict.fromkeys(getattr(answers, target)))  # de-dup, keep order
+        known = form.level_letters(section)  # type: ignore[arg-type]
+        unknown = [x for x in letters if x not in known]
+        if unknown:
+            raise ValueError(
+                f"section {section!r} has no level {unknown[0]!r} on HR's form "
+                f"(levels {', '.join(known)})"
+            )
+        if section in form.single_choice_sections and len(letters) > 1:
+            raise ValueError(
+                f'HR\'s form takes one level only for {section!r} ("Check one box"); '
+                f"{len(letters)} were ticked"
+            )
+        out[section] = sorted(letters)
+    return out
+
+
+def _skill_text(skill: SkillAnswer, form: CupeForm) -> str:
+    """An Occupational Skills line: the lead phrase (HR-251) joined to the text."""
+    text = skill.text.strip()
+    helper = _checked(
+        skill.helper,
+        tuple(form.occupational_skills_helpers.values()),
+        "Occupational Skills lead phrase",
+        "cupe_form.occupational_skills_helpers, HR-251",
+    )
+    if helper is None or text.lower().startswith(f"{helper.lower()} "):
+        return text
+    joined = f"{helper} {text}"
+    if len(joined) > _QUAL_MAX:
+        raise ValueError(
+            f"the Occupational Skills line {text[:40]!r}… is too long once "
+            f"{helper!r} is added ({len(joined)} of {_QUAL_MAX} characters) — shorten "
+            "it or leave the lead phrase blank"
+        )
+    return joined
+
+
+def _qualifications(answers: WJQAnswers, form: CupeForm) -> list[SFUQualification]:
+    """Education -> Experience -> Occupational Skills, HR's section 13 order. Every
+    Occupational Skills line is ``skill`` (Q9, option C — one list); requirements and
+    certification live on ``wjq_form``, not here."""
     quals: list[SFUQualification] = []
     quals += [
         SFUQualification(text=t.strip(), kind="education")
@@ -101,44 +193,111 @@ def _qualifications(answers: WJQAnswers) -> list[SFUQualification]:
         for t in answers.experience
         if t.strip()
     ]
-    quals += [_modified(q, "knowledge") for q in answers.knowledge if q.text.strip()]
-    quals += [_modified(q, "skill") for q in answers.skills if q.text.strip()]
     quals += [
-        SFUQualification(text=t.strip(), kind="ability")
-        for t in answers.abilities
-        if t.strip()
+        SFUQualification(text=_skill_text(s, form), kind="skill")
+        for s in answers.occupational_skills
+        if s.text.strip()
     ]
     return quals
 
 
 def _relationships(answers: WJQAnswers) -> SFURelationships | None:
-    """The form's INTERNAL AND EXTERNAL CONTACTS section.
-
-    ``supervisory`` stays ``None`` and SFU's mandated Relationships header is NOT
-    inserted: the header exists to satisfy ``SFU-GATE-REL-HEADER``, which is one of the
-    seven rules Phase B withholds from the WJQ *because the form has no Relationships
-    section to head*. Writing the JDFN's header onto a CUPE contacts list would put
-    boilerplate from another form into a document that never asked for it.
-    """
-    internal = [c.strip() for c in answers.internal if c.strip()]
-    external = [c.strip() for c in answers.external if c.strip()]
+    """The form's INTERNAL AND EXTERNAL CONTACTS, as the relationships the validator and
+    search read. ``supervisory`` stays ``None`` and SFU's mandated Relationships header
+    is NOT inserted — the WJQ has no Relationships section to head (Phase B)."""
+    internal = [c.contact.strip() for c in answers.contacts if c.scope == "internal"]
+    external = [c.contact.strip() for c in answers.contacts if c.scope == "external"]
     if not (internal or external):
         return None
     return SFURelationships(supervisory=None, internal=internal, external=external)
 
 
-def _classification(answers: WJQAnswers) -> JobClassification | None:
-    """The author-entered CUPE grade. ``scheme`` is ``cupe`` — the WJQ's identification
-    block prints "Classification & Grade Approved", so unlike most JDFN roles the value
-    is on the form in front of the author rather than only in the HRIS."""
-    value = (answers.grade or "").strip()
-    if not value:
-        return None
-    return JobClassification(scheme=WJQ_EMPLOYEE_GROUP, value=value, source="entered")
+def _rows(
+    items: Iterable[tuple[str, str | None, str | None, str | None]], form: CupeForm
+) -> list[WJQRow]:
+    """``(item, duration, frequency, hours)`` table rows, each scale value checked."""
+    rows: list[WJQRow] = []
+    for item, duration, frequency, hours in items:
+        if not item.strip():
+            continue
+        rows.append(
+            WJQRow(
+                item=item.strip(),
+                duration=_checked(
+                    duration,
+                    form.table_durations,
+                    "duration",
+                    "cupe_form.table_durations, HR-248",
+                ),
+                frequency=_checked(
+                    frequency,
+                    form.table_frequencies,
+                    "frequency",
+                    "cupe_form.table_frequencies, HR-249",
+                ),
+                hours=(hours or "").strip() or None,
+            )
+        )
+    return rows
+
+
+def _wjq_form(answers: WJQAnswers, form: CupeForm) -> WJQForm:
+    rationale = (answers.equivalency_rationale or "").strip() or None
+    if (
+        answers.equivalency == "not_acceptable"
+        and rationale is None
+        and form.equivalency_rationale_required
+    ):
+        raise ValueError(
+            "the equivalency is marked NOT acceptable, so HR's form needs the reason "
+            '("…is not acceptable because: (please explain)"; HR-252)'
+        )
+    levels = _levels(answers, form)
+    return WJQForm(
+        current_classification=(answers.current_classification or "").strip() or None,
+        supervisor_title=(answers.supervisor_title or "").strip() or None,
+        date_completed=answers.date_completed,
+        completed_by=answers.completed_by,
+        minor_functions=[_duty(m, None) for m in answers.minor_functions],
+        level_of_independence=levels["level_of_independence"],
+        training_exercised=levels["training_exercised"],
+        direction_exercised=levels["direction_exercised"],
+        continuing_education=levels["continuing_education"],
+        contacts=_rows(
+            ((c.contact, c.duration, c.frequency, None) for c in answers.contacts), form
+        ),
+        effort=_rows(
+            ((e.effort, e.duration, e.frequency, None) for e in answers.effort_rows),
+            form,
+        ),
+        locations=_rows(
+            ((loc.location, None, None, loc.hours) for loc in answers.location_rows),
+            form,
+        ),
+        uncomfortable=_rows(
+            (
+                (x.condition, None, x.frequency, None)
+                for x in answers.uncomfortable_rows
+            ),
+            form,
+        ),
+        hazards=_rows(
+            ((x.condition, None, x.frequency, None) for x in answers.hazard_rows), form
+        ),
+        certification=[c.strip() for c in answers.certification if c.strip()],
+        experience_years=answers.experience_years,
+        equivalency_acceptable=(
+            None if answers.equivalency is None else answers.equivalency == "acceptable"
+        ),
+        equivalency_rationale=rationale,
+        occupational_requirements=[
+            r.strip() for r in answers.occupational_requirements if r.strip()
+        ],
+    )
 
 
 def _additional_context(answers: WJQAnswers, rules: Rules) -> str | None:
-    """The point-factor sections, each under the heading the PARSER matches.
+    """The point-factor sections' free text, each under the heading the PARSER matches.
 
     The heading text comes from ``wjq.section_headings`` — the first (canonical) variant
     of each — so this writes what ``parser/wjq.py`` reads. That is the round trip: an
@@ -155,7 +314,16 @@ def _additional_context(answers: WJQAnswers, rules: Rules) -> str | None:
         blocks.append(f"{heading}\n{body}")
     if not blocks:
         return None
-    return "\n\n".join(blocks)[:_CONTEXT_MAX]
+    context = "\n\n".join(blocks)
+    if len(context) > _CONTEXT_MAX:
+        # Was a silent `[:_CONTEXT_MAX]` slice — it cut the TAIL of the form (section
+        # 12 first). Refused visibly instead; nothing is dropped (J2).
+        raise ValueError(
+            f"sections 5-12 hold {len(context):,} characters together; a draft holds "
+            f"at most {_CONTEXT_MAX:,}. Nothing was removed — shorten a section, then "
+            "check again."
+        )
+    return context
 
 
 def assemble_wjq_jd(
@@ -164,24 +332,36 @@ def assemble_wjq_jd(
     """Turn WJQ guided-authoring answers into a CUPE draft.
 
     Pure and deterministic given ``rules`` (defaults to the shipped rulebook, like the
-    JDFN assembler), which is read only for the WJQ heading vocabulary.
+    JDFN assembler). Raises :class:`ValueError` — never truncates — when an answer is
+    outside ``cupe_form.yaml`` (a function limit, a frequency, a level, a scale value, a
+    lead phrase, or a "not acceptable" with no reason).
 
-    Major and minor functions both assemble into ``duties`` — that is where the parser
-    puts them and where the validator reads them from — **majors first, then truncated
-    at the model's twelve**, which is precisely what ``parser/wjq._structure_duties``
-    does to a real questionnaire that overflows. The two forms can together carry 24
-    answers against a 12-duty model, so something must give; matching the parser means
-    an authored CUPE JD and a parsed one drop the same functions in the same order,
-    rather than the Builder inventing a second truncation rule.
+    Major functions are ``duties`` (with their (D)/(W)/(M)/(S) frequency); minor
+    functions go on ``wjq_form`` and are NOT merged in — the split survives export and
+    clone, and nothing is cut to fit twelve.
     """
     rulebook = rules if rules is not None else get_rules()
-    duties = [_duty(d) for d in (*answers.major_functions, *answers.minor_functions)]
-    duties = duties[:_MAX_DUTIES_TOTAL]
+    form = rulebook.cupe_form
+    _check_limits(answers, form)
+    duties = [
+        _duty(
+            f,
+            _checked(
+                f.frequency,
+                form.function_frequencies,
+                "frequency",
+                "cupe_form.function_frequencies, HR-247",
+            ),
+        )
+        for f in answers.major_functions
+    ]
     return SFUJobDescription(
         title=answers.title.strip() or "Untitled role",
         department=(answers.department or "").strip() or None,
         position_number=(answers.position_number or "").strip() or None,
-        classification=_classification(answers),
+        # HR's "Classification & Grade Approved" is HR's box (HR-240): the Builder
+        # asserts no classification. The author's CURRENT one is on `wjq_form`.
+        classification=None,
         # Fixed, never asked — this is what makes it a WJQ document to `template_of`,
         # and therefore what selects the bar it is judged against.
         employee_group=WJQ_EMPLOYEE_GROUP,
@@ -191,10 +371,11 @@ def assemble_wjq_jd(
         decision_making=[],
         problem_solving=[],
         relationships=_relationships(answers),
-        qualifications=_qualifications(answers),
+        qualifications=_qualifications(answers, form),
         territorial_acknowledgement_present=False,
         employment_equity_present=False,
         additional_context=_additional_context(answers, rulebook),
+        wjq_form=_wjq_form(answers, form),
     )
 
 
@@ -215,16 +396,11 @@ def _split_context_blocks(context: str | None, rules: Rules) -> dict[WjqSection,
     is the one the assembler writes. A JD parsed from a real ``.doc`` may carry a
     different heading VARIANT, in which case its context arrives here as one unsplit
     block and lands in the first section — visible to the author, editable, and not
-    silently lost. Splitting a parsed document perfectly is the parser's job, not this
-    function's; the round trip this guarantees is Builder → JD → Builder.
+    silently lost.
 
-    🔴 **That last paragraph described an intention, not the code, until 2026-08-19**
-    (P0-2). The walk started with no current section and kept a line only once a
-    canonical heading had been seen, so anything BEFORE the first heading was dropped —
-    and a context with no recognised heading at all was dropped entirely. It is
-    reachable: ``template_of`` routes on ``employee_group == "cupe"`` alone, so a JDFN
-    document that merely mentions CUPE clones through here carrying ordinary prose. The
-    preamble now opens the first section, which is what the docstring always claimed.
+    🔴 Text BEFORE the first recognised heading opens the first section (P0-2,
+    2026-08-19): it used to be dropped, and a context with no recognised heading at all
+    was dropped entirely.
     """
     if not context:
         return {}
@@ -232,10 +408,6 @@ def _split_context_blocks(context: str | None, rules: Rules) -> dict[WjqSection,
     canonical = {headings[target][0]: target for target in WJQ_CONTEXT_TARGETS}
 
     blocks: dict[WjqSection, list[str]] = {}
-    # Text before any recognised heading belongs to the first section rather than to
-    # nowhere. Assigned as the starting section rather than buffered separately so the
-    # ordinary case — context that OPENS with that heading — is unchanged: the heading
-    # line re-selects the same target and `setdefault` keeps the (empty) list.
     current: WjqSection = WJQ_CONTEXT_TARGETS[0]
     for line in context.splitlines():
         stripped = line.strip()
@@ -251,48 +423,143 @@ def _split_context_blocks(context: str | None, rules: Rules) -> dict[WjqSection,
     }
 
 
+def _norm(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
+def _contacts_back(jd: SFUJobDescription) -> list[ContactAnswer]:
+    """The contacts as rows: WHICH contacts is ``relationships`` (a reviewer edits it);
+    each one's duration / frequency comes from ``wjq_form.contacts``, matched by text
+    (first unused match), so an edited contact keeps no stale duration."""
+    rel = jd.relationships
+    pool = list(jd.wjq_form.contacts) if jd.wjq_form is not None else []
+    out: list[ContactAnswer] = []
+    for scope, lines in (
+        ("internal", rel.internal if rel else []),
+        ("external", rel.external if rel else []),
+    ):
+        for line in lines:
+            if not line.strip():
+                continue
+            match = next((r for r in pool if _norm(r.item) == _norm(line)), None)
+            if match is not None:
+                pool.remove(match)
+            out.append(
+                ContactAnswer(
+                    contact=line.strip(),
+                    scope=scope,
+                    duration=match.duration if match else None,
+                    frequency=match.frequency if match else None,
+                )
+            )
+    return out
+
+
+def _skills_back(jd: SFUJobDescription, form: CupeForm) -> list[SkillAnswer]:
+    """Every knowledge / skill / ability line as the ONE Occupational Skills list (Q9,
+    option C — HR-251), in order. A J2 draft's lines are all ``skill`` and split back
+    into phrase + text; an older draft's K/A lines get the phrase for their kind."""
+    lines = [
+        (q.kind, q.text, q.modifier)
+        for q in jd.qualifications
+        if q.kind in {"knowledge", "skill", "ability"}
+    ]
+    if jd.wjq_form is not None:
+        phrases = tuple(form.occupational_skills_helpers.values())
+        out: list[SkillAnswer] = []
+        for kind, text, modifier in lines:
+            if kind != "skill" or modifier:
+                out += fold_legacy_quals(
+                    [(kind, text, modifier)], form.occupational_skills_helpers
+                )
+                continue
+            helper, rest = split_helper(text, phrases)
+            out.append(SkillAnswer(helper=helper, text=rest))
+        return out
+    return fold_legacy_quals(lines, form.occupational_skills_helpers)
+
+
 def wjq_answers_from_jd(
     jd: SFUJobDescription, *, rules: Rules | None = None
 ) -> WJQAnswers:
-    """A CUPE JD as WJQ guided-authoring answers — the clone transform (Phase E).
+    """A CUPE JD as WJQ guided-authoring answers — the clone transform.
 
-    ⚠ **Every duty comes back as a MAJOR function.** The WJQ's major/minor split is a
-    property of the FORM, and the assembler — like the parser — merges both into one
-    ``duties`` list, so by the time a JD exists the distinction is gone. Guessing a
-    split (say, by position) would put the author's minor functions somewhere they did
-    not choose; putting them all in the majors keeps every duty, in order, where the
-    author can move any of them down. **Nothing is dropped, and nothing is invented.**
+    For a draft authored on the J2 Builder (``wjq_form`` present) this is the exact
+    inverse of :func:`assemble_wjq_jd`: the split, the frequencies, the ticks, the rows,
+    the qualifications and the identification fields all come back.
 
-    ``security`` qualifications have no Builder field and are dropped, matching the
-    JDFN clone transform's own documented limitation.
+    For a role parsed from the archive, or a draft written before J2 (no ``wjq_form``):
+    every duty comes back as a MAJOR function with its frequency — the parser merged
+    sections 3 and 4, and guessing a split would put the author's minor functions
+    somewhere they did not choose; knowledge / skill / ability fold into the one
+    Occupational Skills list (HR-251). **Nothing is dropped, and nothing is invented.**
+
+    Not carried over, by design: the role's grade (a harmonized role's grade is a
+    cluster-level value, not this position's current classification — HR-240), and
+    ``security`` lines (no Builder field — the JDFN clone's documented limitation).
     """
     rulebook = rules if rules is not None else get_rules()
-    rel = jd.relationships
+    form = rulebook.cupe_form
     context = _split_context_blocks(jd.additional_context, rulebook)
+    extra = jd.wjq_form
+    levels = (
+        {
+            target: list(getattr(extra, section))
+            for section, target in WJQ_LEVEL_TARGETS.items()
+        }
+        if extra is not None
+        else {}
+    )
     return WJQAnswers(
         title=jd.title,
         department=jd.department,
         position_number=jd.position_number,
-        grade=jd.classification.value if jd.classification is not None else None,
+        current_classification=extra.current_classification if extra else None,
+        supervisor_title=extra.supervisor_title if extra else None,
+        date_completed=extra.date_completed if extra else None,
+        completed_by=extra.completed_by if extra else None,
         position_summary=jd.position_summary,
         major_functions=[
-            DutyAnswer(action_verb=d.action_verb, statement=d.statement)
+            FunctionAnswer(
+                action_verb=d.action_verb, statement=d.statement, frequency=d.frequency
+            )
             for d in jd.duties
         ],
-        internal=list(rel.internal) if rel is not None else [],
-        external=list(rel.external) if rel is not None else [],
+        minor_functions=[
+            MinorFunctionAnswer(action_verb=d.action_verb, statement=d.statement)
+            for d in (extra.minor_functions if extra else [])
+        ],
+        contacts=_contacts_back(jd),
+        effort_rows=[
+            EffortAnswer(effort=r.item, duration=r.duration, frequency=r.frequency)
+            for r in (extra.effort if extra else [])
+        ],
+        location_rows=[
+            LocationAnswer(location=r.item, hours=r.hours)
+            for r in (extra.locations if extra else [])
+        ],
+        uncomfortable_rows=[
+            ExposureAnswer(condition=r.item, frequency=r.frequency)
+            for r in (extra.uncomfortable if extra else [])
+        ],
+        hazard_rows=[
+            ExposureAnswer(condition=r.item, frequency=r.frequency)
+            for r in (extra.hazards if extra else [])
+        ],
         education=[q.text for q in jd.qualifications if q.kind == "education"],
+        certification=list(extra.certification) if extra else [],
+        experience_years=extra.experience_years if extra else None,
         experience=[q.text for q in jd.qualifications if q.kind == "experience"],
-        knowledge=[
-            ModifiedQual(text=q.text, modifier=q.modifier)
-            for q in jd.qualifications
-            if q.kind == "knowledge"
-        ],
-        skills=[
-            ModifiedQual(text=q.text, modifier=q.modifier)
-            for q in jd.qualifications
-            if q.kind == "skill"
-        ],
-        abilities=[q.text for q in jd.qualifications if q.kind == "ability"],
+        equivalency=(
+            None
+            if extra is None or extra.equivalency_acceptable is None
+            else ("acceptable" if extra.equivalency_acceptable else "not_acceptable")
+        ),
+        equivalency_rationale=extra.equivalency_rationale if extra else None,
+        occupational_skills=_skills_back(jd, form),
+        occupational_requirements=(
+            list(extra.occupational_requirements) if extra else []
+        ),
+        **levels,
         **context,
     )
