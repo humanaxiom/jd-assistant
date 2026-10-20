@@ -69,7 +69,12 @@ from src.jd_core.models.bank import (
     TitleFamily,
     TitleFunction,
 )
-from src.jd_core.models.parsed_jd import QualificationKind, SFUEmployeeGroup
+from src.jd_core.models.parsed_jd import (
+    QualificationKind,
+    SFUDuty,
+    SFUEmployeeGroup,
+    SFUJobDescription,
+)
 from src.jd_core.models.quality import (
     DEFAULT_TEMPLATE,
     JDGrade,
@@ -686,6 +691,16 @@ class TextNorm(_RuleFile):
     collapse_across_paragraph_break: bool
 
 
+def _field_max_length(model: type[BaseModel], field_name: str) -> int:
+    """The ``max_length`` a pydantic field declares — read off the model, never
+    restated, so a rulebook cap and the contract it must fit cannot drift apart."""
+    for meta in model.model_fields[field_name].metadata:
+        limit = getattr(meta, "max_length", None)
+        if limit is not None:
+            return int(limit)
+    raise LookupError(f"{model.__name__}.{field_name} declares no max_length")
+
+
 class Segmentation(_RuleFile):
     """How the archive baseline SEGMENTS the corpus (``segmentation.yaml``).
 
@@ -792,6 +807,36 @@ class Segmentation(_RuleFile):
     #: a document over the cap would raise a ValidationError instead of being trimmed
     #: (pinned by ``test_wjq_context_not_truncated.py``).
     additional_context_max_chars: int = Field(gt=0)
+
+    #: Parser v9 (HR-261 … HR-263). How many characters of ONE duty statement the parser
+    #: keeps — was the code constant 400, unregistered, and 25,095 of 96,784 stored
+    #: statements sat exactly at it — and how many duties it keeps per document, per
+    #: template (was 12 for both: the WJQ form's 12 major + 12 minor slots lost every
+    #: minor function past the twelfth). Not presentation: each decides how much of a
+    #: source document the Bank retains. Each must stay ``<=`` the model's own ceiling
+    #: (checked below), or an over-cap document becomes a parse FAILURE, not a trim.
+    duty_statement_max_chars: int = Field(gt=0)
+    duty_max_count: int = Field(gt=0)
+    wjq_duty_max_count: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def _the_duty_caps_fit_the_model(self) -> Segmentation:
+        """A cap above the contract ceiling turns a lossy parse into a ValidationError
+        — every long document would fail to parse at all. Refuse at load instead."""
+        stmt_ceiling = _field_max_length(SFUDuty, "statement")
+        count_ceiling = _field_max_length(SFUJobDescription, "duties")
+        if self.duty_statement_max_chars > stmt_ceiling:
+            raise ValueError(
+                f"duty_statement_max_chars ({self.duty_statement_max_chars}) exceeds "
+                f"SFUDuty.statement's max_length ({stmt_ceiling})"
+            )
+        for name in ("duty_max_count", "wjq_duty_max_count"):
+            if getattr(self, name) > count_ceiling:
+                raise ValueError(
+                    f"{name} ({getattr(self, name)}) exceeds "
+                    f"SFUJobDescription.duties' max_length ({count_ceiling})"
+                )
+        return self
 
     @model_validator(mode="after")
     def _the_era_bands_are_ordered(self) -> Segmentation:

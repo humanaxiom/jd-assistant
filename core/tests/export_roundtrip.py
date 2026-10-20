@@ -37,13 +37,14 @@ from collections import Counter
 
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.parser.segmenter import _PERCENT_RE
-from src.jd_core.rules import Rules
+from src.jd_core.rules import Rules, get_rules
 
 _WORD = re.compile(r"[a-z0-9]+")
 
-#: The parser's own duty-statement ceiling (``segmenter._MAX_DUTY_STMT``) — a rendered
-#: duty longer than this is legitimately cut on re-read.
-_MAX_DUTY_STMT = 400
+#: The parser's own duty-statement ceiling — a rendered duty longer than this is
+#: legitimately cut on re-read. Rulebook data since parser v9 (HR-261); it was the
+#: code constant ``segmenter._MAX_DUTY_STMT = 400``.
+_MAX_DUTY_STMT = get_rules().segmentation.duty_statement_max_chars
 
 #: Which kind each original qualification kind reads back as, through the CUPE form.
 _CUPE_KIND_BACK = {

@@ -259,10 +259,12 @@ def test_a_cupe_draft_claims_no_boilerplate_and_no_hay_prose() -> None:
 
 
 def test_major_and_minor_functions_truncate_the_way_the_parser_truncates() -> None:
-    """The two function sections can carry 24 answers against a 12-duty model, so
-    something must give. ``parser/wjq._structure_duties`` takes majors first and stops
-    at twelve; matching it means an authored CUPE JD and a parsed one drop the same
-    functions, rather than the Builder inventing a second truncation rule."""
+    """``parser/wjq._structure_duties`` takes majors first and stops at
+    ``segmentation.wjq_duty_max_count``; matching it means an authored CUPE JD and a
+    parsed one keep the same functions, rather than the Builder inventing a second
+    truncation rule. Parser v9 raised that cap from a hardcoded twelve to hold the
+    form's 12 major + 12 minor slots, so 17 answers now survive whole, majors first —
+    under v8 the five minor functions were dropped here and on re-read alike."""
     answers = WJQAnswers(
         title="Clerk",
         major_functions=[
@@ -275,8 +277,20 @@ def test_major_and_minor_functions_truncate_the_way_the_parser_truncates() -> No
     )
     jd = assemble_wjq_jd(answers)
 
-    assert len(jd.duties) == 12
-    assert all("Major function" in d.statement for d in jd.duties)
+    assert len(jd.duties) == 17
+    assert all("Major function" in d.statement for d in jd.duties[:12])
+    assert all(d.statement == "Minor function" for d in jd.duties[12:])
+
+    from src.jd_core.rules import get_rules  # noqa: PLC0415
+
+    tight = get_rules().model_copy(
+        update={
+            "segmentation": get_rules().segmentation.model_copy(
+                update={"wjq_duty_max_count": 12}
+            )
+        }
+    )
+    assert len(assemble_wjq_jd(answers, rules=tight).duties) == 12
 
 
 def test_a_cupe_draft_is_judged_by_the_wjq_bar_with_no_further_wiring() -> None:

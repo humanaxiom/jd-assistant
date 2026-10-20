@@ -42,7 +42,9 @@ from src.jd_core.parser.headings import (
     POSITION_NO_LABEL_RX,
     TITLE_LABEL_RX,
     SectionKey,
+    match_heading,
 )
+from src.jd_core.parser.segmenter import _BULLET_RE as _SEGMENTER_BULLET_RE
 
 # antiword ships in the ingestion image (Dockerfile). Overridable for tests.
 ANTIWORD_BIN = "antiword"
@@ -114,15 +116,128 @@ def _decode(blob: bytes) -> str:
     return blob.decode("latin-1")
 
 
+#: The marker a Word LIST paragraph is emitted with (parser v9). A Word list carries its
+#: bullet or number as FORMATTING (``<w:numPr>``), not as a glyph in the text, so
+#: python-docx returns the bare words — and the segmenter, which starts a new item only
+#: on a bullet marker, appended every list item to the one before it. MEASURED
+#: 2026-10-19: 48.4% of JDFN ``.docx`` whose duties are a Word list parsed to ONE duty
+#: (then cut at 400 characters); typed-bullet files almost never did. Emitting the
+#: glyph the segmenter already reads (``_BULLET_RE`` / ``_WJQ_BULLET`` both accept
+#: ``•``) makes a Word list read exactly as the typed list it looks like on the page.
+#: Inert to Tier-2 near-dup: its tokenizer keeps ``[a-z0-9]+`` only (pinned by test).
+LIST_ITEM_MARKER = "• "
+
 _P = qn("w:p")
 _TBL = qn("w:tbl")
 _TR = qn("w:tr")
 _TC = qn("w:tc")
 _SDT = qn("w:sdt")
 _SDT_CONTENT = qn("w:sdtContent")
+_PPR = qn("w:pPr")
+_NUMPR = qn("w:numPr")
+_NUMID = qn("w:numId")
+_PSTYLE = qn("w:pStyle")
+_VAL = qn("w:val")
+_STYLE = qn("w:style")
+_STYLE_ID = qn("w:styleId")
+_BASED_ON = qn("w:basedOn")
+
+#: ``numId="0"`` is Word's explicit "no numbering" — it switches a numbered style off.
+_NO_NUMBERING = "0"
+
+#: A paragraph that ALREADY leads with a typed bullet or number gets no second marker.
+#: The segmenter's own bullet grammar, so "already marked" and "will split" agree.
+_ALREADY_MARKED = _SEGMENTER_BULLET_RE
 
 
-def _iter_docx_block_text(el: BaseOxmlElement) -> Iterator[str]:
+def _numbered_style_ids(doc: DocxDocument) -> frozenset[str]:
+    """The paragraph style ids whose definition (or a ``basedOn`` ancestor's) numbers
+    the paragraph — the older templates' shape, where nothing sits on the paragraph."""
+    by_id = {
+        style.get(_STYLE_ID): style
+        for style in doc.styles.element.findall(_STYLE)
+        if style.get(_STYLE_ID)
+    }
+
+    def numbered(style_id: str) -> bool:
+        seen: set[str] = set()
+        current: str | None = style_id
+        while current is not None and current not in seen:
+            seen.add(current)
+            style = by_id.get(current)
+            if style is None:
+                return False
+            ppr = style.find(_PPR)
+            numpr = ppr.find(_NUMPR) if ppr is not None else None
+            if numpr is not None:
+                numid = numpr.find(_NUMID)
+                if numid is not None:
+                    return bool(numid.get(_VAL) != _NO_NUMBERING)
+            based_on = style.find(_BASED_ON)
+            current = str(based_on.get(_VAL)) if based_on is not None else None
+        return False
+
+    return frozenset(sid for sid in by_id if numbered(sid))
+
+
+def _is_list_paragraph(p: BaseOxmlElement, numbered_styles: frozenset[str]) -> bool:
+    """True when Word renders ``p`` as a list item: a direct ``numPr`` naming a real
+    numbering (``numId`` != 0), or — when the paragraph names none — a numbered style.
+    A direct ``numId=0`` wins over the style, exactly as it does in Word."""
+    ppr = p.find(_PPR)
+    if ppr is None:
+        return False
+    numpr = ppr.find(_NUMPR)
+    if numpr is not None:
+        numid = numpr.find(_NUMID)
+        if numid is not None:
+            return bool(numid.get(_VAL) != _NO_NUMBERING)
+        # An `ilvl`-only numPr inherits its numbering from the style — fall through.
+    pstyle = ppr.find(_PSTYLE)
+    return pstyle is not None and str(pstyle.get(_VAL)) in numbered_styles
+
+
+def _is_structural_line(text: str) -> bool:
+    """A section heading (either template's vocabulary) or an identification label.
+
+    Outline-numbered headings are list paragraphs too, and both heading matchers read
+    the line from its first character — a marker in front would hide the heading and
+    silently merge two sections. The identification regexes are line-anchored for the
+    same reason."""
+    # Lazy for the same reason `ingest.detect_format` is imported lazily elsewhere: the
+    # parser package must stay import-cycle-free with this module.
+    from src.jd_core.parser.wjq import is_wjq_heading  # noqa: PLC0415
+    from src.jd_core.rules import get_rules  # noqa: PLC0415
+
+    if match_heading(text) is not None or is_wjq_heading(text, get_rules().wjq):
+        return True
+    return any(rx.search(text) for rx in _ID_LABEL_RXS)
+
+
+def _paragraph_line(p: BaseOxmlElement, numbered_styles: frozenset[str] | None) -> str:
+    """``p``'s text, led by :data:`LIST_ITEM_MARKER` when Word shows it as a list item
+    (never when ``numbered_styles`` is ``None`` — the unmarked, pre-v9 reading).
+
+    ``parent=None`` is safe here: `Paragraph.text` only reads ``self._p.text`` and
+    never touches ``parent`` (verified against the installed python-docx).
+    ``ProvidesStoryPart`` is a typing.Protocol python-docx uses for style/part lookups
+    this call path never takes, so the cast is a documented "runtime-safe, type-only"
+    gap rather than a blind ignore."""
+    text = Paragraph(p, cast(docx_types.ProvidesStoryPart, None)).text
+    if (
+        numbered_styles is not None
+        and text.strip()
+        and _is_list_paragraph(p, numbered_styles)
+        and not _ALREADY_MARKED.match(text)
+        and not _is_structural_line(text)
+    ):
+        return f"{LIST_ITEM_MARKER}{text.lstrip()}"
+    return text
+
+
+def _iter_docx_block_text(
+    el: BaseOxmlElement, numbered_styles: frozenset[str] | None = frozenset()
+) -> Iterator[str]:
     """Walk ``el``'s children in document order, yielding paragraph text.
 
     ``doc.paragraphs`` (python-docx's high-level API) returns only body-level
@@ -132,24 +247,23 @@ def _iter_docx_block_text(el: BaseOxmlElement) -> Iterator[str]:
     SDT-in-cell, table-in-SDT) are all covered. Elements this loop does not
     recognise (e.g. the trailing ``<w:sectPr>``) are silently skipped — they
     carry no paragraph text.
+
+    A Word LIST paragraph is led by :data:`LIST_ITEM_MARKER` (parser v9).
+    ``numbered_styles`` are the style ids that number a paragraph by inheritance
+    (:func:`_numbered_style_ids`); a direct ``numPr`` needs no lookup. ``None``
+    disables marking altogether (see :func:`_extract_docx` for when).
     """
     for child in el.iterchildren():
         if child.tag == _P:
-            # `parent=None` is safe here: `Paragraph.text` only reads
-            # `self._p.text` and never touches `parent` (verified against the
-            # installed python-docx). `ProvidesStoryPart` is a typing.Protocol
-            # python-docx uses for style/part lookups this call path never
-            # takes, so the cast is a documented "runtime-safe, type-only" gap
-            # rather than a blind ignore.
-            yield Paragraph(child, cast(docx_types.ProvidesStoryPart, None)).text
+            yield _paragraph_line(child, numbered_styles)
         elif child.tag == _TBL:
             for row in child.findall(_TR):
                 for cell in row.findall(_TC):
-                    yield from _iter_docx_block_text(cell)
+                    yield from _iter_docx_block_text(cell, numbered_styles)
         elif child.tag == _SDT:
             content = child.find(_SDT_CONTENT)
             if content is not None:
-                yield from _iter_docx_block_text(content)
+                yield from _iter_docx_block_text(content, numbered_styles)
 
 
 #: The heading the recovered header identification block is emitted under. Taken from
@@ -290,8 +404,30 @@ def _extract_docx(blob: bytes) -> str:
         doc = Document(BytesIO(blob))
     except Exception as exc:  # noqa: BLE001 — normalise any python-docx failure
         raise ExtractionError(f"docx parse failed: {exc}") from exc
-    body = "\n".join(t for t in _iter_docx_block_text(doc.element.body) if t)
     identification = _docx_identification_block(doc)
+    text = _join_docx(doc, identification, _numbered_style_ids(doc))
+    # 🔴 A CUPE/WJQ questionnaire keeps the UNMARKED (pre-v9) reading. The WJQ duty
+    # reader switches into "bulleted" mode as soon as ONE bullet appears and then treats
+    # every unbulleted line as a wrapped continuation — right for antiword's `.doc`
+    # output, wrong for a `.docx` that mixes list and plain paragraphs. MEASURED over
+    # the archive's 2,154 WJQ `.docx` with list paragraphs: markers gave MORE duties
+    # on 318 but FEWER on 183 — up to 37 -> 5, whole functions fused into one — and
+    # fewer duty words overall (1,678,349 vs 1,757,800). Net harm, so not shipped for
+    # this form; see docs/plans/PARSER-V9-LISTS-AND-CAPS.md (open question).
+    from src.jd_core.parser.wjq import is_wjq  # noqa: PLC0415
+    from src.jd_core.rules import get_rules  # noqa: PLC0415
+
+    if LIST_ITEM_MARKER in text and is_wjq(text, get_rules().wjq):
+        return _join_docx(doc, identification, None)
+    return text
+
+
+def _join_docx(
+    doc: DocxDocument, identification: str, numbered_styles: frozenset[str] | None
+) -> str:
+    body = "\n".join(
+        t for t in _iter_docx_block_text(doc.element.body, numbered_styles) if t
+    )
     if not identification:
         return body
     block = f"{IDENTIFICATION_MARKER}\n{identification}"

@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **239 decisions** (237 open · 2 ratified · 0 deferred) · 106 parameters explicitly exempted as trivial · 340 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **242 decisions** (240 open · 2 ratified · 0 deferred) · 106 parameters explicitly exempted as trivial · 343 parameters on the decision surface, all accounted for.
 
-**Of those 239, 86 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 151 are recorded for the same build check but are not yours to sign: 61 shape what a reviewer sees without deciding whether a job description passes, and 90 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 242, 86 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 154 are recorded for the same build check but are not yours to sign: 64 shape what a reviewer sees without deciding whether a job description passes, and 90 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -337,7 +337,7 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 - **Configured in:** `thresholds.yaml` → `thresholds.wjq.duties_max`
 - **Where the default came from:** we chose it
 - **Why it matters:** MEASURED over all 4,440 CUPE documents at `jd_segmenter_v4`: `SFU-STRUCT-DUTIES -TOO-MANY` fired on 82.3% of them against the JDFN's `duties_max: 5`, and the distribution says why — CUPE duty counts are BIMODAL, not averaging anything. 77.4% of CUPE JDs carry EXACTLY twelve duties and 16.2% carry zero; almost nothing sits in between, so the "9.7 average" an earlier version of this work quoted describes no actual document. Twelve is the number of duty slots the WJQ instrument provides, which makes this a property of the FORM rather than a judgement about CUPE job descriptions — the same category as `applies_to`. `SFUJobDescription.duties` is independently capped at 12, which is the identical fact recorded a third time. Marking a JD down for filling in the form it was given is the category error this whole phase exists to remove. ⚠ WHAT THIS DOES NOT SETTLE: whether twelve duties is *good practice* is a real question, and SFU may well hold that a role described in twelve separate duties needs consolidating — but that is an argument to put to CUPE about the WJQ FORM, not a defect to charge 3,436 existing job descriptions with.
-- **If it changes:** Moves `rules_version` (thresholds.yaml is hashed). Lowering it toward the JDFN's 5 re-applies the finding to ~82% of the CUPE cohort; raising it above 12 has no effect, because the parsed model cannot represent a thirteenth duty. Advisory either way — `SFU-STRUCT-DUTIES-TOO-MANY` is in no blocking set (`gates.yaml` omission (d)), so this costs score, never approval.
+- **If it changes:** Moves `rules_version` (thresholds.yaml is hashed). Lowering it toward the JDFN's 5 re-applies the finding to ~82% of the CUPE cohort. ⚠ Until parser v9, raising it above 12 had no effect because the parser kept at most twelve functions; since v9 (HR-263) a CUPE source keeps all its functions (measured p50 24, max 92), so this value now DOES bite on re-parsed sources — though not on drafts, which the merge holds to 12 (HR-172). Advisory either way — `SFU-STRUCT-DUTIES-TOO-MANY` is in no blocking set (`gates.yaml` omission (d)), so this costs score, never approval.
 
 ##### HR-203 — What is the minimum number of major responsibilities for a CUPE (WJQ) job description? Held at the JDFN's 3 (HR-021).
 
@@ -921,6 +921,9 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-224](#hr-224) | A title often names the role and then whose office it sits in — "Executive Assistant to the Vice-President". Where does the ROLE stop and its CONTEXT begin? | ` to `, ` office of ` | we chose it |
 | [HR-239](#hr-239) | Where on the CUPE form does the export print the parts of a draft that the form has no field of its own for? | *6 entries — see below* | we chose it |
 | [HR-240](#hr-240) | Should the CUPE export ever print a classification or grade — in HR's "FOR USE BY HUMAN RESOURCES" box, or as the "Current Position Classification"? | `Classification & Grade Approved:`, `Effective Date:`, `Approved by:`, `Next Review:` | we chose it |
+| [HR-261](#hr-261) | How many characters of ONE duty statement does the parser keep when it reads an archive job description? Anything longer is cut off. | `1200` | we chose it |
+| [HR-262](#hr-262) | How many duties does the parser keep from one APSA/APEX/POLY (or unrecognised) archive job description? Duties past this number are dropped. | `120` | we chose it |
+| [HR-263](#hr-263) | How many functions does the parser keep from one CUPE questionnaire (major functions first, then minor)? Functions past this number are dropped. | `120` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -1243,6 +1246,30 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** we chose it
 - **Why it matters:** The export prints HR's box with these four labels and ALWAYS leaves their values blank, and does not print the draft's grade anywhere else either. The box is "FOR USE BY HUMAN RESOURCES" (S13; the CUPE writing guide: "a staff member of the human resources department will indicate approval"); pre-filling it would assert an HR approval that has not happened (non-negotiable #1). The draft's grade is not a safe "Current Position Classification" either: for a role harmonized from many archive files it is a cluster-level value, and the Builder currently asks the AUTHOR for "the approved classification and grade" — the inversion the gap analysis flags (§2a item 1h). Consequence, stated plainly: an exported CUPE draft re-ingested by the Bank comes back with no grade. J2 adds a proper "current classification" field.
 - **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. Printing a grade into HR's box is a non-negotiable-#1 question, not a formatting one — it needs HR's ruling, not a config edit. Pinned by `test_the_hr_box_and_the_sign_off_lines_are_blank`.
+
+##### HR-261 — How many characters of ONE duty statement does the parser keep when it reads an archive job description? Anything longer is cut off.
+
+- **We ship:** `1200`
+- **Configured in:** `segmentation.yaml` → `segmentation.duty_statement_max_chars`
+- **Where the default came from:** we chose it
+- **Why it matters:** It was 400, a code constant nobody registered, inherited with the data model. MEASURED at parser v8 over all 14,522 parsed documents: 25,095 of 96,784 duty statements (26%) sat at EXACTLY 400 characters — APSA 47%, APEX 50%, CUPE 15%, ungrouped 29% — and every one of the 4,068 one-duty non-CUPE parses was at the cap. Most of that was a second defect (Word list items fused into one run-on, fixed in the same parser bump); with lists read as items, MEASURED on a copy of the Bank re-parsed at v9 with the cap lifted to 4,000, real duty statements run p50 130 · p90 245 · p99 618 characters on the APSA/APEX form and p50 179 · p90 400 · p99 754 on the CUPE form. 1,200 is about 1.6x the CUPE p99. ABOVE it the population is a different thing — roughly one statement per document, a whole duty section with no bullets that the parser cannot split (the older questionnaire's instruction text plus every duty, in one paragraph). At 1,200, 4,498 statements in 3,381 documents are still cut: that is the residual run-on defect, recorded in docs/plans/PARSER-V9-LISTS-AND-CAPS.md, and no cap value fixes it — a bigger cap only stores a longer run-on. Filed `hr_informed`: this is fidelity, not policy, but HR should know a quarter of stored duty text was being cut.
+- **If it changes:** Does NOT move `rules_version` (segmentation.yaml is unhashed) but moves `Segmentation.stamp`, and changes what a parsed JD CONTAINS — so it requires a `PARSER_VERSION` bump and a full archive re-parse shipped together (#101 precedent), then `make embed` (the document/duty vectors change) and a producer pass for the drafts whose sources changed. Must stay at or below `SFUDuty.statement`'s `max_length` (4,000) — the loader refuses a larger value, because over the ceiling a long duty is a parse FAILURE, not a trim. Shared by the APSA/APEX/POLY and CUPE readers. Pinned by `test_parser_v9_lists_and_caps.py`.
+
+##### HR-262 — How many duties does the parser keep from one APSA/APEX/POLY (or unrecognised) archive job description? Duties past this number are dropped.
+
+- **We ship:** `120`
+- **Configured in:** `segmentation.yaml` → `segmentation.duty_max_count`
+- **Where the default came from:** we chose it
+- **Why it matters:** It was 12, a code constant shared with the CUPE reader. Once Word list items are read as items (parser v9), SFU's "ACTION VERB ... by:" duty shape yields one item per sub-bullet, and MEASURED on a v9 re-parse of a copy of the Bank with the cap lifted to 150, APSA/APEX/POLY documents carry p50 20 · p90 34 · p99 46 duties, max 82 (ungrouped documents max 93). At 12, 9,813 documents would have been cut. 120 is ~30% over the measured corpus maximum (93), the same headroom rule HR-200 uses, and cuts NO document today. This is what a PARSED SOURCE may carry, not what a draft may: a canonical draft is still held to `harmonization.max_duties` (HR-172), and the validator still marks a JDFN JD down above `thresholds.duties_max` (HR-022) — neither is changed here. Whether a source with 30 sub-bullets should be grouped back into "major duty + how/why" (the template's own shape, and the model's unused `how_why` field) is an open engineering question in the plan.
+- **If it changes:** Same as HR-261: unhashed, moves `Segmentation.stamp`, needs a `PARSER_VERSION` bump + full re-parse + `make embed`. Must stay at or below `SFUJobDescription.duties`' `max_length` (150; loader-enforced). Lowering it below the corpus maximum silently drops the TAIL of long duty lists — the defect this entry exists to stop.
+
+##### HR-263 — How many functions does the parser keep from one CUPE questionnaire (major functions first, then minor)? Functions past this number are dropped.
+
+- **We ship:** `120`
+- **Configured in:** `segmentation.yaml` → `segmentation.wjq_duty_max_count`
+- **Where the default came from:** we chose it
+- **Why it matters:** It was 12, majors first — so every minor function of a full questionnaire was lost, and the "77.4% of CUPE JDs carry exactly twelve duties" that HR-202 cites was this cap, not the documents. HR's own Dec-2024 CUPE sample carries 14 functions, and the Builder now writes up to 24 (12 major + 12 minor, HR-246). MEASURED on a v9 re-parse of a copy of the Bank with the cap lifted to 150: CUPE documents carry p50 24 · p90 42 · p99 63 functions, max 92 (continuation pages of the form; read and confirmed on the 103-function maximum of an earlier run). 120 is ~30% over the measured maximum and cuts no document today.
+- **If it changes:** Same as HR-261/262. Also read by the CUPE Builder's assembler (`composer/wjq_assemble.py`) so an authored and a parsed CUPE JD keep the same functions. ⚠ Interacts with HR-202: `thresholds.wjq.duties_max` is 12 (advisory, not blocking), so a re-parsed CUPE source with more than 12 functions now draws `SFU-STRUCT-DUTIES-TOO-MANY` where at v8 the cap made that impossible (HR-202's impact text is updated to say so).
 
 #### An earlier version of this tool chose it — also unratified
 

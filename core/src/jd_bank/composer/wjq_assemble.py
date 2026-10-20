@@ -46,7 +46,6 @@ from src.jd_core.models.parsed_jd import (
     SFURelationships,
 )
 from src.jd_core.models.quality import WJQ_EMPLOYEE_GROUP
-from src.jd_core.parser.segmenter import _MAX_DUTIES
 from src.jd_core.rules import Rules, WjqSection, get_rules
 
 __all__ = ["assemble_wjq_jd", "wjq_answers_from_jd"]
@@ -60,13 +59,6 @@ _CONTEXT_MAX: int = next(
     for meta in SFUJobDescription.model_fields["additional_context"].metadata
     if getattr(meta, "max_length", None) is not None
 )
-
-#: The model's own duty ceiling. Imported from the PARSER rather than restated, because
-#: this assembler's whole contract is "produce what the parser would produce": a real
-#: CUPE questionnaire with more than twelve functions is truncated there
-#: (``parser/wjq._structure_duties``, majors first), so an authored one must be too. If
-#: that cap ever moves, both sides move together or the round trip stops holding.
-_MAX_DUTIES_TOTAL: int = _MAX_DUTIES
 
 
 def _duty(answer: DutyAnswer) -> SFUDuty:
@@ -164,19 +156,20 @@ def assemble_wjq_jd(
     """Turn WJQ guided-authoring answers into a CUPE draft.
 
     Pure and deterministic given ``rules`` (defaults to the shipped rulebook, like the
-    JDFN assembler), which is read only for the WJQ heading vocabulary.
+    JDFN assembler), which is read for the WJQ heading vocabulary and the duty cap.
 
     Major and minor functions both assemble into ``duties`` — that is where the parser
     puts them and where the validator reads them from — **majors first, then truncated
-    at the model's twelve**, which is precisely what ``parser/wjq._structure_duties``
-    does to a real questionnaire that overflows. The two forms can together carry 24
-    answers against a 12-duty model, so something must give; matching the parser means
-    an authored CUPE JD and a parsed one drop the same functions in the same order,
-    rather than the Builder inventing a second truncation rule.
+    at ``segmentation.wjq_duty_max_count``** (HR-263), which is precisely what
+    ``parser/wjq._structure_duties`` does to a real questionnaire that overflows.
+    Reading the parser's own knob — not restating it — is what keeps the round trip:
+    an authored CUPE JD and a parsed one keep the same functions in the same order.
+    (Parser v9 raised that cap from a hardcoded twelve, which dropped every minor
+    function of a full questionnaire on both sides.)
     """
     rulebook = rules if rules is not None else get_rules()
     duties = [_duty(d) for d in (*answers.major_functions, *answers.minor_functions)]
-    duties = duties[:_MAX_DUTIES_TOTAL]
+    duties = duties[: rulebook.segmentation.wjq_duty_max_count]
     return SFUJobDescription(
         title=answers.title.strip() or "Untitled role",
         department=(answers.department or "").strip() or None,

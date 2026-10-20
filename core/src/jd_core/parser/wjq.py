@@ -65,8 +65,6 @@ from src.jd_core.parser.headings import SectionKey
 from src.jd_core.parser.segmenter import (
     _FALLBACK_TITLE,
     _MAX_BULLET,
-    _MAX_DUTIES,
-    _MAX_DUTY_STMT,
     _MAX_QUAL,
     _MAX_QUALS,
     _MAX_SUMMARY,
@@ -210,6 +208,13 @@ def _match_heading(line: str, wjq: Wjq) -> WjqSection | None:
                 if rx.match(peeled) or rx.match(upper):
                     return section
     return None
+
+
+def is_wjq_heading(line: str, wjq: Wjq) -> bool:
+    """Public form of :func:`_match_heading` for the docx extractor, which must not
+    put a list marker in front of a WJQ heading (an outline-numbered ``3. MAJOR
+    FUNCTIONS`` is a Word list paragraph, and a marker would hide it — parser v9)."""
+    return _match_heading(line, wjq) is not None
 
 
 def _segment(text: str, wjq: Wjq) -> dict[WjqSection, str]:
@@ -458,6 +463,13 @@ def _strip_frequency(statement: str, wjq: Wjq) -> tuple[str, str | None]:
 
 
 def _structure_duties(major: str, minor: str, wjq: Wjq) -> list[SFUDuty]:
+    """Major then minor functions, each a duty. Both caps are rulebook data (parser v9):
+    ``segmentation.wjq_duty_max_count`` (HR-263) — it was a hardcoded 12, so the minor
+    functions of a full questionnaire (12 major + 12 minor slots) were dropped — and
+    ``segmentation.duty_statement_max_chars`` (HR-261), shared with the JDFN path."""
+    seg = get_rules().segmentation
+    max_count = seg.wjq_duty_max_count
+    max_chars = seg.duty_statement_max_chars
     duties: list[SFUDuty] = []
     for block in (major, minor):
         for statement, group_freq in _duty_items(block, wjq):
@@ -468,11 +480,11 @@ def _structure_duties(major: str, minor: str, wjq: Wjq) -> list[SFUDuty]:
             duties.append(
                 SFUDuty(
                     action_verb=_leading_verb(stmt),
-                    statement=stmt[:_MAX_DUTY_STMT],
+                    statement=stmt[:max_chars],
                     frequency=inline_freq or group_freq,
                 )
             )
-            if len(duties) >= _MAX_DUTIES:
+            if len(duties) >= max_count:
                 return duties
     return duties
 

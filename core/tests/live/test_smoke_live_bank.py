@@ -767,3 +767,57 @@ async def test_a_live_apsa_role_survives_export_and_reparse(session) -> None:  #
     assert losses == [], f"role {cid} lost fields on export -> re-parse: {losses}"
     for passage in rules.boilerplate.territorial_acknowledgement:
         assert passage in body, f"role {cid}: the APSA footer is missing"
+
+
+# ── Parser v9: Word lists and the duty caps (docs/plans/PARSER-V9-LISTS-AND-CAPS.md) ──
+#
+# Both read the CURRENT parse only, so they go red the moment the code is at v9 and the
+# Bank is not — which is exactly the "bump without re-parse" state they must catch.
+
+#: A real archive file whose duties are a Word list (`ListParagraph` + direct `numPr`).
+#: At v8 it parsed to ONE duty (cut at 400 characters); at v9, 19.
+_WORD_LIST_FILE = "/archive/20260702_00138566_JDFN_APSA_20260626.docx"
+
+
+async def test_a_word_list_archive_file_parses_to_separate_duties(session) -> None:  # type: ignore[no-untyped-def]
+    from src.jd_core.parser import PARSER_VERSION
+
+    n = (
+        await session.execute(
+            text(
+                "SELECT jsonb_array_length(p.parsed->'duties') FROM parsed_jds p "
+                "JOIN source_documents s ON s.id = p.source_document_id "
+                "WHERE s.storage_ref = :ref AND p.parser_version = :v"
+            ),
+            {"ref": _WORD_LIST_FILE, "v": PARSER_VERSION},
+        )
+    ).scalar_one_or_none()
+    assert n is not None, f"{_WORD_LIST_FILE} has no parse at {PARSER_VERSION}"
+    assert n > 5, f"{_WORD_LIST_FILE} parses to {n} duties — Word list items fused"
+
+
+async def test_no_current_parse_is_cut_at_the_old_400_char_cap(session) -> None:  # type: ignore[no-untyped-def]
+    """At v8, 25,095 of 96,784 duty statements (26%) sat at EXACTLY 400 characters —
+    the signature of a cut. A natural length of 400 is rare (0.06% at v9), so a share
+    above 1% means the Bank still holds a capped parse."""
+    from src.jd_core.parser import PARSER_VERSION
+    from src.jd_core.rules import get_rules
+
+    cap = get_rules().segmentation.duty_statement_max_chars
+    at_400, over_cap, total = (
+        await session.execute(
+            text(
+                "SELECT count(*) FILTER (WHERE length(e->>'statement') = 400), "
+                "count(*) FILTER (WHERE length(e->>'statement') > :cap), count(*) "
+                "FROM parsed_jds p, jsonb_array_elements(p.parsed->'duties') e "
+                "WHERE p.parser_version = :v"
+            ),
+            {"v": PARSER_VERSION, "cap": cap},
+        )
+    ).one()
+    assert total > 0, "no duty statements at the current parser version"
+    assert over_cap == 0, f"{over_cap} statements exceed the configured cap {cap}"
+    assert at_400 / total < 0.01, (
+        f"{at_400} of {total} duty statements sit at exactly 400 characters — "
+        "the Bank still holds the pre-v9 truncated parse"
+    )

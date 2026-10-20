@@ -93,7 +93,16 @@ from src.jd_core.parser.headings import Era, SectionKey
 #: was not missing from the documents; it was spelled POSSESSIVELY ("Department's
 #: Position Title") and `_extract_label` matches a cell exactly, so it matched nothing.
 #: 1,395 of those placeholders were already inside drafts.
-PARSER_VERSION = "jd_segmenter_v8"
+#: v9 = Word LIST paragraphs are items, and the duty caps are rulebook data. A Word
+#: list carries its bullet as formatting (`numPr`), so the extractor returned bare
+#: words and `_logical_lines` appended every item to the one before: 48.4% of JDFN
+#: `.docx` with a Word-list duty section parsed to ONE duty (600-file sample,
+#: 2026-10-19). The extractor now leads each list paragraph with `•`
+#: (`jd_bank.ingest.extract.LIST_ITEM_MARKER`). Same bump: the 400-char statement cap
+#: and the 12-duty cap (both templates) move to `segmentation.yaml` (HR-261 … HR-263).
+#: Measured v8 -> v9 on a copy of the live Bank:
+#: `docs/plans/PARSER-V9-LISTS-AND-CAPS.md`.
+PARSER_VERSION = "jd_segmenter_v9"
 
 #: Which SFU document template ``parse_jd`` read: the APSA/APEX/POLY "JDFN" form (the
 #: original segmenter), the CUPE/WJQ questionnaire, or neither recognisably.
@@ -101,14 +110,19 @@ Template = Literal["jdfn", "wjq", "unknown"]
 
 # Field length ceilings mirrored from the pydantic contract, applied defensively
 # so best-effort structuring never trips a validation error.
+#
+# v9: the DUTY caps are no longer here. The statement length (was 400) and the duty
+# count (was 12, both templates) are rulebook data — `segmentation.duty_statement_
+# max_chars` / `duty_max_count` / `wjq_duty_max_count` (HR-261 … HR-263) — under the
+# model's own, wider ceilings. MEASURED at v8: 25,095 of 96,784 duty statements sat at
+# EXACTLY 400 characters, and every WJQ questionnaire with minor functions past the
+# twelfth lost them.
 _MAX_TITLE = 200
 _MAX_SUMMARY = 4000
-_MAX_DUTY_STMT = 400
 _MAX_VERB = 60
 _MAX_QUAL = 400
 _MAX_BULLET = 400
 _MAX_SUPERVISORY = 600
-_MAX_DUTIES = 12
 _MAX_QUALS = 40
 _MAX_BULLETS = 20
 
@@ -125,6 +139,8 @@ _FALLBACK_TITLE = FALLBACK_TITLE
 
 _BULLET_RE = re.compile(r"^\s*(?:[-•*·▪‣◦]|\(?\d{1,2}[.)]|[ivx]{1,4}[.)])\s+", re.I)
 _PERCENT_RE = re.compile(r"\(\s*\d{1,3}\s*%\s*\)")
+#: The bullet glyph the docx extractor leads a Word list paragraph with (v9).
+_LIST_GLYPH_RE = re.compile(r"^•\s+")
 _REL_LABEL_RE = re.compile(
     r"(?i)^(?:internal connections?|external connections?|"
     r"supervision (?:received|exercised)|supervisory|primary working relationships)\b"
@@ -259,7 +275,10 @@ def _fallback_title(lines: list[str], heading_lines: set[int]) -> str:
             continue
         if _BANNER_RE.match(s) or _LABEL_LINE_RE.match(s):
             continue
-        return s[:_MAX_TITLE]
+        # v9: a Word list paragraph now arrives led by `•`. A fallback title is a
+        # guess either way, but a bullet glyph is never part of one — MEASURED on the
+        # v9 re-parse, 102 fallback titles gained a leading `• ` and nothing else.
+        return _LIST_GLYPH_RE.sub("", s, count=1)[:_MAX_TITLE]
     return _FALLBACK_TITLE
 
 
@@ -271,7 +290,12 @@ def _leading_verb(statement: str) -> str:
     return m.group(0)[:_MAX_VERB] if m else ""
 
 
-def _structure_duties(block: str) -> list[SFUDuty]:
+def _structure_duties(block: str, *, max_count: int, max_chars: int) -> list[SFUDuty]:
+    """One :class:`SFUDuty` per logical line (semicolon runs split). Both caps are
+    rulebook data since v9 — ``segmentation.duty_max_count`` (HR-262) and
+    ``segmentation.duty_statement_max_chars`` (HR-261) — where they were the code
+    constants 12 and 400, the second unregistered and silently cutting a quarter of
+    every duty statement in the Bank."""
     duties: list[SFUDuty] = []
     for item in _logical_lines(block):
         for part in _maybe_split_semicolons(item):
@@ -281,10 +305,10 @@ def _structure_duties(block: str) -> list[SFUDuty]:
             duties.append(
                 SFUDuty(
                     action_verb=_leading_verb(stmt),
-                    statement=stmt[:_MAX_DUTY_STMT],
+                    statement=stmt[:max_chars],
                 )
             )
-            if len(duties) >= _MAX_DUTIES:
+            if len(duties) >= max_count:
                 return duties
     return duties
 
@@ -372,17 +396,31 @@ def _structure_relationships(block: str) -> SFURelationships | None:
     supervisory: str | None = None
     internal: list[str] = []
     external: list[str] = []
+    #: Which connections list a BULLETED line under an "Internal/External
+    #: Connections" label belongs to (v9). Before v9 such a bullet was a logical line
+    #: of its own that matched no label and so fell into `supervisory` — which a Word
+    #: list made the common case: MEASURED on the v9 re-parse, 213 documents moved
+    #: their whole contact list into `supervisory`. An unbulleted continuation still
+    #: merges into the label's own line (`_logical_lines`), exactly as before.
+    current: list[str] | None = None
     for line in _logical_lines(block, starter=_REL_LABEL_RE):
         low = line.lower()
         if low.startswith("internal connection"):
+            current = internal
             value = _after_colon(line)
             if value:
                 internal.append(value[:_MAX_BULLET])
         elif low.startswith("external connection"):
+            current = external
             value = _after_colon(line)
             if value:
                 external.append(value[:_MAX_BULLET])
+        elif current is not None and not _REL_LABEL_RE.match(line):
+            value = _clean(line)
+            if value:
+                current.append(value[:_MAX_BULLET])
         else:
+            current = None
             piece = _clean(line)
             supervisory = piece if supervisory is None else f"{supervisory} {piece}"
     if supervisory is None and not internal and not external:
@@ -482,7 +520,12 @@ def parse_jd(text: str) -> ParseResult:
     # Body sections.
     summary_block = sections.get(SectionKey.POSITION_SUMMARY)
     position_summary = _clean(summary_block)[:_MAX_SUMMARY] if summary_block else None
-    duties = _structure_duties(sections.get(SectionKey.DUTIES, ""))
+    seg_rules = get_rules().segmentation
+    duties = _structure_duties(
+        sections.get(SectionKey.DUTIES, ""),
+        max_count=seg_rules.duty_max_count,
+        max_chars=seg_rules.duty_statement_max_chars,
+    )
     decision_making = _structure_bullets(sections.get(SectionKey.DECISION_MAKING, ""))
     problem_solving = _structure_bullets(sections.get(SectionKey.PROBLEM_SOLVING, ""))
     relationships = _structure_relationships(sections.get(SectionKey.RELATIONSHIPS, ""))

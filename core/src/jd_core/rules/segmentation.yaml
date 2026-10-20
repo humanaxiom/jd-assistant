@@ -249,3 +249,26 @@ evidence_max_chars: 160
 # malformed document becomes a database problem — and must remain <= that ceiling (pinned
 # by test).
 additional_context_max_chars: 16000
+
+# --- duty caps (parser v9, HR-261 … HR-263) ------------------------------------
+# ⚠ NOT presentation: each decides how much of a source document the Bank keeps. All
+# three were code constants (400 chars, 12 duties for BOTH forms) until parser v9; at v8,
+# 25,095 of 96,784 stored duty statements sat at exactly 400 characters and every CUPE
+# minor function past the twelfth was dropped.
+#
+# Chosen against a WHOLE-CORPUS re-parse (all 14,522 documents, on a throwaway copy of the
+# Bank, caps lifted to the model ceilings first — HR-200's lesson: a sample understates
+# the tail, and a cap lives in the tail):
+#   statement chars  APSA/APEX form p50 130 · p90 245 · p99 618
+#                    CUPE form      p50 179 · p90 400 · p99 754
+#                    above ~1,200 it is ~one whole-section run-on per document, which no
+#                    cap repairs (docs/plans/PARSER-V9-LISTS-AND-CAPS.md)
+#   duties/document  APSA/APEX/POLY p50 20 · p99 46 · max 82 (ungrouped max 93)
+#                    CUPE           p50 24 · p99 63 · max 92
+# Counts: 120 is ~30% over the measured maximum and cuts no document today.
+# Each must stay <= its model ceiling (SFUDuty.statement 4,000; duties 150) — the loader
+# refuses a larger value. Changing any of them changes what a parsed JD CONTAINS: bump
+# PARSER_VERSION and re-parse the archive in the same change.
+duty_statement_max_chars: 1200
+duty_max_count: 120
+wjq_duty_max_count: 120
