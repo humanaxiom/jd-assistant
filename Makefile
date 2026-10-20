@@ -110,6 +110,7 @@ smoke:            ## END-TO-END SMOKE against THIS checkout's Bank (live by defa
 # `gates-live`. Runs through the `rewrite` compose service (mirrors `embed` / `harmonize`);
 # self-skips per-test if the endpoint is unreachable.
 rewrite-golden:   ## Opt-in, LOCAL-ONLY live LLM rewrite golden (never in CI/gates)
+	$(BANK_GUARD)
 	docker compose run --rm rewrite
 	@echo "✅ rewrite golden complete"
 
@@ -118,6 +119,7 @@ rewrite-golden:   ## Opt-in, LOCAL-ONLY live LLM rewrite golden (never in CI/gat
 # guard as `gates-live` / `rewrite-golden`. Runs through the `quality` compose service;
 # self-skips per-test if the endpoint is unreachable.
 quality-golden:   ## Opt-in, LOCAL-ONLY live LLM quality-audit golden (never in CI/gates)
+	$(BANK_GUARD)
 	docker compose run --rm quality
 	@echo "✅ quality golden complete"
 
@@ -157,6 +159,7 @@ guide-check:      ## Fail if docs/operator-guide.html is stale vs the Markdown (
 # Deliberately NOT parallelised: it would trade determinism — what an audit trail is made
 # of — for time this batch job does not need.
 baseline:         ## Run the archive baseline (JD_ARCHIVE_PATH=<SFU JD archive>; BASELINE_ARGS="--sample 30")
+	$(BANK_GUARD)
 	docker compose run --rm -T baseline python -m src.jd_bank.baseline $(BASELINE_ARGS)
 	@echo "✅ baseline written to $(JD_BASELINE_OUT)"
 
@@ -165,6 +168,7 @@ baseline:         ## Run the archive baseline (JD_ARCHIVE_PATH=<SFU JD archive>;
 # than walking the archive a second time — HANDOFF: "do not hand-roll a second path".
 # Run `make baseline` first. Seconds, not minutes: no extraction, no parsing.
 dedup:            ## Tier-1 exact-duplicate report over the baseline's rows -> docs/dedup/
+	$(BANK_GUARD)
 	docker compose run --rm -T dedup python -m src.jd_bank.dedup $(DEDUP_ARGS)
 	@echo "✅ dedup report written to docs/dedup/summary.json"
 
@@ -177,6 +181,7 @@ dedup:            ## Tier-1 exact-duplicate report over the baseline's rows -> d
 #   make ingest JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs
 #   make ingest JD_ARCHIVE_PATH=... INGEST_ARGS="--limit 200"
 ingest:           ## Ingest + parse the archive into Postgres (needs `make migrate` first)
+	$(BANK_GUARD)
 	docker compose run --rm -T ingest python -m src.jd_bank.ingest --archive-root /archive $(INGEST_ARGS)
 
 # ── Embeddings (Phase 3.2b) ────────────────────────────────────────────────
@@ -187,10 +192,12 @@ ingest:           ## Ingest + parse the archive into Postgres (needs `make migra
 #   make embed
 #   make embed EMBED_ARGS="--limit 200"
 embed:            ## Embed parsed_jds into Neo4j's vector index (needs `make ingest` first)
+	$(BANK_GUARD)
 	docker compose run --rm -T embed python -m src.jd_bank.embeddings $(EMBED_ARGS)
 	@echo "✅ embeddings summary written to docs/embeddings/summary.json"
 
 embed-roles:      ## Embed HARMONIZED ROLES (canonical_jds) into Neo4j (needs `make migrate`)
+	$(BANK_GUARD)
 	docker compose run --rm -T embed-roles python scripts/embed_roles.py $(EMBED_ROLES_ARGS)
 	@echo "✅ role-embedding summary written to docs/embeddings/roles-summary.json"
 
@@ -204,6 +211,7 @@ embed-roles:      ## Embed HARMONIZED ROLES (canonical_jds) into Neo4j (needs `m
 #   make near-dup
 #   make near-dup NEARDUP_ARGS="--limit 200"
 near-dup:         ## Tier-2 near-duplicate dedup into dedup_edges (needs `make ingest` first)
+	$(BANK_GUARD)
 	docker compose run --rm -T near-dup python -m src.jd_bank.dedup.near $(NEARDUP_ARGS)
 	@echo "✅ near-dup summary written to docs/dedup/near-dup-summary.json"
 
@@ -216,6 +224,7 @@ near-dup:         ## Tier-2 near-duplicate dedup into dedup_edges (needs `make i
 #   make dedup-role
 #   make dedup-role DEDUPROLE_ARGS="--limit 200"
 dedup-role:       ## Tier-3 role-equivalence dedup into dedup_edges (needs ingest + embed first)
+	$(BANK_GUARD)
 	docker compose run --rm -T dedup-role python -m src.jd_bank.dedup.role $(DEDUPROLE_ARGS)
 	@echo "✅ role-equiv summary written to docs/dedup/role-equiv-summary.json"
 
@@ -229,6 +238,7 @@ dedup-role:       ## Tier-3 role-equivalence dedup into dedup_edges (needs inges
 #   make cluster
 #   make cluster CLUSTER_ARGS="--limit 500"
 cluster:          ## Phase-3.5 role clustering report over dedup_edges (needs ingest + near-dup + dedup-role)
+	$(BANK_GUARD)
 	docker compose run --rm -T cluster python -m src.jd_bank.cluster $(CLUSTER_ARGS)
 	@echo "✅ cluster report written to docs/cluster/cluster-summary.json"
 
@@ -243,6 +253,7 @@ cluster:          ## Phase-3.5 role clustering report over dedup_edges (needs in
 #   make harmonize-measure
 #   make harmonize-measure HARMONIZE_ARGS="--limit 2000"
 harmonize-measure:  ## Drive merge_cluster over real JDFN clusters; measure the 9 knobs (needs ingest + cluster deps)
+	$(BANK_GUARD)
 	docker compose run --rm -T harmonize python -m src.jd_bank.harmonize $(HARMONIZE_ARGS)
 	@echo "✅ harmonization measurement written to docs/harmonize/summary.json"
 
@@ -279,6 +290,7 @@ harmonize-measure:  ## Drive merge_cluster over real JDFN clusters; measure the 
 #   make canonical-drafts CANONICAL_ARGS="--limit 500"
 #   make canonical-drafts CANONICAL_ARGS="--no-llm --allow-downgrade"  # re-baseline
 canonical-drafts: ## Phase-4.4a: produce DRAFT canonical_jds over real clusters (local-only; --no-llm for no Ollama)
+	$(BANK_GUARD)
 	docker compose run --rm -T canonical python -u -m src.jd_bank.canonical $(CANONICAL_ARGS)
 	@echo "✅ canonical-producer summary written to docs/canonical/summary.json"
 
@@ -295,6 +307,7 @@ canonical-drafts: ## Phase-4.4a: produce DRAFT canonical_jds over real clusters 
 #   make bank-audit AUDIT_ARGS="--json"                 # machine-readable, diffable
 #   make bank-audit AUDIT_ARGS="--min-retention 95"     # loosen the verdict
 bank-audit:       ## Read-only: per-form content carry-through of the live Bank
+	$(BANK_GUARD)
 	docker compose run --rm -T bank-audit python -u -m src.jd_bank.bank_audit $(AUDIT_ARGS)
 
 # ── HR-223: the one-of-a-kind population (read-only) ───────────────────────
@@ -309,6 +322,7 @@ bank-audit:       ## Read-only: per-form content carry-through of the live Bank
 #
 #   make singletons
 singletons:       ## Read-only: measure the one-of-a-kind population (HR-223)
+	$(BANK_GUARD)
 	docker compose run --rm -T singletons python -u -m src.jd_bank.singletons $(SINGLETON_ARGS)
 	@echo "✅ singleton summary written to docs/singletons/singleton-summary.json"
 
@@ -324,6 +338,7 @@ singletons:       ## Read-only: measure the one-of-a-kind population (HR-223)
 #   make field-audit JD_ARCHIVE_PATH=/path/to/SFU_JDs
 #   make field-audit JD_ARCHIVE_PATH=... FIELD_AUDIT_ARGS="--sample 500"
 field-audit:      ## Read-only: identification fields vs the raw archive (P3b)
+	$(BANK_GUARD)
 	docker compose run --rm -T field-audit python -u -m src.jd_bank.field_audit $(FIELD_AUDIT_ARGS)
 	@echo "✅ field audit written to docs/field-audit/field-audit.json"
 

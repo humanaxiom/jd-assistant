@@ -157,6 +157,69 @@ Check 'teardown.ps1 no longer defaults -ProjectName to a literal' {
     -not ((Get-Content -LiteralPath (Join-Path $repo 'teardown.ps1') -Raw) -match "\[string\]\`$ProjectName\s*=\s*'jd-bank'")
 }
 
+Write-Host "`n=== Every make target that touches a Bank runs the guard first ==="
+# Owner's ruling (2026-10-20, after review): a producer run from a second checkout with
+# no `.env` must never reach the LIVE Bank, so each producer target guards — not prints
+# — before its compose call. Read-only test runners print; register/guide feed generated
+# docs through stdout and stay silent.
+function Get-MakeRecipe {
+    param([string]$Text, [string]$Name)
+    $lines = $Text -split "`r?`n"
+    $start = -1
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match "^$([regex]::Escape($Name)):") { $start = $i; break }
+    }
+    if ($start -lt 0) { return $null }
+    $recipe = @()
+    for ($j = $start + 1; $j -lt $lines.Count; $j++) {
+        if ($lines[$j] -match "^`t") { $recipe += $lines[$j] } else { break }
+    }
+    return , $recipe
+}
+function Test-GuardBeforeCompose {
+    param([string[]]$Recipe, [string]$Macro)
+    if (-not $Recipe) { return $false }
+    $g = -1; $c = -1
+    for ($i = 0; $i -lt $Recipe.Count; $i++) {
+        if ($g -lt 0 -and $Recipe[$i] -match [regex]::Escape("`$($Macro)")) { $g = $i }
+        if ($c -lt 0 -and $Recipe[$i] -match 'docker compose') { $c = $i }
+    }
+    return ($g -ge 0 -and $c -gt $g)
+}
+$makefile = Get-Content -LiteralPath (Join-Path $repo 'Makefile') -Raw
+$guarded = @('up', 'down', 'migrate', 'baseline', 'dedup', 'ingest', 'embed', 'embed-roles',
+    'near-dup', 'dedup-role', 'cluster', 'harmonize-measure', 'canonical-drafts',
+    'bank-audit', 'singletons', 'field-audit', 'rewrite-golden', 'quality-golden')
+foreach ($tgt in $guarded) {
+    Check "make ${tgt}: `$(BANK_GUARD) runs before its docker compose call" {
+        Test-GuardBeforeCompose -Recipe (Get-MakeRecipe $makefile $tgt) -Macro 'BANK_GUARD'
+    }
+}
+foreach ($tgt in @('gates', 'gates-fast', 'smoke')) {
+    Check "make ${tgt}: prints its target (`$(BANK_SHOW)) before docker compose" {
+        Test-GuardBeforeCompose -Recipe (Get-MakeRecipe $makefile $tgt) -Macro 'BANK_SHOW'
+    }
+}
+foreach ($tgt in @('register', 'register-check', 'guide', 'guide-check')) {
+    Check "make ${tgt}: no bank-target output (its stdout is a generated doc)" {
+        $r = Get-MakeRecipe $makefile $tgt
+        $r -and -not (($r -join "`n") -match 'BANK_(GUARD|SHOW)')
+    }
+}
+Check 'no OTHER make target runs `docker compose run` against a Bank unguarded' {
+    # Any recipe with `docker compose run` that is not a known read-only runner must be
+    # in $guarded — a new producer target cannot be added without a decision.
+    $readOnly = @('gates', 'gates-fast', 'gates-integration', 'gates-live', 'smoke',
+        'register', 'register-check', 'guide', 'guide-check')
+    $names = [regex]::Matches($makefile, '(?m)^([a-z][a-z0-9-]*):') | ForEach-Object { $_.Groups[1].Value }
+    $loose = @($names | Where-Object {
+            $r = Get-MakeRecipe $makefile $_
+            $r -and (($r -join "`n") -match 'docker compose run') -and
+            ($_ -notin $readOnly) -and ($_ -notin $guarded)
+        })
+    if ($loose) { "unclassified: $($loose -join ', ')" } else { $true }
+}
+
 foreach ($d in @($liveDir, $v9Dir, $bareWorktree, $noTagDir)) { Remove-Item -LiteralPath $d -Recurse -Force }
 
 Write-Host ''

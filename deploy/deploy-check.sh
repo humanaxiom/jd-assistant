@@ -89,6 +89,13 @@ if command -v pwsh >/dev/null 2>&1; then
     else
         bad 'bank-target tests FAILED — the scripts may act on the wrong Bank'
     fi
+    # End to end: a scratch linked worktree with no .env — `make -n ingest` shows the
+    # guard first, and the guard refuses the live project from there.
+    if pwsh -NoProfile -File deploy/tests/make-guard.tests.ps1; then
+        ok 'make-guard tests green'
+    else
+        bad 'make-guard tests FAILED — a second checkout could run a producer against the live Bank'
+    fi
 else
     bad 'pwsh not found — cannot run deploy/tests/bank-target.tests.ps1'
 fi

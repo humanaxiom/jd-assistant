@@ -170,19 +170,24 @@ The `.env` (git-ignored, one per checkout) carries the whole identity:
 | `CAS_SERVICE_BASE_URL`, `ALLOWED_SERVICE_ORIGINS` | `http://localhost:26800` | CAS returns to *this* Bank; ships `CAS_ENABLED=false` |
 
 `docker compose` reads `.env` itself, so every `make` target acts on this checkout's
-Bank. The scripts (build / launch / teardown / bundle / install) and `make up` / `down` /
-`migrate` / `gates` / `gates-fast` / `smoke` resolve the same values the same way
-(**shell environment → `.env` → live defaults**) and **print which project, tag and ports
-they are about to act on before acting**; the guarded ones also cross-check the answer
-with `docker compose config` (`make bank-target` prints it on its own). With no `.env`
-nothing changes: `docker compose config` on the live checkout is identical to before.
+Bank. The scripts (build / launch / teardown / bundle / install) and the `make` targets
+below resolve the same values the same way (**shell environment → `.env` → live
+defaults**) and **print which project, tag and ports they are about to act on before
+acting** (`make bank-target` prints it on its own). With no `.env` nothing changes:
+`docker compose config` on the live checkout is identical to before.
 
-⚠ **The producer targets are NOT guarded and do not print** — `make ingest`, `embed`,
-`embed-roles`, `dedup`, `near-dup`, `dedup-role`, `cluster`, `harmonize-measure`,
-`canonical-drafts`, `bank-audit`, `singletons`, `field-audit`, `baseline`. In a second
-checkout **with no `.env`** they run *that checkout's code* against the **LIVE** Bank
-(project `jd-bank`). Create the `.env` before the first command; `make bank-target`
-says which Bank a bare `make` would hit.
+| `make` targets | before the compose call |
+|---|---|
+| `up`, `down`, `migrate` and **every producer**: `ingest`, `embed`, `embed-roles`, `baseline`, `dedup`, `near-dup`, `dedup-role`, `cluster`, `harmonize-measure`, `canonical-drafts`, `bank-audit`, `singletons`, `field-audit`, `rewrite-golden`, `quality-golden` | **guard** — prints, cross-checks with `docker compose config`, and refuses (exit 1) per the rules below |
+| `gates`, `gates-fast`, `smoke` | print only (read-only test runners) |
+| `register`, `register-check`, `guide`, `guide-check`, `gates-integration`, `gates-live`, `logs`, `shell` | nothing — the first four's stdout *is* a generated doc; the rest touch no Bank data |
+
+So a second checkout **with no `.env`** cannot run `make ingest` (or any producer)
+against the LIVE Bank: it is a linked worktree aiming at `jd-bank`, whose containers
+belong to `C:\repos\JD-Assistant`, and the guard refuses. Live producer runs happen from
+the main checkout, which owns `jd-bank`, and are allowed. A new `docker compose run`
+target must be classified in `deploy/tests/bank-target.tests.ps1` or `make deploy-check`
+fails.
 
 `make gates` / `make smoke` need nothing extra: `gates` reaches `postgres:5432` by service
 name on the project's own network, so in the second checkout it hits the second Bank.
@@ -190,7 +195,7 @@ name on the project's own network, so in the second checkout it hits the second 
 ### The guard — what the scripts refuse
 
 `build.ps1`, `launch.ps1`, `teardown.ps1`, `deploy\bundle.ps1`, `deploy\install.ps1` and
-`make up` / `down` / `migrate` refuse (with the reason) when:
+the guarded `make` targets above (`up` / `down` / `migrate` and every producer) refuse (with the reason) when:
 
 1. **the project's containers were created from another checkout** — compose stamps each
    container with the directory it came from, so `teardown.ps1 -ProjectName jd-bank
