@@ -7809,9 +7809,13 @@ decisions:
     provenance: our_invention
     tier: hr_informed
     why_it_matters: >-
-      The first five labels are HR's, transcribed verbatim from the page header of
-      APSA_APEX_POLY_JD Template_20240530.docx; the two
-      dates are on the template but not in the Bank's model, so they print BLANK —
+      The first five labels are HR's, transcribed verbatim from
+      APSA_APEX_POLY_JD Template_20240530.docx — but NOT all from the same place: the
+      template puts the banner, Position Title, Position # and Employee Group in its
+      FIRST-PAGE header only (later pages repeat just "Position #:" and the page
+      number), and the two dates in its page FOOTER. The export prints all five rows
+      in one header on every page; that placement is ours (re-verified 2026-10-19 by
+      the J4 review). The two dates are not in the Bank's model, so they print BLANK —
       never guessed. Before J4 the export printed only the title, and no position #.
       The supervisor rows are OURS: the 2024 template has no supervisor field, but the
       Toolkit asks for the supervisor's title when writing a new JD and the JAQ asks for
