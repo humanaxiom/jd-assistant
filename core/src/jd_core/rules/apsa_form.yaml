@@ -1,0 +1,79 @@
+# SFU's APSA / APEX / Poly JOB DESCRIPTION FORM — rulebook-as-data (CLAUDE.md
+# non-negotiable #2). Track J, PR J4.
+#
+# WHAT THIS FILE DECIDES
+# ----------------------
+# What an APSA/APEX/Poly draft looks like when it is EXPORTED to `.docx`
+# (`jd_export/render.py :: render_jdfn_docx`): the identification table in the page
+# header, the bullet the export types in front of every list item, the heading printed
+# over the mandated footer — and the one sentence the Builder inserts when an author
+# ticks "criminal record check required". It decides nothing about what a JD IS: no
+# validator reads it and the parser never sees it, so it is UNHASHED (not part of
+# `rules_version`) and it does NOT move `PARSER_VERSION`.
+#
+# NOT HERE, on purpose:
+#   * the SECTION HEADINGS — the export prints `parser/headings.py :: CANONICAL_HEADING`,
+#     the words the Bank's own parser matches, so the form it writes is one it can read
+#     back (the same "one vocabulary" rule `cupe_form.yaml` follows for the WJQ);
+#   * the About SFU / territorial / equity TEXT — `boilerplate.yaml` (HR-104/105/106),
+#     printed exactly as it stands there. ⚠ HR-104 and HR-105 are OPEN and the 2024
+#     template's wording differs from that file; this export does not decide between
+#     them.
+#
+# SOURCE
+# ------
+# SFU HR, "APSA_APEX_POLY_JD Template_20240530.docx" (the 2024-05-30 template; held
+# untracked in `fixtures/hr/` of the main checkout). Its page header is a table:
+#   SIMON FRASER UNIVERSITY / JOB DESCRIPTION / Position Title: / Position #: /
+#   Employee Group: APSA/ APEX/ POLY / Initial Effective Date: / Latest Revision Date:
+# Its body: ABOUT SIMON FRASER UNIVERSITY: · POSITION SUMMARY · DUTIES AND
+# RESPONSIBILITIES ("ACTION VERB… WHAT by" with "How and why" sub-bullets) · IMPACT OF
+# DECISION MAKING · PROBLEM SOLVING AND LEVEL OF SUPERVISION · RELATIONSHIPS ·
+# QUALIFICATIONS · the territorial acknowledgement + Employment Equity sentence (NO
+# heading) · ADDITIONAL CONTEXTUAL INFORMATION:.
+
+version: jd_rules_sfu_v4
+
+# --- the page header (HR-258) -----------------------------------------------------
+banner:
+  - SIMON FRASER UNIVERSITY
+  - JOB DESCRIPTION
+# One row per field, label | value, in this order. `title`, `position_number` and
+# `employee_group` are read back by the parser, so each MUST be a spelling its own
+# label regexes match (`test_the_modelled_id_labels_are_ones_the_parser_reads`). The
+# two dates are on HR's template but not in the model: printed with a BLANK value,
+# never guessed. The supervisor's title and position # are NOT on the 2024 template —
+# the Toolkit (Part 11.1) and the JAQ ask for them — so they print after the template's
+# own rows, and must NOT be spellings the parser would read as the position's own.
+id_labels:
+  title: "Position Title:"
+  position_number: "Position #:"
+  employee_group: "Employee Group:"
+  initial_effective_date: "Initial Effective Date:"
+  latest_revision_date: "Latest Revision Date:"
+  supervisor_title: "Supervisor's Title:"
+  supervisor_position_number: "Supervisor's Position #:"
+
+# --- how a list item is printed (HR-259) ------------------------------------------
+# Typed in front of every duty, decision, problem, contact and qualification, then a
+# tab and a hanging indent — so on the page it reads as a bullet, and in the TEXT the
+# parser reads it IS one. A Word list bullet is formatting and never reaches the
+# extracted text: that is why 1,798 of 1,876 live roles re-read with their duties
+# merged into one before J4. Must be a marker `segmenter._BULLET_RE` reads (pinned).
+bullet_glyph: "•"
+
+# --- the footer (HR-256) ----------------------------------------------------------
+# HR's template prints the territorial acknowledgement and the Employment Equity
+# sentence with NO heading. Without one, the Bank's parser files the footer into the
+# Qualifications section and the last qualification comes back with the footer glued
+# on. This heading is OURS; it must be one the parser knows as the footer (pinned).
+footer_heading: TERRITORIAL ACKNOWLEDGEMENT AND EDI COMMITMENT
+
+# --- E. Security credentials (HR-257) ---------------------------------------------
+# Inserted as a `security` qualification when the author ticks "criminal record check
+# required"; recognised (case- and spacing-insensitive) on clone. Transcribed VERBATIM
+# from our rulebook copy (sfu-jd-standards.txt Part 10.2 / l.249), lower-case first
+# word and all — not from SFU's live Toolkit, which we have not checked against.
+security_check_sentence: >-
+  due to the nature of this position there is a bona fide occupational requirement
+  that the incumbent must have a current satisfactory criminal record check on file

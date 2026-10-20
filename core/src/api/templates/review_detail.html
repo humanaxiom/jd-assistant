@@ -348,6 +348,10 @@
     <input id="e-position_number" name="position_number" value="{{ edit.content.get('position_number') or '' }}">
     <label for="e-department">Department</label>
     <input id="e-department" name="department" value="{{ edit.content.get('department') or '' }}">
+    <label for="e-supervisor_title">Supervisor's title</label>
+    <input id="e-supervisor_title" name="supervisor_title" value="{{ edit.content.get('supervisor_title') or '' }}">
+    <label for="e-supervisor_position_number">Supervisor's position number</label>
+    <input id="e-supervisor_position_number" name="supervisor_position_number" value="{{ edit.content.get('supervisor_position_number') or '' }}">
     <label for="e-grade">Pay grade / classification (on the employee-group scale)</label>
     <input id="e-grade" name="grade" value="{{ (edit.content.get('classification') or {}).get('value') or '' }}">
     <label for="e-employee_group">Employee group</label>
@@ -414,6 +418,14 @@
 
     <h3 id="edit-additional_context">10 · Additional context</h3>
     <textarea name="additional_context" rows="3">{{ edit.content.get('additional_context') or '' }}</textarea>
+    {# The CUPE form block of a draft authored on the Builder (Track J2): its minor
+       functions, ticked levels, table rows and section-13 details. This editor has no
+       fields for it, so it rides through UNCHANGED — the rebuilt content keeps every
+       field (an edit here must never wipe a CUPE author's structure). Edit it in the
+       Builder. `tojson` is HTML-safe inside a single-quoted attribute. #}
+    {% if edit.content.get('wjq_form') %}
+    <input type="hidden" name="wjq_form_json" value='{{ edit.content.get("wjq_form") | tojson }}'>
+    {% endif %}
 
     <button type="submit">{% if is_published %}Save as a new draft version{% else %}Save edit{% endif %}</button>
   </form>

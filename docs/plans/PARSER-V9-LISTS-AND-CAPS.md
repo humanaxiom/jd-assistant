@@ -5,6 +5,12 @@ a throwaway COPY of the live Bank on 2026-10-20.** Owner ruling 2026-10-19: *"Pl
 measure first"*, so **nothing in this document touched the live Bank.** The only live
 operations were two read-only `pg_dump -Fc` runs.
 
+**Deployment ruling (owner, 2026-10-20 later):** v9 runs as a **NEW, SEPARATE Bank**,
+seeded fresh from the archive in its own compose project with its own images (infra PR
+in progress). **The live (v8) Bank is never re-parsed**, so the earlier live re-parse
+runbook is superseded. See §10. The branch now carries main (I1, J1, K2, I2), J4 (#214)
+and J2 (#216), merged in from `origin/feat/j2-cupe-form-structure` (§12).
+
 ## 0. Owner rulings, 2026-10-20
 
 | | ruling | where it lands |
@@ -21,9 +27,12 @@ operations were two read-only `pg_dump -Fc` runs.
 > No document loses words to list reading or grouping. It is still a full re-baseline:
 > 14,008 of 14,522 parses change, 2,428 drafts regenerate (~45 h of GPU), and ~32.3k
 > document embed calls plus ~2.5k role embed calls are owed.
-> 🔴 **Ship order: J4 (#214) must merge first**, and J4's `JDFNDutyAnswer.how_why`
-> limit of 12 must be raised (§5, item 9). Otherwise cloning 992 of the re-parsed
-> documents' roles raises an error.
+> ✅ **The J4 precondition is now met on the branch.** J4 and J2 are merged in. J4's
+> `JDFNDutyAnswer.how_why` limit no longer has a constant of 12: it reads HR-265 (60),
+> so a duty with 36 points clones and reassembles whole. Before this, cloning would
+> have raised for 1,107 duties in 992 documents. The Builder's 12-duty
+> `ComposerAnswers.duties` constant now reads HR-262, so cloning a raw archive
+> document with 20 duties no longer raises.
 
 ---
 
@@ -150,11 +159,11 @@ none 4 → 1, CUPE 17 → 17. **Recorded as accepted by the owner (Q2).**
 | 3 | **Quality audit** (4.2b) | no: it reads `flatten_jd`, which already includes how/why | No change. |
 | 4 | **Validators / gates** | `SFU-STRUCT-DUTIES-TOO-MANY/-FEW` count duties; `SFU-STRUCT-ACTION-VERB` reads the statement's leading verb; text scans use `flatten_jd` (includes how/why) | No code change. With grouping, the count is of template duties and the verb is the headline's verb: TOO-MANY 7,808 → 4,622 and ACTION-VERB 2,111 → 978 vs flat. ⚠ **`SFU-STRUCT-HOW-WHY` stays unevaluable** (HR-121): only 18,245 of 181,563 duties carry how/why, because only the template shape has it. Reinstating the rule moves `rules_version` and is an HR call (Q7). |
 | 5 | **Embed text** (`embed_text._duties_units`) | yes: by design it never read how/why | **Changed.** One unit per duty = verb + statement + how/why, byte-identical for a duty without clauses. `SERIALIZER_VERSION` → `embed_text_v2`. **The embed stamp does not move** (no `embeddings.yaml` knob changed). The serializer version is not in the skip key `(text_sha256, model, embed_stamp)`, so only texts that actually changed re-embed. ⚠ **2,369 of 2,503 current roles already carry how/why** (the LLM rewrite writes it), so `make embed-roles` re-embeds those even before any new draft. |
-| 6 | **Render / export** | main's `jd_export.render._duty_line` prints the statement only, so it drops how/why today, already for those 2,369 drafts | **Not changed here, on purpose.** J4 (#214) prints how/why as "List Bullet 2" sub-bullets, and **v9 reads that shape back** as duty + how/why (test `test_the_j4_export_shape_reads_back_as_duty_plus_how_why`). `jd_core.bank.render` and `version_diff` already show how/why. 🔴 Ship precondition: J4 merged first. |
-| 7 | **Clone into the Builder** (`jd_to_answers`) | yes, and it would have **raised**: `DutyAnswer.statement ≤ 400` against v9 statements ≤ 1,200 | **Changed.** `DutyAnswer.statement` is now ≤ 4,000, the model ceiling (test). Main's clone still drops how/why; **J4 adds `JDFNDutyAnswer.how_why` and carries it** — but with `max_length=12`, while **1,107 duties in 992 re-parsed documents carry more than 12 points**. 🔴 J4's limit must be raised (≥ HR-265's 60) before v9 ships, or cloning those roles raises. |
+| 6 | **Render / export** | before J4, `jd_export.render._duty_line` printed the statement only | **J4 (merged in) prints how/why as "List Bullet 2" sub-bullets, and v9 reads them back AS how/why.** Tests: `test_the_j4_export_shape_reads_back_as_duty_plus_how_why`; J4's own `test_how_why_clauses_stay_with_their_duty` and `test_builder_fields_reach_the_exported_docx` are updated from "fused into the statement" to "reads back as how_why". The round-trip oracle (`tests/export_roundtrip.py`) now compares each re-read duty's statement plus its how/why. |
+| 7 | **Clone into the Builder** (`jd_to_answers`, `load_clone_answers` for raw archive documents) | yes, and it would have **raised** three ways | **Changed.** (a) `DutyAnswer.statement` ≤ 4,000 (it was 400). (b) J4's `JDFNDutyAnswer.how_why`: the hard bound is the model ceiling (100), and the operative limit is **HR-265 read from the rulebook** (it was a constant 12; 1,107 duties in 992 documents carry more). A duty with 36 points clones and reassembles whole (test written red first, below). (c) `ComposerAnswers.duties`: the operative limit is **HR-262** (it was a constant 12; ~1,470 APSA/APEX/POLY documents carry more), so a 20-duty archive document clones (test written red first). |
 | 8 | **Dedup Tier-2** (near-dup, raw text) | n/a | Invariant: the tokenizer keeps `[a-z0-9]+`, so neither `•` nor `◦` moves a shingle (test). |
 | 9 | **Dedup Tier-3 signals / clustering** | signals read qualifications; vectors read the embed text | The qualification split changes signals on 4,297 documents (0 with duties only). Document vectors now include how/why. Edge/cluster movement needs the re-embed (§8). |
-| 10 | **CUPE assembler** (`wjq_assemble`) | truncated at the parser's 12 | Reads HR-263. (J2 supersedes it; take J2's version.) |
+| 10 | **CUPE assembler / J2 form** (`wjq_assemble`, `wjq_form`) | truncated at the parser's 12 | **J2's version taken whole.** It keeps majors and minors apart under the visible HR-246 limits (12 + 12; over a limit it refuses, never cuts). HR-263 stays because the WJQ **parser** still reads it. v9 does not group CUPE and never fills `wjq_form`, so nothing changed there. J2's "14 functions re-read as 12" boundary is **gone**: HR's 14-function sample now round-trips whole (J2's `test_fourteen_functions_survive_the_round_trip` and the live smoke assertion are updated). The CupeForm load check reads the duties ceiling off the model (now 150). ⚠ **Finding:** a re-parsed CUPE *archive* document with more than 12 functions clones with all of them as `major_functions` (the parser cannot tell majors from minors), so the Builder then **refuses** it with HR-246's message rather than cutting it. That is consistent with J2's design, but authors will see it on any large CUPE source. |
 | 11 | change log, review editor, CUPE export, bank-audit, families | change log keys on statement identity; the review editor and CUPE export already read how/why; bank-audit and families read the whole duties JSON | No change needed. |
 | 12 | harmonize measurement (`harmonize/runner.py`) | statement only | **Changed** to `duty_text`, so it measures what the merge does. |
 
@@ -202,62 +211,103 @@ stays as it is (owner ruling).
 - **LLM rewrite quality and failure rate under v3.** This needs the producer pass.
 - **The vector and HTTP smoke tests.** There was no Neo4j or API on the copy. The 9 database-only smoke tests passed on the grouped copy, including the 2 v9 tests.
 
-## 9. Smoke additions (red until the live re-parse lands)
+## 9. Smoke: which tests are v9-only
 
+These two tests are **v9-only**. They read the current parse (`PARSER_VERSION =
+jd_segmenter_v9`), so they are **meant to fail against the live v8 Bank**. Run `make
+smoke` against the **v9 Bank** only.
 - `test_a_word_list_archive_file_parses_to_the_template_shape`: `20260702_00138566_JDFN_APSA_20260626.docx` must parse to exactly **4 duties carrying 19 how/why points**. v8 gave 1 duty; v9-flat gave 19 duties.
 - `test_no_current_parse_is_cut_at_the_old_400_char_cap`: fewer than 1% of statements at exactly 400 characters, and none above the cap.
 
-## 10. Runbook — doing it live
+Run with v9 code against the v8 Bank, **every** smoke test that reads `parsed_jds` at
+`PARSER_VERSION` would find no rows, and so would fail or report empty. The same goes
+for the document-vector test, which expects vectors stamped v9. The v9 code is
+therefore not judged on the live stack at all. J2's live CUPE round-trip assertion
+changed from `["duties: 14 exported, 12 re-read"]` to `[]`. It parses in-process, so it
+passes on either Bank when run with v9 code.
 
-🔴 Directive #0: **ship = merge.** The run happens with the branch checked out in the main
-repo, and the PR merges only after step 9 is green. `--resume` is the wrong flag
-(HANDOFF).
+## 10. Runbook — build a SEPARATE v9 Bank fresh from the archive
+
+**Owner ruling: the live (v8) Bank is untouched.** v9 is a second Bank in its own compose
+project, with its own images, volumes and host ports. The infra PR provides that. All
+commands run in the **v9 checkout**, whose `.env` sets the compose project name and its
+ports. Nothing here backs up, migrates or writes the live Bank, so there is nothing to
+roll back on it.
 
 ```bash
-# 0. Preconditions
-#    - J4 (#214) merged, and its JDFNDutyAnswer.how_why limit raised to >= 60 (§5 item 7);
-#      then rebase this branch on main and re-run gates + register-check
-#    - aria-gb10-2 free; smoke green on main
-make smoke
+# 0. In the v9 checkout. Confirm `.env` targets the v9 project, NOT jd-bank:
+docker compose config | grep -m1 '^name:'      # must NOT print "name: jd-bank"
+#    aria-gb10-2 must be free (no other producer pass); the v9 Bank is shared with nobody yet
 
-# 1. BACKUP (docs/runbooks/backup-and-restore.md §1) + audit fingerprint beside it
-docker exec jd-bank-postgres-1 pg_dump -U app -d harness -Fc -f /tmp/harness.dump
-docker cp jd-bank-postgres-1:/tmp/harness.dump C:/Users/adam/jd-bank-backups/harness-pre-parser-v9-$(date +%Y%m%d).dump
+# 1. Stack + schema (empty Bank)
+make up
+make migrate
 
-# 2. Check the branch out in C:\repos\JD-Assistant (api/worker reload).
-#    The app sees an EMPTY-looking Bank until step 3 finishes.
-
-# 3. Re-parse (~5 min). Expect "14565 files seen ... 14522 newly parsed ... 43 failed."
+# 2. Ingest + parse the archive (read-only mount; ~5 min)
 make ingest JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs
+#    expect "14565 files seen: 14522 newly ingested, 14522 newly parsed, 0 already done,
+#    43 failed." Then check the Bank, not the counter: 14,522 rows at jd_segmenter_v9.
 
-# 4. Verify against the Bank, not the counter (read-only):
-docker compose run --rm -T api python scripts/measure_parse_delta.py \
-    --old jd_segmenter_v8 --new jd_segmenter_v9
-#    expect §4: changed ~14,008; duties_with_how_why ~18,245; docs_losing_duty_words 2;
-#    invalid_rows 0
+# 3. Document + section vectors: a fresh index embeds everything (~52k calls at v8's
+#    14.4k documents + 37.7k sections; ~40–90 min on aria-gb10-2). Re-run = resume.
+make embed
 
-# 5. make embed        # ~32.3k calls; re-run -> embed calls: 0
+# 4. Dedup + clustering. Tier-1 EXACT is synthesised at cluster time from sha256.
+make near-dup
+make dedup-role
+make cluster
 
-# 6. make near-dup && make dedup-role && make cluster
-#    near-dup: no change expected. COMPARE recomputed cluster ids with the clusters
-#    table before step 7 — a moved member mints a new cluster and orphans the old role.
+# 5. Drafts for EVERY cluster (~2,500 × ~65 s ≈ 44 h GPU). Record T0 (UTC).
+make canonical-drafts
+#    interrupted? make canonical-drafts CANONICAL_ARGS="--refreshed-since <T0>"
+#    (NOT --resume; on a fresh Bank every draft is v9's own, prompt jd_harmonize_v3)
+make bank-audit                                  # carry-through per form; watch rewrite_failed (Q8)
 
-# 7. Producer re-baseline (~44 h). Record T0 (UTC).
-make bank-audit AUDIT_ARGS="--json" > before.json
-make canonical-drafts                                    # NOT --resume
-#    resume: make canonical-drafts CANONICAL_ARGS="--refreshed-since <T0>"
-#    (prompt_version jd_harmonize_v3 also tells a v9 draft from an older one)
-make bank-audit AUDIT_ARGS="--json" > after.json        # carry-through must not fall;
-#    watch rewrite_failed (Q8)
+# 6. Role vectors
+make embed-roles
 
-# 8. make embed-roles
-
-# 9. make smoke        # GREEN, including the two v9 tests — then merge
+# 7. Smoke: run against THIS Bank. Both v9-only tests (§9) must pass here.
+make smoke
 ```
 
-**Rollback.** The v8 `parsed_jds` rows stay, so checking `main` out restores the v8 view
-at once. Drafts and vectors need the step-1 dump restored into an **empty** database
-(never `--data-only`), then `make embed` and `make embed-roles` under v8.
+**What the v9 Bank will NOT have.** There are no published or reviewer-touched JDs (the
+5 in the live Bank, 3 of whose sources changed). There are no review actions, users,
+roles or audit history from the live Bank, and no `--refreshed-since` history. Every
+canonical starts as a fresh DRAFT (NN #1: nothing auto-publishes). Cluster ids are
+content-derived (uuid5 of member refs), so where Tier-3 moves membership the v9 Bank's
+roles do **not** line up one-to-one with the live Bank's. Comparing the two Banks is
+therefore role-by-member, not by id.
+
+**Comparing against v8** (optional, read-only). `measure_parse_delta.py` compares two
+parser versions within ONE database. On a fresh v9 Bank there is no v8 row, so §4's
+numbers come from the copy measurement in this document, not from the v9 Bank.
+
+**Teardown / retry.** The v9 Bank is disposable until the owner adopts it. Use
+`teardown.ps1` in the v9 checkout (or `docker compose down -v` for its project only),
+then run from step 1 again.
+
+## 12. Merge of J4 + J2 into this branch (2026-10-20)
+
+`git merge origin/feat/j2-cupe-form-structure`, which carries main (I1, J1, K2, I2), J4
+(#214) and J2 (#216). Conflicts and how each was resolved:
+
+| file | resolution |
+|---|---|
+| `composer/wjq_assemble.py` | **J2's version taken whole.** HR-246 supersedes v9's use of HR-263 in the assembler. HR-263 is kept, because the WJQ parser reads it. Its register text now says "read by the WJQ parser only". |
+| `rules/loader.py` | Import union (`SFUDuty` from v9, `WJQForm` from J2). |
+| `tests/export_roundtrip.py` | J2's new `_MAX_LIST_ITEM` / `_MAX_SUPERVISORY` kept; `_MAX_DUTY_STMT` stays rulebook-read (HR-261). The JDFN oracle now reads statement + how_why on re-read. |
+| `tests/unit/test_composer_forms.py` | J2's version (majors and minors kept apart). |
+| `tests/live/test_smoke_live_bank.py` | Both appended blocks kept; every test appears exactly once (checked for duplicate names). |
+| `docs/decisions/HR-DECISION-REGISTER.md` | `git checkout --theirs`, then `make register` (never hand-merged). |
+
+Tests that pinned v8's 12-function or "fused into the statement" behaviour were updated:
+- J2's `_MAX_DUTIES` imports (removed in v9) were updated.
+- The CupeForm ceiling test now reads the ceiling off the model.
+- J4's two how/why re-read tests were updated.
+- HR-246's text no longer describes the parser's twelve as a current limit.
+
+**Register IDs:** J2 HR-246…253 · J4 HR-256…259 · v9 HR-261…266. No collisions; checked
+with `uniq -d` over every `id:`.
 
 ## 11. Containers (all removed at the end)
 

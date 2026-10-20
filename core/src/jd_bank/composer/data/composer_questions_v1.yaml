@@ -28,6 +28,14 @@ questions:
       Chief, …) unless the role meets the Part 3.5 criteria.
     target: title
     required: true
+  - id: position_number
+    section: identification
+    prompt: What is the position number? (if known)
+    hint: >-
+      The "Position #" in the header of SFU's APSA/APEX/Poly template. Leave blank for a
+      new position that has not been numbered yet.
+    target: position_number
+    required: false
   - id: department
     section: identification
     prompt: Which department or unit is this role in?
@@ -41,6 +49,20 @@ questions:
       APSA, APEX or POLY (Hay-graded). This Builder targets the JDFN template; CUPE/WJQ
       roles use a different instrument.
     target: employee_group
+    required: false
+  - id: supervisor_title
+    section: identification
+    prompt: What is the title of the position this role reports to?
+    hint: >-
+      The supervisor's position title (Toolkit Part 11.1). Make sure this role's duties
+      do not overlap with the supervisor's (or direct reports').
+    target: supervisor_title
+    required: false
+  - id: supervisor_position_number
+    section: identification
+    prompt: What is the supervisor's position number? (if known)
+    hint: ""
+    target: supervisor_position_number
     required: false
   - id: grade
     section: identification
@@ -69,8 +91,9 @@ questions:
     prompt: List the 3-5 primary functions of the role, most important first.
     hint: >-
       Each duty starts with an action verb and describes the position (not future work
-      or incumbent-specific tasks). Give each a percentage of time; the percentages
-      total 100%.
+      or incumbent-specific tasks) — "ACTION VERB… WHAT by" — with its "how and why"
+      sub-points underneath, one per line. Give each a percentage of time; the
+      percentages total 100%.
     target: duties
     required: true
 
@@ -151,6 +174,21 @@ questions:
       Abilities describe observable behaviour or output ("Ability to …"). Listed last
       in the KSA order.
     target: abilities
+    required: false
+  - id: criminal_record_check
+    section: qualifications
+    prompt: Does this position require a criminal record check?
+    hint: >-
+      E. Security credentials (if applicable). Tick when the role works with children or
+      vulnerable adults, with unsupervised access, in a provincially licensed or funded
+      setting (Part 10.2). The Builder adds SFU's standard sentence for you.
+    target: criminal_record_check
+    required: false
+  - id: security
+    section: qualifications
+    prompt: Any other security credentials? (optional)
+    hint: e.g. a security clearance the role must hold. One per line.
+    target: security
     required: false
 
   # --- 9./10. SFU boilerplate + additional context ---------------------------------

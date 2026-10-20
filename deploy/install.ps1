@@ -271,6 +271,15 @@ Write-Step 'Starting the app'
 Invoke-Compose up -d --wait --no-build --pull never
 Write-Ok 'All services report healthy'
 
+# A full dump carries its own alembic_version, so a bundle cut from an up-to-date Bank is
+# already at head and this is a no-op. It is NOT a no-op when the images are newer than
+# the dump (a schema migration such as 0007's search indexes shipped after the dump was
+# taken): without it the app would run against a schema it does not expect, with no
+# error until the first query that needs the missing piece. Idempotent either way.
+Write-Step 'Bringing the restored schema to head'
+Invoke-Compose exec -T api alembic upgrade head
+Write-Ok 'Postgres schema at head (alembic)'
+
 Write-Step 'Waiting for the API'
 $apiUrl = "http://localhost:$ApiPort"
 $ready = $false

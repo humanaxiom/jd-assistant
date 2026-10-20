@@ -206,6 +206,42 @@ def test_the_library_vector_depth_is_live_and_outside_the_embed_stamp(
     assert retuned.embeddings.stamp == rules.embeddings.stamp
 
 
+def test_the_title_search_knobs_are_live_and_outside_the_embed_stamp(
+    tmp_path: Path, rules: Rules
+) -> None:
+    """HR-241 (typo floor) and HR-242 (Builder latency budget) are Postgres-title and
+    acceptance knobs: neither can change a stored vector, so neither may order a
+    re-embed — and neither may move ``rules_version``."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "embeddings.yaml",
+        lambda d: d.update(
+            title_typo_min_similarity=0.7, builder_search_p95_budget_seconds=9.0
+        ),
+    )
+    retuned = load_rules(tmp_path)
+
+    assert retuned.embeddings.title_typo_min_similarity == 0.7
+    assert retuned.embeddings.builder_search_p95_budget_seconds == 9.0
+    assert retuned.embeddings.stamp == rules.embeddings.stamp
+    assert retuned.version == rules.version
+
+
+@pytest.mark.parametrize("floor", [0.0, -0.1, 1.01])
+def test_the_typo_floor_must_be_a_similarity(tmp_path: Path, floor: float) -> None:
+    """A floor of 0 would admit every title as a "spelling match"; above 1 nothing can
+    ever match. Both are typos in the YAML, never a real setting."""
+    _write_valid_rules(tmp_path)
+    _patch(
+        tmp_path,
+        "embeddings.yaml",
+        lambda d: d.__setitem__("title_typo_min_similarity", floor),
+    )
+    with pytest.raises(Exception, match="title_typo_min_similarity"):
+        load_rules(tmp_path)
+
+
 # --- registered, and drift-checked -----------------------------------------------
 
 
@@ -327,8 +363,8 @@ def test_the_embeddings_defaults_are_registered_as_nobodys_standard(
         if d.config.file == "embeddings.yaml"
     ]
     assert (
-        len(entries) == 10
-    ), "embeddings.yaml should have exactly 10 registered fields"
+        len(entries) == 12
+    ), "embeddings.yaml should have exactly 12 registered fields"
     for decision in entries:
         assert decision.provenance == "our_invention", decision.id
         assert decision.source_part is None, decision.id

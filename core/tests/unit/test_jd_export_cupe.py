@@ -19,7 +19,6 @@ from docx import Document
 from fastapi.testclient import TestClient
 
 from src.api.main import app
-from src.jd_bank.composer.answers import DutyAnswer, ModifiedQual
 from src.jd_bank.composer.wjq_answers import WJQAnswers
 from src.jd_bank.composer.wjq_assemble import assemble_wjq_jd
 from src.jd_bank.db.models import DocumentFormat
@@ -181,7 +180,9 @@ def test_a_jdfn_jd_is_rendered_exactly_as_before(rules: Rules) -> None:
     jd = _cupe_jd(rules, employee_group="apsa", additional_context=None)
     assert _members(render_sfu_docx(jd)) == _members(render_jdfn_docx(jd))
     texts = _texts(render_sfu_docx(jd))
-    assert "Duties and Responsibilities" in texts
+    # Track J4 moved the APSA headings to the template's upper case; the APSA layout
+    # itself is pinned by its own golden file (test_jd_export_apsa).
+    assert "DUTIES AND RESPONSIBILITIES" in texts
 
 
 def test_the_cupe_export_carries_no_apsa_footer(rules: Rules) -> None:
@@ -317,31 +318,41 @@ def test_a_cupe_export_round_trips_through_the_wjq_parser(rules: Rules) -> None:
 
 def test_an_authored_wjq_draft_round_trips(rules: Rules) -> None:
     """The Builder's own CUPE draft — assembled from answers — survives export and
-    re-ingest."""
-    answers = WJQAnswers(
-        title="Department Secretary",
-        department="Faculty of Science",
-        position_number="40001",
-        position_summary="Provides secretarial support to the department.",
-        major_functions=[
-            DutyAnswer(
-                action_verb="Types", statement="Types correspondence", allocation=60
-            ),
-            DutyAnswer(action_verb="Maintains", statement="Maintains office files"),
-        ],
-        minor_functions=[
-            DutyAnswer(action_verb="Purges", statement="Purges and archives records"),
-        ],
-        internal=["Faculty", "Students"],
-        external=["Vendors"],
-        education=["High school graduation"],
-        experience=["2 years office experience"],
-        knowledge=[ModifiedQual(text="office procedures", modifier="working")],
-        skills=[ModifiedQual(text="keyboarding at 55 wpm", modifier="intermediate")],
-        abilities=["Ability to work occasional evenings"],
-        level_of_independence="Works from general instructions.",
-        impact_of_errors="Typing errors are caught by the reader.",
-        working_conditions="General office, 35 hours.",
+    re-ingest.
+
+    Since J2 this is a PRE-J2 answer set (the shape J1 authored: %-allocation,
+    internal / external lines, knowledge / skills / abilities), loaded the way an open
+    browser tab's ``answers_json`` would be — so it also pins that such a draft still
+    loads, assembles and round-trips (the J2 structure has its own suite,
+    ``test_cupe_form_structure.py``)."""
+    answers = WJQAnswers.model_validate(
+        {
+            "title": "Department Secretary",
+            "department": "Faculty of Science",
+            "position_number": "40001",
+            "position_summary": "Provides secretarial support to the department.",
+            "major_functions": [
+                {
+                    "action_verb": "Types",
+                    "statement": "Types correspondence",
+                    "allocation": 60,
+                },
+                {"action_verb": "Maintains", "statement": "Maintains office files"},
+            ],
+            "minor_functions": [
+                {"action_verb": "Purges", "statement": "Purges and archives records"}
+            ],
+            "internal": ["Faculty", "Students"],
+            "external": ["Vendors"],
+            "education": ["High school graduation"],
+            "experience": ["2 years office experience"],
+            "knowledge": [{"text": "office procedures", "modifier": "working"}],
+            "skills": [{"text": "keyboarding at 55 wpm", "modifier": "intermediate"}],
+            "abilities": ["Ability to work occasional evenings"],
+            "level_of_independence": "Works from general instructions.",
+            "impact_of_errors": "Typing errors are caught by the reader.",
+            "working_conditions": "General office, 35 hours.",
+        }
     )
     jd = assemble_wjq_jd(answers)
     back = _reparse(render_sfu_docx(jd))

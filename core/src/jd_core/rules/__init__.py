@@ -17,6 +17,7 @@ version.
 """
 
 from src.jd_core.rules.loader import (
+    APSA_FORM_FILE,
     CLASSIFICATION_FILE,
     CONTENT_HASH_LENGTH,
     CUPE_FORM_FILE,
@@ -34,6 +35,7 @@ from src.jd_core.rules.loader import (
     VERSION_SEPARATOR,
     WJQ_FILE,
     ActionVerbs,
+    ApsaForm,
     AuthoringGuard,
     BlockingRulesGate,
     Boilerplate,
@@ -107,6 +109,7 @@ from src.jd_core.rules.loader import (
 # directly: `from src.jd_core.rules.render import render_register`.
 
 __all__ = [
+    "APSA_FORM_FILE",
     "CLASSIFICATION_FILE",
     "CONTENT_HASH_LENGTH",
     "CUPE_FORM_FILE",
@@ -121,6 +124,7 @@ __all__ = [
     "VERSION_SEPARATOR",
     "WJQ_FILE",
     "ActionVerbs",
+    "ApsaForm",
     "AuthoringGuard",
     "BlockingRulesGate",
     "Boilerplate",

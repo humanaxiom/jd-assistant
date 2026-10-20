@@ -12,9 +12,17 @@ instrument — `employee_group` keeps the two from cross-applying.
 
 from __future__ import annotations
 
-from typing import Literal
+import datetime as dt
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+)
 
 
 def _null_to_empty(v: object) -> object:
@@ -116,6 +124,98 @@ class SFURelationships(BaseModel):
     _rel_null = field_validator("internal", "external", mode="before")(_null_to_empty)
 
 
+#: Who filled in Part 1 of a CUPE form ("Part 1 is being completed by: ☐ Employee
+#: ☐ Evaluating Supervisor") — it decides how a re-evaluation is routed (CUPE 3338
+#: Art. 17.03).
+WJQCompletedBy = Literal["employee", "supervisor"]
+
+
+class WJQRow(BaseModel):
+    """One row of a CUPE form table: §8 contacts and §10 effort (item, duration,
+    frequency), §11 locations (item, hours) and §11 exposures (item, frequency).
+
+    The values are HR's own scale words as printed (``cupe_form.table_durations`` /
+    ``table_frequencies``); the Builder checks them, the model just carries them."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    item: str = Field(min_length=1, max_length=400)
+    duration: str | None = Field(default=None, max_length=40)
+    frequency: str | None = Field(default=None, max_length=40)
+    hours: str | None = Field(default=None, max_length=40)
+
+
+class WJQForm(BaseModel):
+    """The parts of HR's CUPE "WJQ Custom — Part 1" form that the APSA-shaped model has
+    no field for (Track J, PR J2). **Authored drafts only.**
+
+    ⚠ The parser NEVER fills this — ``parser/wjq.py`` is unchanged, so no
+    ``PARSER_VERSION`` move and no re-parse. A CUPE JD parsed from the archive has
+    ``wjq_form is None``, and that is also how the clone transform knows a draft is
+    pre-J2 (its knowledge / skill / ability kinds then fold into the one
+    Occupational Skills list — Q9, option C).
+
+    Why a block rather than more top-level fields: everything here is ONE form's
+    structure, and the validators, the rewrite pass and the merge all read the top-level
+    sections. Minor functions in particular are kept OUT of ``duties``, so the twelve-
+    duty ceiling every pipeline relies on is untouched and nothing has to be merged and
+    cut to fit it — the defect J2 removes (HR's own Dec-2024 sample has 11 + 3).
+
+    The four checkbox sections hold HR's level LETTERS, A first, in the order HR prints
+    the options (``cupe_form.checkbox_options``); the free text of those sections stays
+    in ``additional_context`` under its heading, exactly where the parser keeps it.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    # 1. Position identification (the author's half; HR's box is never modelled). The
+    #    evaluating supervisor's title is NOT here: it is the top-level
+    #    `SFUJobDescription.supervisor_title` (Track J4), the ONE field the review
+    #    editor writes and both exports read (review M2 — a copy here went stale).
+    current_classification: str | None = Field(default=None, max_length=100)
+    date_completed: dt.date | None = None
+    completed_by: WJQCompletedBy | None = None
+    # 4. Minor functions (3. Major functions are `SFUJobDescription.duties`)
+    minor_functions: list[SFUDuty] = Field(default_factory=list, max_length=20)
+    # 5, 6, 7, 12 — the ticked levels
+    level_of_independence: list[str] = Field(default_factory=list, max_length=5)
+    training_exercised: list[str] = Field(default_factory=list, max_length=5)
+    direction_exercised: list[str] = Field(default_factory=list, max_length=5)
+    continuing_education: list[str] = Field(default_factory=list, max_length=5)
+    # 8, 10, 11 — the tables. `contacts` carries each contact's duration / frequency;
+    # WHICH contacts there are stays `relationships` (what the validator reads), and
+    # the export matches the two by text, so a reviewer's edit of the contacts wins.
+    contacts: list[WJQRow] = Field(default_factory=list, max_length=60)
+    effort: list[WJQRow] = Field(default_factory=list, max_length=20)
+    locations: list[WJQRow] = Field(default_factory=list, max_length=10)
+    uncomfortable: list[WJQRow] = Field(default_factory=list, max_length=10)
+    hazards: list[WJQRow] = Field(default_factory=list, max_length=10)
+    # 13. Qualifications — the parts that are not a qualification line
+    certification: list[str] = Field(default_factory=list, max_length=10)
+    experience_years: int | None = Field(default=None, ge=0, le=60)
+    #: ``True`` = "an equivalent combination … is acceptable"; ``False`` = "is not
+    #: acceptable because:" (``equivalency_rationale``); ``None`` = not answered.
+    equivalency_acceptable: bool | None = None
+    equivalency_rationale: str | None = Field(default=None, max_length=1000)
+    occupational_requirements: list[str] = Field(default_factory=list, max_length=20)
+
+    _lists_null = field_validator(
+        "minor_functions",
+        "level_of_independence",
+        "training_exercised",
+        "direction_exercised",
+        "continuing_education",
+        "contacts",
+        "effort",
+        "locations",
+        "uncomfortable",
+        "hazards",
+        "certification",
+        "occupational_requirements",
+        mode="before",
+    )(_null_to_empty)
+
+
 class SFUJobDescription(BaseModel):
     """The SFU template's 10 sections, in order. Extraction target for
     ``sfu_jd_extract_v1``; LLM-validated via ``LLMClient.chat_json``."""
@@ -132,6 +232,14 @@ class SFUJobDescription(BaseModel):
     #: (the common case for JDFN, whose grade lives in the HRIS). See JobClassification.
     classification: JobClassification | None = None
     employee_group: SFUEmployeeGroup | None = None
+    #: The position this one reports to — its title and position # (Track J4). Asked
+    #: by the Toolkit (Part 11.1, "supervisor title") and the JAQ ("Position # of
+    #: Supervisor"); NOT on the 2024 APSA template, so the export prints them after the
+    #: template's own header rows. Authored in the Builder only: the parser never fills
+    #: them (no ``PARSER_VERSION`` change — a stored ``parsed`` row without the keys
+    #: deserializes to ``None``, exactly what a fresh parse writes).
+    supervisor_title: str | None = Field(default=None, max_length=200)
+    supervisor_position_number: str | None = Field(default=None, max_length=50)
     # 2. About SFU (boilerplate - presence only)
     about_sfu_present: bool = False
     # 3. Position Summary (template: 100-150 words)
@@ -168,6 +276,23 @@ class SFUJobDescription(BaseModel):
     # (`segmentation.additional_context_max_chars`, HR-200) and must stay under it; a
     # configured cap above this ceiling would turn a lossy parse into a parse *failure*.
     additional_context: str | None = Field(default=None, max_length=20000)
+    # The CUPE form's own structure (Track J2) — authored CUPE drafts only; ``None`` for
+    # every JDFN JD, every parsed document and every draft written before J2 (missing
+    # key -> default), so existing ``content`` JSONB deserializes unchanged.
+    wjq_form: WJQForm | None = None
+
+    @model_serializer(mode="wrap")
+    def _omit_absent_wjq_form(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """``wjq_form`` is left OUT of a dump when it is ``None`` — so every JDFN JD,
+        every parsed document and every pre-J2 draft serializes byte-identically to
+        before J2. The parser's golden fixtures pin exactly that (a parse output with a
+        new ``"wjq_form": null`` key would be a changed parse in all but name), and a
+        reviewer edit's "changed sections" diff would otherwise report a section that
+        did not change. Missing key -> ``None`` on the way back in."""
+        data = handler(self)
+        if isinstance(data, dict) and data.get("wjq_form") is None:
+            data.pop("wjq_form", None)
+        return data
 
     _lists_null = field_validator(
         "duties", "decision_making", "problem_solving", "qualifications", mode="before"

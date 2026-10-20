@@ -100,6 +100,9 @@ def test_dedup_is_the_fourth_unhashed_file(rules: Rules) -> None:
         # Track J1 added `cupe_form.yaml` — the eleventh. What an exported CUPE `.docx`
         # LOOKS like; nothing reads it back, so it moves neither stamp.
         "cupe_form.yaml",
+        # Track J4 added `apsa_form.yaml` — the twelfth. The APSA export's look and the
+        # Builder's criminal-record-check sentence; moves neither stamp.
+        "apsa_form.yaml",
     }
     assert "dedup" not in loader._HASHED_FIELDS
 

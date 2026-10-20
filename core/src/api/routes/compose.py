@@ -28,6 +28,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from neo4j import AsyncDriver, AsyncGraphDatabase
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.main import get_session
@@ -37,13 +38,15 @@ from src.jd_bank.composer import (
     SummarySuggestion,
     assess_draft,
     load_clone_answers,
-    search_similar_jds,
+    search_jds,
     suggest_summary,
 )
 from src.jd_bank.composer.answers import AnswerContract
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.llm.client import ChatClient
 from src.jd_core.models.parsed_jd import SFUJobDescription
+from src.jd_core.rules import get_rules
+from src.jd_core.wjq_form_check import CupeFormError, check_cupe_form
 from src.jd_export import render_sfu_docx
 from src.settings import get_settings
 
@@ -150,7 +153,13 @@ async def assist_summary(
 @router.post("/export")
 async def export_docx(jd: SFUJobDescription) -> Response:
     """Render a draft to the official SFU ``.docx`` and return it as a download.
-    Pure rendering — nothing is validated or published (NN #1)."""
+    Pure rendering — nothing is scored or published (NN #1). A CUPE form block holding
+    a value outside HR's closed lists is refused (422, with its register id): the file
+    is HR's own form, so this door gets the same check as every other (review M1)."""
+    try:
+        check_cupe_form(jd, get_rules())
+    except CupeFormError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     content = render_sfu_docx(jd)
     return Response(
         content=content,
@@ -161,17 +170,26 @@ async def export_docx(jd: SFUJobDescription) -> Response:
     )
 
 
+#: Set on a ``/search`` response whose meaning passes could not run (embedding host or
+#: vector index down): the body is then title matches only. A header rather than a new
+#: body shape, so a caller reading the list is unaffected (Track I2).
+SEARCH_NOTICE_HEADER = "X-JD-Search-Notice"
+
+
 @router.get("/search", response_model=list[SearchHit])
 async def search(
+    response: Response,
     q: str,
     limit: int = 10,
     embed_client: EmbedClient = Depends(get_embed_client),
     neo4j_driver: AsyncDriver = Depends(get_neo4j_driver),
     session: AsyncSession = Depends(get_session),
 ) -> list[SearchHit]:
-    """Semantic search for existing JDFN JDs like ``q``, to start a draft from."""
+    """Search for existing JDFN JDs like ``q``, to start a draft from. A dead or stalled
+    embedding host never fails the request: the title matches are returned and
+    :data:`SEARCH_NOTICE_HEADER` says the meaning passes were skipped."""
     try:
-        return await search_similar_jds(
+        outcome = await search_jds(
             q,
             embed_client=embed_client,
             neo4j_driver=neo4j_driver,
@@ -181,6 +199,9 @@ async def search(
     finally:
         await embed_client.close()
         await neo4j_driver.close()
+    if outcome.notice is not None:
+        response.headers[SEARCH_NOTICE_HEADER] = "semantic-unavailable"
+    return outcome.hits
 
 
 @router.get("/clone/{source_document_id}", response_model=None)
@@ -202,7 +223,12 @@ async def clone(
     old narrow pin, not less. ``None`` disables the filtering so each form's answers are
     serialized whole.
     """
-    answers = await load_clone_answers(session, source_document_id)
+    try:
+        answers = await load_clone_answers(session, source_document_id)
+    except (CupeFormError, ValidationError) as exc:
+        # Stored data the Builder's contract cannot hold (Track J2, review M1): a
+        # stated refusal, never a 500.
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if answers is None:
         raise HTTPException(status_code=404, detail="no parsed JD to clone")
     return answers

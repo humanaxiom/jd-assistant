@@ -30,6 +30,8 @@
     ],
     "classification": null,
     "employee_group": null,
+    "supervisor_title": null,
+    "supervisor_position_number": null,
     "employment_equity_present": false,
     "grade": null,
     "position_number": "00456789",

@@ -342,6 +342,8 @@ def test_the_loader_rejects_a_section_with_no_producer() -> None:
             section_vectors=("position_summary",),
             interactive_timeout_seconds=10.0,
             library_vector_k=100,
+            title_typo_min_similarity=0.5,
+            builder_search_p95_budget_seconds=2.0,
         )
 
 
@@ -358,4 +360,6 @@ def test_section_vectors_must_be_a_subset_of_document_sections() -> None:
             section_vectors=("duties",),  # not in document_sections
             interactive_timeout_seconds=10.0,
             library_vector_k=100,
+            title_typo_min_similarity=0.5,
+            builder_search_p95_budget_seconds=2.0,
         )

@@ -9,6 +9,8 @@ full inventory, including the consumers that already read ``how_why``.
 
 from __future__ import annotations
 
+import pytest
+
 from src.jd_bank.jd_text import flatten_jd, outline_jd
 from src.jd_bank.rewrite.harmonize import _apply_anti_fabrication
 from src.jd_core.bank.merge import duty_text, merge_cluster
@@ -111,3 +113,63 @@ def test_a_v9_draft_with_a_long_duty_clones_into_the_builder() -> None:
     answers = jd_to_answers(_jd(long_duty))
 
     assert answers.duties[0].statement == long_duty.statement
+
+
+_CLAUSES_36 = [f"by doing measured thing number {i}" for i in range(36)]
+
+
+def test_a_v9_duty_with_36_how_why_points_clones_and_reassembles_whole() -> None:
+    """MEASURED on the v9 Bank copy: 1,107 duties in 992 documents carry more than 12
+    how/why points (max 36). J4's Builder row held twelve, so cloning such a role into
+    the Builder raised. Its limit is the parser's own (HR-265), and the round trip
+    clone -> assemble drops and refuses nothing."""
+    from src.jd_bank.composer.assemble import assemble_jd, jd_to_answers
+
+    duty = SFUDuty(
+        action_verb="Manages",
+        statement="Manages complex proposal processes by",
+        how_why=_CLAUSES_36,
+    )
+    answers = jd_to_answers(_jd(duty))
+    assert answers.duties[0].how_why == _CLAUSES_36
+
+    back = assemble_jd(answers)
+    assert back.duties[0].how_why == _CLAUSES_36
+
+
+def test_an_archive_document_with_twenty_duties_clones_into_the_builder() -> None:
+    """The Builder also clones RAW archive documents (`load_clone_answers`). A v9 parse
+    keeps up to `segmentation.duty_max_count` (HR-262) duties — measured max 93, with
+    ~1,470 APSA/APEX/POLY documents over twelve — and `ComposerAnswers.duties` held
+    twelve, so the clone raised. It now holds what the parser keeps."""
+    from src.jd_bank.composer.assemble import jd_to_answers
+
+    duties = [
+        SFUDuty(action_verb="Does", statement=f"Does thing {i}") for i in range(20)
+    ]
+    answers = jd_to_answers(_jd(*duties))
+    assert [d.statement for d in answers.duties] == [d.statement for d in duties]
+
+
+def test_the_builder_how_why_limit_is_the_rulebook_s(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Retune HR-265 and the Builder row follows — no second constant to drift."""
+    from pydantic import ValidationError
+
+    from src.jd_bank.composer.answers import JDFNDutyAnswer
+    from src.jd_core import rules as rules_mod
+
+    real = get_rules()
+    tuned = real.model_copy(
+        update={
+            "segmentation": real.segmentation.model_copy(
+                update={"duty_how_why_max_count": 5}
+            )
+        }
+    )
+    monkeypatch.setattr(rules_mod, "get_rules", lambda: tuned)
+
+    JDFNDutyAnswer(statement="Manages things by", how_why=_CLAUSES_36[:5])
+    with pytest.raises(ValidationError, match="HR-265"):
+        JDFNDutyAnswer(statement="Manages things by", how_why=_CLAUSES_36[:6])

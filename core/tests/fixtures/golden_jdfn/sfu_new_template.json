@@ -48,6 +48,8 @@
     ],
     "classification": null,
     "employee_group": "apsa",
+    "supervisor_title": null,
+    "supervisor_position_number": null,
     "employment_equity_present": true,
     "grade": null,
     "position_number": "90012345",

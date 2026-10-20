@@ -12,9 +12,23 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from src.jd_core.models.parsed_jd import SFUEmployeeGroup
+from src.jd_core.models.parsed_jd import SFUDuty, SFUEmployeeGroup, SFUJobDescription
+
+#: ``SFUJobDescription.duties``' contract ceiling, read off the model (parser v9).
+_DUTIES_CEILING: int = next(
+    int(meta.max_length)
+    for meta in SFUJobDescription.model_fields["duties"].metadata
+    if getattr(meta, "max_length", None) is not None
+)
+
+#: ``SFUDuty.how_why``'s contract ceiling, read off the model (parser v9).
+_HOW_WHY_CEILING: int = next(
+    int(meta.max_length)
+    for meta in SFUDuty.model_fields["how_why"].metadata
+    if getattr(meta, "max_length", None) is not None
+)
 
 
 class DutyAnswer(BaseModel):
@@ -32,6 +46,38 @@ class DutyAnswer(BaseModel):
     #: assembler renders it into the duty as ``(NN%)`` (Part 10.1) so the validator's
     #: allocation gate can read it.
     allocation: int | None = Field(default=None, ge=0, le=100)
+
+
+class JDFNDutyAnswer(DutyAnswer):
+    """A JDFN (APSA/APEX/Poly) duty: the template's "ACTION VERB… WHAT by" statement
+    plus its "How and why" sub-bullets (Track J4) — ``SFUDuty.how_why``, which the
+    Builder could not fill before, so ``SFU-STRUCT-HOW-WHY`` could only be met by
+    cramming the clauses into the statement.
+
+    A subclass, not a new field on :class:`DutyAnswer`, because the WJQ form shares
+    that row and its assembler has nowhere to put a clause list: a field it silently
+    ignored is exactly the drop this track exists to remove. ``answers_json`` written
+    before J4 has no ``how_why`` key and still validates (defaults to ``[]``)."""
+
+    #: The model's own ceiling is the hard bound; the OPERATIVE limit is the parser's
+    #: (`segmentation.duty_how_why_max_count`, HR-265) — checked below, never restated.
+    #: It was a constant 12, and 1,107 duties in 992 documents of the v9 re-parse carry
+    #: more (max 36), so cloning those roles into the Builder RAISED. A Builder that can
+    #: hold less than the parser reads is a Builder that refuses the archive.
+    how_why: list[str] = Field(default_factory=list, max_length=_HOW_WHY_CEILING)
+
+    @field_validator("how_why")
+    @classmethod
+    def _within_the_parser_s_limit(cls, value: list[str]) -> list[str]:
+        from src.jd_core.rules import get_rules  # noqa: PLC0415 — rules import models
+
+        limit = get_rules().segmentation.duty_how_why_max_count
+        if len(value) > limit:
+            raise ValueError(
+                f"{len(value)} how/why points on one duty; the limit is {limit} "
+                "(segmentation.duty_how_why_max_count, HR-265)"
+            )
+        return value
 
 
 class ModifiedQual(BaseModel):
@@ -75,8 +121,13 @@ class ComposerAnswers(AnswerContract):
 
     # 1. Identification
     title: str = Field(default="", max_length=200)
+    #: The template header's "Position #:" (Track J4).
+    position_number: str | None = Field(default=None, max_length=50)
     department: str | None = Field(default=None, max_length=200)
     employee_group: SFUEmployeeGroup | None = None
+    #: The position this one reports to (Toolkit Part 11.1; the JAQ). Track J4.
+    supervisor_title: str | None = Field(default=None, max_length=200)
+    supervisor_position_number: str | None = Field(default=None, max_length=50)
     #: The pay grade / classification VALUE the author enters (e.g. "8"). Its scheme is
     #: the ``employee_group`` scale; the assembler builds a ``JobClassification`` with
     #: ``source="entered"``. Blank -> no classification (grade lives in the HRIS for
@@ -85,7 +136,30 @@ class ComposerAnswers(AnswerContract):
     # 3. Position Summary
     position_summary: str | None = Field(default=None, max_length=4000)
     # 4. Duties
-    duties: list[DutyAnswer] = Field(default_factory=list, max_length=12)
+    #: Held to what the parser keeps (`segmentation.duty_max_count`, HR-262), checked
+    #: below, under the model's ceiling. It was a constant 12, and the Builder also
+    #: clones RAW archive documents — ~1,470 v9 APSA/APEX/POLY parses carry more, so
+    #: cloning them raised. More than five still draws SFU-STRUCT-DUTIES-TOO-MANY
+    #: (HR-022): the Builder holds the document, the validator judges it.
+    duties: list[JDFNDutyAnswer] = Field(
+        default_factory=list, max_length=_DUTIES_CEILING
+    )
+
+    @field_validator("duties")
+    @classmethod
+    def _duties_within_the_parser_s_limit(
+        cls, value: list[JDFNDutyAnswer]
+    ) -> list[JDFNDutyAnswer]:
+        from src.jd_core.rules import get_rules  # noqa: PLC0415 — rules import models
+
+        limit = get_rules().segmentation.duty_max_count
+        if len(value) > limit:
+            raise ValueError(
+                f"{len(value)} duties; the limit is {limit} "
+                "(segmentation.duty_max_count, HR-262)"
+            )
+        return value
+
     # 5. Decision Making
     decision_making: list[str] = Field(default_factory=list, max_length=20)
     # 6. Problem Solving
@@ -101,8 +175,31 @@ class ComposerAnswers(AnswerContract):
     knowledge: list[ModifiedQual] = Field(default_factory=list, max_length=20)
     skills: list[ModifiedQual] = Field(default_factory=list, max_length=20)
     abilities: list[str] = Field(default_factory=list, max_length=20)
+    #: E. Security credentials (Track J4). The criminal record check is a yes/no — the
+    #: sentence is HR's (``apsa_form.security_check_sentence``, HR-257), never typed.
+    criminal_record_check: bool = False
+    #: Any OTHER security credential, verbatim — what a cloned role carried that is not
+    #: the rulebook's sentence. Pre-J4 the clone transform dropped these outright.
+    security: list[str] = Field(default_factory=list, max_length=10)
     # 2./9. SFU mandated boilerplate (About-SFU + territorial ack + EE footer) — the
     #       do-not-edit blocks the Builder inserts; required for approval.
     include_sfu_boilerplate: bool = True
     # 10. Additional Contextual Information (optional; dropped if blank)
     additional_context: str | None = Field(default=None, max_length=4000)
+
+    @field_validator("duties", mode="before")
+    @classmethod
+    def _plain_duties_are_jdfn_duties(cls, value: object) -> object:
+        """A plain :class:`DutyAnswer` (no how/why) is a valid JDFN duty — accept it,
+        so every caller that built one before J4 keeps working unchanged."""
+        if isinstance(value, list):
+            return [
+                (
+                    item.model_dump()
+                    if isinstance(item, DutyAnswer)
+                    and not isinstance(item, JDFNDutyAnswer)
+                    else item
+                )
+                for item in value
+            ]
+        return value

@@ -134,3 +134,28 @@ interactive_timeout_seconds: 10.0
 # twins, so a cosine cut-off cannot be trusted). 100 is the depth the search spike measured
 # (hit@10 20/22). Cannot change any stored vector, so it is outside the embed stamp. HR-237.
 library_vector_k: 100
+
+# --- title search (Track I2) — Postgres, not vectors; both outside the embed stamp ------
+# The TYPO fallback in the title passes of BOTH boxes (library roles; Builder roles and
+# current-parse documents). It runs only when no title CONTAINS the query, and a title
+# qualifies only if EVERY word typed matches a whole word of it at least this closely
+# (pg_trgm `strict_word_similarity`, 0..1). Used to RANK, never shown and never a verdict.
+# MEASURED 2026-10-19 over the live titles: single-letter typos score 0.50-0.77
+# ("labratory"/"laboratory" 0.615, "techician" 0.615, "cordinator" 0.769, "manger" 0.500);
+# abbreviations score far lower ("coord"/"coordinator" 0.385, "coop" 0.214, "dev" 0.273),
+# so 0.5 recovers the typos and leaves abbreviations to the meaning passes. Whole-query
+# `word_similarity` was rejected: it scores "coop coord" 0.63 against ~445 unrelated
+# "...Coordinator" roles. HR-241.
+title_typo_min_similarity: 0.5
+
+# The Builder search's p95 wall-time budget, asserted by `make smoke` over a fixed sample
+# (the 22 `search_eval_v1` queries + 2 typo queries, through the HTTP route, live embed
+# host). An ACCEPTANCE bar, not a runtime timeout — the runtime bound on waiting for the
+# embedding host is `interactive_timeout_seconds` (HR-198). MEASURED 2026-10-19 on this
+# sample (warm embed host): before I2 p50 3.10 s / p95 3.57 s, almost all of it the 2.7 s
+# document-title sequential scan over every parse; after I2 through the HTTP route,
+# p95 0.37-0.40 s before migration 0007's indexes and 0.20 s with them (3 runs, max
+# 0.22 s). 1.0 s is ~5x the indexed p95 — room for a busy GPU — and fails long before the
+# pre-I2 3.57 s could come back. (A missing index alone is caught by its own smoke test,
+# not by this bar: the current-parse filter keeps even the unindexed scan under it.) HR-242.
+builder_search_p95_budget_seconds: 1.0

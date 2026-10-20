@@ -61,13 +61,16 @@ def test_the_document_uses_the_sfu_base_font() -> None:
 def test_sections_render_with_headers_and_bullets() -> None:
     doc = _read(render_sfu_docx(_jd()))
     texts = [p.text for p in doc.paragraphs]
-    assert "Position Summary" in texts
-    assert "Duties and Responsibilities" in texts
-    assert "Qualifications" in texts
+    # Track J4: the template's (and the parser's) upper-case headings.
+    assert "POSITION SUMMARY" in texts
+    assert "DUTIES AND RESPONSIBILITIES" in texts
+    assert "QUALIFICATIONS" in texts
     # The allocation carried in the duty text survives.
     assert any("Manages the program (60%)" in t for t in texts)
-    # Duties are bulleted.
-    bullet_texts = [p.text for p in doc.paragraphs if p.style.name == "List Bullet"]
+    # Duties are bulleted — with a TYPED bullet since J4 (HR-259), because a Word
+    # "List Bullet" never reaches the text the Bank's parser reads.
+    glyph = get_rules().apsa_form.bullet_glyph
+    bullet_texts = [t for t in texts if t.startswith(glyph)]
     assert any("Manages the program" in t for t in bullet_texts)
     # The KSA modifier is prefixed when not already in the text.
     assert any("Excellent knowledge of databases" in t for t in texts)
@@ -85,16 +88,20 @@ def test_the_mandated_footer_is_injected_from_the_rulebook() -> None:
 def test_empty_sections_are_dropped() -> None:
     doc = _read(render_sfu_docx(_jd(decision_making=[], problem_solving=[])))
     texts = [p.text for p in doc.paragraphs]
-    assert "Impact of Decision Making" not in texts
-    assert "Problem Solving" not in texts
+    assert "IMPACT OF DECISION MAKING" not in texts
+    assert "PROBLEM SOLVING AND LEVEL OF SUPERVISION" not in texts
     # ...but present sections and the footer are still there.
-    assert "Duties and Responsibilities" in texts
+    assert "DUTIES AND RESPONSIBILITIES" in texts
 
 
 def test_a_minimal_jd_still_renders_with_the_footer() -> None:
     doc = _read(render_sfu_docx(SFUJobDescription(title="Bare Role")))
     texts = [p.text for p in doc.paragraphs]
-    assert "Bare Role" in texts
+    # Track J4: the title is in the template's page-header table, not the body.
+    header = [
+        c.text for t in doc.sections[0].header.tables for r in t.rows for c in r.cells
+    ]
+    assert "Bare Role" in header
     passage = get_rules().boilerplate.territorial_acknowledgement[0]
     assert any(passage in t for t in texts)
 
