@@ -69,7 +69,7 @@ from src.jd_bank.composer import (
     load_clone_answers,
     load_question_set,
     load_role_clone_answers,
-    search_similar_jds,
+    search_jds,
     submit_composed_draft,
     suggest_summary,
 )
@@ -892,36 +892,28 @@ async def search_page(
     spec = form_from_request(form)
     query = q.strip()
     hits: list[SearchHit] = []
-    message: str | None = None
+    notice: str | None = None
     if query:
-        # Bound the wait (HR-198). This route holds a checked-out AsyncSession out of a
-        # small pool for the whole call, so an embedding host that ACCEPTS and stalls
-        # takes the Builder down with it after only a handful of searches — the failure
-        # `connect=5.0` does NOT cover, because the connection succeeds.
-        budget = get_rules().embeddings.interactive_timeout_seconds
+        # The wait on the inference host is bounded INSIDE the search (HR-198): this
+        # route holds a checked-out AsyncSession out of a small pool for the whole call,
+        # so an embedding host that ACCEPTS and stalls would take the Builder down after
+        # a handful of searches. It used to be bounded HERE, around everything, and
+        # caught only `TimeoutError` — so a host that REFUSED raised straight through as
+        # a 500, and a stall threw away the title matches already found (measured
+        # 2026-10-19, Track I2). The search now keeps its title hits and says why the
+        # rest is missing.
         try:
-            hits = await asyncio.wait_for(
-                search_similar_jds(
-                    query,
-                    embed_client=embed_client,
-                    neo4j_driver=neo4j_driver,
-                    session=session,
-                    form=spec.template,
-                ),
-                timeout=budget,
-            )
-        except TimeoutError:
-            logger.warning(
-                "archive search exceeded its %.1fs budget; rendering without hits",
-                budget,
-            )
-            message = (
-                "The search took too long to answer, so no results are shown. "
-                "Try again in a moment — your search term has been kept."
+            outcome = await search_jds(
+                query,
+                embed_client=embed_client,
+                neo4j_driver=neo4j_driver,
+                session=session,
+                form=spec.template,
             )
         finally:
             await embed_client.close()
             await neo4j_driver.close()
+        hits, notice = outcome.hits, outcome.notice
     # Prefer cloning the HARMONIZED role: map each hit's source doc to its cluster (if
     # any) so the template links "Start from this" to the reviewed canonical, not the
     # raw archive JD. A singleton (no cluster) keeps the raw-source clone as its option.
@@ -929,8 +921,8 @@ async def search_page(
     # document hits need the lookup.
     role_clusters: dict[UUID, UUID] = {}
     for hit in hits:
-        if hit.source_document_id is None:
-            continue
+        if hit.source_document_id is None or hit.cluster_id is not None:
+            continue  # a role, or a document the search already resolved to its role
         cluster_id = await cluster_id_for_source(session, hit.source_document_id)
         if cluster_id is not None:
             role_clusters[hit.source_document_id] = cluster_id
@@ -942,7 +934,7 @@ async def search_page(
             "query": query,
             "hits": hits,
             "role_clusters": role_clusters,
-            "message": message,
+            "notice": notice,
             # Carried so a second search from this page keeps the instrument, and so
             # the page can say which one it is scoped to.
             "form_spec": spec,

@@ -156,6 +156,28 @@ def _no_title_matches(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(search_mod, "_role_title_matches", _no_roles)
     monkeypatch.setattr(search_mod, "_title_matches", _none)
+    _no_typo_matches(monkeypatch)
+
+
+def _no_typo_matches(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Silence the I2 typo FALLBACK, which runs when both title passes come back empty
+    and — like them — needs a real Postgres (pg_trgm)."""
+
+    async def _no_roles(session: Any, query: str, **kwargs: Any) -> list[Any]:
+        return []
+
+    async def _no_docs(session: Any, query: str, **kwargs: Any) -> dict[Any, Any]:
+        return {}
+
+    monkeypatch.setattr(search_mod, "role_title_typo_matches", _no_roles)
+    monkeypatch.setattr(search_mod, "_doc_title_typo_matches", _no_docs)
+
+
+@pytest.fixture(autouse=True)
+def _typo_fallback_needs_postgres(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every test here runs on a fake session; the typo fallback is proved against a
+    real Postgres in ``tests/integration/test_search_title_tiers.py``."""
+    _no_typo_matches(monkeypatch)
 
 
 async def test_search_embeds_once_filters_and_caps(
@@ -758,10 +780,10 @@ def test_search_route_transports_hits_and_closes_clients(
         score=0.91,
     )
 
-    async def fake_search(query: str, **kwargs: Any) -> list[SearchHit]:
-        return [hit]
+    async def fake_search(query: str, **kwargs: Any) -> search_mod.SearchOutcome:
+        return search_mod.SearchOutcome(hits=[hit])
 
-    monkeypatch.setattr(compose, "search_similar_jds", fake_search)
+    monkeypatch.setattr(compose, "search_jds", fake_search)
     embed, neo = _FakeClose(), _FakeClose()
     app.dependency_overrides[compose.get_embed_client] = lambda: embed
     app.dependency_overrides[compose.get_neo4j_driver] = lambda: neo
@@ -774,6 +796,7 @@ def test_search_route_transports_hits_and_closes_clients(
     assert body[0]["title"] == "Financial Analyst"
     assert embed.closed is True
     assert neo.closed is True
+    assert compose.SEARCH_NOTICE_HEADER not in resp.headers, "healthy: no notice"
 
 
 # --- embed_stamp parity: never rank vectors the query cannot be compared to -------
@@ -1022,3 +1045,188 @@ async def test_jdfn_search_still_keeps_documents_with_no_group_recorded(
     groups = [h.employee_group for h in hits]
     assert "cupe" not in groups
     assert None in groups, "a document with no group recorded must remain searchable"
+
+
+# --- I2: the Builder survives a dead / stalled embedding host ----------------------
+#
+# MEASURED 2026-10-19 (search spike, evidence/gpudown.py): with the embed client
+# pointed at a closed port, `search_similar_jds("Financial Assistant")` RAISED
+# `APIConnectionError` after 4.3 s and threw away the title hits it had already found;
+# the UI route caught only `TimeoutError`, so that became a 500. The title passes are
+# plain Postgres and need no GPU — a dead inference host must cost the meaning passes
+# and say so, never the page.
+
+
+class _DeadEmbed:
+    """An embed client whose host is gone: every call raises ``exc``."""
+
+    def __init__(self, exc: BaseException) -> None:
+        self.exc = exc
+        self.calls = 0
+
+    async def embed_batch(self, texts: Any) -> list[list[float]]:
+        self.calls += 1
+        raise self.exc
+
+
+class _StalledEmbed:
+    """Accepts and never answers — the failure a ``try``/``except`` cannot catch."""
+
+    async def embed_batch(self, texts: Any) -> list[list[float]]:
+        import asyncio
+
+        await asyncio.sleep(3600)
+        raise AssertionError("unreachable")  # pragma: no cover
+
+
+def _one_role_title_hit(monkeypatch: pytest.MonkeyPatch) -> uuid.UUID:
+    """The title passes find exactly one role, so the page is NOT full and the search
+    goes on to the meaning passes — the path a dead host used to break."""
+    role = uuid.uuid4()
+
+    async def fake_roles(session: Any, query: str, *, limit: int) -> list[Any]:
+        return [(role, "Financial Assistant", "apsa")]
+
+    async def no_docs(session: Any, query: str, *, limit: int) -> dict[Any, Any]:
+        return {}
+
+    monkeypatch.setattr(search_mod, "_role_title_matches", fake_roles)
+    monkeypatch.setattr(search_mod, "_title_matches", no_docs)
+    monkeypatch.setattr(search_mod, "_clusters_for_sources", _no_clusters_fn)
+    monkeypatch.setattr(search_mod, "_role_departments", _no_departments_fn)
+    return role
+
+
+def _connection_refused() -> BaseException:
+    import httpx
+    from openai import APIConnectionError
+
+    return APIConnectionError(request=httpx.Request("POST", "http://127.0.0.1:9/v1"))
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [_connection_refused(), ConnectionRefusedError("refused"), TimeoutError("read")],
+    ids=["openai-connection-error", "refused", "timeout"],
+)
+async def test_a_dead_embed_host_keeps_the_title_hits_and_says_so(
+    monkeypatch: pytest.MonkeyPatch, failure: BaseException
+) -> None:
+    role = _one_role_title_hit(monkeypatch)
+
+    outcome = await search_mod.search_jds(
+        "Financial Assistant",
+        embed_client=_DeadEmbed(failure),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+        session=object(),  # type: ignore[arg-type]
+        limit=10,
+    )
+
+    assert [h.cluster_id for h in outcome.hits] == [role], "title hits were lost"
+    assert outcome.notice == search_mod.SEMANTIC_UNAVAILABLE_NOTICE
+    assert "title" in outcome.notice.lower()
+
+
+async def test_a_dead_document_index_keeps_the_role_hits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Neo4j down is the same failure from the other store: the archive-vector read
+    raises, and every hit already on the page survives."""
+    role = _one_role_title_hit(monkeypatch)
+
+    async def no_role_vectors(*args: Any, **kwargs: Any) -> list[Any]:
+        return []
+
+    async def neo4j_down(*args: Any, **kwargs: Any) -> list[Any]:
+        raise ConnectionRefusedError("neo4j is down")
+
+    monkeypatch.setattr(search_mod, "_nearest_role_ids", no_role_vectors)
+    monkeypatch.setattr(search_mod, "_nearest_source_ids", neo4j_down)
+
+    outcome = await search_mod.search_jds(
+        "Financial Assistant",
+        embed_client=_FakeEmbed([0.1] * 768),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+        session=object(),  # type: ignore[arg-type]
+    )
+
+    assert [h.cluster_id for h in outcome.hits] == [role]
+    assert outcome.notice == search_mod.SEMANTIC_UNAVAILABLE_NOTICE
+
+
+async def test_a_stalled_embed_host_is_abandoned_within_the_interactive_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HR-198 bounds the MEANING passes, not the whole search: the title hits found
+    before the stall are returned once the budget runs out."""
+    import asyncio
+
+    from src.jd_core.rules import get_rules
+    from tests.unit.retuned_rules import retuned_embeddings
+
+    role = _one_role_title_hit(monkeypatch)
+    outcome = await asyncio.wait_for(
+        search_mod.search_jds(
+            "Financial Assistant",
+            embed_client=_StalledEmbed(),  # type: ignore[arg-type]
+            neo4j_driver=object(),  # type: ignore[arg-type]
+            session=object(),  # type: ignore[arg-type]
+            rules=retuned_embeddings(get_rules(), interactive_timeout_seconds=0.05),
+        ),
+        timeout=5,
+    )
+    assert [h.cluster_id for h in outcome.hits] == [role]
+    assert outcome.notice == search_mod.SEMANTIC_UNAVAILABLE_NOTICE
+
+
+async def test_a_healthy_search_carries_no_notice(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _one_role_title_hit(monkeypatch)
+
+    async def nothing(*args: Any, **kwargs: Any) -> list[Any]:
+        return []
+
+    async def no_parsed(session: Any, ids: Any) -> dict[Any, Any]:
+        return {}
+
+    monkeypatch.setattr(search_mod, "_nearest_role_ids", nothing)
+    monkeypatch.setattr(search_mod, "_nearest_source_ids", nothing)
+    monkeypatch.setattr(search_mod, "_load_latest_parsed", no_parsed)
+
+    outcome = await search_mod.search_jds(
+        "Financial Assistant",
+        embed_client=_FakeEmbed([0.1] * 768),  # type: ignore[arg-type]
+        neo4j_driver=object(),  # type: ignore[arg-type]
+        session=object(),  # type: ignore[arg-type]
+    )
+    assert outcome.notice is None
+
+
+def test_the_json_search_route_survives_a_dead_embed_host(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`GET /jd-bank/compose/search` had no try/except at all. It keeps its list shape
+    (a caller reading `body[0]["title"]` is unaffected) and says it is degraded in a
+    response header instead of a 500."""
+    role = _one_role_title_hit(monkeypatch)
+    embed = _DeadEmbed(_connection_refused())
+
+    class _Closing(_DeadEmbed):
+        closed = False
+
+        async def close(self) -> None:
+            type(self).closed = True
+
+    dead = _Closing(embed.exc)
+    neo = _FakeClose()
+    app.dependency_overrides[compose.get_embed_client] = lambda: dead
+    app.dependency_overrides[compose.get_neo4j_driver] = lambda: neo
+    _override_session()
+
+    resp = TestClient(app).get("/jd-bank/compose/search?q=Financial%20Assistant")
+
+    assert resp.status_code == 200, "a dead embed host must not 500 the JSON route"
+    assert [h["cluster_id"] for h in resp.json()] == [str(role)]
+    assert resp.headers[compose.SEARCH_NOTICE_HEADER] == "semantic-unavailable"
+    assert dead.closed is True and neo.closed is True
