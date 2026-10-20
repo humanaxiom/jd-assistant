@@ -101,12 +101,14 @@ class RoleListItem(_Frozen):
     source_count: int
     score: float | None
     grade: str | None
-    #: WHY a search returned this row: ``"title"`` (its title contains the query) or
+    #: WHY a search returned this row: ``"title"`` (its title contains the query),
+    #: ``"spelling"`` (no title contains it, but one matches every typed word by
+    #: spelling — the I2 typo fallback, HR-241) or
     #: ``"meaning"`` (found by the role-vector pass). ``None`` outside a search.
     #: There is deliberately NO similarity field: a role's cosine is not a usable
     #: number (an unrelated role can outscore a true twin), so the reader is told the
     #: reason, never a percentage.
-    matched_by: Literal["title", "meaning"] | None = None
+    matched_by: Literal["title", "spelling", "meaning"] | None = None
 
 
 class RolePage(_Frozen):

@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **243 decisions** (241 open · 2 ratified · 0 deferred) · 107 parameters explicitly exempted as trivial · 345 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **245 decisions** (243 open · 2 ratified · 0 deferred) · 107 parameters explicitly exempted as trivial · 347 parameters on the decision surface, all accounted for.
 
-**Of those 243, 87 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 154 are recorded for the same build check but are not yours to sign: 64 shape what a reviewer sees without deciding whether a job description passes, and 90 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 245, 87 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 156 are recorded for the same build check but are not yours to sign: 64 shape what a reviewer sees without deciding whether a job description passes, and 92 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -1560,6 +1560,8 @@ Model names, dimensions, timeouts, retries, text-matching patterns and search in
 | [HR-235](#hr-235) | What counts as the modern JDFN identification-block `Grade:` field? | *a text pattern — see below* | we chose it |
 | [HR-236](#hr-236) | Which employee groups record a parsed grade under their OWN scheme name, and which fall back to `unknown`? | `apsa`, `apex`, `poly` | we chose it |
 | [HR-237](#hr-237) | When someone types a search into the JD Bank library, how many of the closest roles by MEANING should it consider after the roles whose title matches? | `100` | we chose it |
+| [HR-241](#hr-241) | When nobody's job title contains the words someone typed into a search, how closely must a title's spelling match each of those words before we offer it as "similar spelling"? | `0.5` | we chose it |
+| [HR-242](#hr-242) | How fast must the Builder's "start from an existing JD" search answer — in the slowest one in twenty searches — before the system check counts it as too slow? | `1.0` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -2075,6 +2077,22 @@ We picked these because the system needed *a* value. There is no SFU precedent b
 - **Where the default came from:** we chose it
 - **Why it matters:** The library used to find a role only when the typed words appeared in its title, so "someone who processes invoices" returned nothing (17 of 22 test searches came back empty). It now lists title matches first and then the roles closest in meaning. The library is a paged list, so the meaning-based tail needs a fixed depth that does not change with the page size; this is that depth. It is a count of candidates, never a similarity cut-off: on the live Bank an unrelated role can score higher than a true twin of the same title, so any "close enough" threshold would be a constant dressed as a measurement, and no similarity is shown to the reader. 100 is the depth the search measurement used (a relevant role in the top 10 for 20 of 22 test searches).
 - **If it changes:** Lower: a long-tailed search shows fewer "related by meaning" roles and runs out of pages sooner. Higher: more loosely related roles appear at the end of a search and the page count grows, since roles are ranked and never filtered by closeness. Does NOT move `rules_version`, any JD's score, grade or approvability, and does not change a stored vector (outside the embed stamp, so no re-embed).
+
+##### HR-241 — When nobody's job title contains the words someone typed into a search, how closely must a title's spelling match each of those words before we offer it as "similar spelling"?
+
+- **We ship:** `0.5`
+- **Configured in:** `embeddings.yaml` → `embeddings.title_typo_min_similarity`
+- **Where the default came from:** we chose it
+- **Why it matters:** A search for "labratory techician" or "adminstrative cordinator" used to find nothing by title — no title contains those letters — and fell through to the search by meaning, which returned unrelated roles. Both the JD Bank library and the Builder's "start from an existing JD" search now fall back, only in that case, to titles whose every word is spelled close to a word typed. This number (0 to 1) is how close is close enough. It is used to put the closest spellings first and to decide which titles qualify; it is never shown. Measured over the live titles on 2026-10-19: a one-letter slip scores between 0.50 and 0.77 ("labratory" against "laboratory" 0.62, "cordinator" 0.77, "manger" 0.50), while abbreviations score far lower ("coord" 0.39, "coop" 0.21, "dev" 0.27). At 0.5 the typos are recovered and abbreviations are left to the meaning search, which handles them better.
+- **If it changes:** Lower: more two-letter slips are caught, but short abbreviations start matching unrelated titles ("coord" would match every "Coordinator" role), and those would be listed ahead of the meaning-based results. Higher: fewer typos are recovered; at about 0.62 "labratory techician" stops finding Laboratory Technician. Does NOT move `rules_version`, any JD's score, grade or approvability, and changes no stored vector, so it never requires a re-embed.
+
+##### HR-242 — How fast must the Builder's "start from an existing JD" search answer — in the slowest one in twenty searches — before the system check counts it as too slow?
+
+- **We ship:** `1.0`
+- **Configured in:** `embeddings.yaml` → `embeddings.builder_search_p95_budget_seconds`
+- **Where the default came from:** we chose it
+- **Why it matters:** The end-to-end system check (`make smoke`) times a fixed set of 24 searches through the Builder and fails if the slowest one in twenty takes longer than this. It is an acceptance bar, not a timeout: no search is ever cut off at this number (how long a search waits for the inference host is HR-198). Measured on 2026-10-19: before this change the search took 3.1 seconds typically and 3.6 seconds at that slow end, almost all of it one scan of every archive document's title in every version ever parsed; after it, 0.2 seconds at the slow end. One second leaves about five times that for a busy server, and fails well before the old 3.6 seconds could quietly return.
+- **If it changes:** Lower: the check fails more readily — on a busy inference host, or the first search after a quiet period — so it may block a release over something users would not notice. Higher: a real slowdown can return without the check noticing. Changes nothing a person sees and nothing about any JD; it only decides when the system check calls search too slow.
 
 #### An earlier version of this tool chose it — also unratified
 

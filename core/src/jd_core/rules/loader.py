@@ -855,7 +855,14 @@ class Segmentation(_RuleFile):
 #: vector can observe. **Adding to this set is a claim that needs proving** — anything
 #: touching WHAT is sent to the model, or WHICH model sees it, does not belong here.
 _NON_VECTOR_EMBEDDING_FIELDS: Final[frozenset[str]] = frozenset(
-    {"interactive_timeout_seconds", "library_vector_k"}
+    {
+        "interactive_timeout_seconds",
+        "library_vector_k",
+        # Track I2: a Postgres trigram floor and a smoke latency bar — neither is
+        # sent to, or produced by, the embedding model.
+        "title_typo_min_similarity",
+        "builder_search_p95_budget_seconds",
+    }
 )
 
 
@@ -945,6 +952,13 @@ class Embeddings(_RuleFile):
     #: How deep the library search reads the role vector index before paging (Track I1,
     #: HR-237). Order only, never a threshold. Non-vector: outside the embed stamp.
     library_vector_k: int = Field(ge=1)
+    #: The per-word ``strict_word_similarity`` floor of the title-search TYPO fallback
+    #: (Track I2, HR-241). A ranking floor, never displayed. Postgres-side: outside the
+    #: embed stamp. ``0`` would admit every title, ``> 1`` none.
+    title_typo_min_similarity: float = Field(gt=0.0, le=1.0)
+    #: The Builder search p95 budget ``make smoke`` asserts (Track I2, HR-242). An
+    #: acceptance bar, not a runtime timeout (that is HR-198). Outside the embed stamp.
+    builder_search_p95_budget_seconds: float = Field(gt=0.0)
 
     @field_validator("document_sections", "section_vectors")
     @classmethod

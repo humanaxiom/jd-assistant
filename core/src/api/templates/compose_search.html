@@ -27,8 +27,10 @@
   </p>
 </div>
 
-{% if message %}
-<div class="panel flash error">{{ message }}</div>
+{# The meaning passes need the inference host; the title passes do not. When the host
+   is down the page keeps its title matches and SAYS the list is incomplete (I2). #}
+{% if notice %}
+<div class="panel"><p class="banner" role="status"><strong>Heads up:</strong> {{ notice }}</p></div>
 {% endif %}
 
 {% if query %}
@@ -61,9 +63,12 @@
           {% else %}
           {{ (hit.score * 100) | round(0, 'floor') | int }}% similar
           {% endif %}
+          {# A spelling match is ranked by closeness and shows no number (I2). #}
+          {% if hit.by_spelling %}<div class="meta">similar spelling</div>{% endif %}
         </td>
         <td>
-          {% if hit.match == "role_title" %}
+          {# A role hit — by title OR by meaning — has no archive document to open. #}
+          {% if hit.source_document_id is none %}
           <a href="/jd-bank/ui/role/{{ hit.cluster_id }}">Read →</a>
           {% else %}
           <a href="/jd-bank/ui/jd/{{ hit.source_document_id }}">Read →</a>

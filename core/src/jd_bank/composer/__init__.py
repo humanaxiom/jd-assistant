@@ -37,16 +37,20 @@ from src.jd_bank.composer.questions import (
     load_question_set,
 )
 from src.jd_bank.composer.search import (
+    SEMANTIC_UNAVAILABLE_NOTICE,
     SearchHit,
+    SearchOutcome,
     cluster_id_for_source,
     load_clone_answers,
     load_role_clone_answers,
+    search_jds,
     search_similar_jds,
 )
 from src.jd_bank.composer.validate import assess_draft
 
 __all__ = [
     "COMPOSED_ORIGIN",
+    "SEMANTIC_UNAVAILABLE_NOTICE",
     "AuthoredDraft",
     "ComposerAnswers",
     "DraftAssessment",
@@ -59,6 +63,7 @@ __all__ = [
     "QuestionSetError",
     "RelatedRole",
     "SearchHit",
+    "SearchOutcome",
     "SectionState",
     "SummarySuggestion",
     "assemble_jd",
@@ -70,6 +75,7 @@ __all__ = [
     "load_clone_answers",
     "load_question_set",
     "load_role_clone_answers",
+    "search_jds",
     "search_similar_jds",
     "submit_composed_draft",
     "suggest_summary",
