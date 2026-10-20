@@ -256,7 +256,6 @@ def _wjq_form(answers: WJQAnswers) -> WJQForm:
     levels = _levels(answers)
     return WJQForm(
         current_classification=(answers.current_classification or "").strip() or None,
-        supervisor_title=(answers.supervisor_title or "").strip() or None,
         date_completed=answers.date_completed,
         completed_by=answers.completed_by,
         minor_functions=[_duty(m, None) for m in answers.minor_functions],
@@ -343,6 +342,9 @@ def assemble_wjq_jd(
         title=answers.title.strip() or "Untitled role",
         department=(answers.department or "").strip() or None,
         position_number=(answers.position_number or "").strip() or None,
+        # The ONE supervisor title (Track J4's top-level field; review M2) — the field
+        # the review editor writes, so an edit reaches the CUPE export too.
+        supervisor_title=_blank_to_none(answers.supervisor_title),
         # HR's "Classification & Grade Approved" is HR's box (HR-240): the Builder
         # asserts no classification. The author's CURRENT one is on `wjq_form`.
         classification=None,
@@ -515,7 +517,7 @@ def wjq_answers_from_jd(
         department=jd.department,
         position_number=jd.position_number,
         current_classification=extra.current_classification if extra else None,
-        supervisor_title=extra.supervisor_title if extra else None,
+        supervisor_title=jd.supervisor_title,
         date_completed=extra.date_completed if extra else None,
         completed_by=extra.completed_by if extra else None,
         position_summary=jd.position_summary,

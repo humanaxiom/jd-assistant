@@ -242,8 +242,9 @@ def _identification(
 ) -> None:
     """Section 1: the draft's identification on the left, HR's box on the right —
     whose values are ALWAYS blank (HR-240, non-negotiable #1). The author's current
-    classification, supervisor title, date and "completed by" come from ``wjq_form``
-    (J2) and are blank for a role that has none."""
+    classification, date and "completed by" come from ``wjq_form`` (J2) and are blank
+    for a role that has none; the evaluating supervisor's title is the top-level
+    ``jd.supervisor_title`` (J4), the field the review editor writes (review M2)."""
     labels = form.id_labels
     hr = list(form.hr_box_labels)
     extra = jd.wjq_form or WJQForm()
@@ -256,7 +257,8 @@ def _identification(
         (labels["position_number"], (jd.position_number or "").strip()),
         (labels["current_classification"], extra.current_classification or ""),
         (labels["title"], jd.title.strip()),
-        (labels["supervisor_title"], extra.supervisor_title or ""),
+        # Track J4's top-level field — the one the review editor writes (review M2).
+        (labels["supervisor_title"], (jd.supervisor_title or "").strip()),
         (
             labels["date_completed"],
             extra.date_completed.isoformat() if extra.date_completed else "",

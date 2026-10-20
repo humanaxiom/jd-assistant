@@ -161,9 +161,11 @@ class WJQForm(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    # 1. Position identification (the author's half; HR's box is never modelled)
+    # 1. Position identification (the author's half; HR's box is never modelled). The
+    #    evaluating supervisor's title is NOT here: it is the top-level
+    #    `SFUJobDescription.supervisor_title` (Track J4), the ONE field the review
+    #    editor writes and both exports read (review M2 — a copy here went stale).
     current_classification: str | None = Field(default=None, max_length=100)
-    supervisor_title: str | None = Field(default=None, max_length=200)
     date_completed: dt.date | None = None
     completed_by: WJQCompletedBy | None = None
     # 4. Minor functions (3. Major functions are `SFUJobDescription.duties`)

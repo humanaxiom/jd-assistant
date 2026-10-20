@@ -335,7 +335,8 @@ def test_the_author_gives_the_current_classification_not_hrs_approved_grade() ->
     jd = assemble_wjq_jd(_structured())
     assert jd.wjq_form is not None
     assert jd.wjq_form.current_classification == "Secretary Grade 6"
-    assert jd.wjq_form.supervisor_title == "Department Manager"
+    # The ONE supervisor title is J4's top-level field (review M2).
+    assert jd.supervisor_title == "Department Manager"
     assert jd.wjq_form.date_completed == dt.date(2026, 10, 19)
     assert jd.wjq_form.completed_by == "supervisor"
     # Nothing is asserted as HR's approved classification (HR-240).

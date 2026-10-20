@@ -319,7 +319,7 @@ def cupe_export_text_losses(
 
     for value, what in (
         (extra.current_classification, "current classification"),
-        (extra.supervisor_title, "supervisor title"),
+        (jd.supervisor_title, "supervisor title"),  # J4's top-level field (M2)
         (extra.date_completed.isoformat() if extra.date_completed else None, "date"),
     ):
         if value:

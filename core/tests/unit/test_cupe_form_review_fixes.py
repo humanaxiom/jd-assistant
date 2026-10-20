@@ -314,3 +314,40 @@ def test_a_legacy_set_with_more_than_40_lines_loads_and_is_refused_with_the_limi
     assert len(answers.occupational_skills) == 45
     with pytest.raises(ValueError, match="at most 40"):
         assemble_wjq_jd(answers)
+
+
+# ── M2: ONE supervisor title — J4's top-level field ───────────────────────────────
+
+
+def test_a_reviewers_supervisor_title_edit_reaches_the_cupe_export(
+    rules: Rules,
+) -> None:
+    """The reviewer's bug: the review editor writes the TOP-LEVEL
+    ``SFUJobDescription.supervisor_title`` (J4), while the CUPE export read a second
+    copy on ``wjq_form`` — so a corrected title never reached HR's form. One field now:
+    the CUPE assembler writes it, the export and the clone read it."""
+    from src.api.routes.ui import _content_from_form
+    from src.jd_bank.db.models import DocumentFormat
+    from src.jd_bank.ingest.extract import extract_text
+    from src.jd_export import render_sfu_docx
+
+    authored = assemble_wjq_jd(
+        WJQAnswers(title="Clerk", supervisor_title="Office Manager")
+    )
+    assert authored.supervisor_title == "Office Manager"
+    assert "supervisor_title" not in WJQForm.model_fields
+    assert authored.wjq_form is not None
+    content = _content_from_form(
+        [
+            ("title", "Clerk"),
+            ("employee_group", "cupe"),
+            ("supervisor_title", "Director, Student Services"),
+            ("wjq_form_json", authored.wjq_form.model_dump_json()),
+        ]
+    )
+    edited = SFUJobDescription.model_validate(content)
+    lines = extract_text(render_sfu_docx(edited), DocumentFormat.DOCX).splitlines()
+    label = rules.cupe_form.id_labels["supervisor_title"]  # type: ignore[index]
+    assert lines[lines.index(label) + 1] == "Director, Student Services"
+    assert "Office Manager" not in lines
+    assert wjq_answers_from_jd(edited).supervisor_title == "Director, Student Services"
