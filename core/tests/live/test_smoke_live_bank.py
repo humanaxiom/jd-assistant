@@ -24,12 +24,17 @@ filterable*:
    roles is found by exact title; the 22-query ``search_eval_v1`` set meets its recall
    floor; a dead embed host still returns title hits plus a banner; the archive tab
    finds a document by its current parsed title.
-6. **CUPE export (Tracks J1 + J2).** Live CUPE / APSA roles export on their own form
+7. **CUPE export (Tracks J1 + J2).** Live CUPE / APSA roles export on their own form
    and re-parse; a 14-function CUPE draft authored through the Builder's routes (HR's
    Dec-2024 sample shape) exports whole — split, frequencies, ticks, table rows,
    section 13 — and loses on re-parse only the WJQ parser's twelve-function ceiling; a
    live CUPE role clones into the J2 form through the route and round-trips; every
    live CUPE role still clones and reassembles. Read-only: the row count is checked.
+6. **Builder search (Track I2), through the HTTP route.** Migration 0007's trigram
+   indexes exist and are valid; a dead embed host keeps the title hits plus a banner;
+   no document title hit comes from a superseded parse; the two typo queries find a
+   relevant role in the top 10 of BOTH boxes; Builder p95 over a fixed 24-query sample
+   is within HR-242's budget and the Builder clears the ``search_eval_v1`` floor.
 
 Marked ``live``: never part of ``make gates`` or CI (CI has no Bank). Skips, loudly,
 when ``DATABASE_URL`` is unset rather than passing vacuously.
@@ -775,7 +780,7 @@ async def test_a_live_apsa_role_survives_export_and_reparse(session) -> None:  #
         assert passage in body, f"role {cid}: the APSA footer is missing"
 
 
-# ── 13-15. CUPE FORM STRUCTURE (Track J2) — authored through the HTTP routes ──────
+# ── CUPE FORM STRUCTURE (Track J2) — authored through the HTTP routes ──────
 #
 # The unit suite proves the J2 structure on fixtures. These drive the REAL app (the
 # `library` fixture: httpx ASGI transport, live session, CAS overridden) through the
@@ -1069,3 +1074,273 @@ async def test_every_live_cupe_role_still_clones_and_reassembles(session) -> Non
         ):
             broken.append(f"{cid}: content lost on clone")
     assert not broken, f"{len(broken)} of {len(rows)} CUPE roles: {broken[:5]}"
+
+
+# ── 13-17. Builder search (Track I2) — dead host, current parse, typos, latency ────
+#
+# Through the REAL Builder route (`/jd-bank/ui/compose/search`) on the `library`
+# fixture's app (CAS overridden, live Postgres / Neo4j / embed host), plus the search
+# service where the property is about rows rather than the page.
+
+#: Every Builder hit renders exactly one "start from" link: the harmonized role, or the
+#: raw archive document when it belongs to no role.
+_CLONE_LINK = re.compile(r'href="/jd-bank/ui/compose/clone(-role)?/([0-9a-f-]{36})"')
+
+#: The form a manager would plausibly pick for each eval query — the spike's own
+#: assignment (search-nlp-spike.md §2): CUPE-type jobs on the WJQ form, the rest JDFN.
+_BUILDER_FORM = {
+    "E1": "wjq",
+    "E4": "wjq",
+    "P1": "wjq",
+    "P4": "wjq",
+    "C2": "wjq",
+    "A3": "wjq",
+}
+
+#: The two typo queries I2 must recover in BOTH boxes: (query, Builder form, relevant).
+_TYPOS = (
+    (
+        "adminstrative cordinator",
+        "jdfn",
+        re.compile(r"administrative co-?ordinator", re.I),
+    ),
+    ("labratory techician", "wjq", re.compile(r"lab(oratory)? technician", re.I)),
+)
+
+
+async def _builder(client, q: str, form: str = "jdfn"):  # type: ignore[no-untyped-def]
+    resp = await client.get("/jd-bank/ui/compose/search", params={"q": q, "form": form})
+    assert resp.status_code == 200, f"/compose/search?q={q!r} -> {resp.status_code}"
+    return resp, list(dict.fromkeys(_CLONE_LINK.findall(resp.text)))
+
+
+async def _builder_rows(session, links):  # type: ignore[no-untyped-def]
+    """``(title, department, group)`` for each Builder hit, read from the Bank itself:
+    the role's current canonical, or the document's CURRENT parse."""
+    from src.jd_core.parser import PARSER_VERSION
+
+    roles = [i for kind, i in links if kind]
+    docs = [i for kind, i in links if not kind]
+    rows = []
+    if roles:
+        rows += (
+            await session.execute(
+                text(
+                    "SELECT content->>'title', content->>'department', "
+                    f"content->>'employee_group' FROM ({_CURRENT}) cur "
+                    "WHERE cluster_id = ANY(CAST(:ids AS uuid[]))"
+                ),
+                {"ids": roles},
+            )
+        ).all()
+    if docs:
+        rows += (
+            await session.execute(
+                text(
+                    "SELECT parsed->>'title', parsed->>'department', "
+                    "parsed->>'employee_group' FROM parsed_jds "
+                    "WHERE parser_version = :v "
+                    "AND source_document_id = ANY(CAST(:ids AS uuid[]))"
+                ),
+                {"ids": docs, "v": PARSER_VERSION},
+            )
+        ).all()
+    return rows
+
+
+async def test_the_live_bank_has_the_title_trigram_indexes(session) -> None:  # type: ignore[no-untyped-def]
+    """Migration 0007 is applied and its concurrent builds finished: without it the
+    typo fallback has no operator and the document-title pass is back to a
+    multi-second sequential scan."""
+    extensions = set(
+        (await session.scalars(text("SELECT extname FROM pg_extension"))).all()
+    )
+    valid = dict(
+        (
+            await session.execute(
+                text(
+                    "SELECT c.relname, i.indisvalid FROM pg_index i "
+                    "JOIN pg_class c ON c.oid = i.indexrelid WHERE c.relname IN "
+                    "('ix_parsed_jds_version_title_trgm',"
+                    " 'ix_canonical_jds_title_trgm')"
+                )
+            )
+        ).all()
+    )
+    assert {"pg_trgm", "btree_gin"} <= extensions, "run `alembic upgrade head` (0007)"
+    assert valid == {
+        "ix_parsed_jds_version_title_trgm": True,
+        "ix_canonical_jds_title_trgm": True,
+    }, f"title trigram indexes missing or INVALID: {valid}"
+
+
+async def test_builder_with_a_dead_embed_host_keeps_title_hits_and_banner(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    """The measured 500 (spike, evidence/gpudown.py): a refused embed host raised
+    straight through the route's `except TimeoutError`, throwing the title hits away.
+
+    The sampled title must match FEWER titles than a page holds: when the title passes
+    fill the page the embed host is never asked, so there is nothing to degrade (the
+    spike's "Financial" case). Chosen deterministically from the live titles."""
+    from openai import AsyncOpenAI
+
+    from src.api.main import app
+    from src.api.routes.compose import get_embed_client
+    from src.jd_bank.embeddings.client import EmbedClient
+    from src.jd_core.parser import PARSER_VERSION
+
+    roles = (
+        await session.execute(
+            text(
+                f"SELECT cluster_id, content->>'title', content->>'employee_group' "
+                f"FROM ({_CURRENT}) cur ORDER BY md5(cluster_id::text)"
+            )
+        )
+    ).all()
+    doc_titles = (
+        await session.scalars(
+            text(
+                "SELECT lower(parsed->>'title') FROM parsed_jds "
+                "WHERE parser_version = :v"
+            ),
+            {"v": PARSER_VERSION},
+        )
+    ).all()
+    role_titles = [(t or "").lower() for _c, t, _g in roles]
+
+    def title_matches(t: str) -> int:
+        in_roles = sum(t in r for r in role_titles)
+        return in_roles + sum(t in (d or "") for d in doc_titles)
+
+    cluster_id, title = next(
+        (cid, t)
+        for cid, t, group in roles
+        if len(t or "") > 12 and group != "cupe" and title_matches(t.lower()) < 5
+    )
+    # Nothing listens on port 9: every connection is refused immediately.
+    dead = AsyncOpenAI(base_url="http://127.0.0.1:9/v1", api_key="x", max_retries=0)
+    app.dependency_overrides[get_embed_client] = lambda: EmbedClient(client=dead)
+
+    resp, links = await _builder(library, title)
+
+    assert (
+        "-role",
+        str(cluster_id),
+    ) in links, f"the title hit for {title!r} was lost when the embed host is down"
+    assert "Search by meaning is unavailable" in resp.text, "no banner shown"
+
+
+async def test_no_builder_title_hit_comes_from_a_superseded_parse(session) -> None:  # type: ignore[no-untyped-def]
+    """Measured before I2: "%Coordinator%" matched 47 documents ONLY through an old
+    parse and showed the old title. Every document title hit must carry the title of
+    that document's CURRENT parse — checked with the parser's own predicate.
+
+    Drives the Builder's document-title pass itself: through the whole search, the
+    role-title pass fills the page first for words this common and the document pass
+    is never reached."""
+    from src.jd_bank.composer.search import SearchHit, _title_matches
+    from src.jd_core.parser import PARSER_VERSION
+
+    checked = 0
+    for query in ("Coordinator", "Assistant", "Advisor", "Manager"):
+        found = await _title_matches(session, query, limit=100)
+        docs = [
+            SearchHit(source_document_id=sid, title=jd.title, match="title")
+            for sid, jd in found.items()
+        ]
+        assert docs, f"{query!r}: no document title hits to check"
+        current = dict(
+            (
+                await session.execute(
+                    text(
+                        "SELECT source_document_id::text, parsed->>'title' "
+                        "FROM parsed_jds WHERE parser_version = :v "
+                        "AND source_document_id = ANY(CAST(:ids AS uuid[]))"
+                    ),
+                    {
+                        "v": PARSER_VERSION,
+                        "ids": [str(h.source_document_id) for h in docs],
+                    },
+                )
+            ).all()
+        )
+        for hit in docs:
+            assert current.get(str(hit.source_document_id)) == hit.title, (
+                f"{query!r}: document {hit.source_document_id} was found as "
+                f"{hit.title!r}, which is not its current parse's title"
+            )
+            assert query.lower() in hit.title.lower()
+            checked += 1
+    assert checked > 0
+
+
+@pytest.mark.parametrize(("query", "form", "relevant"), _TYPOS, ids=["A4", "lab"])
+async def test_typo_queries_find_a_relevant_role_in_both_boxes(  # type: ignore[no-untyped-def]
+    library, session, query, form, relevant
+) -> None:
+    """Spike A4-style queries: both returned NOTHING relevant before I2, in either
+    box (no typo tolerance anywhere)."""
+    _, ids = await _search_ids(library, query, limit=10)
+    rows = (
+        await session.execute(
+            text(
+                f"SELECT content->>'title' FROM ({_CURRENT}) cur "
+                "WHERE cluster_id = ANY(CAST(:ids AS uuid[]))"
+            ),
+            {"ids": ids[:10]},
+        )
+    ).all()
+    assert any(
+        relevant.search(t or "") for (t,) in rows
+    ), f"library: no relevant role in the top 10 for {query!r}: {[t for (t,) in rows]}"
+
+    _, links = await _builder(library, query, form)
+    titles = [t for t, _d, _g in await _builder_rows(session, links[:10])]
+    assert any(
+        relevant.search(t or "") for t in titles
+    ), f"builder ({form}): no relevant hit in the top 10 for {query!r}: {titles}"
+
+
+async def test_builder_search_meets_its_latency_budget_and_recall_floor(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    """The 22 reviewed queries plus the two typo queries, each through the Builder
+    route under the form a manager would pick. p95 wall time must be within HR-242's
+    budget (measured before I2: p50 3.10 s, p95 3.57 s, dominated by the 2.7 s
+    document-title sequential scan), and the Builder must clear the same hit@10 floor
+    the library does. Ranked hits only — never a score."""
+    import time
+
+    from src.jd_core.rules import get_rules
+    from tests.search_eval import load_eval
+
+    budget = get_rules().embeddings.builder_search_p95_budget_seconds
+    floor, queries = load_eval()
+    await _builder(library, "warm up the embedding model")  # a cold model load
+
+    times: list[float] = []
+    hits, misses = 0, []
+    for q in queries:
+        started = time.perf_counter()
+        _, links = await _builder(library, q.query, _BUILDER_FORM.get(q.id, "jdfn"))
+        times.append(time.perf_counter() - started)
+        if any(q.relevant(*row) for row in await _builder_rows(session, links[:10])):
+            hits += 1
+        else:
+            misses.append(f"{q.id} {q.query!r}")
+    for query, form, _relevant in _TYPOS:
+        started = time.perf_counter()
+        await _builder(library, query, form)
+        times.append(time.perf_counter() - started)
+
+    times.sort()
+    p95 = times[min(len(times) - 1, round(0.95 * (len(times) - 1)))]
+    print(
+        f"builder search n={len(times)} p50={times[len(times) // 2]:.2f}s "
+        f"p95={p95:.2f}s max={times[-1]:.2f}s budget={budget}s hit@10={hits}"
+    )
+    assert p95 <= budget, f"Builder search p95 {p95:.2f}s exceeds HR-242's {budget}s"
+    assert (
+        hits >= floor
+    ), f"Builder hit@10 = {hits}/{len(queries)} (floor {floor}); misses: {misses}"

@@ -23,7 +23,7 @@ from fastapi.testclient import TestClient
 
 from src.api.main import app, get_session
 from src.api.routes import compose, compose_ui
-from src.jd_bank.composer import DuplicateGuard, RelatedRole
+from src.jd_bank.composer import DuplicateGuard, RelatedRole, SearchOutcome
 from src.jd_bank.embeddings import client as embed_client_mod
 from src.jd_core.rules import get_rules
 from tests.unit.retuned_rules import (
@@ -744,15 +744,15 @@ def test_search_renders_hits_with_clone_links(
         score=0.91,
     )
 
-    async def fake_search(query: str, **kwargs: object) -> list[SearchHit]:
-        return [hit]
+    async def fake_search(query: str, **kwargs: object) -> SearchOutcome:
+        return SearchOutcome(hits=[hit])
 
     async def no_cluster(session: object, sid: object) -> None:
         return (
             None  # a singleton — no harmonized role, so raw-JD clone is the only link
         )
 
-    monkeypatch.setattr(compose_ui, "search_similar_jds", fake_search)
+    monkeypatch.setattr(compose_ui, "search_jds", fake_search)
     monkeypatch.setattr(compose_ui, "cluster_id_for_source", no_cluster)
     embed, neo = _FakeClose(), _FakeClose()
     app.dependency_overrides[compose.get_embed_client] = lambda: embed
@@ -784,13 +784,13 @@ def test_search_prefers_the_harmonized_role_clone(
     )
     cluster_id = uuid.uuid4()
 
-    async def fake_search(query: str, **kwargs: object) -> list[SearchHit]:
-        return [hit]
+    async def fake_search(query: str, **kwargs: object) -> SearchOutcome:
+        return SearchOutcome(hits=[hit])
 
     async def has_cluster(session: object, sid: object) -> uuid.UUID:
         return cluster_id
 
-    monkeypatch.setattr(compose_ui, "search_similar_jds", fake_search)
+    monkeypatch.setattr(compose_ui, "search_jds", fake_search)
     monkeypatch.setattr(compose_ui, "cluster_id_for_source", has_cluster)
     app.dependency_overrides[compose.get_embed_client] = lambda: _FakeClose()
     app.dependency_overrides[compose.get_neo4j_driver] = lambda: _FakeClose()
@@ -802,6 +802,53 @@ def test_search_prefers_the_harmonized_role_clone(
     assert f"/jd-bank/ui/compose/clone/{hit.source_document_id}" not in html
 
 
+def test_role_hits_link_to_the_role_and_a_spelling_hit_shows_no_number(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two I2 template rules a route test must pin, because the search tests cannot see
+    the page: (1) a role found by MEANING has no archive document, so its "Read" link
+    must go to the role — it used to render ``/jd-bank/ui/jd/None``; (2) a hit found by
+    the typo fallback says "similar spelling" and carries NO percentage (a trigram
+    distance is not a measure of the job). MUTATION: add a number to the spelling row,
+    or restore the ``match == "role_title"`` link test, and this goes red."""
+    from src.jd_bank.composer import SearchHit
+
+    by_meaning, by_spelling = uuid.uuid4(), uuid.uuid4()
+    hits = [
+        SearchHit(
+            cluster_id=by_spelling,
+            title="Laboratory Technician",
+            employee_group="cupe",
+            match="role_title",
+            by_spelling=True,
+        ),
+        SearchHit(
+            cluster_id=by_meaning,
+            title="Research Assistant",
+            employee_group="apsa",
+            score=0.9,
+            match="semantic",
+        ),
+    ]
+
+    async def fake_search(query: str, **kwargs: object) -> SearchOutcome:
+        return SearchOutcome(hits=hits)
+
+    monkeypatch.setattr(compose_ui, "search_jds", fake_search)
+    app.dependency_overrides[compose.get_embed_client] = lambda: _FakeClose()
+    app.dependency_overrides[compose.get_neo4j_driver] = lambda: _FakeClose()
+    _override_session_object()
+
+    html = _client().get("/jd-bank/ui/compose/search?q=labratory").text
+    assert "/jd-bank/ui/jd/None" not in html
+    assert f'href="/jd-bank/ui/role/{by_meaning}"' in html
+    assert f'href="/jd-bank/ui/role/{by_spelling}"' in html
+    row_start = html.index("Laboratory Technician")
+    spelling_row = html[row_start : html.index("</tr>", row_start)]
+    assert "similar spelling" in spelling_row
+    assert not re.search(r"\d\s*%", spelling_row), spelling_row
+
+
 def test_search_without_a_query_prompts_and_does_not_search(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -809,12 +856,12 @@ def test_search_without_a_query_prompts_and_does_not_search(
     no wasted round-trip, no crash."""
     called = False
 
-    async def fake_search(query: str, **kwargs: object) -> list[object]:
+    async def fake_search(query: str, **kwargs: object) -> SearchOutcome:
         nonlocal called
         called = True
-        return []
+        return SearchOutcome(hits=[])
 
-    monkeypatch.setattr(compose_ui, "search_similar_jds", fake_search)
+    monkeypatch.setattr(compose_ui, "search_jds", fake_search)
     app.dependency_overrides[compose.get_embed_client] = lambda: _FakeClose()
     app.dependency_overrides[compose.get_neo4j_driver] = lambda: _FakeClose()
     _override_session_object()
@@ -1415,34 +1462,73 @@ def test_assist_gives_up_on_a_stalled_model_and_keeps_the_authors_draft(
     assert stalled.closed is True, "the client leaked when the call timed out"
 
 
-def test_search_gives_up_on_a_stalled_embedding_host(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Same defect, and worse consequence: this route holds a checked-out
-    AsyncSession out of a small pool, so a few stalled searches take the whole
-    Builder down with them."""
+class _EmbedThat(_FakeClose):
+    """An embed client that either stalls forever or raises like a refused host."""
 
-    async def stalls(query: str, **kwargs: object) -> list[object]:
+    def __init__(self, *, fail: BaseException | None = None) -> None:
+        super().__init__()
+        self.fail = fail
+
+    async def embed_batch(self, texts: object) -> list[list[float]]:
+        if self.fail is not None:
+            raise self.fail
         await asyncio.sleep(3600)
         raise AssertionError("unreachable")  # pragma: no cover
 
-    monkeypatch.setattr(compose_ui, "search_similar_jds", stalls)
+
+def _one_title_hit(monkeypatch: pytest.MonkeyPatch) -> uuid.UUID:
+    """The Postgres title passes find one role (page not full), so the search goes on
+    to the meaning passes — the step that needs the inference host."""
+    from src.jd_bank.composer import search as search_mod
+
+    role = uuid.uuid4()
+
+    async def roles(session: object, query: str, *, limit: int) -> list[object]:
+        return [(role, "Analyst, Budget Office", "apsa")]
+
+    async def none(session: object, query: str, *, limit: int) -> dict[object, object]:
+        return {}
+
+    async def no_labels(session: object, ids: object) -> dict[object, object]:
+        return {}
+
+    monkeypatch.setattr(search_mod, "_role_title_matches", roles)
+    monkeypatch.setattr(search_mod, "_title_matches", none)
+    monkeypatch.setattr(search_mod, "_clusters_for_sources", no_labels)
+    monkeypatch.setattr(search_mod, "_role_departments", no_labels)
     monkeypatch.setattr(
-        compose_ui,
+        search_mod,
         "get_rules",
         lambda: retuned_embeddings(get_rules(), interactive_timeout_seconds=0.05),
     )
-    embed, neo = _FakeClose(), _FakeClose()
+    return role
+
+
+@pytest.mark.parametrize(
+    "fail", [None, ConnectionRefusedError("refused")], ids=["stalls", "refused"]
+)
+def test_search_keeps_its_title_hits_when_the_embedding_host_is_down(
+    monkeypatch: pytest.MonkeyPatch, fail: BaseException | None
+) -> None:
+    """This route holds a checked-out AsyncSession out of a small pool, so a stalled
+    host must be abandoned within HR-198's budget — and (I2, measured 2026-10-19) a
+    REFUSED host used to raise straight through the `except TimeoutError`, a 500 that
+    also threw away the title matches already found. Both now cost only the meaning
+    passes, and the page says so."""
+    role = _one_title_hit(monkeypatch)
+    embed, neo = _EmbedThat(fail=fail), _FakeClose()
     app.dependency_overrides[compose.get_embed_client] = lambda: embed
     app.dependency_overrides[compose.get_neo4j_driver] = lambda: neo
     _override_session_object()
 
     resp = _client().get("/jd-bank/ui/compose/search?q=analyst")
 
-    assert resp.status_code == 200, "a stalled embedding host must not 500 the page"
-    assert "took too long" in resp.text
+    assert resp.status_code == 200, "a down embedding host must not 500 the page"
+    assert "Analyst, Budget Office" in resp.text, "the title hits were thrown away"
+    assert f"/jd-bank/ui/compose/clone-role/{role}" in resp.text
+    assert "Search by meaning is unavailable" in resp.text
     assert "analyst" in resp.text, "the author's query was thrown away"
-    assert embed.closed is True and neo.closed is True, "a client leaked on timeout"
+    assert embed.closed is True and neo.closed is True, "a client leaked on failure"
 
 
 def test_submit_carries_the_clone_lineage_into_the_persist_call(
@@ -1768,15 +1854,14 @@ def test_search_passes_the_chosen_form_through_and_says_so(
     link carried no ``form``, and the search itself excluded CUPE outright, so every
     result was JDFN and every clone correctly opened a JDFN draft.
     """
-    from src.jd_bank.composer import SearchHit
 
     seen: dict[str, object] = {}
 
-    async def fake_search(query: str, **kwargs: object) -> list[SearchHit]:
+    async def fake_search(query: str, **kwargs: object) -> SearchOutcome:
         seen.update(kwargs)
-        return []
+        return SearchOutcome(hits=[])
 
-    monkeypatch.setattr(compose_ui, "search_similar_jds", fake_search)
+    monkeypatch.setattr(compose_ui, "search_jds", fake_search)
     embed, neo = _FakeClose(), _FakeClose()
     app.dependency_overrides[compose.get_embed_client] = lambda: embed
     app.dependency_overrides[compose.get_neo4j_driver] = lambda: neo

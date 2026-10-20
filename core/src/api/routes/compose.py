@@ -38,7 +38,7 @@ from src.jd_bank.composer import (
     SummarySuggestion,
     assess_draft,
     load_clone_answers,
-    search_similar_jds,
+    search_jds,
     suggest_summary,
 )
 from src.jd_bank.composer.answers import AnswerContract
@@ -163,17 +163,26 @@ async def export_docx(jd: SFUJobDescription) -> Response:
     )
 
 
+#: Set on a ``/search`` response whose meaning passes could not run (embedding host or
+#: vector index down): the body is then title matches only. A header rather than a new
+#: body shape, so a caller reading the list is unaffected (Track I2).
+SEARCH_NOTICE_HEADER = "X-JD-Search-Notice"
+
+
 @router.get("/search", response_model=list[SearchHit])
 async def search(
+    response: Response,
     q: str,
     limit: int = 10,
     embed_client: EmbedClient = Depends(get_embed_client),
     neo4j_driver: AsyncDriver = Depends(get_neo4j_driver),
     session: AsyncSession = Depends(get_session),
 ) -> list[SearchHit]:
-    """Semantic search for existing JDFN JDs like ``q``, to start a draft from."""
+    """Search for existing JDFN JDs like ``q``, to start a draft from. A dead or stalled
+    embedding host never fails the request: the title matches are returned and
+    :data:`SEARCH_NOTICE_HEADER` says the meaning passes were skipped."""
     try:
-        return await search_similar_jds(
+        outcome = await search_jds(
             q,
             embed_client=embed_client,
             neo4j_driver=neo4j_driver,
@@ -183,6 +192,9 @@ async def search(
     finally:
         await embed_client.close()
         await neo4j_driver.close()
+    if outcome.notice is not None:
+        response.headers[SEARCH_NOTICE_HEADER] = "semantic-unavailable"
+    return outcome.hits
 
 
 @router.get("/clone/{source_document_id}", response_model=None)

@@ -25,7 +25,14 @@ from neo4j import AsyncDriver
 from sqlalchemy import Float, Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.jd_bank.composer.search import semantic_role_neighbours, title_rank
+from src.jd_bank.composer.search import (
+    DOC_TITLE,
+    ROLE_TITLE,
+    like_pattern,
+    role_title_typo_matches,
+    semantic_role_neighbours,
+    title_rank,
+)
 from src.jd_bank.db.models import (
     CanonicalJD,
     Cluster,
@@ -248,7 +255,8 @@ async def get_role(session: AsyncSession, cluster_id: UUID) -> RoleView | None:
 
 
 def _role_list_item(
-    canonical: CanonicalJD, matched_by: Literal["title", "meaning"] | None = None
+    canonical: CanonicalJD,
+    matched_by: Literal["title", "spelling", "meaning"] | None = None,
 ) -> RoleListItem:
     content = canonical.content or {}
     validator = (canonical.change_log or {}).get("validator") or {}
@@ -272,10 +280,8 @@ SEMANTIC_UNAVAILABLE_BANNER = (
 )
 
 
-def _like_pattern(query: str) -> str:
-    """``%query%`` with the LIKE wildcards in the query itself neutralised."""
-    escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    return f"%{escaped}%"
+#: One escaping rule for every title search, shared with the Builder.
+_like_pattern = like_pattern
 
 
 async def _meaning_candidates(
@@ -328,12 +334,8 @@ async def _search_roles(
     title_rows = list(
         (
             await session.execute(
-                base.with_only_columns(
-                    CanonicalJD.cluster_id, CanonicalJD.content["title"].astext
-                ).where(
-                    CanonicalJD.content["title"].astext.ilike(
-                        _like_pattern(query), escape="\\"
-                    )
+                base.with_only_columns(CanonicalJD.cluster_id, ROLE_TITLE).where(
+                    ROLE_TITLE.ilike(_like_pattern(query), escape="\\")
                 )
             )
         ).all()
@@ -342,6 +344,21 @@ async def _search_roles(
         key=lambda r: (title_rank(r[1] or "", query), (r[1] or "").lower(), str(r[0]))
     )
     title_ids = [row[0] for row in title_rows]
+    # The TYPO fallback (Track I2, HR-241), the same one the Builder runs: only when no
+    # role title CONTAINS the query. Ranked closest-spelling first; never a score.
+    spelled: list[UUID] = []
+    if not title_ids:
+        rulebook = rules if rules is not None else get_rules()
+        spelled = [
+            cluster_id
+            for cluster_id, _title, _group in await role_title_typo_matches(
+                session,
+                query,
+                floor=rulebook.embeddings.title_typo_min_similarity,
+                limit=None,
+            )
+        ]
+        title_ids = spelled
 
     banner: str | None = None
     meaning: list[UUID] = []
@@ -403,11 +420,15 @@ async def _search_roles(
                     )
                 ).all()
             )
+    by_spelling = set(spelled)
+
+    def why(cluster_id: UUID) -> Literal["title", "spelling", "meaning"]:
+        if cluster_id in by_spelling:
+            return "spelling"
+        return "title" if cluster_id in titled else "meaning"
+
     return RolePage(
-        items=tuple(
-            _role_list_item(r, "title" if r.cluster_id in titled else "meaning")
-            for r in rows
-        ),
+        items=tuple(_role_list_item(r, why(r.cluster_id)) for r in rows),
         total=len(ordered),
         limit=limit,
         offset=offset,
@@ -529,7 +550,7 @@ async def list_source_jds(
         pattern = _like_pattern(query)
         titled = select(ParsedJDRow.source_document_id).where(
             ParsedJDRow.parser_version == PARSER_VERSION,
-            ParsedJDRow.parsed["title"].astext.ilike(pattern, escape="\\"),
+            DOC_TITLE.ilike(pattern, escape="\\"),  # literal key: index-servable (0007)
         )
         base = base.where(
             or_(
