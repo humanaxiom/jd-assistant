@@ -48,16 +48,41 @@ _SPACES: Final[re.Pattern[str]] = re.compile(r"\s+")
 
 def content_tokens(text: str, comparison: Comparison) -> frozenset[str]:
     """Lowercase ``[a-z0-9]+`` runs minus stopwords and short tokens — the filter
-    ``signals._skill_bag`` applies, so grounding lines up with skill comparison."""
+    ``signals._skill_bag`` applies, so grounding lines up with skill comparison.
+
+    The rewrite passes :func:`grounding_comparison` here, whose stopwords add English
+    function words (HR-277). A NUMBER is kept whatever its length (review round 1): a
+    one- or two-digit token fell under ``skill_min_token_len``, so "2 staff" -> "12
+    staff" changed nothing the guard could see (HR-278 then requires it grounded)."""
     return frozenset(
         token
         for token in _TOKEN.findall(text.lower())
-        if len(token) >= comparison.skill_min_token_len
+        if (len(token) >= comparison.skill_min_token_len or token.isdigit())
         and token not in comparison.skill_stopwords
     )
 
 
-def named_terms(text: str, comparison: Comparison) -> frozenset[str]:
+def grounding_comparison(rules: Rules) -> Comparison:
+    """``rules.comparison`` with the rewrite's ``grounding_stopwords`` (HR-277) added to
+    its stopwords — the token filter every rewrite-grounding test uses.
+
+    ``comparison.skill_stopwords`` is a 20-word noise list for SKILL bags (HR-150): it
+    drops "management" and "training" and keeps "and", "the", "for", "such". MEASURED
+    (review round 1, pilot replay): those function words grounded an invented Decision
+    Making item at exactly 0.5 and "covered" a lost source duty sentence at exactly 0.5
+    (b13e6321 — "Marketing services on the Web and in print media…" left the draft and
+    no record listed it). Not changed at the source: HR-150 drives skill comparison."""
+    extra = rules.rewrite.grounding_stopwords
+    if not extra:
+        return rules.comparison
+    return rules.comparison.model_copy(
+        update={"skill_stopwords": rules.comparison.skill_stopwords | extra}
+    )
+
+
+def named_terms(
+    text: str, comparison: Comparison, *, numbers: bool = False
+) -> frozenset[str]:
     """The tokens of ``text`` written as NAMES: a word with two or more capitals
     (``ICOM``, ``TAs``, ``SolidWorks``), or a capitalized word that does not start a
     sentence ("…of the Coast Salish…"). Same token filter as :func:`content_tokens`.
@@ -78,6 +103,10 @@ def named_terms(text: str, comparison: Comparison) -> frozenset[str]:
                 and token not in comparison.skill_stopwords
             ):
                 found.add(token)
+    if numbers:
+        # HR-278: every number is a named term — a changed count, amount or duration
+        # is a changed claim however many of the line's words are grounded.
+        found.update(token for token in _TOKEN.findall(text.lower()) if token.isdigit())
     return frozenset(found)
 
 
@@ -102,7 +131,8 @@ class _Matcher:
 
 
 def _matcher(rules: Rules) -> _Matcher:
-    rewrite, boiler, comparison = rules.rewrite, rules.boilerplate, rules.comparison
+    rewrite, boiler = rules.rewrite, rules.boilerplate
+    comparison = grounding_comparison(rules)
     patterns: list[re.Pattern[str]] = []
     words: list[str] = []
     for instruction in rewrite.form_instructions:

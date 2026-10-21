@@ -1659,6 +1659,12 @@ class Rewrite(_RuleFile):
     #: Whether an acronym / mid-sentence capitalized word in a rewritten item must
     #: itself appear in the source it is grounded in (HR-272).
     named_terms_must_be_grounded: bool = True
+    #: Whether every NUMBER in a rewritten item must appear in the text it is grounded
+    #: in (HR-278; review round 1).
+    numbers_must_be_grounded: bool = True
+    #: Words added to ``comparison.skill_stopwords`` for every rewrite-grounding test
+    #: only (HR-277; review round 1). Lowercase single words.
+    grounding_stopwords: frozenset[str] = Field(default_factory=frozenset)
     #: A source sentence is boilerplate (and cannot ground anything) when at least this
     #: fraction of its content tokens belongs to ONE boilerplate passage (HR-273).
     grounding_boilerplate_threshold: float = Field(gt=0.0, le=1.0)
@@ -1670,6 +1676,16 @@ class Rewrite(_RuleFile):
     #: A run of list items each a piece of one instruction is that instruction when it
     #: holds at least this many words (HR-276).
     form_instruction_fragment_min_tokens: int = Field(ge=1)
+
+    @field_validator("grounding_stopwords")
+    @classmethod
+    def _stopwords_are_words(cls, tokens: frozenset[str]) -> frozenset[str]:
+        for token in sorted(tokens):
+            if not token.isalnum() or token != token.lower():
+                raise ValueError(
+                    f"grounding stopword {token!r} must be one lowercase word"
+                )
+        return tokens
 
     @field_validator("form_instructions", "grounding_extra_boilerplate")
     @classmethod

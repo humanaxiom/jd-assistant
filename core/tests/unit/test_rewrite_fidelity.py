@@ -333,8 +333,16 @@ def test_faithful_clauses_survive_a_source_duty_that_was_a_parser_blob(
     merged, model = _case("ethics_22994d3a")
     out, record = _apply_anti_fabrication(model, merged, rules)
 
-    assert len(record.scrubbed_how_why) < len(_clauses(model)) // 2
+    # Review round 1 (HR-277): 8 of 15, was 6. The two newly scrubbed clauses had
+    # grounded only through "the"/"and"/"for": "prepare the annual REB activity report
+    # for Senate" (the source states it in the SUMMARY, not a duty) and "approve
+    # minimal-risk applications and document rationale" (no stemming: "approves") —
+    # whose source sentence is folded back verbatim, so nothing is lost.
+    assert len(record.scrubbed_how_why) <= 8 < len(_clauses(model))
     assert "ensure compliance with SFU Policy R20.01 and TCPS‑2" in _clauses(out)
+    assert any(
+        "Approves applications that are minimal-risk" in c for c in _clauses(out)
+    )
 
 
 def test_wrapped_instruction_fragments_are_not_contacts(rules: Rules) -> None:

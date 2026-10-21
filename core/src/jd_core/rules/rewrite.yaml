@@ -157,8 +157,34 @@ restore_uncovered_items_in: [decision_making, problem_solving, relationships, qu
 # A token-overlap bar cannot see a new name riding on grounded words: "Familiarity with
 # international museum standards and conventions (e.g., ICOM Code of Ethics, CITES)"
 # has 5 of 9 tokens grounded where the source says only "International Council on
-# Museums". Applies to qualifications, how/why clauses and the per-item sections. HR-272.
+# Museums". Applies to qualifications, how/why clauses and the per-item sections, and
+# (review round 1) to duty STATEMENTS, where an ungrounded name FLAGS the duty (HR-184:
+# a duty is flagged, never dropped). HR-272.
 named_terms_must_be_grounded: true
+
+# Whether every NUMBER in a rewritten item must appear in the text it is grounded in, as
+# a named term must (HR-272). Review round 1: a one- or two-digit token was below
+# `comparison.skill_min_token_len`, so "2 staff" -> "12 staff" was invisible to every
+# grounding test. Numbers are now content tokens whatever their length, and with this on
+# an item whose number the source does not state is not grounded. HR-278.
+numbers_must_be_grounded: true
+
+# English function words, added to `comparison.skill_stopwords` for the rewrite's
+# grounding tests ONLY. That list (HR-150) is a 20-word noise filter for skill bags: it
+# drops "management" and "training" but KEEPS "and", "the", "for", "such" as content
+# tokens, and every 0.5 bar here (HR-183/267/269) counted them as evidence. MEASURED
+# (review round 1, replay of the 22 pilot replies): "Terminates the employment of the
+# staff and the volunteers for the orientation." grounded at 4 of 8 on an orientation
+# Decision Making item, and on b13e6321 the source sentence "Marketing services on the
+# Web and in print media, with posters and brochures, …" was "covered" at exactly 10 of
+# 20 by a duty that never mentions marketing — gone from the draft, in no record.
+# Negations ("not", "no", "never", "without") are deliberately NOT listed: they are
+# the words a reversed claim changes. HR-277.
+grounding_stopwords:
+  [the, and, for, from, that, this, these, those, are, was, were, will, can, may, its,
+   their, our, his, her, who, whom, which, what, when, where, how, why, all, any, each,
+   such, into, onto, via, etc, also, other, others, than, then, them, they, has, have,
+   had, been, being, both, either, including, include, includes, well, upon, within]
 
 # A source SENTENCE is SFU boilerplate — and its words cannot ground anything — when at
 # least this fraction of its content tokens belongs to ONE boilerplate passage

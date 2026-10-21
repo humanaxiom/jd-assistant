@@ -6950,7 +6950,10 @@ decisions:
       it, even when much shorter than the harmonized version — the same role compressed
       twenty internal contacts to three on a later attempt. Whether that is acceptable
       editing or unacceptable loss is a real question and a separate one, and it is put
-      to HR rather than answered quietly by a number chosen here.
+      to HR rather than answered quietly by a number chosen here. (Update 2026-10-20:
+      that separate question now has a shipped DEFAULT — HR-269 and HR-270 treat a
+      dropped point as loss and put it back — registered `open` so HR can overrule it.
+      This entry still governs only the whole-section case.)
     impact_if_changed: >-
       Does NOT move `rules_version` (rewrite.yaml is unhashed) — it decides what a draft
       may CONTAIN, never how one is scored. `false` restores the pre-2026-08-23
@@ -8484,7 +8487,14 @@ decisions:
     provenance: our_invention
     tier: hr_informed
     why_it_matters: >-
-      Until 2026-10-20 a section the merge draft HAD was "left entirely to the rewrite":
+      🔴 THIS CHANGES WHAT HR SEES, AND IT ANSWERS A QUESTION HR-214 EXPLICITLY LEFT TO
+      HR: whether a rewrite that returns a section SHORTER than the source draft's (twenty
+      contacts compressed to three) is rewording or loss. HR-214 declined to settle it
+      "by a number chosen here"; this entry and HR-270 now settle it by default — as
+      loss, per point, at the number below — on the pilot's evidence, and both stay
+      `open` for HR to overrule. Drafts produced after 2026-10-20 read part-reworded,
+      part-original in these sections. Until 2026-10-20 a section the merge draft HAD was
+      "left entirely to the rewrite":
       only a section created from nothing (CUPE Phase D) or emptied (HR-214) was ever
       checked. MEASURED on the rewrite pilot, that let through Decision Making points no
       source states ("Approves acquisition, deaccession and loan decisions",
@@ -8590,7 +8600,9 @@ decisions:
       word with two or more capitals, or a capitalized word that does not start a
       sentence — must now itself be in the text the line is grounded in (the whole
       source for a qualification, the source duties for a how/why point, the same
-      section for HR-269's points), or the line is dropped and recorded. ⚠ It also drops
+      section for HR-269's points), or the line is dropped and recorded. Since review
+      round 1 a duty STATEMENT is read too ("…program under FIPPA" passed with no flag);
+      a statement is FLAGGED for the reviewer, never dropped (HR-184). ⚠ It also drops
       a FAITHFUL expansion ("Truth and Reconciliation Commission" for "TRC"); the
       source's own wording then comes back through HR-270, so nothing is lost but the
       rewording.
@@ -8723,6 +8735,123 @@ decisions:
       Does NOT move `rules_version`. Lower risks dropping a run of real duration /
       frequency cells; higher leaves wrapped instruction lines in the rewrite's input
       (and restorable). Pinned by `test_rewrite_fidelity.py`.
+    status: open
+
+  # ── Rewrite fidelity, review round 1 (2026-10-20): HR-277…278. ──
+  - id: HR-277
+    question: >-
+      Which everyday words ("the", "and", "for", "such" …) should NOT count as evidence
+      when the rewrite checks that a reworded point comes from the source, or that a
+      source point is still in the draft?
+    config:
+      file: rewrite.yaml
+      path: rewrite.grounding_stopwords
+    current_default:
+      - all
+      - also
+      - and
+      - any
+      - are
+      - been
+      - being
+      - both
+      - can
+      - each
+      - either
+      - etc
+      - for
+      - from
+      - had
+      - has
+      - have
+      - her
+      - his
+      - how
+      - include
+      - includes
+      - including
+      - into
+      - its
+      - may
+      - onto
+      - other
+      - others
+      - our
+      - such
+      - than
+      - that
+      - the
+      - their
+      - them
+      - then
+      - these
+      - they
+      - this
+      - those
+      - upon
+      - via
+      - was
+      - well
+      - were
+      - what
+      - when
+      - where
+      - which
+      - who
+      - whom
+      - why
+      - will
+      - within
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      Every "at least half of its words" bar the rewrite uses (HR-183, HR-267, HR-269,
+      and the coverage checks of HR-270/271) counted words with the skill-comparison
+      filter (HR-150), a 20-word noise list that removes "management" and "training" but
+      keeps "and", "the", "for" and "such" as if they were content. So those words
+      counted as evidence in BOTH directions. MEASURED in review (replaying the 22 pilot
+      replies, and adversarial cases): an invented Decision Making point "Terminates the
+      employment of the staff and the volunteers for the orientation." was kept at 4 of
+      8 words against a source point about session order, and on b13e6321 the source
+      duty sentence "Marketing services on the Web and in print media, with posters and
+      brochures, …" was counted as still present at exactly 10 of 20 words by a duty
+      that never mentions marketing — it left the draft and no record listed it. These
+      words are now ignored by the rewrite's checks only; the skill-comparison list is
+      unchanged. Negations ("not", "no", "never", "without") are deliberately NOT listed,
+      because they are the words a reversed claim changes.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (rewrite.yaml is unhashed). Removing words makes the
+      checks more lenient again in both directions (more paraphrase and invention kept,
+      more loss counted as covered); adding content words would make faithful
+      rewording fail more often (its source wording then comes back through HR-270/271).
+      Pinned by `test_rewrite_fidelity_review.py`.
+    status: open
+
+  - id: HR-278
+    question: >-
+      Must every number the LLM rewrite writes — a staff count, an amount, a duration —
+      appear in the source text the line comes from?
+    config:
+      file: rewrite.yaml
+      path: rewrite.numbers_must_be_grounded
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A changed number is a changed claim about the job, and until review round 1 the
+      rewrite's checks could not see one: a number of one or two digits was shorter than
+      the minimum word length, so "Decides daily work assignments for 2 staff" reworded
+      to "…for 12 staff" was kept and nothing recorded it. Numbers are now counted as
+      words whatever their length, and with this on, a line whose number the source
+      does not state is treated like a line with an invented name (HR-272): a point,
+      clause or qualification is dropped and recorded (its source wording comes back
+      through HR-270/271), and a duty statement is flagged for the reviewer. ⚠ It also
+      drops a faithful rewording that writes "two" for "2" or the reverse; nothing is
+      lost but the rewording.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. `false` stops requiring numbers to be grounded
+      (they still count as words in the half-of-its-words bars). Pinned by
+      `test_rewrite_fidelity_review.py`.
     status: open
 
 trivial:

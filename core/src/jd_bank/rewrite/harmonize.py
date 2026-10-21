@@ -32,6 +32,7 @@ from src.jd_bank.llm.prompts import load_prompt
 from src.jd_bank.rewrite.fidelity import (
     carries_placeholder,
     content_tokens,
+    grounding_comparison,
     named_terms,
     sentences,
     source_view,
@@ -190,9 +191,16 @@ def _names_grounded(
     token-overlap bar cannot see a new name riding on grounded words: "(e.g., ICOM Code
     of Ethics, CITES)" passed at 5 of 9 where the source says "International Council on
     Museums"."""
-    if not rewrite.named_terms_must_be_grounded:
+    names, numbers = (
+        rewrite.named_terms_must_be_grounded,
+        rewrite.numbers_must_be_grounded,
+    )
+    if not (names or numbers):
         return True
-    return named_terms(text, comparison) <= vocab
+    terms = named_terms(text, comparison, numbers=numbers)
+    if not names:
+        terms = frozenset(t for t in terms if t.isdigit())
+    return terms <= vocab
 
 
 def _is_grounded(
@@ -431,7 +439,7 @@ def _fold_back(
     Covered-ness is re-read after each fold, so a near-duplicate source duty (the merge
     keeps several: S1/S2, S3/S4 on that cluster) does not fold the same point twice.
     Returns ``(duties, folded, dropped)``."""
-    rewrite, comparison = rules.rewrite, rules.comparison
+    rewrite, comparison = rules.rewrite, grounding_comparison(rules)
     threshold = rewrite.how_why_grounding_threshold
     cap = min(_ceiling("how_why", SFUDuty), rules.segmentation.duty_how_why_max_count)
     vocabs = [set(_content_tokens(duty_text(d), comparison)) for d in duties]
@@ -495,7 +503,7 @@ def _apply_anti_fabrication(
     if not rewrite.anti_fabrication_enabled:
         return llm_jd, AntiFabricationRecord(enabled=False)
 
-    comparison = rules.comparison
+    comparison = grounding_comparison(rules)
     source, stripped = source_view(merged.draft, rules)
     vocab = _draft_vocabulary(source, merged, comparison)
 
@@ -605,8 +613,15 @@ def _apply_anti_fabrication(
             # faithful ones of a flagged duty stay — and an ungrounded one still never
             # does.
             flagged.append(duty.statement)
-        elif duty.frequency is None:
-            restored["frequency"] = source_duties[best_index].frequency
+        else:
+            # Review round 1: HR-272/278 read the STATEMENT too — "…program under
+            # FIPPA" matched its source duty at a high Jaccard and nothing objected.
+            # Flagged, never dropped (HR-184: a duty may reword); against the whole
+            # source view, since a statement may name what the summary names.
+            if not _names_grounded(duty.statement, vocab, rewrite, comparison):
+                flagged.append(duty.statement)
+            if duty.frequency is None:
+                restored["frequency"] = source_duties[best_index].frequency
         duties.append(duty.model_copy(update=restored) if restored else duty)
 
     # 🔴 EMPTY-TO-EMPTY, FOR DUTIES (HR-213). A grounded draft with NO duties cannot
