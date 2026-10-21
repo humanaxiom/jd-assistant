@@ -423,8 +423,11 @@ def _fold_back(
     duties: list[SFUDuty],
     source_duties: Sequence[SFUDuty],
     rules: Rules,
-) -> tuple[list[SFUDuty], list[str], list[str]]:
-    """Put back the source duty content no rewritten duty covers (HR-271).
+    *,
+    duties_max: int,
+) -> tuple[list[SFUDuty], list[str], list[str], list[tuple[str, str]]]:
+    """Put back the source duty content no rewritten duty covers (HR-271), under the
+    rewritten duty it belongs to (HR-279/280).
 
     🔴 MEASURED (pilot, 1d68c603): a twelve-duty merge, a five-duty JDFN cap (HR policy,
     `thresholds.duties_max`, untouched), and a model that met the cap by DROPPING whole
@@ -434,53 +437,127 @@ def _fold_back(
 
     Each SENTENCE of every source duty (statement and clauses) must be covered — the
     HR-267 fraction of its tokens — by ONE rewritten duty as it now stands. An uncovered
-    sentence is appended verbatim as a how/why clause of the rewritten duty that covers
-    the rest of its source duty best (``fold_back``), or only listed (``record_only``).
+    sentence is appended verbatim as a how/why clause of the rewritten duty that holds
+    the most of its source duty (``fold_back``), or only listed (``record_only``).
     Covered-ness is re-read after each fold, so a near-duplicate source duty (the merge
     keeps several: S1/S2, S3/S4 on that cluster) does not fold the same point twice.
-    Returns ``(duties, folded, dropped)``."""
+
+    🔴 WHERE a sentence goes is read from what the MODEL wrote, never from what was
+    folded in (review of 934425f). Placement used to read each duty's text as it grew,
+    so the first duty to take a fold held more words for the next source duty, and the
+    next: on the pilot's 1d68c603 one duty took 30 of 37 folds, and "Conservation of
+    Museum Collections & Asset Management" went under "Engage community partners…" (8%
+    of its words there) while another rewritten duty held 24%. 89 of the 314 folds over
+    the 28 recorded pilot replies were placed under a duty that was not the best match.
+
+    A source duty whose best match holds less than ``fold_back_relevance_min`` of its
+    words (HR-279) is not filed under an unrelated duty: its lost sentences come back as
+    ITS OWN duty, verbatim and under its own heading, when the form has room
+    (``duties_max``, HR policy), and are listed in ``dropped`` otherwise — shown to the
+    reviewer, never silent. ``fold_back_max_per_duty`` (HR-280) passes a fold on to the
+    next-best duty above that floor once a duty has taken that many.
+
+    Returns ``(duties, folded, dropped, origins)``; ``origins`` pairs each folded
+    sentence with the statement of the source duty it came from, so the review page can
+    say where it was restored from."""
     rewrite, comparison = rules.rewrite, grounding_comparison(rules)
     threshold = rewrite.how_why_grounding_threshold
+    floor, per_duty = rewrite.fold_back_relevance_min, rewrite.fold_back_max_per_duty
     cap = min(_ceiling("how_why", SFUDuty), rules.segmentation.duty_how_why_max_count)
-    vocabs = [set(_content_tokens(duty_text(d), comparison)) for d in duties]
-    extra: list[list[str]] = [[] for _ in duties]
+    out = list(duties)
+    #: What each duty said before anything was folded in — placement reads only this.
+    base = [_content_tokens(duty_text(d), comparison) for d in out]
+    #: …and what it says now — coverage reads this, so nothing is folded twice.
+    vocabs = [set(tokens) for tokens in base]
+    extra: list[list[str]] = [[] for _ in out]
     folded: list[str] = []
     dropped: list[str] = []
+    origins: list[tuple[str, str]] = []
+
+    def has_room(j: int) -> bool:
+        if len(out[j].how_why) + len(extra[j]) >= cap:
+            return False
+        return per_duty == 0 or len(extra[j]) < per_duty
+
     for src in source_duties:
         src_tokens = _content_tokens(duty_text(src), comparison)
-        missing = [
-            sentence
-            for text in (src.statement, *src.how_why)
-            for sentence in sentences(text)
+        share = [
+            len(src_tokens & tokens) / len(src_tokens) if src_tokens else 0.0
+            for tokens in base
         ]
-        for sentence in missing:
-            tokens = _content_tokens(sentence, comparison)
-            if any(_covers(tokens, frozenset(v), threshold) for v in vocabs):
-                continue
-            if (
-                rewrite.duty_coverage_policy == "record_only"
-                or not duties
-                or carries_placeholder(sentence, rules)  # HR-047: never restore one
-            ):
-                dropped.append(sentence)
-                continue
-            # The rewritten duty the REST of this source duty landed in — ties to the
-            # first, so the fold is deterministic.
-            target = max(
-                range(len(duties)),
-                key=lambda j: (len(src_tokens & vocabs[j]), -j),
-            )
-            if len(duties[target].how_why) + len(extra[target]) >= cap:
-                dropped.append(sentence)
-                continue
-            extra[target].append(sentence)
-            vocabs[target] |= tokens
-            folded.append(sentence)
-    out = [
+        # Best match first; ties to the first duty, so the fold is deterministic.
+        ranked = [
+            j
+            for j in sorted(range(len(out)), key=lambda j: (-share[j], j))
+            if share[j] >= floor
+        ]
+        unplaced: list[str] = []
+        for text in (src.statement, *src.how_why):
+            for sentence in sentences(text):
+                tokens = _content_tokens(sentence, comparison)
+                if any(_covers(tokens, frozenset(v), threshold) for v in vocabs):
+                    continue
+                if (
+                    rewrite.duty_coverage_policy == "record_only"
+                    or not out
+                    or carries_placeholder(sentence, rules)  # HR-047: never restore
+                ):
+                    dropped.append(sentence)
+                    continue
+                target = next((j for j in ranked if has_room(j)), None)
+                if target is None:
+                    if sentence not in unplaced:
+                        unplaced.append(sentence)
+                    continue
+                extra[target].append(sentence)
+                vocabs[target] |= tokens
+                folded.append(sentence)
+                origins.append((sentence, src.statement))
+        if not unplaced:
+            continue
+        if len(out) >= duties_max:
+            dropped.extend(unplaced)
+            continue
+        # Its own duty, under its own source heading, verbatim.
+        # The source statement heads it — unless it carries a placeholder, or a sentence
+        # of it is ALREADY in the draft as restored text (folded under another duty a
+        # moment ago, under an HR-280 limit or the how/why cap): heading with it would
+        # put the same source words in the draft twice (review of 528f694).
+        restored_so_far = set(folded)
+        if carries_placeholder(src.statement, rules) or any(
+            sentence in restored_so_far for sentence in sentences(src.statement)
+        ):
+            heading, clauses = unplaced[0], unplaced[1:]
+        else:
+            own = set(sentences(src.statement))
+            heading, clauses = src.statement, [s for s in unplaced if s not in own]
+        overflow = clauses[cap:]
+        dropped.extend(overflow)
+        restored = src.model_copy(
+            update={
+                "statement": heading,
+                "how_why": clauses[:cap],
+                # The source verb belongs to the source STATEMENT: put in front of a
+                # how/why clause it would read as a sentence no source wrote.
+                "action_verb": src.action_verb if heading == src.statement else "",
+            }
+        )
+        out.append(restored)
+        tokens = _content_tokens(duty_text(restored), comparison)
+        base.append(tokens)
+        vocabs.append(set(tokens))
+        extra.append([])
+        # The heading is the source's text too (even where another duty covers it), so
+        # it is recorded as restored — the reviewer must not read it as the model's.
+        for sentence in dict.fromkeys((*sentences(heading), *unplaced)):
+            if sentence not in overflow:
+                folded.append(sentence)
+                origins.append((sentence, src.statement))
+    result = [
         duty.model_copy(update={"how_why": [*duty.how_why, *more]}) if more else duty
-        for duty, more in zip(duties, extra, strict=True)
+        for duty, more in zip(out, extra, strict=True)
     ]
-    return out, folded, dropped
+    return result, folded, dropped, origins
 
 
 def _apply_anti_fabrication(
@@ -504,7 +581,7 @@ def _apply_anti_fabrication(
         return llm_jd, AntiFabricationRecord(enabled=False)
 
     comparison = grounding_comparison(rules)
-    source, stripped = source_view(merged.draft, rules)
+    source, stripped, stripped_parts = source_view(merged.draft, rules)
     vocab = _draft_vocabulary(source, merged, comparison)
 
     authorable = _rewritable_kinds(rewrite)
@@ -653,11 +730,16 @@ def _apply_anti_fabrication(
     # folded back or listed. This replaces the per-duty "restore the source's clauses"
     # rules of v9 review rounds 1–2, which asked the same question of the ONE matched
     # source duty and so misfired as soon as the model merged duties.
-    duties, folded, dropped = _fold_back(duties, source_duties, rules)
+    duties, folded, dropped, origins = _fold_back(
+        duties,
+        source_duties,
+        rules,
+        duties_max=rules.thresholds_for(template_of(merged.draft)).duties_max,
+    )
     if not duties and source_duties and rewrite.duty_coverage_policy == "fold_back":
         # Nothing to fold into: the model returned no duties at all for a draft that
         # has them. The source's own duties come back whole.
-        duties, folded, dropped = list(source_duties), [], []
+        duties, folded, dropped, origins = list(source_duties), [], [], []
         restored_duties = True
     else:
         restored_duties = False
@@ -722,11 +804,13 @@ def _apply_anti_fabrication(
         restored_sections=tuple(sorted(restored_sections)),
         scrubbed_how_why=tuple(scrubbed_how_why),
         folded_duty_content=tuple(folded),
+        folded_duty_origins=tuple(origins),
         dropped_duty_content=tuple(dropped),
         scrubbed_items=tuple(log.scrubbed),
         uncovered_items=tuple(log.uncovered),
         restored_items=tuple(log.restored),
         stripped_source_text=stripped,
+        stripped_source_parts=stripped_parts,
     )
 
 
@@ -759,7 +843,7 @@ async def rewrite_merged_role(
     # The model reads the SOURCE VIEW (2026-10-20): the merge draft minus the old
     # questionnaire's own instructions and SFU boilerplate (HR-273…HR-276). It is shown
     # nothing the guard would refuse to let it ground, or refuse to restore.
-    source, _stripped = source_view(merged.draft, active)
+    source, _stripped, _parts = source_view(merged.draft, active)
 
     # …and the FLOOR is this merge's own, not the form's (HR-209). Phase D fixed the
     # destructive case; this fixes the quiet one. Measured over the five largest

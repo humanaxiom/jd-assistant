@@ -1644,6 +1644,31 @@ class Rewrite(_RuleFile):
     #: closest rewritten duty; ``record_only`` leaves the draft as
     #: returned and lists it.
     duty_coverage_policy: Literal["fold_back", "record_only"] = "fold_back"
+    #: The least share of a source duty's content tokens the rewritten duty it is
+    #: folded under must already hold (HR-279). Below it the source duty's lost content
+    #: is not filed under an unrelated duty: it comes back as its own duty when the form
+    #: has room (``thresholds.duties_max``), and is otherwise listed for the reviewer.
+    #: ``0.0`` folds under the best match whatever it is (the 2026-10-20 behaviour).
+    fold_back_relevance_min: float = Field(default=0.0, ge=0.0, le=1.0)
+    #: The most source sentences folded under ONE rewritten duty (HR-280). A duty that
+    #: has taken this many passes the next one to the next-best duty above the
+    #: HR-279 floor. ``0`` means no limit beyond the how/why cap.
+    fold_back_max_per_duty: int = Field(default=0, ge=0)
+    #: The sections where a sentence matching SFU boilerplate (HR-273/274) is shown to
+    #: the reviewer as "check it is not part of the role" rather than as standard
+    #: wording set aside (HR-281). Display only: the strip itself is unchanged.
+    boilerplate_review_sections: tuple[
+        Literal[
+            "position_summary",
+            "duties",
+            "decision_making",
+            "problem_solving",
+            "relationships",
+            "qualifications",
+            "additional_context",
+        ],
+        ...,
+    ] = ()
     #: Per-item grounding of Decision Making / Problem Solving / Relationships against
     #: ONE item of the merge's SAME section, and — read the other way — what counts as a
     #: source item the rewrite lost (HR-269).

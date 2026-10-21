@@ -60,6 +60,11 @@ from src.jd_bank.review import (
     StructuralContext,
     service,
 )
+from src.jd_core.bank.restoration import (
+    mark_restored,
+    removed_reason_label,
+    restored_view,
+)
 from src.jd_core.models.bank import MergeProvenance
 from src.jd_core.models.parsed_jd import QualificationKind, SFUEmployeeGroup
 from src.jd_core.models.quality import GateOverride, GateReason
@@ -473,6 +478,16 @@ def _detail_context(
     navigation aid. The sidebar is simply absent there.
     """
     diff = (packet.change_log or {}).get("harmonization_diff") or {}
+    rules = get_rules()
+    labels: dict[str, str] = dict(rules.rule_catalog.section_labels.items())
+
+    def section_label(section: str) -> str:
+        return labels.get(section) or section.replace("_", " ").capitalize()
+
+    rendered = diff.get("rendered_draft", "")
+    restored = restored_view(
+        packet.change_log, packet.content, section_label=section_label
+    )
     return {
         "packet": packet,
         "error": error,
@@ -482,15 +497,34 @@ def _detail_context(
         # DICT rather than a re-validated model on purpose — this is the page where a
         # human approves a JD, and a form label must not be able to 500 it (8.3b).
         "template": template_of_content(packet.content),
-        "rendered_draft": diff.get("rendered_draft", ""),
-        "removed": diff.get("removed", []),
+        "rendered_draft": rendered,
+        # The draft cut into segments, the text the guard PUT BACK flagged (NN #6,
+        # 2026-10-21): restored source text read exactly like the model's own words.
+        # Every segment is plain text the template escapes.
+        "draft_segments": mark_restored(rendered, restored.marks if restored else ()),
+        "restored": restored,
+        # Each change-log entry with its reason in HR's words (the page showed the raw
+        # code: `[item_dropped_by_rewrite · decision_making]`).
+        "removed": [
+            {
+                "content": entry.get("content", ""),
+                "reason": removed_reason_label(str(entry.get("reason", ""))),
+                "section": (
+                    section_label(str(entry["section"]))
+                    if entry.get("section")
+                    else None
+                ),
+            }
+            for entry in diff.get("removed", [])
+            if isinstance(entry, dict)
+        ],
         "provenance": _provenance_view(packet.change_log),
         "provenance_rows": _PROVENANCE_ROWS,
         "edit": _edit_view(packet.content or {}),
         "structure": structure,
         # Bound to the loaded rulebook here so the template never reaches for rules
         # itself — a template is a renderer, not a place decisions are looked up.
-        "gate_jump_targets": partial(gate_jump_targets, rules=get_rules()),
+        "gate_jump_targets": partial(gate_jump_targets, rules=rules),
     }
 
 

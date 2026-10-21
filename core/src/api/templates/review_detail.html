@@ -148,10 +148,51 @@
 </div>
 {% endif %}
 
+{#
+  Restored source text is marked inline (NN #6, 2026-10-21). Segments are DATA: every
+  `seg.text` goes through autoescape like any other JD text. Never add `|safe` here.
+#}
+<style>
+  pre .restored { background:rgba(210,153,34,.14); border-bottom:1px dotted var(--amber); }
+  pre .restored sup { color:var(--amber); font-size:.7rem; }
+</style>
 <div class="panel">
   <h2>Draft</h2>
-  <pre>{{ rendered_draft }}</pre>
+  {% if restored and restored.count %}
+  <p class="meta">
+    <span class="restored-key">↩</span> Highlighted text was <strong>restored verbatim
+    from the source documents</strong>: the rewrite had left it out, so it was put back
+    in the source's own words. <a href="#restored">See where each piece came from ↓</a>
+  </p>
+  {% endif %}
+  <pre>{% for seg in draft_segments %}{% if seg.restored %}<span class="restored" title="Restored verbatim from the source documents">{{ seg.text }}<sup aria-label="restored">↩</sup></span>{% else %}{{ seg.text }}{% endif %}{% endfor %}</pre>
 </div>
+
+{% if restored and (restored.count or restored.whole_sections) %}
+<div class="panel" id="restored">
+  <h2>Restored verbatim from the source documents</h2>
+  <p class="meta">
+    The rewrite left these out. They were put back <strong>exactly as the source
+    documents state them</strong> — they are not the rewrite's wording. Check that each
+    still belongs to the role and sits under the right duty; edit or remove it in the
+    <a href="#edit">Edit section ↓</a> if not.
+  </p>
+  {% for section in restored.whole_sections %}
+  <p><strong>{{ section }}:</strong> the rewrite returned this section empty, so the
+  source documents' own section was put back whole.</p>
+  {% endfor %}
+  {% for group in restored.groups %}
+  <h3>{{ group.label }}{% if group.duty %} — {% if group.own_duty %}restored as its own duty:{% else %}under{% endif %} “{{ group.duty }}”{% endif %}</h3>
+  <ul>
+    {% for item in group.items %}
+    <li>{{ item.text }}
+      {% if item.source_duty %}<br><span class="meta">From the source duty “{{ item.source_duty }}”{% if item.source_documents %} in {{ item.source_documents | join(", ") }}{% if item.more_documents %} and {{ item.more_documents }} more{% endif %}{% endif %}.</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+</div>
+{% endif %}
 
 {# How the draft was assembled. The merge provenance has been computed and stored
    since Phase 4.1 and was shown NOWHERE until P1.2 — so a reviewer was asked to
@@ -226,10 +267,16 @@
 
 {% if removed %}
 <div class="panel">
-  <h2>Removed content (harmonization diff)</h2>
+  <h2>Not in the draft — removed content and why</h2>
+  {# NOT "nothing here is in the draft": a duty the rewrite removed is listed here AND
+     its lost sentences are restored above (14 of 71 removed duties over the 28 pilot
+     replies came back verbatim) — review of 528f694. #}
+  <p class="meta">Source text the rewrite or the merge left out, each with the reason.
+  Where the rewrite removed a whole duty, the sentences it lost may already be back in
+  the draft above, restored verbatim and marked <span class="restored-key">↩</span>.</p>
   <ul>
     {% for entry in removed %}
-    <li>[{{ entry.reason }}{% if entry.section %} · {{ entry.section }}{% endif %}] {{ entry.content }}</li>
+    <li>{{ entry.content }}<br><span class="meta">{% if entry.section %}{{ entry.section }} — {% endif %}{{ entry.reason }}</span></li>
     {% endfor %}
   </ul>
 </div>

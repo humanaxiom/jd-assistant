@@ -277,7 +277,13 @@ RemovedReason = Literal[
     "item_scrubbed_ungrounded",
     "item_dropped_by_rewrite",
     "duty_content_dropped_by_rewrite",
+    # `form_text_stripped` is every source-view strip of a record written before
+    # 2026-10-21, which did not say which kind it was. A newer record splits it into
+    # the three below (`AntiFabricationRecord.stripped_source_parts`).
     "form_text_stripped",
+    "form_instruction_stripped",
+    "boilerplate_stripped",
+    "boilerplate_matched_in_role_content",
 ]
 
 
@@ -350,6 +356,30 @@ class HarmonizationDiff(BaseModel):
 
 
 # ---------- LLM rewrite pass (Phase 4.2a) — still a DRAFT ----------
+
+#: The merge-draft sections the rewrite's source view reads text from.
+StrippedSection = Literal[
+    "position_summary",
+    "duties",
+    "decision_making",
+    "problem_solving",
+    "relationships",
+    "qualifications",
+    "additional_context",
+]
+
+
+class StrippedSourcePiece(BaseModel):
+    """One piece of text the source view removed from the rewrite's input, with the
+    section it was in and why (``form_instruction``: the old questionnaire's own
+    instructions, HR-275/276; ``boilerplate``: a sentence matching SFU boilerplate,
+    HR-273/274). Frozen: evidence."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    section: StrippedSection
+    kind: Literal["form_instruction", "boilerplate"]
+    text: str
 
 
 class AntiFabricationRecord(BaseModel):
@@ -435,6 +465,12 @@ class AntiFabricationRecord(BaseModel):
     #: rewritten duty covered and the guard FOLDED BACK as a how/why clause of the
     #: closest rewritten duty (``rewrite.duty_coverage_policy = fold_back``, HR-271).
     folded_duty_content: tuple[str, ...] = ()
+    #: ``(sentence, source duty statement)`` for every entry of
+    #: :attr:`folded_duty_content`: which duty of the merge draft it was restored from
+    #: (2026-10-21, NN #6 — the review page says where restored text came from). Since
+    #: HR-279 a folded sentence may also come back as its OWN duty, under that source
+    #: statement. Defaults empty, so a record written before it still validates.
+    folded_duty_origins: tuple[tuple[str, str], ...] = ()
     #: Source duty text no rewritten duty covered that is NOT in the draft — the
     #: ``record_only`` policy, or no room left under the how/why cap. Shown to the
     #: reviewer as dropped from the merge.
@@ -454,6 +490,14 @@ class AntiFabricationRecord(BaseModel):
     #: questionnaire's own instructions (HR-275/276) and SFU boilerplate sentences
     #: (HR-273/274). Neither is role content; recorded so the removal is evidence.
     stripped_source_text: tuple[str, ...] = ()
+    #: Every entry of :attr:`stripped_source_text` with the section it was taken from
+    #: and WHY (2026-10-21): a questionnaire instruction, or a sentence matching SFU
+    #: boilerplate. The difference matters to a reviewer: a duty of an Indigenous
+    #: programs role that acknowledges the Coast Salish territories matches the
+    #: boilerplate and is set aside, and "form text" was the wrong thing to call it.
+    #: Defaults empty, so a record written before it still validates (its strips show
+    #: under the older, combined reason).
+    stripped_source_parts: tuple[StrippedSourcePiece, ...] = ()
 
 
 class RewrittenDraft(BaseModel):

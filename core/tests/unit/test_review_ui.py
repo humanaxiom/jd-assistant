@@ -30,6 +30,7 @@ from src.jd_bank.review import (
     ReviewPacket,
     ReviewQueueItem,
 )
+from src.jd_core.bank.render import render_sfu_jd_text
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.models.quality import GateDecision, GateOverride, GateReason
 
@@ -324,7 +325,9 @@ def test_detail_all_overridable_offers_waiver_fields_with_guidance(
     # and rendered_draft came back "".
     assert "Summary text." in body  # the rendered draft
     assert "Answer phones" in body  # the 4.3 removed content
-    assert "duty_dropped_over_max" in body
+    # …with its reason in HR's words, never the raw code (2026-10-21).
+    assert "more duties than the form holds" in body
+    assert "duty_dropped_over_max" not in body
     # The overridable blocker gets a waiver field, and the panel says how to use it.
     assert 'name="override_reason__SFU-OVERRIDABLE"' in body
     assert "waive each gate" in body
@@ -1817,3 +1820,123 @@ def test_an_approvable_draft_shows_no_blocking_badge_and_no_dead_anchor(
 
     assert "blocking gate(s)" not in body
     assert 'href="#blocking-gates"' not in body
+
+
+# --- what the rewrite PUT BACK, and why things are missing (2026-10-21, NN #6) -------
+# Folded / restored source text sat in the draft indistinguishable from the model's
+# own words, and every removal reason reached the page as a code
+# (`[item_dropped_by_rewrite · decision_making]`). Both are read from the STORED
+# record — a draft from the v9 pass renders this with no re-run of the model.
+
+_FOLDED = "Liaising with ancestral communities <script>alert(1)</script>"
+_SOURCE_DUTY = "Conservation of Museum Collections & Asset Management"
+_MARK = '<span class="restored" title="Restored verbatim from the source documents">'
+
+
+def _restored_packet() -> ReviewPacket:
+    draft = SFUJobDescription.model_validate(
+        {
+            "title": "Director, Museum",
+            "duties": [
+                {
+                    "action_verb": "Conserve",
+                    "statement": "Conserve and manage museum collections",
+                    "how_why": ["maintaining storage standards", _FOLDED],
+                }
+            ],
+            "decision_making": [
+                "Sets exhibition priorities.",
+                "Approves loans of artifacts.",
+            ],
+        }
+    )
+    return _packet().model_copy(
+        update={
+            "content": draft.model_dump(mode="json"),
+            "change_log": {
+                "harmonization_diff": {
+                    "rendered_draft": render_sfu_jd_text(draft),
+                    "per_source": [
+                        {
+                            "member_index": 0,
+                            "title": "Museum Director 2019",
+                            "duties_kept": [_SOURCE_DUTY],
+                        }
+                    ],
+                    "removed": [
+                        {
+                            "content": "Hosts donor <b>recognition</b> events.",
+                            "reason": "item_dropped_by_rewrite",
+                            "section": "decision_making",
+                        },
+                        {
+                            "content": "Organizes events on the territories.",
+                            "reason": "boilerplate_matched_in_role_content",
+                            "section": "duties",
+                        },
+                    ],
+                    "flagged_duties": [],
+                },
+                "anti_fabrication": {
+                    "folded_duty_content": [_FOLDED],
+                    "folded_duty_origins": [[_FOLDED, _SOURCE_DUTY]],
+                    "restored_items": [
+                        ["decision_making", "Approves loans of artifacts."]
+                    ],
+                },
+            },
+        }
+    )
+
+
+def _restored_body(monkeypatch: pytest.MonkeyPatch) -> str:
+    monkeypatch.setattr(
+        ui.service, "get_structural_context", AsyncMock(return_value=None)
+    )
+    return _detail_body(monkeypatch, _restored_packet())
+
+
+def test_the_review_page_marks_what_was_restored_and_says_where_from(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    body = _restored_body(monkeypatch)
+
+    assert "Restored verbatim from the source documents" in body
+    # inline, around each restored piece and nothing else
+    assert f"{_MARK}Approves loans of artifacts." in body
+    assert f"{_MARK}Liaising with ancestral communities" in body
+    assert f"{_MARK}maintaining" not in body
+    assert f"{_MARK}Sets exhibition" not in body
+    # where it sits, and which source duty and document it came from
+    assert "under “Conserve and manage museum collections”" in body
+    assert (
+        "From the source duty “Conservation of Museum Collections &amp; Asset "
+        "Management” in Museum Director 2019." in body
+    )
+
+
+def test_removal_reasons_read_as_sentences_with_the_section_named(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    body = _restored_body(monkeypatch)
+
+    assert (
+        "Impact of Decision Making — Stated in this section of the source documents"
+        in body
+    )
+    assert "Duties &amp; Responsibilities — Matched SFU&#39;s standard wording" in body
+    assert "check it is not part of the role" in body
+    for code in ("item_dropped_by_rewrite", "boilerplate_matched_in_role_content"):
+        assert code not in body
+
+
+def test_restored_and_removed_text_reach_the_page_escaped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """🔴 Segments and labels are DATA. A `|safe` on either loop turns this red."""
+    body = _restored_body(monkeypatch)
+
+    assert "<script>alert(1)</script>" not in body
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in body
+    assert "<b>recognition</b>" not in body
+    assert "&lt;b&gt;recognition&lt;/b&gt;" in body

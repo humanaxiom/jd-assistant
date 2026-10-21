@@ -119,10 +119,14 @@ def test_a_duty_area_dropped_to_meet_the_cap_is_folded_back(rules: Rules) -> Non
 
     out, record = _apply_anti_fabrication(model, merged, rules)
 
-    # The cap holds: content comes back as how/why, never as a sixth duty.
-    assert len(out.duties) == len(model.duties)
+    # The cap holds (HR policy). This fixture's reply kept ONE duty, so since HR-279 an
+    # area no kept duty matches comes back as a duty of its own rather than under an
+    # unrelated one — and the form still has room for it.
+    assert len(model.duties) < len(out.duties) <= rules.thresholds.duties_max
     folded = record.folded_duty_content
-    assert folded and set(folded) <= set(_clauses(out))
+    assert folded and set(folded) <= {
+        piece for d in out.duties for piece in (*d.how_why, d.statement)
+    }
     # verbatim source text, and the dropped area is part of what came back
     source = " ".join(duty_text(d) for d in merged.draft.duties)
     assert all(piece in source for piece in folded)
