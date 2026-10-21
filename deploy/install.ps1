@@ -27,9 +27,19 @@
     The bundle directory (contains images.tar, postgres.dump, neo4j.dump, MANIFEST.txt).
 
 .PARAMETER ProjectName
-    Compose project name. Default `jd-bank`. Override to REHEARSE an install beside a
-    live stack — a different name means different volumes and containers, so nothing
-    existing is touched. See -Isolated, which sets the ports for you.
+    Compose project name. Default: THIS CHECKOUT'S project — `COMPOSE_PROJECT_NAME`
+    from the environment, then the checkout's `.env`, then the compose file's `name:`
+    (`jd-bank`). Override to REHEARSE an install beside a live stack — a different name
+    means different volumes and containers, so nothing existing is touched. See
+    -Isolated, which sets the ports for you.
+
+    GUARDED (deploy\BankTarget.ps1): refused if the project's containers were created
+    from another checkout, if this is a linked git worktree aiming at the live project
+    name, or if -Force (restore OVER existing data) targets a project that is not this
+    checkout's own and no container proves this checkout created it.
+
+.PARAMETER AllowForeignProject
+    Override the guard above. Typed by a person, on purpose, or not at all.
 
 .PARAMETER Isolated
     Install a COMPLETE second stack beside the live one, on its own ports and volumes,
@@ -45,7 +55,7 @@
     before every run — a setup step you have to be TOLD, which is exactly what
     Directive #1 says a deploy must not require.
 
-    Tear it down with:  docker compose --project-name jd-bank-test down -v
+    Tear it down with:  .\teardown.ps1 -ProjectName jd-bank-test -Volumes
 
 .PARAMETER SkipImages
     Do not `docker load`. For a re-run on a box whose images are already loaded.
@@ -72,7 +82,8 @@ param(
     [switch]$Isolated,
     [switch]$SkipImages,
     [switch]$Force,
-    [switch]$NoCas
+    [switch]$NoCas,
+    [switch]$AllowForeignProject
 )
 
 $ErrorActionPreference = 'Stop'
@@ -113,9 +124,26 @@ if ($Isolated) {
         }
     }
 }
-if (-not $ProjectName) { $ProjectName = 'jd-bank' }
+# The image TAG the bundle was cut with (MANIFEST `image_tag`), unless this checkout
+# names one itself. Without it a bundle cut from a second Bank (`jd-bank-api:v9`) would
+# install looking for `:latest` and fail the image check below — loudly, but uselessly.
+. (Join-Path $PSScriptRoot 'BankTarget.ps1')
+$repoRoot = (Get-Location).Path
+$bundleManifest = Join-Path $BundleDir 'MANIFEST.txt'
+if (-not $env:JD_IMAGE_TAG -and -not (Read-DotEnv (Join-Path $repoRoot '.env'))['JD_IMAGE_TAG'] -and
+    (Test-Path -LiteralPath $bundleManifest)) {
+    $tagLine = Get-Content -LiteralPath $bundleManifest | Where-Object { $_ -match '^image_tag\s*:\s*(\S+)' } | Select-Object -First 1
+    if ($tagLine -and $tagLine -match '^image_tag\s*:\s*(\S+)') { $env:JD_IMAGE_TAG = $Matches[1] }
+}
 
-$ApiPort = if ($env:JD_API_PORT) { $env:JD_API_PORT } else { '25800' }
+# WHICH Bank — resolved like compose (env, then `.env`, then defaults). It used to be a
+# literal `jd-bank` default, so an install typed in a second checkout restored INTO the
+# live project.
+$Target = Resolve-BankTarget -Root $repoRoot
+$typedProject = [bool]$ProjectName
+if (-not $ProjectName) { $ProjectName = $Target.Project }
+
+$ApiPort = $Target.ApiPort
 
 # Every compose call in this script goes through here, so the offline flags cannot be
 # forgotten on one of them. `--pull never` + `--no-build` is what makes "offline" a
@@ -142,6 +170,11 @@ if (-not (Test-Path 'docker-compose.yml')) {
 }
 Write-Ok 'Repo present (api/worker bind-mount ./core, so the source must be here)'
 
+Write-BankTarget -Target $Target -Project $ProjectName
+Assert-ComposeAgrees -Target $Target -Project $(if ($typedProject -or $Isolated) { $ProjectName } else { '' })
+Assert-BankAction -Target $Target -Project $ProjectName -Destructive:$Force `
+    -AllowForeignProject:$AllowForeignProject
+
 $BundleDir = (Resolve-Path -LiteralPath $BundleDir).Path
 $imagesTar = Join-Path $BundleDir 'images.tar'
 $pgDump = Join-Path $BundleDir 'postgres.dump'
@@ -161,6 +194,25 @@ if (Test-Path -LiteralPath $manifest) {
     Write-Info ''
 }
 else { Write-Warn 'No MANIFEST.txt — cannot cross-check what was cut.' }
+
+# The bundle's image TAG must be the tag this install will run. `docker load` re-tags
+# whatever images.tar holds, so loading a `:latest` bundle from a checkout whose `.env`
+# says `JD_IMAGE_TAG=v9` would replace the LIVE `jd-bank-*:latest` — and then fail the
+# image check below anyway, because compose wants `:v9`. Refuse BEFORE the load.
+# A manifest older than `image_tag` was cut from `:latest` (the only tag there was).
+if (-not $SkipImages -and (Test-Path -LiteralPath $manifest)) {
+    $bundleTag = 'latest'
+    $m = Get-Content -LiteralPath $manifest | Where-Object { $_ -match '^image_tag\s*:\s*\S+' } | Select-Object -First 1
+    if ($m -and $m -match '^image_tag\s*:\s*(\S+)') { $bundleTag = $Matches[1] }
+    if ($bundleTag -ne $Target.Tag) {
+        throw ("This bundle's images are tagged '$bundleTag' but this install runs tag " +
+            "'$($Target.Tag)' ($($Target.TagSource)). Loading it would re-tag " +
+            "jd-bank-api:$bundleTag / jd-bank-worker:$bundleTag on this box (another Bank's " +
+            "images, if one runs that tag) and still leave compose without its images. " +
+            "Re-cut the bundle from the checkout that runs '$($Target.Tag)', or install it " +
+            "where '$bundleTag' is that checkout's own tag.")
+    }
+}
 
 if ($NoCas) {
     $env:CAS_ENABLED = 'false'
@@ -358,12 +410,12 @@ Write-Host "`n  Open:" -ForegroundColor Cyan
 Write-Info "  App          $apiUrl"
 Write-Info "  Funnel       $apiUrl/jd-bank/ui/funnel      🥇 LIVE — computed from the DB"
 Write-Info "  Review queue $apiUrl/jd-bank/ui/queue"
-if ($ProjectName -ne 'jd-bank') {
+if ($ProjectName -ne $Target.DefaultProject) {
     Write-Host "`n  This is a SEPARATE stack — the '$ProjectName' project, its own volumes." -ForegroundColor Cyan
     Write-Info '  Nothing belonging to the live stack was touched. Tear it down (and drop its'
     Write-Info '  data) with:'
     Write-Info ''
-    Write-Info "    docker compose --project-name $ProjectName down -v"
+    Write-Info "    .\teardown.ps1 -ProjectName $ProjectName -Volumes"
 }
 
 Write-Host "`n  Note:" -ForegroundColor Cyan

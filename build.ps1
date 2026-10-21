@@ -33,6 +33,12 @@
 .PARAMETER SkipCheck
     Skip the deployability check. Only for iterating on a broken tree.
 
+.PARAMETER AllowForeignProject
+    Override the bank-target guard (deploy\BankTarget.ps1). It refuses to build when
+    this checkout would overwrite images another Bank runs: a linked worktree with no
+    `.env` of its own (it would build the LIVE `jd-bank-*:latest`), a second project
+    still on tag `latest`, or a tag another project's containers are using.
+
 .EXAMPLE
     .\build.ps1
     Build and verify.
@@ -49,7 +55,8 @@
 param(
     [switch]$NoCache,
     [switch]$Bundle,
-    [switch]$SkipCheck
+    [switch]$SkipCheck,
+    [switch]$AllowForeignProject
 )
 
 $ErrorActionPreference = 'Stop'
@@ -103,6 +110,15 @@ if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
 if ($LASTEXITCODE -ne 0) { throw 'Docker is installed but not running.' }
 Write-Ok 'Docker daemon is up'
 if (-not (Test-Path 'docker-compose.yml')) { throw "No docker-compose.yml in $PSScriptRoot" }
+
+# WHICH Bank's images — printed and guarded before a single layer is built. The image
+# TAG comes from JD_IMAGE_TAG (env, then this checkout's `.env`), so a second checkout
+# builds `jd-bank-api:<its tag>` and the live `:latest` images are left alone.
+. (Join-Path $PSScriptRoot 'deploy/BankTarget.ps1')
+$Target = Resolve-BankTarget -Root $PSScriptRoot
+Write-BankTarget -Target $Target
+Assert-ComposeAgrees -Target $Target
+Assert-BankAction -Target $Target -Builds -AllowForeignProject:$AllowForeignProject
 
 # Asked of compose, never hardcoded — a service added to docker-compose.yml is built and
 # checked here without anyone remembering to edit this script.

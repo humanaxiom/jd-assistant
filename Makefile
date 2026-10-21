@@ -5,7 +5,7 @@
 .PHONY: up down gates gates-fast gates-integration gates-live smoke migrate logs shell \
         hook-install register register-check baseline dedup ingest embed embed-roles \
         near-dup dedup-role cluster harmonize-measure canonical-drafts rewrite-golden \
-        quality-golden bank-audit singletons field-audit bundle deploy-check
+        quality-golden bank-audit singletons field-audit bundle deploy-check bank-target
 
 REGISTER_MD := docs/decisions/HR-DECISION-REGISTER.md
 
@@ -35,10 +35,25 @@ CANONICAL_ARGS  ?=
 export JD_ARCHIVE_PATH
 export JD_BASELINE_OUT
 
+# ── WHICH Bank (P-stack) ───────────────────────────────────────────────────
+# Every target below runs plain docker compose, which acts on THIS checkout's project:
+# COMPOSE_PROJECT_NAME / JD_IMAGE_TAG / JD_*_PORT from the environment, then the
+# checkout's git-ignored .env, then the live defaults (jd-bank, latest, 25xxx). A
+# second Bank is a second checkout with its own .env — deploy/parallel-bank.env.example.
+# BANK_GUARD prints the target and REFUSES (exit 1) to recreate a project another
+# checkout owns; BANK_SHOW only prints (and never fails the target it precedes).
+BANK_GUARD = @pwsh -NoProfile -File deploy/bank-target.ps1 -Guard
+BANK_SHOW  = -@pwsh -NoProfile -File deploy/bank-target.ps1
+
+bank-target:      ## Print which Bank (project, image tag, ports) this checkout acts on
+	@pwsh -NoProfile -File deploy/bank-target.ps1
+
 up:               ## Start the full stack (Ollama must be running on host)
+	$(BANK_GUARD) -Builds
 	docker compose up -d
 
 down:
+	$(BANK_GUARD)
 	docker compose down
 
 logs:
@@ -52,6 +67,7 @@ shell:            ## Interactive shell inside the api container
 # Full suite runs in the one-shot `gates` service (has the Docker socket for testcontainers);
 # CI runs the exact same command. Self-contained: does not require `make up` first.
 gates:            ## Full gate suite (what agents and CI run): static + unit + integration + coverage
+	$(BANK_SHOW)
 	docker compose run --rm gates sh -c '\
 		ruff check src tests && \
 		black --check src tests && \
@@ -60,6 +76,7 @@ gates:            ## Full gate suite (what agents and CI run): static + unit + i
 	@echo "✅ ALL GATES GREEN"
 
 gates-fast:       ## Pre-commit subset (static + unit, no integration) — quick edit-loop gate
+	$(BANK_SHOW)
 	docker compose run --rm gates sh -c '\
 		ruff check src tests && \
 		black --check src tests && \
@@ -83,7 +100,8 @@ gates-live:       ## Opt-in, LOCAL-ONLY live embedding golden tests (never in CI
 # collection membership is a true union of its signals (the filename-only regression
 # cannot silently return); and a random sample is findable by exact filename through
 # the archive browser query. Needs the live stack (`make up`); never CI.
-smoke:            ## END-TO-END SMOKE against the LIVE Bank: parsing, dedup, categorize, filterable
+smoke:            ## END-TO-END SMOKE against THIS checkout's Bank (live by default): parsing, dedup, categorize, filterable
+	$(BANK_SHOW)
 	docker compose run --rm gates pytest tests/live/test_smoke_live_bank.py -m live --timeout=300 -q
 	@echo "✅ SMOKE GREEN — every document in the live Bank is accounted for and findable"
 
@@ -92,6 +110,7 @@ smoke:            ## END-TO-END SMOKE against the LIVE Bank: parsing, dedup, cat
 # `gates-live`. Runs through the `rewrite` compose service (mirrors `embed` / `harmonize`);
 # self-skips per-test if the endpoint is unreachable.
 rewrite-golden:   ## Opt-in, LOCAL-ONLY live LLM rewrite golden (never in CI/gates)
+	$(BANK_GUARD)
 	docker compose run --rm rewrite
 	@echo "✅ rewrite golden complete"
 
@@ -100,6 +119,7 @@ rewrite-golden:   ## Opt-in, LOCAL-ONLY live LLM rewrite golden (never in CI/gat
 # guard as `gates-live` / `rewrite-golden`. Runs through the `quality` compose service;
 # self-skips per-test if the endpoint is unreachable.
 quality-golden:   ## Opt-in, LOCAL-ONLY live LLM quality-audit golden (never in CI/gates)
+	$(BANK_GUARD)
 	docker compose run --rm quality
 	@echo "✅ quality golden complete"
 
@@ -139,6 +159,7 @@ guide-check:      ## Fail if docs/operator-guide.html is stale vs the Markdown (
 # Deliberately NOT parallelised: it would trade determinism — what an audit trail is made
 # of — for time this batch job does not need.
 baseline:         ## Run the archive baseline (JD_ARCHIVE_PATH=<SFU JD archive>; BASELINE_ARGS="--sample 30")
+	$(BANK_GUARD)
 	docker compose run --rm -T baseline python -m src.jd_bank.baseline $(BASELINE_ARGS)
 	@echo "✅ baseline written to $(JD_BASELINE_OUT)"
 
@@ -147,6 +168,7 @@ baseline:         ## Run the archive baseline (JD_ARCHIVE_PATH=<SFU JD archive>;
 # than walking the archive a second time — HANDOFF: "do not hand-roll a second path".
 # Run `make baseline` first. Seconds, not minutes: no extraction, no parsing.
 dedup:            ## Tier-1 exact-duplicate report over the baseline's rows -> docs/dedup/
+	$(BANK_GUARD)
 	docker compose run --rm -T dedup python -m src.jd_bank.dedup $(DEDUP_ARGS)
 	@echo "✅ dedup report written to docs/dedup/summary.json"
 
@@ -159,6 +181,7 @@ dedup:            ## Tier-1 exact-duplicate report over the baseline's rows -> d
 #   make ingest JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs
 #   make ingest JD_ARCHIVE_PATH=... INGEST_ARGS="--limit 200"
 ingest:           ## Ingest + parse the archive into Postgres (needs `make migrate` first)
+	$(BANK_GUARD)
 	docker compose run --rm -T ingest python -m src.jd_bank.ingest --archive-root /archive $(INGEST_ARGS)
 
 # ── Embeddings (Phase 3.2b) ────────────────────────────────────────────────
@@ -169,10 +192,12 @@ ingest:           ## Ingest + parse the archive into Postgres (needs `make migra
 #   make embed
 #   make embed EMBED_ARGS="--limit 200"
 embed:            ## Embed parsed_jds into Neo4j's vector index (needs `make ingest` first)
+	$(BANK_GUARD)
 	docker compose run --rm -T embed python -m src.jd_bank.embeddings $(EMBED_ARGS)
 	@echo "✅ embeddings summary written to docs/embeddings/summary.json"
 
 embed-roles:      ## Embed HARMONIZED ROLES (canonical_jds) into Neo4j (needs `make migrate`)
+	$(BANK_GUARD)
 	docker compose run --rm -T embed-roles python scripts/embed_roles.py $(EMBED_ROLES_ARGS)
 	@echo "✅ role-embedding summary written to docs/embeddings/roles-summary.json"
 
@@ -186,6 +211,7 @@ embed-roles:      ## Embed HARMONIZED ROLES (canonical_jds) into Neo4j (needs `m
 #   make near-dup
 #   make near-dup NEARDUP_ARGS="--limit 200"
 near-dup:         ## Tier-2 near-duplicate dedup into dedup_edges (needs `make ingest` first)
+	$(BANK_GUARD)
 	docker compose run --rm -T near-dup python -m src.jd_bank.dedup.near $(NEARDUP_ARGS)
 	@echo "✅ near-dup summary written to docs/dedup/near-dup-summary.json"
 
@@ -198,6 +224,7 @@ near-dup:         ## Tier-2 near-duplicate dedup into dedup_edges (needs `make i
 #   make dedup-role
 #   make dedup-role DEDUPROLE_ARGS="--limit 200"
 dedup-role:       ## Tier-3 role-equivalence dedup into dedup_edges (needs ingest + embed first)
+	$(BANK_GUARD)
 	docker compose run --rm -T dedup-role python -m src.jd_bank.dedup.role $(DEDUPROLE_ARGS)
 	@echo "✅ role-equiv summary written to docs/dedup/role-equiv-summary.json"
 
@@ -211,6 +238,7 @@ dedup-role:       ## Tier-3 role-equivalence dedup into dedup_edges (needs inges
 #   make cluster
 #   make cluster CLUSTER_ARGS="--limit 500"
 cluster:          ## Phase-3.5 role clustering report over dedup_edges (needs ingest + near-dup + dedup-role)
+	$(BANK_GUARD)
 	docker compose run --rm -T cluster python -m src.jd_bank.cluster $(CLUSTER_ARGS)
 	@echo "✅ cluster report written to docs/cluster/cluster-summary.json"
 
@@ -225,6 +253,7 @@ cluster:          ## Phase-3.5 role clustering report over dedup_edges (needs in
 #   make harmonize-measure
 #   make harmonize-measure HARMONIZE_ARGS="--limit 2000"
 harmonize-measure:  ## Drive merge_cluster over real JDFN clusters; measure the 9 knobs (needs ingest + cluster deps)
+	$(BANK_GUARD)
 	docker compose run --rm -T harmonize python -m src.jd_bank.harmonize $(HARMONIZE_ARGS)
 	@echo "✅ harmonization measurement written to docs/harmonize/summary.json"
 
@@ -261,6 +290,7 @@ harmonize-measure:  ## Drive merge_cluster over real JDFN clusters; measure the 
 #   make canonical-drafts CANONICAL_ARGS="--limit 500"
 #   make canonical-drafts CANONICAL_ARGS="--no-llm --allow-downgrade"  # re-baseline
 canonical-drafts: ## Phase-4.4a: produce DRAFT canonical_jds over real clusters (local-only; --no-llm for no Ollama)
+	$(BANK_GUARD)
 	docker compose run --rm -T canonical python -u -m src.jd_bank.canonical $(CANONICAL_ARGS)
 	@echo "✅ canonical-producer summary written to docs/canonical/summary.json"
 
@@ -277,6 +307,7 @@ canonical-drafts: ## Phase-4.4a: produce DRAFT canonical_jds over real clusters 
 #   make bank-audit AUDIT_ARGS="--json"                 # machine-readable, diffable
 #   make bank-audit AUDIT_ARGS="--min-retention 95"     # loosen the verdict
 bank-audit:       ## Read-only: per-form content carry-through of the live Bank
+	$(BANK_GUARD)
 	docker compose run --rm -T bank-audit python -u -m src.jd_bank.bank_audit $(AUDIT_ARGS)
 
 # ── HR-223: the one-of-a-kind population (read-only) ───────────────────────
@@ -291,6 +322,7 @@ bank-audit:       ## Read-only: per-form content carry-through of the live Bank
 #
 #   make singletons
 singletons:       ## Read-only: measure the one-of-a-kind population (HR-223)
+	$(BANK_GUARD)
 	docker compose run --rm -T singletons python -u -m src.jd_bank.singletons $(SINGLETON_ARGS)
 	@echo "✅ singleton summary written to docs/singletons/singleton-summary.json"
 
@@ -306,6 +338,7 @@ singletons:       ## Read-only: measure the one-of-a-kind population (HR-223)
 #   make field-audit JD_ARCHIVE_PATH=/path/to/SFU_JDs
 #   make field-audit JD_ARCHIVE_PATH=... FIELD_AUDIT_ARGS="--sample 500"
 field-audit:      ## Read-only: identification fields vs the raw archive (P3b)
+	$(BANK_GUARD)
 	docker compose run --rm -T field-audit python -u -m src.jd_bank.field_audit $(FIELD_AUDIT_ARGS)
 	@echo "✅ field audit written to docs/field-audit/field-audit.json"
 
@@ -313,6 +346,7 @@ field-audit:      ## Read-only: identification fields vs the raw archive (P3b)
 # Postgres schema via alembic (config at core/alembic.ini; cwd inside api is /app).
 # Neo4j constraints + vector indexes via each cypher file piped into cypher-shell.
 migrate:          ## Postgres (alembic) + Neo4j (cypher: 001 core, 002 JD vectors, 003 role vectors)
+	$(BANK_GUARD)
 	docker compose exec api alembic upgrade head
 	cat core/db/migrations/001_init.cypher | \
 		docker compose exec -T neo4j cypher-shell -u neo4j -p harnesspass

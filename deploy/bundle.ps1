@@ -42,15 +42,26 @@
     Skip the Postgres + Neo4j dumps. For re-cutting just the images after a dependency
     change.
 
+.PARAMETER AllowForeignProject
+    Override the bank-target guard (deploy\BankTarget.ps1): by default this refuses to
+    bundle (and so to stop the Neo4j of) a project another checkout created.
+
 .EXAMPLE
     .\deploy\bundle.ps1
     Full bundle: build, save images, dump both databases, write the manifest.
+
+.NOTES
+    WHICH Bank is bundled is this checkout's: `COMPOSE_PROJECT_NAME` and `JD_IMAGE_TAG`
+    from the environment, then `.env`, then the defaults — printed before anything runs.
+    The tag is recorded in MANIFEST.txt (`image_tag`) so install.ps1 asks for the same
+    images on the target.
 #>
 [CmdletBinding()]
 param(
     [string]$OutDir = (Join-Path $PSScriptRoot '..\dist\jd-bank-bundle'),
     [switch]$SkipImages,
-    [switch]$SkipData
+    [switch]$SkipData,
+    [switch]$AllowForeignProject
 )
 
 $ErrorActionPreference = 'Stop'
@@ -85,6 +96,14 @@ Write-Step 'Preflight'
 if ($LASTEXITCODE -ne 0) { throw 'Docker is not running.' }
 Write-Ok 'Docker daemon is up'
 Write-Info "Images compose requires: $($Images -join ', ')"
+
+# WHICH Bank — resolved like compose, printed, guarded. This used to be a literal
+# `$project = 'jd-bank'` fallback for the Neo4j volume name.
+. (Join-Path $PSScriptRoot 'BankTarget.ps1')
+$Target = Resolve-BankTarget -Root (Get-Location).Path
+Write-BankTarget -Target $Target
+Assert-ComposeAgrees -Target $Target
+Assert-BankAction -Target $Target -Builds:(-not $SkipImages) -AllowForeignProject:$AllowForeignProject
 
 $null = New-Item -ItemType Directory -Force -Path $OutDir
 $OutDir = (Resolve-Path -LiteralPath $OutDir).Path
@@ -135,13 +154,9 @@ if (-not $SkipData) {
     Write-Step 'Dumping Neo4j'
     # `neo4j-admin database dump` requires the database STOPPED, so the container comes
     # down and a one-off container of the same image dumps the volume.
-    $project = 'jd-bank'
-    try {
-        $cfg = (& docker compose config --format json 2>$null | ConvertFrom-Json)
-        if ($cfg.name) { $project = $cfg.name }
-    }
-    catch { Write-Warn "Could not read the compose project name; assuming '$project'." }
-    $vol = "${project}_neo4jdata"
+    # The resolved project — already cross-checked against compose above, so there is
+    # no "assume jd-bank" fallback left to land on the live volume by accident.
+    $vol = "$($Target.Project)_neo4jdata"
     $neo4jImage = $Images | Where-Object { $_ -like 'neo4j:*' } | Select-Object -First 1
     if (-not $neo4jImage) { throw 'No neo4j image in the compose image list.' }
 
@@ -189,6 +204,8 @@ $lines.Add("git_commit    : $(& git rev-parse HEAD 2>$null)")
 $lines.Add("git_branch    : $(& git rev-parse --abbrev-ref HEAD 2>$null)")
 $dirty = & git status --porcelain 2>$null
 $lines.Add("git_dirty     : $(if ($dirty) { 'YES - bundle does not match a commit' } else { 'no' })")
+$lines.Add("compose_project: $($Target.Project)")
+$lines.Add("image_tag     : $($Target.Tag)")
 $lines.Add('')
 $lines.Add('images (name -> local image id):')
 foreach ($img in $Images) {
