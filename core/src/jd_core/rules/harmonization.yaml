@@ -140,10 +140,30 @@ problem_solving_policy: union
 # (`rewrite/harmonize.py`). Markers are matched on the word sequence, punctuation and
 # case aside. ⚠ Changes the DETERMINISTIC draft too (it is a merge rule) — that is the
 # point: the deterministic draft carried the same ambiguity.
+#
+# Review of c873b13 (the same 4,115 archive documents): the refer prompt is also written
+# "her/his", "his or her" and "the" supervisor (each variant is ALSO a questionnaire
+# prompt in `rewrite.form_instructions`, so the rewrite strips it too); only a marker that
+# IS a questionnaire prompt starts a run whatever follows it — "Refers decisions
+# regarding X to the Director." is a complete referral and labels nothing after it.
 referred_decision_markers:
   - Give some examples of the types of decisions the incumbent would refer to his/her supervisor.
+  - Give some examples of the types of decisions the incumbent would refer to her/his supervisor.
+  - Give some examples of the types of decisions the incumbent would refer to his or her supervisor.
+  - Give some examples of the types of decisions the incumbent would refer to the supervisor.
   - Refers decisions regarding
 referred_decision_label: "Refers to the supervisor:"
+
+# What ENDS a referred run besides the next questionnaire prompt: a template LEAD-IN line
+# — one ending on a colon or on "regarding" / "concerning" / "related to" / "responsible
+# for" / "such as" / "following" with no full stop ("Makes decisions regarding:"). HR-289.
+# Review of c873b13: the run used to end at anything `rewrite.fragment_pattern` matched,
+# which includes a list item ending "," or ";" — so in 136 archive documents the referred
+# decisions after "Major equipment purchases;" were left reading as decisions the
+# incumbent MAKES (621 items).
+referred_decision_run_end_pattern:
+  pattern: '(?:\:|\b(?:regarding|concerning|related to|responsible for|such as|following))\s*$'
+  ignore_case: true
 
 # HR-212. `longest`, NOT `union` — deliberately different from the two above.
 # `relationships` is a STRUCTURED object whose `supervisory` field is prose describing

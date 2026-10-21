@@ -269,6 +269,9 @@ form_instructions:
   - Give some typical examples of the most important decisions the incumbent is expected to make in carrying out the duties and responsibilities of the position.
   - To what extent can the incumbent rely on established policies or advice from others in making these decisions?
   - Give some examples of the types of decisions the incumbent would refer to his/her supervisor.
+  - Give some examples of the types of decisions the incumbent would refer to her/his supervisor.
+  - Give some examples of the types of decisions the incumbent would refer to his or her supervisor.
+  - Give some examples of the types of decisions the incumbent would refer to the supervisor.
   - Briefly describe the primary function and purpose of the position in one or two sentences.
   - Explain the nature of guidance received and how often work is checked or reviewed.
   - Describe the extent to which the supervisor determines the day to day work load of the position and assists in the completion of duties.
@@ -304,6 +307,10 @@ form_instruction_fragment_min_tokens: 6
 #      model's (round 2, cb73e45c: "careers as they relate to academic programs" read as
 #      covered by "programs" plus the just-folded "academic offerings", and was in no
 #      record).
+# Step 3 also needs the sentence's named terms and numbers in the restored sentence
+# (review of c873b13). Step 2 does NOT — measured, requiring them listed 98 more
+# sentences, mostly member unit names ("AAE's website"); the cost, a reworded
+# sentence losing an audience list silently, is open on HR-284.
 # For a how/why CLAUSE the words it shares with its own headline do not count (when at
 # least two words remain): what a clause adds is what can be lost — "ordering welcome
 # event food" is not covered by a duty saying "Plans the welcome events".
@@ -357,9 +364,11 @@ sentence_abbreviations: [e.g., i.e., vs., approx., incl., dept., no., dr., mr., 
 # Section items come back WHOLE (up to a cut-off), never sentence by sentence. MEASURED
 # (round-2 replay, 23 replies): restored items that were a lead-in, cut-off or
 # continuation line 32 -> 0; 18 duty pieces newly listed instead of folded, every one a
-# headline ending "by" / "such as" or a table cut-off. HR-287.
+# headline ending "by" / "such as" or a table cut-off.# Review of c873b13: an item ending ";" is NOT a fragment — ";" ends a list item ("Hiring
+# of staff;", "Signing authority up to $5,000;") far more often than it wraps one, and
+# such an item was listed instead of restored. HR-287.
 fragment_pattern:
-  pattern: '(?i)(?:^\s*[\(\[,;])|(?:(?:[,;:(]|\b(?:and|or|by|to|of|for|with|the|a|an|regarding|concerning|including|related to|responsible for|such as|involves|following))\s*$)'
+  pattern: '(?i)(?:^\s*[\(\[,;])|(?:(?:[,:(]|\b(?:and|or|by|to|of|for|with|the|a|an|regarding|concerning|including|related to|responsible for|such as|involves|following))\s*$)'
   ignore_case: false
 
 # How many consecutive contact items one model contact is grounded against (HR-269, read

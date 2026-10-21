@@ -303,7 +303,9 @@ def _reconcile_list(
     kept: list[str] = []
     for item in model_items:
         usable = units
-        if any(referred) and not (log.stems(item) & label_stems):
+        # The WHOLE label, not one word of it (review of c873b13: "Approves …,
+        # informing the supervisor" kept a referred decision as one it makes).
+        if any(referred) and not label_stems <= log.stems(item):
             usable = [u for u, ref in zip(units, referred, strict=True) if not ref]
         if _grounded_in_one(item, usable, vocab, threshold, rewrite, comparison):
             kept.append(item)
@@ -561,7 +563,8 @@ class _DutyCoverage:
             for part in dict.fromkeys((piece, *_COMMA.split(piece)))
             if (stems := self._stems(part))
         ]
-        self._restored: list[frozenset[str]] = []
+        #: (stemmed tokens, raw tokens) of each restored sentence.
+        self._restored: list[tuple[frozenset[str], frozenset[str]]] = []
 
     def _stems(self, text: str) -> frozenset[str]:
         return stemmed_tokens(
@@ -618,13 +621,25 @@ class _DutyCoverage:
         names = self._names(sentence)
         if any(_covers(raw, v, thr) and names <= v for v in self._duties):
             return True
+        # ⚠ A reworded piece is NOT held to the sentence's names (review of c873b13,
+        # measured): requiring them listed 98 more sentences on the round-2 replay, most
+        # a member's own unit name the harmonized role rightly generalises ("AAE's
+        # website", "the School's website", "SFU Food's website" -> "website"), and
+        # folding them put the rewording in twice. The cost — a reworded sentence can
+        # lose an audience list ("…to the Dean, Associate Deans, Chairs") silently — is
+        # recorded as an open question on HR-284.
         if any(
             len(p & tokens) / len(p) >= thr
             and len(p & tokens) / len(tokens) >= self._share
             for p in self._pieces
         ):
             return True
-        return any(_covers(tokens, r, thr) for r in self._restored)
+        # Names too (review of c873b13): a two-word sentence "opportunities in
+        # Cooperative Education" read as covered by a restored sentence sharing only
+        # "opportunities".
+        return any(
+            _covers(tokens, r, thr) and names <= raw_r for r, raw_r in self._restored
+        )
 
     def restored(self, sentence: str) -> None:
         """``sentence`` is in the draft now as restored text: ONE restored sentence
@@ -634,7 +649,7 @@ class _DutyCoverage:
         covered by "programs" (model) plus "academic" (the folded "academic
         offerings")."""
         if tokens := self._stems(sentence):
-            self._restored.append(tokens)
+            self._restored.append((tokens, content_tokens(sentence, self._comparison)))
 
 
 def _fold_back(

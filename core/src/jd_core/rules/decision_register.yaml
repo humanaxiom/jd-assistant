@@ -8695,6 +8695,9 @@ decisions:
       - Give some typical examples of the most important decisions the incumbent is expected to make in carrying out the duties and responsibilities of the position.
       - To what extent can the incumbent rely on established policies or advice from others in making these decisions?
       - Give some examples of the types of decisions the incumbent would refer to his/her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to her/his supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to his or her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to the supervisor.
       - Briefly describe the primary function and purpose of the position in one or two sentences.
       - Explain the nature of guidance received and how often work is checked or reviewed.
       - Describe the extent to which the supervisor determines the day to day work load of the position and assists in the completion of duties.
@@ -8982,6 +8985,9 @@ decisions:
       path: harmonization.referred_decision_markers
     current_default:
       - Give some examples of the types of decisions the incumbent would refer to his/her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to her/his supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to his or her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to the supervisor.
       - Refers decisions regarding
     provenance: our_invention
     tier: hr_informed
@@ -8998,8 +9004,15 @@ decisions:
       came out as one the incumbent makes. The merge now labels each referred decision
       (HR-283) per member, before pooling, while the order still says which they are: a
       line matching one of these starts a referred run, which ends at the next
-      questionnaire prompt (HR-275) or template lead-in (HR-287). Matched on the word
+      questionnaire prompt (HR-275) or template lead-in (HR-289). Matched on the word
       sequence; "Refers decisions regarding" is the newer template's own lead-in.
+      Review of c873b13 (the same 4,115 documents): the prompt's "her/his", "his or
+      her" and "the supervisor" spellings are markers too (each is also stripped by
+      HR-275); text fused BEFORE the prompt (the answer to the MAKE question) is not
+      referred; and a marker that is not the questionnaire prompt starts a run only as
+      a lead-in ("Refers decisions regarding:") — "Refers decisions regarding X to the
+      Director." is a complete referral and labels nothing after it (it had labelled
+      47 made decisions in the archive, "Makes decisions regarding…" among them).
     impact_if_changed: >-
       Does NOT move `rules_version` (harmonization.yaml is unhashed), but changes the
       merge draft — the deterministic draft too — of every cluster whose members carry a
@@ -9017,7 +9030,7 @@ decisions:
       path: harmonization.referred_decision_label
     current_default: "Refers to the supervisor:"
     provenance: our_invention
-    tier: hr_informed
+    tier: hr_policy
     why_it_matters: >-
       The label is written in front of each referred decision (HR-282) unless it already
       starts "Refer…" ("Refers decisions that have broader implications…"), and it is
@@ -9029,6 +9042,12 @@ decisions:
       states what the questionnaire asked, not who the supervisor is. ⚠ The guard cannot
       catch the same inversion in a DUTY ("Oversee budgetary decisions…" on cb73e45c):
       duties are flagged, never dropped (HR-184), and that duty IS flagged.
+      Tier `hr_policy` (review of c873b13): these words are printed into the Impact of
+      Decision Making section of every merged job description that has a referred
+      decision — HR's wording on HR's form, not a technical setting. Since that review
+      a rewritten decision keeps the referral only if it carries EVERY word of the
+      label ("refers" and "supervisor"); one shared word let "Approves …, informing
+      the supervisor" through.
     impact_if_changed: >-
       Does NOT move `rules_version`. Changes the wording of every referred decision in
       the merge draft. An empty label switches the labelling off. Pinned by
@@ -9070,6 +9089,18 @@ decisions:
       piece that kept little is not a rewording: "liaise with Risk Management for
       insurance" keeps 3 of 12 words of a sentence whose "$1 M" threshold it dropped, and
       that sentence still comes back. Coverage only — nothing here can ground a claim.
+      Review of c873b13: the RESTORED-sentence test now needs the sentence's named
+      terms and numbers too ("opportunities in Cooperative Education" was covered by a
+      restored sentence sharing only "opportunities"). ⚠ OPEN, measured: the PIECE
+      test does NOT, so a reworded sentence can lose an audience or a unit silently —
+      "…guidance on financial policy issues to the Dean, Associate Deans, Chairs,
+      Directors…" is covered by "Offer strategic advice … on financial policy
+      issues". Requiring names there listed 98 more sentences on the round-2 replay
+      (folding them duplicated the rewording), most a member's own unit name the
+      harmonized role rightly generalises ("AAE's website" / "the School's website"
+      -> "website"). Of 20 piece-only covers at a share of 0.40-0.55 graded by hand,
+      about 11 were genuine rewordings and 7 partial (an audience, a unit list or a
+      second clause gone).
     impact_if_changed: >-
       Does NOT move `rules_version`. Lower: more sentences counted as reworded, fewer
       duplicates, and more compression accepted silently. Higher: more source sentences
@@ -9135,7 +9166,7 @@ decisions:
     config:
       file: rewrite.yaml
       path: rewrite.fragment_pattern
-    current_default: '(?i)(?:^\s*[\(\[,;])|(?:(?:[,;:(]|\b(?:and|or|by|to|of|for|with|the|a|an|regarding|concerning|including|related to|responsible for|such as|involves|following))\s*$)'
+    current_default: '(?i)(?:^\s*[\(\[,;])|(?:(?:[,:(]|\b(?:and|or|by|to|of|for|with|the|a|an|regarding|concerning|including|related to|responsible for|such as|involves|following))\s*$)'
     provenance: our_invention
     tier: technical
     why_it_matters: >-
@@ -9155,7 +9186,9 @@ decisions:
       fragment: contact labels and the parser's split clause pieces are real content.
       MEASURED (round-2 replay, 23 replies): restored items that were a lead-in, cut-off
       or continuation line 32 -> 0; 18 duty pieces newly listed instead of folded, each a
-      headline ending "by" / "such as" or a table cut-off.
+      headline ending "by" / "such as" or a table cut-off. Review of c873b13: an item
+      ending ";" is NOT a fragment — ";" ends a list item ("Hiring of staff;",
+      "Signing authority up to $5,000;") far more often than it wraps one.
     impact_if_changed: >-
       Does NOT move `rules_version`. A broader pattern lists more source text instead of
       restoring it (visible, not lost); a narrower one restores more partial text.
@@ -9191,6 +9224,36 @@ decisions:
       Does NOT move `rules_version`. 1 restores the item-only rule; larger windows let a
       contact draw on more neighbouring lines (more stitching possible). Pinned by
       `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-289
+    question: >-
+      In a job description's Decision Making, which lines end a run of decisions referred
+      to the supervisor — so that the decisions after them are read as the incumbent's
+      own again?
+    config:
+      file: harmonization.yaml
+      path: harmonization.referred_decision_run_end_pattern
+    current_default: '(?:\:|\b(?:regarding|concerning|related to|responsible for|such as|following))\s*$'
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A referred run (HR-282) labels every decision after the refer prompt until the
+      next questionnaire prompt or a template LEAD-IN line ("Makes decisions
+      regarding:"), matched case-insensitively by this pattern: a line ending on a colon
+      or on "regarding", "concerning", "related to", "responsible for", "such as" or
+      "following". MEASURED in review of c873b13, over the 4,115 archive documents that
+      carry the refer prompt: the run used to end at anything the rewrite's FRAGMENT
+      rule (HR-287) matches — which includes any list item ending "," or ";" — so in 136
+      documents the referred decisions after an item like "Major equipment purchases;"
+      were left unlabelled (621 items), reading in the merged job description as
+      decisions the incumbent MAKES: the very ambiguity HR-282/283 exist to remove.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (harmonization.yaml is unhashed) but changes the
+      merge draft of every cluster whose members carry a referred run. Broader ends runs
+      earlier (referred decisions read as made); narrower runs longer (a made decision
+      after an unrecognised lead-in reads as referred). Pinned by
+      `test_rewrite_fidelity_r3_review.py`.
     status: open
 
 trivial:

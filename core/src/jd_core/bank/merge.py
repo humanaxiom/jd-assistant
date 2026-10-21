@@ -99,42 +99,76 @@ def label_referred_decisions(items: Sequence[str], rules: Rules) -> list[str]:
     2,928 and follows as items of their own 5,721 times. An item matching
     ``harmonization.referred_decision_markers`` starts a REFERRED run: its own text
     after the marker, and every following item until the next questionnaire prompt
-    (``rewrite.form_instructions``) or template lead-in (``rewrite.fragment_pattern``).
-    The marker text is removed; each referred decision gets
-    ``harmonization.referred_decision_label`` in front, unless it already says
-    "Refer…". Items before any marker are untouched, so a member with no marker comes
-    back unchanged.
+    (``rewrite.form_instructions``) or template lead-in
+    (``harmonization.referred_decision_run_end_pattern``, HR-289). The marker text is
+    removed; each referred decision gets ``harmonization.referred_decision_label`` in
+    front, unless it already says "Refer…". Items before any marker are untouched, so a
+    member with no marker comes back unchanged.
+
+    Review of c873b13 (measured over the same 4,115 documents): text fused BEFORE the
+    marker is not referred; a marker that is not the questionnaire's prompt starts a run
+    only as a lead-in ("Refers decisions regarding:"), never as a complete referral; and
+    a list item ending "," or ";" does not end the run (it did, via the rewrite's
+    fragment rule, in 136 documents).
     """
     harmon = rules.harmonization
     label = harmon.referred_decision_label
-    markers = [_word_sequence(m) for m in harmon.referred_decision_markers]
-    if not label or not markers:
+    if not label or not harmon.referred_decision_markers:
         return list(items)
+    prompt_seqs = {
+        " ".join(_TOKEN.findall(p.lower())) for p in rules.rewrite.form_instructions
+    }
+    #: (pattern, is the questionnaire's own prompt) — review of c873b13: only the
+    #: PROMPT starts a run whatever follows it; "Refers decisions regarding X to the
+    #: Director." is a complete referral, and starting a run there labelled every
+    #: decision after it (47 archive items, "Makes decisions regarding…" among them).
+    markers = [
+        (_word_sequence(m), " ".join(_TOKEN.findall(m.lower())) in prompt_seqs)
+        for m in harmon.referred_decision_markers
+    ]
     prompts = [_word_sequence(p) for p in rules.rewrite.form_instructions]
-    lead_in = rules.rewrite.fragment_pattern
+    run_end = harmon.referred_decision_run_end_pattern
+
+    def words(text: str) -> bool:
+        return bool(re.search(r"[A-Za-z0-9]", text))
 
     def labelled(text: str) -> str:
         text = text.strip()
         return text if re.match(r"(?i)refer", text) else f"{label} {text}"
 
+    def lead_in(text: str) -> bool:
+        return run_end is not None and bool(run_end.search(text.strip()))
+
     out: list[str] = []
     referring = False
     for item in items:
-        marker = next((m for m in markers if m.search(item)), None)
-        if marker is not None:
-            referring = True
-            rest = marker.sub(" ", item, count=1).strip(" \t,;:-–")
-            if re.search(r"[A-Za-z0-9]", rest):
-                # "Refers decisions regarding X": the item already says it.
-                out.append(
-                    item.strip()
-                    if re.match(r"(?i)refer", item.strip())
-                    else labelled(rest)
-                )
+        found = next(
+            (
+                (m, hit, is_prompt)
+                for m, is_prompt in markers
+                if (hit := m.search(item))
+            ),
+            None,
+        )
+        if found is not None:
+            _marker, hit, is_prompt = found
+            # Text BEFORE the marker belongs to what came before it — on the old form,
+            # the answer to the MAKE question fused in front of the refer prompt
+            # ("Sets own priorities… (ii) Give some examples… supervisor.").
+            before = item[: hit.start()].strip(" \t,;:-–")
+            after = item[hit.end() :].strip(" \t,;:-–")
+            if words(before):
+                out.append(labelled(before) if referring else before)
+            if is_prompt or not words(after) or lead_in(item):
+                referring = True
+                if words(after):
+                    out.append(labelled(after))
+            else:
+                # A complete referral ("Refers decisions regarding X to the
+                # Director."): it says so itself, and says nothing of the next item.
+                out.append(item[hit.start() :].strip())
             continue
-        if referring and (
-            any(p.search(item) for p in prompts) or lead_in.search(item.strip())
-        ):
+        if referring and (any(p.search(item) for p in prompts) or lead_in(item)):
             referring = False
         out.append(labelled(item) if referring else item)
     return out
