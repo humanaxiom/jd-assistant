@@ -16,6 +16,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.jd_core.models.parsed_jd import SFUDuty, SFUEmployeeGroup, SFUJobDescription
 
+#: ``SFUJobDescription.decision_making``' ceiling (problem_solving shares it).
+_BULLETS_CEILING: int = next(
+    int(meta.max_length)
+    for meta in SFUJobDescription.model_fields["decision_making"].metadata
+    if getattr(meta, "max_length", None) is not None
+)
+
 #: ``SFUJobDescription.duties``' contract ceiling, read off the model (parser v9).
 _DUTIES_CEILING: int = next(
     int(meta.max_length)
@@ -160,10 +167,17 @@ class ComposerAnswers(AnswerContract):
             )
         return value
 
-    # 5. Decision Making
-    decision_making: list[str] = Field(default_factory=list, max_length=20)
-    # 6. Problem Solving
-    problem_solving: list[str] = Field(default_factory=list, max_length=20)
+    # 5. Decision Making / 6. Problem Solving — held to the MODEL's ceiling (60 since
+    # parser v9; it was a constant 20 on both sides). Not the parser's HR-268 cap: a
+    # role's draft is a UNION over its members, which the merge cuts at the model
+    # ceiling, so a Builder row narrower than the model would refuse to clone a draft
+    # the Bank itself wrote.
+    decision_making: list[str] = Field(
+        default_factory=list, max_length=_BULLETS_CEILING
+    )
+    problem_solving: list[str] = Field(
+        default_factory=list, max_length=_BULLETS_CEILING
+    )
     # 7. Relationships
     supervisory: str | None = Field(default=None, max_length=600)
     internal: list[str] = Field(default_factory=list, max_length=30)

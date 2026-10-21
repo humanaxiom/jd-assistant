@@ -441,6 +441,91 @@ def test_the_how_why_caps_and_headline_are_rulebook_data(
     assert duty.how_why == ["Prese"]
 
 
+# ── Review H1: "…:" lead-in lines outside DUTIES are content, not furniture ──────
+
+
+def test_a_qualification_ending_in_a_colon_is_kept() -> None:
+    """MEASURED (review H1): reading Word lists exposed ":"-ending lines that v8 had
+    fused into run-ons, and the qualifications reader dropped them — e.g.
+    ``20190808_00121712_Manager.docx`` lost its whole degree requirement."""
+    doc = Document()
+    doc.add_paragraph("QUALIFICATIONS")
+    _list_para(
+        doc,
+        "Bachelor's degree in Communications, Marketing or a related field plus five "
+        "years of related experience OR a combination of equivalent education, "
+        "experience, and training:",
+    )
+    _list_para(doc, "Excellent written communication skills.")
+    quals = parse_jd(extract_text(_blob(doc), DocumentFormat.DOCX)).jd.qualifications
+
+    assert [q.text for q in quals] == [
+        "Bachelor's degree in Communications, Marketing or a related field plus five "
+        "years of related experience OR a combination of equivalent education, "
+        "experience, and training",
+        "Excellent written communication skills.",
+    ]
+
+
+def test_a_decision_making_lead_in_is_kept() -> None:
+    """The template's "The <title> makes decisions related to:" lead-in, and
+    lead-ins carrying real scope, were dropped (4,784 documents lost 39,101 Decision
+    Making words vs v8; 2,231 / 14,686 in Problem Solving)."""
+    text = (
+        "IMPACT OF DECISION MAKING\n"
+        "• The Strategic Grants Advisor makes decisions related to:\n"
+        "• Funding opportunities and related proposals.\n"
+        "PROBLEM SOLVING AND LEVEL OF SUPERVISION\n"
+        "• Solves complex problems for the Vice-President, Research, including:\n"
+        "• Grant deadlines and submissions.\n"
+    )
+    jd = parse_jd(text).jd
+
+    assert jd.decision_making == [
+        "The Strategic Grants Advisor makes decisions related to",
+        "Funding opportunities and related proposals.",
+    ]
+    assert jd.problem_solving == [
+        "Solves complex problems for the Vice-President, Research, including",
+        "Grant deadlines and submissions.",
+    ]
+
+
+def test_list_glyphs_never_spend_the_summary_cap() -> None:
+    """MEASURED: 40 summaries already at the 4,000 cap lost 164 tail words because the
+    extractor's list glyphs took up characters. The summary is prose — no glyphs."""
+    doc = Document()
+    doc.add_paragraph("POSITION SUMMARY")
+    for i in range(3):
+        _list_para(doc, f"Supports program area number {i} across the campus.")
+    summary = parse_jd(
+        extract_text(_blob(doc), DocumentFormat.DOCX)
+    ).jd.position_summary
+
+    assert summary is not None and "•" not in summary
+    assert summary.startswith("Supports program area number 0")
+
+
+def test_a_typed_bullet_with_no_space_still_splits() -> None:
+    text = "DUTIES AND RESPONSIBILITIES\n•Tracks budgets.\n•Reviews invoices.\n"
+    assert [d.statement for d in parse_jd(text).jd.duties] == [
+        "Tracks budgets.",
+        "Reviews invoices.",
+    ]
+
+
+def test_the_bullet_count_cap_is_rulebook_data() -> None:
+    """``_MAX_BULLETS`` (20) cut Decision Making / Problem Solving lists; it is now
+    ``segmentation.bullet_max_count`` (HR-268), under the model's own ceiling."""
+    seg = get_rules().segmentation
+    assert (
+        20 < seg.bullet_max_count <= _max_length(SFUJobDescription, "decision_making")
+    )
+    many = "\n".join(f"• Decides on matter number {i}." for i in range(30))
+    jd = parse_jd(f"IMPACT OF DECISION MAKING\n{many}\n").jd
+    assert len(jd.decision_making) == 30
+
+
 # ── Defect 2: the 400-character duty statement ───────────────────────────────
 
 

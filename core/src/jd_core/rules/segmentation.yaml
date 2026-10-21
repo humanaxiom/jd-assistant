@@ -284,3 +284,10 @@ duty_headline_pattern:
   ignore_case: false
 duty_how_why_max_count: 60
 duty_how_why_max_chars: 1200
+
+# --- Decision Making / Problem Solving item cap (parser v9 review, HR-268) -----------
+# Was the code constant 20 (`_MAX_BULLETS`). MEASURED over the whole archive with the
+# cap at the model ceiling (60): items per section p50 2 · p99 15 · max 25 (Decision
+# Making), p99 8 · max 14 (Problem Solving); 11 sections exceeded 20. 40 is ~60% over
+# the max and cuts nothing; the model ceiling is 60 (loader-enforced).
+bullet_max_count: 40

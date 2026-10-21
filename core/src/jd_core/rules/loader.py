@@ -834,6 +834,9 @@ class Segmentation(_RuleFile):
     duty_headline_pattern: Regex
     duty_how_why_max_count: int = Field(gt=0)
     duty_how_why_max_chars: int = Field(gt=0)
+    #: Parser v9 review (HR-268): how many Decision Making / Problem Solving items the
+    #: parser keeps per section — the code constant 20 (``_MAX_BULLETS``) until v9.
+    bullet_max_count: int = Field(gt=0)
 
     @model_validator(mode="after")
     def _the_duty_caps_fit_the_model(self) -> Segmentation:
@@ -862,6 +865,13 @@ class Segmentation(_RuleFile):
                 raise ValueError(
                     f"{name} ({getattr(self, name)}) exceeds "
                     f"SFUJobDescription.duties' max_length ({count_ceiling})"
+                )
+        for field_name in ("decision_making", "problem_solving"):
+            ceiling = _field_max_length(SFUJobDescription, field_name)
+            if self.bullet_max_count > ceiling:
+                raise ValueError(
+                    f"bullet_max_count ({self.bullet_max_count}) exceeds "
+                    f"SFUJobDescription.{field_name}'s max_length ({ceiling})"
                 )
         return self
 
@@ -1588,6 +1598,10 @@ class Rewrite(_RuleFile):
     #: the merge draft's vocabulary for it to be kept (HR-183). Below it the
     #: qualification is SCRUBBED (dropped) and recorded. Inert under ``all_grounded``.
     skill_grounding_threshold: float = Field(ge=0.0, le=1.0)
+    #: Parser v9 review M2 (HR-267): the fraction of a rewritten how/why clause's
+    #: content tokens that must appear in its SOURCE duty's text (statement + how/why)
+    #: for the clause to be kept. Below it the clause is dropped and recorded.
+    how_why_grounding_threshold: float = Field(gt=0.0, le=1.0)
     #: The minimum token-Jaccard a rewritten DUTY must share with a draft duty (HR-184).
     #: Below it the duty is FLAGGED (recorded, never dropped — a duty may legitimately
     #: rephrase, so a low-overlap duty is an HR eyeball, not a scrub). Read in the other

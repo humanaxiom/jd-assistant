@@ -253,9 +253,9 @@ class SFUJobDescription(BaseModel):
     # HR-172); this bound is what a PARSED source document may carry.
     duties: list[SFUDuty] = Field(default_factory=list, max_length=150)
     # 5. Impact of Decision Making (-> Hay Accountability)
-    decision_making: list[str] = Field(default_factory=list, max_length=20)
+    decision_making: list[str] = Field(default_factory=list, max_length=60)
     # 6. Problem Solving & Level of Supervision (-> Hay Problem-Solving)
-    problem_solving: list[str] = Field(default_factory=list, max_length=20)
+    problem_solving: list[str] = Field(default_factory=list, max_length=60)
     # 7. Relationships
     relationships: SFURelationships | None = None
     # 8. Qualifications

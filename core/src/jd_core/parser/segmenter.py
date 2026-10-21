@@ -128,7 +128,7 @@ _MAX_QUAL = 400
 _MAX_BULLET = 400
 _MAX_SUPERVISORY = 600
 _MAX_QUALS = 40
-_MAX_BULLETS = 20
+
 
 #: The title the parser writes when it recovered none. 🔴 **A PLACEHOLDER, NOT A
 #: NULL** — `title <> ''` reports 100% coverage over documents that have no title
@@ -141,10 +141,17 @@ FALLBACK_TITLE = "Untitled Position"
 #: Internal alias; the segmenter refers to it throughout.
 _FALLBACK_TITLE = FALLBACK_TITLE
 
-_BULLET_RE = re.compile(r"^\s*(?:[-•*·▪‣◦]|\(?\d{1,2}[.)]|[ivx]{1,4}[.)])\s+", re.I)
+#: A leading bullet: a typed glyph (the round-bullet family may touch its text:
+#: "•Tracks" is a bullet; "-" and "*" need a space, so "-based" is not), or "1." /
+#: "i)" numbering.
+_BULLET_RE = re.compile(
+    r"^\s*(?:[•·▪‣◦]\s*|[-*]\s+|\(?\d{1,2}[.)]\s+|[ivx]{1,4}[.)]\s+)", re.I
+)
 _PERCENT_RE = re.compile(r"\(\s*\d{1,3}\s*%\s*\)")
 #: The bullet glyph the docx extractor leads a Word list paragraph with (v9).
 _LIST_GLYPH_RE = re.compile(r"^[•◦]\s+")
+#: The same glyph at the start of ANY line of a block (multiline).
+_LIST_MARKER_LINE_RE = re.compile(r"(?m)^[ \t]*[•◦] ")
 #: The glyph that marks a SUB-item — a nested Word list paragraph (the extractor's
 #: ``SUB_ITEM_MARKER``) or a typed one. A how/why clause, never a duty of its own.
 _SUB_GLYPH = "◦"
@@ -475,8 +482,11 @@ def _detect_modifier(text: str, kind: str) -> str | None:
 def _structure_quals(block: str) -> list[SFUQualification]:
     quals: list[SFUQualification] = []
     for item in _logical_lines(block):
-        text = _clean(item).strip(" -–—•*")
-        if not text or text.endswith(":"):
+        # A "…:" lead-in is KEPT, minus its colon (v9, review H1): it is often a whole
+        # requirement ("Bachelor's degree … OR an equivalent combination of …:") that
+        # v8 kept fused into a run-on and v9's list reading had started dropping.
+        text = _clean(item).strip(" -–—•◦*").rstrip(" :")
+        if not text:
             continue
         kind = _classify_qual(text)
         quals.append(
@@ -491,16 +501,21 @@ def _structure_quals(block: str) -> list[SFUQualification]:
     return quals
 
 
-def _structure_bullets(block: str) -> list[str]:
-    """Decision-making / problem-solving → ``list[str]``, dropping the
-    ``… regarding:`` / ``… related to:`` intro lines."""
+def _structure_bullets(block: str, max_count: int) -> list[str]:
+    """Decision-making / problem-solving → ``list[str]``.
+
+    v9 (review H1): the ``… related to:`` lead-in is KEPT, minus its colon. Before v9
+    it was dropped — harmless while Word lists fused it into a run-on that v8 kept, but
+    once list items are read apart, dropping it lost words in 4,784 Decision Making and
+    2,231 Problem Solving sections (measured vs v8). ``max_count`` is
+    ``segmentation.bullet_max_count`` (HR-268; it was the code constant 20)."""
     items: list[str] = []
     for item in _logical_lines(block):
-        text = _clean(item).strip(" -–—•*")
-        if not text or text.endswith(":"):
+        text = _clean(item).strip(" -–—•◦*").rstrip(" :")
+        if not text:
             continue
         items.append(text[:_MAX_BULLET])
-        if len(items) >= _MAX_BULLETS:
+        if len(items) >= max_count:
             break
     return items
 
@@ -637,12 +652,24 @@ def parse_jd(text: str) -> ParseResult:
 
     # Body sections.
     summary_block = sections.get(SectionKey.POSITION_SUMMARY)
-    position_summary = _clean(summary_block)[:_MAX_SUMMARY] if summary_block else None
+    # The summary is prose: the extractor's list glyphs (v9) are stripped before the
+    # cap, or they would spend the 4,000 characters and push the tail out — MEASURED
+    # over the archive, 40 summaries already at the cap lost 164 words to them.
+    position_summary = (
+        _clean(_LIST_MARKER_LINE_RE.sub("", summary_block))[:_MAX_SUMMARY]
+        if summary_block
+        else None
+    )
     duties = _structure_duties(
         sections.get(SectionKey.DUTIES, ""), get_rules().segmentation
     )
-    decision_making = _structure_bullets(sections.get(SectionKey.DECISION_MAKING, ""))
-    problem_solving = _structure_bullets(sections.get(SectionKey.PROBLEM_SOLVING, ""))
+    bullet_cap = get_rules().segmentation.bullet_max_count
+    decision_making = _structure_bullets(
+        sections.get(SectionKey.DECISION_MAKING, ""), bullet_cap
+    )
+    problem_solving = _structure_bullets(
+        sections.get(SectionKey.PROBLEM_SOLVING, ""), bullet_cap
+    )
     relationships = _structure_relationships(sections.get(SectionKey.RELATIONSHIPS, ""))
     qualifications = _structure_quals(sections.get(SectionKey.QUALIFICATIONS, ""))
     # `additional_context` has its own registered cap (HR-200), not the summary's.

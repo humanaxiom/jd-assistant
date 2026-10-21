@@ -309,6 +309,66 @@ Tests that pinned v8's 12-function or "fused into the statement" behaviour were 
 **Register IDs:** J2 HR-246…253 · J4 HR-256…259 · v9 HR-261…266. No collisions; checked
 with `uniq -d` over every `id:`.
 
+## 13. Review round 1 (CHANGES REQUIRED, 2026-10-20) — H1, M2 and the small items
+
+**H1 — "…:" lead-ins outside DUTIES were dropped.** Reading Word lists exposed
+lead-in lines in Decision Making, Problem Solving and Qualifications that v8 had kept
+fused into run-ons. `_structure_bullets` and `_structure_quals` dropped them. Examples:
+whole degree requirements (`20190808_00121712_Manager.docx`), and the template's own
+"The <title> is responsible for making decisions regarding:". **Fix:** apply the
+duty rule — keep the line, minus its colon. Separately, a summary already at its 4,000
+cap was losing tail words to the extractor's glyphs, so the glyphs are now stripped
+from the summary before the cap.
+
+**Full-archive, in-process v8 vs v9.** The reviewer's
+`parse_dump.py` / `full_measure.py` were extended to cover every section and every
+template. All 14,565 files, archive mounted `:ro`, no DB.
+
+| section | docs losing words vs v8 | words lost |
+|---|---:|---:|
+| title | 0 | 0 |
+| position summary | 0 | 0 |
+| **duties** | **2** | **38** (one position, two versions; the documented 1,200-char cap on an unbulleted run-on, Q3) |
+| decision making | 0 (was 4,784) | 0 (was 39,101) |
+| problem solving | 0 (was 2,231) | 0 (was 14,686) |
+| relationships | 0 | 0 |
+| qualifications | 0 | 0 |
+| additional context | 0 | 0 |
+
+⚠ The template's DM/PS lead-in ("Responsible for solving problems related to") is
+now an item of its own on every template-shaped document, as the review asked. The two
+JDFN goldens (`tests/fixtures/golden_jdfn/`) were regenerated for exactly that change
+and nothing else (diff: one added lead-in per list, plus a key re-order).
+
+**Validator re-measured** in-process: the validator needs no DB, and the raw text is
+`flatten_jd`, as before. These are documents whose parse changed vs v8.
+
+| | v9 (quals split — shipped, Q2) | v9 with v8's qualifications |
+|---|---:|---:|
+| documents changed | 14,038 | 14,038 |
+| approvable, v8 → v9 | **680 → 215** | 680 → 680 |
+| `SFU-GATE-KSA-ORDER` newly firing | **2,777** (was 2,773) | 0 |
+| `SFU-STRUCT-DUTIES-TOO-MANY` newly firing | 4,623 | 4,623 |
+| `SFU-STRUCT-ACTION-VERB` newly firing | 980 | 980 |
+| summed score change | −34,208 | −21,108 |
+
+Keeping the qualification lead-ins moves KSA-ORDER by 4 documents and approvability not
+at all. The Q2 ruling stands on these numbers.
+
+**M2 — the how/why clauses are grounded.** A rewritten clause must have at least
+`rewrite.how_why_grounding_threshold` (**HR-267**, 0.5, the same token-overlap rule as
+the qualification bar HR-183) of its content tokens in its *source duty's own text*.
+A clause below that is **dropped and recorded** (`AntiFabricationRecord.scrubbed_how_why`).
+If every clause of a duty is dropped, the source duty's clauses come back. A flagged
+duty (no source match) keeps no clauses. An ungrounded clause is never kept.
+
+**Small items.**
+- A typed glyph with no space ("•Tracks") now splits; `-` and `*` still need a space.
+- `_MAX_BULLETS` 20 is now `segmentation.bullet_max_count` (**HR-268**, 40). Measured: max 25 items, 11 sections over 20. The model ceiling for Decision Making / Problem Solving is 20 → 60.
+- The Builder's Decision Making / Problem Solving rows hold the model ceiling, because a draft is a union the merge cuts there.
+
+Register IDs now: v9 HR-261…268, all used. Red-first evidence is in the commit.
+
 ## 11. Containers (all removed at the end)
 
 - **This round:** `p9measure-dump`, `p9measure-pg` (127.0.0.1:25999, network `p9measure-net`), `p9measure-ingest-flat`, `p9measure-ingest-grouped`, `p9measure-mA` / `-mB` / `-mD`, `p9measure-losscause`, `p9measure-smoke`, `p9measure-intro`, and the network `p9measure-net`.

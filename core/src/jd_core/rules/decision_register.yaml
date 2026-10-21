@@ -8383,6 +8383,58 @@ decisions:
       As HR-264. Must stay at or below the statement ceiling (4,000; loader-enforced).
     status: open
 
+  - id: HR-267
+    question: >-
+      When the rewrite rewords a duty's "how and why" points, how much of each point must
+      come from the source duty for it to be kept?
+    config:
+      file: rewrite.yaml
+      path: rewrite.how_why_grounding_threshold
+    current_default: 0.5
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Parser v9 fills how/why with the template's sub-bullets, and prompt v3 tells the
+      model to reword them without inventing any. Until this check, the guard matched
+      only the WHOLE duty (HR-184's Jaccard ≥ 0.2), so a reworded duty could carry a
+      clause no source states (review M2). Now each clause needs at least this fraction
+      of its content tokens in its source duty's own text (statement + how/why). Below
+      it the clause is DROPPED and recorded (`scrubbed_how_why`), and if every clause of
+      a duty goes, the source's clauses come back; a duty with no source match (flagged)
+      keeps no clauses. Held at the qualification bar's value (HR-183, the same
+      token-overlap rule) — not calibrated; the 4.5 pilot should.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (rewrite.yaml is unhashed); moves the rewrite's
+      behaviour on the next producer pass. Higher keeps fewer reworded clauses (more
+      source restores); lower lets more paraphrase — and more invention — through.
+      Pinned by `test_v9_how_why_consumers.py`.
+    status: open
+
+  - id: HR-268
+    question: >-
+      How many Impact of Decision Making / Problem Solving points does the parser keep
+      from one archive job description section?
+    config:
+      file: segmentation.yaml
+      path: segmentation.bullet_max_count
+    current_default: 40
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      It was the code constant 20 (`_MAX_BULLETS`), unregistered. Once parser v9 read
+      Word list items apart (and kept their "… related to:" lead-ins, review H1), 11
+      archive sections had more than 20 points and lost the tail. MEASURED over all
+      14,522 parses with the cap at the model ceiling: p50 2 · p99 15 · max 25 (Decision
+      Making), p99 8 · max 14 (Problem Solving). 40 cuts nothing today. A fidelity
+      bound, not a policy. The Builder's Decision Making / Problem Solving rows hold the
+      model ceiling (60) instead, because a draft is a union the merge cuts there.
+    impact_if_changed: >-
+      Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`;
+      changes what a parsed JD contains, so it needs a `PARSER_VERSION` bump and a
+      re-parse. Must stay at or below `SFUJobDescription.decision_making` /
+      `problem_solving`'s ceiling (60; loader-enforced).
+    status: open
+
 trivial:
   # ── The APSA export form (Track J4): HR's own wording, pinned by HR-258. ──
   - config: {file: apsa_form.yaml, path: apsa_form.banner}

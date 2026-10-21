@@ -189,6 +189,22 @@ def _is_grounded(
     return len(grounded) / len(tokens) >= rewrite.skill_grounding_threshold
 
 
+def _clause_is_grounded(
+    clause: str, source_vocab: frozenset[str], rewrite: Rewrite, comparison: Comparison
+) -> bool:
+    """Whether a rewritten how/why ``clause`` is supported by its SOURCE duty's text —
+    the same token-overlap rule as a qualification (:func:`_is_grounded`), against that
+    one duty's words rather than the whole draft's, at
+    ``rewrite.how_why_grounding_threshold`` (HR-267). A clause of stopwords only has
+    nothing to fabricate and is kept."""
+    tokens = _content_tokens(clause, comparison)
+    if not tokens:
+        return True
+    return (
+        len(tokens & source_vocab) / len(tokens) >= rewrite.how_why_grounding_threshold
+    )
+
+
 def _apply_anti_fabrication(
     llm_jd: SFUJobDescription, merged: MergedRole, rules: Rules
 ) -> tuple[SFUJobDescription, AntiFabricationRecord]:
@@ -252,13 +268,31 @@ def _apply_anti_fabrication(
     #: Merge duties whose how/why has already been carried back — at most once each, so
     #: a model that splits one grouped duty into two cannot get its clauses twice.
     restored_from: set[int] = set()
+    scrubbed_how_why: list[str] = []
     for duty, tokens in zip(llm_jd.duties, llm_duty_tokens, strict=True):
         best_index, best = _closest(tokens, draft_duty_tokens)
         if best < rewrite.duty_flag_threshold:
             flagged.append(duty.statement)
-            duties.append(duty)
+            # A flagged duty has no source duty to ground its clauses in, so none of
+            # them is kept (review M2: an ungrounded clause is never kept). The duty
+            # itself stays, flagged, for the reviewer — as before.
+            scrubbed_how_why.extend(duty.how_why)
+            duties.append(
+                duty.model_copy(update={"how_why": []}) if duty.how_why else duty
+            )
             continue
         source = merged.draft.duties[best_index]
+        # Review M2: each CLAUSE must be grounded in its source duty's own text —
+        # the whole-duty Jaccard above lets a reworded duty carry an invented clause.
+        source_vocab = frozenset(_content_tokens(duty_text(source), comparison))
+        kept_clauses = []
+        for clause in duty.how_why:
+            if _clause_is_grounded(clause, source_vocab, rewrite, comparison):
+                kept_clauses.append(clause)
+            else:
+                scrubbed_how_why.append(clause)
+        if len(kept_clauses) != len(duty.how_why):
+            duty = duty.model_copy(update={"how_why": kept_clauses})
         restored: dict[str, Any] = {}
         if duty.frequency is None:
             restored["frequency"] = source.frequency
@@ -314,6 +348,7 @@ def _apply_anti_fabrication(
         invented_duties = [duty.statement for duty in duties]
         duties = []
         flagged = []
+        scrubbed_how_why = []  # the whole duty is recorded as invented instead
     else:
         invented_duties = []
 
@@ -381,6 +416,7 @@ def _apply_anti_fabrication(
         invented_duties=tuple(invented_duties),
         restored_bars=tuple(restored_bars),
         restored_sections=tuple(sorted(restored_sections)),
+        scrubbed_how_why=tuple(scrubbed_how_why),
     )
 
 

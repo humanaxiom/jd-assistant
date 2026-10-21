@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **259 decisions** (257 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 362 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **261 decisions** (259 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 364 parameters on the decision surface, all accounted for.
 
-**Of those 259, 88 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 169 are recorded for the same build check but are not yours to sign: 77 shape what a reviewer sees without deciding whether a job description passes, and 92 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 261, 88 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 171 are recorded for the same build check but are not yours to sign: 79 shape what a reviewer sees without deciding whether a job description passes, and 92 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -955,6 +955,8 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-264](#hr-264) | Which line in a job description's duties is a DUTY HEADLINE — the template's "ACTION VERB … WHAT by:" — so that the bullet points under it are read as that duty's "how and why", not as duties of their own? | *a text pattern — see below* | we chose it |
 | [HR-265](#hr-265) | How many "how and why" points does the parser keep under one duty? | `60` | we chose it |
 | [HR-266](#hr-266) | How many characters of ONE "how and why" point does the parser keep? | `1200` | we chose it |
+| [HR-267](#hr-267) | When the rewrite rewords a duty's "how and why" points, how much of each point must come from the source duty for it to be kept? | `0.5` | we chose it |
+| [HR-268](#hr-268) | How many Impact of Decision Making / Problem Solving points does the parser keep from one archive job description section? | `40` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -1381,6 +1383,22 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** we chose it
 - **Why it matters:** Held at the duty statement's value (HR-261) — a how/why point is the same kind of text. MEASURED with the cap lifted to 4,000: ~106k points, p50 136 · p90 246 · p99 410 characters (final build at 1,200: 111,858 points, 120 cut) — the same whole-paragraph run-on shape HR-261 records (a headline followed by an unbulleted paragraph), which no cap repairs.
 - **If it changes:** As HR-264. Must stay at or below the statement ceiling (4,000; loader-enforced).
+
+##### HR-267 — When the rewrite rewords a duty's "how and why" points, how much of each point must come from the source duty for it to be kept?
+
+- **We ship:** `0.5`
+- **Configured in:** `rewrite.yaml` → `rewrite.how_why_grounding_threshold`
+- **Where the default came from:** we chose it
+- **Why it matters:** Parser v9 fills how/why with the template's sub-bullets, and prompt v3 tells the model to reword them without inventing any. Until this check, the guard matched only the WHOLE duty (HR-184's Jaccard ≥ 0.2), so a reworded duty could carry a clause no source states (review M2). Now each clause needs at least this fraction of its content tokens in its source duty's own text (statement + how/why). Below it the clause is DROPPED and recorded (`scrubbed_how_why`), and if every clause of a duty goes, the source's clauses come back; a duty with no source match (flagged) keeps no clauses. Held at the qualification bar's value (HR-183, the same token-overlap rule) — not calibrated; the 4.5 pilot should.
+- **If it changes:** Does NOT move `rules_version` (rewrite.yaml is unhashed); moves the rewrite's behaviour on the next producer pass. Higher keeps fewer reworded clauses (more source restores); lower lets more paraphrase — and more invention — through. Pinned by `test_v9_how_why_consumers.py`.
+
+##### HR-268 — How many Impact of Decision Making / Problem Solving points does the parser keep from one archive job description section?
+
+- **We ship:** `40`
+- **Configured in:** `segmentation.yaml` → `segmentation.bullet_max_count`
+- **Where the default came from:** we chose it
+- **Why it matters:** It was the code constant 20 (`_MAX_BULLETS`), unregistered. Once parser v9 read Word list items apart (and kept their "… related to:" lead-ins, review H1), 11 archive sections had more than 20 points and lost the tail. MEASURED over all 14,522 parses with the cap at the model ceiling: p50 2 · p99 15 · max 25 (Decision Making), p99 8 · max 14 (Problem Solving). 40 cuts nothing today. A fidelity bound, not a policy. The Builder's Decision Making / Problem Solving rows hold the model ceiling (60) instead, because a draft is a union the merge cuts there.
+- **If it changes:** Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`; changes what a parsed JD contains, so it needs a `PARSER_VERSION` bump and a re-parse. Must stay at or below `SFUJobDescription.decision_making` / `problem_solving`'s ceiling (60; loader-enforced).
 
 #### An earlier version of this tool chose it — also unratified
 

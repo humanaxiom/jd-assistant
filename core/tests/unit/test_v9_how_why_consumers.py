@@ -141,6 +141,54 @@ def test_one_source_duty_s_clauses_are_restored_onto_one_rewritten_duty() -> Non
     assert [d.how_why for d in out.duties] == [_GROUPED.how_why, []]
 
 
+def test_an_invented_how_why_clause_is_dropped_and_recorded() -> None:
+    """Review M2: prompt v3 forbids inventing clauses, but the guard only matched the
+    WHOLE duty (Jaccard >= 0.2), so a reworded duty could smuggle in a clause no source
+    states. Each clause must now be grounded in its source duty's own text
+    (``rewrite.how_why_grounding_threshold``, HR-267); an ungrounded one is dropped and
+    recorded — never kept."""
+    merged = MergedRole(
+        draft=_jd(_GROUPED),
+        provenance=MergeProvenance(member_count=2, skill_frequency=()),
+    )
+    llm = _jd(
+        SFUDuty(
+            action_verb="Manages",
+            statement="Manages proposal processes by",
+            how_why=[
+                "tracking the grant deadlines",
+                "negotiating overseas vendor leases",
+            ],
+        )
+    )
+    out, record = _apply_anti_fabrication(llm, merged, get_rules())
+
+    assert out.duties[0].how_why == ["tracking the grant deadlines"]
+    assert record.scrubbed_how_why == ("negotiating overseas vendor leases",)
+
+
+def test_when_every_clause_is_invented_the_source_clauses_come_back() -> None:
+    merged = MergedRole(
+        draft=_jd(_GROUPED),
+        provenance=MergeProvenance(member_count=2, skill_frequency=()),
+    )
+    llm = _jd(
+        SFUDuty(
+            action_verb="Manages",
+            statement="Manages proposal processes by",
+            how_why=["negotiating overseas vendor leases"],
+        )
+    )
+    out, record = _apply_anti_fabrication(llm, merged, get_rules())
+
+    assert out.duties[0].how_why == _GROUPED.how_why
+    assert record.scrubbed_how_why == ("negotiating overseas vendor leases",)
+
+
+def test_the_clause_grounding_threshold_is_rulebook_data() -> None:
+    assert 0.0 < get_rules().rewrite.how_why_grounding_threshold <= 1.0
+
+
 def test_a_v9_draft_with_a_long_duty_clones_into_the_builder() -> None:
     """A v9 draft can carry a duty longer than 400 characters (HR-261). Cloning it into
     the Builder must not raise — `DutyAnswer.statement` was narrower than the JD it is
@@ -187,6 +235,17 @@ def test_an_archive_document_with_twenty_duties_clones_into_the_builder() -> Non
     ]
     answers = jd_to_answers(_jd(*duties))
     assert [d.statement for d in answers.duties] == [d.statement for d in duties]
+
+
+def test_a_draft_with_fifty_decision_points_clones_into_the_builder() -> None:
+    """A draft's Decision Making is a UNION over its members, cut at the model ceiling
+    (60). The Builder row held 20, so a clone of such a draft would raise."""
+    from src.jd_bank.composer.assemble import jd_to_answers
+
+    jd = _jd(_FLAT).model_copy(
+        update={"decision_making": [f"Decides matter {i}." for i in range(50)]}
+    )
+    assert len(jd_to_answers(jd).decision_making) == 50
 
 
 def test_the_builder_how_why_limit_is_the_rulebook_s(
