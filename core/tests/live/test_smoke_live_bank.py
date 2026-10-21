@@ -1230,12 +1230,19 @@ async def test_a_live_cupe_role_clones_into_the_j2_form_and_exports_whole(  # ty
     from tests.export_roundtrip import cupe_round_trip_losses
 
     rules = get_rules()
+    # A K-or-S line, not specifically a "knowledge" one: the WJQ parser never emits
+    # `knowledge` (its Occupational Skills cue reads as `skill`), so only an LLM rewrite
+    # ever put one on a CUPE draft. MEASURED on the v9 Bank (deterministic --no-llm
+    # drafts): 0 of 635 CUPE roles carry `knowledge`, 538 carry `ability`. Knowledge
+    # and skill land in the SAME Occupational Skills list, so either exercises it; the
+    # ability line is what exercises "Abilities -> Requirements" (M3, HR-251).
     cid, content = await _first_current(
         session,
         "c.content->>'employee_group' = 'cupe' "
         "AND jsonb_array_length(c.content->'duties') > 0 "
         "AND jsonb_array_length(c.content->'qualifications') BETWEEN 5 AND 30 "
-        "AND c.content->'qualifications' @> '[{\"kind\": \"knowledge\"}]' "
+        "AND (c.content->'qualifications' @> '[{\"kind\": \"knowledge\"}]' "
+        "     OR c.content->'qualifications' @> '[{\"kind\": \"skill\"}]') "
         "AND c.content->'qualifications' @> '[{\"kind\": \"ability\"}]'",
     )
     page = await library.get(f"/jd-bank/ui/compose/clone-role/{cid}")

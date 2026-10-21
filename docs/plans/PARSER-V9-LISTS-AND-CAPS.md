@@ -369,6 +369,30 @@ duty (no source match) keeps no clauses. An ungrounded clause is never kept.
 
 Register IDs now: v9 HR-261…268, all used. Red-first evidence is in the commit.
 
+## 14. The v9 Bank's first smoke (2026-10-20): 28 passed, 3 failed — fixes
+
+The v9 Bank is a separate project (`jd-bank-v9`), built with deterministic
+`--no-llm` drafts. Smoke was run against it read-only.
+
+| # | finding | class | fix |
+|---|---|---|---|
+| 1 | 378 / 635 CUPE roles refused to clone: `FunctionAnswer.statement ≤ 400` | **consumer** (J2 Builder row narrower than v9 data) | Function rows read `SFUDuty.statement`'s ceiling. Grep of every answer/model constant found two more: JDFN `knowledge/skills/abilities` rows held 20 each (v9 drafts carry up to 24 / 23) → qualifications ceiling (40); `WJQForm.occupational_requirements` held 20 (CUPE drafts carry up to 30 ability lines) → 40. Tests red first. |
+| 2 | the J2 clone smoke found no role: selector required `kind = knowledge` | **smoke predicate** (encoded "drafts are LLM-rewritten") | The WJQ parser never emits `knowledge` (v8 = v9, measured). Only the LLM rewrite did, so 0 of 635 deterministic CUPE drafts carry it, while 538 carry `ability`. The selector now takes knowledge **or** skill (both feed the one Occupational Skills list) **and** an ability line, so M3's ability → Requirements is still exercised. |
+| 3a | `decision_making: 50 exported, 40 re-read` (2 roles) | **rulebook mismatch** (my HR-268 = 40 vs the merge's model-ceiling cut 60) | HR-268 → **60**, the model ceiling. A draft's list is a union the merge cuts there, and its export must re-read whole. The archive max is 25, so the cap still cuts no source. |
+| 3b | `8 duties exported, 13 re-read` (2 roles) | **v9 regression** (extractor) | A nested how/why clause that starts with a typed number ("2. Calculating leases…") was read as top-level, so every later clause became a duty. A nested list paragraph is now a sub-item whatever it starts with. |
+| 3c | "… Position #:" in titles (2 roles; **80** archive parses, v8 = v9) | **pre-existing parser** | `NEXT_LABEL_RX` ended in `\b`, which cannot match after "#". It now ends in `(?!\w)`. The number on that line is read into `position_number` (bundled lists and RTF `|` cells too), so no word is lost. Covered by the named limit until the Bank is re-ingested. |
+| 3d | WJQ banner title on a JDFN role (1 role, 3 sources) | **pre-existing parser** | antiword stretched "Weighted   Job   Questionnaire", so the primary marker missed. `is_wjq` now collapses whitespace: **9** archive documents route to the WJQ reader, which drops their form scaffolding by design. |
+| 3e | whitespace collapsed on re-read (3 roles) | **pre-existing parser** (fallback titles were raw lines) | Fallback titles are now `_clean`ed. |
+| 3f | `position_number None came back '00099544'` (1 role) | **pre-existing merge/data** (members disagree, so no id; a member's summary text carries "Position Number: 00099544") | **Named limit** in `jdfn_parser_limits`, with its reason. |
+
+**Full-archive in-process v8 vs v9 after these fixes:**
+- Decision Making, Problem Solving, relationships, qualifications: **0** documents lose words.
+- Duties: 2 documents (the documented 1,200-character run-on cap).
+- Title: 83 documents lose only the label word "Position" (its id is now in `position_number`). 5 lose only v8's partial last word at its own 200-character cut.
+- Summary and context words lost all belong to the **9 re-routed** CUPE forms (their approval and instruction scaffolding).
+
+**Smoke now: 30 passed, 1 failed.** The one failure is the APSA test, with 8 losses in 4 roles: 3d and 3e. Those drafts were built from the pre-fix parse, so they need the Bank re-ingested. The 4 roles' source files re-parse correctly in-process (verified). **The re-ingest is held** until the rewrite pilot that reads the v9 Bank reports (coordinator's instruction).
+
 ## 11. Containers (all removed at the end)
 
 - **This round:** `p9measure-dump`, `p9measure-pg` (127.0.0.1:25999, network `p9measure-net`), `p9measure-ingest-flat`, `p9measure-ingest-grouped`, `p9measure-mA` / `-mB` / `-mD`, `p9measure-losscause`, `p9measure-smoke`, `p9measure-intro`, and the network `p9measure-net`.

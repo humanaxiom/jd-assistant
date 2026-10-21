@@ -53,7 +53,7 @@ import re
 from collections import Counter
 
 from src.jd_core.models.parsed_jd import SFUJobDescription, WJQRow
-from src.jd_core.parser.headings import NEXT_LABEL_RX
+from src.jd_core.parser.headings import NEXT_LABEL_RX, POSITION_NO_LABEL_RX
 from src.jd_core.parser.segmenter import _PERCENT_RE
 from src.jd_core.rules import Rules, get_rules
 
@@ -570,6 +570,31 @@ def jdfn_parser_limits(jd: SFUJobDescription) -> dict[str, str]:
         limits["title"] = (
             "the title holds a word the parser cuts a label value at "
             "(headings.NEXT_LABEL_RX: department, date, grade, ...)"
+        )
+        if not jd.position_number and POSITION_NO_LABEL_RX.search(
+            "\n"
+            + re.split(r"(?i)(?=position\s*(?:#|no\.?|number))", jd.title, maxsplit=1)[
+                -1
+            ]
+        ):
+            limits["position_number"] = (
+                "the draft's TITLE carries 'Position #: <id>' (a pre-v9 parse leaked "
+                "the label into the title); since v9 the parser cuts the title there "
+                "and reads the id as the position number"
+            )
+    if not jd.position_number and any(
+        POSITION_NO_LABEL_RX.search(text or "")
+        for text in (
+            jd.position_summary,
+            jd.additional_context,
+            *(d.statement for d in jd.duties),
+        )
+    ):
+        limits["position_number"] = (
+            "the draft has no position number, but its own TEXT carries a "
+            "'Position Number: …' label (copied from a member's summary), and the "
+            "parser's whole-document fallback reads it (pre-existing; found on the v9 "
+            "Bank, 1 role)"
         )
     if jd.position_number and not re.fullmatch(r"[A-Za-z0-9\-]+", jd.position_number):
         limits["position_number"] = (

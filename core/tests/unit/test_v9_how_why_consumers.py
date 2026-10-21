@@ -251,6 +251,65 @@ def test_a_draft_with_fifty_decision_points_clones_into_the_builder() -> None:
     assert len(jd_to_answers(jd).decision_making) == 50
 
 
+def test_a_v9_cupe_role_with_a_long_function_clones_into_the_j2_form() -> None:
+    """FOUND by smoke on the v9 Bank: 378 of 635 CUPE roles failed to clone with
+    ``FunctionAnswer statement: String should have at most 400 characters`` — J2's
+    function rows kept the pre-v9 400 while a v9 duty can run to HR-261's 1,200."""
+    from src.jd_bank.composer.wjq_assemble import assemble_wjq_jd, wjq_answers_from_jd
+
+    long = "Processes requisitions and invoices, " * 25
+    jd = SFUJobDescription(
+        title="Clerk",
+        employee_group="cupe",
+        duties=[
+            SFUDuty(action_verb="Processes", statement=long.strip(), frequency="daily")
+        ],
+    )
+    answers = wjq_answers_from_jd(jd)
+    assert answers.major_functions[0].statement == long.strip()
+    assert assemble_wjq_jd(answers).duties[0].statement.startswith("Processes")
+
+
+def test_a_cupe_draft_with_30_ability_lines_clones_and_reassembles() -> None:
+    """FOUND on the v9 Bank: deterministic CUPE drafts carry up to 30 ability lines
+    (the merge's qualification union, held to the model's 40). J2 sends abilities to
+    Occupational Requirement(s), whose model held 20 — so reassembling refused 2 roles.
+    A Builder field narrower than the draft it clones from refuses the Bank's own data.
+    """
+    from src.jd_bank.composer.wjq_assemble import assemble_wjq_jd, wjq_answers_from_jd
+
+    abilities = [
+        SFUQualification(text=f"Ability to handle situation {i}", kind="ability")
+        for i in range(30)
+    ]
+    jd = SFUJobDescription(
+        title="Clerk",
+        employee_group="cupe",
+        duties=[
+            SFUDuty(action_verb="Files", statement="Files records", frequency="daily")
+        ],
+        qualifications=abilities,
+    )
+    answers = wjq_answers_from_jd(jd)
+    assert len(answers.occupational_requirements) == 30
+    back = assemble_wjq_jd(answers)
+    assert back.wjq_form is not None
+    assert len(back.wjq_form.occupational_requirements) == 30
+
+
+def test_a_draft_with_24_knowledge_lines_clones_into_the_builder() -> None:
+    """FOUND on the v9 Bank: JDFN drafts carry up to 24 knowledge / 23 ability lines
+    (qualifications are split since v9), and the Builder's K/S/A rows held 20 each."""
+    from src.jd_bank.composer.assemble import jd_to_answers
+
+    quals = [
+        SFUQualification(text=f"Knowledge of subject area {i}", kind="knowledge")
+        for i in range(24)
+    ]
+    jd = _jd(_FLAT).model_copy(update={"qualifications": quals})
+    assert len(jd_to_answers(jd).knowledge) == 24
+
+
 def test_the_builder_how_why_limit_is_the_rulebook_s(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

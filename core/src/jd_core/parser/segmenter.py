@@ -122,6 +122,7 @@ Template = Literal["jdfn", "wjq", "unknown"]
 # EXACTLY 400 characters, and every WJQ questionnaire with minor functions past the
 # twelfth lost them.
 _MAX_TITLE = 200
+_MAX_POSITION_NO = 50
 _MAX_SUMMARY = 4000
 _MAX_VERB = 60
 _MAX_QUAL = 400
@@ -280,6 +281,34 @@ def _extract_employee_group(
     return None
 
 
+#: An id token (has a digit), then optionally more after commas — a bundled title line
+#: names every position it covers ("… Position #: 00129644, 00130935"), and an RTF
+#: table puts a "|" cell bar between the label and the value.
+_ID_TOKEN = r"[A-Za-z0-9\-]*\d[A-Za-z0-9\-]*"
+_INLINE_POSITION_NO_RX = re.compile(
+    rf"(?i)\bposition[ \t]*(?:#|no\.?|number)s?[ \t]*:?[ \t|]*"
+    rf"({_ID_TOKEN}(?:[ \t]*,[ \t]*{_ID_TOKEN})*)"
+)
+
+
+def _position_number_on_title_line(text: str) -> str | None:
+    """The position number written on the SAME line as the title label
+    ("Position Title: Assistant Football Coach Position #: 204"). Since parser v9 the
+    title is cut at that label (``NEXT_LABEL_RX`` could not match after "#" before), so
+    the number must be read here or its words would vanish from the parse."""
+    m = hd.TITLE_LABEL_RX.search(text)
+    if not m:
+        return None
+    inline = _INLINE_POSITION_NO_RX.search(m.group(1))
+    if not inline:
+        return None
+    value = re.sub(r"[ \t]*,[ \t]*", ", ", inline.group(1))
+    # `position_number` holds 50 characters; a longer bundle keeps its whole ids.
+    while len(value) > _MAX_POSITION_NO and ", " in value:
+        value = value.rsplit(", ", 1)[0]
+    return value[:_MAX_POSITION_NO]
+
+
 def _fallback_title(lines: list[str], heading_lines: set[int]) -> str:
     """First line that is not a heading, banner, or ``Label:`` field — used only
     when no title label was found."""
@@ -292,7 +321,7 @@ def _fallback_title(lines: list[str], heading_lines: set[int]) -> str:
         # v9: a Word list paragraph now arrives led by `•`. A fallback title is a
         # guess either way, but a bullet glyph is never part of one — MEASURED on the
         # v9 re-parse, 102 fallback titles gained a leading `• ` and nothing else.
-        return _LIST_GLYPH_RE.sub("", s, count=1)[:_MAX_TITLE]
+        return _clean(_LIST_GLYPH_RE.sub("", s, count=1))[:_MAX_TITLE]
     return _FALLBACK_TITLE
 
 
@@ -638,9 +667,12 @@ def parse_jd(text: str) -> ParseResult:
     department = _extract_field(id_text, hd.DEPARTMENT_LABEL_RX) or _extract_field(
         collapsed, hd.DEPARTMENT_LABEL_RX
     )
-    position_number = _extract_field(
-        id_text, hd.POSITION_NO_LABEL_RX
-    ) or _extract_field(collapsed, hd.POSITION_NO_LABEL_RX)
+    position_number = (
+        _extract_field(id_text, hd.POSITION_NO_LABEL_RX)
+        or _extract_field(collapsed, hd.POSITION_NO_LABEL_RX)
+        or _position_number_on_title_line(id_text)
+        or _position_number_on_title_line(collapsed)
+    )
     grade = _extract_field(id_text, hd.GRADE_LABEL_RX)
     employee_group = _extract_employee_group(
         id_text,

@@ -506,6 +506,96 @@ def test_list_glyphs_never_spend_the_summary_cap() -> None:
     assert summary.startswith("Supports program area number 0")
 
 
+# ── v9-Bank smoke findings (2026-10-20) ──────────────────────────────────────────
+
+
+def test_a_typed_number_inside_a_nested_list_stays_a_how_why_clause() -> None:
+    """FOUND by smoke on the v9 Bank (export -> re-read, 2 roles): a how/why clause
+    that itself starts with a typed number ("2. Calculating leases …", "(2) support …")
+    was read as a TOP-level item, so every later clause became a duty of its own
+    (8 duties exported, 13 re-read). A nested Word list paragraph is a sub-item
+    whatever its first characters are."""
+    doc = Document()
+    doc.add_paragraph("DUTIES AND RESPONSIBILITIES")
+    item = doc.add_paragraph("•\tManages campus leases by")
+    item.paragraph_format.left_indent = Inches(0.25)
+    for clause in (
+        "Acting as the point of contact with landlords.",
+        "2. Calculating leases and GST rebates.",
+        "Collecting monthly rent revenue.",
+    ):
+        doc.add_paragraph(clause, style="List Bullet 2")
+    duties = _duties_of(_blob(doc))
+
+    assert [(d.statement, len(d.how_why)) for d in duties] == [
+        ("Manages campus leases by", 3)
+    ]
+    assert "2. Calculating leases and GST rebates." in duties[0].how_why
+
+
+def test_a_title_followed_by_a_position_number_label_is_cut_there() -> None:
+    """``NEXT_LABEL_RX`` ended in ``\\b``, which cannot match after "#", so
+    "Position #:" never cut a label value: 80 archive titles read as
+    "Director, Recreational Services & Athletics Position #:" (v8 and v9 alike)."""
+    text = (
+        "Position Title: Director, Recreational Services & Athletics Position #:\n"
+        "POSITION SUMMARY\nLeads the recreation programs.\n"
+    )
+    assert parse_jd(text).jd.title == "Director, Recreational Services & Athletics"
+
+
+def test_a_position_number_on_the_title_line_is_read_not_lost() -> None:
+    """Once the title is cut at "Position #:", the number after it must land in
+    ``position_number`` — measured: 92 archive titles carried one."""
+    jd = parse_jd(
+        "Position Title: Assistant Football Coach Position #: 204\n"
+        "POSITION SUMMARY\nCoaches the team.\n"
+    ).jd
+    assert (jd.title, jd.position_number) == ("Assistant Football Coach", "204")
+    bundled = parse_jd(
+        "Position Title: System Administrator Position #: 00129644, 00130935\n"
+    ).jd
+    assert (bundled.title, bundled.position_number) == (
+        "System Administrator",
+        "00129644, 00130935",
+    )
+    rtf = parse_jd(
+        "Position Title: |Specialist, Career Education|Position #:|00133267|\n"
+    ).jd
+    assert rtf.position_number == "00133267"
+
+
+def test_a_hash_touching_its_number_is_still_cut_from_the_title() -> None:
+    """Review round 3: ``(?!\\w)`` after "#" cannot match when the id touches it
+    ("Position #110611"), which the old ``\\b`` did cut — 5 archive titles (2
+    positions, e.g. 20111017_00110611_Coord_Student_Life.doc) GAINED "Position
+    #110611" at 18a2792. The title is cut there and the id is the position number."""
+    jd = parse_jd(
+        "Position Title:  Coordinator, Student Life         Position #110611\n"
+        "Name:\nPOSITION SUMMARY\nSupports students.\n"
+    ).jd
+    assert (jd.title, jd.position_number) == ("Coordinator, Student Life", "110611")
+
+
+def test_a_fallback_title_has_its_whitespace_collapsed() -> None:
+    """A fallback title is a raw line, and antiword pads columns with runs of spaces
+    ("HUMAN RESOURCES             #01449"); every other title is cleaned."""
+    assert parse_jd("HUMAN RESOURCES             #01449\n").jd.title == (
+        "HUMAN RESOURCES #01449"
+    )
+
+
+def test_a_stretched_wjq_marker_still_routes_to_the_wjq_reader() -> None:
+    """antiword stretches a heading's words apart ("Weighted   Job   Questionnaire");
+    the primary marker was matched as a plain substring, so the CUPE form went down
+    the JDFN path and its banner became the title."""
+    text = (
+        "Weighted   Job   Questionnaire   (WJQ)   Custom\n"
+        "1.  POSITION IDENTIFICATION\nDepartment Position Title:\nClerk\n"
+    )
+    assert parse_jd(text).template == "wjq"
+
+
 def test_a_typed_bullet_with_no_space_still_splits() -> None:
     text = "DUTIES AND RESPONSIBILITIES\n•Tracks budgets.\n•Reviews invoices.\n"
     assert [d.statement for d in parse_jd(text).jd.duties] == [
