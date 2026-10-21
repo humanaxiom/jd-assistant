@@ -190,19 +190,24 @@ def _is_grounded(
 
 
 def _clause_is_grounded(
-    clause: str, source_vocab: frozenset[str], rewrite: Rewrite, comparison: Comparison
+    clause: str,
+    sources: Sequence[frozenset[str]],
+    rewrite: Rewrite,
+    comparison: Comparison,
 ) -> bool:
-    """Whether a rewritten how/why ``clause`` is supported by its SOURCE duty's text —
-    the same token-overlap rule as a qualification (:func:`_is_grounded`), against that
-    one duty's words rather than the whole draft's, at
+    """Whether a how/why ``clause`` is supported by ONE of ``sources`` (token sets) —
+    the same token-overlap rule as a qualification (:func:`_is_grounded`), at
     ``rewrite.how_why_grounding_threshold`` (HR-267). A clause of stopwords only has
-    nothing to fabricate and is kept."""
+    nothing to fabricate and is kept.
+
+    One source, not their union (review round 2): against a long duty's whole
+    vocabulary a clause stitched from words scattered over many clauses passed, so each
+    candidate is the headline plus a single source clause (see the caller)."""
     tokens = _content_tokens(clause, comparison)
     if not tokens:
         return True
-    return (
-        len(tokens & source_vocab) / len(tokens) >= rewrite.how_why_grounding_threshold
-    )
+    threshold = rewrite.how_why_grounding_threshold
+    return any(len(tokens & source) / len(tokens) >= threshold for source in sources)
 
 
 def _apply_anti_fabrication(
@@ -284,15 +289,35 @@ def _apply_anti_fabrication(
         source = merged.draft.duties[best_index]
         # Review M2: each CLAUSE must be grounded in its source duty's own text —
         # the whole-duty Jaccard above lets a reworded duty carry an invented clause.
-        source_vocab = frozenset(_content_tokens(duty_text(source), comparison))
+        # Grounded in the headline plus ONE source clause (or the headline alone when
+        # the source has none), never the union of all (review round 2).
+        headline = _content_tokens(source.statement, comparison)
+        units = [headline | _content_tokens(c, comparison) for c in source.how_why]
+        source_units = units or [headline]
         kept_clauses = []
         for clause in duty.how_why:
-            if _clause_is_grounded(clause, source_vocab, rewrite, comparison):
+            if _clause_is_grounded(clause, source_units, rewrite, comparison):
                 kept_clauses.append(clause)
             else:
                 scrubbed_how_why.append(clause)
-        if len(kept_clauses) != len(duty.how_why):
-            duty = duty.model_copy(update={"how_why": kept_clauses})
+        # ...and the other direction, the same token rule asked from the source's end
+        # (review round 2): every SOURCE clause must still be covered by the rewritten
+        # duty (statement + kept clauses), or the model DROPPED it — which prompt v3
+        # forbids and nothing caught. Keeping only the grounded part of a clause list
+        # that dropped or replaced a source clause would lose that clause silently, so
+        # on either failure the model's clauses give way to the SOURCE's (through the
+        # restore below: once per merge duty, never onto a statement that folded them).
+        rewritten_vocab = frozenset(
+            _content_tokens(" ".join((duty.statement, *kept_clauses)), comparison)
+        )
+        dropped_a_source_clause = any(
+            not _clause_is_grounded(clause, [rewritten_vocab], rewrite, comparison)
+            for clause in source.how_why
+        )
+        if len(kept_clauses) != len(duty.how_why) or (
+            duty.how_why and dropped_a_source_clause
+        ):
+            duty = duty.model_copy(update={"how_why": []})
         restored: dict[str, Any] = {}
         if duty.frequency is None:
             restored["frequency"] = source.frequency

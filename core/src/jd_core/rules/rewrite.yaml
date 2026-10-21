@@ -83,10 +83,12 @@ skill_grounding_threshold: 0.5
 
 # How a rewritten duty's how/why CLAUSE is grounded (parser v9 review M2). Prompt v3 forbids
 # inventing clauses; this is the check: at least this fraction of a clause's content tokens
-# must appear in its source duty's own text (the matched merge duty's statement + how/why).
-# Below it the clause is DROPPED and recorded (`scrubbed_how_why`); if every clause goes,
-# the source duty's clauses come back. Held at the qualification bar (HR-183) — same
-# token-overlap rule, same number — until the 4.5 pilot calibrates either. HR-267.
+# must appear in the matched merge duty's headline plus ONE of its clauses (not their union).
+# Below it the clause is DROPPED and recorded (`scrubbed_how_why`). Asked from the other end
+# too: every source clause must stay covered by the rewritten duty. On either failure the
+# duty's SOURCE clauses replace the model's
+# (nothing invented kept, nothing stated lost). Held at the qualification bar (HR-183) —
+# same token-overlap rule, same number — until the 4.5 pilot calibrates either. HR-267.
 how_why_grounding_threshold: 0.5
 
 # The minimum token-Jaccard a rewritten DUTY must share with SOME draft duty. Below it the

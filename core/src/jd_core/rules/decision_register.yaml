@@ -8398,10 +8398,17 @@ decisions:
       model to reword them without inventing any. Until this check, the guard matched
       only the WHOLE duty (HR-184's Jaccard ≥ 0.2), so a reworded duty could carry a
       clause no source states (review M2). Now each clause needs at least this fraction
-      of its content tokens in its source duty's own text (statement + how/why). Below
-      it the clause is DROPPED and recorded (`scrubbed_how_why`), and if every clause of
-      a duty goes, the source's clauses come back; a duty with no source match (flagged)
-      keeps no clauses. Held at the qualification bar's value (HR-183, the same
+      of its content tokens in its source duty's headline plus ONE of that duty's source
+      clauses (not the union of all: on a real 14-clause archive duty, invented clauses
+      stitched from words scattered over many clauses passed the union). Below it the
+      clause is DROPPED and recorded (`scrubbed_how_why`). The same rule is asked from
+      the other end: every SOURCE clause must still be covered by the rewritten duty
+      (statement + kept clauses), or the model dropped it. On either failure the model's
+      clauses for that duty give way to the SOURCE's (nothing invented kept, nothing
+      stated lost); a duty with no source match (flagged) keeps no clauses. ⚠ No
+      stemming: "grants" does not ground "grant", so a loose paraphrase also falls back
+      to the source wording — conservative (loses the rewording, never content), and
+      the pilot's `scrubbed_how_why` rate is the number to read. Held at the qualification bar's value (HR-183, the same
       token-overlap rule) — not calibrated; the 4.5 pilot should.
     impact_if_changed: >-
       Does NOT move `rules_version` (rewrite.yaml is unhashed); moves the rewrite's

@@ -163,7 +163,10 @@ def test_an_invented_how_why_clause_is_dropped_and_recorded() -> None:
     )
     out, record = _apply_anti_fabrication(llm, merged, get_rules())
 
-    assert out.duties[0].how_why == ["tracking the grant deadlines"]
+    # Review round 2: the model also DROPPED "preparing project budgets". Keeping only
+    # its grounded clause would lose that source clause silently, so once any clause is
+    # scrubbed the duty gets its SOURCE clauses back — nothing invented, nothing lost.
+    assert out.duties[0].how_why == _GROUPED.how_why
     assert record.scrubbed_how_why == ("negotiating overseas vendor leases",)
 
 
@@ -270,3 +273,74 @@ def test_the_builder_how_why_limit_is_the_rulebook_s(
     JDFNDutyAnswer(statement="Manages things by", how_why=_CLAUSES_36[:5])
     with pytest.raises(ValidationError, match="HR-265"):
         JDFNDutyAnswer(statement="Manages things by", how_why=_CLAUSES_36[:6])
+
+
+def test_a_clause_the_model_dropped_comes_back_even_with_nothing_invented() -> None:
+    """Review round 2: the model returns one of the duty's two clauses (the other
+    dropped, nothing invented). Prompt v3 says not to drop clauses; the guard now
+    checks it — every source clause must still be covered by the rewritten duty
+    (same token rule, HR-267, asked from the other end) or the source clauses return."""
+    merged = MergedRole(
+        draft=_jd(_GROUPED),
+        provenance=MergeProvenance(member_count=2, skill_frequency=()),
+    )
+    llm = _jd(
+        SFUDuty(
+            action_verb="Manages",
+            statement="Manages proposal processes by",
+            how_why=["tracking the grant deadlines"],
+        )
+    )
+    out, record = _apply_anti_fabrication(llm, merged, get_rules())
+
+    assert out.duties[0].how_why == _GROUPED.how_why
+    assert record.scrubbed_how_why == ()
+
+
+def test_a_fully_reworded_and_complete_clause_list_is_kept() -> None:
+    merged = MergedRole(
+        draft=_jd(_GROUPED),
+        provenance=MergeProvenance(member_count=2, skill_frequency=()),
+    )
+    reworded = [
+        "by tracking the grant deadlines",
+        "by preparing budgets for the project",
+    ]
+    llm = _jd(
+        SFUDuty(
+            action_verb="Manages",
+            statement="Manages proposal processes",
+            how_why=reworded,
+        )
+    )
+    out, record = _apply_anti_fabrication(llm, merged, get_rules())
+
+    assert out.duties[0].how_why == reworded
+    assert record.scrubbed_how_why == ()
+
+
+def test_an_invented_clause_cannot_hide_in_a_long_duty_s_vocabulary() -> None:
+    """Review round 2: grounded against the WHOLE source duty, a clause stitched from
+    words scattered across many source clauses passed (on a real 14-clause archive duty
+    two invented clauses were kept, unrecorded). A clause is now grounded against the
+    headline plus ONE source clause — the closest — so it must come from somewhere."""
+    source = SFUDuty(
+        action_verb="Ensures",
+        statement="Ensures the strategic success of the Centre by",
+        how_why=[
+            "Monitoring and forecasting operational budgets and variance",
+            "Liaising with University stakeholders on evolving issues",
+            "Developing educational programs that serve students",
+            "Evaluating vendor services and annual program outcomes",
+        ],
+    )
+    merged = MergedRole(
+        draft=_jd(source),
+        provenance=MergeProvenance(member_count=2, skill_frequency=()),
+    )
+    invented = "Negotiating annual vendor budgets with University students"
+    llm = _jd(source.model_copy(update={"how_why": [*source.how_why, invented]}))
+    out, record = _apply_anti_fabrication(llm, merged, get_rules())
+
+    assert invented not in out.duties[0].how_why
+    assert record.scrubbed_how_why == (invented,)
