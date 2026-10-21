@@ -115,6 +115,36 @@ decision_making_policy: union
 # statement, so nothing is invented to fill the gap — but HR may prefer `longest`.
 problem_solving_policy: union
 
+# Decision Making: which items say the decisions that follow are REFERRED to the
+# supervisor rather than made by the incumbent (HR-282), and what each referred decision
+# is prefixed with (HR-283).
+#
+# 🔴 MEASURED: the old APSA questionnaire asks two Decision Making questions — "Give
+# some typical examples of the most important decisions the incumbent is expected to
+# make…" and "Give some examples of the types of decisions the incumbent would refer to
+# his/her supervisor." — and the answer to each follows its question. Over the whole
+# archive (14,522 parses, in-process), 4,115 documents carry the refer question: in
+# 2,928 the referred answer is fused into the question's own item, and 5,721 referred
+# items follow it as items of their own. The merge POOLS and SORTS this section across
+# members (HR-210), so the question no longer sits before its answers, and once the
+# rewrite strips the question (HR-275) nothing says those decisions are referred. On the
+# round-2 pilot (cb73e45c) "Decisions regarding the expenditure of University funds"
+# came out as a decision the incumbent makes.
+#
+# So, per MEMBER and before pooling (while the order still says which is which): an item
+# matching a marker starts a REFERRED run — its own text after the marker, and every
+# following item until the next questionnaire prompt (`rewrite.form_instructions`) or
+# template lead-in (`rewrite.fragment_pattern`). The marker text itself is removed; each
+# referred decision is prefixed with the label, unless it already starts "Refer…". The
+# rewrite then may not ground a decision in a referred item without keeping the referral
+# (`rewrite/harmonize.py`). Markers are matched on the word sequence, punctuation and
+# case aside. ⚠ Changes the DETERMINISTIC draft too (it is a merge rule) — that is the
+# point: the deterministic draft carried the same ambiguity.
+referred_decision_markers:
+  - Give some examples of the types of decisions the incumbent would refer to his/her supervisor.
+  - Refers decisions regarding
+referred_decision_label: "Refers to the supervisor:"
+
 # HR-212. `longest`, NOT `union` — deliberately different from the two above.
 # `relationships` is a STRUCTURED object whose `supervisory` field is prose describing
 # one reporting structure; pooling two supervisory lines invents a third that no source

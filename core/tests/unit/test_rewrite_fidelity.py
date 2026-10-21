@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 from src.jd_bank.jd_text import flatten_jd
+from src.jd_bank.rewrite.fidelity import is_fragment
 from src.jd_bank.rewrite.harmonize import _apply_anti_fabrication, rewrite_merged_role
 from src.jd_core.bank.merge import duty_text
 from src.jd_core.models.bank import MergedRole
@@ -192,11 +193,13 @@ def test_decision_items_the_rewrite_lost_are_restored(rules: Rules) -> None:
     out, record = _apply_anti_fabrication(model, merged, rules)
 
     lost = [t for s, t in record.uncovered_items if s == "decision_making"]
+    back = [t for s, t in record.restored_items if s == "decision_making"]
     assert lost  # 13 grounded decisions came back as five
-    assert all(t in out.decision_making for t in lost)
-    assert [i for i in record.restored_items if i[0] == "decision_making"] == [
-        ("decision_making", t) for t in lost
-    ]
+    assert back and all(t in out.decision_making for t in back)
+    # Round 3 (HR-287): what is lost and NOT put back is a fragment or a parser
+    # cut-off — listed for the reviewer, never inserted as a decision of its own.
+    for text in set(lost) - set(back):
+        assert is_fragment(text, rules) or not text.rstrip().endswith("."), text
 
 
 def test_restoring_is_a_rulebook_choice_and_the_loss_stays_recorded(
@@ -242,9 +245,14 @@ def test_a_qualification_the_rewrite_dropped_is_recorded_and_restored(
     out, record = _apply_anti_fabrication(model, merged, rules)
 
     lost = [t for s, t in record.uncovered_items if s == "qualifications"]
+    back = [t for s, t in record.restored_items if s == "qualifications"]
     assert lost  # 40 -> 15 in the pilot; most was dedup, not all
     texts = [q.text for q in out.qualifications]
-    assert all(t in texts for t in lost)
+    assert back and all(t in texts for t in back)
+    # Round 3 (HR-287): a continuation line ("(e.g. lab power supplies, …,") is listed,
+    # not restored as a qualification of its own.
+    for text in set(lost) - set(back):
+        assert is_fragment(text, rules), text
     assert len(out.qualifications) <= 40
 
 

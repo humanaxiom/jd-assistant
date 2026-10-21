@@ -1,0 +1,214 @@
+{
+ "cluster_id": "1d68c603-c225-58e8-9d77-559696fccff7",
+ "pilot_run": "pilot_r2extra",
+ "note": "source duties S0,S3,S9,S10 -> model M0,M4; DM/PS/relationships whole; quals cut",
+ "merged": {
+  "draft": {
+   "title": "Director, Museum of Archaeology & Ethnology",
+   "position_number": null,
+   "department": null,
+   "grade": null,
+   "classification": null,
+   "employee_group": "apsa",
+   "supervisor_title": null,
+   "supervisor_position_number": null,
+   "about_sfu_present": true,
+   "position_summary": "The position, Director, Museum of Archaeology and Ethnology is a combined managerial, curatorial, and public relations role responsible for SFU’s archaeological and ethnographic collections and their presentation to the public and the University community. The Director provides vision and leadership for the Museum of Archaeology and Ethnology and oversees all museum programmes and operations including management of the Museum budget. The incumbent develops and implements the Museum’s five year plan in concert with that of the Department of Archaeology. This includes setting priorities, policies, and procedures, in accordance with international professional, scholarly, and ethical standards. The Director manages, conserves, and enlarges the Museum’s assets through interaction with public donors, staff in University Advancement, Office of the VP Academic, Office of Aboriginal Peoples, SFU Art Galleries, and the Library, as well as university faculty, staff, students, and members of the general public. The Director oversees the activities of museum staff, researchers, research associates, volunteers, work study students, interns, student assistants, and others who use Museum collections and resources. In doing this the Director ensures these individuals are working in compliance with international conventions, federal and provincial legislation, and University policies and procedures. The Director enhances the Museum’s and the University’s community engagement by establishing and maintaining a network of internal and external contacts and providing advice to small community museums.",
+   "duties": [
+    {
+     "action_verb": "Acquisition",
+     "statement": "Acquisition and Development of University Museum Assets by",
+     "how_why": [
+      "Managing, conserving, overseeing and stewarding, the Museum’s collections through interaction with public donors, staff in University Advancement, Office of the VP Academic, Office of Aboriginal Peoples, SFU Art Galleries, and the Library, as well as university faculty, staff, students, and members of the general public. Acquires new belongings for the Museum in coordination with objectives established in the five-year plan, the Museum Acquisitions Committee and the Department of Archaeology.",
+      "Developing, plans, and strategizes to achieve Museum goals through solicitation of gifts-in-kind and financial donations from leaders of the heritage community, the public, and university researchers.",
+      "Developing plans for new acquisitions. Works in collaboration with University Advancement to coordinate fundraising through cash donation, project related funding, or gifts-in-kind. Participates in donor management activities.",
+      "Securing resources for the Museum by seeking and co-ordinating multiple sources of funding from internal and external sources, the University, donors, granting agencies, and project-based funding agencies. Working in collaboration with grant facilitators in University Advancement and the Faculty of the Environment, develops grant proposals to raise funds for Museum development and programmes to further the Museum’s goals.",
+      "Providing advice and consultation to other areas of the University regarding strategies to attract donations and gifts in kind.",
+      "Preparing proposals and applies for external funding to support University Museum programmes, public exhibitions, and other initiatives.",
+      "Assessing suitability of prospective donations relative to potential use in teaching, research and exhibition. Monitors possible copyright infringement. Identifies risks inherent in receipt of stolen property. Makes recommendations on acquisitions to the Museum Acquisitions Committee."
+     ],
+     "frequency": null
+    },
+    {
+     "action_verb": "Community",
+     "statement": "Community Liaison & Committee Representation",
+     "how_why": [
+      "Serves on University committees considering the planning, development, and use of space such as Saywell Hall Atrium. Collaborates with V. P. Advancement on fundraising initiatives.",
+      "Hosts events in the Museum gallery for high profile University celebrations and donor recognition events in conjunction with Ceremonies and Events. Hosts welcome, honorary, and recognition events with the Faculty of the Environment, Department of Archaeology, and the First Nations Student Society.",
+      "Advises University committees on cultural and educational aspects of major web projects involving the arts, heritage and community relations.",
+      "Works with the Teaching and Learning Centre to develop web based educational materials that feature University research on the international stage.",
+      "Serves on graduate students' committees in the Department of Archaeology where the research and thesis subject matter relate to Museums."
+     ],
+     "frequency": null
+    },
+    {
+     "action_verb": "Museum",
+     "statement": "Museum Planning, Development, and Operational Management",
+     "how_why": [
+      "Provides leadership in development and implementation of the Museum’s five-year plan in concert with that of the Department of Archaeology. Sets goals",
+      "identifies priorities",
+      "determines the allocation of resources",
+      "and directs future programme design. Provides leadership in the development and implementation of the Museum’s long-term initiatives including the planning and development of new exhibition spaces.",
+      "Manages all aspects of the Museum’s operations by setting priorities, policies, and procedures, in accordance with international professional, scholarly, and ethical standards and in alignment with the University’s mandate. Ensures information regarding policies and procedures is communicated to the staff and those using the Museum research facilities.",
+      "Provides leadership to researchers, research associates, volunteers, work study students, student assistants, and others utilizing the Museum’s collections and resources. Develops, drafts, and implements Museum policies and procedures relating to the use of Museum facilities.",
+      "Manages the overall operation, use, and maintenance of exhibit galleries, reserve collection vaults, laboratories, facilities and technical resources.",
+      "Initiates capital projects to improve the Museum facilities, ensuring exhibition and research collection spaces comply with professional standards as defined by the International Council on Museums, within the resources of the University. Plans and oversees Museum renovations and special projects.",
+      "Develops and maintains close and effective working relationships with other areas of the University including VP Advancement, Finance, Risk Management, Facilities Services, the SFU Art Gallery, the Library, Faculty of the Environment, Faculty of Education, Faculty of Arts and Social Sciences and other academic programmes and outside agencies.",
+      "Manages and maintains an inventory of the Museum’s collections, equipment, and supplies. Requisitions goods, services, and repairs to facilitate teaching and research functions. Liaises with the Office of Risk Management to provide insurance coverage for borrowed objects valued in excess of $1 M. Working in collaboration with SFU Campus Security, oversees protocols to safeguard the security of the Museum and its collections.",
+      "Manages a revenue stream of funds through the sale of use rights for images from web sites to third party organizations, companies, and individuals, taking care not to compromise SFU's copyright of the materials."
+     ],
+     "frequency": null
+    },
+    {
+     "action_verb": "Planning",
+     "statement": "Planning, Development, and Management by",
+     "how_why": [
+      "Providing leadership in defining and implementing the Museum’s five-year strategic and action plans in concert with those of the Department of Archaeology. Sets goals",
+      "identifies priorities",
+      "determines the allocation of resources",
+      "reviews policies and procedures",
+      "and directs future programme design. Provides leadership in the development and implementation of the Museum’s long-term initiatives including the planning and development of new exhibition spaces, collection care standards, and infrastructure remediation.",
+      "Managing all aspects of the Museum’s operations by setting priorities, policies, and procedures, in accordance with international professional, scholarly, and ethical standards and in alignment with the University’s mandate. Ensures information regarding policies and procedures is communicated to the staff/volunteers and those using the Museum research facilities.",
+      "Providing leadership to the curator, researchers, research associates, volunteers, work study students, student assistants, and others utilizing the Museum’s collections and resources. Develops, drafts, and implements Museum policies and procedures relating to Museum facilities, collections, assets, and resources.",
+      "Leading the curatorial, registry, education, exhibition, programming, and events functions in support of the Museum’s purpose, mission, and vision.",
+      "Collaborating with Archaeology Labs and Archaeology Department on priorities and procedures for repatriation and repository management in accordance with provincial and ethical obligations.",
+      "Leading the curator and other staff/volunteers in all aspects of collection care and documentation, including accessioning/deaccessioning, incoming/outgoing loans, conservation, audits, research, and exhibition preparation.",
+      "Managing the overall operation, use, and maintenance of exhibit galleries, collection storage, laboratories, facilities and technical resources.",
+      "Initiating capital projects to improve the Museum facilities, ensuring exhibition and research collection spaces comply with professional standards as defined by the International Council on Museums, within the resources of the University. Plans and oversees Museum renovations and special projects. Liaises with Facilities Services, Campus Security, and other staff to plan and install renovations to museum space to bring the museum into closer adherence to international and professional standards.",
+      "Managing and maintains an inventory of the Museum’s infrastructure, equipment, and supplies. Requisitions goods, services, and repairs to facilitate teaching and research functions. Liaises with the Office of Risk Management to provide insurance coverage for borrowed objects valued in excess of $1 million CDN.",
+      "Working in collaboration with SFU Campus Security and Archaeology Labs team, oversees protocols to safeguard the security of the Museum and its collections.",
+      "Managing a revenue stream of funds through cash donations, funding opportunities, and the sale of use rights from the digital collection to third party organizations, companies, and individuals, taking care not to compromise SFU's copyright of the materials."
+     ],
+     "frequency": null
+    }
+   ],
+   "decision_making": [
+    "Makes decisions concerning: Developing and implementing the Museum’s five-year plan in concert with the five-year plan for the Department of Archaeology. This includes setting goals, identifying priorities, determining the allocation of resources and directing future programme design. Promoting the conservation of the Museum of Archaeology & Ethnology collection within the resources of the Univers",
+    "Makes decisions regarding",
+    "Managing all aspects of the Museum’s operations by setting priorities, policies, and procedures, in accordance with international professional, scholarly, and ethical standards and in alignment with University and Department of Archaeology mandates.",
+    "Museum collections care, conservation, preservation, presentation, accessibility, storage, handling, and development.",
+    "Museum exhibits, loans, and acquisitions",
+    "Overseeing local and outside researchers’ and students’ access to collections with consideration to both oversight and also risk of theft or damage.",
+    "Promoting the conservation of the Museum of Archaeology & Ethnology collection within the resources of the University.",
+    "Researching, developing, and installing exhibitions within the Museum gallery.",
+    "Screening, evaluating, disciplining, and terminating volunteers, research associates, interns, and work study students.",
+    "Securing resources for the Museum by seeking and coordinating multiple sources of funding from internal and external sources, the University, donors, granting agencies, and project based funding agencies.",
+    "Staff, student, and volunteer workflows, priorities, and initiatives.",
+    "The operational development and implementation of all policies and practices that advance the strategic direction of the Museum.",
+    "Training staff, students, external researchers, and faculty in the safe handling of valuable collections."
+   ],
+   "problem_solving": [
+    "Curatorial plans and projects are reviewed by the Department of Archaeology chair.",
+    "Exercises sound judgment in planning and decision making.",
+    "Works independently without direct supervision but within established guidelines."
+   ],
+   "relationships": {
+    "supervisory": "Supervisory No direct staff supervision. *The Museum welcomes between 11 and 55 volunteers per year as an integral part of its teaching function. These volunteers are Research Associates who contract for a minimum one year period as well as undergraduate and graduate students seeking to enhance their career skills. The Director also screens, evaluates, and terminates interns and work study students.",
+    "internal": [
+     "Internal Connections/External Connections Represents the Museum of Archaeology in the community. Establishes and maintains a network of internal and external contacts in the community and to enlist the support of administrators, public funders, benefactors, donors, and the public. Sets objectives necessary for obtaining feedback and assistance. Partners with a wide circle of contacts and involves "
+    ],
+    "external": []
+   },
+   "qualifications": [],
+   "territorial_acknowledgement_present": true,
+   "employment_equity_present": true,
+   "additional_context": null
+  },
+  "provenance": {
+   "member_count": 2,
+   "skill_frequency": [],
+   "duty_coverage": [],
+   "section_contributors": [],
+   "flags": [],
+   "seniority_bars": []
+  }
+ },
+ "model": {
+  "title": "Director, Museum of Archaeology & Ethnology",
+  "position_number": null,
+  "department": "Museum of Archaeology & Ethnology",
+  "grade": null,
+  "employee_group": null,
+  "about_sfu_present": false,
+  "position_summary": "The Director provides strategic vision, leadership and overall management for the Museum of Archaeology & Ethnology, ensuring its collections, programs and public presence support the university’s research, teaching and community‑engagement missions.  The role directs acquisition, conservation, exhibition and outreach activities, secures and administers diverse funding streams, and ensures compliance with international, federal and provincial heritage legislation.  By fostering internal and external partnerships, guiding staff, volunteers and students, and overseeing operational and capital projects, the Director advances the museum’s five‑year strategic plan and upholds professional, scholarly and ethical standards.",
+  "duties": [
+   {
+    "action_verb": "Acquire",
+    "statement": "Acquire and develop museum assets through strategic fundraising, donor relations, and collection stewardship",
+    "how_why": [
+     "Manage, conserve, oversee and steward collections through interaction with public donors, University Advancement, Office of the VP Academic, Office of Aboriginal Peoples, SFU Art Galleries, Library, faculty, staff, students and the public, acquiring new items in line with the five‑year plan and the Museum Acquisitions Committee",
+     "Develop and strategize to achieve museum goals by soliciting gifts‑in‑kind and financial donations from heritage community leaders, the public and university researchers",
+     "Coordinate fundraising with University Advancement for cash donations, project‑related funding or gifts‑in‑kind and participate in donor management activities",
+     "Seek and coordinate multiple internal and external funding sources, develop grant proposals with grant facilitators and the Faculty of the Environment to raise funds for museum development and programmes",
+     "Provide advice and consultation to university units on strategies to attract donations and gifts‑in‑kind",
+     "Prepare proposals and apply for external funding to support museum programmes, public exhibitions and other initiatives",
+     "Assess suitability of prospective donations for teaching, research and exhibition, monitor copyright issues, identify risks of stolen property and make acquisition recommendations to the Museum Acquisitions Committee"
+    ]
+   },
+   {
+    "action_verb": "Manage",
+    "statement": "Manage museum planning, operations and research training by leading strategic initiatives, overseeing facilities and supporting staff and learners",
+    "how_why": [
+     "Provide leadership in developing and implementing the museum’s five‑year strategic and action plans in concert with the Department of Archaeology, setting goals, identifying priorities, allocating resources and directing future programme design",
+     "Manage all aspects of museum operations by setting priorities, policies and procedures in accordance with international professional, scholarly and ethical standards and the university mandate, and communicate them to staff, volunteers and users",
+     "Lead researchers, research associates, volunteers, work‑study students and student assistants; develop and implement policies for use of museum facilities",
+     "Oversee operation, use and maintenance of exhibit galleries, reserve collection vaults, laboratories, facilities and technical resources",
+     "Initiate capital projects to improve museum facilities, plan and oversee renovations, and ensure exhibition and research spaces comply with professional standards defined by the International Council on Museums",
+     "Develop and maintain close working relationships with university units such as VP Advancement, Finance, Risk Management, Facilities Services, SFU Art Gallery, Library, Faculty of the Environment, Faculty of Education, Faculty of Arts and Social Sciences and external agencies",
+     "Manage inventory of collections, equipment and supplies; requisition goods, services and repairs; liaise with Risk Management for insurance and with Campus Security for collection security protocols",
+     "Manage revenue streams from cash donations, grant funding and sale of image use rights while protecting SFU copyright",
+     "Oversee and support researchers, research associates, graduate students, volunteers and interns; provide career‑skills training, screen and select candidates, develop activity programmes, instruct in museum ethics and procedures and conduct tours for visitors",
+     "Exercise sound judgement and work independently within established guidelines"
+    ]
+   }
+  ],
+  "decision_making": [
+   "Develop and implement the museum’s five‑year plan in concert with the Department of Archaeology, including setting goals, identifying priorities, allocating resources and directing programme design",
+   "Manage all aspects of the museum’s operations by setting priorities, policies and procedures in alignment with international standards and university mandates",
+   "Oversee museum collections care, conservation, preservation, presentation, accessibility, storage, handling and development",
+   "Direct museum exhibits, loans and acquisitions",
+   "Oversee access to collections for local and external researchers and students, balancing oversight with risk management",
+   "Secure resources for the museum by coordinating multiple funding sources, donors, granting agencies and project‑based funding",
+   "Guide staff, student and volunteer workflows, priorities and initiatives",
+   "Lead the development and implementation of policies and practices that advance the museum’s strategic direction",
+   "Train staff, students, external researchers and faculty in safe handling of valuable collections"
+  ],
+  "problem_solving": [],
+  "relationships": {
+   "supervisory": null,
+   "internal": [
+    "Office of Aboriginal Peoples",
+    "Library",
+    "Facilities Services",
+    "Vice‑Presidents",
+    "University Advancement",
+    "Finance",
+    "Risk Management",
+    "SFU Art Gallery",
+    "Faculty of the Environment",
+    "Faculty of Education",
+    "Faculty of Arts and Social Sciences",
+    "Department of Archaeology",
+    "Archaeology Laboratories",
+    "Campus Security"
+   ],
+   "external": [
+    "Senior university officials",
+    "Collectors",
+    "Contract archaeologists",
+    "Donors",
+    "Funding institutions",
+    "Media",
+    "External cultural organizations",
+    "Heritage community leaders",
+    "Local museums",
+    "First Nations and community heritage organisations",
+    "International dignitaries and scholars"
+   ]
+  },
+  "qualifications": [],
+  "territorial_acknowledgement_present": false,
+  "employment_equity_present": false,
+  "additional_context": null
+ }
+}

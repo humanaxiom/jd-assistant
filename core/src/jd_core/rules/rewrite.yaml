@@ -52,7 +52,13 @@ reasoning_effort: null
 # used 1,912 of 2,048 content tokens. At 4096 all six re-run clusters (the four that
 # truncated + the two largest) finished on the first call, the largest reply using 2,025
 # content tokens (~49%). Parser v9 drafts are larger (merged p50 7.5k chars, max 34k).
-max_tokens: 4096
+#
+# MEASURED 2026-10-21 (rewrite pilot round 2, 20 clusters, prompt v4): at 4096, 4 of 20
+# first calls stopped on `length` with an EMPTY reply, every one in the REASONING phase
+# (22.7k–25.1k reasoning characters, no content), and one cluster (d2c41bc7) failed both
+# attempts and kept its deterministic draft. Re-run at 8192, all four stopped on the first
+# call: peak reasoning ~5,900 tokens (72% of the budget), peak content 3,742 (46%).
+max_tokens: 8192
 
 # How many times an INVALID-JSON / schema-mismatch response is re-requested with a terse
 # repair nudge before raising LLMOutputInvalidError. Transient network/5xx retries are
@@ -282,6 +288,93 @@ form_instructions:
 # MEASURED: the wrapped contact instruction's first line is an item in 94 v9 drafts'
 # contact lists. HR-276.
 form_instruction_fragment_min_tokens: 6
+
+# --- rewrite fidelity, round 3 (pilot round 2, 2026-10-21): HR-284…HR-288 -----------
+
+# When is a source duty sentence ALREADY in the draft because the model REWORDED it, so
+# that fold-back (HR-271) must not put it back a second time? Covered, in order:
+#   1. ONE rewritten duty (the model's own words, unstemmed) holds HR-267's fraction of
+#      the sentence's words AND the sentence's named terms (HR-272; a Title Case heading
+#      counts only its acronyms and numbers as names);
+#   2. or ONE piece of the model's text — a statement or clause cut at ";" and sentence
+#      ends, or a comma part of one — has HR-267's fraction of ITS words in the sentence
+#      and holds at least this share of the sentence's words (stemmed, HR-285);
+#   3. or ONE sentence fold-back already restored holds HR-267's fraction of it (a
+#      second member saying the same thing) — never restored text pooled with the
+#      model's (round 2, cb73e45c: "careers as they relate to academic programs" read as
+#      covered by "programs" plus the just-folded "academic offerings", and was in no
+#      record).
+# For a how/why CLAUSE the words it shares with its own headline do not count (when at
+# least two words remain): what a clause adds is what can be lost — "ordering welcome
+# event food" is not covered by a duty saying "Plans the welcome events".
+# MEASURED (round-2 replay, 912 source duty sentences): 16 sentences the earlier rule
+# folded back beside their rewording are now counted covered — 12 by hand-check genuine
+# rewordings ("Monitors possible copyright infringement." vs "…, monitor copyright issues,
+# …"; the museum's revenue-stream sentence), 3 PARTIAL ("…budgetary and HR aspects of
+# large-scale building projects" vs "building plans and capital project negotiations",
+# 44% kept), 1 borderline; and 20 the earlier rule counted covered are now folded or
+# listed ("opportunities in Cooperative Education", headings without their name). At 0.25
+# false covers appeared ("booking rooms for orientation sessions" covering "booking
+# welcome reception rooms catering staff volunteers"); at 0.5 the revenue sentence (48%)
+# came back as a duplicate. ⚠ "liaise with Risk Management for insurance" keeps 3 of 12
+# words of a sentence whose "$1 M" threshold it lost, and that sentence still comes
+# back. HR-284.
+reworded_unit_min_share: 0.4
+
+# The suffixes a light stemmer strips before the PIECE and RESTORED coverage tests (HR-284
+# steps 2 and 3): the first listed suffix a word ends with is removed when at least four
+# letters remain ("s" never after "s"; "ies" -> "y"), then a final "e". So "monitors" /
+# "monitor", "manages" / "manage", "images" / "image" are one word. NOT the whole-duty
+# test (HR-284 step 1): MEASURED on the round-2 replay, stemming a whole merged duty let
+# its generic words "cover" lost sentences — "allocating centrally managed classrooms and
+# other academic spaces" by "Determine records needs, priorities…", "consulting … on
+# effective data use" by "best practices" — about 8 of 30 newly-covered sentences were
+# silent losses. And never the grounding tests (rewrite -> source), so nothing new can
+# ground a claim. An empty list switches stemming off. HR-285.
+coverage_stem_suffixes: [ies, ing, ed, es, s]
+
+# Abbreviations after which the sentence splitter does NOT end a sentence, besides any
+# single-letter initial ("V." in "V. P. Advancement") and dotted acronyms ("B.C."), which
+# never end one. MEASURED (round 2): "Collaborates with V. P. Advancement on fundraising
+# initiatives." was cut at "V." and "Collaborates with V." folded back as a duty clause of
+# its own. "etc." is deliberately NOT listed: it ends a sentence as often as not. HR-286.
+sentence_abbreviations: [e.g., i.e., vs., approx., incl., dept., no., dr., mr., mrs., ms., st., ph.d.]
+
+# A source item, or a source sentence, that is a FRAGMENT is never restored on its own as
+# a bullet or a how/why clause: it is listed for the reviewer instead (fold-back:
+# `dropped_duty_content`; sections and qualifications: `uncovered_items`, not restored).
+# A fragment starts with an opening bracket or a comma (a wrapped continuation line:
+# "(e.g. lab power supplies, …, curve tracers,"), or ends on a comma, colon or lead-in
+# word without a full stop (the template's own lead-ins: "Makes decisions regarding",
+# "Solves problems related to", "The Manager is responsible for"). A lowercase start is
+# deliberately NOT a fragment: contact labels ("department personnel") and the parser's
+# split clause pieces ("identifies priorities") are real content and read as bullets.
+# Contact lists use only the cut-off rule below. Separately, an item exactly at the
+# parser's own character cap for its field was CUT by the parser, so its last sentence is
+# a cut-off ("Partners with a wide circle of contacts and involves" — a 400-character
+# contacts item) and is listed, never restored. Duty headlines ending "by" are NOT
+# restored alone either; with clauses they come back as their own duty, heading first.
+# Section items come back WHOLE (up to a cut-off), never sentence by sentence. MEASURED
+# (round-2 replay, 23 replies): restored items that were a lead-in, cut-off or
+# continuation line 32 -> 0; 18 duty pieces newly listed instead of folded, every one a
+# headline ending "by" / "such as" or a table cut-off. HR-287.
+fragment_pattern:
+  pattern: '(?i)(?:^\s*[\(\[,;])|(?:(?:[,;:(]|\b(?:and|or|by|to|of|for|with|the|a|an|regarding|concerning|including|related to|responsible for|such as|involves|following))\s*$)'
+  ignore_case: false
+
+# How many consecutive contact items one model contact is grounded against (HR-269, read
+# for Relationships). The WJQ contact table reaches the merge one CELL per item —
+# "Graduate Students", "< 1 hour", "Frequent" — and prompt v4 (rule 8) asks the model to
+# keep each contact's duration and frequency WITH it, which no single cell grounds.
+# MEASURED (round-2 replay): of 30 contacts scrubbed, 7 were WJQ contacts written with
+# their own duration and frequency; 11 were the 0a75edf1 "Engineering Science" contacts
+# of another member; 8 would be grounded in the DUTIES and 2 only in the summary — kept
+# scrubbed: Relationships keeps same-section grounding (a duty-derived "contact" there was
+# "First Nations territories on which SFU campuses are situated"). A model contact is
+# grounded in ONE window of up to this many consecutive items of the same list; HR-272
+# still requires its names. Scrubbed contacts 30 -> 19. 1 restores the item-only rule.
+# HR-288.
+relationships_row_window: 3
 
 # The minimum token-Jaccard a rewritten DUTY must share with SOME draft duty. Below it the
 # duty is FLAGGED (recorded, never dropped — a duty may legitimately rephrase, so a

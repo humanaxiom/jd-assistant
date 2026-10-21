@@ -489,6 +489,61 @@ listed 2 → 17 (15 sentences from 8 source duties, all on full drafts). 84 fold
 a better-matching duty. The largest single-duty pile fell 36 → 27. Scores were unchanged
 on 27 of 28. 1d68c603 (base) went 67.7 → 74.7.
 
+## 16. Rewrite fidelity, round 3 (second pilot, 2026-10-21)
+
+Branch `feat/rewrite-r3`, on `feat/rewrite-provenance` @ 24e0440. The second pilot ran at
+23f092c on the rebuilt v9 Bank (20 clusters plus re-runs at 8192 and an "extra" set with
+the museum draft). **Every number here comes from replaying the recorded replies offline,
+with no LLM calls and no Bank access.** The replay reproduces the pilot's recorded record
+and final draft **23 of 23** times at 23f092c (the merge provenance was not recorded; it
+turned out not to matter). Register IDs are HR-282…288 and all are `open`.
+`rules_version` does not move.
+
+| # | finding (second pilot) | design | where |
+|---|---|---|---|
+| 1 | At 4096, 4 of 20 first calls truncated in the reasoning phase; one cluster failed both attempts. | `rewrite.max_tokens` **8192** (HR-178). At 8192 the peaks were 72% reasoning and 46% content. | `rewrite.yaml` |
+| 2 | HR-275 stripped "…decisions the incumbent would refer to his/her supervisor". cb73e45c then listed "Decisions regarding the expenditure of University funds" as the incumbent's own decision. | The merge **pools and sorts** Decision Making (HR-210), so after merging no position says what is referred. The archive check covered **4,115 of 14,522** documents carrying the prompt: in 2,928 the answer is fused into the prompt's item, and 5,721 referred items follow it. Fix in the **merge**, per member, before pooling: each referred decision gets the label "Refers to the supervisor:" (HR-282 markers, HR-283 label). This also fixes the **deterministic draft**. In the rewrite, a decision grounded only in a referred item must keep the referral, or it is dropped and the source line comes back. | `merge.label_referred_decisions`, `harmonize._reconcile_list` |
+| 3 | On cb73e45c, two lost sentences appeared in no record. | The coverage test (`_DutyCoverage`) was wrong in two ways. "careers…" was counted covered by the model's words **plus text fold-back had just restored** ("academic offerings"). "…Cooperative Education" was covered by two generic words without its name. Now restored text covers only as **one** restored sentence, never pooled. A covering duty must also state the sentence's **named terms** (HR-272; in a Title Case heading only acronyms count). | `harmonize._DutyCoverage` |
+| 4 | Fold-back duplicated text the model had reworded. | A model **piece** (cut at ";" or a sentence end, or a comma part of one) covers a sentence if ≥ HR-267 of the piece's words are in the sentence and the piece keeps ≥ **0.4** of the sentence (HR-284). Stemming (HR-285) applies **only** to the piece and restored tests. Stemming the whole duty produced ~8 false covers in 30. For a how/why clause, the words it shares with its own headline do not count. | `harmonize._DutyCoverage` |
+| 5 | "V. P." was split into its own sentence, giving the fold "Collaborates with V.". | Initials, dotted acronyms and a rulebook abbreviation list (HR-286) do not end a sentence. Every caller splits the same way. | `fidelity.sentences` |
+| 6 | Fragments were restored: "Makes decisions regarding", "…and involves", "(e.g. … curve tracers,". | Fragments (HR-287) are **listed, never restored on their own**. An item at the parser's own character cap was cut by the parser, so its unterminated last sentence is listed. Section items are restored **whole**. | `fidelity.is_fragment` / `cut_off_tail`, `_ItemLog.losses` |
+| 7 | 22 contact names grounded in duty text were scrubbed. | Measured on the replay: of 30 scrubbed contacts, 7 were WJQ contacts written *with* their duration and frequency (which prompt v4 asks for), 11 were another member's "Engineering Science" contacts, 8 were duty-derived, and 2 were summary-only. **Same-section grounding stays**, because one duty-derived "contact" was "First Nations territories…". A contact is now grounded against a **row** of up to 3 consecutive items (HR-288). | `_reconcile_relationships` |
+
+Red first: 15 of 17 new tests failed on the base (`test_rewrite_fidelity_r3.py`). Every
+guard, broken once, turns red (the mutation script is in the session scratchpad).
+
+**Replay of the 23 round-2 replies, base (24e0440) → this branch:**
+
+| | before | after |
+|---|---:|---:|
+| source duty sentences folded back | 120 | 130 |
+| duty content listed, not restored | 5 | 23 (the 18 new ones are all lead-in headlines or table cut-offs) |
+| section items restored | 191 | 112 (whole items now, and no fragments) |
+| restored lead-ins / cut-offs / continuation lines | 32 | **0** |
+| Relationships items scrubbed | 30 | 19 |
+| scores | — | unchanged on all 23 |
+
+The reviewer's exact-accounting check (every source duty sentence in exactly one bucket;
+folded text verbatim and placed once; listed text absent; origins aligned; caps held)
+gives **0 failures** with the guard's own coverage predicate, both on 912 sentences
+(base + 8192) and on 1,105 (with the museum run). Run with its **original** coverage
+definition, it reports 36 disagreements, which is the definition change itself:
+- 16 sentences are now judged reworded. A hand check found 12 genuine, 3 partial and 1
+  borderline.
+- 20 sentences are now folded or listed that the old rule counted covered.
+
+**What remains uncatchable, or is a trade-off:**
+- "refers X" → "oversees X" inside a **duty**. Duties are flagged, never dropped
+  (HR-184); cb73e45c's "Oversee budgetary decisions…" is flagged. Catching the inversion
+  needs meaning, not token overlap.
+- **Partial rewordings** above the 0.4 share count as covered (3 of 16 on the replay).
+- On clusters with many near-duplicate members (c7d30688), more near-similar sentences
+  come back (17 new folds). The earlier pooled vocabulary had hidden them, which is the
+  item-3 defect.
+- **The merge labelling moves the deterministic draft** for every cluster whose members
+  carry a marker. The replay used the recorded merge drafts, so item 2 is proven by the
+  merge test and the archive measurement, not by the replay.
+
 ## 11. Containers (all removed at the end)
 
 - **This round:** `p9measure-dump`, `p9measure-pg` (127.0.0.1:25999, network `p9measure-net`), `p9measure-ingest-flat`, `p9measure-ingest-grouped`, `p9measure-mA` / `-mB` / `-mD`, `p9measure-losscause`, `p9measure-smoke`, `p9measure-intro`, and the network `p9measure-net`.

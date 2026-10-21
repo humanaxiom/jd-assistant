@@ -70,7 +70,7 @@ def test_the_provisional_defaults_are_what_the_yaml_ships(rules: Rules) -> None:
     r = rules.rewrite
     assert r.model == "gpt-oss:120b"
     assert r.temperature == 0.0
-    assert r.max_tokens == 4096  # HR-178, measured on the 2026-10-20 rewrite pilot
+    assert r.max_tokens == 8192  # HR-178, measured on the 2026-10-21 second pilot
     assert r.max_retries == 1
     # v2 since CUPE Phase D: v1 inlined SFU's JDFN duty count and summary band as prompt
     # TEXT, which on a CUPE draft asks for 3–5 duties against a twelve-slot form. v1 is
