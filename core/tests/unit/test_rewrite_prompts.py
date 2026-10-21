@@ -117,11 +117,31 @@ def test_v2_states_the_duty_count_and_summary_band_it_is_given() -> None:
     assert "3–5 major duties" not in wjq
 
 
-def test_v3_is_the_shipped_prompt() -> None:
-    """The rulebook points at v3 (HR-180). v1 and v2 stay on disk unedited — every
-    draft in the archive carries its stamp, and a stamp that cannot be read back is not
-    provenance — but nothing should be *loading* them."""
-    assert get_rules().rewrite.prompt_version == "jd_harmonize_v3"
+def test_v4_is_the_shipped_prompt() -> None:
+    """The rulebook points at v4 (HR-180, rewrite fidelity 2026-10-20). v1–v3 stay on
+    disk unedited — every draft in the archive carries its stamp, and a stamp that
+    cannot be read back is not provenance — but nothing should be *loading* them."""
+    assert get_rules().rewrite.prompt_version == "jd_harmonize_v4"
+
+
+def test_v4_tells_the_model_to_merge_duties_not_drop_areas() -> None:
+    """The pilot's model met the JDFN five-duty cap by dropping whole duty areas. v4
+    says to merge related duties and keep every area; v3's wording is untouched. The
+    guard (HR-271) is what actually holds it — this only pins that the ask is made."""
+    values: dict[str, object] = {
+        "member_count": 2,
+        "skill_frequency": "- accounting: 2",
+        "member_jds": "- Manages proposals by\n    - tracking deadlines",
+        "duties_min": 5,
+        "duties_max": 5,
+        "summary_min_words": 100,
+        "summary_max_words": 150,
+    }
+    v4 = load_prompt("jd_harmonize_v4", **values).messages[0]["content"]
+    v3 = load_prompt("jd_harmonize_v3", **values).messages[0]["content"]
+    assert "MERGE related duties" in v4 and "NEVER drop a" in v4
+    assert "same section" in v4
+    assert "MERGE related duties" not in v3
 
 
 def test_v3_tells_the_model_to_keep_each_duty_s_how_why() -> None:

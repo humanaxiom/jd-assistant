@@ -1,0 +1,1211 @@
+{
+ "cluster_id": "0a75edf1-3d63-502d-94a6-bf323d3c6a68",
+ "pilot_run": "pilot_wjqlarge",
+ "note": "relationships + qualifications whole; first two duties only",
+ "merged": {
+  "draft": {
+   "title": "Laboratory Technician",
+   "position_number": null,
+   "department": "School of Engineering Science",
+   "grade": null,
+   "classification": null,
+   "employee_group": "cupe",
+   "supervisor_title": null,
+   "supervisor_position_number": null,
+   "about_sfu_present": false,
+   "position_summary": "Prepares materials and equipment each semester for experimental work conducted by the students in Engineering Science (ENSC) laboratories. Provides course support by helping to maintain support facilities (e.g. workshop) and by maintaining/repairing equipment, fabricating/developing experimental apparatus, documenting procedures, instructing students and faculty on machine and equipment use and safety procedures. Assists students, faculty, and staff as directed by the Supervisor. Provides support for faculty, staff and building upkeep by preparing purchase orders for parts and equipment, implementing safety procedures, performing monthly safety inspections and monitoring research lab safety inspections, disposing of surplus equipment, assigning offices and office furniture, and being a contact point for Facilities Management, Access Control, and Campus Security.",
+   "duties": [
+    {
+     "action_verb": "Obtains",
+     "statement": "Obtains materials and arranges for services for laboratory courses from the Science Technical Centre",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "Participates",
+     "statement": "Participates in one or more job related committees, such as the safety committee",
+     "how_why": [],
+     "frequency": null
+    }
+   ],
+   "decision_making": [],
+   "problem_solving": [],
+   "relationships": {
+    "supervisory": null,
+    "internal": [
+     "Student",
+     "1 hour",
+     "Frequent",
+     "Biomedical Physiology and Kinesiology Faculty (lab course instructors – various)",
+     "1 hour",
+     "Frequent",
+     "Biomedical Physiology and Kinesiology Laboratory Engineers",
+     "1-2 hours",
+     "Frequent",
+     "Biomedical Physiology and Kinesiology Researchers",
+     "1 hour",
+     "Frequent",
+     "Department Resource Control Person",
+     "1 hour",
+     "Frequent",
+     "Facilities Services – Services/repairs",
+     "1 hour",
+     "Occasional",
+     "Facilities Services – Stores",
+     "1 hour",
+     "Occasional",
+     "Facilities Services – Electrical",
+     "1 hour",
+     "Occasional",
+     "1 hour",
+     "Occasional",
+     "Manager, Academic and Administrative Services, Biomedical Physiology and Kinesiology",
+     "1 hour",
+     "Occasional",
+     "Procurement Services – various buyers"
+    ],
+    "external": [
+     "List internal and external contacts (i.e., specific positions within own department, other departments, students, faculty, on/off campus vendors, etc.), the duration of each contact (i.e. less than 1 hour at a time, 1-2 hours at a time, more than 2 hours at a time), and the frequency of each contact (i.e. occasional, frequent, or continuous).",
+     "Off Campus Vendors"
+    ]
+   },
+   "qualifications": [
+    {
+     "text": "High School graduation and two years post-secondary education or diploma from a technical institute in electronics technology",
+     "kind": "education",
+     "modifier": null
+    },
+    {
+     "text": "2 Years",
+     "kind": "experience",
+     "modifier": null
+    },
+    {
+     "text": "(e.g. lab power supplies, analog and digital multimeters, analog and digital oscilloscopes, curve tracers,",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "40-45 wpm Keyboarding skill with a high degree of accuracy",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "45 WPM keyboard skills with a high degree of accuracy",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to exercise mature judgement and initiative",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to instruct others on maintaining safe work environments in workshop and machine shop",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to read, interpret, and draft basic electronic schematics, block",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Ability to read, interpret, and draft basic electronic schematics, block and system diagrams, and pictorial and mechanical assembly drawings",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Ability to set up and connect instrument software to computing equipment",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to set up, test, and perform basic measurements using a wide variety of electronic test equipment",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Ability to set up, test, and perform basic measurements using a wide variety of electronic test equipment (e.g. lab power supplies, analog and digital multimeters, analog and digital oscilloscopes, curve tracers, function generators, counters) and troubleshoot any issues with those measurements/devices",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Ability to troubleshoot equipment set up, diagnose the issues and fix if possible",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use a variety of basic hand and power tools used in the electronics trade (e.g., wood and metal work power tools) with fine precision",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Ability to use a variety of basic hand and power tools, metal and wood fabrication tools, and computer numerical control fabrication tools (e.g. wood, metal, and plastic fabrication) with fine precision",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Ability to use general and trade specific soldering/de-soldering tools with fine precision",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use general and trade specific soldering/desoldering tools",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use web publishing software (i.e. HTML, Adobe,",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use web publishing software (i.e. HTML, Adobe, Dreamweaver) at a basic level",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Ability to use word processing and database software at an intermediate level",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Ability to use word processing, database, and computer aided drafting applications (e.g. Microsoft Word,",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use word processing, database, and computer aided drafting applications (e.g. Microsoft Word, Microsoft Excel, Microsoft Access, AutoCAD, Solidworks) at an intermediate level",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Ability to work independently",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to work independently and meet deadlines",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to work safely with chemicals and hazardous substances",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "AutoCAD, CAD, ECAD) at an intermediate level",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "AutoCAD, CAD, ECAD) at an intermediate level. 45 wpm keyboarding skill with",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Basic knowledge of analog and digital circuitry including transistors, thyristors, operational amplifiers,",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Basic knowledge of analog and digital circuitry including transistors, thyristors, operational amplifiers, voltage regulators, power control devices, and discrete logic devices",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Basic knowledge of analog arid digital circuitry including transistors, thyristors, operational amplifiers; voltage",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Dreamweaver) at a basic level",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Excellent analytical reasoning problem-solving and troubleshooting",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent analytical reasoning problem-solving and troubleshooting skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent interpersonal and organizational skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent interpersonal skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent interpersonal, oral and written communication skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent knowledge of circuit fabrication/assembly and packaging",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent knowledge of electronic components and hardware/fasteners, their parameters and",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent knowledge of electronic components and hardware/fasteners, their parameters and characteristics, nomenclature, and manufacturers",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent knowledge of writing technical documentation and/or user guides for desktop",
+     "kind": "skill",
+     "modifier": null
+    }
+   ],
+   "territorial_acknowledgement_present": false,
+   "employment_equity_present": false,
+   "additional_context": null
+  },
+  "provenance": {
+   "member_count": 10,
+   "skill_frequency": [
+    [
+     "amplifiers",
+     10
+    ],
+    [
+     "analog",
+     10
+    ],
+    [
+     "analytical",
+     10
+    ],
+    [
+     "and",
+     10
+    ],
+    [
+     "assembly",
+     10
+    ],
+    [
+     "basic",
+     10
+    ],
+    [
+     "characteristics",
+     10
+    ],
+    [
+     "circuit",
+     10
+    ],
+    [
+     "circuitry",
+     10
+    ],
+    [
+     "communication",
+     10
+    ],
+    [
+     "components",
+     10
+    ],
+    [
+     "computer",
+     10
+    ],
+    [
+     "control",
+     10
+    ],
+    [
+     "curve",
+     10
+    ],
+    [
+     "database",
+     10
+    ],
+    [
+     "devices",
+     10
+    ],
+    [
+     "digital",
+     10
+    ],
+    [
+     "discrete",
+     10
+    ],
+    [
+     "electrical",
+     10
+    ],
+    [
+     "electronic",
+     10
+    ],
+    [
+     "equipment",
+     10
+    ],
+    [
+     "fabrication",
+     10
+    ],
+    [
+     "fasteners",
+     10
+    ],
+    [
+     "for",
+     10
+    ],
+    [
+     "hardware",
+     10
+    ],
+    [
+     "including",
+     10
+    ],
+    [
+     "intermediate",
+     10
+    ],
+    [
+     "interpersonal",
+     10
+    ],
+    [
+     "lab",
+     10
+    ],
+    [
+     "logic",
+     10
+    ],
+    [
+     "maintenance",
+     10
+    ],
+    [
+     "manufacturers",
+     10
+    ],
+    [
+     "measurements",
+     10
+    ],
+    [
+     "nomenclature",
+     10
+    ],
+    [
+     "operational",
+     10
+    ],
+    [
+     "oral",
+     10
+    ],
+    [
+     "organizational",
+     10
+    ],
+    [
+     "oscilloscopes",
+     10
+    ],
+    [
+     "packaging",
+     10
+    ],
+    [
+     "parameters",
+     10
+    ],
+    [
+     "perform",
+     10
+    ],
+    [
+     "power",
+     10
+    ],
+    [
+     "preventative",
+     10
+    ],
+    [
+     "problem",
+     10
+    ],
+    [
+     "processing",
+     10
+    ],
+    [
+     "reasoning",
+     10
+    ],
+    [
+     "regulators",
+     10
+    ],
+    [
+     "set",
+     10
+    ],
+    [
+     "solving",
+     10
+    ],
+    [
+     "supplies",
+     10
+    ],
+    [
+     "systems",
+     10
+    ],
+    [
+     "techniques",
+     10
+    ],
+    [
+     "test",
+     10
+    ],
+    [
+     "their",
+     10
+    ],
+    [
+     "thyristors",
+     10
+    ],
+    [
+     "tracers",
+     10
+    ],
+    [
+     "transistors",
+     10
+    ],
+    [
+     "use",
+     10
+    ],
+    [
+     "using",
+     10
+    ],
+    [
+     "variety",
+     10
+    ],
+    [
+     "voltage",
+     10
+    ],
+    [
+     "wide",
+     10
+    ],
+    [
+     "written",
+     10
+    ],
+    [
+     "counters",
+     9
+    ],
+    [
+     "function",
+     9
+    ],
+    [
+     "general",
+     9
+    ],
+    [
+     "generators",
+     9
+    ],
+    [
+     "soldering",
+     9
+    ],
+    [
+     "specific",
+     9
+    ],
+    [
+     "tools",
+     9
+    ],
+    [
+     "trade",
+     9
+    ],
+    [
+     "block",
+     8
+    ],
+    [
+     "configurations",
+     8
+    ],
+    [
+     "desktop",
+     8
+    ],
+    [
+     "diagrams",
+     8
+    ],
+    [
+     "documentation",
+     8
+    ],
+    [
+     "draft",
+     8
+    ],
+    [
+     "drawings",
+     8
+    ],
+    [
+     "external",
+     8
+    ],
+    [
+     "fine",
+     8
+    ],
+    [
+     "guides",
+     8
+    ],
+    [
+     "internal",
+     8
+    ],
+    [
+     "internet",
+     8
+    ],
+    [
+     "interpret",
+     8
+    ],
+    [
+     "mechanical",
+     8
+    ],
+    [
+     "pictorial",
+     8
+    ],
+    [
+     "precision",
+     8
+    ],
+    [
+     "read",
+     8
+    ],
+    [
+     "schematics",
+     8
+    ],
+    [
+     "software",
+     8
+    ],
+    [
+     "system",
+     8
+    ],
+    [
+     "technical",
+     8
+    ],
+    [
+     "the",
+     8
+    ],
+    [
+     "user",
+     8
+    ],
+    [
+     "wpm",
+     8
+    ],
+    [
+     "writing",
+     8
+    ],
+    [
+     "electronics",
+     7
+    ],
+    [
+     "multimeters",
+     7
+    ],
+    [
+     "aided",
+     6
+    ],
+    [
+     "autocad",
+     6
+    ],
+    [
+     "browsers",
+     6
+    ],
+    [
+     "desoldering",
+     6
+    ],
+    [
+     "drafting",
+     6
+    ],
+    [
+     "exercise",
+     6
+    ],
+    [
+     "extended",
+     6
+    ],
+    [
+     "flexible",
+     6
+    ],
+    [
+     "hand",
+     6
+    ],
+    [
+     "hours",
+     6
+    ],
+    [
+     "independently",
+     6
+    ],
+    [
+     "initiative",
+     6
+    ],
+    [
+     "keyboarding",
+     6
+    ],
+    [
+     "mature",
+     6
+    ],
+    [
+     "metal",
+     6
+    ],
+    [
+     "microsoft",
+     6
+    ],
+    [
+     "operating",
+     6
+    ],
+    [
+     "other",
+     6
+    ],
+    [
+     "research",
+     6
+    ],
+    [
+     "series",
+     6
+    ],
+    [
+     "skill",
+     6
+    ],
+    [
+     "web",
+     6
+    ],
+    [
+     "wood",
+     6
+    ],
+    [
+     "world",
+     6
+    ],
+    [
+     "carry",
+     5
+    ],
+    [
+     "lift",
+     5
+    ],
+    [
+     "cad",
+     4
+    ],
+    [
+     "ecad",
+     4
+    ],
+    [
+     "events",
+     4
+    ],
+    [
+     "ibm",
+     4
+    ],
+    [
+     "inventory",
+     4
+    ],
+    [
+     "maintain",
+     4
+    ],
+    [
+     "methods",
+     4
+    ],
+    [
+     "prearranged",
+     4
+    ],
+    [
+     "procedures",
+     4
+    ],
+    [
+     "programming",
+     4
+    ],
+    [
+     "purchasing",
+     4
+    ],
+    [
+     "records",
+     4
+    ],
+    [
+     "special",
+     4
+    ],
+    [
+     "troubleshooting",
+     4
+    ],
+    [
+     "used",
+     4
+    ],
+    [
+     "windows",
+     4
+    ],
+    [
+     "graduation",
+     3
+    ],
+    [
+     "issues",
+     3
+    ],
+    [
+     "judgement",
+     3
+    ],
+    [
+     "judgment",
+     3
+    ],
+    [
+     "meters",
+     3
+    ],
+    [
+     "multi",
+     3
+    ],
+    [
+     "post",
+     3
+    ],
+    [
+     "school",
+     3
+    ],
+    [
+     "secondary",
+     3
+    ],
+    [
+     "technology",
+     3
+    ],
+    [
+     "troubleshoot",
+     3
+    ],
+    [
+     "two",
+     3
+    ],
+    [
+     "access",
+     2
+    ],
+    [
+     "adobe",
+     2
+    ],
+    [
+     "advanced",
+     2
+    ],
+    [
+     "all",
+     2
+    ],
+    [
+     "any",
+     2
+    ],
+    [
+     "application",
+     2
+    ],
+    [
+     "arid",
+     2
+    ],
+    [
+     "chemicals",
+     2
+    ],
+    [
+     "computers",
+     2
+    ],
+    [
+     "computing",
+     2
+    ],
+    [
+     "connect",
+     2
+    ],
+    [
+     "databases",
+     2
+    ],
+    [
+     "deadlines",
+     2
+    ],
+    [
+     "dreamweaver",
+     2
+    ],
+    [
+     "engines",
+     2
+    ],
+    [
+     "environments",
+     2
+    ],
+    [
+     "excel",
+     2
+    ],
+    [
+     "familiarity",
+     2
+    ],
+    [
+     "functions",
+     2
+    ],
+    [
+     "hazardous",
+     2
+    ],
+    [
+     "html",
+     2
+    ],
+    [
+     "instruct",
+     2
+    ],
+    [
+     "instrument",
+     2
+    ],
+    [
+     "keyboard",
+     2
+    ],
+    [
+     "machine",
+     2
+    ],
+    [
+     "macintosh",
+     2
+    ],
+    [
+     "maintaining",
+     2
+    ],
+    [
+     "manufacturer",
+     2
+    ],
+    [
+     "meet",
+     2
+    ],
+    [
+     "networking",
+     2
+    ],
+    [
+     "numerical",
+     2
+    ],
+    [
+     "others",
+     2
+    ],
+    [
+     "plastic",
+     2
+    ],
+    [
+     "publishing",
+     2
+    ],
+    [
+     "safe",
+     2
+    ],
+    [
+     "safely",
+     2
+    ],
+    [
+     "search",
+     2
+    ],
+    [
+     "shop",
+     2
+    ],
+    [
+     "solidworks",
+     2
+    ],
+    [
+     "substances",
+     2
+    ],
+    [
+     "those",
+     2
+    ],
+    [
+     "vendor",
+     2
+    ],
+    [
+     "visual",
+     2
+    ],
+    [
+     "workshop",
+     2
+    ],
+    [
+     "diagnose",
+     1
+    ],
+    [
+     "fix",
+     1
+    ],
+    [
+     "position",
+     1
+    ],
+    [
+     "possible",
+     1
+    ]
+   ]
+  }
+ },
+ "model": {
+  "title": "Laboratory Technician",
+  "position_number": null,
+  "department": "Engineering Science",
+  "grade": null,
+  "classification": null,
+  "employee_group": null,
+  "supervisor_title": null,
+  "supervisor_position_number": null,
+  "about_sfu_present": false,
+  "position_summary": "Provides essential technical support for Engineering Science laboratory courses by preparing, maintaining, and repairing equipment and experimental apparatus. The incumbent ensures safe and efficient operation of lab facilities, assists students and faculty with equipment use, and manages inventory, procurement, and documentation. This role also coordinates with facilities services and external vendors to address work orders, safety compliance, and surplus equipment disposal, contributing to the overall quality of hands‑on learning experiences.",
+  "duties": [
+   {
+    "action_verb": "Obtain",
+    "statement": "materials and arrange services for laboratory courses from the Science Technical Centre",
+    "how_why": [],
+    "frequency": null
+   },
+   {
+    "action_verb": "Participate",
+    "statement": "in job‑related committees, such as the safety committee, to support departmental initiatives",
+    "how_why": [],
+    "frequency": null
+   }
+  ],
+  "decision_making": [],
+  "problem_solving": [],
+  "relationships": {
+   "supervisory": "Laboratory Facility Engineer",
+   "internal": [
+    "Students",
+    "Engineering Science Faculty (lab course instructors)",
+    "Engineering Science Laboratory Engineers",
+    "Engineering Science Researchers",
+    "School Resource Control Person",
+    "Facilities Management – Service/Repairs",
+    "Facilities Management – Stores",
+    "Facilities Management – Electrical",
+    "Departmental Assistant, Engineering Science",
+    "Purchasing – various buyers",
+    "Accounts Payable – clerical staff"
+   ],
+   "external": [
+    "Off‑Campus Vendors"
+   ]
+  },
+  "qualifications": [
+   {
+    "text": "High school graduation and two years post‑secondary education or diploma from a technical institute in electronics technology",
+    "kind": "education",
+    "modifier": null
+   },
+   {
+    "text": "or an equivalent combination of education, training and experience",
+    "kind": "education",
+    "modifier": null
+   },
+   {
+    "text": "Basic knowledge of analog and digital circuitry including transistors, thyristors, operational amplifiers, voltage regulators, power control devices, and discrete logic devices",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Ability to read, interpret, and draft basic electronic schematics, block and system diagrams, and pictorial and mechanical assembly drawings",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to set up and connect instrument software to laboratory computers",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to set up, test, and perform basic measurements using a wide variety of electronic test equipment",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use a variety of basic hand and power tools with fine precision",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use general and trade‑specific soldering and desoldering tools",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use word processing, database, and computer‑aided drafting applications (e.g., Microsoft Word, Excel, Access, AutoCAD) at an intermediate level",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "45 wpm keyboarding skill with a high degree of accuracy",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to work independently and meet deadlines",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to work safely with chemicals and hazardous substances",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Excellent analytical reasoning, problem‑solving and troubleshooting skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Excellent interpersonal, oral and written communication skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Mature judgement and initiative",
+    "kind": "ability",
+    "modifier": null
+   }
+  ],
+  "territorial_acknowledgement_present": false,
+  "employment_equity_present": false,
+  "additional_context": null
+ }
+}

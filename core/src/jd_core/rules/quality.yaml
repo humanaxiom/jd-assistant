@@ -52,9 +52,13 @@ temperature: 0.0
 # Conservative default, `open` — HR-192.
 reasoning_effort: low
 
-# Token budget for one audit completion. 1024 mirrors hris's value for THIS pass (the
-# nuanced findings list is far smaller than a full SFUJobDescription rewrite). HR-187.
-max_tokens: 1024
+# Token budget for one audit completion. HR-187. Was 1024 (hris's value for this pass).
+# MEASURED 2026-10-20 (rewrite pilot, 22 v9 clusters): 2 of 22 audit calls stopped on
+# `length` at 1024 and were saved only by the repair retry (HR-188), whose replies then used
+# 1,003 and 965 of the 1,024 — no headroom. Ollama caps reasoning and content separately at
+# this number (the same finding as the rewrite's HR-178), so doubling it costs nothing on a
+# call that finishes early.
+max_tokens: 2048
 
 # How many times an INVALID-JSON / schema-mismatch response is re-requested with a terse
 # repair nudge before raising LLMOutputInvalidError. Transient network/5xx retries are

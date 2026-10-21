@@ -229,7 +229,7 @@
   <h2>Removed content (harmonization diff)</h2>
   <ul>
     {% for entry in removed %}
-    <li>[{{ entry.reason }}] {{ entry.content }}</li>
+    <li>[{{ entry.reason }}{% if entry.section %} · {{ entry.section }}{% endif %}] {{ entry.content }}</li>
     {% endfor %}
   </ul>
 </div>

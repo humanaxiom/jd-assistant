@@ -20,30 +20,38 @@ anything, and ``jd_core`` is never imported the other way round.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Sequence
 from typing import Any, Final
+
+from pydantic import BaseModel
 
 from src.jd_bank.jd_text import flatten_jd as _flatten_jd
 from src.jd_bank.jd_text import outline_jd
 from src.jd_bank.llm.client import ChatClient
 from src.jd_bank.llm.prompts import load_prompt
+from src.jd_bank.rewrite.fidelity import (
+    carries_placeholder,
+    content_tokens,
+    named_terms,
+    sentences,
+    source_view,
+)
 from src.jd_core.bank.merge import duty_text
 from src.jd_core.models.bank import (
     AntiFabricationRecord,
     MergedRole,
     RewrittenDraft,
 )
-from src.jd_core.models.parsed_jd import SFUDuty, SFUJobDescription, SFUQualification
+from src.jd_core.models.parsed_jd import (
+    SFUDuty,
+    SFUJobDescription,
+    SFUQualification,
+    SFURelationships,
+)
 from src.jd_core.models.quality import DEFAULT_TEMPLATE
 from src.jd_core.quality.scoring import score_issues
 from src.jd_core.quality.validators import evaluate_jd_rules, template_of
 from src.jd_core.rules import Comparison, Rewrite, Rules, get_rules
-
-#: A content token: a maximal run of lowercase letters/digits — the same alphabet the
-#: signals / similarity / merge modules tokenize with. Kept local (as those do) so
-#: retuning one cannot silently move the grounding check.
-_TOKEN = re.compile(r"[a-z0-9]+")
 
 #: The ONLY fields the rewrite may change. Everything else on the draft is restored from
 #: the grounded 4.1 merge, which derived it from the source JDs.
@@ -119,12 +127,7 @@ def _content_tokens(text: str, comparison: Comparison) -> frozenset[str]:
     """The content tokens of ``text`` — lowercase ``[a-z0-9]+`` runs, minus stopwords
     and short tokens (the SAME filter ``signals._skill_bag`` applies), so grounding
     lines up with how skills are compared everywhere else."""
-    return frozenset(
-        token
-        for token in _TOKEN.findall(text.lower())
-        if len(token) >= comparison.skill_min_token_len
-        and token not in comparison.skill_stopwords
-    )
+    return content_tokens(text, comparison)
 
 
 def _jaccard(a: frozenset[str], b: frozenset[str]) -> float:
@@ -160,14 +163,36 @@ def _skill_frequency_lines(freq: Sequence[tuple[str, int]]) -> str:
     return "\n".join(f"- {name}: {count}" for name, count in freq)
 
 
-def _draft_vocabulary(merged: MergedRole, comparison: Comparison) -> frozenset[str]:
-    """The allowed vocabulary a rewritten qualification must be grounded in: the merge
-    draft's own content tokens PLUS its member-derived skill-frequency names. Generous
-    by design — a rephrasing reuses the draft's words; a wholly new skill does not."""
-    vocab: set[str] = set(_content_tokens(_flatten_jd(merged.draft), comparison))
+def _draft_vocabulary(
+    source: SFUJobDescription, merged: MergedRole, comparison: Comparison
+) -> frozenset[str]:
+    """The allowed vocabulary a rewritten qualification must be grounded in: the SOURCE
+    VIEW's content tokens (:func:`~src.jd_bank.rewrite.fidelity.source_view` — the
+    merge draft minus the questionnaire's instructions and SFU's boilerplate, HR-273…
+    HR-276) PLUS its member-derived skill-frequency names. Generous by design — a
+    rephrasing reuses the draft's words; a wholly new skill does not.
+
+    🔴 Boilerplate is OUT since 2026-10-20: the merge carries the EE statement and the
+    territorial acknowledgement as qualification lines, and on the pilot's 1d68c603 the
+    model fused them into "Commitment to employment equity and respect for Indigenous
+    territories and cultures" — which their own words then grounded."""
+    vocab: set[str] = set(_content_tokens(_flatten_jd(source), comparison))
     for name, _count in merged.provenance.skill_frequency:
         vocab |= _content_tokens(name, comparison)
     return frozenset(vocab)
+
+
+def _names_grounded(
+    text: str, vocab: frozenset[str], rewrite: Rewrite, comparison: Comparison
+) -> bool:
+    """Whether every NAMED term of ``text`` (an acronym, a capitalized word mid-item —
+    :func:`~src.jd_bank.rewrite.fidelity.named_terms`) is in ``vocab`` (HR-272). A
+    token-overlap bar cannot see a new name riding on grounded words: "(e.g., ICOM Code
+    of Ethics, CITES)" passed at 5 of 9 where the source says "International Council on
+    Museums"."""
+    if not rewrite.named_terms_must_be_grounded:
+        return True
+    return named_terms(text, comparison) <= vocab
 
 
 def _is_grounded(
@@ -178,9 +203,18 @@ def _is_grounded(
     ``token_overlap``: grounded iff at least ``skill_grounding_threshold`` of its
     content tokens are in ``vocab``. ``all_grounded``: grounded only if EVERY token is
     (the threshold is inert). A qualification with no content tokens (all stopwords) is
-    grounded — there is nothing to fabricate.
+    grounded — there is nothing to fabricate. Either way its named terms must be in
+    ``vocab`` too (HR-272).
     """
-    tokens = _content_tokens(text, comparison)
+    if not _names_grounded(text, vocab, rewrite, comparison):
+        return False
+    return _qualification_covered(_content_tokens(text, comparison), vocab, rewrite)
+
+
+def _qualification_covered(
+    tokens: frozenset[str], vocab: frozenset[str], rewrite: Rewrite
+) -> bool:
+    """The qualification token rule (HR-182/183) on token sets, either direction."""
     if not tokens:
         return True
     grounded = tokens & vocab
@@ -189,31 +223,268 @@ def _is_grounded(
     return len(grounded) / len(tokens) >= rewrite.skill_grounding_threshold
 
 
-def _clause_is_grounded(
-    clause: str,
-    sources: Sequence[frozenset[str]],
+def _covers(tokens: frozenset[str], vocab: frozenset[str], threshold: float) -> bool:
+    """Whether ``vocab`` holds at least ``threshold`` of ``tokens``. A text with no
+    content tokens has nothing to fabricate and nothing to lose."""
+    return not tokens or len(tokens & vocab) / len(tokens) >= threshold
+
+
+def _grounded_in_one(
+    text: str,
+    units: Sequence[frozenset[str]],
+    vocab: frozenset[str],
+    threshold: float,
     rewrite: Rewrite,
     comparison: Comparison,
 ) -> bool:
-    """Whether a how/why ``clause`` is supported by ONE of ``sources`` (token sets) —
-    the same token-overlap rule as a qualification (:func:`_is_grounded`), at
-    ``rewrite.how_why_grounding_threshold`` (HR-267). A clause of stopwords only has
-    nothing to fabricate and is kept.
+    """Whether ``text`` is supported by ONE of ``units`` (token sets) at ``threshold``,
+    with its named terms in ``vocab``. One unit, never their union (review round 2:
+    against a long duty's whole vocabulary, a clause stitched from words scattered over
+    many clauses passed)."""
+    if not _names_grounded(text, vocab, rewrite, comparison):
+        return False
+    tokens = _content_tokens(text, comparison)
+    return not tokens or any(
+        len(tokens & unit) / len(tokens) >= threshold for unit in units
+    )
 
-    One source, not their union (review round 2): against a long duty's whole
-    vocabulary a clause stitched from words scattered over many clauses passed, so each
-    candidate is the headline plus a single source clause (see the caller)."""
-    tokens = _content_tokens(clause, comparison)
-    if not tokens:
-        return True
+
+def _ceiling(field: str, model: type[BaseModel] = SFUJobDescription) -> int:
+    """The model's own ``max_length`` for a list field — a restore may never build a
+    value the contract would refuse to read back."""
+    for meta in model.model_fields[field].metadata:
+        limit = getattr(meta, "max_length", None)
+        if isinstance(limit, int):
+            return limit
+    raise LookupError(f"{model.__name__}.{field} has no max_length")  # pragma: no cover
+
+
+def _has(value: object) -> bool:
+    """Whether a section VALUE carries content. A ``SFURelationships`` with no
+    supervisory text and no contacts is empty, though the object itself is truthy."""
+    if isinstance(value, SFURelationships):
+        return bool(value.supervisory or value.internal or value.external)
+    return bool(value)
+
+
+def _reconcile_list(
+    section: str,
+    source_items: Sequence[str],
+    model_items: Sequence[str],
+    rewrite: Rewrite,
+    comparison: Comparison,
+    log: _ItemLog,
+) -> list[str]:
+    """One list section, per item (HR-269/270): keep a model item only if ONE source
+    item of the same section grounds it, then put back (if the section is restorable)
+    every source sentence the kept items no longer cover."""
+    threshold = rewrite.section_item_grounding_threshold
+    units = [_content_tokens(item, comparison) for item in source_items]
+    vocab = frozenset().union(*units)
+    kept: list[str] = []
+    for item in model_items:
+        if _grounded_in_one(item, units, vocab, threshold, rewrite, comparison):
+            kept.append(item)
+        else:
+            log.scrubbed.append((section, item))
+    lost = log.restorable(log.losses(section, source_items, kept, rewrite, comparison))
+    if not lost or section not in rewrite.restore_uncovered_items_in:
+        return kept
+    restored = [*kept, *lost]
+    if len(restored) > _ceiling(section):
+        restored = list(source_items)  # the source fits its own contract
+    log.restored.extend((section, text) for text in lost)
+    return restored
+
+
+class _ItemLog:
+    """What the per-item section guard dropped, found lost, and put back."""
+
+    def __init__(self, rules: Rules) -> None:
+        self._rules = rules
+        self.scrubbed: list[tuple[str, str]] = []
+        self.uncovered: list[tuple[str, str]] = []
+        self.restored: list[tuple[str, str]] = []
+
+    def restorable(self, texts: Sequence[str]) -> list[str]:
+        """``texts`` minus any carrying a template placeholder (the HR-047 gate —
+        :func:`~src.jd_bank.rewrite.fidelity.carries_placeholder`). Those stay in
+        :attr:`uncovered` only, so the review page lists them as dropped."""
+        return [t for t in texts if not carries_placeholder(t, self._rules)]
+
+    def losses(
+        self,
+        section: str,
+        source_items: Sequence[str],
+        kept: Sequence[str],
+        rewrite: Rewrite,
+        comparison: Comparison,
+    ) -> list[str]:
+        """Every source SENTENCE the kept items do not cover (HR-269, read from the
+        source's end), recorded as uncovered; an exact repeat is listed once.
+
+        A lost sentence deliberately does NOT join the covering vocabulary. The merge
+        has already de-duplicated a section's items (HR-210…212), and on a contact list
+        the shared words are the department's name: on the pilot's 0a75edf1, letting
+        a restored "Biomedical Physiology and Kinesiology Faculty …" cover the rest
+        hid the distinct BPK Researchers and Laboratory Engineers contacts."""
+        threshold = rewrite.section_item_grounding_threshold
+        vocab = frozenset().union(*(_content_tokens(k, comparison) for k in kept))
+        lost: list[str] = []
+        for item in source_items:
+            for sentence in sentences(item):
+                tokens = _content_tokens(sentence, comparison)
+                if not _covers(tokens, vocab, threshold) and sentence not in lost:
+                    lost.append(sentence)
+        self.uncovered.extend((section, text) for text in lost)
+        return lost
+
+
+def _reconcile_relationships(
+    source: SFURelationships,
+    model: SFURelationships,
+    rewrite: Rewrite,
+    comparison: Comparison,
+    log: _ItemLog,
+) -> SFURelationships:
+    """Relationships per item against the merge's OWN relationships (HR-269/270).
+
+    🔴 MEASURED (pilot, 0a75edf1): the model replaced a WJQ draft's Biomedical
+    Physiology and Kinesiology contacts — and every duration / frequency cell with them
+    — by "Engineering Science" contacts the section never names, and nothing objected:
+    only an EMPTY or INVENTED section was ever checked. The supervisory text, each
+    internal and each external contact is one unit; a model item must be grounded in one
+    of them, and every source sentence must stay covered by what is kept."""
+    section, threshold = "relationships", rewrite.section_item_grounding_threshold
+    sup_units = sentences(source.supervisory) if source.supervisory else []
+    units = [
+        _content_tokens(text, comparison)
+        for text in (*sup_units, *source.internal, *source.external)
+    ]
+    vocab = frozenset().union(*units)
+
+    def keep(item: str) -> bool:
+        if _grounded_in_one(item, units, vocab, threshold, rewrite, comparison):
+            return True
+        log.scrubbed.append((section, item))
+        return False
+
+    supervisory = (
+        model.supervisory if model.supervisory and keep(model.supervisory) else None
+    )
+    internal = [c for c in model.internal if keep(c)]
+    external = [c for c in model.external if keep(c)]
+    kept = [*([supervisory] if supervisory else []), *internal, *external]
+    restoring = section in rewrite.restore_uncovered_items_in
+    lost_sup = log.losses(section, sup_units, kept, rewrite, comparison)
+    lost_int = log.losses(section, source.internal, kept, rewrite, comparison)
+    lost_ext = log.losses(section, source.external, kept, rewrite, comparison)
+    if not restoring or not (lost_sup or lost_int or lost_ext):
+        return model.model_copy(
+            update={
+                "supervisory": supervisory,
+                "internal": internal,
+                "external": external,
+            }
+        )
+    lost_sup, lost_int, lost_ext = (
+        log.restorable(lost_sup),
+        log.restorable(lost_int),
+        log.restorable(lost_ext),
+    )
+    if lost_sup:
+        joined = " ".join(part for part in (supervisory, *lost_sup) if part)
+        supervisory = (
+            joined
+            if len(joined) <= _ceiling("supervisory", SFURelationships)
+            else source.supervisory
+        )
+    internal = [*internal, *lost_int]
+    if len(internal) > _ceiling("internal", SFURelationships):
+        internal = list(source.internal)
+    external = [*external, *lost_ext]
+    if len(external) > _ceiling("external", SFURelationships):
+        external = list(source.external)
+    log.restored.extend((section, text) for text in (*lost_sup, *lost_int, *lost_ext))
+    return model.model_copy(
+        update={"supervisory": supervisory, "internal": internal, "external": external}
+    )
+
+
+def _fold_back(
+    duties: list[SFUDuty],
+    source_duties: Sequence[SFUDuty],
+    rules: Rules,
+) -> tuple[list[SFUDuty], list[str], list[str]]:
+    """Put back the source duty content no rewritten duty covers (HR-271).
+
+    🔴 MEASURED (pilot, 1d68c603): a twelve-duty merge, a five-duty JDFN cap (HR policy,
+    `thresholds.duties_max`, untouched), and a model that met the cap by DROPPING whole
+    areas — "Community Liaison & Committee Representation", "Research & Museum Career
+    Skills Training" — recorded in ``removed_duties`` and gone. Merging related duties
+    to reach the cap is the rewrite's job; losing an area is not.
+
+    Each SENTENCE of every source duty (statement and clauses) must be covered — the
+    HR-267 fraction of its tokens — by ONE rewritten duty as it now stands. An uncovered
+    sentence is appended verbatim as a how/why clause of the rewritten duty that covers
+    the rest of its source duty best (``fold_back``), or only listed (``record_only``).
+    Covered-ness is re-read after each fold, so a near-duplicate source duty (the merge
+    keeps several: S1/S2, S3/S4 on that cluster) does not fold the same point twice.
+    Returns ``(duties, folded, dropped)``."""
+    rewrite, comparison = rules.rewrite, rules.comparison
     threshold = rewrite.how_why_grounding_threshold
-    return any(len(tokens & source) / len(tokens) >= threshold for source in sources)
+    cap = min(_ceiling("how_why", SFUDuty), rules.segmentation.duty_how_why_max_count)
+    vocabs = [set(_content_tokens(duty_text(d), comparison)) for d in duties]
+    extra: list[list[str]] = [[] for _ in duties]
+    folded: list[str] = []
+    dropped: list[str] = []
+    for src in source_duties:
+        src_tokens = _content_tokens(duty_text(src), comparison)
+        missing = [
+            sentence
+            for text in (src.statement, *src.how_why)
+            for sentence in sentences(text)
+        ]
+        for sentence in missing:
+            tokens = _content_tokens(sentence, comparison)
+            if any(_covers(tokens, frozenset(v), threshold) for v in vocabs):
+                continue
+            if (
+                rewrite.duty_coverage_policy == "record_only"
+                or not duties
+                or carries_placeholder(sentence, rules)  # HR-047: never restore one
+            ):
+                dropped.append(sentence)
+                continue
+            # The rewritten duty the REST of this source duty landed in — ties to the
+            # first, so the fold is deterministic.
+            target = max(
+                range(len(duties)),
+                key=lambda j: (len(src_tokens & vocabs[j]), -j),
+            )
+            if len(duties[target].how_why) + len(extra[target]) >= cap:
+                dropped.append(sentence)
+                continue
+            extra[target].append(sentence)
+            vocabs[target] |= tokens
+            folded.append(sentence)
+    out = [
+        duty.model_copy(update={"how_why": [*duty.how_why, *more]}) if more else duty
+        for duty, more in zip(duties, extra, strict=True)
+    ]
+    return out, folded, dropped
 
 
 def _apply_anti_fabrication(
     llm_jd: SFUJobDescription, merged: MergedRole, rules: Rules
 ) -> tuple[SFUJobDescription, AntiFabricationRecord]:
-    """Scrub ungrounded qualifications, flag no-overlap duties (HR-181…HR-184).
+    """Scrub what the model invented and restore what it lost (HR-181…HR-184,
+    HR-208/213/214/267, and the 2026-10-20 fidelity rules HR-269…HR-276).
+
+    Everything is judged against the SOURCE VIEW of the merge draft
+    (:func:`~src.jd_bank.rewrite.fidelity.source_view`): the draft minus the old
+    questionnaire's instructions and SFU's boilerplate, which the model is not shown,
+    cannot ground anything, and no restore puts back.
 
     Returns the scrubbed JD + the audit record. When the guard is disabled
     (``rewrite.anti_fabrication_enabled = false``) the model's output is returned
@@ -225,7 +496,8 @@ def _apply_anti_fabrication(
         return llm_jd, AntiFabricationRecord(enabled=False)
 
     comparison = rules.comparison
-    vocab = _draft_vocabulary(merged, comparison)
+    source, stripped = source_view(merged.draft, rules)
+    vocab = _draft_vocabulary(source, merged, comparison)
 
     authorable = _rewritable_kinds(rewrite)
 
@@ -234,7 +506,7 @@ def _apply_anti_fabrication(
     # the 4.1 merge derived from the members: the model's version is discarded whatever
     # it says — a plausible invented bar passes a token-overlap test — and the merge's
     # own comes back verbatim.
-    bars = [q for q in merged.draft.qualifications if q.kind not in authorable]
+    bars = [q for q in source.qualifications if q.kind not in authorable]
     bar_texts = {q.text for q in bars}
     kept: list[SFUQualification] = []
     scrubbed: list[str] = []
@@ -250,126 +522,103 @@ def _apply_anti_fabrication(
             scrubbed.append(qual.text)
         else:
             kept.append(qual)
+
+    # …and what the model DROPPED (2026-10-20). MEASURED: a WJQ draft went 40 -> 15
+    # qualifications. Most of that was honest de-duplication, but "circuit fabrication/
+    # assembly", "web publishing software" and "instruct others on safe work
+    # environments" were simply gone, and nothing recorded it. A source competency no
+    # kept one covers (the HR-183 rule read from the source's end, against ONE kept
+    # qualification) is recorded, and put back when `qualifications` is restorable.
+    log = _ItemLog(rules)
+    restoring_quals = "qualifications" in rewrite.restore_uncovered_items_in
+    kept_tokens = [_content_tokens(q.text, comparison) for q in kept]
+    lost_quals: list[SFUQualification] = []
+    for qual in (q for q in source.qualifications if q.kind in authorable):
+        tokens = _content_tokens(qual.text, comparison)
+        if not any(_qualification_covered(tokens, k, rewrite) for k in kept_tokens):
+            lost_quals.append(qual)
+            if restoring_quals:
+                kept_tokens.append(tokens)
+    log.uncovered.extend(("qualifications", q.text) for q in lost_quals)
+    back = [q for q in lost_quals if log.restorable([q.text])]
+    if restoring_quals and back:
+        kept = [*kept, *back]
+        if len(kept) + len(bars) > _ceiling("qualifications"):
+            kept = [q for q in source.qualifications if q.kind in authorable]
+        log.restored.extend(("qualifications", q.text) for q in back)
     kept.extend(bars)
 
-    # Duties, reconciled against the merge draft in BOTH directions on one threshold.
+    # Duties, reconciled against the source view in BOTH directions.
+    source_duties = source.duties
     draft_duty_tokens = [
-        _content_tokens(duty_text(duty), comparison) for duty in merged.draft.duties
+        _content_tokens(duty_text(duty), comparison) for duty in source_duties
     ]
     llm_duty_tokens = [
         _content_tokens(duty_text(duty), comparison) for duty in llm_jd.duties
     ]
+    # Review M2 / HR-267: each CLAUSE must be grounded in ONE source unit — a duty's
+    # headline plus one of its clauses (or the headline alone) — never in a union.
+    # Since 2026-10-20 the unit may come from ANY source duty: the model merges
+    # duties to reach the form's cap, and grounding a merged duty's clauses against the
+    # one source it was matched to scrubbed 8 faithful clauses on the pilot's 1d68c603
+    # and all 15 on 22994d3a. The strictness per unit is unchanged.
+    clause_units = [
+        unit
+        for duty, headline in (
+            (d, _content_tokens(d.statement, comparison)) for d in source_duties
+        )
+        for unit in (
+            [headline | _content_tokens(c, comparison) for c in duty.how_why]
+            or [headline]
+        )
+    ]
+    duty_vocab = frozenset().union(*draft_duty_tokens)
 
-    # → What did the model ADD? (unchanged: flagged, never dropped — a duty may reword.)
-    # ...and, on the same pass, carry back what the model could not return. `frequency`
-    # is a field of `SFUDuty` and the prompt's duty schema has no key for it, so a
-    # wholesale container replacement destroyed it on EVERY CUPE draft — structurally,
-    # 100% (S-4). The top-level `_REWRITABLE_FIELDS` completeness pin cannot see a
-    # nested model's fields, which is why this is restored per matched duty rather than
-    # pinned: the merge duty a rewritten one corresponds to is the one that knows how
-    # often the role performs it.
+    # → What did the model ADD? A duty itself is flagged, never dropped — a duty may
+    # reword (HR-184). `frequency` is carried back from the merge duty a rewritten one
+    # matches: the prompt's duty schema has no key for it, so a wholesale replacement
+    # destroyed it on EVERY CUPE draft (S-4).
     flagged: list[str] = []
     duties: list[SFUDuty] = []
-    #: Merge duties whose how/why has already been carried back — at most once each, so
-    #: a model that splits one grouped duty into two cannot get its clauses twice.
-    restored_from: set[int] = set()
     scrubbed_how_why: list[str] = []
     for duty, tokens in zip(llm_jd.duties, llm_duty_tokens, strict=True):
         best_index, best = _closest(tokens, draft_duty_tokens)
-        if best < rewrite.duty_flag_threshold:
-            flagged.append(duty.statement)
-            # A flagged duty has no source duty to ground its clauses in, so none of
-            # them is kept (review M2: an ungrounded clause is never kept). The duty
-            # itself stays, flagged, for the reviewer — as before.
-            scrubbed_how_why.extend(duty.how_why)
-            duties.append(
-                duty.model_copy(update={"how_why": []}) if duty.how_why else duty
-            )
-            continue
-        source = merged.draft.duties[best_index]
-        # Review M2: each CLAUSE must be grounded in its source duty's own text —
-        # the whole-duty Jaccard above lets a reworded duty carry an invented clause.
-        # Grounded in the headline plus ONE source clause (or the headline alone when
-        # the source has none), never the union of all (review round 2).
-        headline = _content_tokens(source.statement, comparison)
-        units = [headline | _content_tokens(c, comparison) for c in source.how_why]
-        source_units = units or [headline]
-        kept_clauses = []
+        kept_clauses: list[str] = []
         for clause in duty.how_why:
-            if _clause_is_grounded(clause, source_units, rewrite, comparison):
+            if _grounded_in_one(
+                clause,
+                clause_units,
+                duty_vocab,
+                rewrite.how_why_grounding_threshold,
+                rewrite,
+                comparison,
+            ):
                 kept_clauses.append(clause)
             else:
                 scrubbed_how_why.append(clause)
-        # ...and the other direction, the same token rule asked from the source's end
-        # (review round 2): every SOURCE clause must still be covered by the rewritten
-        # duty (statement + kept clauses), or the model DROPPED it — which prompt v3
-        # forbids and nothing caught. Keeping only the grounded part of a clause list
-        # that dropped or replaced a source clause would lose that clause silently, so
-        # on either failure the model's clauses give way to the SOURCE's (through the
-        # restore below: once per merge duty, never onto a statement that folded them).
-        rewritten_vocab = frozenset(
-            _content_tokens(" ".join((duty.statement, *kept_clauses)), comparison)
-        )
-        dropped_a_source_clause = any(
-            not _clause_is_grounded(clause, [rewritten_vocab], rewrite, comparison)
-            for clause in source.how_why
-        )
-        if len(kept_clauses) != len(duty.how_why) or (
-            duty.how_why and dropped_a_source_clause
-        ):
-            duty = duty.model_copy(update={"how_why": []})
         restored: dict[str, Any] = {}
-        if duty.frequency is None:
-            restored["frequency"] = source.frequency
-        # Parser v9 (owner ruling 2026-10-20, Q1): a grounded duty's how/why clauses
-        # are source content. A rewrite that returns the duty WITHOUT them has not
-        # reworded them, it has dropped them — carry the merge's back, as for frequency.
-        #
-        # Restored only when the rewritten STATEMENT reads as the merge's headline, not
-        # as its whole duty: a model that FOLDED the clauses into the statement has
-        # kept their words, and carrying them back would state each clause twice. No
-        # threshold — the statement is compared against the headline and against the
-        # whole duty, and the closer one decides. And once per merge duty (above).
-        if (
-            not duty.how_why
-            and source.how_why
-            and best_index not in restored_from
-            and _jaccard(
-                _content_tokens(duty.statement, comparison),
-                _content_tokens(source.statement, comparison),
-            )
-            > _jaccard(
-                _content_tokens(duty.statement, comparison),
-                draft_duty_tokens[best_index],
-            )
-        ):
-            restored["how_why"] = list(source.how_why)
-            restored_from.add(best_index)
+        if kept_clauses != duty.how_why:
+            restored["how_why"] = kept_clauses
+        if best < rewrite.duty_flag_threshold:
+            # A flagged duty used to keep NO clauses (it had no source duty to ground
+            # them in). Each clause is now grounded against every source unit, so the
+            # faithful ones of a flagged duty stay — and an ungrounded one still never
+            # does.
+            flagged.append(duty.statement)
+        elif duty.frequency is None:
+            restored["frequency"] = source_duties[best_index].frequency
         duties.append(duty.model_copy(update=restored) if restored else duty)
 
-    # 🔴 EMPTY-TO-EMPTY, FOR DUTIES. A grounded draft with NO duties cannot acquire any
-    # from a rewording pass, and until 2026-08-22 it could and did.
-    #
-    # MEASURED ON THE LIVE BANK: 153 drafts carry 1,219 duties that NO source document
-    # states — 101 of the 649 CUPE drafts (15.6%), 996 duties. The chain is: the WJQ
-    # parser recovers no duties from 719 of 4,440 CUPE documents (16.2%, against 2.2%
-    # on the APSA form); `merge_cluster` correctly produces nothing from nothing; and
-    # the rewrite then writes eight to twelve plausible, specific duties out of thin air
-    # ("verifies bibliographic records against the library online catalogue" for a role
-    # whose sources list no duties at all).
-    #
-    # NOTHING OBJECTED, because the duty guard above only FLAGS what the model adds and
-    # never removes it — deliberately, since a reworded duty must be allowed to drift.
-    # That reasoning is sound when the draft HAS duties to drift from. It is vacuous
-    # when the draft has none: there is no wording to preserve, so every duty returned
-    # is an invention, and "flagged" is the wrong verb for content with no source.
-    #
-    # This is the SAME rule as `_SECTIONS_NEVER_INVENTED` one field over, and the same
-    # argument S-5 settled for whole sections: a draft that honestly reports no duties
-    # fails `SFU-COMP-DUTIES`, which is the validator doing its job and the
-    # right place for the parser gap to become visible. A fabricated duty list scores
-    # better and tells a reviewer something untrue about the role.
-    if rewrite.duties_never_invented and not merged.draft.duties and duties:
+    # 🔴 EMPTY-TO-EMPTY, FOR DUTIES (HR-213). A grounded draft with NO duties cannot
+    # acquire any from a rewording pass. MEASURED ON THE LIVE BANK 2026-08-22: 153
+    # drafts carried 1,219 duties that NO source document states — the WJQ parser
+    # recovers no duties from 16.2% of CUPE documents, the merge correctly produces
+    # nothing from nothing, and the rewrite then wrote eight to twelve plausible duties
+    # out of thin air. The duty guard above only FLAGS what the model adds, which is
+    # right when the draft HAS duties to drift from and vacuous when it has none. A
+    # draft that honestly reports no duties fails `SFU-COMP-DUTIES` — the validator
+    # doing its job, and the right place for the parser gap to become visible.
+    if rewrite.duties_never_invented and not source_duties and duties:
         invented_duties = [duty.statement for duty in duties]
         duties = []
         flagged = []
@@ -377,71 +626,92 @@ def _apply_anti_fabrication(
     else:
         invented_duties = []
 
-    # ← What did the model TAKE AWAY? The question nothing asked (S-2). A merge duty
-    # with no counterpart this close in the rewrite is content the source documents
-    # stated and the draft no longer carries, and "reword this" licenses none of it.
-    # RECORDED, not restored: a rewrite that legitimately folds two near-identical
-    # duties into one is doing its job, and re-adding the fold would fight the pass.
-    # What was missing was the reviewer being told at all.
+    # ← What did the model TAKE AWAY? (S-2) A merge duty with no counterpart this close
+    # in the rewrite — RECORDED as what the model did: a rewrite that folds two
+    # near-identical duties into one is doing its job.
     removed_duties = [
         duty.statement
-        for duty, tokens in zip(merged.draft.duties, draft_duty_tokens, strict=True)
+        for duty, tokens in zip(source_duties, draft_duty_tokens, strict=True)
         if _closest(tokens, llm_duty_tokens)[1] < rewrite.duty_flag_threshold
     ]
+    # …and what it LOST (HR-271): every source duty sentence no rewritten duty covers is
+    # folded back or listed. This replaces the per-duty "restore the source's clauses"
+    # rules of v9 review rounds 1–2, which asked the same question of the ONE matched
+    # source duty and so misfired as soon as the model merged duties.
+    duties, folded, dropped = _fold_back(duties, source_duties, rules)
+    if not duties and source_duties and rewrite.duty_coverage_policy == "fold_back":
+        # Nothing to fold into: the model returned no duties at all for a draft that
+        # has them. The source's own duties come back whole.
+        duties, folded, dropped = list(source_duties), [], []
+        restored_duties = True
+    else:
+        restored_duties = False
 
-    # A SECTION the grounded draft does not have cannot be written by the rewrite
-    # (CUPE Phase D). The guard above polices the CONTENT of a section; this polices
-    # its existence, which is the coarser and — since the producer began drafting CUPE
-    # roles — the likelier fabrication: 0.0% of CUPE JDs have a Problem Solving section
-    # and 3.1% an Impact of Decision Making one, because the WJQ form does not ask. A
-    # model handed a schema listing both will fill them in, and the token-overlap guard
-    # cannot object, because it only reads qualifications and duties.
-    #
-    # ⚠ EMPTY-TO-EMPTY only. A section the draft HAS is left entirely to the rewrite —
-    # rewording is the pass's whole job.
-    emptied: dict[str, Any] = {}
+    # SECTIONS. Three questions, in order:
+    # 1. A SECTION the grounded draft does not have cannot be written by the rewrite
+    #    (CUPE Phase D): 0.0% of CUPE JDs have a Problem Solving section and 3.1% an
+    #    Impact of Decision Making one, because the WJQ form does not ask.
+    # 2. A section both have is reconciled PER ITEM against the merge's SAME section
+    #    (HR-269/270, 2026-10-20). Until then a section the draft HAD was "left entirely
+    #    to the rewrite", and the pilot measured what that let through: "Approves
+    #    acquisition, deaccession and loan decisions" (Decision Making, no source states
+    #    it), Decision Making 13 -> 5, a WJQ contact list replaced wholesale.
+    # 3. A section the merge grounded may not come back EMPTY (HR-214). MEASURED
+    #    2026-08-23: the merge grounded `relationships` for 43 of 50 processed clusters
+    #    and 11 drafts came back without it (25.6%), against a 90.4% control.
+    section_values: dict[str, Any] = {}
+    invented_sections: list[str] = []
     for section in _SECTIONS_NEVER_INVENTED:
-        if not getattr(merged.draft, section) and getattr(llm_jd, section):
-            emptied[section] = None if section == "relationships" else []
-
-    # 🔴 …AND THE OTHER DIRECTION, WHICH WENT UNGUARDED (HR-214). The loop above stops
-    # the model INVENTING a section. Until 2026-08-23 its comment also claimed that
-    # leaving the reverse case alone "drops nothing a source document stated" —
-    # asserted, never measured, false: a rewrite returning the section EMPTY deletes
-    # content the merge grounded from real member documents, and nothing objected, as
-    # nothing objected to invented duties (HR-213) for the mirror-image reason.
-    #
-    # MEASURED over the 50 clusters the v5 producer pass processed before being stopped:
-    # the merge grounded `relationships` for 43 and 11 drafts came back WITHOUT it —
-    # 25.6% — against a 90.4% carry-through control on the untouched cohort, about -3
-    # sigma. One cluster: 40/40 members carrying relationships, merge `internal=20,
-    # external=1`, draft none.
-    #
-    # ⚠ EMPTY-ONLY, deliberately. A section the model RETURNED is its own, even when it
-    # is thinner than the merge's — the same cluster compressed twenty internal contacts
-    # to three on a re-run, and whether that is rewording or loss is an open question
-    # that must not be settled by a threshold smuggled in here.
-    restored_sections: list[str] = []
+        if not _has(getattr(source, section)) and _has(getattr(llm_jd, section)):
+            section_values[section] = None if section == "relationships" else []
+            invented_sections.append(section)
+    for section in ("decision_making", "problem_solving"):
+        if getattr(source, section) and getattr(llm_jd, section):
+            section_values[section] = _reconcile_list(
+                section,
+                getattr(source, section),
+                getattr(llm_jd, section),
+                rewrite,
+                comparison,
+                log,
+            )
+    if (
+        source.relationships is not None
+        and llm_jd.relationships is not None
+        and _has(source.relationships)
+        and _has(llm_jd.relationships)
+    ):
+        section_values["relationships"] = _reconcile_relationships(
+            source.relationships, llm_jd.relationships, rewrite, comparison, log
+        )
+    restored_sections: list[str] = ["duties"] if restored_duties else []
     if rewrite.sections_never_emptied:
         for section in _SECTIONS_NEVER_INVENTED:
-            grounded = getattr(merged.draft, section)
-            if grounded and not getattr(llm_jd, section) and section not in emptied:
-                emptied[section] = grounded
+            grounded = getattr(source, section)
+            now = section_values.get(section, getattr(llm_jd, section))
+            if _has(grounded) and not _has(now) and section not in invented_sections:
+                section_values[section] = grounded
                 restored_sections.append(section)
 
     scrubbed_jd = llm_jd.model_copy(
-        update={"qualifications": kept, "duties": duties, **emptied}
+        update={"qualifications": kept, "duties": duties, **section_values}
     )
     return scrubbed_jd, AntiFabricationRecord(
         enabled=True,
         scrubbed_skills=tuple(scrubbed),
         flagged_duties=tuple(flagged),
-        scrubbed_sections=tuple(sorted(set(emptied) - set(restored_sections))),
+        scrubbed_sections=tuple(sorted(invented_sections)),
         removed_duties=tuple(removed_duties),
         invented_duties=tuple(invented_duties),
         restored_bars=tuple(restored_bars),
         restored_sections=tuple(sorted(restored_sections)),
         scrubbed_how_why=tuple(scrubbed_how_why),
+        folded_duty_content=tuple(folded),
+        dropped_duty_content=tuple(dropped),
+        scrubbed_items=tuple(log.scrubbed),
+        uncovered_items=tuple(log.uncovered),
+        restored_items=tuple(log.restored),
+        stripped_source_text=stripped,
     )
 
 
@@ -471,6 +741,11 @@ async def rewrite_merged_role(
     # source documents actually stated.
     thresholds = active.thresholds_for(template_of(merged.draft))
 
+    # The model reads the SOURCE VIEW (2026-10-20): the merge draft minus the old
+    # questionnaire's own instructions and SFU boilerplate (HR-273…HR-276). It is shown
+    # nothing the guard would refuse to let it ground, or refuse to restore.
+    source, _stripped = source_view(merged.draft, active)
+
     # …and the FLOOR is this merge's own, not the form's (HR-209). Phase D fixed the
     # destructive case; this fixes the quiet one. Measured over the five largest
     # all-CUPE clusters on 2026-08-19: 60 merge duties came back as 36, only 10
@@ -485,7 +760,7 @@ async def rewrite_merged_role(
     # sparse merge: a cluster that grounded two duties has two, and asking for three
     # asks the model to invent one. The validator reports that under-run honestly.
     duties_min = (
-        min(len(merged.draft.duties), thresholds.duties_max)
+        min(len(source.duties), thresholds.duties_max)
         if rewrite.duty_floor_policy == "grounded"
         else thresholds.duties_min
     )
@@ -495,7 +770,7 @@ async def rewrite_merged_role(
         rewrite.prompt_version,
         member_count=merged.provenance.member_count,
         skill_frequency=_skill_frequency_lines(merged.provenance.skill_frequency),
-        member_jds=outline_jd(merged.draft),
+        member_jds=outline_jd(source),
         duties_min=duties_min,
         duties_max=thresholds.duties_max,
         summary_min_words=thresholds.summary_min_words,
