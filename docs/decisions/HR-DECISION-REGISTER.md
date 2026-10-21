@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **271 decisions** (269 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 374 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **274 decisions** (272 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 377 parameters on the decision surface, all accounted for.
 
-**Of those 271, 90 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 179 are recorded for the same build check but are not yours to sign: 82 shape what a reviewer sees without deciding whether a job description passes, and 97 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 274, 90 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 182 are recorded for the same build check but are not yours to sign: 85 shape what a reviewer sees without deciding whether a job description passes, and 97 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -978,6 +978,9 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-269](#hr-269) | When the LLM rewords Impact of Decision Making, Problem Solving or Relationships, how much of each point must come from the SAME section of the source draft for the point to be kept — and how much of a source point must survive for it to count as kept rather than lost? | `0.5` | we chose it |
 | [HR-272](#hr-272) | Must every name or acronym the LLM rewrite writes — "ICOM", "Engineering Science" — appear in the source draft itself, even when the rest of the line is grounded? | `true` | we chose it |
 | [HR-278](#hr-278) | Must every number the LLM rewrite writes — a staff count, an amount, a duration — appear in the source text the line comes from? | `true` | we chose it |
+| [HR-279](#hr-279) | When the LLM rewrite loses part of a source duty and it is put back (HR-271), how closely must the rewritten duty it is filed under match that source duty — and what happens when no duty matches that closely? | `0.11` | we chose it |
+| [HR-280](#hr-280) | Should one rewritten duty be limited in how many restored source points it can take, so that restored content is spread across the duties? | `0` | we chose it |
+| [HR-281](#hr-281) | When text in a job description matches SFU's standard wording (the territorial acknowledgement, About SFU, the employment-equity statement) and is set aside before the rewrite, in which sections should the reviewer be asked to check it is not actually part of the role? | `duties`, `decision_making`, `problem_solving`, `relationships` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -1444,6 +1447,30 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** we chose it
 - **Why it matters:** A changed number is a changed claim about the job, and until review round 1 the rewrite's checks could not see one: a number of one or two digits was shorter than the minimum word length, so "Decides daily work assignments for 2 staff" reworded to "…for 12 staff" was kept and nothing recorded it. Numbers are now counted as words whatever their length, and with this on, a line whose number the source does not state is treated like a line with an invented name (HR-272): a point, clause or qualification is dropped and recorded (its source wording comes back through HR-270/271), and a duty statement is flagged for the reviewer. ⚠ It also drops a faithful rewording that writes "two" for "2" or the reverse; nothing is lost but the rewording.
 - **If it changes:** Does NOT move `rules_version`. `false` stops requiring numbers to be grounded (they still count as words in the half-of-its-words bars). Pinned by `test_rewrite_fidelity_review.py`.
+
+##### HR-279 — When the LLM rewrite loses part of a source duty and it is put back (HR-271), how closely must the rewritten duty it is filed under match that source duty — and what happens when no duty matches that closely?
+
+- **We ship:** `0.11`
+- **Configured in:** `rewrite.yaml` → `rewrite.fold_back_relevance_min`
+- **Where the default came from:** we chose it
+- **Why it matters:** Fold-back (HR-271) put lost duty content under the rewritten duty that best matched it, with no minimum. Two defects, MEASURED by replaying the 28 recorded pilot replies (22 clusters) offline. (1) It read each duty's text as it grew, so the first duty to take a fold attracted the next: on 1d68c603 one duty took 30 of 37 folds, and 89 of 314 folds went under a duty that was not the best match. That is fixed outright (placement reads only what the model wrote): 0 of 323. (2) With no minimum, a source duty that matches NOTHING still lands somewhere — "approves leaves of absence" and "Performs other duties as assigned" under an unrelated duty at 0% shared words, "Research & Museum Career Skills Training" under "Acquire and develop museum assets" at 8–10%, "Provides support to visiting scholars" under "budgetary and financial administration" at 10%. The measured folds split cleanly: every one at 10% or less was unrelated, the next were related (11.5%+, financial-support content under a financial duty). Below 0.11 the content now comes back as its own duty, verbatim, when the form has room (`thresholds.duties_max`, HR policy, unchanged), and is otherwise listed on the review page as not in the draft. On the pilot: 15 sentences from 8 source duties (the two 1d68c603 replies counted separately), all on full five- or twelve-duty drafts, so all 15 are listed rather than folded — among them the whole "Research & Museum Career Skills Training" area, which is the trade HR is asked to rule on.
+- **If it changes:** Only drafts produced after the change. Does NOT move `rules_version`. 0.0 folds every lost sentence under the best match whatever it is (the 2026-10-20 behaviour, minus the snowball). Higher lists more content instead of folding it; at 0.2 about a quarter of the pilot's folds would be listed. Pinned by `test_rewrite_provenance.py`.
+
+##### HR-280 — Should one rewritten duty be limited in how many restored source points it can take, so that restored content is spread across the duties?
+
+- **We ship:** `0`
+- **Configured in:** `rewrite.yaml` → `rewrite.fold_back_max_per_duty`
+- **Where the default came from:** we chose it
+- **Why it matters:** After the HR-279 fix, one rewritten duty can still take many restored points: on the pilot's 57db4a16 one duty took 27, because those source duties are about the same work as that duty. MEASURED on the 28 recorded pilot replies, a limit of 10 per duty did not improve placement: it moved 22 points to a duty that matches them less well and pushed 19 more points out of the draft into the "not in the draft" list (36 listed instead of 17). So no limit is shipped (0). The knob is kept so HR can ask for one if a long duty reads worse than a spread-out one.
+- **If it changes:** Only drafts produced after the change. Does NOT move `rules_version`. A value N passes the (N+1)th point to the next-best duty above the HR-279 floor, or lists it. Pinned by `test_rewrite_provenance.py`.
+
+##### HR-281 — When text in a job description matches SFU's standard wording (the territorial acknowledgement, About SFU, the employment-equity statement) and is set aside before the rewrite, in which sections should the reviewer be asked to check it is not actually part of the role?
+
+- **We ship:** `duties`, `decision_making`, `problem_solving`, `relationships`
+- **Configured in:** `rewrite.yaml` → `rewrite.boilerplate_review_sections`
+- **Where the default came from:** we chose it
+- **Why it matters:** The rewrite sets aside any sentence that reproduces SFU's standard wording (HR-273/274), wherever it appears, and until now the review page called every such sentence "form text". That is wrong for a duty: a duty of an Indigenous programs role about organizing events that acknowledge the Coast Salish territories matches the acknowledgement and is set aside, and "form text" told the reviewer there was nothing to check. In the sections listed here the page now says it "matched SFU's standard wording and was set aside — check it is not part of the role"; elsewhere it says it is standard wording the form supplies. The text set aside is the same either way. Qualifications are not listed: MEASURED over the 22 pilot merge drafts, all 23 such sentences were in Qualifications, in 9 drafts, and every one was the real employment-equity statement or acknowledgement that the parser reads in as a qualification line — a "check this" there would be a false alarm on 41% of drafts. No pilot draft had one in a duty.
+- **If it changes:** Display only; only drafts produced after the change (an older record does not say which section a piece came from and keeps a combined reason). Does NOT move `rules_version`. Adding `qualifications` asks the reviewer to check the employment-equity lines too. Pinned by `test_rewrite_provenance.py`.
 
 #### An earlier version of this tool chose it — also unratified
 

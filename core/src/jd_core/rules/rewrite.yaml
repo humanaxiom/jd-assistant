@@ -132,6 +132,39 @@ how_why_grounding_threshold: 0.5
 # cannot see what is not on the page. HR-271.
 duty_coverage_policy: fold_back
 
+# WHERE fold-back puts a source duty's lost sentences: under the rewritten duty that holds
+# the most of that source duty's words — read from what the MODEL wrote, never from what
+# was already folded in (that let the first duty to take a fold snowball: one duty took
+# 30 of 37 on the pilot's 1d68c603). This is the least share of the source duty's
+# content words that duty must hold. Below it the lost content is NOT filed under an
+# unrelated duty ("Maintains the departmental website content" under "Coordinates the
+# student orientation program"): it comes back as its OWN duty, verbatim, when the form
+# has room (`thresholds.duties_max`, HR policy, untouched), and is listed for the reviewer
+# otherwise. 0.0 folds under the best match whatever it is. MEASURED (28 recorded pilot
+# replies, replayed offline): every fold at 10% or less was unrelated ("approves leaves of
+# absence" at 0%, "Research & Museum Career Skills Training" under "Acquire and develop
+# museum assets" at 8–10%), the next were related (11.5%+). 15 sentences are now listed
+# instead of misfiled; none could become its own duty (every such draft was full). HR-279.
+fold_back_relevance_min: 0.11
+
+# The most source sentences fold-back files under ONE rewritten duty; past it the next
+# goes to the next-best duty above the HR-279 floor (or, if none, is handled as below the
+# floor). 0 = no limit beyond the how/why cap (`segmentation.duty_how_why_max_count`).
+# HR-280.
+fold_back_max_per_duty: 0
+
+# The sections where a sentence matching SFU boilerplate (HR-273/274) is shown to the
+# reviewer as "matched SFU's standard wording and was set aside — check it is not part
+# of the role", rather than as standard wording set aside. Display only: what is
+# stripped does not change. An Indigenous programs role's duty about events that
+# acknowledge the Coast Salish territories matches the acknowledgement and is stripped;
+# called "form text", nothing prompted the reviewer to put it back. Qualifications are
+# deliberately NOT listed: MEASURED over the 22 pilot merge drafts, all 23 boilerplate
+# strips were in Qualifications (9 drafts) and every one was the real EE statement or
+# acknowledgement the parser reads in as a qualification line — listing the section would
+# put a false "check this" on 41% of drafts. HR-281.
+boilerplate_review_sections: [duties, decision_making, problem_solving, relationships]
+
 # How a rewritten DECISION MAKING / PROBLEM SOLVING / RELATIONSHIPS item is grounded: at
 # least this fraction of its content tokens must appear in ONE item of the merge draft's
 # SAME section (not the whole document — a contact lifted from the duties is not a

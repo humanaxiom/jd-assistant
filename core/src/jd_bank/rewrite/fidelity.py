@@ -26,8 +26,9 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, Literal, TypeVar
 
+from src.jd_core.models.bank import StrippedSection, StrippedSourcePiece
 from src.jd_core.models.parsed_jd import SFUDuty, SFUJobDescription, SFUQualification
 from src.jd_core.rules import Comparison, Rules
 from src.jd_core.textnorm import fold_text
@@ -42,6 +43,7 @@ _SENTENCE: Final[re.Pattern[str]] = re.compile(r"(?<=[.!?])\s+|\n+")
 _OPENERS: Final[str] = " \t\"'(“‘[•◦*-–—"
 #: Punctuation after which the next word starts a sentence (or a list lead-in).
 _SENTENCE_END: Final[str] = ".!?:;\n"
+_T = TypeVar("_T")
 #: Whitespace runs, collapsed only in text the stripper actually changed.
 _SPACES: Final[re.Pattern[str]] = re.compile(r"\s+")
 
@@ -197,18 +199,38 @@ def carries_placeholder(text: str, rules: Rules) -> bool:
     return any(marker in folded for marker in rules.markers.placeholder)
 
 
-def _clean(text: str, matcher: _Matcher, stripped: list[str]) -> str:
+class _Strips:
+    """What the source view removed, with the section it was in and why — a reviewer
+    reads a questionnaire instruction and a duty that happens to match SFU's
+    acknowledgement wording very differently (2026-10-21)."""
+
+    def __init__(self) -> None:
+        self.section: StrippedSection = "position_summary"
+        self.pieces: list[StrippedSourcePiece] = []
+
+    def add(
+        self, kind: Literal["form_instruction", "boilerplate"], texts: Iterable[str]
+    ) -> None:
+        self.pieces.extend(
+            StrippedSourcePiece(section=self.section, kind=kind, text=text)
+            for text in texts
+            if text
+        )
+
+
+def _clean(text: str, matcher: _Matcher, stripped: _Strips) -> str:
     """``text`` minus every form instruction and boilerplate sentence in it. Returned
     BYTE-IDENTICAL when nothing matched — a restore must put back the source's own
     words, not a re-spaced copy of them."""
     out = text
     for pattern in matcher.instructions:
-        for match in pattern.finditer(out):
-            stripped.append(match.group(0).strip())
+        stripped.add(
+            "form_instruction", [m.group(0).strip() for m in pattern.finditer(out)]
+        )
         out = pattern.sub(" ", out)
     pieces = sentences(out)
     kept = [p for p in pieces if not _is_boilerplate(p, matcher)]
-    stripped.extend(p for p in pieces if p not in kept)
+    stripped.add("boilerplate", [p for p in pieces if p not in kept])
     if out == text and len(kept) == len(pieces):
         return text
     # A partially-matched text is rebuilt from its surviving sentences.
@@ -227,7 +249,7 @@ def _is_fragment(text: str, matcher: _Matcher) -> int:
 
 
 def _clean_list(
-    items: Sequence[str], matcher: _Matcher, stripped: list[str]
+    items: Sequence[str], matcher: _Matcher, stripped: _Strips
 ) -> list[str]:
     """A list section minus instructions, boilerplate and wrapped-instruction RUNS.
 
@@ -247,13 +269,11 @@ def _clean_list(
         if end > start and max(words[start:end]) >= matcher.fragment_min_tokens:
             drop.update(range(start, end))
         start = max(end, start + 1)
-    stripped.extend(cleaned[i] for i in sorted(drop))
+    stripped.add("form_instruction", [cleaned[i] for i in sorted(drop)])
     return [item for i, item in enumerate(cleaned) if item and i not in drop]
 
 
-def _clean_duty(
-    duty: SFUDuty, matcher: _Matcher, stripped: list[str]
-) -> SFUDuty | None:
+def _clean_duty(duty: SFUDuty, matcher: _Matcher, stripped: _Strips) -> SFUDuty | None:
     statement = _clean(duty.statement, matcher, stripped)
     clauses = _clean_list(duty.how_why, matcher, stripped)
     if not statement:
@@ -267,23 +287,29 @@ def _clean_duty(
 
 def source_view(
     draft: SFUJobDescription, rules: Rules
-) -> tuple[SFUJobDescription, tuple[str, ...]]:
-    """The merge draft as the rewrite sees it, and every piece of text removed (each
-    distinct piece once, in document order). See the module docstring."""
+) -> tuple[SFUJobDescription, tuple[str, ...], tuple[StrippedSourcePiece, ...]]:
+    """The merge draft as the rewrite sees it; every piece of text removed (each
+    distinct piece once, in document order); and the same pieces with the section each
+    was in and why it went (each distinct ``(section, kind, text)`` once). See the
+    module docstring."""
     matcher = _matcher(rules)
-    stripped: list[str] = []
+    stripped = _Strips()
     summary = (
         _clean(draft.position_summary, matcher, stripped)
         if draft.position_summary
         else draft.position_summary
     )
+    stripped.section = "duties"
     duties = [
         kept
         for duty in draft.duties
         if (kept := _clean_duty(duty, matcher, stripped)) is not None
     ]
+    stripped.section = "decision_making"
     decision_making = _clean_list(draft.decision_making, matcher, stripped)
+    stripped.section = "problem_solving"
     problem_solving = _clean_list(draft.problem_solving, matcher, stripped)
+    stripped.section = "relationships"
     relationships = draft.relationships
     if relationships is not None:
         supervisory = (
@@ -298,6 +324,7 @@ def source_view(
                 "external": _clean_list(relationships.external, matcher, stripped),
             }
         )
+    stripped.section = "qualifications"
     qualifications: list[SFUQualification] = []
     for qual in draft.qualifications:
         text = _clean(qual.text, matcher, stripped)
@@ -305,6 +332,7 @@ def source_view(
             qualifications.append(
                 qual if text == qual.text else qual.model_copy(update={"text": text})
             )
+    stripped.section = "additional_context"
     context = (
         _clean(draft.additional_context, matcher, stripped) or None
         if draft.additional_context
@@ -321,8 +349,12 @@ def source_view(
             "additional_context": context,
         }
     )
-    return view, _distinct(piece for piece in stripped if piece)
+    return (
+        view,
+        _distinct(piece.text for piece in stripped.pieces),
+        _distinct(stripped.pieces),
+    )
 
 
-def _distinct(pieces: Iterable[str]) -> tuple[str, ...]:
+def _distinct(pieces: Iterable[_T]) -> tuple[_T, ...]:
     return tuple(dict.fromkeys(pieces))

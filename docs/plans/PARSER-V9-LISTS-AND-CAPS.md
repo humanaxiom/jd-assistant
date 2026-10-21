@@ -462,6 +462,33 @@ message.
   moves `PARSER_VERSION` and the placeholder gate (HR-047 reads "action verb" / "how and
   why"). That is an owner/HR decision and is not done here.
 
+### 15.1 Follow-ups from the review of 934425f/320b4f8 (branch `feat/rewrite-provenance`)
+
+Everything below renders from the STORED record. The v9 pass on 320b4f8 needs no re-run
+to show items 1 and 2; items 3 and 4 change the producer, so only drafts made after them.
+
+1. **NN #6 — what was put back is visible.** The review page marks restored text inline
+   (↩) and lists it in "Restored verbatim from the source documents", by section and by the
+   duty it sits under (read from `content`). A new record field, `folded_duty_origins`,
+   names the source duty, and the per-source diff names the document. `jd_core/bank/
+   restoration.py`.
+2. **Every change-log reason is one plain sentence** (`REMOVED_REASON_LABELS`; a test
+   holds it to the `RemovedReason` set). Sections use the rule catalog's labels.
+3. **Strips say why.** `stripped_source_parts` records section + kind (instruction /
+   boilerplate). Boilerplate found in a role-content section (HR-281: duties, Decision
+   Making, Problem Solving, Relationships) reads "matched SFU's standard wording … check
+   it is not part of the role". Older records keep a combined reason.
+4. **Fold-back placement.** Placement reads what the model wrote, not the duty as folds
+   grew it (89 of 314 pilot folds were misplaced by that; now 0). A floor (HR-279, 0.11):
+   below it the content becomes its own duty if the form has room, and is listed
+   otherwise. A per-duty limit (HR-280) was measured and is shipped off (0). At 10 it
+   moved 22 points to worse-matching duties and listed 19 more.
+
+Replay of the 28 recorded pilot replies (offline, no LLM, no Bank): folds 314 → 323,
+listed 2 → 17 (15 sentences from 8 source duties, all on full drafts). 84 folds moved to
+a better-matching duty. The largest single-duty pile fell 36 → 27. Scores were unchanged
+on 27 of 28. 1d68c603 (base) went 67.7 → 74.7.
+
 ## 11. Containers (all removed at the end)
 
 - **This round:** `p9measure-dump`, `p9measure-pg` (127.0.0.1:25999, network `p9measure-net`), `p9measure-ingest-flat`, `p9measure-ingest-grouped`, `p9measure-mA` / `-mB` / `-mD`, `p9measure-losscause`, `p9measure-smoke`, `p9measure-intro`, and the network `p9measure-net`.
