@@ -23,6 +23,16 @@ _BULLETS_CEILING: int = next(
     if getattr(meta, "max_length", None) is not None
 )
 
+#: ``SFUJobDescription.qualifications``' ceiling (40) — the bound for each of the
+#: knowledge / skills / abilities rows. They held 20 each; since v9 splits
+#: qualifications, v9 drafts carry up to 24 knowledge and 23 ability lines (measured on
+#: the v9 Bank), and a clone of those raised.
+_QUALS_CEILING: int = next(
+    int(meta.max_length)
+    for meta in SFUJobDescription.model_fields["qualifications"].metadata
+    if getattr(meta, "max_length", None) is not None
+)
+
 #: ``SFUJobDescription.duties``' contract ceiling, read off the model (parser v9).
 _DUTIES_CEILING: int = next(
     int(meta.max_length)
@@ -186,9 +196,11 @@ class ComposerAnswers(AnswerContract):
     #    Education -> Experience -> Knowledge -> Skills -> Abilities order (Part 5).
     education: list[str] = Field(default_factory=list, max_length=10)
     experience: list[str] = Field(default_factory=list, max_length=10)
-    knowledge: list[ModifiedQual] = Field(default_factory=list, max_length=20)
-    skills: list[ModifiedQual] = Field(default_factory=list, max_length=20)
-    abilities: list[str] = Field(default_factory=list, max_length=20)
+    knowledge: list[ModifiedQual] = Field(
+        default_factory=list, max_length=_QUALS_CEILING
+    )
+    skills: list[ModifiedQual] = Field(default_factory=list, max_length=_QUALS_CEILING)
+    abilities: list[str] = Field(default_factory=list, max_length=_QUALS_CEILING)
     #: E. Security credentials (Track J4). The criminal record check is a yes/no — the
     #: sentence is HR's (``apsa_form.security_check_sentence``, HR-257), never typed.
     criminal_record_check: bool = False

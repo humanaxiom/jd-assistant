@@ -121,7 +121,10 @@ def is_wjq(text: str, wjq: Wjq) -> bool:
     ``LOCAL 3338`` no longer routes — a JDFN JD that merely CITES CUPE in a duty (HR,
     labour-relations, compensation roles) stays on the JDFN path (MEASURED: 69 such
     files misrouted, 11 of them in the HR-ratified ``new``-era cohort)."""
-    haystack = (text or "").lower()
+    # Whitespace-collapsed: antiword stretches a heading's words apart
+    # ("Weighted   Job   Questionnaire"), and a plain substring test then missed the
+    # CUPE form entirely (parser v9, found by the v9 Bank's smoke).
+    haystack = re.sub(r"\s+", " ", text or "").lower()
     if any(term.lower() in haystack for term in wjq.marker_primary):
         return True
     hits = sum(1 for term in wjq.marker_corroborating if term.lower() in haystack)

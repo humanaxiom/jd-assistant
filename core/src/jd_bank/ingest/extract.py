@@ -373,9 +373,19 @@ def _paragraph_line(p: BaseOxmlElement, ctx: _ListContext | None) -> str:
         ctx.top_indent = None
         return text
     if _ALREADY_MARKED.match(text):
-        # A typed bullet is a top-level item whose depth still anchors what follows —
-        # the J4 export's duty line is typed, its how/why sub-bullets are Word lists.
-        ctx.top_indent = ctx.indent(p)
+        indent = ctx.indent(p)
+        # A NESTED list paragraph that happens to start with a typed number ("2.
+        # Calculating leases …") is still a sub-item. FOUND by smoke on the v9 Bank:
+        # reading it as top-level made every later clause a duty of its own.
+        if (
+            ctx.top_indent is not None
+            and indent > ctx.top_indent
+            and _is_list_paragraph(p, ctx.numbered_styles)
+        ):
+            return f"{SUB_ITEM_MARKER}{text.lstrip()}"
+        # Otherwise a typed bullet is a top-level item whose depth still anchors what
+        # follows — the J4 export's duty line is typed, its how/why are Word lists.
+        ctx.top_indent = indent
         return text
     if not _is_list_paragraph(p, ctx.numbered_styles):
         return text

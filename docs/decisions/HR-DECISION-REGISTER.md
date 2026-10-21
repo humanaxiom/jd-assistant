@@ -956,7 +956,7 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-265](#hr-265) | How many "how and why" points does the parser keep under one duty? | `60` | we chose it |
 | [HR-266](#hr-266) | How many characters of ONE "how and why" point does the parser keep? | `1200` | we chose it |
 | [HR-267](#hr-267) | When the rewrite rewords a duty's "how and why" points, how much of each point must come from the source duty for it to be kept? | `0.5` | we chose it |
-| [HR-268](#hr-268) | How many Impact of Decision Making / Problem Solving points does the parser keep from one archive job description section? | `40` | we chose it |
+| [HR-268](#hr-268) | How many Impact of Decision Making / Problem Solving points does the parser keep from one archive job description section? | `60` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -1394,10 +1394,10 @@ The two bands now say two different, true things. The merged band said one false
 
 ##### HR-268 — How many Impact of Decision Making / Problem Solving points does the parser keep from one archive job description section?
 
-- **We ship:** `40`
+- **We ship:** `60`
 - **Configured in:** `segmentation.yaml` → `segmentation.bullet_max_count`
 - **Where the default came from:** we chose it
-- **Why it matters:** It was the code constant 20 (`_MAX_BULLETS`), unregistered. Once parser v9 read Word list items apart (and kept their "… related to:" lead-ins, review H1), 11 archive sections had more than 20 points and lost the tail. MEASURED over all 14,522 parses with the cap at the model ceiling: p50 2 · p99 15 · max 25 (Decision Making), p99 8 · max 14 (Problem Solving). 40 cuts nothing today. A fidelity bound, not a policy. The Builder's Decision Making / Problem Solving rows hold the model ceiling (60) instead, because a draft is a union the merge cuts there.
+- **Why it matters:** It was the code constant 20 (`_MAX_BULLETS`), unregistered. Once parser v9 read Word list items apart (and kept their "… related to:" lead-ins, review H1), 11 archive sections had more than 20 points and lost the tail. MEASURED over all 14,522 parses with the cap at the model ceiling: p50 2 · p99 15 · max 25 (Decision Making), p99 8 · max 14 (Problem Solving). It is held AT the model ceiling (60), not below it: a draft's list is a union the merge cuts at that ceiling, and its export must re-read whole — at 40, the v9 Bank smoke found 50-item drafts re-reading as 40.
 - **If it changes:** Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`; changes what a parsed JD contains, so it needs a `PARSER_VERSION` bump and a re-parse. Must stay at or below `SFUJobDescription.decision_making` / `problem_solving`'s ceiling (60; loader-enforced).
 
 #### An earlier version of this tool chose it — also unratified

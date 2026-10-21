@@ -42,6 +42,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.jd_bank.composer.answers import AnswerContract
 from src.jd_core.models.parsed_jd import (
+    SFUDuty,
     SFUJobDescription,
     SFUQualification,
     WJQCompletedBy,
@@ -123,6 +124,15 @@ _SECTION_MAX: int = next(
 #: cannot post an unbounded list.
 _LIST_GUARD = 120
 
+#: A function's statement ceiling — ``SFUDuty.statement``'s own, read off the model.
+#: It was a constant 400 (the pre-v9 parser's cut); a v9 duty can run to HR-261's
+#: 1,200, and on the v9 Bank 378 of 635 CUPE roles then refused to clone.
+_STATEMENT_MAX: int = next(
+    int(meta.max_length)
+    for meta in SFUDuty.model_fields["statement"].metadata
+    if getattr(meta, "max_length", None) is not None
+)
+
 #: A level of a checkbox section, by the letter HR's form uses for it (A = the first
 #: option printed). The rulebook decides how many each section has; five is the most.
 Level = Literal["A", "B", "C", "D", "E"]
@@ -168,7 +178,7 @@ class FunctionAnswer(_Row):
     )
 
     action_verb: str = Field(default="", max_length=60)
-    statement: str = Field(min_length=1, max_length=400)
+    statement: str = Field(min_length=1, max_length=_STATEMENT_MAX)
     #: A ``cupe_form.function_frequencies`` meaning (``daily`` …), or ``None``.
     frequency: str | None = Field(default=None, max_length=20)
     allocation: int | None = Field(default=None, ge=0, le=100)
@@ -185,7 +195,7 @@ class MinorFunctionAnswer(_Row):
     )
 
     action_verb: str = Field(default="", max_length=60)
-    statement: str = Field(min_length=1, max_length=400)
+    statement: str = Field(min_length=1, max_length=_STATEMENT_MAX)
     allocation: int | None = Field(default=None, ge=0, le=100)
 
 
@@ -401,7 +411,8 @@ class WJQAnswers(AnswerContract):
     equivalency: Literal["acceptable", "not_acceptable"] | None = None
     equivalency_rationale: str | None = Field(default=None, max_length=1000)
     #: Request-size guards only. The draft holds at most forty qualification lines and
-    #: twenty requirements; the assembler checks those with a message (review L2), so a
+    #: forty requirements (twenty before parser v9); the assembler checks those with a
+    #: message (review L2), so a
     #: pre-J2 answer set that FOLDS into more lines than a draft holds still loads and
     #: is told, never crashed. (MEASURED 2026-10-19: 34 of the 627 live CUPE roles carry
     #: more than 20 knowledge / skill / ability lines; one carries 38.)

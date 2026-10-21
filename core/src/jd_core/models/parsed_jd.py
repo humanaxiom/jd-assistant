@@ -197,7 +197,11 @@ class WJQForm(BaseModel):
     #: acceptable because:" (``equivalency_rationale``); ``None`` = not answered.
     equivalency_acceptable: bool | None = None
     equivalency_rationale: str | None = Field(default=None, max_length=1000)
-    occupational_requirements: list[str] = Field(default_factory=list, max_length=20)
+    #: 40 — the same as ``SFUJobDescription.qualifications``, since a draft's ability
+    #: lines land here (HR-251). It was 20, narrower than the draft it is built from:
+    #: deterministic CUPE drafts on the v9 Bank carry up to 30 ability lines, and two
+    #: refused to reassemble.
+    occupational_requirements: list[str] = Field(default_factory=list, max_length=40)
 
     _lists_null = field_validator(
         "minor_functions",

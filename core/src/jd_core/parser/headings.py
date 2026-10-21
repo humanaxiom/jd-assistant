@@ -286,7 +286,10 @@ EMPLOYEE_GROUP_LABEL_RX = re.compile(r"(?im)^[ \t]*employee group[ \t]*:[ \t]*(.
 NEXT_LABEL_RX = re.compile(
     r"\b(?:incumbent|name of employee|employee name|date|position\s*(?:#|no\.?|number)"
     r"|department|employee group|effective date|last revised|revised date"
-    r"|supervisor'?s? title|grade)\b\s*:?",
+    # `(?!\w)`, not `\b`: a trailing `\b` cannot match after "#" (two non-word
+    # characters), so "Position #:" never cut a value — 80 archive titles read as
+    # "… Position #:" (parser v9, found by the v9 Bank's smoke).
+    r"|supervisor'?s? title|grade)(?!\w)\s*:?",
     re.IGNORECASE,
 )
 

@@ -8424,7 +8424,7 @@ decisions:
     config:
       file: segmentation.yaml
       path: segmentation.bullet_max_count
-    current_default: 40
+    current_default: 60
     provenance: our_invention
     tier: hr_informed
     why_it_matters: >-
@@ -8432,9 +8432,9 @@ decisions:
       Word list items apart (and kept their "… related to:" lead-ins, review H1), 11
       archive sections had more than 20 points and lost the tail. MEASURED over all
       14,522 parses with the cap at the model ceiling: p50 2 · p99 15 · max 25 (Decision
-      Making), p99 8 · max 14 (Problem Solving). 40 cuts nothing today. A fidelity
-      bound, not a policy. The Builder's Decision Making / Problem Solving rows hold the
-      model ceiling (60) instead, because a draft is a union the merge cuts there.
+      Making), p99 8 · max 14 (Problem Solving). It is held AT the model ceiling (60), not
+      below it: a draft's list is a union the merge cuts at that ceiling, and its export
+      must re-read whole — at 40, the v9 Bank smoke found 50-item drafts re-reading as 40.
     impact_if_changed: >-
       Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`;
       changes what a parsed JD contains, so it needs a `PARSER_VERSION` bump and a
