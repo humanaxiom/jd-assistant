@@ -16,7 +16,34 @@ This module imports only ``jd_core`` models, never the reverse (the layering rat
 
 from __future__ import annotations
 
-from src.jd_core.models.parsed_jd import SFUJobDescription
+from collections.abc import Callable
+
+from src.jd_core.models.parsed_jd import SFUDuty, SFUJobDescription
+
+
+def _plain_duty(duty: SFUDuty) -> list[str]:
+    return [duty.statement, *duty.how_why]
+
+
+def _outlined_duty(duty: SFUDuty) -> list[str]:
+    return [f"- {duty.statement}", *(f"    - {clause}" for clause in duty.how_why)]
+
+
+def _parts(jd: SFUJobDescription, duty_lines: Callable[[SFUDuty], list[str]]) -> str:
+    parts: list[str] = [jd.title, jd.position_summary or ""]
+    for duty in jd.duties:
+        parts.extend(duty_lines(duty))
+    parts.extend(jd.decision_making)
+    parts.extend(jd.problem_solving)
+    if jd.relationships is not None:
+        if jd.relationships.supervisory:
+            parts.append(jd.relationships.supervisory)
+        parts.extend(jd.relationships.internal)
+        parts.extend(jd.relationships.external)
+    parts.extend(qual.text for qual in jd.qualifications)
+    if jd.additional_context:
+        parts.append(jd.additional_context)
+    return "\n".join(part for part in parts if part)
 
 
 def flatten_jd(jd: SFUJobDescription) -> str:
@@ -29,18 +56,15 @@ def flatten_jd(jd: SFUJobDescription) -> str:
     the rewrite's validator scan (score inflation) and the audit's evidence scrub
     (a real finding silently dropped). Order is template order; empty parts are skipped.
     """
-    parts: list[str] = [jd.title, jd.position_summary or ""]
-    for duty in jd.duties:
-        parts.append(duty.statement)
-        parts.extend(duty.how_why)
-    parts.extend(jd.decision_making)
-    parts.extend(jd.problem_solving)
-    if jd.relationships is not None:
-        if jd.relationships.supervisory:
-            parts.append(jd.relationships.supervisory)
-        parts.extend(jd.relationships.internal)
-        parts.extend(jd.relationships.external)
-    parts.extend(qual.text for qual in jd.qualifications)
-    if jd.additional_context:
-        parts.append(jd.additional_context)
-    return "\n".join(part for part in parts if part)
+    return _parts(jd, _plain_duty)
+
+
+def outline_jd(jd: SFUJobDescription) -> str:
+    """:func:`flatten_jd` with each duty's SHAPE kept: the duty on a ``- `` line, each
+    how/why clause indented under it. Same sections, same order, same words.
+
+    For the rewrite prompt (``jd_harmonize_v3``): parser v9 fills ``how_why`` (owner
+    ruling 2026-10-20, Q1), and a flat blob would hand the model a headline and its
+    clauses as indistinguishable lines — it could not keep a structure it cannot see.
+    Scanning and evidence keep using :func:`flatten_jd`'s plain text."""
+    return _parts(jd, _outlined_duty)

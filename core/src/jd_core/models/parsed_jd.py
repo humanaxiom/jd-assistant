@@ -84,8 +84,15 @@ class SFUDuty(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     action_verb: str = Field(default="", max_length=60)
-    statement: str = Field(min_length=1, max_length=400)
-    how_why: list[str] = Field(default_factory=list, max_length=12)
+    #: The CONTRACT ceiling. It was 400 and the parser cut to it — MEASURED at parser
+    #: v8, 25,095 of 96,784 stored duty statements sat at exactly 400 characters. The
+    #: OPERATIVE cap is rulebook data (`segmentation.duty_statement_max_chars`, HR-261)
+    #: and must stay under this, or a long duty becomes a parse FAILURE, not a trim.
+    statement: str = Field(min_length=1, max_length=4000)
+    #: The template's "how and why" points under a "… by:" headline. Filled by the
+    #: parser since v9 (owner ruling 2026-10-20); CONTRACT ceiling 100 (was 12) — the
+    #: operative caps are `segmentation.duty_how_why_max_count/_max_chars` (HR-265/266).
+    how_why: list[str] = Field(default_factory=list, max_length=100)
     #: WJQ frequency of performance (``daily`` / ``weekly`` / ``monthly`` /
     #: ``semester``), or ``None`` for a JDFN duty. Additive; see the class docstring.
     frequency: str | None = Field(default=None, max_length=20)
@@ -238,11 +245,17 @@ class SFUJobDescription(BaseModel):
     # 3. Position Summary (template: 100-150 words)
     position_summary: str | None = Field(default=None, max_length=4000)
     # 4. Duties & Responsibilities (template: 3-5 major)
-    duties: list[SFUDuty] = Field(default_factory=list, max_length=12)
+    #
+    # CONTRACT ceiling (was 12 — the WJQ form's major-function slots, applied to both
+    # templates). The OPERATIVE caps are rulebook data — `segmentation.duty_max_count`
+    # (JDFN, HR-262) and `wjq_duty_max_count` (WJQ, HR-263) — and stay under this.
+    # A canonical DRAFT is still held to 12 by the merge (`harmonization.max_duties`,
+    # HR-172); this bound is what a PARSED source document may carry.
+    duties: list[SFUDuty] = Field(default_factory=list, max_length=150)
     # 5. Impact of Decision Making (-> Hay Accountability)
-    decision_making: list[str] = Field(default_factory=list, max_length=20)
+    decision_making: list[str] = Field(default_factory=list, max_length=60)
     # 6. Problem Solving & Level of Supervision (-> Hay Problem-Solving)
-    problem_solving: list[str] = Field(default_factory=list, max_length=20)
+    problem_solving: list[str] = Field(default_factory=list, max_length=60)
     # 7. Relationships
     relationships: SFURelationships | None = None
     # 8. Qualifications

@@ -32,10 +32,9 @@ equality, it says why:
 Track J2 — an AUTHORED draft's CUPE form block (``wjq_form``):
 
 * minor functions come back AFTER the majors in the one duty list the parser builds
-  (it merges sections 3 and 4) — same count, order and words. ⚠ The parser stops at
-  twelve (``segmenter._MAX_DUTIES``), so more than twelve functions re-read short; this
-  oracle REPORTS that as a loss rather than excusing it, and a caller that knows it is
-  past the ceiling asserts the exact message;
+  (it merges sections 3 and 4) — same count, order and words. The parser's ceiling is
+  `segmentation.wjq_duty_max_count` (HR-263, 120 since parser v9; it was a hardcoded
+  twelve); a re-read short of it is REPORTED as a loss, never excused;
 * every ticked level comes back as ``<ticked glyph> <option>`` in its section's text;
 * every table row's words (item + duration / frequency / hours) come back in its
   section (contacts: the contact itself, as above);
@@ -56,13 +55,14 @@ from collections import Counter
 from src.jd_core.models.parsed_jd import SFUJobDescription, WJQRow
 from src.jd_core.parser.headings import NEXT_LABEL_RX
 from src.jd_core.parser.segmenter import _PERCENT_RE
-from src.jd_core.rules import Rules
+from src.jd_core.rules import Rules, get_rules
 
 _WORD = re.compile(r"[a-z0-9]+")
 
-#: The parser's own duty-statement ceiling (``segmenter._MAX_DUTY_STMT``) — a rendered
-#: duty longer than this is legitimately cut on re-read.
-_MAX_DUTY_STMT = 400
+#: The parser's own duty-statement ceiling — a rendered duty longer than this is
+#: legitimately cut on re-read. Rulebook data since parser v9 (HR-261); it was the
+#: code constant ``segmenter._MAX_DUTY_STMT = 400``.
+_MAX_DUTY_STMT = get_rules().segmentation.duty_statement_max_chars
 #: The parser's ceiling for a decision / problem / qualification item
 #: (``segmenter._MAX_BULLET`` / ``_MAX_QUAL``).
 _MAX_LIST_ITEM = 400
@@ -455,9 +455,11 @@ def jdfn_round_trip_losses(
 
     * title, position number, employee group (when the original has one) — **equal**;
     * position summary and additional context — **equal** word for word;
-    * duties — **same count, same order**, each re-read statement holding the original
-      verb + statement + how/why words in order (how/why print as sub-bullets of their
-      duty and the parser has no field for them, so they come back inside it);
+    * duties — **same count, same order**, each re-read duty (statement, then its
+      how/why) holding the original verb + statement + how/why words in order. How/why
+      print as sub-bullets of their duty; since parser v9 they come back AS how/why
+      (before v9 they fused into the statement — both readings satisfy this check, and
+      the v9 structure is pinned separately);
     * decision making, problem solving, qualifications — **same count, same order, same
       words** (qualifications as printed: modifier prefixed when absent). Kinds are NOT
       compared: the parser's kind is a keyword guess (``_classify_qual``);
@@ -491,7 +493,7 @@ def jdfn_round_trip_losses(
             _duty_words(d.action_verb, d.statement, list(d.how_why))
             for d in original.duties
         ],
-        [d.statement for d in reparsed.duties],
+        [" ".join((d.statement, *d.how_why)) for d in reparsed.duties],
         _MAX_DUTY_STMT,
     )
     for field in ("decision_making", "problem_solving"):

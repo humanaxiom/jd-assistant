@@ -370,6 +370,10 @@ class AntiFabricationRecord(BaseModel):
     #: recovers no duties from 16.2% of CUPE documents and the rewrite filled the
     #: silence.
     invented_duties: tuple[str, ...] = ()
+    #: Every rewritten how/why CLAUSE dropped because its content was not grounded in
+    #: its source duty's own text (``rewrite.how_why_grounding_threshold``, HR-267 —
+    #: parser v9 review M2). Defaults empty, so a record written before it validates.
+    scrubbed_how_why: tuple[str, ...] = ()
     #: The name of every SECTION emptied because the grounded draft did not have one —
     #: ``decision_making`` / ``problem_solving`` / ``relationships`` (CUPE Phase D).
     #: A whole section is a coarser unit than a skill, and the coarsest fabrication:

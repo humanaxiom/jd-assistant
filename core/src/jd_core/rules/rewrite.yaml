@@ -59,7 +59,10 @@ max_retries: 1
 # the drafted form's own profile, instead of inlining SFU's JDFN guidance ("3–5 major
 # duties", "100–150 words"). v1 is kept on disk, unedited, because a stamped
 # `prompt_version` has to be readable back — every draft in the archive today carries it.
-prompt_version: jd_harmonize_v2
+# v3 (parser v9, owner ruling 2026-10-20 Q1): duties carry how/why clauses now. The input
+# shows each duty as a "- " line with its clauses indented under it (`jd_text.outline_jd`),
+# and rule 3 says to keep that shape. v2 stays on disk unedited, for read-back.
+prompt_version: jd_harmonize_v3
 
 # --- anti-fabrication guard (the heart of 4.2a) ------------------------------------
 # Whether the guard runs at all. `true` scrubs ungrounded qualifications and flags
@@ -77,6 +80,16 @@ skill_grounding_policy: token_overlap
 # draft's vocabulary for it to be KEPT. Below it, the qualification is SCRUBBED (dropped)
 # and recorded. PROVISIONAL — to be calibrated at the 4.5 pilot. HR-183.
 skill_grounding_threshold: 0.5
+
+# How a rewritten duty's how/why CLAUSE is grounded (parser v9 review M2). Prompt v3 forbids
+# inventing clauses; this is the check: at least this fraction of a clause's content tokens
+# must appear in the matched merge duty's headline plus ONE of its clauses (not their union).
+# Below it the clause is DROPPED and recorded (`scrubbed_how_why`). Asked from the other end
+# too: every source clause must stay covered by the rewritten duty. On either failure the
+# duty's SOURCE clauses replace the model's
+# (nothing invented kept, nothing stated lost). Held at the qualification bar (HR-183) —
+# same token-overlap rule, same number — until the 4.5 pilot calibrates either. HR-267.
+how_why_grounding_threshold: 0.5
 
 # The minimum token-Jaccard a rewritten DUTY must share with SOME draft duty. Below it the
 # duty is FLAGGED (recorded, never dropped — a duty may legitimately rephrase, so a

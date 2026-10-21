@@ -27,7 +27,8 @@ filterable*:
 7. **CUPE export (Tracks J1 + J2).** Live CUPE / APSA roles export on their own form
    and re-parse; a 14-function CUPE draft authored through the Builder's routes (HR's
    Dec-2024 sample shape) exports whole — split, frequencies, ticks, table rows,
-   section 13 — and loses on re-parse only the WJQ parser's twelve-function ceiling; a
+   section 13 — and re-parses whole (parser v9 lifted the twelve-function ceiling,
+   HR-263); a
    live CUPE role clones into the J2 form through the route and round-trips; every
    live CUPE role still clones and reassembles. Read-only: the row count is checked.
 6. **Builder search (Track I2), through the HTTP route.** Migration 0007's trigram
@@ -791,6 +792,68 @@ async def test_a_live_apsa_role_survives_export_and_reparse(session) -> None:  #
         assert passage in body, f"role {cid}: the APSA footer is missing"
 
 
+# ── Parser v9: Word lists and the duty caps (docs/plans/PARSER-V9-LISTS-AND-CAPS.md) ──
+#
+# Both read the CURRENT parse only, so they go red the moment the code is at v9 and the
+# Bank is not — which is exactly the "bump without re-parse" state they must catch.
+
+#: A real archive file in SFU's template shape: four "ACTION VERB … by:" duties as Word
+#: list paragraphs, each with nested how/why sub-bullets (19 in all). At v8 it parsed to
+#: ONE duty cut at 400 characters; at v9 to exactly the template's 4 duties + 19 points.
+_WORD_LIST_FILE = "/archive/20260702_00138566_JDFN_APSA_20260626.docx"
+
+
+async def test_a_word_list_archive_file_parses_to_the_template_shape(session) -> None:  # type: ignore[no-untyped-def]
+    from src.jd_core.parser import PARSER_VERSION
+
+    row = (
+        await session.execute(
+            text(
+                "SELECT jsonb_array_length(p.parsed->'duties'), "
+                "(SELECT coalesce(sum(jsonb_array_length(e->'how_why')), 0) "
+                " FROM jsonb_array_elements(p.parsed->'duties') e) "
+                "FROM parsed_jds p "
+                "JOIN source_documents s ON s.id = p.source_document_id "
+                "WHERE s.storage_ref = :ref AND p.parser_version = :v"
+            ),
+            {"ref": _WORD_LIST_FILE, "v": PARSER_VERSION},
+        )
+    ).one_or_none()
+    assert row is not None, f"{_WORD_LIST_FILE} has no parse at {PARSER_VERSION}"
+    duties, clauses = row
+    assert (duties, clauses) == (4, 19), (
+        f"{_WORD_LIST_FILE} parses to {duties} duties / {clauses} how-why points — "
+        "expected the template's 4 headlines with their 19 sub-bullets"
+    )
+
+
+async def test_no_current_parse_is_cut_at_the_old_400_char_cap(session) -> None:  # type: ignore[no-untyped-def]
+    """At v8, 25,095 of 96,784 duty statements (26%) sat at EXACTLY 400 characters —
+    the signature of a cut. A natural length of 400 is rare (0.06% at v9), so a share
+    above 1% means the Bank still holds a capped parse."""
+    from src.jd_core.parser import PARSER_VERSION
+    from src.jd_core.rules import get_rules
+
+    cap = get_rules().segmentation.duty_statement_max_chars
+    at_400, over_cap, total = (
+        await session.execute(
+            text(
+                "SELECT count(*) FILTER (WHERE length(e->>'statement') = 400), "
+                "count(*) FILTER (WHERE length(e->>'statement') > :cap), count(*) "
+                "FROM parsed_jds p, jsonb_array_elements(p.parsed->'duties') e "
+                "WHERE p.parser_version = :v"
+            ),
+            {"v": PARSER_VERSION, "cap": cap},
+        )
+    ).one()
+    assert total > 0, "no duty statements at the current parser version"
+    assert over_cap == 0, f"{over_cap} statements exceed the configured cap {cap}"
+    assert at_400 / total < 0.01, (
+        f"{at_400} of {total} duty statements sit at exactly 400 characters — "
+        "the Bank still holds the pre-v9 truncated parse"
+    )
+
+
 async def test_every_live_apsa_role_exports_and_rereads_its_duties(session) -> None:  # type: ignore[no-untyped-def]
     """EVERY current non-CUPE role, not a sample: exported and re-read, each comes back
     with the same number of duties — and with nothing else lost either — unless the
@@ -940,7 +1003,12 @@ async def test_a_builder_apsa_draft_exports_every_new_field(session) -> None:  #
     back = parse_jd(body).jd
     assert back.position_number == "99990001"
     assert len(back.duties) == 2
-    assert "Representing the department on committees" in back.duties[0].statement
+    # Parser v9 (HR-264): the "… by:" headline re-reads as the duty and its sub-bullets
+    # as its how_why — no longer fused into the statement.
+    assert back.duties[0].statement.startswith(
+        "Manages the delivery of academic programs"
+    )
+    assert "Representing the department on committees." in back.duties[0].how_why
     assert "Director, Smoke Operations" in body and "99990002" in body
     assert get_rules().apsa_form.security_check_sentence in body
     for passage in get_rules().boilerplate.about_sfu:
@@ -961,11 +1029,10 @@ async def test_a_builder_apsa_draft_exports_every_new_field(session) -> None:  #
 # writes, and it is never called here); the first test also COUNTS `canonical_jds`
 # before and after, so "it wrote nothing" is checked on the Bank, not assumed.
 #
-# 🔴 PARSER BOUNDARY, stated, not hidden: the WJQ parser reads at most twelve functions
-# back (`segmenter._MAX_DUTIES`, majors first). HR's own Dec-2024 sample has 14, so the
-# 14-function draft is asserted WHOLE on the export text, and on re-parse asserted to
-# lose exactly that count and nothing else. Raising the parser's ceiling is a
-# PARSER_VERSION change + archive re-parse — out of J2's scope.
+# PARSER BOUNDARY, closed by parser v9: the WJQ parser used to read at most twelve
+# functions back (majors first), so HR's 14-function Dec-2024 sample lost two on
+# re-parse. Since v9 the ceiling is `segmentation.wjq_duty_max_count` (HR-263, 120) and
+# the round trip loses nothing.
 
 #: HR's Dec-2024 pre-classified sample (fixtures/hr/cupe/, S20): 11 major + 3 minor.
 _J2_MAJORS: list[tuple[str, str, str]] = [
@@ -1094,13 +1161,13 @@ async def test_a_fourteen_function_cupe_draft_authored_through_the_routes_export
     function in its section, the (D)/(W)/(M)/(S) codes, the ticked levels, the table
     rows, section 13's certification / years / equivalency / requirements and the
     Occupational Skills helpers are all ON the form; HR's box is blank; no APSA footer;
-    on re-parse only the parser's twelve-function ceiling costs anything; and the Bank
+    on re-parse nothing is lost (parser v9 reads all fourteen); and the Bank
     gained no row."""
     from urllib.parse import urlencode
 
     from src.jd_bank.composer.wjq_answers import WJQAnswers
     from src.jd_bank.composer.wjq_assemble import assemble_wjq_jd
-    from src.jd_core.parser.segmenter import _MAX_DUTIES, parse_jd
+    from src.jd_core.parser.segmenter import parse_jd
     from src.jd_core.rules import get_rules
     from tests.export_roundtrip import cupe_export_text_losses, cupe_round_trip_losses
 
@@ -1138,11 +1205,11 @@ async def test_a_fourteen_function_cupe_draft_authored_through_the_routes_export
     ):
         assert skill in body, f"Occupational Skills helper lost: {skill!r}"
 
-    # ...and back IN through the Bank's own parser: the only loss is its ceiling.
+    # ...and back IN through the Bank's own parser: nothing lost (parser v9).
     result = parse_jd(body)
     assert result.template == "wjq", "the export is not read as a CUPE form"
     losses = cupe_round_trip_losses(jd, result.jd, rules)
-    assert losses == [f"duties: 14 exported, {_MAX_DUTIES} re-read"], losses
+    assert losses == [], losses  # parser v9 (HR-263) re-reads all fourteen
 
     after = (await session.execute(count)).scalar_one()
     assert after == before, f"the smoke WROTE to the live Bank: {before} -> {after}"

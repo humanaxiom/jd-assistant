@@ -83,6 +83,18 @@ def _tokens(text: str) -> frozenset[str]:
     return frozenset(_TOKEN.findall(text.lower()))
 
 
+def duty_text(duty: SFUDuty) -> str:
+    """A duty's whole content — the statement AND its how/why clauses.
+
+    Parser v9 (owner ruling 2026-10-20, Q1) reads SFU's "ACTION VERB … WHAT by" shape:
+    the statement is the headline and the clauses under it are ``how_why``. Two sources
+    stating the same duty may split it differently (one as a headline + clauses, one as
+    a flat sentence), so near-duplicate detection compares the whole duty, never the
+    headline alone. Identical to the statement for a duty with no how/why — every duty
+    before v9 — so the merge of a pre-v9 cluster is unchanged."""
+    return " ".join((duty.statement, *duty.how_why))
+
+
 def _jaccard(a: frozenset[str], b: frozenset[str]) -> float:
     """Token-Jaccard of two token sets. Two empty sets are identical (1.0)."""
     union = a | b
@@ -523,7 +535,7 @@ def _resolve_duty_groups(
     groups: list[_DutyGroup] = []
     thr = harmon.duty_dedup_jaccard_min
     for i, duty in occ:
-        toks = _tokens(duty.statement)
+        toks = _tokens(duty_text(duty))
         for group in groups:
             if _jaccard(toks, group.rep_tokens) >= thr:
                 group.items.append((i, duty))

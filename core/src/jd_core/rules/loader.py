@@ -71,6 +71,7 @@ from src.jd_core.models.bank import (
 )
 from src.jd_core.models.parsed_jd import (
     QualificationKind,
+    SFUDuty,
     SFUEmployeeGroup,
     SFUJobDescription,
     WJQForm,
@@ -698,6 +699,16 @@ class TextNorm(_RuleFile):
     collapse_across_paragraph_break: bool
 
 
+def _field_max_length(model: type[BaseModel], field_name: str) -> int:
+    """The ``max_length`` a pydantic field declares — read off the model, never
+    restated, so a rulebook cap and the contract it must fit cannot drift apart."""
+    for meta in model.model_fields[field_name].metadata:
+        limit = getattr(meta, "max_length", None)
+        if limit is not None:
+            return int(limit)
+    raise LookupError(f"{model.__name__}.{field_name} declares no max_length")
+
+
 class Segmentation(_RuleFile):
     """How the archive baseline SEGMENTS the corpus (``segmentation.yaml``).
 
@@ -804,6 +815,65 @@ class Segmentation(_RuleFile):
     #: a document over the cap would raise a ValidationError instead of being trimmed
     #: (pinned by ``test_wjq_context_not_truncated.py``).
     additional_context_max_chars: int = Field(gt=0)
+
+    #: Parser v9 (HR-261 … HR-263). How many characters of ONE duty statement the parser
+    #: keeps — was the code constant 400, unregistered, and 25,095 of 96,784 stored
+    #: statements sat exactly at it — and how many duties it keeps per document, per
+    #: template (was 12 for both: the WJQ form's 12 major + 12 minor slots lost every
+    #: minor function past the twelfth). Not presentation: each decides how much of a
+    #: source document the Bank retains. Each must stay ``<=`` the model's own ceiling
+    #: (checked below), or an over-cap document becomes a parse FAILURE, not a trim.
+    duty_statement_max_chars: int = Field(gt=0)
+    duty_max_count: int = Field(gt=0)
+    wjq_duty_max_count: int = Field(gt=0)
+
+    #: Parser v9, owner ruling 2026-10-20 (Q1, HR-264 … HR-266). The line shape that is
+    #: a DUTY HEADLINE — SFU's "ACTION VERB … WHAT by:" — whose following items become
+    #: its ``how_why``; and how many how/why clauses per duty, and characters per
+    #: clause, the parser keeps (APSA/APEX/POLY reader only).
+    duty_headline_pattern: Regex
+    duty_how_why_max_count: int = Field(gt=0)
+    duty_how_why_max_chars: int = Field(gt=0)
+    #: Parser v9 review (HR-268): how many Decision Making / Problem Solving items the
+    #: parser keeps per section — the code constant 20 (``_MAX_BULLETS``) until v9.
+    bullet_max_count: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def _the_duty_caps_fit_the_model(self) -> Segmentation:
+        """A cap above the contract ceiling turns a lossy parse into a ValidationError
+        — every long document would fail to parse at all. Refuse at load instead."""
+        stmt_ceiling = _field_max_length(SFUDuty, "statement")
+        count_ceiling = _field_max_length(SFUJobDescription, "duties")
+        how_why_ceiling = _field_max_length(SFUDuty, "how_why")
+        if self.duty_statement_max_chars > stmt_ceiling:
+            raise ValueError(
+                f"duty_statement_max_chars ({self.duty_statement_max_chars}) exceeds "
+                f"SFUDuty.statement's max_length ({stmt_ceiling})"
+            )
+        if self.duty_how_why_max_count > how_why_ceiling:
+            raise ValueError(
+                f"duty_how_why_max_count ({self.duty_how_why_max_count}) exceeds "
+                f"SFUDuty.how_why's max_length ({how_why_ceiling})"
+            )
+        if self.duty_how_why_max_chars > stmt_ceiling:
+            raise ValueError(
+                f"duty_how_why_max_chars ({self.duty_how_why_max_chars}) exceeds the "
+                f"statement ceiling ({stmt_ceiling}) a clause is held to"
+            )
+        for name in ("duty_max_count", "wjq_duty_max_count"):
+            if getattr(self, name) > count_ceiling:
+                raise ValueError(
+                    f"{name} ({getattr(self, name)}) exceeds "
+                    f"SFUJobDescription.duties' max_length ({count_ceiling})"
+                )
+        for field_name in ("decision_making", "problem_solving"):
+            ceiling = _field_max_length(SFUJobDescription, field_name)
+            if self.bullet_max_count > ceiling:
+                raise ValueError(
+                    f"bullet_max_count ({self.bullet_max_count}) exceeds "
+                    f"SFUJobDescription.{field_name}'s max_length ({ceiling})"
+                )
+        return self
 
     @model_validator(mode="after")
     def _the_era_bands_are_ordered(self) -> Segmentation:
@@ -1528,6 +1598,10 @@ class Rewrite(_RuleFile):
     #: the merge draft's vocabulary for it to be kept (HR-183). Below it the
     #: qualification is SCRUBBED (dropped) and recorded. Inert under ``all_grounded``.
     skill_grounding_threshold: float = Field(ge=0.0, le=1.0)
+    #: Parser v9 review M2 (HR-267): the fraction of a rewritten how/why clause's
+    #: content tokens that must appear in its SOURCE duty's text (statement + how/why)
+    #: for the clause to be kept. Below it the clause is dropped and recorded.
+    how_why_grounding_threshold: float = Field(gt=0.0, le=1.0)
     #: The minimum token-Jaccard a rewritten DUTY must share with a draft duty (HR-184).
     #: Below it the duty is FLAGGED (recorded, never dropped — a duty may legitimately
     #: rephrase, so a low-overlap duty is an HR eyeball, not a scrub). Read in the other

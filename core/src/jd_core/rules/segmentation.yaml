@@ -249,3 +249,45 @@ evidence_max_chars: 160
 # malformed document becomes a database problem — and must remain <= that ceiling (pinned
 # by test).
 additional_context_max_chars: 16000
+
+# --- duty caps (parser v9, HR-261 … HR-263) ------------------------------------
+# ⚠ NOT presentation: each decides how much of a source document the Bank keeps. All
+# three were code constants (400 chars, 12 duties for BOTH forms) until parser v9; at v8,
+# 25,095 of 96,784 stored duty statements sat at exactly 400 characters and every CUPE
+# minor function past the twelfth was dropped.
+#
+# Chosen against a WHOLE-CORPUS re-parse (all 14,522 documents, on a throwaway copy of the
+# Bank, caps lifted to the model ceilings first — HR-200's lesson: a sample understates
+# the tail, and a cap lives in the tail):
+#   statement chars  APSA/APEX form p50 130 · p90 245 · p99 618
+#                    CUPE form      p50 179 · p90 400 · p99 754
+#                    above ~1,200 it is ~one whole-section run-on per document, which no
+#                    cap repairs (docs/plans/PARSER-V9-LISTS-AND-CAPS.md)
+#   duties/document  APSA/APEX/POLY p50 20 · p99 46 · max 82 (ungrouped max 93)
+#                    CUPE           p50 24 · p99 63 · max 92
+# Counts: 120 is ~30% over the measured maximum and cuts no document today.
+# Each must stay <= its model ceiling (SFUDuty.statement 4,000; duties 150) — the loader
+# refuses a larger value. Changing any of them changes what a parsed JD CONTAINS: bump
+# PARSER_VERSION and re-parse the archive in the same change.
+duty_statement_max_chars: 1200
+duty_max_count: 120
+wjq_duty_max_count: 120
+
+# --- duty headline + how/why (parser v9, owner ruling 2026-10-20 Q1; HR-264 … 266) ----
+# Chosen against a whole-corpus re-parse of a Bank copy with the caps lifted:
+#   18,583 ":"-ending duty lines in 5,365 APSA/APEX/POLY documents, 92.6% ending "by:";
+#   how/why per duty p50 5 · p99 19 · max 36; characters per point p50 136 · p99 410.
+# Only "by:" is a headline — the rest are intro lines ("Duties include:"). HR-264.
+# Counts: 60 is ~30% over the max (cuts nothing). Chars: held at HR-261's 1,200.
+duty_headline_pattern:
+  pattern: '(?i)\bby\s*:\s*$'
+  ignore_case: false
+duty_how_why_max_count: 60
+duty_how_why_max_chars: 1200
+
+# --- Decision Making / Problem Solving item cap (parser v9 review, HR-268) -----------
+# Was the code constant 20 (`_MAX_BULLETS`). MEASURED over the whole archive with the
+# cap at the model ceiling (60): items per section p50 2 · p99 15 · max 25 (Decision
+# Making), p99 8 · max 14 (Problem Solving); 11 sections exceeded 20. 40 is ~60% over
+# the max and cuts nothing; the model ceiling is 60 (loader-enforced).
+bullet_max_count: 40

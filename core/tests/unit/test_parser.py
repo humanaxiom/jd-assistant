@@ -258,8 +258,11 @@ def test_parser_version_constant() -> None:
     **v6 = the employee-group read is evidence-ranked** (HR-226): a BARE MENTION can no
     longer establish `cupe`. Measured against the raw archive, 2.2% of the 4,440
     cupe-labelled documents (~98) were never routed to the WJQ segmenter — APSA managers
-    who merely supervise CUPE staff — and each was scored on the wrong instrument."""
-    assert parse_jd("anything").parser_version == "jd_segmenter_v8"
+    who merely supervise CUPE staff — and each was scored on the wrong instrument.
+    **v9 = Word LIST paragraphs are items, and the duty caps are rulebook data**
+    (HR-261 … HR-263): 48.4% of JDFN `.docx` with a Word-list duty section parsed to ONE
+    duty, and 25,095 of 96,784 duty statements sat at the hardcoded 400-char cut."""
+    assert parse_jd("anything").parser_version == "jd_segmenter_v9"
 
 
 # ── End-to-end on the real legacy .doc ───────────────────────────────────────

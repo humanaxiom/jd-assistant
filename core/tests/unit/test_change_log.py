@@ -217,7 +217,11 @@ def _drift_cluster() -> list[SFUJobDescription]:
                 SFUDuty(
                     action_verb="Performs",
                     statement=_DRIFT_REP,
-                    how_why=["because it drives the strategy"],
+                    # Parser v9: the merge compares the WHOLE duty (statement +
+                    # how/why), so the clause reuses the statement's own tokens — it
+                    # still makes this the richest-how_why rep without moving the
+                    # 5/7 arithmetic above.
+                    how_why=["mmm2 mmm3 zzr"],
                 )
             ],
         ),

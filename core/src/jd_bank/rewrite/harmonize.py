@@ -25,8 +25,10 @@ from collections.abc import Sequence
 from typing import Any, Final
 
 from src.jd_bank.jd_text import flatten_jd as _flatten_jd
+from src.jd_bank.jd_text import outline_jd
 from src.jd_bank.llm.client import ChatClient
 from src.jd_bank.llm.prompts import load_prompt
+from src.jd_core.bank.merge import duty_text
 from src.jd_core.models.bank import (
     AntiFabricationRecord,
     MergedRole,
@@ -187,6 +189,27 @@ def _is_grounded(
     return len(grounded) / len(tokens) >= rewrite.skill_grounding_threshold
 
 
+def _clause_is_grounded(
+    clause: str,
+    sources: Sequence[frozenset[str]],
+    rewrite: Rewrite,
+    comparison: Comparison,
+) -> bool:
+    """Whether a how/why ``clause`` is supported by ONE of ``sources`` (token sets) —
+    the same token-overlap rule as a qualification (:func:`_is_grounded`), at
+    ``rewrite.how_why_grounding_threshold`` (HR-267). A clause of stopwords only has
+    nothing to fabricate and is kept.
+
+    One source, not their union (review round 2): against a long duty's whole
+    vocabulary a clause stitched from words scattered over many clauses passed, so each
+    candidate is the headline plus a single source clause (see the caller)."""
+    tokens = _content_tokens(clause, comparison)
+    if not tokens:
+        return True
+    threshold = rewrite.how_why_grounding_threshold
+    return any(len(tokens & source) / len(tokens) >= threshold for source in sources)
+
+
 def _apply_anti_fabrication(
     llm_jd: SFUJobDescription, merged: MergedRole, rules: Rules
 ) -> tuple[SFUJobDescription, AntiFabricationRecord]:
@@ -231,10 +254,10 @@ def _apply_anti_fabrication(
 
     # Duties, reconciled against the merge draft in BOTH directions on one threshold.
     draft_duty_tokens = [
-        _content_tokens(duty.statement, comparison) for duty in merged.draft.duties
+        _content_tokens(duty_text(duty), comparison) for duty in merged.draft.duties
     ]
     llm_duty_tokens = [
-        _content_tokens(duty.statement, comparison) for duty in llm_jd.duties
+        _content_tokens(duty_text(duty), comparison) for duty in llm_jd.duties
     ]
 
     # → What did the model ADD? (unchanged: flagged, never dropped — a duty may reword.)
@@ -247,18 +270,82 @@ def _apply_anti_fabrication(
     # often the role performs it.
     flagged: list[str] = []
     duties: list[SFUDuty] = []
+    #: Merge duties whose how/why has already been carried back — at most once each, so
+    #: a model that splits one grouped duty into two cannot get its clauses twice.
+    restored_from: set[int] = set()
+    scrubbed_how_why: list[str] = []
     for duty, tokens in zip(llm_jd.duties, llm_duty_tokens, strict=True):
         best_index, best = _closest(tokens, draft_duty_tokens)
         if best < rewrite.duty_flag_threshold:
             flagged.append(duty.statement)
-            duties.append(duty)
+            # A flagged duty has no source duty to ground its clauses in, so none of
+            # them is kept (review M2: an ungrounded clause is never kept). The duty
+            # itself stays, flagged, for the reviewer — as before.
+            scrubbed_how_why.extend(duty.how_why)
+            duties.append(
+                duty.model_copy(update={"how_why": []}) if duty.how_why else duty
+            )
             continue
         source = merged.draft.duties[best_index]
-        duties.append(
-            duty
-            if duty.frequency is not None
-            else duty.model_copy(update={"frequency": source.frequency})
+        # Review M2: each CLAUSE must be grounded in its source duty's own text —
+        # the whole-duty Jaccard above lets a reworded duty carry an invented clause.
+        # Grounded in the headline plus ONE source clause (or the headline alone when
+        # the source has none), never the union of all (review round 2).
+        headline = _content_tokens(source.statement, comparison)
+        units = [headline | _content_tokens(c, comparison) for c in source.how_why]
+        source_units = units or [headline]
+        kept_clauses = []
+        for clause in duty.how_why:
+            if _clause_is_grounded(clause, source_units, rewrite, comparison):
+                kept_clauses.append(clause)
+            else:
+                scrubbed_how_why.append(clause)
+        # ...and the other direction, the same token rule asked from the source's end
+        # (review round 2): every SOURCE clause must still be covered by the rewritten
+        # duty (statement + kept clauses), or the model DROPPED it — which prompt v3
+        # forbids and nothing caught. Keeping only the grounded part of a clause list
+        # that dropped or replaced a source clause would lose that clause silently, so
+        # on either failure the model's clauses give way to the SOURCE's (through the
+        # restore below: once per merge duty, never onto a statement that folded them).
+        rewritten_vocab = frozenset(
+            _content_tokens(" ".join((duty.statement, *kept_clauses)), comparison)
         )
+        dropped_a_source_clause = any(
+            not _clause_is_grounded(clause, [rewritten_vocab], rewrite, comparison)
+            for clause in source.how_why
+        )
+        if len(kept_clauses) != len(duty.how_why) or (
+            duty.how_why and dropped_a_source_clause
+        ):
+            duty = duty.model_copy(update={"how_why": []})
+        restored: dict[str, Any] = {}
+        if duty.frequency is None:
+            restored["frequency"] = source.frequency
+        # Parser v9 (owner ruling 2026-10-20, Q1): a grounded duty's how/why clauses
+        # are source content. A rewrite that returns the duty WITHOUT them has not
+        # reworded them, it has dropped them — carry the merge's back, as for frequency.
+        #
+        # Restored only when the rewritten STATEMENT reads as the merge's headline, not
+        # as its whole duty: a model that FOLDED the clauses into the statement has
+        # kept their words, and carrying them back would state each clause twice. No
+        # threshold — the statement is compared against the headline and against the
+        # whole duty, and the closer one decides. And once per merge duty (above).
+        if (
+            not duty.how_why
+            and source.how_why
+            and best_index not in restored_from
+            and _jaccard(
+                _content_tokens(duty.statement, comparison),
+                _content_tokens(source.statement, comparison),
+            )
+            > _jaccard(
+                _content_tokens(duty.statement, comparison),
+                draft_duty_tokens[best_index],
+            )
+        ):
+            restored["how_why"] = list(source.how_why)
+            restored_from.add(best_index)
+        duties.append(duty.model_copy(update=restored) if restored else duty)
 
     # 🔴 EMPTY-TO-EMPTY, FOR DUTIES. A grounded draft with NO duties cannot acquire any
     # from a rewording pass, and until 2026-08-22 it could and did.
@@ -286,6 +373,7 @@ def _apply_anti_fabrication(
         invented_duties = [duty.statement for duty in duties]
         duties = []
         flagged = []
+        scrubbed_how_why = []  # the whole duty is recorded as invented instead
     else:
         invented_duties = []
 
@@ -353,6 +441,7 @@ def _apply_anti_fabrication(
         invented_duties=tuple(invented_duties),
         restored_bars=tuple(restored_bars),
         restored_sections=tuple(sorted(restored_sections)),
+        scrubbed_how_why=tuple(scrubbed_how_why),
     )
 
 
@@ -406,7 +495,7 @@ async def rewrite_merged_role(
         rewrite.prompt_version,
         member_count=merged.provenance.member_count,
         skill_frequency=_skill_frequency_lines(merged.provenance.skill_frequency),
-        member_jds=_flatten_jd(merged.draft),
+        member_jds=outline_jd(merged.draft),
         duties_min=duties_min,
         duties_max=thresholds.duties_max,
         summary_min_words=thresholds.summary_min_words,
