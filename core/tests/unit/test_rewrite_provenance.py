@@ -382,3 +382,37 @@ def test_marks_fall_only_on_whole_items_of_their_own_section() -> None:
     # the whole contact — not the duty's, not inside "1 hours" or "21 hour"
     assert before.endswith("RELATIONSHIPS\nInternal: ")
     assert segments[index + 1].text.startswith("\nInternal: Faculty 1 hours")
+
+
+def test_a_restored_duty_never_repeats_text_already_folded_under_another(
+    rules: Rules,
+) -> None:
+    """Review of 528f694: with a per-duty limit (HR-280) the source statement folded
+    under the one related duty, the limit then sent the rest to a duty of its own — and
+    that duty's heading was the same statement, so it stood in the draft TWICE."""
+    model = _jd(
+        SFUDuty(
+            action_verb="Coordinates",
+            statement="Coordinates the orientation program for new students",
+        )
+    )
+    source = SFUDuty(
+        action_verb="Plans",
+        statement="Plans welcome receptions and campus tours for orientation students",
+        how_why=["ordering catering for each reception", "booking the campus ballroom"],
+    )
+
+    out, record = _apply_anti_fabrication(
+        model, _merged(_jd(source)), _with(rules, fold_back_max_per_duty=1)
+    )
+
+    placed = [
+        piece
+        for duty in out.duties
+        for piece in (duty.statement, *duty.how_why)
+        if piece in (source.statement, *source.how_why)
+    ]
+    assert sorted(placed) == sorted({source.statement, *source.how_why})
+    assert len(record.folded_duty_content) == len(set(record.folded_duty_content))
+    # The own duty is headed by a source CLAUSE, so the source verb is not put on it.
+    assert out.duties[-1].action_verb == ""

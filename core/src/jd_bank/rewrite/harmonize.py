@@ -519,7 +519,14 @@ def _fold_back(
             dropped.extend(unplaced)
             continue
         # Its own duty, under its own source heading, verbatim.
-        if carries_placeholder(src.statement, rules):
+        # The source statement heads it — unless it carries a placeholder, or a sentence
+        # of it is ALREADY in the draft as restored text (folded under another duty a
+        # moment ago, under an HR-280 limit or the how/why cap): heading with it would
+        # put the same source words in the draft twice (review of 528f694).
+        restored_so_far = set(folded)
+        if carries_placeholder(src.statement, rules) or any(
+            sentence in restored_so_far for sentence in sentences(src.statement)
+        ):
             heading, clauses = unplaced[0], unplaced[1:]
         else:
             own = set(sentences(src.statement))
@@ -527,7 +534,13 @@ def _fold_back(
         overflow = clauses[cap:]
         dropped.extend(overflow)
         restored = src.model_copy(
-            update={"statement": heading, "how_why": clauses[:cap]}
+            update={
+                "statement": heading,
+                "how_why": clauses[:cap],
+                # The source verb belongs to the source STATEMENT: put in front of a
+                # how/why clause it would read as a sentence no source wrote.
+                "action_verb": src.action_verb if heading == src.statement else "",
+            }
         )
         out.append(restored)
         tokens = _content_tokens(duty_text(restored), comparison)

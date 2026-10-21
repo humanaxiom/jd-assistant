@@ -143,7 +143,10 @@ duty_coverage_policy: fold_back
 # otherwise. 0.0 folds under the best match whatever it is. MEASURED (28 recorded pilot
 # replies, replayed offline): every fold at 10% or less was unrelated ("approves leaves of
 # absence" at 0%, "Research & Museum Career Skills Training" under "Acquire and develop
-# museum assets" at 8–10%), the next were related (11.5%+). 15 sentences are now listed
+# museum assets" at 8–10%), the next source duties up were related as duties (11.5%+), though not every
+# sentence of them reads right where it lands (11–13%: a list of library associations
+# under the budget duty) — the lowest floor that removes the clearly unrelated, not a
+# clean line. 15 sentences are now listed
 # instead of misfiled; none could become its own duty (every such draft was full). HR-279.
 fold_back_relevance_min: 0.11
 

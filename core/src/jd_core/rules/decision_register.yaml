@@ -8876,9 +8876,14 @@ decisions:
       leaves of absence" and "Performs other duties as assigned" under an unrelated
       duty at 0% shared words, "Research & Museum Career Skills Training" under "Acquire
       and develop museum assets" at 8–10%, "Provides support to visiting scholars"
-      under "budgetary and financial administration" at 10%. The measured folds split
-      cleanly: every one at 10% or less was unrelated, the next were related (11.5%+,
-      financial-support content under a financial duty). Below 0.11 the content now
+      under "budgetary and financial administration" at 10%. Every measured fold at
+      10% or less was unrelated; the next source duties up (11.5%+) were related to
+      their target as DUTIES (financial-support content under a financial duty) — but
+      the cut is not clean sentence by sentence: in the 11–13% band a list of library
+      associations and a staff-supervision point both went under "the annual budget
+      process and year-end financial reporting" (review of 528f694, by eye over the
+      ten folds either side). 0.11 is the lowest floor that removes the clearly
+      unrelated folds, not a line above which every fold reads right. Below 0.11 the content now
       comes back as its own duty, verbatim, when the form has room
       (`thresholds.duties_max`, HR policy, unchanged), and is otherwise listed on the
       review page as not in the draft. On the pilot: 15 sentences from 8 source duties

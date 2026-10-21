@@ -268,8 +268,12 @@
 {% if removed %}
 <div class="panel">
   <h2>Not in the draft — removed content and why</h2>
-  <p class="meta">Source text the draft does not carry, each with the reason. Nothing
-  here is in the draft above.</p>
+  {# NOT "nothing here is in the draft": a duty the rewrite removed is listed here AND
+     its lost sentences are restored above (14 of 71 removed duties over the 28 pilot
+     replies came back verbatim) — review of 528f694. #}
+  <p class="meta">Source text the rewrite or the merge left out, each with the reason.
+  Where the rewrite removed a whole duty, the sentences it lost may already be back in
+  the draft above, restored verbatim and marked <span class="restored-key">↩</span>.</p>
   <ul>
     {% for entry in removed %}
     <li>{{ entry.content }}<br><span class="meta">{% if entry.section %}{{ entry.section }} — {% endif %}{{ entry.reason }}</span></li>
