@@ -565,6 +565,18 @@ def test_a_position_number_on_the_title_line_is_read_not_lost() -> None:
     assert rtf.position_number == "00133267"
 
 
+def test_a_hash_touching_its_number_is_still_cut_from_the_title() -> None:
+    """Review round 3: ``(?!\\w)`` after "#" cannot match when the id touches it
+    ("Position #110611"), which the old ``\\b`` did cut — 5 archive titles (2
+    positions, e.g. 20111017_00110611_Coord_Student_Life.doc) GAINED "Position
+    #110611" at 18a2792. The title is cut there and the id is the position number."""
+    jd = parse_jd(
+        "Position Title:  Coordinator, Student Life         Position #110611\n"
+        "Name:\nPOSITION SUMMARY\nSupports students.\n"
+    ).jd
+    assert (jd.title, jd.position_number) == ("Coordinator, Student Life", "110611")
+
+
 def test_a_fallback_title_has_its_whitespace_collapsed() -> None:
     """A fallback title is a raw line, and antiword pads columns with runs of spaces
     ("HUMAN RESOURCES             #01449"); every other title is cleaned."""
