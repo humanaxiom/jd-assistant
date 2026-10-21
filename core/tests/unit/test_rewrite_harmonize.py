@@ -165,10 +165,15 @@ async def test_a_coded_term_in_relationships_is_scanned_by_the_oracle(
     # The merged draft must ALREADY have a Relationships section, or the Phase-D
     # empty-section guard correctly empties the model's — a section the grounded draft
     # does not have cannot be invented. Here the section exists and the rewrite rewords
-    # it, which is the case this test is about.
+    # it, which is the case this test is about. Since HR-269 (2026-10-20) the reworded
+    # supervisory text must also be grounded in the merge's own (4 of its 5 tokens are).
     grounded = MergedRole(
         draft=_draft().model_copy(
-            update={"relationships": SFURelationships(supervisory="Leads a team")}
+            update={
+                "relationships": SFURelationships(
+                    supervisory="Leads a team of five analysts"
+                )
+            }
         ),
         provenance=_merged().provenance,
     )
@@ -280,8 +285,10 @@ async def test_a_section_the_grounded_draft_lacks_cannot_be_invented(
 async def test_a_section_the_grounded_draft_has_is_left_to_the_rewrite(
     rules: Rules,
 ) -> None:
-    """EMPTY-TO-EMPTY only. Rewording a section the draft HAS is the pass's whole job,
-    so the guard must not touch it — else it would drop content the sources stated.
+    """EMPTY-TO-EMPTY only, at the SECTION level. Rewording a section the draft HAS is
+    the pass's whole job, so the section guard must not empty it. (Since HR-269, 2026-
+    10-20, each reworded POINT must still be grounded in the merge's same section — so
+    the rewording here reuses the source's words, as a real rewording does.)
 
     🔴 THE GROUNDED DRAFT IS A REAL ``merge_cluster`` OUTPUT, and that is the point of
     this test rather than an incidental detail. Until HR-211 the merge populated
@@ -304,11 +311,15 @@ async def test_a_section_the_grounded_draft_has_is_left_to_the_rewrite(
     )
     result = await rewrite_merged_role(
         grounded,
-        client=_FakeChat(_draft().model_copy(update={"problem_solving": ["Reworded"]})),
+        client=_FakeChat(
+            _draft().model_copy(
+                update={"problem_solving": ["The original wording, reworded"]}
+            )
+        ),
         rules=rules,
     )
 
-    assert result.draft.problem_solving == ["Reworded"]
+    assert result.draft.problem_solving == ["The original wording, reworded"]
     assert result.anti_fabrication.scrubbed_sections == ()
 
 
@@ -1120,11 +1131,15 @@ async def test_the_rewrite_may_not_empty_a_section_the_merge_grounded(
 
 
 @pytest.mark.asyncio
-async def test_a_section_the_rewrite_kept_is_left_to_the_rewrite(rules: Rules) -> None:
-    """The limit of the fix: rewording is the pass's whole job, so a section the model
-    RETURNED is its own — HR-214 restores only what came back EMPTY. Whether compressing
-    twenty internal contacts to three is acceptable rewording or content loss is a
-    separate, open question and deliberately NOT decided here."""
+async def test_a_section_the_rewrite_compressed_gets_its_lost_contacts_back(
+    rules: Rules,
+) -> None:
+    """HR-214 restores only a section that came back EMPTY. Whether compressing a
+    section — twenty internal contacts to three — is rewording or loss was left open
+    here until the 2026-10-20 rewrite pilot measured it as loss (a WJQ contact list
+    replaced wholesale). HR-269/270 now decide it per item: the model's reworded
+    contacts stay, the contacts it dropped come back, and both are recorded. Still
+    not a whole-section restore."""
     reworded = _draft().model_copy(
         update={
             "relationships": SFURelationships(
@@ -1135,7 +1150,17 @@ async def test_a_section_the_rewrite_kept_is_left_to_the_rewrite(rules: Rules) -
     result = await rewrite_merged_role(
         _merged_with_relationships(), client=_FakeChat(reworded), rules=rules
     )
-    assert result.draft.relationships == reworded.relationships
+    assert result.draft.relationships is not None
+    assert result.draft.relationships.internal == [
+        "Departmental managers",
+        "Finance staff",
+        "Payroll",
+    ]
+    assert result.draft.relationships.external == ["Auditors"]
+    assert result.anti_fabrication.restored_items == (
+        ("relationships", "Finance staff"),
+        ("relationships", "Payroll"),
+    )
     assert result.anti_fabrication.restored_sections == ()
 
 

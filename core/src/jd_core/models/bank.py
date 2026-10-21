@@ -270,6 +270,14 @@ RemovedReason = Literal[
     # change log reading `removed: []`.
     "duty_removed_by_rewrite",
     "qualification_bar_restored",
+    # Rewrite fidelity (2026-10-20, HR-269…HR-276): what the guard dropped or the model
+    # lost, and the form/boilerplate text removed from the rewrite's input — each one
+    # shown on the review page instead of vanishing from an artifact nobody reads.
+    "how_why_scrubbed_ungrounded",
+    "item_scrubbed_ungrounded",
+    "item_dropped_by_rewrite",
+    "duty_content_dropped_by_rewrite",
+    "form_text_stripped",
 ]
 
 
@@ -286,6 +294,10 @@ class RemovedContent(BaseModel):
     #: The canonical member index it came from, or ``None`` for a rewrite-stage scrub
     #: not tied to any single member.
     member_index: int | None = None
+    #: The JD section it was in, when the reason alone does not say (a rewrite-stage
+    #: item scrub / loss: ``decision_making``, ``relationships``, …). Defaults ``None``
+    #: so a packet written before it existed still validates.
+    section: str | None = None
 
 
 class SourceContribution(BaseModel):
@@ -410,6 +422,38 @@ class AntiFabricationRecord(BaseModel):
     #: came back without it — 25.6% — while ZERO sections were created.** The guard was
     #: working perfectly, on the one direction that was not losing content.
     restored_sections: tuple[str, ...] = ()
+
+    # --- rewrite fidelity (owner ruling 2026-10-20; HR-269…HR-276) -----------------
+    # Every field below defaults empty, so a record written before it still validates.
+    # MEASURED on the 22-cluster rewrite pilot (v9 Bank, replies replayed through the
+    # guard): the record above answered "what did the model ADD?" for duties and
+    # qualifications and "what did it DELETE?" only for whole empty sections. A twelve-
+    # duty merge cut to five, Decision Making cut 13 -> 5 and qualifications
+    # cut 40 -> 15 all left most of these lists empty.
+
+    #: Source DUTY text (one sentence of a statement or clause, verbatim) that no
+    #: rewritten duty covered and the guard FOLDED BACK as a how/why clause of the
+    #: closest rewritten duty (``rewrite.duty_coverage_policy = fold_back``, HR-271).
+    folded_duty_content: tuple[str, ...] = ()
+    #: Source duty text no rewritten duty covered that is NOT in the draft — the
+    #: ``record_only`` policy, or no room left under the how/why cap. Shown to the
+    #: reviewer as dropped from the merge.
+    dropped_duty_content: tuple[str, ...] = ()
+    #: ``(section, text)`` of every Decision Making / Problem Solving / Relationships
+    #: item the model returned that no item of the merge's SAME section grounds
+    #: (``rewrite.section_item_grounding_threshold``, HR-269) — dropped.
+    scrubbed_items: tuple[tuple[str, str], ...] = ()
+    #: ``(section, text)`` of every source item sentence (Decision Making, Problem
+    #: Solving, Relationships, Qualifications) that no item the rewrite KEPT covers —
+    #: what the model lost, whether or not it was put back.
+    uncovered_items: tuple[tuple[str, str], ...] = ()
+    #: The subset of :attr:`uncovered_items` put back verbatim
+    #: (``rewrite.restore_uncovered_items_in``, HR-270). The rest is not in the draft.
+    restored_items: tuple[tuple[str, str], ...] = ()
+    #: Text removed from the rewrite's INPUT before the model saw it: the old
+    #: questionnaire's own instructions (HR-275/276) and SFU boilerplate sentences
+    #: (HR-273/274). Neither is role content; recorded so the removal is evidence.
+    stripped_source_text: tuple[str, ...] = ()
 
 
 class RewrittenDraft(BaseModel):

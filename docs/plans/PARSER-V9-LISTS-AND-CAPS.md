@@ -393,6 +393,75 @@ The v9 Bank is a separate project (`jd-bank-v9`), built with deterministic
 
 **Smoke now: 30 passed, 1 failed.** The one failure is the APSA test, with 8 losses in 4 roles: 3d and 3e. Those drafts were built from the pre-fix parse, so they need the Bank re-ingested. The 4 roles' source files re-parse correctly in-process (verified). **The re-ingest is held** until the rewrite pilot that reads the v9 Bank reports (coordinator's instruction).
 
+## 15. Rewrite fidelity (owner ruling 2026-10-20: "fix the rewrite first")
+
+Branch `feat/rewrite-fidelity`, on top of this branch. A size-stratified rewrite pilot
+on the v9 Bank (20 clusters: 5 at or below p50, 10 between p50 and p90, 5 large; plus
+the 2 largest WJQ and 6 re-runs at `max_tokens` 4096) had each reply recorded. **Every
+number below comes from replaying those recorded replies offline through the old and
+the new guard.** There were no new LLM calls and no Bank writes. The merge drafts were
+rebuilt read-only, and all 22 matched the stored drafts. The "before" replay reproduces
+the pilot's own recorded anti-fabrication record **28 of 28** times, which validates the
+replay. Rulebook knobs HR-269…HR-276 are all `open`. `rules_version` does not move
+(`rewrite.yaml` and `quality.yaml` are unhashed). Prompt `jd_harmonize_v4`.
+
+| # | defect (pilot) | design | where |
+|---|---|---|---|
+| 1 | At 2048, 4 of 22 first calls truncated (`length`, empty reply); one success used 93% of the content budget. The audit hit `length` 2 of 22 times at 1024. | `rewrite.max_tokens` 4096 (HR-178). `quality.max_tokens` 2048 (HR-187). Both carry the measured evidence and stay `open`. | `rewrite.yaml`, `quality.yaml` |
+| 2 | Duty areas were dropped to fit the five-duty cap. The cap is HR policy and is untouched. | **Fold back** (HR-271, `fold_back` \| `record_only`). Every *sentence* of every source duty must be covered (the HR-267 fraction) by ONE rewritten duty. If not, it is appended verbatim as a how/why clause of the duty that holds the rest of its source duty, so the cap holds and nothing is lost (`folded_duty_content`). With `record_only` it is listed instead (`dropped_duty_content`, shown on the review page). Clauses are now grounded against a unit from ANY source duty (one unit, never a union), so a merged duty keeps its faithful clauses. Prompt v4 says: merge, never drop. | `harmonize._fold_back` |
+| 3 | Decision Making, Problem Solving and Relationships items were never grounded. | Per item against ONE item of the merge's **same** section, plus the named-term rule (HR-269). A failing item is dropped (`scrubbed_items`). Each source sentence the kept items no longer cover is recorded (`uncovered_items`). It is put back verbatim if the section is listed in HR-270 (`restored_items`). | `_reconcile_list`, `_reconcile_relationships` |
+| 4 | Qualifications were dropped invisibly. | The HR-183 rule, read from the source's end, against ONE kept qualification. Lost ones are recorded, and restored when HR-270 lists `qualifications`. | `_apply_anti_fabrication` |
+| 5 | Recombination: boilerplate grounded a claim, and "ICOM" was passed off as "International Council on Museums". | The **source view** drops SFU boilerplate sentences, matched both ways at 0.8 (HR-273), plus the Coast Salish wording (HR-274). Those words cannot ground anything and are never restored. **Named terms** (an acronym, or a capitalized word in mid-sentence) must appear in the grounding source (HR-272). | `rewrite/fidelity.py` |
+| 6 | 22994d3a: all 15 clauses scrubbed. | Two defects. (a) The old questionnaire's **instructions** reach the merge draft. Measured on 2,446 v9 drafts, they appear in 139–745 drafts depending on the instruction. The source view strips them, matching on the word sequence; wrapped `.doc` lines are matched as runs (HR-275/276). (b) Clauses were grounded only against the one matched duty. Fixed in item 2. Grounding was **not** loosened, because each test is still one unit. | `rewrite/fidelity.py` |
+
+**Found while replaying, and fixed (tests red first):**
+- A restore must never put back a template placeholder. A WJQ page header ("Position
+  Number(s): ______01598______ Continued") was fused into a source duty, and folding it
+  back tripped the **non-overridable** no-placeholders gate (HR-047). Such a sentence is
+  now listed, not restored.
+- A one-way boilerplate match stripped the duty heading "Community Engagement.", because
+  both of its words appear in the About SFU paragraph. The match is now required in both
+  directions.
+- On a contact list, using restored sentences as covering vocabulary hid distinct
+  contacts that share a department name. Section losses are now judged against the
+  model's kept items only.
+
+**Replay, 22 pilot clusters, before → after (the guard's own records):**
+
+| | before | after |
+|---|---:|---:|
+| how/why clauses scrubbed | 182 | 125 |
+| source duty sentences folded back (`folded_duty_content`) | 0 | 190 |
+| duty content dropped, listed (`dropped_duty_content`) | 0 | 1 (a placeholder sentence) |
+| section items scrubbed as ungrounded (`scrubbed_items`) | 0 | 83 |
+| source items lost / put back (`uncovered_items` / `restored_items`) | 0 / 0 | 208 / 208 |
+| qualifications scrubbed | 1 | 4 |
+| instruction / boilerplate pieces stripped from the input | 0 | 84 in 21 of 22 drafts |
+
+Scores move by less than 2.0 on 19 of 22 clusters. 1d68c603 rises 67.7 → 74.7.
+e2c6052d falls 87.3 → 69.1: the model had kept 1 of 19 qualifications, and the 15
+restored source qualifications carry a medium coded-term finding and two low ones. That
+is the source's own content scored honestly. The per-cluster table is in the commit
+message.
+
+**What remains uncatchable:**
+- **Recombination inside the source's own vocabulary.** A claim built from words that
+  each appear in the same section, with no new name, still passes the 0.5 token bar. An
+  example would be "Approves loans" if the section says "loans" and "approves"
+  separately.
+- **Paraphrase vs. invention without stemming.** "loan" does not match "loans", so a
+  faithful paraphrase can be dropped. The source's wording then comes back. This is
+  conservative: it loses prose, never content.
+- **Semantic loss inside a covered sentence.** Coverage is token-level, so a sentence
+  half of whose words survive counts as covered even if its meaning changed.
+- **Parser fragments come back verbatim.** Examples are wrapped qualification lines
+  ("(e.g. lab power supplies, …") and WJQ duration/frequency cells as separate contacts.
+  They were in the merge draft, and restoring them is faithful but untidy.
+- **The deterministic draft still carries the questionnaire instructions.** That applies
+  when the rewrite fails or runs with `--no-llm`. The real fix is in the parser: it
+  moves `PARSER_VERSION` and the placeholder gate (HR-047 reads "action verb" / "how and
+  why"). That is an owner/HR decision and is not done here.
+
 ## 11. Containers (all removed at the end)
 
 - **This round:** `p9measure-dump`, `p9measure-pg` (127.0.0.1:25999, network `p9measure-net`), `p9measure-ingest-flat`, `p9measure-ingest-grouped`, `p9measure-mA` / `-mB` / `-mD`, `p9measure-losscause`, `p9measure-smoke`, `p9measure-intro`, and the network `p9measure-net`.

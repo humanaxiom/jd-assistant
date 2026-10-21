@@ -1,0 +1,184 @@
+{
+ "cluster_id": "22994d3a-3b59-5c0a-a6d1-6d5074f1282d",
+ "pilot_run": "pilot_base",
+ "note": "whole merge draft + whole model reply",
+ "merged": {
+  "draft": {
+   "title": "Director, Office of Research Ethics",
+   "position_number": null,
+   "department": "Office of Research Ethics",
+   "grade": null,
+   "classification": null,
+   "employee_group": "apsa",
+   "supervisor_title": null,
+   "supervisor_position_number": null,
+   "about_sfu_present": false,
+   "position_summary": "Briefly describe the primary function and purpose of the position in one or two sentences. Reporting to the Vice-President, Research, the Director provides leadership and manages the operations of the Office of Research Ethics. The Director ensures compliance with SFU’s Policy R20.01 (Ethics Review of Research Involving Human Subjects) and the Tri-Council Policy Statement: Ethical Conduct in Research Involving Humans (TCPS 2). The incumbent of the position provides interpretation of policies concerning the ethical conduct of research to faculty members, staff, and students through ethics review, educational activities and resources, and in a peer-advisory capacity. The Director acts as the primary contact for the university with external bodies including the health authorities, hospitals, ministries, and foundations; engages in internal and external liaison activities on behalf of the Research Ethics Board (REB); represents SFU on boards or committees; and liaises with aboriginal individuals and communities concerning collaborative research activities. The Director prepares an annual report of activities which the REB is required to provide Senate at its September meeting.",
+   "duties": [
+    {
+     "action_verb": "Reflects",
+     "statement": "Reflects duties defined in or arising from but not necessarily specified in Policy R20.01. This is one of a few APSA positions whose duties and responsibilities are mandated by Senate in Policy R20.01.",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "Starting",
+     "statement": "Starting with those you consider the most important, list and describe the main duties and responsibilities of the position. For each item start with an action verb and briefly describe WHAT is done, HOW it is done and WHY it is done. Indicate in the right hand column the percentage of time spent on each particular task. Description RESEARCH ETHICS MANAGEMENT Provides leadership and manages the operations of the Office of Research Ethics. Ensures compliance with SFU’s Policy R20.01 (Ethics Review of Research Involving Human Subjects) and the Tri-Council Policy Statement: Ethical Conduct in Research Involving Humans (TCPS 2). Reviews all applications submitted to the Research Ethics Board (REB) from faculty, students, and staff for the completeness of these applications and their compliance with Policy R20.01.* Approves applications that are minimal-risk and provides written summaries of the reasons for such approvals to the REB. Consults with the Chair of the REB for applications that may appropriately be designated greater-than-minimal risk. Returns application to the applicant for revision and/or forwards the application to the Chair of the REB, who decides whether to refer the a",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "and",
+     "statement": "and related University Committees, such as the Biosafety Committee and the Occupational Safety Committee, concerning ethics matters. Responds to requests for information or reports from such committees, boards, and external sponsors listed above.* Represents SFU on external committees and boards, including the Michael Smith Foundation for Health Research (MSFHR) BC Ethics Harmonization Initiative Steering Committee. Receives and investigates any concerns or complaints from research participants about their involvement in SFU research. Acts as a liaison between the participant and researcher(s) until a satisfactory resolution is reached or until the matter moves outside the scope of Policy R20.01.* Corresponds on behalf of the REB and deals with sensitive issues involving legislation concerning privacy and the public right to information.* Engages in monitoring, data collection, and communication with other universities and granting councils* Convenes ad hoc committees to discuss ethics policy issues arising from TCPS 2 to recommend and inform changes to SFU’s Policy R20.01. RECORDS MANAGEMENT & TECHNOLOGY Responsible for the content, timeliness, accuracy, and availability of report",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "various",
+     "statement": "various funding sponsors",
+     "how_why": [],
+     "frequency": null
+    }
+   ],
+   "decision_making": [
+    "Give some examples of the types of decisions the incumbent would refer to his/her supervisor. Issues with significant legal and/or financial implications will be referred to the Vice-President (Research).",
+    "Give some typical examples of the most important decisions the incumbent is expected to make in carrying out the duties and responsibilities of the position. To what extent can the incumbent rely on established policies or advice from others in making these decisions? Makes decisions regarding: Operational management of the Office of Research Ethics and the supervision of staff. Compliance with th"
+   ],
+   "problem_solving": [],
+   "relationships": {
+    "supervisory": "Indicate the number of continuing employees for whom the position is responsible. Number of continuing employees reporting directly to the position: 2 Total number of continuing employees for whom the position has direct responsibility: 4.5 Describe the extent to which the supervisor determines the day-to-day workload of the position and assists in the completion of duties. Explain the nature of guidance received and how often work is checked or reviewed. Administratively, the incumbent reports to the Vice-President, Research. Consults with the VPR in the resolution of sensitive internal matte",
+    "internal": [],
+    "external": []
+   },
+   "qualifications": [],
+   "territorial_acknowledgement_present": false,
+   "employment_equity_present": false,
+   "additional_context": null
+  },
+  "provenance": {
+   "member_count": 2,
+   "skill_frequency": []
+  }
+ },
+ "model": {
+  "title": "Director, Office of Research Ethics",
+  "position_number": null,
+  "department": null,
+  "grade": null,
+  "classification": null,
+  "employee_group": "apsa",
+  "supervisor_title": null,
+  "supervisor_position_number": null,
+  "about_sfu_present": false,
+  "position_summary": "The Director provides strategic leadership and operational oversight for the Office of Research Ethics, ensuring that all human‑subjects research at SFU complies with Policy R20.01 and the Tri‑Council Policy Statement (TCPS‑2). The role interprets ethical policies, guides faculty, staff and students through the ethics review process, and represents the university in internal and external forums. By managing staff, reviewing applications, handling participant concerns, and maintaining accurate records and reporting, the Director safeguards ethical standards and supports the university’s research mission.",
+  "duties": [
+   {
+    "action_verb": "Provide",
+    "statement": "leadership and manage the operations of the Office of Research Ethics",
+    "how_why": [
+     "ensure compliance with SFU Policy R20.01 and TCPS‑2",
+     "oversee day‑to‑day activities and supervise staff",
+     "develop and implement office procedures and policies"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Review",
+    "statement": "research ethics applications for completeness and policy compliance",
+    "how_why": [
+     "approve minimal‑risk applications and document rationale",
+     "consult the REB Chair on greater‑than‑minimal‑risk studies",
+     "return incomplete applications to investigators for revision"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Serve",
+    "statement": "as the primary liaison between SFU and external bodies on ethics matters",
+    "how_why": [
+     "act as contact for health authorities, hospitals, ministries and foundations",
+     "represent SFU on external committees and boards such as the MSFHR Ethics Harmonization Initiative",
+     "engage with Aboriginal individuals and communities for collaborative research"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Respond",
+    "statement": "to concerns or complaints from research participants",
+    "how_why": [
+     "investigate issues, act as liaison between participants and researchers",
+     "facilitate resolution or refer matters beyond Policy R20.01 scope",
+     "communicate outcomes to relevant stakeholders"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Oversee",
+    "statement": "records management, monitoring and reporting activities",
+    "how_why": [
+     "ensure timeliness, accuracy and availability of reports for funding sponsors and university committees",
+     "prepare the annual REB activity report for Senate",
+     "collect and analyse data to inform policy updates and inter‑university communication"
+    ],
+    "frequency": null
+   }
+  ],
+  "decision_making": [
+   "Operational management of the Office of Research Ethics and supervision of staff",
+   "Interpretation and application of ethics policies and procedures",
+   "Approval of minimal‑risk research applications",
+   "Referral of significant legal or financial matters to the Vice‑President, Research"
+  ],
+  "problem_solving": [
+   "Resolving sensitive internal ethics issues and participant complaints",
+   "Addressing complex applications that may exceed minimal risk",
+   "Coordinating responses to external inquiries and legislative requirements"
+  ],
+  "relationships": {
+   "supervisory": "Directly supervises 2 full‑time staff members and oversees additional part‑time staff",
+   "internal": [
+    "Vice‑President, Research",
+    "Research Ethics Board Chair",
+    "Faculty, staff and graduate students",
+    "University committees (e.g., Biosafety, Occupational Safety)"
+   ],
+   "external": [
+    "Health authorities",
+    "Hospitals and ministries",
+    "Foundations and external sponsors",
+    "Aboriginal communities",
+    "External ethics committees and boards"
+   ]
+  },
+  "qualifications": [
+   {
+    "text": "University degree (e.g., Master's) in a relevant discipline or an equivalent combination of education, training and experience",
+    "kind": "education",
+    "modifier": null
+   },
+   {
+    "text": "Significant experience in research ethics administration and review processes",
+    "kind": "experience",
+    "modifier": null
+   },
+   {
+    "text": "Knowledge of SFU Policy R20.01, TCPS‑2 and related federal/provincial regulations",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Demonstrated leadership and staff management abilities",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Strong communication and liaison skills with internal and external stakeholders",
+    "kind": "ability",
+    "modifier": null
+   }
+  ],
+  "territorial_acknowledgement_present": false,
+  "employment_equity_present": false,
+  "additional_context": null
+ }
+}

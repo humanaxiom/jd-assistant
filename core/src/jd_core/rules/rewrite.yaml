@@ -43,8 +43,16 @@ temperature: 0.0
 # UNHASHED (never moves rules_version). HR-191.
 reasoning_effort: null
 
-# Token budget for one rewrite completion (mirrors hris's 2048). HR-178.
-max_tokens: 2048
+# Token budget for one rewrite completion. HR-178.
+#
+# MEASURED 2026-10-20 (rewrite pilot, 22 size-stratified v9 clusters, gpt-oss:120b): Ollama
+# caps the reasoning stream and the content SEPARATELY at this number. At the old 2048
+# (hris's value) 4 of 22 first calls stopped on `length` with an EMPTY reply — every one a
+# WJQ or >p90 draft — and were saved only by the single repair retry (HR-179); one success
+# used 1,912 of 2,048 content tokens. At 4096 all six re-run clusters (the four that
+# truncated + the two largest) finished on the first call, the largest reply using 2,025
+# content tokens (~49%). Parser v9 drafts are larger (merged p50 7.5k chars, max 34k).
+max_tokens: 4096
 
 # How many times an INVALID-JSON / schema-mismatch response is re-requested with a terse
 # repair nudge before raising LLMOutputInvalidError. Transient network/5xx retries are
@@ -62,7 +70,11 @@ max_retries: 1
 # v3 (parser v9, owner ruling 2026-10-20 Q1): duties carry how/why clauses now. The input
 # shows each duty as a "- " line with its clauses indented under it (`jd_text.outline_jd`),
 # and rule 3 says to keep that shape. v2 stays on disk unedited, for read-back.
-prompt_version: jd_harmonize_v3
+# v4 (rewrite fidelity, 2026-10-20): rule 3 says to MERGE related duties to reach the form's
+# limit and never drop a duty area; the section rules say to reword only what THAT section
+# states. The input is the merge draft minus the form's own instructions and SFU
+# boilerplate (`form_instructions`, `grounding_boilerplate_threshold`). v3 stays on disk.
+prompt_version: jd_harmonize_v4
 
 # --- anti-fabrication guard (the heart of 4.2a) ------------------------------------
 # Whether the guard runs at all. `true` scrubs ungrounded qualifications and flags
@@ -83,13 +95,157 @@ skill_grounding_threshold: 0.5
 
 # How a rewritten duty's how/why CLAUSE is grounded (parser v9 review M2). Prompt v3 forbids
 # inventing clauses; this is the check: at least this fraction of a clause's content tokens
-# must appear in the matched merge duty's headline plus ONE of its clauses (not their union).
-# Below it the clause is DROPPED and recorded (`scrubbed_how_why`). Asked from the other end
-# too: every source clause must stay covered by the rewritten duty. On either failure the
-# duty's SOURCE clauses replace the model's
-# (nothing invented kept, nothing stated lost). Held at the qualification bar (HR-183) —
-# same token-overlap rule, same number — until the 4.5 pilot calibrates either. HR-267.
+# must appear in ONE source duty's headline plus ONE of its clauses (never a union). Below
+# it the clause is DROPPED and recorded (`scrubbed_how_why`).
+#
+# Since 2026-10-20 (rewrite fidelity) the unit may come from ANY source duty, not only the
+# one the rewritten duty was matched to: the pilot's model merges duties to reach the
+# form's cap, and grounding a merged duty's clauses against one source scrubbed 8 faithful
+# clauses on 1d68c603 and all 15 on 22994d3a. Still one unit per test — a clause stitched
+# from words scattered across clauses still fails.
+#
+# The same number is asked from the other end (`duty_coverage_policy`): each SENTENCE of
+# every source duty must be covered — this fraction of its tokens — by ONE rewritten duty
+# (statement + kept clauses), or it is folded back. Held at the qualification bar (HR-183)
+# until a calibration says otherwise. HR-267.
 how_why_grounding_threshold: 0.5
+
+# --- rewrite fidelity (owner ruling 2026-10-20: "fix the rewrite first") ------------
+# MEASURED on the rewrite pilot (22 size-stratified clusters on the v9 Bank, replies
+# recorded and replayed offline through the guard): the guard checked what the model
+# ADDED to duties and qualifications only, and never what it LOST anywhere but empty
+# sections. Every knob below is `our_invention`, `open`.
+
+# What happens to source DUTY content no rewritten duty covers (by the HR-267 rule, read
+# source -> rewrite, one sentence at a time). The JDFN cap is five duties (HR policy,
+# `thresholds.duties_max`, untouched) and a twelve-duty merge has to be merged to fit it;
+# the pilot's model met the cap by DROPPING areas instead — on 1d68c603 "Community Liaison
+# & Committee Representation" and "Research & Museum Career Skills Training" were recorded
+# in `removed_duties` and gone from the draft.
+#   fold_back (shipped): each uncovered sentence is appended, verbatim, as a how/why clause
+#     of the rewritten duty that covers the rest of its source duty best — content is kept
+#     and the cap is kept. Recorded in `folded_duty_content`.
+#   record_only: the draft keeps the model's duties as returned and each uncovered
+#     sentence is listed for the reviewer (`dropped_duty_content`, shown on the review
+#     page as "dropped from the merge").
+# Visible over silent either way; fold_back because a reviewer reading a five-duty draft
+# cannot see what is not on the page. HR-271.
+duty_coverage_policy: fold_back
+
+# How a rewritten DECISION MAKING / PROBLEM SOLVING / RELATIONSHIPS item is grounded: at
+# least this fraction of its content tokens must appear in ONE item of the merge draft's
+# SAME section (not the whole document — a contact lifted from the duties is not a
+# contact the Relationships section states). Below it the item is DROPPED and recorded
+# (`scrubbed_items`). Read the other way it decides LOSS: a source item sentence with less
+# than this fraction of its tokens in the section's kept items is uncovered
+# (`uncovered_items`). One number, both directions, the same rule family as HR-183/HR-267.
+# MEASURED: "Approves acquisition, deaccession and loan decisions", "…approves funding
+# proposals" (1d68c603, Decision Making) and a WJQ contact list replaced by "Engineering
+# Science" contacts its section never names (0a75edf1) all passed the old guard. HR-269.
+section_item_grounding_threshold: 0.5
+
+# The sections whose UNCOVERED source items are put back, verbatim, after the rewrite (the
+# same "loses nothing" principle as the how/why restore). A section not listed still has
+# its losses recorded in `uncovered_items`, and they show on the review page. MEASURED:
+# 1d68c603 Decision Making 13 -> 5; a WJQ draft's qualifications 40 -> 15 with "circuit
+# fabrication/assembly", "web publishing software" and "instruct others on safe work
+# environments" among those gone and nothing recording it. HR-270.
+restore_uncovered_items_in: [decision_making, problem_solving, relationships, qualifications]
+
+# Whether a NAMED TERM in a rewritten item — an acronym, or a capitalized word that does
+# not start a sentence — must itself appear in the source text the item is grounded in.
+# A token-overlap bar cannot see a new name riding on grounded words: "Familiarity with
+# international museum standards and conventions (e.g., ICOM Code of Ethics, CITES)"
+# has 5 of 9 tokens grounded where the source says only "International Council on
+# Museums". Applies to qualifications, how/why clauses and the per-item sections, and
+# (review round 1) to duty STATEMENTS, where an ungrounded name FLAGS the duty (HR-184:
+# a duty is flagged, never dropped). HR-272.
+named_terms_must_be_grounded: true
+
+# Whether every NUMBER in a rewritten item must appear in the text it is grounded in, as
+# a named term must (HR-272). Review round 1: a one- or two-digit token was below
+# `comparison.skill_min_token_len`, so "2 staff" -> "12 staff" was invisible to every
+# grounding test. Numbers are now content tokens whatever their length, and with this on
+# an item whose number the source does not state is not grounded. HR-278.
+numbers_must_be_grounded: true
+
+# English function words, added to `comparison.skill_stopwords` for the rewrite's
+# grounding tests ONLY. That list (HR-150) is a 20-word noise filter for skill bags: it
+# drops "management" and "training" but KEEPS "and", "the", "for", "such" as content
+# tokens, and every 0.5 bar here (HR-183/267/269) counted them as evidence. MEASURED
+# (review round 1, replay of the 22 pilot replies): "Terminates the employment of the
+# staff and the volunteers for the orientation." grounded at 4 of 8 on an orientation
+# Decision Making item, and on b13e6321 the source sentence "Marketing services on the
+# Web and in print media, with posters and brochures, …" was "covered" at exactly 10 of
+# 20 by a duty that never mentions marketing — gone from the draft, in no record.
+# Negations ("not", "no", "never", "without") are deliberately NOT listed: they are
+# the words a reversed claim changes. HR-277.
+grounding_stopwords:
+  [the, and, for, from, that, this, these, those, are, was, were, will, can, may, its,
+   their, our, his, her, who, whom, which, what, when, where, how, why, all, any, each,
+   such, into, onto, via, etc, also, other, others, than, then, them, they, has, have,
+   had, been, being, both, either, including, include, includes, well, upon, within]
+
+# A source SENTENCE is SFU boilerplate — and its words cannot ground anything — when at
+# least this fraction of its content tokens belongs to ONE boilerplate passage
+# (`boilerplate.yaml` About SFU / territorial acknowledgement / Employment Equity, plus
+# `grounding_extra_boilerplate` below). Matched fuzzily on purpose: the archive's
+# territorial acknowledgement spells the nations in their own orthography
+# ("xʷməθkʷəy̓əm") where `boilerplate.yaml` folds to ASCII. Boilerplate sentences are also
+# left out of the rewrite's input and are never "restored". MEASURED: the merge drafts
+# carry the EE statement and the acknowledgement as QUALIFICATION lines (482 and 212 of
+# 2,446 v9 drafts; the Coast Salish wording in 377), and on 1d68c603 the model fused them
+# into "Commitment to employment equity and respect for Indigenous territories and
+# cultures", which their words then grounded. HR-273.
+grounding_boilerplate_threshold: 0.8
+
+# Boilerplate wordings the archive carries that `boilerplate.yaml` does not list. Kept here,
+# not there, because `boilerplate.yaml` is HASHED (validators read it) and this list only
+# decides what may ground a rewrite. MEASURED: 377 of 2,446 v9 drafts. HR-274.
+grounding_extra_boilerplate:
+  - >-
+    We acknowledge the traditional territories of the Coast Salish peoples, on whose lands
+    the SFU campuses reside.
+
+# The OLD APSA/WJQ questionnaire's own instructions to the person filling it in. The parser
+# reads them into duties, Decision Making, the summary and Relationships, so they reach the
+# merge draft. The rewrite removes them from its INPUT: the model never sees them, they
+# cannot ground anything, and no restore can put them back (recorded in
+# `stripped_source_text`). Matched on the word sequence, so punctuation variants
+# (", " / "; ", "i.e." / "i.e.,") match too. MEASURED over the 2,446 v9 drafts (distinct
+# drafts carrying each): 745 / 732 / 731 (the three Decision Making questions), 537
+# (guidance), 534 (summary), 484 / 475 / 397 (the duty instructions), 279 (contacts),
+# 173 + 139 (supervision). On 22994d3a they sat at the head of every source duty, and the
+# guard scrubbed all 15 of the model's clauses. ⚠ The deterministic draft (rewrite failed or
+# `--no-llm`) still carries them: removing them at the PARSER is the real fix, and it moves
+# `PARSER_VERSION` and the placeholder gate (HR-047 reads "action verb" / "how and why")
+# — not done here. HR-275.
+form_instructions:
+  - Starting with those you consider the most important, list and describe the main duties and responsibilities of the position.
+  - For each item start with an action verb and briefly describe WHAT is done, HOW it is done and WHY it is done.
+  - Indicate in the right hand column the percentage of time spent on each particular task.
+  - Give some typical examples of the most important decisions the incumbent is expected to make in carrying out the duties and responsibilities of the position.
+  - To what extent can the incumbent rely on established policies or advice from others in making these decisions?
+  - Give some examples of the types of decisions the incumbent would refer to his/her supervisor.
+  - Briefly describe the primary function and purpose of the position in one or two sentences.
+  - Explain the nature of guidance received and how often work is checked or reviewed.
+  - Describe the extent to which the supervisor determines the day to day work load of the position and assists in the completion of duties.
+  - Describe the extent to which the supervisor determines the day-to-day workload of the position and assists in the completion of duties.
+  - Indicate the number of continuing employees for whom the position is responsible.
+  - Indicate the number of employees for whom the position is responsible.
+  - List internal and external contacts (i.e., specific positions within own department, other departments, students, faculty, on/off campus vendors, etc.), the duration of each contact (i.e. less than 1 hour at a time, 1-2 hours at a time, more than 2 hours at a time), and the frequency of each contact (i.e. occasional, frequent, or continuous).
+  - List internal and external contacts (i.e. specific positions within own department, other departments; students; faculty; on/off campus vendors; etc.), the duration of each contact (i.e. less than 1 hour at a time; 1-2 hours at a time; more than 2 hours at a time) and the frequency of each contact (occasional; frequent; continuous).
+  - Type of Contact Duration Frequency
+
+# A .doc converter hard-wraps a long instruction, and the parser makes each wrapped line a
+# list ITEM ("(i.e. specific positions within own department, other departments;",
+# "continuous)."). A RUN of consecutive list items, each a piece of an instruction's word
+# sequence, is that instruction when ONE item of the run alone holds at least this many of
+# its words — so the WJQ's real table cells that echo its words ("1 hour", "Occasional",
+# "Faculty") are never taken for it, and a short wrapped tail goes with its long line.
+# MEASURED: the wrapped contact instruction's first line is an item in 94 v9 drafts'
+# contact lists. HR-276.
+form_instruction_fragment_min_tokens: 6
 
 # The minimum token-Jaccard a rewritten DUTY must share with SOME draft duty. Below it the
 # duty is FLAGGED (recorded, never dropped — a duty may legitimately rephrase, so a

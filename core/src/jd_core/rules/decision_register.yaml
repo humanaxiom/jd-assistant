@@ -5674,13 +5674,23 @@ decisions:
     config:
       file: rewrite.yaml
       path: rewrite.max_tokens
-    current_default: 2048
+    current_default: 4096
     provenance: our_invention
     tier: technical
     why_it_matters: >-
       The whole SFUJobDescription JSON must fit in one completion; too small truncates the
-      JSON (which then fails to parse and burns a retry). 2048 mirrors the earlier build's harmonize call.
-      PROVISIONAL — size it against real cluster outputs at the 4.5 pilot.
+      JSON (which then fails to parse and burns a retry). Was 2048, the earlier build's
+      harmonize value. MEASURED 2026-10-20 on the rewrite pilot (22 size-stratified
+      clusters on the v9 Bank, gpt-oss:120b on aria-gb10-2): Ollama caps the reasoning
+      stream and the content SEPARATELY at this number, and at 2048 four of 22 first
+      calls stopped on `length` with an EMPTY reply — every one a WJQ or larger-than-p90
+      draft — saved only by the single repair retry (HR-179); one success used 1,912 of
+      2,048 content tokens. At 4096 all six re-run clusters (the four that truncated and
+      the two largest) finished on the first call; the largest reply used 2,025 content
+      tokens (~49%). Raised to 4096 on that evidence, still `open`: six clusters is a
+      pilot, not a calibration, and the v4 prompt (HR-180) asks for longer duties (merged
+      areas fold into how/why). Watch `rewrite_failed` and the `length` rate in the
+      producer pass.
     impact_if_changed: >-
       Does NOT move `rules_version`. Operational headroom, not a policy lever on the output
       content. Pinned by mutation in the rewrite consumer test (the value the consumer reads
@@ -5715,7 +5725,7 @@ decisions:
     config:
       file: rewrite.yaml
       path: rewrite.prompt_version
-    current_default: jd_harmonize_v3
+    current_default: jd_harmonize_v4
     provenance: our_invention
     tier: technical
     why_it_matters: >-
@@ -5742,6 +5752,13 @@ decisions:
       clauses: the input shows each duty with its clauses indented under it
       (`jd_text.outline_jd`) and rule 3 tells the model to keep that shape, and the
       rewrite restores a matched duty's clauses if the model returns it without them.
+      v4 (rewrite fidelity, 2026-10-20) exists because the pilot's model met the JDFN
+      five-duty cap by DROPPING whole duty areas: rule 3 now says to MERGE related
+      duties and keep every area, rule 5 to keep every distinct qualification, rule 8 to
+      reword Decision Making / Problem Solving / Relationships only from that same
+      section, rule 9 not to introduce names or expansions. Its input is the merge draft
+      minus the questionnaire's instructions and SFU boilerplate (HR-273…HR-276). The
+      guard (HR-269…HR-272) is what holds each of these; the prompt only asks.
     impact_if_changed: >-
       Does NOT move `rules_version`. Pinned by mutation in the prompt-loader test (the
       loaded prompt's `.version` is stamped onto `RewrittenDraft.prompt_version`; a missing
@@ -5907,14 +5924,18 @@ decisions:
     config:
       file: quality.yaml
       path: quality.max_tokens
-    current_default: 1024
+    current_default: 2048
     provenance: our_invention
     tier: technical
     why_it_matters: >-
       The nuanced findings list must fit in one completion; too small truncates the JSON
-      (which then fails to parse and burns a retry). 1024 mirrors the earlier build's value for THIS pass
-      (the findings list is far smaller than a full SFUJobDescription rewrite, which gets
-      2048). PROVISIONAL — size it against real audit outputs at the 4.5 pilot.
+      (which then fails to parse and burns a retry). Was 1024, the earlier build's value
+      for this pass. MEASURED 2026-10-20 on the rewrite pilot (22 v9 clusters): 2 of 22
+      audit calls stopped on `length` at 1024 and were saved only by the repair retry
+      (HR-188), whose replies then used 1,003 and 965 of the 1,024 — no headroom. Ollama
+      caps reasoning and content separately at this number (the rewrite's HR-178
+      finding), so a larger budget costs nothing on a call that finishes early. Raised to
+      2048 on that evidence; still `open` — 22 calls is a pilot, not a calibration.
     impact_if_changed: >-
       Does NOT move `rules_version`. Operational headroom, not a policy lever on the findings
       content. Pinned by mutation in the audit consumer test (the value the consumer reads
@@ -6929,7 +6950,10 @@ decisions:
       it, even when much shorter than the harmonized version — the same role compressed
       twenty internal contacts to three on a later attempt. Whether that is acceptable
       editing or unacceptable loss is a real question and a separate one, and it is put
-      to HR rather than answered quietly by a number chosen here.
+      to HR rather than answered quietly by a number chosen here. (Update 2026-10-20:
+      that separate question now has a shipped DEFAULT — HR-269 and HR-270 treat a
+      dropped point as loss and put it back — registered `open` so HR can overrule it.
+      This entry still governs only the whole-section case.)
     impact_if_changed: >-
       Does NOT move `rules_version` (rewrite.yaml is unhashed) — it decides what a draft
       may CONTAIN, never how one is scored. `false` restores the pre-2026-08-23
@@ -8398,14 +8422,19 @@ decisions:
       model to reword them without inventing any. Until this check, the guard matched
       only the WHOLE duty (HR-184's Jaccard ≥ 0.2), so a reworded duty could carry a
       clause no source states (review M2). Now each clause needs at least this fraction
-      of its content tokens in its source duty's headline plus ONE of that duty's source
+      of its content tokens in ONE source duty's headline plus ONE of that duty's
       clauses (not the union of all: on a real 14-clause archive duty, invented clauses
       stitched from words scattered over many clauses passed the union). Below it the
-      clause is DROPPED and recorded (`scrubbed_how_why`). The same rule is asked from
-      the other end: every SOURCE clause must still be covered by the rewritten duty
-      (statement + kept clauses), or the model dropped it. On either failure the model's
-      clauses for that duty give way to the SOURCE's (nothing invented kept, nothing
-      stated lost); a duty with no source match (flagged) keeps no clauses. ⚠ No
+      clause is DROPPED and recorded (`scrubbed_how_why`). Since 2026-10-20 (rewrite
+      fidelity) that unit may come from ANY source duty, not just the one the rewritten
+      duty matched: the model merges duties to reach the form's cap, and grounding a
+      merged duty's clauses against one source scrubbed 8 faithful clauses on the
+      pilot's 1d68c603 and all 15 on 22994d3a (a flagged duty's clauses are now judged
+      the same way, not all dropped). The same rule is asked from the other end, one
+      SENTENCE at a time: every source duty sentence must be covered by ONE rewritten
+      duty (statement + kept clauses), or it is folded back as a clause (HR-271) — this
+      replaces v9 review round 2's "the source's clauses replace the model's", which
+      asked only of the matched duty and misfired once duties were merged. ⚠ No
       stemming: "grants" does not ground "grant", so a loose paraphrase also falls back
       to the source wording — conservative (loses the rewording, never content), and
       the pilot's `scrubbed_how_why` rate is the number to read. Held at the qualification bar's value (HR-183, the same
@@ -8440,6 +8469,389 @@ decisions:
       changes what a parsed JD contains, so it needs a `PARSER_VERSION` bump and a
       re-parse. Must stay at or below `SFUJobDescription.decision_making` /
       `problem_solving`'s ceiling (60; loader-enforced).
+    status: open
+
+  # ── Rewrite fidelity (owner ruling 2026-10-20, "fix the rewrite first"): HR-269…276. ──
+  # Measured on the 22-cluster rewrite pilot over the v9 Bank, its recorded replies
+  # replayed offline through the guard (docs/plans/PARSER-V9-LISTS-AND-CAPS.md §15).
+  - id: HR-269
+    question: >-
+      When the LLM rewords Impact of Decision Making, Problem Solving or Relationships,
+      how much of each point must come from the SAME section of the source draft for the
+      point to be kept — and how much of a source point must survive for it to count as
+      kept rather than lost?
+    config:
+      file: rewrite.yaml
+      path: rewrite.section_item_grounding_threshold
+    current_default: 0.5
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      🔴 THIS CHANGES WHAT HR SEES, AND IT ANSWERS A QUESTION HR-214 EXPLICITLY LEFT TO
+      HR: whether a rewrite that returns a section SHORTER than the source draft's (twenty
+      contacts compressed to three) is rewording or loss. HR-214 declined to settle it
+      "by a number chosen here"; this entry and HR-270 now settle it by default — as
+      loss, per point, at the number below — on the pilot's evidence, and both stay
+      `open` for HR to overrule. Drafts produced after 2026-10-20 read part-reworded,
+      part-original in these sections. Until 2026-10-20 a section the merge draft HAD was
+      "left entirely to the rewrite":
+      only a section created from nothing (CUPE Phase D) or emptied (HR-214) was ever
+      checked. MEASURED on the rewrite pilot, that let through Decision Making points no
+      source states ("Approves acquisition, deaccession and loan decisions",
+      "Allocates budgetary resources and approves funding proposals" on 1d68c603), a
+      Problem Solving point ("Navigates funding constraints while maintaining program
+      quality"), and a WJQ draft whose Biomedical Physiology and Kinesiology contacts —
+      with their duration and frequency cells — were REPLACED by "Engineering Science"
+      contacts the Relationships section never names (0a75edf1). Now each rewritten
+      point needs at least this fraction of its content tokens in ONE point of the merge
+      draft's same section (not the whole document — a contact named in the duties is
+      not a contact the Relationships section lists); below it the point is DROPPED and
+      recorded (`scrubbed_items`). Read the other way, a source sentence with less than
+      this fraction of its tokens in the kept points is LOST (`uncovered_items`; put
+      back per HR-270). One number, both directions, the HR-183 / HR-267 rule family.
+      ⚠ No stemming: "loans" does not ground "loan", so a loose paraphrase is dropped
+      and the source's own wording comes back — conservative (it loses the rewording,
+      never the content).
+    impact_if_changed: >-
+      Does NOT move `rules_version` (rewrite.yaml is unhashed); changes the rewrite's
+      output on the next producer pass. Higher drops more paraphrase (more of the
+      source's own wording comes back); lower lets more paraphrase — and more invention —
+      through. Pinned by `test_rewrite_fidelity.py`.
+    status: open
+
+  - id: HR-270
+    question: >-
+      When the LLM rewrite drops a point the source draft stated (a decision, a problem,
+      a contact, a qualification), should the point be put back into the draft, or only
+      listed for the reviewer?
+    config:
+      file: rewrite.yaml
+      path: rewrite.restore_uncovered_items_in
+    current_default: [decision_making, problem_solving, relationships, qualifications]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      "Reword this draft" licenses no loss. MEASURED on the rewrite pilot: 1d68c603's
+      Decision Making went 13 points -> 5; a WJQ draft's qualifications went 40 -> 15,
+      and while most of that was honest de-duplication, "circuit fabrication/assembly",
+      "web publishing software" and "instruct others on safe work environments" were
+      simply gone and NOTHING recorded it. Every source sentence no kept point covers
+      (HR-269 / HR-183) is now recorded in `uncovered_items` and shown on the review
+      page; a section listed here gets those sentences put back, verbatim, after the
+      model's own points (`restored_items`) — the same "loses nothing" principle as the
+      how/why restore. A section not listed keeps the model's points as returned and the
+      loss is visible but not repaired. ⚠ A restored point is the source's wording, so
+      a section can read as part-rewritten, part-original; that is the honest form of
+      "the model dropped this".
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Removing a section stops restoring it (losses are
+      still recorded and shown). Pinned by `test_rewrite_fidelity.py`.
+    status: open
+
+  - id: HR-271
+    question: >-
+      When the LLM rewrite merges a job description's duties down to the form's limit
+      and some duty content is no longer in any rewritten duty, should that content be
+      folded back into the closest duty, or only listed for the reviewer?
+    config:
+      file: rewrite.yaml
+      path: rewrite.duty_coverage_policy
+    current_default: fold_back
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      The APSA/APEX/Poly form holds five duties (HR policy, `thresholds.duties_max` —
+      NOT changed here), so a twelve-duty merge must be merged to fit. MEASURED on the
+      rewrite pilot, the model met the limit by DROPPING whole duty areas instead: on
+      1d68c603 "Community Liaison & Committee Representation" and "Research & Museum
+      Career Skills Training" were recorded in `removed_duties` and gone from the draft.
+      Every SENTENCE of every source duty must now be covered (HR-267's fraction of its
+      tokens) by ONE rewritten duty. `fold_back`: an uncovered sentence is appended,
+      verbatim, as a how/why point of the rewritten duty that covers the rest of its
+      source duty best — content kept, limit kept (`folded_duty_content`). `record_only`:
+      the draft stays as the model returned it and each uncovered sentence is listed
+      for the reviewer as dropped from the merge (`dropped_duty_content`). Shipped
+      `fold_back` because a reviewer reading a five-duty draft cannot see what is not on
+      the page; either way nothing is silent. Prompt v4 (HR-180) also asks the model to
+      merge, not drop — the guard is what holds it.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. `record_only` keeps the model's duties exactly as
+      returned and shows the loss on the review page instead. Pinned by
+      `test_rewrite_fidelity.py`.
+    status: open
+
+  - id: HR-272
+    question: >-
+      Must every name or acronym the LLM rewrite writes — "ICOM", "Engineering Science" —
+      appear in the source draft itself, even when the rest of the line is grounded?
+    config:
+      file: rewrite.yaml
+      path: rewrite.named_terms_must_be_grounded
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A token-overlap bar (HR-183/267/269) counts words, so a new NAME rides on grounded
+      ones. MEASURED on the rewrite pilot: "Familiarity with international museum
+      standards and conventions (e.g., ICOM Code of Ethics, CITES)" kept at 5 of 9 tokens
+      where the source says only "International Council on Museums" (1d68c603), and a
+      contact "Engineering Science Faculty (lab course instructors)" kept at 4 of 6 on a
+      section about Biomedical Physiology and Kinesiology (0a75edf1). A NAMED term — a
+      word with two or more capitals, or a capitalized word that does not start a
+      sentence — must now itself be in the text the line is grounded in (the whole
+      source for a qualification, the source duties for a how/why point, the same
+      section for HR-269's points), or the line is dropped and recorded. Since review
+      round 1 a duty STATEMENT is read too ("…program under FIPPA" passed with no flag);
+      a statement is FLAGGED for the reviewer, never dropped (HR-184). ⚠ It also drops
+      a FAITHFUL expansion ("Truth and Reconciliation Commission" for "TRC"); the
+      source's own wording then comes back through HR-270, so nothing is lost but the
+      rewording.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. `false` restores the pre-2026-10-20 behaviour (token
+      overlap alone). Pinned by `test_rewrite_fidelity.py`.
+    status: open
+
+  - id: HR-273
+    question: >-
+      How closely must a sentence match SFU's boilerplate (About SFU, the territorial
+      acknowledgement, the Employment Equity statement) for the rewrite to treat it as
+      boilerplate — words that may not support any claim about the role?
+    config:
+      file: rewrite.yaml
+      path: rewrite.grounding_boilerplate_threshold
+    current_default: 0.8
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The parser reads the EE statement and the territorial acknowledgement into the
+      QUALIFICATIONS of many archive documents, so they reach the merge draft as
+      qualification lines. MEASURED on the rewrite pilot (1d68c603): the model fused the
+      two into "Commitment to employment equity and respect for Indigenous territories
+      and cultures", and the boilerplate's own words grounded it. A source sentence at
+      least this fraction of whose content tokens belong to ONE boilerplate passage is
+      now left out of the rewrite's input, out of what can ground anything, and out of
+      what HR-270 restores (recorded in `stripped_source_text`). Fuzzy on purpose: the
+      archive spells the nations in their own orthography ("xʷməθkʷəy̓əm") where
+      `boilerplate.yaml` folds to ASCII, so a verbatim match misses it. Measured
+      exposure, distinct v9 drafts: the EE sentence as a qualification 482, the
+      acknowledgement 212, the Coast Salish wording (HR-274) 377.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Lower treats more ordinary sentences as boilerplate
+      (they then cannot ground and are not restored); higher lets variant wordings of the
+      boilerplate ground claims again. Pinned by `test_rewrite_fidelity.py`.
+    status: open
+
+  - id: HR-274
+    question: >-
+      Which other wordings of SFU's boilerplate, beyond the ones the validator checks,
+      should the rewrite treat as boilerplate?
+    config:
+      file: rewrite.yaml
+      path: rewrite.grounding_extra_boilerplate
+    current_default:
+      - >-
+        We acknowledge the traditional territories of the Coast Salish peoples, on whose
+        lands the SFU campuses reside.
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      An older territorial acknowledgement, carried as a qualification line by 377 of
+      the 2,446 v9 merge drafts (measured 2026-10-20). It is kept HERE and not in
+      `boilerplate.yaml` because that file is hashed — the validator reads it to decide
+      whether a JD carries the acknowledgement (HR-105) — and which wording counts there
+      is HR's call, not a rewrite setting. This list only decides what may not ground a
+      rewritten claim.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Adding a wording keeps its words from grounding a
+      claim and keeps it out of what is restored. Pinned by `test_rewrite_fidelity.py`.
+    status: open
+
+  - id: HR-275
+    question: >-
+      Which of the old job-description questionnaire's own instructions to the person
+      filling it in should the rewrite remove from what it reads?
+    config:
+      file: rewrite.yaml
+      path: rewrite.form_instructions
+    current_default:
+      - Starting with those you consider the most important, list and describe the main duties and responsibilities of the position.
+      - For each item start with an action verb and briefly describe WHAT is done, HOW it is done and WHY it is done.
+      - Indicate in the right hand column the percentage of time spent on each particular task.
+      - Give some typical examples of the most important decisions the incumbent is expected to make in carrying out the duties and responsibilities of the position.
+      - To what extent can the incumbent rely on established policies or advice from others in making these decisions?
+      - Give some examples of the types of decisions the incumbent would refer to his/her supervisor.
+      - Briefly describe the primary function and purpose of the position in one or two sentences.
+      - Explain the nature of guidance received and how often work is checked or reviewed.
+      - Describe the extent to which the supervisor determines the day to day work load of the position and assists in the completion of duties.
+      - Describe the extent to which the supervisor determines the day-to-day workload of the position and assists in the completion of duties.
+      - Indicate the number of continuing employees for whom the position is responsible.
+      - Indicate the number of employees for whom the position is responsible.
+      - List internal and external contacts (i.e., specific positions within own department, other departments, students, faculty, on/off campus vendors, etc.), the duration of each contact (i.e. less than 1 hour at a time, 1-2 hours at a time, more than 2 hours at a time), and the frequency of each contact (i.e. occasional, frequent, or continuous).
+      - List internal and external contacts (i.e. specific positions within own department, other departments; students; faculty; on/off campus vendors; etc.), the duration of each contact (i.e. less than 1 hour at a time; 1-2 hours at a time; more than 2 hours at a time) and the frequency of each contact (occasional; frequent; continuous).
+      - Type of Contact Duration Frequency
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The parser reads the old questionnaire's instructions into duties, Decision
+      Making, the summary and Relationships, so they reach the merge draft. MEASURED over
+      the 2,446 v9 drafts (distinct drafts carrying each): 745 / 732 / 731 for the three
+      Decision Making questions, 537 (guidance received), 534 (the summary
+      instruction), 484 / 475 / 397 (the three duty instructions), 279 (the contact
+      instruction), 173 + 139 (supervision). On the pilot's 22994d3a they sat at the
+      head of every source duty, and the guard scrubbed all 15 of the model's clauses.
+      The rewrite now removes them from its input, matched on the word sequence so a
+      punctuation variant matches too: the model never sees them, they cannot ground
+      anything, and no restore puts them back (`stripped_source_text`). ⚠ The
+      deterministic draft — kept when the rewrite fails, or with `--no-llm` — still
+      carries them: removing them at the PARSER is the real fix, and it moves
+      `PARSER_VERSION` and changes the placeholder gate (HR-047 reads "action verb" /
+      "how and why", which the duty instruction contains). That is a separate decision.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Adding an instruction removes it from the rewrite's
+      input. Pinned by `test_rewrite_fidelity.py`.
+    status: open
+
+  - id: HR-276
+    question: >-
+      When a converter has wrapped a long questionnaire instruction over several list
+      lines, how many of its words must one line hold before the rewrite treats that
+      run of lines as the instruction?
+    config:
+      file: rewrite.yaml
+      path: rewrite.form_instruction_fragment_min_tokens
+    current_default: 6
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The .doc converter hard-wraps the WJQ's contact instruction ("List internal and
+      external contacts (i.e., specific positions within own department…") and the
+      parser makes each line a Relationships item — "(i.e. specific positions within
+      own department, other departments;", …, "continuous).". A run of consecutive items
+      each a piece of an instruction's word sequence is dropped when ONE of them holds
+      at least this many of its words; a short tail goes with it. The run rule exists
+      because the instruction's own words are also real WJQ table cells — "1 hour",
+      "Occasional", "Frequent", "Faculty" — which must never be taken for it.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Lower risks dropping a run of real duration /
+      frequency cells; higher leaves wrapped instruction lines in the rewrite's input
+      (and restorable). Pinned by `test_rewrite_fidelity.py`.
+    status: open
+
+  # ── Rewrite fidelity, review round 1 (2026-10-20): HR-277…278. ──
+  - id: HR-277
+    question: >-
+      Which everyday words ("the", "and", "for", "such" …) should NOT count as evidence
+      when the rewrite checks that a reworded point comes from the source, or that a
+      source point is still in the draft?
+    config:
+      file: rewrite.yaml
+      path: rewrite.grounding_stopwords
+    current_default:
+      - all
+      - also
+      - and
+      - any
+      - are
+      - been
+      - being
+      - both
+      - can
+      - each
+      - either
+      - etc
+      - for
+      - from
+      - had
+      - has
+      - have
+      - her
+      - his
+      - how
+      - include
+      - includes
+      - including
+      - into
+      - its
+      - may
+      - onto
+      - other
+      - others
+      - our
+      - such
+      - than
+      - that
+      - the
+      - their
+      - them
+      - then
+      - these
+      - they
+      - this
+      - those
+      - upon
+      - via
+      - was
+      - well
+      - were
+      - what
+      - when
+      - where
+      - which
+      - who
+      - whom
+      - why
+      - will
+      - within
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      Every "at least half of its words" bar the rewrite uses (HR-183, HR-267, HR-269,
+      and the coverage checks of HR-270/271) counted words with the skill-comparison
+      filter (HR-150), a 20-word noise list that removes "management" and "training" but
+      keeps "and", "the", "for" and "such" as if they were content. So those words
+      counted as evidence in BOTH directions. MEASURED in review (replaying the 22 pilot
+      replies, and adversarial cases): an invented Decision Making point "Terminates the
+      employment of the staff and the volunteers for the orientation." was kept at 4 of
+      8 words against a source point about session order, and on b13e6321 the source
+      duty sentence "Marketing services on the Web and in print media, with posters and
+      brochures, …" was counted as still present at exactly 10 of 20 words by a duty
+      that never mentions marketing — it left the draft and no record listed it. These
+      words are now ignored by the rewrite's checks only; the skill-comparison list is
+      unchanged. Negations ("not", "no", "never", "without") are deliberately NOT listed,
+      because they are the words a reversed claim changes.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (rewrite.yaml is unhashed). Removing words makes the
+      checks more lenient again in both directions (more paraphrase and invention kept,
+      more loss counted as covered); adding content words would make faithful
+      rewording fail more often (its source wording then comes back through HR-270/271).
+      Pinned by `test_rewrite_fidelity_review.py`.
+    status: open
+
+  - id: HR-278
+    question: >-
+      Must every number the LLM rewrite writes — a staff count, an amount, a duration —
+      appear in the source text the line comes from?
+    config:
+      file: rewrite.yaml
+      path: rewrite.numbers_must_be_grounded
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A changed number is a changed claim about the job, and until review round 1 the
+      rewrite's checks could not see one: a number of one or two digits was shorter than
+      the minimum word length, so "Decides daily work assignments for 2 staff" reworded
+      to "…for 12 staff" was kept and nothing recorded it. Numbers are now counted as
+      words whatever their length, and with this on, a line whose number the source
+      does not state is treated like a line with an invented name (HR-272): a point,
+      clause or qualification is dropped and recorded (its source wording comes back
+      through HR-270/271), and a duty statement is flagged for the reviewer. ⚠ It also
+      drops a faithful rewording that writes "two" for "2" or the reverse; nothing is
+      lost but the rewording.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. `false` stops requiring numbers to be grounded
+      (they still count as words in the half-of-its-words bars). Pinned by
+      `test_rewrite_fidelity_review.py`.
     status: open
 
 trivial:

@@ -1638,6 +1638,61 @@ class Rewrite(_RuleFile):
     #: up and returning the author's page. NOT the batch rewrite budget, which may
     #: legitimately take far longer. HR-199.
     interactive_timeout_seconds: float = Field(gt=0.0)
+    # --- rewrite fidelity (owner ruling 2026-10-20; HR-269…HR-276) -----------------
+    #: What happens to source duty content no rewritten duty covers (HR-271):
+    #: ``fold_back`` appends each uncovered sentence verbatim as a how/why clause of the
+    #: closest rewritten duty; ``record_only`` leaves the draft as
+    #: returned and lists it.
+    duty_coverage_policy: Literal["fold_back", "record_only"] = "fold_back"
+    #: Per-item grounding of Decision Making / Problem Solving / Relationships against
+    #: ONE item of the merge's SAME section, and — read the other way — what counts as a
+    #: source item the rewrite lost (HR-269).
+    section_item_grounding_threshold: float = Field(gt=0.0, le=1.0)
+    #: The sections whose uncovered source items are put back verbatim (HR-270). A
+    #: section not listed still has its losses recorded.
+    restore_uncovered_items_in: tuple[
+        Literal[
+            "decision_making", "problem_solving", "relationships", "qualifications"
+        ],
+        ...,
+    ] = ()
+    #: Whether an acronym / mid-sentence capitalized word in a rewritten item must
+    #: itself appear in the source it is grounded in (HR-272).
+    named_terms_must_be_grounded: bool = True
+    #: Whether every NUMBER in a rewritten item must appear in the text it is grounded
+    #: in (HR-278; review round 1).
+    numbers_must_be_grounded: bool = True
+    #: Words added to ``comparison.skill_stopwords`` for every rewrite-grounding test
+    #: only (HR-277; review round 1). Lowercase single words.
+    grounding_stopwords: frozenset[str] = Field(default_factory=frozenset)
+    #: A source sentence is boilerplate (and cannot ground anything) when at least this
+    #: fraction of its content tokens belongs to ONE boilerplate passage (HR-273).
+    grounding_boilerplate_threshold: float = Field(gt=0.0, le=1.0)
+    #: Boilerplate wordings beyond ``boilerplate.yaml`` (which is hashed) (HR-274).
+    grounding_extra_boilerplate: tuple[str, ...] = ()
+    #: The old questionnaire's own instructions, removed from the rewrite's input
+    #: (HR-275). Matched on the word sequence.
+    form_instructions: tuple[str, ...] = ()
+    #: A run of list items each a piece of one instruction is that instruction when it
+    #: holds at least this many words (HR-276).
+    form_instruction_fragment_min_tokens: int = Field(ge=1)
+
+    @field_validator("grounding_stopwords")
+    @classmethod
+    def _stopwords_are_words(cls, tokens: frozenset[str]) -> frozenset[str]:
+        for token in sorted(tokens):
+            if not token.isalnum() or token != token.lower():
+                raise ValueError(
+                    f"grounding stopword {token!r} must be one lowercase word"
+                )
+        return tokens
+
+    @field_validator("form_instructions", "grounding_extra_boilerplate")
+    @classmethod
+    def _no_blank_text(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not re.search(r"[A-Za-z0-9]", text) for text in value):
+            raise ValueError("an entry has no words to match")
+        return value
 
 
 class QualityAuditRules(_RuleFile):

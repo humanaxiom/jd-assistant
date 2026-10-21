@@ -491,6 +491,41 @@ def test_a_bar_the_rewrite_tried_to_invent_is_reported_as_removed(
     assert [r.content for r in removed] == ["PhD in Astrophysics required"]
 
 
+def test_what_the_fidelity_guard_dropped_reaches_the_review_page(
+    rules: Rules,
+) -> None:
+    """Rewrite fidelity (2026-10-20): an item the guard scrubbed, a source item the
+    model lost and that was NOT put back, an ungrounded how/why clause, dropped duty
+    content and stripped form text are each listed — with the section where the reason
+    alone does not say it. A lost item that WAS restored is in the draft, so it is not
+    a removal."""
+    cluster = [_member(), _member()]
+    merged = merge_cluster(cluster, rules=rules)
+    record = AntiFabricationRecord(
+        scrubbed_items=(("decision_making", "Approves loan decisions."),),
+        uncovered_items=(
+            ("relationships", "Finance staff"),
+            ("qualifications", "Knowledge of circuit fabrication"),
+        ),
+        restored_items=(("qualifications", "Knowledge of circuit fabrication"),),
+        scrubbed_how_why=("negotiating overseas vendor leases",),
+        dropped_duty_content=("Hosts donor recognition events.",),
+        stripped_source_text=("Give some examples of the types of decisions",),
+    )
+
+    diff = build_harmonization_diff(merged, cluster, rules=rules, rewrite=record)
+
+    got = {(r.reason, r.section, r.content) for r in diff.removed}
+    assert {
+        ("item_scrubbed_ungrounded", "decision_making", "Approves loan decisions."),
+        ("item_dropped_by_rewrite", "relationships", "Finance staff"),
+        ("how_why_scrubbed_ungrounded", None, "negotiating overseas vendor leases"),
+        ("duty_content_dropped_by_rewrite", None, "Hosts donor recognition events."),
+        ("form_text_stripped", None, "Give some examples of the types of decisions"),
+    } <= got
+    assert not any(c == "Knowledge of circuit fabrication" for _r, _s, c in got)
+
+
 def test_the_packet_renders_the_draft_that_will_be_stored(rules: Rules) -> None:
     """🔴 THE CONCEALMENT ITSELF (S-2). ``rendered_draft`` was
     ``render_sfu_jd_text(merged.draft)`` unconditionally, while the STORED

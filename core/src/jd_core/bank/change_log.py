@@ -180,6 +180,32 @@ def build_harmonization_diff(
                 RemovedContent(content=content, reason=reason, member_index=None)
                 for content in contents
             )
+        # Rewrite fidelity (2026-10-20, HR-269…HR-276): everything else the guard took
+        # out, or the model lost and was NOT put back. Folded / restored content is in
+        # the draft itself, so it is not a removal; what is listed here is not on the
+        # page, and until now it was in the record only, which no reviewer opens.
+        restored = set(record.restored_items)
+        sectioned: tuple[tuple[Sequence[tuple[str, str]], RemovedReason], ...] = (
+            (record.scrubbed_items, "item_scrubbed_ungrounded"),
+            (
+                [i for i in record.uncovered_items if i not in restored],
+                "item_dropped_by_rewrite",
+            ),
+        )
+        for items, reason in sectioned:
+            removed.extend(
+                RemovedContent(content=text, reason=reason, section=section)
+                for section, text in items
+            )
+        plain: tuple[tuple[Sequence[str], RemovedReason], ...] = (
+            (record.scrubbed_how_why, "how_why_scrubbed_ungrounded"),
+            (record.dropped_duty_content, "duty_content_dropped_by_rewrite"),
+            (record.stripped_source_text, "form_text_stripped"),
+        )
+        for contents, reason in plain:
+            removed.extend(
+                RemovedContent(content=content, reason=reason) for content in contents
+            )
         flagged_duties = tuple(record.flagged_duties)
 
     return HarmonizationDiff(

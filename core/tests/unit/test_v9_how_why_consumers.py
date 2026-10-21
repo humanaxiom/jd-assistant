@@ -164,10 +164,15 @@ def test_an_invented_how_why_clause_is_dropped_and_recorded() -> None:
     out, record = _apply_anti_fabrication(llm, merged, get_rules())
 
     # Review round 2: the model also DROPPED "preparing project budgets". Keeping only
-    # its grounded clause would lose that source clause silently, so once any clause is
-    # scrubbed the duty gets its SOURCE clauses back — nothing invented, nothing lost.
-    assert out.duties[0].how_why == _GROUPED.how_why
+    # its grounded clause would lose that source clause silently. Since 2026-10-20
+    # (HR-271) the lost clause is folded back after the model's grounded one, instead
+    # of the source's clauses replacing the model's — nothing invented, nothing lost.
+    assert out.duties[0].how_why == [
+        "tracking the grant deadlines",
+        "preparing project budgets",
+    ]
     assert record.scrubbed_how_why == ("negotiating overseas vendor leases",)
+    assert record.folded_duty_content == ("preparing project budgets",)
 
 
 def test_when_every_clause_is_invented_the_source_clauses_come_back() -> None:
@@ -338,7 +343,8 @@ def test_a_clause_the_model_dropped_comes_back_even_with_nothing_invented() -> N
     """Review round 2: the model returns one of the duty's two clauses (the other
     dropped, nothing invented). Prompt v3 says not to drop clauses; the guard now
     checks it — every source clause must still be covered by the rewritten duty
-    (same token rule, HR-267, asked from the other end) or the source clauses return."""
+    (same token rule, HR-267, asked from the other end) or it comes back — since
+    2026-10-20 (HR-271) folded in after the model's own clauses."""
     merged = MergedRole(
         draft=_jd(_GROUPED),
         provenance=MergeProvenance(member_count=2, skill_frequency=()),
@@ -352,8 +358,12 @@ def test_a_clause_the_model_dropped_comes_back_even_with_nothing_invented() -> N
     )
     out, record = _apply_anti_fabrication(llm, merged, get_rules())
 
-    assert out.duties[0].how_why == _GROUPED.how_why
+    assert out.duties[0].how_why == [
+        "tracking the grant deadlines",
+        "preparing project budgets",
+    ]
     assert record.scrubbed_how_why == ()
+    assert record.folded_duty_content == ("preparing project budgets",)
 
 
 def test_a_fully_reworded_and_complete_clause_list_is_kept() -> None:
