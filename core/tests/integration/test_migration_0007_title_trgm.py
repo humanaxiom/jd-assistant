@@ -67,7 +67,7 @@ async def _break_one_index(url: str) -> None:
 
 def test_0007_upgrades_downgrades_and_upgrades_again(pg: tuple[Config, str]) -> None:
     cfg, url = pg
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "0007_title_trigram_indexes")
     extensions, indexes = asyncio.run(_state(url))
     assert {"pg_trgm", "btree_gin"} <= extensions
     assert indexes == dict.fromkeys(_INDEXES, True)
@@ -77,17 +77,17 @@ def test_0007_upgrades_downgrades_and_upgrades_again(pg: tuple[Config, str]) -> 
     assert not ({"pg_trgm", "btree_gin"} & extensions)
     assert indexes == {}
 
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "0007_title_trigram_indexes")
     assert asyncio.run(_state(url))[1] == dict.fromkeys(_INDEXES, True)
 
 
 def test_0007_rebuilds_an_invalid_leftover_index(pg: tuple[Config, str]) -> None:
     cfg, url = pg
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "0007_title_trigram_indexes")
     asyncio.run(_break_one_index(url))
     assert asyncio.run(_state(url))[1]["ix_canonical_jds_title_trgm"] is False
 
     # Re-run 0007 over the leftover, as an operator would after a failed launch.
     command.stamp(cfg, "0006_session_csrf_token")
-    command.upgrade(cfg, "head")
+    command.upgrade(cfg, "0007_title_trigram_indexes")
     assert asyncio.run(_state(url))[1] == dict.fromkeys(_INDEXES, True)

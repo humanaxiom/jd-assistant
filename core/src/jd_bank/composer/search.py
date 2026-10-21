@@ -104,11 +104,13 @@ SEMANTIC_UNAVAILABLE_NOTICE = (
 ROLE_TITLE: ColumnElement[str] = CanonicalJD.content.op("->>", return_type=Text)(
     literal_column("'title'")
 )
-#: An archive document's parsed title (``ix_parsed_jds_version_title_trgm``, together
-#: with ``parser_version``).
-DOC_TITLE: ColumnElement[str] = ParsedJDRow.parsed.op("->>", return_type=Text)(
-    literal_column("'title'")
-)
+#: An archive document's parsed title — the STORED ``parsed_jds.title`` column
+#: (migration 0008; ``ix_parsed_jds_version_title_col_trgm`` with ``parser_version``),
+#: never ``parsed ->> 'title'``. MEASURED on the v9 Bank: with one parse per document
+#: the planner seq-scans, and the JSON expression then detoasts every row's whole
+#: ``parsed`` — 650 ms a query, which put Builder search at p95 2.02 s against HR-242's
+#: 1.0 s. A plain text column costs a seq scan nothing of the kind.
+DOC_TITLE: ColumnElement[str] = ParsedJDRow.__table__.c.title
 
 #: The words a typo query is matched by. Word characters only, so punctuation typed
 #: between words ("co-op", "a/b") never becomes a word of its own.
@@ -643,7 +645,7 @@ async def _title_matches(
     for 14,522 documents, a 2.7 s sequential scan that was most of the Builder's
     latency, and it matched titles the parser no longer produces (47 of 2,011
     "Coordinator" documents matched ONLY through a superseded parse). Served by
-    ``ix_parsed_jds_version_title_trgm`` (migration 0007).
+    ``ix_parsed_jds_version_title_col_trgm`` over the stored ``title`` column (0008).
     """
     if not query_text.strip():
         return {}

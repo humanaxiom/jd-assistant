@@ -1404,15 +1404,18 @@ async def test_the_live_bank_has_the_title_trigram_indexes(session) -> None:  # 
                 text(
                     "SELECT c.relname, i.indisvalid FROM pg_index i "
                     "JOIN pg_class c ON c.oid = i.indexrelid WHERE c.relname IN "
-                    "('ix_parsed_jds_version_title_trgm',"
+                    "('ix_parsed_jds_version_title_col_trgm',"
                     " 'ix_canonical_jds_title_trgm')"
                 )
             )
         ).all()
     )
-    assert {"pg_trgm", "btree_gin"} <= extensions, "run `alembic upgrade head` (0007)"
+    assert {
+        "pg_trgm",
+        "btree_gin",
+    } <= extensions, "run `alembic upgrade head` (0007/0008)"
     assert valid == {
-        "ix_parsed_jds_version_title_trgm": True,
+        "ix_parsed_jds_version_title_col_trgm": True,
         "ix_canonical_jds_title_trgm": True,
     }, f"title trigram indexes missing or INVALID: {valid}"
 
