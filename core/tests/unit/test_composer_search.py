@@ -1230,3 +1230,24 @@ def test_the_json_search_route_survives_a_dead_embed_host(
     assert [h["cluster_id"] for h in resp.json()] == [str(role)]
     assert resp.headers[compose.SEARCH_NOTICE_HEADER] == "semantic-unavailable"
     assert dead.closed is True and neo.closed is True
+
+
+def test_the_document_title_pass_never_detoasts_the_parsed_json() -> None:
+    """FOUND by the v9 Bank's smoke (p95 2.02 s vs HR-242's 1.0 s; live v8 0.31 s):
+    with ONE parse per document the planner prefers a sequential scan, and every row
+    of it DETOASTS the whole ``parsed`` JSONB to read ``->> 'title'`` — 650 ms per
+    query on the v9 Bank (index path: 1.5 ms). v9's parses are ~2.5x larger, and the
+    planner does not cost the detoast. The pass reads the stored ``title`` column
+    (migration 0008) instead, so no plan can pull ``parsed`` per row."""
+    from sqlalchemy.dialects import postgresql
+
+    from src.jd_bank.composer import search as search_mod
+
+    for statement in (
+        search_mod._doc_title_statement("Coordinator", limit=10),
+        search_mod._doc_typo_statement(["labratory"], "labratory", 10),
+    ):
+        compiled = statement.compile(dialect=postgresql.dialect())
+        where = str(statement.whereclause.compile(dialect=postgresql.dialect()))
+        assert "parsed_jds.title" in where
+        assert "->>" not in str(compiled)

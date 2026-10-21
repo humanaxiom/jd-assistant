@@ -84,7 +84,7 @@ async def test_head_has_pg_trgm_and_both_title_indexes(
         )
     assert {"pg_trgm", "btree_gin"} <= extensions
     assert {
-        "ix_parsed_jds_version_title_trgm",
+        "ix_parsed_jds_version_title_col_trgm",
         "ix_canonical_jds_title_trgm",
     } <= indexes
 
