@@ -286,7 +286,7 @@ def _extract_employee_group(
 #: table puts a "|" cell bar between the label and the value.
 _ID_TOKEN = r"[A-Za-z0-9\-]*\d[A-Za-z0-9\-]*"
 _INLINE_POSITION_NO_RX = re.compile(
-    rf"(?i)\bposition[ \t]*(?:#|no\.?|number)s?[ \t]*:[ \t|]*"
+    rf"(?i)\bposition[ \t]*(?:#|no\.?|number)s?[ \t]*:?[ \t|]*"
     rf"({_ID_TOKEN}(?:[ \t]*,[ \t]*{_ID_TOKEN})*)"
 )
 

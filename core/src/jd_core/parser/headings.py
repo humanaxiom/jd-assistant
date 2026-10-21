@@ -288,8 +288,10 @@ NEXT_LABEL_RX = re.compile(
     r"|department|employee group|effective date|last revised|revised date"
     # `(?!\w)`, not `\b`: a trailing `\b` cannot match after "#" (two non-word
     # characters), so "Position #:" never cut a value — 80 archive titles read as
-    # "… Position #:" (parser v9, found by the v9 Bank's smoke).
-    r"|supervisor'?s? title|grade)(?!\w)\s*:?",
+    # "… Position #:" (parser v9, found by the v9 Bank's smoke). After "#" anything may
+    # follow: "Position #110611" touches its id, and `(?!\w)` alone stopped cutting it
+    # (5 archive titles gained "Position #<id>", review round 3).
+    r"|supervisor'?s? title|grade)(?:(?<=#)|(?!\w))\s*:?",
     re.IGNORECASE,
 )
 
