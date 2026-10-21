@@ -83,6 +83,97 @@ def _tokens(text: str) -> frozenset[str]:
     return frozenset(_TOKEN.findall(text.lower()))
 
 
+def _word_sequence(text: str) -> re.Pattern[str]:
+    """``text``'s words in order, any non-word run between them, whole words only, plus
+    the punctuation that closes it — so a marker matches whatever the punctuation."""
+    body = r"[^a-z0-9]+".join(re.escape(t) for t in _TOKEN.findall(text.lower()))
+    return re.compile(rf"(?<![a-z0-9]){body}(?![a-z0-9])[^\w\s]*", re.IGNORECASE)
+
+
+def label_referred_decisions(items: Sequence[str], rules: Rules) -> list[str]:
+    """One member's Decision Making with the decisions it REFERS labelled (HR-282/283).
+
+    MEASURED over the whole archive (14,522 in-process parses): 4,115 documents carry
+    the old questionnaire's "Give some examples of the types of decisions the incumbent
+    would refer to his/her supervisor."; its answer is fused into the same item in
+    2,928 and follows as items of their own 5,721 times. An item matching
+    ``harmonization.referred_decision_markers`` starts a REFERRED run: its own text
+    after the marker, and every following item until the next questionnaire prompt
+    (``rewrite.form_instructions``) or template lead-in
+    (``harmonization.referred_decision_run_end_pattern``, HR-289). The marker text is
+    removed; each referred decision gets ``harmonization.referred_decision_label`` in
+    front, unless it already says "Refer…". Items before any marker are untouched, so a
+    member with no marker comes back unchanged.
+
+    Review of c873b13 (measured over the same 4,115 documents): text fused BEFORE the
+    marker is not referred; a marker that is not the questionnaire's prompt starts a run
+    only as a lead-in ("Refers decisions regarding:"), never as a complete referral; and
+    a list item ending "," or ";" does not end the run (it did, via the rewrite's
+    fragment rule, in 136 documents).
+    """
+    harmon = rules.harmonization
+    label = harmon.referred_decision_label
+    if not label or not harmon.referred_decision_markers:
+        return list(items)
+    prompt_seqs = {
+        " ".join(_TOKEN.findall(p.lower())) for p in rules.rewrite.form_instructions
+    }
+    #: (pattern, is the questionnaire's own prompt) — review of c873b13: only the
+    #: PROMPT starts a run whatever follows it; "Refers decisions regarding X to the
+    #: Director." is a complete referral, and starting a run there labelled every
+    #: decision after it (47 archive items, "Makes decisions regarding…" among them).
+    markers = [
+        (_word_sequence(m), " ".join(_TOKEN.findall(m.lower())) in prompt_seqs)
+        for m in harmon.referred_decision_markers
+    ]
+    prompts = [_word_sequence(p) for p in rules.rewrite.form_instructions]
+    run_end = harmon.referred_decision_run_end_pattern
+
+    def words(text: str) -> bool:
+        return bool(re.search(r"[A-Za-z0-9]", text))
+
+    def labelled(text: str) -> str:
+        text = text.strip()
+        return text if re.match(r"(?i)refer", text) else f"{label} {text}"
+
+    def lead_in(text: str) -> bool:
+        return run_end is not None and bool(run_end.search(text.strip()))
+
+    out: list[str] = []
+    referring = False
+    for item in items:
+        found = next(
+            (
+                (m, hit, is_prompt)
+                for m, is_prompt in markers
+                if (hit := m.search(item))
+            ),
+            None,
+        )
+        if found is not None:
+            _marker, hit, is_prompt = found
+            # Text BEFORE the marker belongs to what came before it — on the old form,
+            # the answer to the MAKE question fused in front of the refer prompt
+            # ("Sets own priorities… (ii) Give some examples… supervisor.").
+            before = item[: hit.start()].strip(" \t,;:-–")
+            after = item[hit.end() :].strip(" \t,;:-–")
+            if words(before):
+                out.append(labelled(before) if referring else before)
+            if is_prompt or not words(after) or lead_in(item):
+                referring = True
+                if words(after):
+                    out.append(labelled(after))
+            else:
+                # A complete referral ("Refers decisions regarding X to the
+                # Director."): it says so itself, and says nothing of the next item.
+                out.append(item[hit.start() :].strip())
+            continue
+        if referring and (any(p.search(item) for p in prompts) or lead_in(item)):
+            referring = False
+        out.append(labelled(item) if referring else item)
+    return out
+
+
 def duty_text(duty: SFUDuty) -> str:
     """A duty's whole content — the statement AND its how/why clauses.
 
@@ -970,8 +1061,22 @@ def merge_cluster(
     # (HR-210 / HR-211 / HR-212). Until 2026-08-20 all three were dropped for every
     # cluster of every form, which is why no draft the pipeline produced could be
     # complete — see the YAML header and docs/baseline/jdfn-remeasure-2026-08-19.md.
+    # Decisions REFERRED to the supervisor are labelled per member, BEFORE pooling: the
+    # union below sorts the section, after which nothing says which items followed the
+    # questionnaire's "…would refer to his/her supervisor" (HR-282/283).
+    dm_members = [
+        jd.model_copy(
+            update={
+                "decision_making": label_referred_decisions(jd.decision_making, active)
+            }
+        )
+        for jd in ordered
+    ]
     decision_making, dm_idx = _merge_statement_section(
-        ordered, harmon, field="decision_making", policy=harmon.decision_making_policy
+        dm_members,
+        harmon,
+        field="decision_making",
+        policy=harmon.decision_making_policy,
     )
     if dm_idx:
         contributors["decision_making"] = dm_idx

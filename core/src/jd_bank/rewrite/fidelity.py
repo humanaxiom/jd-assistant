@@ -30,15 +30,14 @@ from typing import Final, Literal, TypeVar
 
 from src.jd_core.models.bank import StrippedSection, StrippedSourcePiece
 from src.jd_core.models.parsed_jd import SFUDuty, SFUJobDescription, SFUQualification
-from src.jd_core.rules import Comparison, Rules
+from src.jd_core.parser.segmenter import _MAX_BULLET, _MAX_QUAL, _MAX_SUPERVISORY
+from src.jd_core.rules import Comparison, Rules, get_rules
 from src.jd_core.textnorm import fold_text
 
 #: A content token — the guard's existing alphabet (see ``harmonize._TOKEN``).
 _TOKEN: Final[re.Pattern[str]] = re.compile(r"[a-z0-9]+")
 #: A word as written, case kept, for :func:`named_terms`.
 _WORD: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9]+")
-#: A sentence boundary: terminal punctuation followed by whitespace, or a line break.
-_SENTENCE: Final[re.Pattern[str]] = re.compile(r"(?<=[.!?])\s+|\n+")
 #: What may precede a sentence-initial word (an opening quote, bracket or bullet).
 _OPENERS: Final[str] = " \t\"'(“‘[•◦*-–—"
 #: Punctuation after which the next word starts a sentence (or a list lead-in).
@@ -112,9 +111,104 @@ def named_terms(
     return frozenset(found)
 
 
-def sentences(text: str) -> list[str]:
-    """``text`` cut at sentence ends and line breaks; blank pieces dropped."""
-    return [part.strip() for part in _SENTENCE.split(text) if part.strip()]
+#: Terminal punctuation followed by whitespace: a CANDIDATE sentence end.
+_SENTENCE_END_SPACE: Final[re.Pattern[str]] = re.compile(r"(?<=[.!?])\s+")
+_LINES: Final[re.Pattern[str]] = re.compile(r"\n+")
+#: A single-letter initial ("V.") or a dotted acronym ("B.C.", "e.g."), lowercased.
+_INITIAL_OR_DOTTED: Final[re.Pattern[str]] = re.compile(r"(?:[a-z]\.)+")
+#: What may wrap the last word before a candidate end ("(e.g.").
+_WRAPPERS: Final[str] = "(\"'[“‘"
+
+
+def sentences(text: str, abbreviations: Iterable[str] | None = None) -> list[str]:
+    """``text`` cut at sentence ends and line breaks; blank pieces dropped. Each piece
+    is a verbatim slice of ``text`` (only its edges are trimmed).
+
+    A full stop after an initial ("V. P. Advancement"), a dotted acronym ("B.C.",
+    "e.g.") or a listed abbreviation (``rewrite.sentence_abbreviations``, HR-286) does
+    not end a sentence: round 2's pilot folded "Collaborates with V." back as a clause
+    of its own. ``abbreviations`` defaults to the active rulebook's list, so every
+    caller — the guard, and the reviewer's own accounting scripts — splits alike."""
+    if abbreviations is None:
+        abbreviations = get_rules().rewrite.sentence_abbreviations
+    known = {a.lower() for a in abbreviations}
+    out: list[str] = []
+    for line in _LINES.split(text):
+        start = 0
+        for end in _SENTENCE_END_SPACE.finditer(line):
+            words = line[start : end.start()].split()
+            last = words[-1].lstrip(_WRAPPERS).lower() if words else ""
+            if last in known or _INITIAL_OR_DOTTED.fullmatch(last):
+                continue
+            out.append(line[start : end.start()].strip())
+            start = end.end()
+        out.append(line[start:].strip())
+    return [piece for piece in out if piece]
+
+
+def stem(token: str, suffixes: Sequence[str]) -> str:
+    """A light stemmer for the COVERAGE tests only (HR-285): strip the first listed
+    suffix the token ends with when at least four letters remain ("s" never after
+    "s"; "ies" becomes "y"), then a final "e". "monitors"/"monitor", "manages"/
+    "manage", "images"/"image" meet; nothing here is a grammar of English."""
+    for suffix in suffixes:
+        if (
+            token.endswith(suffix)
+            and len(token) - len(suffix) >= 4
+            and not (suffix == "s" and token.endswith("ss"))
+        ):
+            token = token[: -len(suffix)] + ("y" if suffix == "ies" else "")
+            break
+    if len(token) > 4 and token.endswith("e"):
+        token = token[:-1]
+    return token
+
+
+def stemmed_tokens(
+    text: str, comparison: Comparison, suffixes: Sequence[str]
+) -> frozenset[str]:
+    """:func:`content_tokens`, each passed through :func:`stem`."""
+    return frozenset(stem(t, suffixes) for t in content_tokens(text, comparison))
+
+
+def is_fragment(text: str, rules: Rules) -> bool:
+    """Whether a source item or sentence is a FRAGMENT that must never be restored on
+    its own (``rewrite.fragment_pattern``, HR-287): a continuation line ("(e.g. lab
+    power supplies, …, curve tracers,") or a lead-in ("Makes decisions regarding")."""
+    return bool(rules.rewrite.fragment_pattern.search(text.strip()))
+
+
+def field_cap(field: str, rules: Rules) -> int:
+    """The PARSER's character cap for one source field — the length at which it cut
+    the text (``segmenter``'s own limits; the duty caps are rulebook data, HR-261/266).
+    0 for a field it does not cut."""
+    seg = rules.segmentation
+    return {
+        "statement": seg.duty_statement_max_chars,
+        "how_why": seg.duty_how_why_max_chars,
+        "decision_making": _MAX_BULLET,
+        "problem_solving": _MAX_BULLET,
+        "internal": _MAX_BULLET,
+        "external": _MAX_BULLET,
+        "supervisory": _MAX_SUPERVISORY,
+        "qualifications": _MAX_QUAL,
+    }.get(field, 0)
+
+
+def cut_off_tail(text: str, cap: int, rules: Rules) -> tuple[list[str], str | None]:
+    """``text``'s sentences, and its last one separately if the PARSER cut it: an item
+    exactly at its field's character cap whose last sentence has no closing punctuation
+    ("…Partners with a wide circle of contacts and involves", a 400-character contacts
+    item). That piece is a partial clause — listed, never restored (HR-287)."""
+    parts = sentences(text, rules.rewrite.sentence_abbreviations)
+    if (
+        cap
+        and len(text) >= cap
+        and parts
+        and not parts[-1].rstrip().endswith((".", "!", "?", ")", '"', "”"))
+    ):
+        return parts[:-1], parts[-1]
+    return parts, None
 
 
 @dataclass(frozen=True)

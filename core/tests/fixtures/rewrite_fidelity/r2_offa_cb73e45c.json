@@ -1,0 +1,196 @@
+{
+ "cluster_id": "cb73e45c-4f56-5711-a9d4-2c732945e00b",
+ "pilot_run": "pilot_r2base",
+ "note": "whole merge draft + whole model reply",
+ "merged": {
+  "draft": {
+   "title": "Coordinator, Communications, Marketing, and Student Recruitment",
+   "position_number": null,
+   "department": "Office of Francophone and Francophile Affairs (OFFA)",
+   "grade": null,
+   "classification": null,
+   "employee_group": "apsa",
+   "supervisor_title": null,
+   "supervisor_position_number": null,
+   "about_sfu_present": false,
+   "position_summary": "Briefly describe the primary function and purpose of the position in one or two sentences. The Coordinator, Communications, Marketing, and Student Recruitment coordinates communications, marketing initiatives as well as student recruitment activities for the Office of Francophone and Francophile Affairs (OFFA). Under the direct supervision of the OFFA Director, the Coordinator participates in the planning and implementation of communications strategies; develops promotional materials; plans and participates in recruitment activities on and off campus for undergraduate and graduate programs offered in French and supported by OFFA in the Faculty of Arts and Social Sciences (FASS) and the Faculty of Education (FoE) at Simon Fraser University.",
+   "duties": [
+    {
+     "action_verb": "academic",
+     "statement": "academic offerings",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "admission",
+     "statement": "admission to the University from a variety of backgrounds",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "and",
+     "statement": "and planning activities to support community engagement and the recruitment of students to the undergraduate and graduate programs offered in French supported by OFFA at SFU. Participates in the planning, development and implementation of communications and marketing initiatives including print material and electronic media content, web, advertising, promotion and communications projects. Collaborates with both OFFA Associate Directors (FASS and FoE) on content and design of communications to support and enhance student recruitment initiatives, including recruitment advertisements and presentation materials. In accordance with OFFA’s communications strategy, develops, designs, and/or assists with the revision of promotional material for recruiting activities, conferences and events that OFFA organizes and/or supports",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "careers",
+     "statement": "careers as they relate to academic programs",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "educational",
+     "statement": "educational costs, scholarships and financial assistance",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "facilities",
+     "statement": "facilities (libraries, labs, etc.) and/or special or unique teaching resources",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "housing",
+     "statement": "housing and residence",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "issues",
+     "statement": "issues related to transitioning from secondary school, college or employment to study at the University level",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "knowledge",
+     "statement": "knowledge of any special requirements for non-English speakers or students studying in Canada on Visiting International Student Authorization",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "knowledge",
+     "statement": "knowledge of special facilities or arrangements which can be made to meet special needs such as those of the disabled",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "liaises",
+     "statement": "liaises with approved providers on the production of promotional materials. Uploads and/or prepares news and events information (in French and in English) as required on OFFA’s website and social media sites/pages (e.g., Facebook and Twitter). Identifies opportunities to provide leads and information to SFU Public Affairs and Media Relations and develops/drafts publicity stories for their consideration to focus attention on the publication and other achievements of students and Faculty members associated with programs supported by OFFA. For media and/or general public requests, makes referrals to the appropriate spokesperson. Provides an annual written report on communications, marketing including analysis and recommendations. Student Recruitment Coordinates the recruitment of prospective students to French language programs supported by OFFA in FASS and FOE. Recruits prospective students to French language programs in FASS and FoE supported by OFFA by providing information to individuals or to groups, either on or off campus, in a variety of educational, community and professional settings. Represents the French language programs supported by OFFA during visits to high schools, co",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "opportunities",
+     "statement": "opportunities in Cooperative Education",
+     "how_why": [],
+     "frequency": null
+    }
+   ],
+   "decision_making": [
+    "Collaborates with temporary contractor(s) for selected student recruitment activities.",
+    "Collaborates with the French Cohort Program Manager and Student Advisor, and the OFFA Associate Director (FASS), in the determination of admissibility of BC Secondary school applicants, BC College applicants and applicants coming from other provinces or countries.",
+    "Collaborates with the OFFA Associate Director (FoE), in the determination of prospective students’ admissibility to the Faculty of Education French language programs.",
+    "Creates, adapts, and/or revises, promotion materials/advertising for French language programs in FASS and FoE supported by OFFA according to a pre-established OFFA communication strategy.",
+    "Decisions regarding the expenditure of University funds.",
+    "Decisions that may lead to contact with upper levels of administration at the University or involve consultation amongst officers outside OFFA.",
+    "Give some examples of the types of decisions the incumbent would refer to his/her supervisor.",
+    "Give some typical examples of the most important decisions the incumbent is expected to make in carrying out the duties and responsibilities of the position. To what extent can the incumbent rely on established policies or advice from others in making these decisions?",
+    "Initiates ideas for the development of communications strategies and marketing campaigns and recommends appropriate providers.",
+    "Provides information and advice regarding admissibility to the university’s academic programs and access to financial aid, scholarships, housing and residency and other student services.",
+    "Recruits prospective students to French language programs in FASS and FoE supported by OFFA, and the University."
+   ],
+   "problem_solving": [],
+   "relationships": {
+    "supervisory": "Indicate the number of continuing employees for whom the position is responsible. Number of continuing employees reporting directly to the position: 0 Total number of continuing employees for whom the position has direct responsibility: 0 Describe the extent to which the supervisor determines the day to day work load of the position and assists in the completion of duties. Explain the nature of guidance received and how often work is checked or reviewed. Works independently without direct supervision for substantial periods of time when representing the University off campus. When on campus, r",
+    "internal": [],
+    "external": []
+   },
+   "qualifications": [],
+   "territorial_acknowledgement_present": false,
+   "employment_equity_present": false,
+   "additional_context": null
+  },
+  "provenance": {
+   "member_count": 2,
+   "skill_frequency": [],
+   "duty_coverage": [],
+   "section_contributors": [],
+   "flags": [],
+   "seniority_bars": []
+  }
+ },
+ "model": {
+  "title": "Coordinator, Communications and Student Recruitment",
+  "position_number": null,
+  "department": "Office of Francophone and Francophile Affairs",
+  "grade": null,
+  "employee_group": null,
+  "about_sfu_present": false,
+  "position_summary": "The Coordinator, Communications and Student Recruitment supports the Office of Francophone and Francophile Affairs by planning, developing and executing communications, marketing and recruitment initiatives that promote French‑language undergraduate and graduate programs in the Faculty of Arts and Social Sciences and the Faculty of Education. Working under the OFFA Director, the role creates promotional content, manages digital channels, provides prospective‑student guidance, and collaborates with internal and external partners to enhance visibility, attract diverse applicants and ensure alignment with university policies and strategic goals.",
+  "duties": [
+   {
+    "action_verb": "Develop",
+    "statement": "Develop and implement communications and marketing strategies to promote French language programs",
+    "how_why": [
+     "Participates in planning and implementation of communications strategies",
+     "Initiates ideas for the development of communications strategies and marketing campaigns and recommends appropriate providers",
+     "Collaborates with OFFA Associate Directors (FASS and FoE) on content and design of communications to support and enhance student recruitment initiatives",
+     "In accordance with OFFA’s communications strategy, develops, designs, and assists with revision of promotional material for recruiting activities, conferences and events",
+     "Liaises with approved providers on the production of promotional materials",
+     "Identifies opportunities to provide leads and information to SFU Public Affairs and Media Relations and drafts publicity stories",
+     "Provides an annual written report on communications, marketing including analysis and recommendations"
+    ]
+   },
+   {
+    "action_verb": "Create",
+    "statement": "Create and manage promotional and digital content across print, web, and social media",
+    "how_why": [
+     "Develops promotional materials",
+     "Uploads and prepares news and events information in French and English on OFFA’s website and social media sites",
+     "Makes referrals to the appropriate spokesperson for media and public requests",
+     "Creates, adapts, and revises promotion materials/advertising for French language programs according to the OFFA communication strategy"
+    ]
+   },
+   {
+    "action_verb": "Coordinate",
+    "statement": "Coordinate student recruitment activities and outreach for French language programs",
+    "how_why": [
+     "Plans and participates in recruitment activities on and off campus for undergraduate and graduate programs offered in French",
+     "Coordinates the recruitment of prospective students to French language programs in FASS and FoE",
+     "Recruits prospective students by providing information to individuals or groups in a variety of educational, community and professional settings",
+     "Represents the French language programs during visits to high schools and other community settings",
+     "Collaborates with temporary contractors for selected student recruitment activities",
+     "Collaborates with the French Cohort Program Manager, Student Advisor and OFFA Associate Directors to determine admissibility of applicants",
+     "Collaborates with the OFFA Associate Director (FoE) to determine admissibility for Faculty of Education French language programs"
+    ]
+   },
+   {
+    "action_verb": "Provide",
+    "statement": "Provide information and guidance on admissions, financial aid, housing, and other student services",
+    "how_why": [
+     "Provides information and advice regarding admissibility to academic programs and access to financial aid, scholarships, housing, residency and other student services",
+     "Applies knowledge of academic offerings, admission pathways, community engagement, career prospects, educational costs, facilities, housing, transition issues, special requirements for non‑English speakers and accommodations for disabled students"
+    ]
+   },
+   {
+    "action_verb": "Oversee",
+    "statement": "Oversee budgetary decisions and external collaborations related to communications and recruitment",
+    "how_why": [
+     "Makes decisions regarding the expenditure of University funds",
+     "Makes decisions that may lead to contact with upper levels of administration or involve consultation with officers outside OFFA",
+     "Liaises with approved providers and recommends appropriate external partners",
+     "Collaborates with temporary contractors for recruitment activities"
+    ]
+   }
+  ],
+  "decision_making": [],
+  "problem_solving": [],
+  "relationships": null,
+  "qualifications": [],
+  "territorial_acknowledgement_present": false,
+  "employment_equity_present": false,
+  "additional_context": null
+ }
+}

@@ -1,0 +1,108 @@
+{
+ "cluster_id": "14163329-423a-59b3-bda3-727d7886e0fe",
+ "pilot_run": "pilot_r2base",
+ "note": "relationships whole; first duty only",
+ "merged": {
+  "draft": {
+   "title": "Graduate Secretary",
+   "position_number": null,
+   "department": "Linguistics",
+   "grade": null,
+   "classification": null,
+   "employee_group": "cupe",
+   "supervisor_title": null,
+   "supervisor_position_number": null,
+   "about_sfu_present": false,
+   "position_summary": "Provides administrative support to the Manager of Academic and Administrative Services, and the Graduate Program Chair. Responds to requests for Graduate Program information such as admission, registration, courses, and grading. Coordinates graduate program admissions and scholarships and processes awards. Prepares graduate program progress reviews, general correspondence, and reports. Updates databases and spreadsheets.",
+   "duties": [
+    {
+     "action_verb": "Assists",
+     "statement": "Assists in the production of special reports as requested by the Manager, Academic & Administrative Services (e.g., tracking enrolment, instructional activities, etc.)",
+     "how_why": [],
+     "frequency": null
+    }
+   ],
+   "decision_making": [],
+   "problem_solving": [],
+   "relationships": {
+    "supervisory": null,
+    "internal": [
+     "Graduate Students",
+     "< 1 hour",
+     "Frequent",
+     "< 1 hour",
+     "Frequent",
+     "Faculty and staff",
+     "< 1 hour",
+     "Frequent",
+     "Band Councils, schools, education and language coordinators, and First Nations Elders",
+     "<I hour",
+     "Occasional",
+     "Manager, Academic and Administrative Services",
+     "< 1 hour",
+     "Frequent",
+     "Department Chair",
+     "<1 hour",
+     "Occasional",
+     "Director of First Nations Language Centre",
+     "<1 hour",
+     "Occasional"
+    ],
+    "external": [
+     "List internal and external contacts (i.e., specific positions within own department, other departments, students, faculty, on/off campus vendors, etc.), the duration of each contact (i.e., less than 1 hour at a time, 1-2 hours at a time, more than 2 hours at a time), and the frequency of each contact (i.e., occasional, frequent, or continuous).",
+     "General public"
+    ]
+   },
+   "qualifications": [],
+   "territorial_acknowledgement_present": false,
+   "employment_equity_present": false,
+   "additional_context": "LEVEL OF INDEPENDENCE\nCheck one box that best describes the level of independence that can be exercised within the position by a fully trained employee. Work is provided with specific instructions describing how and when it should be completed. Work is provided with general instructions. The employee makes choices about how the work will be completed within deadlines. Work is self-directed by the employee. The employee determines what work needs to be completed and when it should be completed to meet deadlines. Work is assigned on a project-by-project basis in the form of broad objectives. The employee evaluated what work needs to be completed within general time frames. Provide examples of project work:\n\nTRAINING EXERCISED\nIf the position provides training, check each description that applies. Not required to provide training to other individuals. Explains how work is performed in his/her own position to individuals in other positions performing the same or similar work (includes training replacement employees). Provides one-on-one specialized training to other individuals. Considered a specialist in a particular area or field of study. Positions at this level may be designated as the resident department expert. Provides one-on-one training to individuals in other positions. Must have a good understanding of the work of the other positions. Positions at this level may be designated as group leaders or work leaders. Conducts training seminars for groups. Training seminars are normally scheduled and follow a prescribed format. May also develop or assist in the development of training seminars.\n\nDIRECTION EXERCISED\nCheck each description that applies. Not required to provide direction to other individuals. Assigns and/or checks work of other individuals. Schedules, assigns, and checks work of other individuals. In addition to C, establishes work priorities for a unit. In addition to C and D, guides project teams.\n\nIMPACT OF ERRORS\nCommon Errors: Provide a few examples of the most common errors which normally occur in the performance of the work. Typing and data entry errors Misinterpreting data entries. Uncommon Errors: Provide a few examples of most uncommon errors which infrequently occur in the performance of the work. Providing inaccurate information regarding a process, procedure, or request. Providing incomplete or inaccurate information re: student admission qualifications.\n\nEFFORT\nDescribe concentrated periods of auditory (hearing/listening); visual (seeing); perceptual (understanding / comprehending); and physical dexterity (finger/hand movements, eye/hand coordination, lifting, carrying, pushing, pulling, reaching etc.). For each example of effort, indicate the concentrated duration (less than 1 hour at a time, 1-2 hours at a time, more than 2 hours at a time) and frequency (occasional, frequent, continuous). Type of Effort Duration Frequency Auditory 1-2 hours Occasional Visual 1-2 hours Frequent Perceptual 1-2 hours Frequent Physical Dexterity (confined sitting/recording and composing minutes, typing correspondence, data entry, brochures, etc.) 1-2 hours Frequent Non-confined sitting 1-2 hours Frequent Walking < 1 hour Occasional Lifting, carrying (office supplies) < 1 hour Occasional\n\nWORKING CONDITIONS\nDescribe the place(s) where work is performed such as office environment, laboratory, outside work site, etc. Also identify the number of hours (of the total hours worked per week) spent in the place(s). Location Hours spent as a total of hours worked per week Graduate Program office 17.5/35 hours Describe any uncomfortable and/or distracting conditions in the work place(s) which an incumbent is exposed to on a regular basis and the frequency of the exposure. (e.g. interruptions, distracting noise, unpleasant odours, dust, drafts, inks, dyes, cleaning agents, toner for printers, temperature extremes, heavy dust conditions, wetness, fumes, vibrations, etc.) Uncomfortable Conditions Frequency of Exposure (Occasional, Frequent, or Continuous) Distracting noise Occasional Interruptions Frequent Describe any potential health or safety hazards etc. and the frequency of exposure of each hazard. (e.g. dealing with complaints and/or verbal/physical abuse; noise levels that interfere with normal speech/hearing; toxic gases or materials; dangerous chemicals, combustibles, radioactive material; repetitive arm, finger, wrist movements or other activities that may result in a physical injury; high speed, pressurized equipment; high voltage; heights above five feet; bio-hazardous wastes, body fluids, etc.) Potential Health or Safety Hazards Frequency of Exposure (Occasional, Frequent, or Continuous) Dealing with complaints Occasional Keyboarding Frequent\n\nCONTINUING EDUCATION\nCheck each description that applies. Does not require any continuing education. Requires learning new university/department related procedures and/or methods. Requires learning new procedures and/or methods acquired through reading non-university/department publications. In addition to B and C, requires registration in formal seminars, training sessions, workshops, conferences, etc. In addition to B, C, and D, requires registration in post-secondary courses (one semester/equivalent)."
+  },
+  "provenance": {
+   "member_count": 3,
+   "skill_frequency": [],
+   "duty_coverage": [],
+   "section_contributors": [],
+   "flags": [],
+   "seniority_bars": []
+  }
+ },
+ "model": {
+  "title": "Graduate Program Administrative Assistant",
+  "position_number": null,
+  "department": "Graduate Studies",
+  "grade": null,
+  "employee_group": null,
+  "about_sfu_present": false,
+  "position_summary": "Provides comprehensive administrative support to the Manager of Academic and Administrative Services and the Graduate Program Chair. The role ensures accurate processing of graduate admissions, scholarships, course scheduling, and graduation procedures while maintaining confidential records and responding to program inquiries. By preparing reports, managing databases, and coordinating committee activities, the incumbent facilitates smooth operation of graduate programs and upholds university policies and standards.",
+  "duties": [
+   {
+    "action_verb": "Assist",
+    "statement": "Assist in producing special reports requested by the Manager, Academic & Administrative Services",
+    "how_why": [
+     "Track enrolment and instructional activities as needed"
+    ]
+   }
+  ],
+  "decision_making": [],
+  "problem_solving": [],
+  "relationships": {
+   "supervisory": null,
+   "internal": [
+    "Graduate Students – < 1 hour, Frequent",
+    "Faculty and staff – < 1 hour, Frequent",
+    "Manager, Academic and Administrative Services – < 1 hour, Frequent",
+    "Department Chair – < 1 hour, Occasional",
+    "Director of First Nations Language Centre – < 1 hour, Occasional"
+   ],
+   "external": [
+    "Band Councils, schools, education and language coordinators, and First Nations Elders – < 1 hour, Occasional",
+    "General public – < 1 hour, Occasional"
+   ]
+  },
+  "qualifications": [],
+  "territorial_acknowledgement_present": false,
+  "employment_equity_present": false,
+  "additional_context": null
+ }
+}

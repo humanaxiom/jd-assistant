@@ -1,0 +1,377 @@
+{
+ "cluster_id": "0a75edf1-3d63-502d-94a6-bf323d3c6a68",
+ "pilot_run": "pilot_r2base",
+ "note": "qualifications whole; first duty only",
+ "merged": {
+  "draft": {
+   "title": "Laboratory Technician",
+   "position_number": null,
+   "department": "School of Engineering Science",
+   "grade": null,
+   "classification": null,
+   "employee_group": "cupe",
+   "supervisor_title": null,
+   "supervisor_position_number": null,
+   "about_sfu_present": false,
+   "position_summary": "Prepares materials and equipment each semester for experimental work conducted by the students in Engineering Science (ENSC) laboratories. Provides course support by helping to maintain support facilities (e.g. workshop) and by maintaining/repairing equipment, fabricating/developing experimental apparatus, documenting procedures, instructing students and faculty on machine and equipment use and safety procedures. Assists students, faculty, and staff as directed by the Supervisor. Provides support for faculty, staff and building upkeep by preparing purchase orders for parts and equipment, implementing safety procedures, performing monthly safety inspections and monitoring research lab safety inspections, disposing of surplus equipment, assigning offices and office furniture, and being a contact point for Facilities Management, Access Control, and Campus Security.",
+   "duties": [
+    {
+     "action_verb": "Obtains",
+     "statement": "Obtains materials and arranges for services for laboratory courses from the Science Technical Centre",
+     "how_why": [],
+     "frequency": null
+    }
+   ],
+   "decision_making": [],
+   "problem_solving": [],
+   "relationships": null,
+   "qualifications": [
+    {
+     "text": "High School graduation and two years post-secondary education or diploma from a technical institute in electronics technology",
+     "kind": "education",
+     "modifier": null
+    },
+    {
+     "text": "2 Years",
+     "kind": "experience",
+     "modifier": null
+    },
+    {
+     "text": "(e.g. lab power supplies, analog and digital multimeters, analog and digital oscilloscopes, curve tracers,",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "40-45 wpm Keyboarding skill with a high degree of accuracy",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "45 WPM keyboard skills with a high degree of accuracy",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to exercise mature judgement and initiative",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to instruct others on maintaining safe work environments in workshop and machine shop",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to read, interpret, and draft basic electronic schematics, block",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Ability to read, interpret, and draft basic electronic schematics, block and system diagrams, and pictorial and mechanical assembly drawings",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Ability to set up and connect instrument software to computing equipment",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to set up, test, and perform basic measurements using a wide variety of electronic test equipment",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Ability to set up, test, and perform basic measurements using a wide variety of electronic test equipment (e.g. lab power supplies, analog and digital multimeters, analog and digital oscilloscopes, curve tracers, function generators, counters) and troubleshoot any issues with those measurements/devices",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Ability to troubleshoot equipment set up, diagnose the issues and fix if possible",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use a variety of basic hand and power tools used in the electronics trade (e.g., wood and metal work power tools) with fine precision",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Ability to use a variety of basic hand and power tools, metal and wood fabrication tools, and computer numerical control fabrication tools (e.g. wood, metal, and plastic fabrication) with fine precision",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Ability to use general and trade specific soldering/de-soldering tools with fine precision",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use general and trade specific soldering/desoldering tools",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use web publishing software (i.e. HTML, Adobe,",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use web publishing software (i.e. HTML, Adobe, Dreamweaver) at a basic level",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Ability to use word processing and database software at an intermediate level",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Ability to use word processing, database, and computer aided drafting applications (e.g. Microsoft Word,",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use word processing, database, and computer aided drafting applications (e.g. Microsoft Word, Microsoft Excel, Microsoft Access, AutoCAD, Solidworks) at an intermediate level",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Ability to work independently",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to work independently and meet deadlines",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to work safely with chemicals and hazardous substances",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "AutoCAD, CAD, ECAD) at an intermediate level",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "AutoCAD, CAD, ECAD) at an intermediate level. 45 wpm keyboarding skill with",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Basic knowledge of analog and digital circuitry including transistors, thyristors, operational amplifiers,",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Basic knowledge of analog and digital circuitry including transistors, thyristors, operational amplifiers, voltage regulators, power control devices, and discrete logic devices",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Basic knowledge of analog arid digital circuitry including transistors, thyristors, operational amplifiers; voltage",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Dreamweaver) at a basic level",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Excellent analytical reasoning problem-solving and troubleshooting",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent analytical reasoning problem-solving and troubleshooting skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent interpersonal and organizational skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent interpersonal skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent interpersonal, oral and written communication skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent knowledge of circuit fabrication/assembly and packaging",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent knowledge of electronic components and hardware/fasteners, their parameters and",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent knowledge of electronic components and hardware/fasteners, their parameters and characteristics, nomenclature, and manufacturers",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent knowledge of writing technical documentation and/or user guides for desktop",
+     "kind": "skill",
+     "modifier": null
+    }
+   ],
+   "territorial_acknowledgement_present": false,
+   "employment_equity_present": false,
+   "additional_context": null
+  },
+  "provenance": {
+   "member_count": 10,
+   "skill_frequency": [],
+   "duty_coverage": [],
+   "section_contributors": [],
+   "flags": [],
+   "seniority_bars": []
+  }
+ },
+ "model": {
+  "title": "Laboratory Technician",
+  "position_number": null,
+  "department": "Engineering Science",
+  "grade": null,
+  "employee_group": null,
+  "about_sfu_present": false,
+  "position_summary": "Provides essential technical support for Engineering Science laboratory courses by preparing, maintaining, and repairing equipment and experimental setups. Ensures safe and efficient operation of workshop and lab spaces, manages inventory, and facilitates procurement of materials and services. Designs, builds, tests, and documents simple analog and digital circuits to enhance laboratory functionality. Offers guidance and training to students, faculty, and staff on equipment use, safety procedures, and software tools. Coordinates with Facilities Management, vendors, and internal stakeholders to address work orders, special events, and surplus equipment disposal. Maintains accurate documentation, technical drawings, and user guides, contributing to a reliable learning environment and continuous improvement of laboratory resources.",
+  "duties": [
+   {
+    "action_verb": "Obtains",
+    "statement": "materials and arranges for services for laboratory courses from the Science Technical Centre",
+    "how_why": []
+   }
+  ],
+  "decision_making": [],
+  "problem_solving": [],
+  "relationships": null,
+  "qualifications": [
+   {
+    "text": "High School graduation and two years post-secondary education or diploma from a technical institute in electronics technology",
+    "kind": "education",
+    "modifier": null
+   },
+   {
+    "text": "40-45 wpm keyboarding skill with a high degree of accuracy",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to exercise mature judgement and initiative",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to instruct others on maintaining safe work environments in workshop and machine shop",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to read, interpret, and draft basic electronic schematics, block and system diagrams, and pictorial and mechanical assembly drawings",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to set up and connect instrument software to computing equipment",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to set up, test, and perform basic measurements using a wide variety of electronic test equipment and troubleshoot any issues with those measurements/devices",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to troubleshoot equipment set up, diagnose the issues and fix if possible",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use a variety of basic hand and power tools used in the electronics trade with fine precision",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use a variety of basic hand and power tools, metal and wood fabrication tools, and computer numerical control fabrication tools with fine precision",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use general and trade specific soldering/de-soldering tools with fine precision",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use web publishing software (HTML, Adobe, Dreamweaver) at a basic level",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use word processing, database, and computer aided drafting applications (Microsoft Word, Excel, Access, AutoCAD, Solidworks) at an intermediate level",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to work independently and meet deadlines",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to work safely with chemicals and hazardous substances",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Basic knowledge of analog and digital circuitry including transistors, thyristors, operational amplifiers, voltage regulators, power control devices, and discrete logic devices",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Excellent analytical reasoning, problem‑solving and troubleshooting",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Excellent interpersonal and organizational skills",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Excellent interpersonal, oral and written communication skills",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Excellent knowledge of circuit fabrication/assembly and packaging",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Excellent knowledge of electronic components and hardware/fasteners, their parameters and characteristics, nomenclature, and manufacturers",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Excellent knowledge of writing technical documentation and/or user guides for desktop",
+    "kind": "knowledge",
+    "modifier": null
+   }
+  ],
+  "territorial_acknowledgement_present": false,
+  "employment_equity_present": false,
+  "additional_context": null
+ }
+}

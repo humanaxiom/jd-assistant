@@ -331,7 +331,10 @@ def _freeze(mapping: Mapping[_K, _V]) -> Mapping[_K, _V]:
 
 
 def _compile_regex(value: Any) -> re.Pattern[str]:
-    """Compile a ``{pattern, ignore_case}`` YAML mapping into a regex, once."""
+    """Compile a ``{pattern, ignore_case}`` YAML mapping into a regex, once. An already
+    compiled pattern (a loaded rule file re-validated from its own dump) passes."""
+    if isinstance(value, re.Pattern):
+        return value
     if not isinstance(value, Mapping):
         raise ValueError("expected a mapping with keys 'pattern' and 'ignore_case'")
     unknown = set(value) - {"pattern", "ignore_case"}
@@ -1496,6 +1499,15 @@ class Harmonization(_RuleFile):
     #: interesting one at 44.9% source presence: a cluster where half the members
     #: carry the section is a real question about what the harmonized role should say.
     problem_solving_policy: SectionMergePolicy
+    #: Items that start a run of decisions REFERRED to the supervisor in a member's
+    #: Decision Making (HR-282), matched on the word sequence; the run's decisions are
+    #: prefixed with :attr:`referred_decision_label` (HR-283) before pooling.
+    referred_decision_markers: tuple[str, ...] = ()
+    referred_decision_label: str = Field(default="", max_length=60)
+    #: A Decision Making item matching this is a template LEAD-IN ("Makes decisions
+    #: regarding:") and ends a referred run (HR-289). ``None``: only a questionnaire
+    #: prompt ends one.
+    referred_decision_run_end_pattern: Regex | None = None
     #: How the RELATIONSHIPS object is merged across members (HR-212). 97.4% source
     #: presence. Structured rather than a statement list, so its ``union`` still takes
     #: ``supervisory`` from ONE member verbatim.
@@ -1701,6 +1713,20 @@ class Rewrite(_RuleFile):
     #: A run of list items each a piece of one instruction is that instruction when it
     #: holds at least this many words (HR-276).
     form_instruction_fragment_min_tokens: int = Field(ge=1)
+    # --- round 3 (pilot round 2, 2026-10-21; HR-284…HR-288) -----------------------
+    #: A model piece that holds at least this share of a source duty sentence's words
+    #: (and has HR-267's fraction of its own words in it) REWORDED that sentence, so
+    #: fold-back does not put it back (HR-284).
+    reworded_unit_min_share: float = Field(default=0.25, gt=0.0, le=1.0)
+    #: Suffixes the coverage tests' light stemmer strips (HR-285). Coverage only.
+    coverage_stem_suffixes: tuple[str, ...] = ()
+    #: Abbreviations after which the sentence splitter does not end a sentence (HR-286).
+    sentence_abbreviations: tuple[str, ...] = ()
+    #: A source item or sentence matching this is a fragment, never restored on its own
+    #: (HR-287).
+    fragment_pattern: Regex
+    #: How many consecutive contact items one model contact is grounded in (HR-288).
+    relationships_row_window: int = Field(default=1, ge=1)
 
     @field_validator("grounding_stopwords")
     @classmethod

@@ -20,6 +20,7 @@ anything, and ``jd_core`` is never imported the other way round.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from typing import Any, Final
 
@@ -32,10 +33,14 @@ from src.jd_bank.llm.prompts import load_prompt
 from src.jd_bank.rewrite.fidelity import (
     carries_placeholder,
     content_tokens,
+    cut_off_tail,
+    field_cap,
     grounding_comparison,
+    is_fragment,
     named_terms,
     sentences,
     source_view,
+    stemmed_tokens,
 )
 from src.jd_core.bank.merge import duty_text
 from src.jd_core.models.bank import (
@@ -289,13 +294,26 @@ def _reconcile_list(
     threshold = rewrite.section_item_grounding_threshold
     units = [_content_tokens(item, comparison) for item in source_items]
     vocab = frozenset().union(*units)
+    # A decision the merge marked REFERRED (HR-282/283) grounds a rewritten decision
+    # only if that decision keeps the referral: the round-2 model wrote "Makes decisions
+    # regarding the expenditure of University funds" from a decision its source REFERS.
+    label = log.referred_label if section == "decision_making" else ""
+    label_stems = log.stems(label) if label else frozenset()
+    referred = [bool(label) and item.startswith(label) for item in source_items]
     kept: list[str] = []
     for item in model_items:
-        if _grounded_in_one(item, units, vocab, threshold, rewrite, comparison):
+        usable = units
+        # The WHOLE label, not one word of it (review of c873b13: "Approves …,
+        # informing the supervisor" kept a referred decision as one it makes).
+        if any(referred) and not label_stems <= log.stems(item):
+            usable = [u for u, ref in zip(units, referred, strict=True) if not ref]
+        if _grounded_in_one(item, usable, vocab, threshold, rewrite, comparison):
             kept.append(item)
         else:
             log.scrubbed.append((section, item))
-    lost = log.restorable(log.losses(section, source_items, kept, rewrite, comparison))
+    lost = log.restorable(
+        log.losses(section, source_items, kept, rewrite, comparison, cap=section)
+    )
     if not lost or section not in rewrite.restore_uncovered_items_in:
         return kept
     restored = [*kept, *lost]
@@ -310,15 +328,30 @@ class _ItemLog:
 
     def __init__(self, rules: Rules) -> None:
         self._rules = rules
+        self.referred_label = rules.harmonization.referred_decision_label
         self.scrubbed: list[tuple[str, str]] = []
         self.uncovered: list[tuple[str, str]] = []
         self.restored: list[tuple[str, str]] = []
 
+    def stems(self, text: str) -> frozenset[str]:
+        """``text``'s stemmed content tokens (HR-285), for the referral check."""
+        return stemmed_tokens(
+            text,
+            grounding_comparison(self._rules),
+            self._rules.rewrite.coverage_stem_suffixes,
+        )
+
     def restorable(self, texts: Sequence[str]) -> list[str]:
         """``texts`` minus any carrying a template placeholder (the HR-047 gate —
-        :func:`~src.jd_bank.rewrite.fidelity.carries_placeholder`). Those stay in
-        :attr:`uncovered` only, so the review page lists them as dropped."""
-        return [t for t in texts if not carries_placeholder(t, self._rules)]
+        :func:`~src.jd_bank.rewrite.fidelity.carries_placeholder`) or that is a
+        FRAGMENT (HR-287: "Makes decisions regarding", "(e.g. … curve tracers,"). Those
+        stay in :attr:`uncovered` only, so the review page lists them as dropped."""
+        return [
+            t
+            for t in texts
+            if not carries_placeholder(t, self._rules)
+            and not is_fragment(t, self._rules)
+        ]
 
     def losses(
         self,
@@ -327,9 +360,19 @@ class _ItemLog:
         kept: Sequence[str],
         rewrite: Rewrite,
         comparison: Comparison,
+        *,
+        cap: str,
     ) -> list[str]:
-        """Every source SENTENCE the kept items do not cover (HR-269, read from the
-        source's end), recorded as uncovered; an exact repeat is listed once.
+        """The source ITEMS to put back (whole — never a partial clause), recording
+        every source SENTENCE the kept items do not cover (HR-269, read from the
+        source's end); an exact repeat is listed once.
+
+        Lost-ness is judged per sentence, so nothing is silently gone; what comes back
+        is the source item (round 2: restoring sentences one by one turned a contacts
+        paragraph into bullets of single sentences, one of them a parser cut-off). An
+        item exactly at the parser's character cap for its field (``cap`` names it) was
+        CUT: its unterminated last sentence is a partial clause, recorded and never put
+        back, and the item returns up to it (HR-287).
 
         A lost sentence deliberately does NOT join the covering vocabulary. The merge
         has already de-duplicated a section's items (HR-210…212), and on a contact list
@@ -338,14 +381,28 @@ class _ItemLog:
         hid the distinct BPK Researchers and Laboratory Engineers contacts."""
         threshold = rewrite.section_item_grounding_threshold
         vocab = frozenset().union(*(_content_tokens(k, comparison) for k in kept))
+        limit = field_cap(cap, self._rules)
         lost: list[str] = []
+        back: list[str] = []
         for item in source_items:
-            for sentence in sentences(item):
-                tokens = _content_tokens(sentence, comparison)
-                if not _covers(tokens, vocab, threshold) and sentence not in lost:
-                    lost.append(sentence)
-        self.uncovered.extend((section, text) for text in lost)
-        return lost
+            whole, tail = cut_off_tail(item, limit, self._rules)
+            missing = [
+                s
+                for s in whole
+                if not _covers(_content_tokens(s, comparison), vocab, threshold)
+            ]
+            if missing:
+                # Recorded at the granularity it is restored at, so "lost and not put
+                # back" (the review page's list) never names text that IS in the draft.
+                text = item if tail is None else item[: item.rfind(tail)].rstrip()
+                if text and text not in back:
+                    back.append(text)
+            if tail is not None and not _covers(
+                _content_tokens(tail, comparison), vocab, threshold
+            ):
+                lost.append(tail)
+        self.uncovered.extend((section, text) for text in dict.fromkeys([*back, *lost]))
+        return back
 
 
 def _reconcile_relationships(
@@ -364,11 +421,25 @@ def _reconcile_relationships(
     internal and each external contact is one unit; a model item must be grounded in one
     of them, and every source sentence must stay covered by what is kept."""
     section, threshold = "relationships", rewrite.section_item_grounding_threshold
-    sup_units = sentences(source.supervisory) if source.supervisory else []
-    units = [
-        _content_tokens(text, comparison)
-        for text in (*sup_units, *source.internal, *source.external)
+    sup_units = (
+        sentences(source.supervisory, rewrite.sentence_abbreviations)
+        if source.supervisory
+        else []
+    )
+    # A contact is grounded in ONE unit: a supervisory sentence, or a window of up to
+    # `relationships_row_window` consecutive items of one contact list (HR-288). The WJQ
+    # table reaches the merge one cell per item ("Graduate Students", "< 1 hour",
+    # "Frequent"), and prompt v4 asks the model to keep a contact's duration and
+    # frequency WITH it — which no single cell grounds (round 2: 7 such contacts were
+    # scrubbed). Names are still checked (HR-272), against the whole section.
+    window = rewrite.relationships_row_window
+    rows = [
+        " ".join(items[i : i + size])
+        for items in (source.internal, source.external)
+        for size in range(1, window + 1)
+        for i in range(len(items) - size + 1)
     ]
+    units = [_content_tokens(text, comparison) for text in (*sup_units, *rows)]
     vocab = frozenset().union(*units)
 
     def keep(item: str) -> bool:
@@ -384,9 +455,20 @@ def _reconcile_relationships(
     external = [c for c in model.external if keep(c)]
     kept = [*([supervisory] if supervisory else []), *internal, *external]
     restoring = section in rewrite.restore_uncovered_items_in
-    lost_sup = log.losses(section, sup_units, kept, rewrite, comparison)
-    lost_int = log.losses(section, source.internal, kept, rewrite, comparison)
-    lost_ext = log.losses(section, source.external, kept, rewrite, comparison)
+    lost_sup = log.losses(
+        section,
+        [source.supervisory] if source.supervisory else [],
+        kept,
+        rewrite,
+        comparison,
+        cap="supervisory",
+    )
+    lost_int = log.losses(
+        section, source.internal, kept, rewrite, comparison, cap="internal"
+    )
+    lost_ext = log.losses(
+        section, source.external, kept, rewrite, comparison, cap="external"
+    )
     if not restoring or not (lost_sup or lost_int or lost_ext):
         return model.model_copy(
             update={
@@ -402,10 +484,12 @@ def _reconcile_relationships(
     )
     if lost_sup:
         joined = " ".join(part for part in (supervisory, *lost_sup) if part)
+        # Over the ceiling, the SOURCE's text (minus any parser cut-off) replaces the
+        # model's: it covers itself, and it fits, being shorter than the source field.
         supervisory = (
             joined
             if len(joined) <= _ceiling("supervisory", SFURelationships)
-            else source.supervisory
+            else " ".join(lost_sup)
         )
     internal = [*internal, *lost_int]
     if len(internal) > _ceiling("internal", SFURelationships):
@@ -417,6 +501,155 @@ def _reconcile_relationships(
     return model.model_copy(
         update={"supervisory": supervisory, "internal": internal, "external": external}
     )
+
+
+#: Where a model statement or clause is cut into the pieces HR-284 compares: ";" and
+#: sentence ends — the model merges several source sentences into one clause. Not at
+#: commas: measured, a comma cut "Manage revenue streams from cash donations, grant
+#: funding and sale of image use rights…" into two pieces neither of which held enough
+#: of the source sentence it rewords.
+_MODEL_PIECES: Final[re.Pattern[str]] = re.compile(r";\s+|(?<=[.!?])\s+")
+_COMMA: Final[re.Pattern[str]] = re.compile(r",\s+")
+#: A capitalized word, for telling a Title Case heading from a sentence with names.
+_CAPITALIZED: Final[re.Pattern[str]] = re.compile(r"\b[A-Z][A-Za-z0-9]*")
+_WORDS: Final[re.Pattern[str]] = re.compile(r"\b[A-Za-z][A-Za-z0-9]*")
+
+
+class _DutyCoverage:
+    """Whether a source duty SENTENCE is already in the rewritten duties (HR-267 read
+    source -> rewrite, HR-272 names, HR-284 rewording, HR-285 stemming) — the test that
+    decides what fold-back puts back.
+
+    Round 2 measured both ways it was wrong:
+
+    * **Too loose** (cb73e45c, item 3): "careers as they relate to academic programs"
+      was "covered" by a duty's words PLUS text fold-back had just put in ("academic
+      offerings"), and "opportunities in Cooperative Education" by two generic words
+      without its name — both gone from the draft and in no record. So the model's
+      text covers on its own (restored text no longer pools into it: it covers only
+      its own near-duplicate sentence), and the covering duty must state the
+      sentence's named terms.
+    * **Too strict** (museum, item 4): "Monitors possible copyright infringement." came
+      back word for word under the model's "…, monitor copyright issues, …". So words
+      are compared stemmed, and a model piece that clearly rewrote the sentence (most
+      of ITS words are the sentence's, and it keeps ``reworded_unit_min_share`` of the
+      sentence) covers it.
+
+    Coverage only: grounding (rewrite -> source) is unchanged and unstemmed.
+    """
+
+    def __init__(self, duties: Sequence[SFUDuty], rules: Rules) -> None:
+        rewrite = rules.rewrite
+        self._rewrite = rewrite
+        self._comparison = grounding_comparison(rules)
+        self._threshold = rewrite.how_why_grounding_threshold
+        self._share = rewrite.reworded_unit_min_share
+        #: The whole-duty test reads the model's words UNSTEMMED: measured on the
+        #: round-2 replay, stemming a whole merged duty let its generic words ("need",
+        #: "priority", "request") "cover" lost sentences — "allocating centrally
+        #: managed classrooms…" by "Determine records needs, priorities…". Stemming is
+        #: for the PIECE test below, where one model clause has to match one sentence.
+        self._duties = [content_tokens(duty_text(d), self._comparison) for d in duties]
+        #: Each model clause cut at ";" and sentence ends — and each comma PART of
+        #: those too: a model clause lists several rewordings ("Assess suitability of
+        #: …, monitor copyright issues, identify risks of stolen property …"), and one
+        #: of them may be all that is left of a source sentence. Both bars of HR-284
+        #: still apply to every piece, whole or part.
+        self._pieces = [
+            stems
+            for d in duties
+            for text in (d.statement, *d.how_why)
+            for piece in _MODEL_PIECES.split(text)
+            for part in dict.fromkeys((piece, *_COMMA.split(piece)))
+            if (stems := self._stems(part))
+        ]
+        #: (stemmed tokens, raw tokens) of each restored sentence.
+        self._restored: list[tuple[frozenset[str], frozenset[str]]] = []
+
+    def _stems(self, text: str) -> frozenset[str]:
+        return stemmed_tokens(
+            text, self._comparison, self._rewrite.coverage_stem_suffixes
+        )
+
+    def _names(self, text: str) -> frozenset[str]:
+        rw = self._rewrite
+        if not (rw.named_terms_must_be_grounded or rw.numbers_must_be_grounded):
+            return frozenset()
+        terms = named_terms(text, self._comparison, numbers=rw.numbers_must_be_grounded)
+        words = _WORDS.findall(text)
+        heading = (
+            bool(words)
+            and words[0][0].isupper()
+            and len(_CAPITALIZED.findall(text)) * 3 >= len(words) * 2
+        )
+        if not rw.named_terms_must_be_grounded or heading:
+            # A Title Case heading ("Compliance with International, National, &
+            # Provincial Heritage Legislation") capitalizes every word, so a capital
+            # names nothing there: only its acronyms and numbers are its names.
+            terms = frozenset(
+                t
+                for t in terms
+                if t.isdigit()
+                or (
+                    rw.named_terms_must_be_grounded
+                    and any(
+                        sum(c.isupper() for c in w) >= 2 and w.lower() == t
+                        for w in words
+                    )
+                )
+            )
+        return terms
+
+    def __call__(self, sentence: str, *, headline: str = "") -> bool:
+        """Covered? For a how/why clause pass its source duty's ``headline``: what the
+        clause adds beyond its headline is what can be lost, so the headline's words do
+        not count towards covering it — "ordering welcome event food" under "…welcome
+        events" is not covered by a duty that says "Plans the welcome events"."""
+        raw = content_tokens(sentence, self._comparison)
+        tokens = self._stems(sentence)
+        if headline:
+            # Only when the clause keeps at least two words of its own: one leftover
+            # word ("student", of "the execution of all student grades") would be
+            # covered by any duty that mentions it.
+            if len(own_raw := raw - content_tokens(headline, self._comparison)) >= 2:
+                raw = own_raw
+            if len(own := tokens - self._stems(headline)) >= 2:
+                tokens = own
+        if not tokens:
+            return True
+        thr = self._threshold
+        names = self._names(sentence)
+        if any(_covers(raw, v, thr) and names <= v for v in self._duties):
+            return True
+        # ⚠ A reworded piece is NOT held to the sentence's names (review of c873b13,
+        # measured): requiring them listed 98 more sentences on the round-2 replay, most
+        # a member's own unit name the harmonized role rightly generalises ("AAE's
+        # website", "the School's website", "SFU Food's website" -> "website"), and
+        # folding them put the rewording in twice. The cost — a reworded sentence can
+        # lose an audience list ("…to the Dean, Associate Deans, Chairs") silently — is
+        # recorded as an open question on HR-284.
+        if any(
+            len(p & tokens) / len(p) >= thr
+            and len(p & tokens) / len(tokens) >= self._share
+            for p in self._pieces
+        ):
+            return True
+        # Names too (review of c873b13): a two-word sentence "opportunities in
+        # Cooperative Education" read as covered by a restored sentence sharing only
+        # "opportunities".
+        return any(
+            _covers(tokens, r, thr) and names <= raw_r for r, raw_r in self._restored
+        )
+
+    def restored(self, sentence: str) -> None:
+        """``sentence`` is in the draft now as restored text: ONE restored sentence
+        covers a later source sentence it holds the HR-267 fraction of (a second
+        member's duty saying the same thing) — never the restored text pooled with the
+        model's, which is how "careers as they relate to academic programs" read as
+        covered by "programs" (model) plus "academic" (the folded "academic
+        offerings")."""
+        if tokens := self._stems(sentence):
+            self._restored.append((tokens, content_tokens(sentence, self._comparison)))
 
 
 def _fold_back(
@@ -461,14 +694,12 @@ def _fold_back(
     sentence with the statement of the source duty it came from, so the review page can
     say where it was restored from."""
     rewrite, comparison = rules.rewrite, grounding_comparison(rules)
-    threshold = rewrite.how_why_grounding_threshold
     floor, per_duty = rewrite.fold_back_relevance_min, rewrite.fold_back_max_per_duty
     cap = min(_ceiling("how_why", SFUDuty), rules.segmentation.duty_how_why_max_count)
+    covered = _DutyCoverage(duties, rules)
     out = list(duties)
     #: What each duty said before anything was folded in — placement reads only this.
     base = [_content_tokens(duty_text(d), comparison) for d in out]
-    #: …and what it says now — coverage reads this, so nothing is folded twice.
-    vocabs = [set(tokens) for tokens in base]
     extra: list[list[str]] = [[] for _ in out]
     folded: list[str] = []
     dropped: list[str] = []
@@ -492,10 +723,19 @@ def _fold_back(
             if share[j] >= floor
         ]
         unplaced: list[str] = []
-        for text in (src.statement, *src.how_why):
-            for sentence in sentences(text):
-                tokens = _content_tokens(sentence, comparison)
-                if any(_covers(tokens, frozenset(v), threshold) for v in vocabs):
+        #: This source duty's pieces that may not come back on their own (HR-287):
+        #: listed — unless the statement returns as the HEADING of its own duty below.
+        listed: list[str] = []
+        for text, limit, headline in (
+            (src.statement, field_cap("statement", rules), ""),
+            *(
+                (clause, field_cap("how_why", rules), src.statement)
+                for clause in src.how_why
+            ),
+        ):
+            whole, tail = cut_off_tail(text, limit, rules)
+            for sentence in (*whole, *([tail] if tail is not None else [])):
+                if covered(sentence, headline=headline):
                     continue
                 if (
                     rewrite.duty_coverage_policy == "record_only"
@@ -504,19 +744,27 @@ def _fold_back(
                 ):
                     dropped.append(sentence)
                     continue
+                if sentence == tail or is_fragment(sentence, rules):
+                    # A parser cut-off, or a lead-in / continuation line: never a
+                    # how/why clause of its own (round 2: "Collaborates with V.",
+                    # "(e.g. … curve tracers,"). Listed for the reviewer.
+                    if sentence not in listed:
+                        listed.append(sentence)
+                    continue
                 target = next((j for j in ranked if has_room(j)), None)
                 if target is None:
                     if sentence not in unplaced:
                         unplaced.append(sentence)
                     continue
                 extra[target].append(sentence)
-                vocabs[target] |= tokens
+                covered.restored(sentence)
                 folded.append(sentence)
                 origins.append((sentence, src.statement))
         if not unplaced:
+            dropped.extend(listed)
             continue
         if len(out) >= duties_max:
-            dropped.extend(unplaced)
+            dropped.extend((*listed, *unplaced))
             continue
         # Its own duty, under its own source heading, verbatim.
         # The source statement heads it — unless it carries a placeholder, or a sentence
@@ -524,13 +772,24 @@ def _fold_back(
         # moment ago, under an HR-280 limit or the how/why cap): heading with it would
         # put the same source words in the draft twice (review of 528f694).
         restored_so_far = set(folded)
-        if carries_placeholder(src.statement, rules) or any(
-            sentence in restored_so_far for sentence in sentences(src.statement)
+        # A statement the parser cut heads its duty only up to its last full sentence.
+        statement, statement_tail = cut_off_tail(
+            src.statement, field_cap("statement", rules), rules
+        )
+        head_text = (
+            src.statement
+            if statement_tail is None
+            else src.statement[: src.statement.rfind(statement_tail)].rstrip()
+        )
+        if (
+            not head_text
+            or carries_placeholder(head_text, rules)
+            or any(sentence in restored_so_far for sentence in statement)
         ):
             heading, clauses = unplaced[0], unplaced[1:]
         else:
-            own = set(sentences(src.statement))
-            heading, clauses = src.statement, [s for s in unplaced if s not in own]
+            own = set(statement)
+            heading, clauses = head_text, [s for s in unplaced if s not in own]
         overflow = clauses[cap:]
         dropped.extend(overflow)
         restored = src.model_copy(
@@ -539,25 +798,30 @@ def _fold_back(
                 "how_why": clauses[:cap],
                 # The source verb belongs to the source STATEMENT: put in front of a
                 # how/why clause it would read as a sentence no source wrote.
-                "action_verb": src.action_verb if heading == src.statement else "",
+                "action_verb": src.action_verb if heading == head_text else "",
             }
         )
         out.append(restored)
-        tokens = _content_tokens(duty_text(restored), comparison)
-        base.append(tokens)
-        vocabs.append(set(tokens))
+        base.append(_content_tokens(duty_text(restored), comparison))
         extra.append([])
         # The heading is the source's text too (even where another duty covers it), so
         # it is recorded as restored — the reviewer must not read it as the model's.
-        for sentence in dict.fromkeys((*sentences(heading), *unplaced)):
+        # A lead-in headline ("… by") is in the draft now, as a heading over its
+        # clauses, so it is no longer listed.
+        heading_pieces = statement if heading == head_text else [heading]
+        for sentence in dict.fromkeys((*heading_pieces, *unplaced)):
             if sentence not in overflow:
+                covered.restored(sentence)
                 folded.append(sentence)
                 origins.append((sentence, src.statement))
+        dropped.extend(s for s in listed if s not in folded)
     result = [
         duty.model_copy(update={"how_why": [*duty.how_why, *more]}) if more else duty
         for duty, more in zip(out, extra, strict=True)
     ]
-    return result, folded, dropped, origins
+    # Listed once each: near-identical source duties from two members can name the
+    # same fragment ("Responsible for other duties as assigned by …, such as").
+    return result, folded, list(dict.fromkeys(dropped)), origins
 
 
 def _apply_anti_fabrication(
@@ -625,7 +889,21 @@ def _apply_anti_fabrication(
             if restoring_quals:
                 kept_tokens.append(tokens)
     log.uncovered.extend(("qualifications", q.text) for q in lost_quals)
-    back = [q for q in lost_quals if log.restorable([q.text])]
+    # Whole qualifications only (HR-287): a line the parser cut at its 400-character
+    # cap comes back up to its last full sentence, and a continuation line ("(e.g. lab
+    # power supplies, …, curve tracers," — round 2, 0a75edf1) is listed, not restored.
+    back: list[SFUQualification] = []
+    for qual in lost_quals:
+        whole, tail = cut_off_tail(qual.text, field_cap("qualifications", rules), rules)
+        text = (
+            qual.text if tail is None else qual.text[: qual.text.rfind(tail)].rstrip()
+        )
+        if text and whole and log.restorable([text]):
+            back.append(
+                qual if text == qual.text else qual.model_copy(update={"text": text})
+            )
+            if text != qual.text:
+                log.uncovered.append(("qualifications", text))
     if restoring_quals and back:
         kept = [*kept, *back]
         if len(kept) + len(bars) > _ceiling("qualifications"):

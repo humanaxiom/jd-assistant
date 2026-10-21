@@ -5674,10 +5674,18 @@ decisions:
     config:
       file: rewrite.yaml
       path: rewrite.max_tokens
-    current_default: 4096
+    current_default: 8192
     provenance: our_invention
     tier: technical
     why_it_matters: >-
+      Raised again to 8192 on 2026-10-21. MEASURED on the second rewrite pilot (20
+      size-stratified clusters on the rebuilt v9 Bank, prompt v4, at 4096): 4 of 20 first
+      calls stopped on `length` with an EMPTY reply, every one in the REASONING phase
+      (22.7k–25.1k reasoning characters, no content yet); three were saved by the repair
+      retry and one (d2c41bc7) failed both attempts and kept its deterministic draft.
+      Re-run at 8192, all four stopped on the first call; peak reasoning ~5,900 tokens
+      (72% of the budget), peak content 3,742 (46%). Still `open` — four re-runs.
+      Earlier history follows.
       The whole SFUJobDescription JSON must fit in one completion; too small truncates the
       JSON (which then fails to parse and burns a retry). Was 2048, the earlier build's
       harmonize value. MEASURED 2026-10-20 on the rewrite pilot (22 size-stratified
@@ -8605,10 +8613,17 @@ decisions:
       a statement is FLAGGED for the reviewer, never dropped (HR-184). ⚠ It also drops
       a FAITHFUL expansion ("Truth and Reconciliation Commission" for "TRC"); the
       source's own wording then comes back through HR-270, so nothing is lost but the
-      rewording.
+      rewording. Since 2026-10-21 (round 3) the rule is also read the OTHER way, in
+      fold-back's coverage test (HR-284): a rewritten duty covers a source sentence only
+      if it also states that sentence's names — "opportunities in Cooperative Education"
+      had been "covered" by a duty that never says Cooperative (cb73e45c), and was in no
+      record. In a Title Case heading ("Compliance with International, National, &
+      Provincial Heritage Legislation") a capital names nothing, so there only acronyms
+      and numbers count.
     impact_if_changed: >-
       Does NOT move `rules_version`. `false` restores the pre-2026-10-20 behaviour (token
-      overlap alone). Pinned by `test_rewrite_fidelity.py`.
+      overlap alone, both ways). Pinned by `test_rewrite_fidelity.py` and
+      `test_rewrite_fidelity_r3.py`.
     status: open
 
   - id: HR-273
@@ -8680,6 +8695,9 @@ decisions:
       - Give some typical examples of the most important decisions the incumbent is expected to make in carrying out the duties and responsibilities of the position.
       - To what extent can the incumbent rely on established policies or advice from others in making these decisions?
       - Give some examples of the types of decisions the incumbent would refer to his/her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to her/his supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to his or her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to the supervisor.
       - Briefly describe the primary function and purpose of the position in one or two sentences.
       - Explain the nature of guidance received and how often work is checked or reviewed.
       - Describe the extent to which the supervisor determines the day to day work load of the position and assists in the completion of duties.
@@ -8953,6 +8971,289 @@ decisions:
       which section a piece came from and keeps a combined reason). Does NOT move
       `rules_version`. Adding `qualifications` asks the reviewer to check the
       employment-equity lines too. Pinned by `test_rewrite_provenance.py`.
+    status: open
+
+  # ── Rewrite fidelity round 3 (second pilot, 2026-10-21): HR-282…288. Measured by
+  # replaying the round-2 pilot's recorded replies offline through the guard
+  # (docs/plans/PARSER-V9-LISTS-AND-CAPS.md §16).
+  - id: HR-282
+    question: >-
+      Which lines of a job description's Decision Making say that the decisions after
+      them are REFERRED to the supervisor rather than made by the incumbent?
+    config:
+      file: harmonization.yaml
+      path: harmonization.referred_decision_markers
+    current_default:
+      - Give some examples of the types of decisions the incumbent would refer to his/her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to her/his supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to his or her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to the supervisor.
+      - Refers decisions regarding
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The old APSA questionnaire asks two Decision Making questions — the decisions the
+      incumbent MAKES, then "…the types of decisions the incumbent would refer to his/her
+      supervisor" — and each answer follows its question. MEASURED over the whole archive
+      (14,522 in-process parses): 4,115 documents carry the refer question; its answer is
+      fused into the question's own item in 2,928, and 5,721 referred decisions follow it
+      as items of their own. The merge pools and SORTS this section (HR-210), so the
+      question no longer stands before its answers, and the rewrite strips the question
+      as form text (HR-275). On the second rewrite pilot (cb73e45c) "Decisions regarding
+      the expenditure of University funds" — a decision the source says is REFERRED —
+      came out as one the incumbent makes. The merge now labels each referred decision
+      (HR-283) per member, before pooling, while the order still says which they are: a
+      line matching one of these starts a referred run, which ends at the next
+      questionnaire prompt (HR-275) or template lead-in (HR-289). Matched on the word
+      sequence; "Refers decisions regarding" is the newer template's own lead-in.
+      Review of c873b13 (the same 4,115 documents): the prompt's "her/his", "his or
+      her" and "the supervisor" spellings are markers too (each is also stripped by
+      HR-275); text fused BEFORE the prompt (the answer to the MAKE question) is not
+      referred; and a marker that is not the questionnaire prompt starts a run only as
+      a lead-in ("Refers decisions regarding:") — "Refers decisions regarding X to the
+      Director." is a complete referral and labels nothing after it (it had labelled
+      47 made decisions in the archive, "Makes decisions regarding…" among them).
+    impact_if_changed: >-
+      Does NOT move `rules_version` (harmonization.yaml is unhashed), but changes the
+      merge draft — the deterministic draft too — of every cluster whose members carry a
+      marker; drafts are rebuilt by the next producer pass. Removing a marker returns
+      that question's answers to an unlabelled pool. Pinned by
+      `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-283
+    question: >-
+      What should the merged job description put in front of a decision the incumbent
+      refers to the supervisor, so that it is not read as a decision the incumbent makes?
+    config:
+      file: harmonization.yaml
+      path: harmonization.referred_decision_label
+    current_default: "Refers to the supervisor:"
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      The label is written in front of each referred decision (HR-282) unless it already
+      starts "Refer…" ("Refers decisions that have broader implications…"), and it is
+      what the rewrite's guard holds a rewritten decision to: a Decision Making point
+      grounded only in a referred decision must keep the referral — share a word with
+      this label — or it is dropped and the source's own line comes back (HR-269/270).
+      MEASURED (second pilot): the model wrote "Makes decisions regarding the expenditure
+      of University funds" from a decision its source refers. Neutral by design: it
+      states what the questionnaire asked, not who the supervisor is. ⚠ The guard cannot
+      catch the same inversion in a DUTY ("Oversee budgetary decisions…" on cb73e45c):
+      duties are flagged, never dropped (HR-184), and that duty IS flagged.
+      Tier `hr_policy` (review of c873b13): these words are printed into the Impact of
+      Decision Making section of every merged job description that has a referred
+      decision — HR's wording on HR's form, not a technical setting. Since that review
+      a rewritten decision keeps the referral only if it carries EVERY word of the
+      label ("refers" and "supervisor"); one shared word let "Approves …, informing
+      the supervisor" through.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Changes the wording of every referred decision in
+      the merge draft. An empty label switches the labelling off. Pinned by
+      `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-284
+    question: >-
+      When the LLM has reworded a sentence of a duty, how much of the sentence must one
+      piece of its wording keep for the sentence to count as already in the draft (so
+      it is not put back a second time)?
+    config:
+      file: rewrite.yaml
+      path: rewrite.reworded_unit_min_share
+    current_default: 0.4
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Fold-back (HR-271) puts back every source duty sentence the rewritten duties do not
+      cover. On the second pilot it also put back sentences the model HAD reworded:
+      "Monitors possible copyright infringement." beside the model's "…, monitor
+      copyright issues, …", the museum's revenue-stream sentence beside "Manage revenue
+      streams from cash donations, grant funding and sale of image use rights while
+      protecting SFU copyright" — the same content twice. A source sentence now also
+      counts as covered when ONE piece of the model's text (a statement or clause cut at
+      ";" and sentence ends, or a comma part of one) has at least HR-267's fraction of
+      its own words in that sentence and keeps at least this share of the sentence's
+      words (stemmed, HR-285). For a how/why clause the words it shares with its own
+      headline do not count. The same round tightened the other side: the whole-duty
+      test now needs the sentence's named terms (HR-272) and restored text covers only
+      as ONE restored sentence, never pooled — on cb73e45c "careers as they relate to
+      academic programs" and "opportunities in Cooperative Education" had been counted
+      covered and were in no record. MEASURED (round-2 replay, 912 source duty
+      sentences): 16 sentences are now covered that were folded back beside their
+      rewording — by hand-check 12 genuine, 3 PARTIAL (e.g. 44% of a sentence whose
+      "budgetary and HR aspects" the model dropped), 1 borderline — and 20 counted
+      covered before are now folded or listed. At 0.25 a false cover appeared; at 0.5 a
+      genuine rewording kept at 48% came back as a duplicate. ⚠ Below the share, a model
+      piece that kept little is not a rewording: "liaise with Risk Management for
+      insurance" keeps 3 of 12 words of a sentence whose "$1 M" threshold it dropped, and
+      that sentence still comes back. Coverage only — nothing here can ground a claim.
+      Review of c873b13: the RESTORED-sentence test now needs the sentence's named
+      terms and numbers too ("opportunities in Cooperative Education" was covered by a
+      restored sentence sharing only "opportunities"). ⚠ OPEN, measured: the PIECE
+      test does NOT, so a reworded sentence can lose an audience or a unit silently —
+      "…guidance on financial policy issues to the Dean, Associate Deans, Chairs,
+      Directors…" is covered by "Offer strategic advice … on financial policy
+      issues". Requiring names there listed 98 more sentences on the round-2 replay
+      (folding them duplicated the rewording), most a member's own unit name the
+      harmonized role rightly generalises ("AAE's website" / "the School's website"
+      -> "website"). Of 20 piece-only covers at a share of 0.40-0.55 graded by hand,
+      about 11 were genuine rewordings and 7 partial (an audience, a unit list or a
+      second clause gone).
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Lower: more sentences counted as reworded, fewer
+      duplicates, and more compression accepted silently. Higher: more source sentences
+      come back beside their rewording. Pinned by `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-285
+    question: >-
+      Should "monitors" and "monitor", "manages" and "manage" count as the same word
+      when deciding whether the LLM kept a source sentence?
+    config:
+      file: rewrite.yaml
+      path: rewrite.coverage_stem_suffixes
+    current_default: [ies, ing, ed, es, s]
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      Every token test here compares exact words, so a sentence the model kept in another
+      inflection read as LOST and was folded back beside its rewording (second pilot:
+      "Monitors possible copyright infringement." under "monitor copyright issues"). For
+      fold-back's PIECE and RESTORED-sentence coverage tests (HR-284), a light stemmer
+      strips the first listed suffix that leaves at least four letters ("s" never after
+      "s"; "ies" -> "y"), then a final "e". NOT the whole-duty test: MEASURED on the
+      round-2 replay, stemming a whole merged duty let its generic words "cover" about 8
+      of 30 sentences that were in fact lost ("allocating centrally managed classrooms
+      and other academic spaces" by "Determine records needs, priorities…"). The
+      GROUNDING tests (rewrite -> source: may this claim stay?) are not stemmed, so
+      nothing new can ground a claim. An empty list switches stemming off.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. A longer list merges more word forms (fewer
+      duplicates, and a little more risk of a different word reading as the same).
+      Pinned by `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-286
+    question: >-
+      After which abbreviations should the rewrite NOT treat a full stop as the end of a
+      sentence?
+    config:
+      file: rewrite.yaml
+      path: rewrite.sentence_abbreviations
+    current_default: [e.g., i.e., vs., approx., incl., dept., no., dr., mr., mrs., ms., st., ph.d.]
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The guard works sentence by sentence: what is covered, what is folded back, what
+      is listed. On the second pilot "Collaborates with V. P. Advancement on fundraising
+      initiatives." was cut at "V." and "Collaborates with V." went back into the draft
+      as a duty point of its own. A full stop after a listed abbreviation, after a single
+      letter ("V."), or in a dotted acronym ("B.C.", "e.g.") no longer ends a sentence.
+      "etc." is deliberately not listed: it ends a sentence as often as not.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. A missing abbreviation splits a sentence in two (a
+      fragment can be restored on its own); an extra one joins two sentences (coverage
+      is then judged on both). Pinned by `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-287
+    question: >-
+      Which pieces of source text are FRAGMENTS — lead-ins like "Makes decisions
+      regarding", or continuation lines like "(e.g. lab power supplies, …," — that must
+      never be put back into a draft on their own?
+    config:
+      file: rewrite.yaml
+      path: rewrite.fragment_pattern
+    current_default: '(?i)(?:^\s*[\(\[,;])|(?:(?:[,:(]|\b(?:and|or|by|to|of|for|with|the|a|an|regarding|concerning|including|related to|responsible for|such as|involves|following))\s*$)'
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      Restores put text back verbatim, and on the second pilot some of that text was not
+      a whole statement: the template lead-in "Makes decisions regarding" restored as a
+      decision, "Collaborates with V." (see HR-286), and "(e.g. lab power supplies,
+      analog and digital multimeters, …, curve tracers," as a qualification. A source
+      item or sentence that starts with a bracket or comma, or ends on a comma, colon or
+      lead-in word, is now never put back on its own: it is listed for the reviewer
+      (fold-back's `dropped_duty_content`; sections' and qualifications' lost-and-not-
+      restored list) — unless a duty headline ending "by" comes back as the HEADING of
+      its own duty. Separately (no knob: the parser's own limits), an item exactly at the
+      parser's character cap for its field was cut by the parser, so its unterminated
+      last sentence ("…Partners with a wide circle of contacts and involves", a
+      400-character contacts item) is listed, and the item returns up to it. Section
+      items are restored WHOLE, never sentence by sentence. A lowercase start is NOT a
+      fragment: contact labels and the parser's split clause pieces are real content.
+      MEASURED (round-2 replay, 23 replies): restored items that were a lead-in, cut-off
+      or continuation line 32 -> 0; 18 duty pieces newly listed instead of folded, each a
+      headline ending "by" / "such as" or a table cut-off. Review of c873b13: an item
+      ending ";" is NOT a fragment — ";" ends a list item ("Hiring of staff;",
+      "Signing authority up to $5,000;") far more often than it wraps one.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. A broader pattern lists more source text instead of
+      restoring it (visible, not lost); a narrower one restores more partial text.
+      Pinned by `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-288
+    question: >-
+      When the LLM writes a contact together with its duration and frequency ("Graduate
+      Students – < 1 hour, Frequent"), how many neighbouring source lines may that one
+      contact be checked against?
+    config:
+      file: rewrite.yaml
+      path: rewrite.relationships_row_window
+    current_default: 3
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The WJQ contact table reaches the merge one CELL per item — "Graduate Students",
+      "< 1 hour", "Frequent" — and prompt v4 asks the model to keep each contact's
+      duration and frequency WITH it. Grounded one source item at a time (HR-269), no
+      single cell holds half of such a line. MEASURED (second-pilot replay): of 30
+      contacts scrubbed, 7 were WJQ contacts written with their own duration and
+      frequency; 11 were the 0a75edf1 "Engineering Science" contacts a different member
+      states (correctly scrubbed); 8 would be grounded in the duties and 2 only in the
+      summary — those stay scrubbed, since Relationships keeps same-section grounding
+      (a duty-derived "contact" on that list was "First Nations territories on which SFU
+      campuses are situated"). A contact is now grounded in ONE window of up to this many
+      consecutive items of the same list; its names must still be in the section
+      (HR-272), so the Engineering Science contacts stay out. Scrubbed contacts in the
+      replay: 30 -> 19.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. 1 restores the item-only rule; larger windows let a
+      contact draw on more neighbouring lines (more stitching possible). Pinned by
+      `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-289
+    question: >-
+      In a job description's Decision Making, which lines end a run of decisions referred
+      to the supervisor — so that the decisions after them are read as the incumbent's
+      own again?
+    config:
+      file: harmonization.yaml
+      path: harmonization.referred_decision_run_end_pattern
+    current_default: '(?:\:|\b(?:regarding|concerning|related to|responsible for|such as|following))\s*$'
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A referred run (HR-282) labels every decision after the refer prompt until the
+      next questionnaire prompt or a template LEAD-IN line ("Makes decisions
+      regarding:"), matched case-insensitively by this pattern: a line ending on a colon
+      or on "regarding", "concerning", "related to", "responsible for", "such as" or
+      "following". MEASURED in review of c873b13, over the 4,115 archive documents that
+      carry the refer prompt: the run used to end at anything the rewrite's FRAGMENT
+      rule (HR-287) matches — which includes any list item ending "," or ";" — so in 136
+      documents the referred decisions after an item like "Major equipment purchases;"
+      were left unlabelled (621 items), reading in the merged job description as
+      decisions the incumbent MAKES: the very ambiguity HR-282/283 exist to remove.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (harmonization.yaml is unhashed) but changes the
+      merge draft of every cluster whose members carry a referred run. Broader ends runs
+      earlier (referred decisions read as made); narrower runs longer (a made decision
+      after an unrecognised lead-in reads as referred). Pinned by
+      `test_rewrite_fidelity_r3_review.py`.
     status: open
 
 trivial:
