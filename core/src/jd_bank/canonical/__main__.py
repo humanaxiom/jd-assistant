@@ -38,11 +38,15 @@ import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from src.jd_bank.canonical.models import CanonicalProducerResult
-from src.jd_bank.canonical.runner import run_canonical_producer
+from src.jd_bank.canonical.runner import (
+    UnknownClusterIdsError,
+    run_canonical_producer,
+)
 from src.jd_bank.llm.client import ChatClient
 from src.jd_core.rules import Rules, get_rules
 from src.settings import get_settings
@@ -69,6 +73,71 @@ def _utc_timestamp(value: str) -> dt.datetime:
             f"what the Bank's timestamps are in (e.g. 2026-09-11T04:04:58Z)."
         )
     return parsed.astimezone(dt.UTC)
+
+
+#: Where the `canonical` compose service can see a file a person wrote on the host.
+#: Kept beside the parser so the refusal below and docker-compose.yml cannot disagree
+#: silently: `./docs/canonical` is bound at `/committed`, `./core` at `/app` (the cwd).
+_CONTAINER_MOUNTS_HINT = (
+    "the producer runs inside the `canonical` container, which sees only "
+    "docs/canonical/ (as /committed/) and core/ (as /app/, the working directory) — "
+    "put the file in docs/canonical/ and pass /committed/<name>"
+)
+
+
+def _uuids(tokens: Sequence[str], *, where: str) -> frozenset[UUID]:
+    """Parse cluster-id tokens, refusing a malformed one rather than dropping it."""
+    ids: set[UUID] = set()
+    for token in tokens:
+        try:
+            ids.add(UUID(token))
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(
+                f"{token!r} ({where}) is not a cluster UUID"
+            ) from exc
+    if not ids:
+        raise argparse.ArgumentTypeError(
+            f"no cluster ids given ({where}) — refusing a run that would process "
+            f"nothing and report success"
+        )
+    return frozenset(ids)
+
+
+def _cluster_id_list(value: str) -> frozenset[UUID]:
+    """``--cluster-ids a,b,c`` — comma-separated; surrounding blanks ignored, a blank
+    ENTRY (``a,,b``) refused, because it is almost always a lost id."""
+    tokens = [token.strip() for token in value.split(",")]
+    if value.strip() and any(not token for token in tokens):
+        raise argparse.ArgumentTypeError(
+            f"{value!r} has an empty entry — an id seems to be missing"
+        )
+    return _uuids([t for t in tokens if t], where="--cluster-ids")
+
+
+def _cluster_id_file(value: str) -> frozenset[UUID]:
+    """``--cluster-ids-file PATH`` — ONE UUID per line. Blank lines and ``#`` comment
+    lines are allowed (a re-run list deserves a note on why each id is in it); anything
+    else that is not a single UUID is refused BY LINE NUMBER, never skipped."""
+    path = Path(value)
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+    except OSError as exc:
+        raise argparse.ArgumentTypeError(
+            f"cannot read {value!r} ({exc.strerror or exc}); {_CONTAINER_MOUNTS_HINT}"
+        ) from exc
+    tokens: list[str] = []
+    for number, raw in enumerate(text.splitlines(), start=1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        try:
+            UUID(line)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(
+                f"{value}: line {number} is not one cluster UUID: {line!r}"
+            ) from exc
+        tokens.append(line)
+    return _uuids(tokens, where=f"--cluster-ids-file {value}")
 
 
 def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
@@ -140,6 +209,31 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
         "un-drafted and regenerating exactly those otherwise cost a full pass over "
         "2,493 clusters (~44 hours) to do minutes of work. Idempotent: a second run "
         "over a fully-drafted Bank writes nothing and pays for no model call.",
+    )
+    named = parser.add_mutually_exclusive_group()
+    named.add_argument(
+        "--cluster-ids",
+        dest="cluster_ids",
+        type=_cluster_id_list,
+        default=None,
+        metavar="ID,ID,...",
+        help="process ONLY these clusters (comma-separated cluster UUIDs, as in "
+        "clusters.id / canonical_jds.cluster_id) — re-run a handful after a fix lands "
+        "instead of paying for a full pass. Operational scoping, like --only-template: "
+        "a named cluster still goes through the reviewer-touched skip and the "
+        "no-downgrade guard exactly as in a full run. An id the recomputed clustering "
+        "does not contain REFUSES the run (exit 2, every such id listed) before "
+        "anything is written. Combines with --no-llm / --allow-downgrade; refused with "
+        "--resume, --limit, --refreshed-since, --only-template, --only-undrafted.",
+    )
+    named.add_argument(
+        "--cluster-ids-file",
+        dest="cluster_ids",
+        type=_cluster_id_file,
+        metavar="PATH",
+        help="as --cluster-ids, read from a file: ONE UUID per line; blank lines and "
+        "'#' comments allowed. The path is INSIDE the container: put the file in "
+        "docs/canonical/ on the host and pass /committed/<name>.",
     )
     parser.add_argument(
         "--commit-every",
@@ -224,6 +318,7 @@ async def _run(args: argparse.Namespace) -> CanonicalProducerResult:
                 skip_refreshed_since=args.refreshed_since,
                 only_template=args.only_template,
                 only_undrafted=args.only_undrafted,
+                only_cluster_ids=args.cluster_ids,
             )
             # The producer may checkpoint-commit between clusters (``--commit-every``);
             # this final commit is the backstop for the remainder after the last one.
@@ -258,6 +353,30 @@ def _reject_contradictory_flags(args: argparse.Namespace) -> str | None:
             "combination silently did nothing and exited 0. Drop --resume to "
             "re-baseline, or drop --allow-downgrade to continue an interrupted pass."
         )
+    if args.cluster_ids is not None:
+        # Every other scope would quietly NOT run some of the clusters a person named:
+        # --limit shrinks the clustering so named ids go unknown; --resume and
+        # --refreshed-since skip named clusters that already hold work; --only-template
+        # and --only-undrafted count them out of scope. Naming a cluster and then not
+        # running it is the exact outcome --cluster-ids exists to make impossible.
+        clashing = [
+            flag
+            for flag, given in (
+                ("--resume", args.resume),
+                ("--limit", args.limit is not None),
+                ("--refreshed-since", args.refreshed_since is not None),
+                ("--only-template", args.only_template is not None),
+                ("--only-undrafted", args.only_undrafted),
+            )
+            if given
+        ]
+        if clashing:
+            return (
+                f"--cluster-ids/--cluster-ids-file cannot be combined with "
+                f"{', '.join(clashing)}: each would silently leave some NAMED clusters "
+                f"un-run. Name exactly the clusters to re-run and drop the other "
+                f"scope (--no-llm and --allow-downgrade do combine)."
+            )
     return None
 
 
@@ -267,7 +386,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     if contradiction is not None:
         print(f"❌ {contradiction}", file=sys.stderr)
         return 2
-    result = asyncio.run(_run(args))
+    try:
+        result = asyncio.run(_run(args))
+    except UnknownClusterIdsError as exc:
+        listed = "\n".join(f"  {cid}" for cid in exc.unknown)
+        print(
+            f"❌ {len(exc.unknown)} named cluster id(s) are not in the recomputed "
+            f"clustering — nothing was written. A cluster id is derived from its "
+            f"member set, so a typo OR a clustering that moved since the list was made "
+            f"both land here:\n{listed}",
+            file=sys.stderr,
+        )
+        return 2
 
     # Per FORM, never one blended number (CUPE Phase D) — a single "clusters seen"
     # across two different SFU forms is the category error the phase exists to remove.
@@ -291,6 +421,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.only_template
         else ""
     )
+    if args.cluster_ids is not None:
+        named = len(args.cluster_ids)
+        scope += (
+            f"⚠ SCOPED RUN — only {named} NAMED cluster(s); "
+            f"{result.clusters_out_of_scope} other clusters deliberately not looked "
+            f"at\n"
+        )
+        # Every named id was proven to exist, so a named cluster that was not ENTERED
+        # was declined by the rulebook (no authorable form) or had no loadable member.
+        # Both are counted below; this says so out loud rather than leaving the reader
+        # to subtract.
+        if result.clusters_seen != named:
+            scope += (
+                f"⚠ {named - result.clusters_seen} named cluster(s) were NOT entered — "
+                f"no authorable form or no loadable member; see the counts below\n"
+            )
     print(
         f"{scope}"
         f"clusters: {result.clusters_recomputed} recomputed -> "

@@ -289,7 +289,16 @@ harmonize-measure:  ## Drive merge_cluster over real JDFN clusters; measure the 
 #   make canonical-drafts CANONICAL_ARGS="--no-llm"    # deterministic-only (no Ollama)
 #   make canonical-drafts CANONICAL_ARGS="--limit 500"
 #   make canonical-drafts CANONICAL_ARGS="--no-llm --allow-downgrade"  # re-baseline
-canonical-drafts: ## Phase-4.4a: produce DRAFT canonical_jds over real clusters (local-only; --no-llm for no Ollama)
+#
+# RE-RUN NAMED CLUSTERS ONLY (after a fix lands for a handful of drafts):
+#   make canonical-drafts CANONICAL_ARGS="--cluster-ids <uuid>,<uuid>"
+#   make canonical-drafts CANONICAL_ARGS="--cluster-ids-file /committed/rerun-ids.txt"
+# The file is ONE cluster UUID per line ('#' comments allowed) saved on the host as
+# docs/canonical/rerun-ids.txt — the container sees ./docs/canonical as /committed.
+# An unknown id REFUSES the run (exit 2, ids listed, nothing written); reviewer-touched
+# drafts are still skipped; refused with --resume/--limit/--refreshed-since/
+# --only-template/--only-undrafted (each would silently skip a named cluster).
+canonical-drafts: ## Phase-4.4a: produce DRAFT canonical_jds (--no-llm: no Ollama; --cluster-ids[-file]: re-run named clusters only)
 	$(BANK_GUARD)
 	docker compose run --rm -T canonical python -u -m src.jd_bank.canonical $(CANONICAL_ARGS)
 	@echo "✅ canonical-producer summary written to docs/canonical/summary.json"

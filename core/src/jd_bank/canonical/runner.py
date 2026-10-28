@@ -62,7 +62,7 @@ import datetime as dt
 import sys
 import time
 from collections import Counter, defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
@@ -151,6 +151,37 @@ def authoring_template(
         if by_form.get(template):
             return template
     return None
+
+
+# --- operational scope: re-run NAMED clusters (`--cluster-ids`) ---------------------
+
+
+class UnknownClusterIdsError(ValueError):
+    """Named cluster ids that the recomputed clustering does not contain.
+
+    Raised BEFORE any row is written, so a refused run leaves the Bank as it found it.
+    A cluster id is content-derived from its member set (:func:`cluster_id_for`), so an
+    id goes "unknown" when it was typed wrong OR when the clustering has moved since the
+    list was made (a member added or dropped mints a different id). Either way the
+    honest answer is to stop and name it: processing the ids that matched and exiting
+    green would leave the rest un-run with nothing saying so.
+    """
+
+    def __init__(self, unknown: Sequence[UUID]) -> None:
+        self.unknown: list[UUID] = sorted(unknown, key=str)
+        listed = ", ".join(str(cid) for cid in self.unknown)
+        super().__init__(
+            f"{len(self.unknown)} named cluster id(s) are not in the recomputed "
+            f"clustering — refusing to run rather than skip them: {listed}"
+        )
+
+
+def unknown_cluster_ids(
+    requested: Collection[UUID], records: Sequence[ClusterRecord]
+) -> list[UUID]:
+    """The requested ids the clustering did not produce, sorted (empty if all known)."""
+    known = {record.cluster_id for record in records}
+    return sorted((cid for cid in requested if cid not in known), key=str)
 
 
 # --- pure: the no-DOWNGRADE predicate (the second no-clobber rule) -------------------
@@ -847,6 +878,7 @@ async def run_canonical_producer(
     skip_refreshed_since: dt.datetime | None = None,
     only_template: str | None = None,
     only_undrafted: bool = False,
+    only_cluster_ids: Collection[UUID] | None = None,
 ) -> CanonicalProducerResult:
     """Produce persisted DRAFT ``canonical_jds`` over the real role clusters.
 
@@ -894,14 +926,40 @@ async def run_canonical_producer(
     ``progress_every=N`` -> emit a counts-only progress line to STDERR every N processed
     clusters so the run is watchable via the container logs (``None`` -> silent).
 
+    ``only_cluster_ids={…}`` -> process ONLY the named clusters (the CLI
+    ``--cluster-ids`` / ``--cluster-ids-file``): re-run a handful of clusters after a
+    fix lands without paying for a full pass. Same class of operational scope as
+    ``only_template`` — it decides which clusters this invocation REACHES, never what
+    happens to them: a named cluster still goes through the reviewer-touched skip
+    (NN #1), the no-downgrade guard and the same SAVEPOINT as in a full run. Every
+    named id must be in the recomputed clustering or the run raises
+    :class:`UnknownClusterIdsError` naming them, before any row is written; an EMPTY
+    collection is refused (``ValueError``) because it would process nothing and
+    report success.
+
     Each cluster runs inside a ``begin_nested`` SAVEPOINT so a per-cluster failure
     isolates that cluster and never aborts the run.
     """
     rulebook = rules if rules is not None else get_rules()
 
+    named: frozenset[UUID] | None = None
+    if only_cluster_ids is not None:
+        named = frozenset(only_cluster_ids)
+        if not named:
+            raise ValueError(
+                "only_cluster_ids holds no cluster ids — refusing a run that would "
+                "process nothing and report success"
+            )
+
     clustering = await run_clustering(
         session, rules=rulebook, limit=limit, neo4j_driver=None
     )
+    # Refuse BEFORE the first write. `run_clustering` is side-effect-free, so raising
+    # here leaves the Bank exactly as the run found it.
+    if named is not None:
+        unknown = unknown_cluster_ids(named, clustering.clusters)
+        if unknown:
+            raise UnknownClusterIdsError(unknown)
 
     member_ids: set[UUID] = {
         m.source_id for rec in clustering.clusters for m in rec.members
@@ -982,6 +1040,11 @@ async def run_canonical_producer(
         # being unable to express this is what left 24 clusters in the first state after
         # the P1 repair, since re-drafting them otherwise costs a full ~44-hour pass.
         if only_undrafted and record.cluster_id in already_drafted:
+            out_of_scope += 1
+            continue
+        # …and the narrowest scope: the clusters a person NAMED. Every named id was
+        # proven present above, so "out of scope" here can only mean "not named".
+        if named is not None and record.cluster_id not in named:
             out_of_scope += 1
             continue
         wjq_members = [jd for _, jd in by_form.get(WJQ_TEMPLATE, ())]

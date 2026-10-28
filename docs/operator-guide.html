@@ -217,6 +217,38 @@ footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--line);font-
 <blockquote><p><strong>A refused start looks like this</strong> — the message names every unmet condition at once, and never prints a value, so it is safe to paste into a ticket: <code>refusing to load settings: 5 unsafe setting(s) for environment='production'.</code> The container will then read <code>Restarting (3)</code> and its health will stay <code>unhealthy</code>.</p></blockquote>
 <h3>The archive pipeline (run in order)</h3>
 <div class="table-scroll"><table><thead><tr><th>Task</th><th>Command</th><th>Notes</th></tr></thead><tbody><tr><td>Ingest + parse the archive</td><td><code>make ingest JD_ARCHIVE_PATH=&lt;SFU JDs&gt;</code></td><td>Loads all files into Postgres. Incumbent names are scrubbed at ingest. <strong>Idempotent and skip-first</strong> on <code>(document, parser_version)</code>, so a re-run only does what is missing — safe to re-run after a partial or failed pass.</td></tr><tr><td>Embed</td><td><code>make embed</code></td><td>Section + document vectors into Neo4j. Uses self-hosted Ollama (local-only).</td></tr><tr><td>Embed harmonized roles</td><td><code>make embed-roles</code></td><td>Embeds the <strong>harmonized roles</strong> (<code>canonical_jds</code>) as one <code>(:JDRole)</code> vector per cluster into the <code>jd_role_embeddings</code> index — a separate label and index from the archive's <code>JDDocument</code>, so the Bank can search its own output (§6's search row). Idempotent and skip-first: a re-run costs nothing, and an edited role re-embeds automatically. Deliberately <strong>not</strong> wired into <code>approve</code> — publishing never depends on the GPU being up.</td></tr><tr><td>Near-duplicate dedup</td><td><code>make near-dup</code></td><td>Tier-2.</td></tr><tr><td>Role-equivalence dedup</td><td><code>make dedup-role</code></td><td>Tier-3 (needs ingest + embed).</td></tr><tr><td>Cluster roles</td><td><code>make cluster</code></td><td>Phase-3.5 clustering report.</td></tr><tr><td>Produce draft canonicals</td><td><code>make canonical-drafts</code></td><td>Phase-4.4a: one DRAFT per JDFN cluster into the review queue. Add the LLM rewrite/audit pass when Ollama is free; <code>--no-llm</code> for a deterministic run.</td></tr><tr><td>Archive baseline (measurement)</td><td><code>make baseline JD_ARCHIVE_PATH=&lt;SFU JDs&gt;</code></td><td>Scores the whole archive; writes <code>docs/baseline/</code>.</td></tr><tr><td>Identification fields vs the archive</td><td><code>make field-audit JD_ARCHIVE_PATH=&lt;SFU JDs&gt;</code></td><td><strong>P3b.</strong> What the parser stored against what the SOURCE FILES say, per field per bargaining unit — five columns, never one percentage. <code>FIELD_AUDIT_ARGS="--sample 1200 --evidence 20"</code> prints the gap file by file. Needs the archive AND Postgres; writes no Bank row. Reports what it cannot see (<code>classification</code> is unevaluated). See <code>docs/field-audit/</code>.</td></tr><tr><td>One-of-a-kind jobs (measurement)</td><td><code>make singletons</code></td><td>How many SFU jobs exist exactly ONCE — the population <code>comparison.singleton_role_policy</code> drops today (HR-223). <strong>Read-only, Postgres only</strong>, safe at any time. Four buckets plus a control, never one total; writes <code>docs/singletons/</code>. Re-run it after any re-parse rather than quoting the last numbers — every bucket is title-based.</td></tr></tbody></table></div>
+<blockquote><h3>Re-running a handful of named clusters</h3>
+<p>A full producer pass costs days of GPU time. When only a few drafts need redoing (a fix landed for them), name them instead:</p>
+<p>```bash</p>
+<h1>a few, on the command line</h1>
+<p>make canonical-drafts CANONICAL_ARGS="--cluster-ids 0b1c…,7f2e…"</p>
+<h1>many: ONE cluster UUID per line ('#' comments and blank lines allowed), saved as</h1>
+<h1>docs/canonical/rerun-ids.txt on the host -- the producer runs in a container that</h1>
+<h1>sees that folder as /committed/</h1>
+<p>make canonical-drafts CANONICAL_ARGS="--cluster-ids-file /committed/rerun-ids.txt"</p>
+<h1>add --no-llm for the deterministic draft only (no Ollama needed)</h1>
+<p>```</p>
+<p>The ids are <code>canonical_jds.cluster_id</code> (= <code>clusters.id</code>). What it guarantees:</p>
+<ul>
+<li><strong>Only those clusters</strong> are touched — every other draft is left exactly as it was,</li>
+</ul>
+<p>and the summary starts with <code>⚠ SCOPED RUN — only N NAMED cluster(s)</code>.</p>
+<ul>
+<li><strong>An id the Bank does not recognise stops the run before anything is written</strong>, and</li>
+</ul>
+<p>every such id is listed. A cluster id is derived from its member documents, so a typo <em>and</em> a cluster whose membership has changed since the list was made both land here — make the list again from the current Bank.</p>
+<ul>
+<li><strong>A draft a reviewer has acted on is still left alone</strong>, exactly as in a full run;</li>
+</ul>
+<p>naming a cluster is not an override. It is counted as <code>skipped (reviewer-touched)</code>.</p>
+<ul>
+<li>It <strong>refuses</strong> to combine with <code>--resume</code>, <code>--limit</code>, <code>--refreshed-since</code>,</li>
+</ul>
+<p><code>--only-template</code> or <code>--only-undrafted</code> — each of those would silently skip some of the clusters you named. It does combine with <code>--no-llm</code> (and <code>--allow-downgrade</code>).</p>
+<ul>
+<li>⚠ With <code>--no-llm</code>, a named draft that already holds AI-rewritten prose is **left</li>
+</ul>
+<p>alone** (counted as <code>skipped (would downgrade an LLM draft)</code>), exactly as in a full run. Add <code>--allow-downgrade</code> only if you mean to replace that prose with the deterministic draft.</p></blockquote>
 <blockquote><h3>⚠ If a release bumps <code>parser_version</code>, the re-parse is not optional</h3>
 <p><code>parsed_jds</code> is keyed on <code>(document, parser_version)</code> and every <strong>batch</strong> consumer filters on the version the code declares. <strong>Deploying a bump without re-parsing leaves those consumers reading zero rows — a Bank that looks empty.</strong> Run <code>make ingest JD_ARCHIVE_PATH=&lt;SFU JDs&gt;</code> as part of the same change, not afterwards.</p>
 <p>It is <strong>additive and reversible</strong>: a re-parse inserts rows at the new version and leaves the old ones, so you can compare versions and roll back by deleting the new rows. The <strong>user-facing pages are unaffected</strong> either way — they read the most recent parse regardless of version.</p>

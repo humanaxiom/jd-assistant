@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **282 decisions** (280 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 385 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **284 decisions** (282 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 385 parameters on the decision surface, all accounted for.
 
-**Of those 282, 91 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 189 are recorded for the same build check but are not yours to sign: 88 shape what a reviewer sees without deciding whether a job description passes, and 101 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 284, 93 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 189 are recorded for the same build check but are not yours to sign: 88 shape what a reviewer sees without deciding whether a job description passes, and 101 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -123,6 +123,8 @@ Two of the three mean *nobody at SFU has agreed to this yet.* That is the honest
 | [HR-270](#hr-270) | When the LLM rewrite drops a point the source draft stated (a decision, a problem, a contact, a qualification), should the point be put back into the draft, or only listed for the reviewer? | `decision_making`, `problem_solving`, `relationships`, `qualifications` | we chose it |
 | [HR-271](#hr-271) | When the LLM rewrite merges a job description's duties down to the form's limit and some duty content is no longer in any rewritten duty, should that content be folded back into the closest duty, or only listed for the reviewer? | `fold_back` | we chose it |
 | [HR-283](#hr-283) | What should the merged job description put in front of a decision the incumbent refers to the supervisor, so that it is not read as a decision the incumbent makes? | `Refers to the supervisor:` | we chose it |
+| [HR-296](#hr-296) | Must a CUPE (WJQ) job description pass the "equivalent combination" approval gate the way a JDFN one must — or is the WJQ's own section-13 choice ("an equivalent combination … is acceptable" / "… is not acceptable because:") the CUPE equivalent of that requirement? | `jdfn`, `wjq` | we chose it |
+| [HR-297](#hr-297) | Must the qualifications of a CUPE (WJQ) job description run Knowledge -> Skills -> Abilities to be approvable, as a JDFN one must? | `jdfn`, `wjq` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -527,6 +529,22 @@ So this gate is a legacy-corpus menace and **not a threat to what SFU writes tod
 - **Where the default came from:** we chose it
 - **Why it matters:** The label is written in front of each referred decision (HR-282) unless it already starts "Refer…" ("Refers decisions that have broader implications…"), and it is what the rewrite's guard holds a rewritten decision to: a Decision Making point grounded only in a referred decision must keep the referral — share a word with this label — or it is dropped and the source's own line comes back (HR-269/270). MEASURED (second pilot): the model wrote "Makes decisions regarding the expenditure of University funds" from a decision its source refers. Neutral by design: it states what the questionnaire asked, not who the supervisor is. ⚠ The guard cannot catch the same inversion in a DUTY ("Oversee budgetary decisions…" on cb73e45c): duties are flagged, never dropped (HR-184), and that duty IS flagged. Tier `hr_policy` (review of c873b13): these words are printed into the Impact of Decision Making section of every merged job description that has a referred decision — HR's wording on HR's form, not a technical setting. Since that review a rewritten decision keeps the referral only if it carries EVERY word of the label ("refers" and "supervisor"); one shared word let "Approves …, informing the supervisor" through.
 - **If it changes:** Does NOT move `rules_version`. Changes the wording of every referred decision in the merge draft. An empty label switches the labelling off. Pinned by `test_rewrite_fidelity_r3.py`.
+
+##### HR-296 — Must a CUPE (WJQ) job description pass the "equivalent combination" approval gate the way a JDFN one must — or is the WJQ's own section-13 choice ("an equivalent combination … is acceptable" / "… is not acceptable because:") the CUPE equivalent of that requirement?
+
+- **We ship:** `jdfn`, `wjq`
+- **Configured in:** `rule_catalog.yaml` → `rule_catalog.SFU-QUAL-EQUIVALENT.applies_to`
+- **Where the default came from:** we chose it
+- **Why it matters:** HR-042 ratified the PHRASE ("equivalent combination") and was measured on JDFN documents only; which FORMS the rule judges was set by engineering in CUPE Phase B and never put to HR. On the WJQ it cannot do what it does on the JDFN form. MEASURED 2026-10-27 over the 3,563 CUPE documents behind the 636 CUPE drafts (`docs/audit/2026-10-27-wjq-approvability.md`): the phrase is in the SOURCE FILE of 3,556 (99.8%) — because the WJQ prints BOTH options of a "check one" box, the "acceptable" one and the "not acceptable because" one — and the parser drops those option lines as form instructions (`wjq.instruction_markers`, HR-144), so it survives in only 235 parses. The gate therefore blocks 610 of 636 CUPE drafts (95.9%), before and after the rewrite alike, on a property of the form, not the job. Simply keeping the option lines would be no better: both options contain the phrase, so every CUPE JD would pass — including one whose author ticked "not acceptable". The information is WHICH box is ticked, and the Builder already records it as a structured field (HR-252); archive drafts do not carry it.
+- **If it changes:** Withholding the rule from the WJQ (`[jdfn]`) moves `rules_version` (rule_catalog.yaml is hashed) and removes this gate from 610 CUPE drafts; on its own it unblocks 11 of them, because 591 of the 610 are also blocked by the K/S/A order gate (HR-297) — see the write-up's blocking-set table. The alternative that keeps the requirement is engineering, not a YAML edit: read the ticked option into the structured field and judge THAT on the WJQ form. Either way the ratified phrase (HR-042) is unchanged for JDFN.
+
+##### HR-297 — Must the qualifications of a CUPE (WJQ) job description run Knowledge -> Skills -> Abilities to be approvable, as a JDFN one must?
+
+- **We ship:** `jdfn`, `wjq`
+- **Configured in:** `rule_catalog.yaml` → `rule_catalog.SFU-GATE-KSA-ORDER.applies_to`
+- **Where the default came from:** we chose it
+- **Why it matters:** HR-052 ratified the ORDER; which FORMS the order binds was set by engineering in CUPE Phase B and never put to HR. The WJQ's section 13 is not written in K/S/A at all — it asks for education, certification, years, "occupational skills" and "occupational requirements" — so the knowledge/skill/ability label on a CUPE line is inferred by the parser or the rewrite, not chosen by the author. MEASURED 2026-10-27 (`docs/audit/2026-10-27-wjq-approvability.md`): the deterministic merge draft passes this gate on all 636 CUPE drafts; the rewritten drafts fail it on 612 (96.2%). That jump is a defect in the rewrite (it relabels lines and does not keep the order), which engineering should fix whatever HR rules here — this entry is the separate question of whether the order is a CUPE requirement at all.
+- **If it changes:** `[jdfn]` moves `rules_version` (rule_catalog.yaml is hashed) and removes this gate from the CUPE cohort; HR-052's ranks are unchanged for JDFN. Keeping `[jdfn, wjq]` is coherent only once the rewrite preserves the order; until then the gate blocks CUPE drafts for an ordering the rewrite introduced.
 
 #### An earlier version of this tool chose it — also unratified
 

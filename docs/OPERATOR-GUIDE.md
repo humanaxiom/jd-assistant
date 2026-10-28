@@ -412,6 +412,39 @@ docker compose -f docker-compose.prod.yml up -d
 | Identification fields vs the archive | `make field-audit JD_ARCHIVE_PATH=<SFU JDs>` | **P3b.** What the parser stored against what the SOURCE FILES say, per field per bargaining unit — five columns, never one percentage. `FIELD_AUDIT_ARGS="--sample 1200 --evidence 20"` prints the gap file by file. Needs the archive AND Postgres; writes no Bank row. Reports what it cannot see (`classification` is unevaluated). See `docs/field-audit/`. |
 | One-of-a-kind jobs (measurement) | `make singletons` | How many SFU jobs exist exactly ONCE — the population `comparison.singleton_role_policy` drops today (HR-223). **Read-only, Postgres only**, safe at any time. Four buckets plus a control, never one total; writes `docs/singletons/`. Re-run it after any re-parse rather than quoting the last numbers — every bucket is title-based. |
 
+> ### Re-running a handful of named clusters
+>
+> A full producer pass costs days of GPU time. When only a few drafts need redoing (a
+> fix landed for them), name them instead:
+>
+> ```bash
+> # a few, on the command line
+> make canonical-drafts CANONICAL_ARGS="--cluster-ids 0b1c…,7f2e…"
+> # many: ONE cluster UUID per line ('#' comments and blank lines allowed), saved as
+> # docs/canonical/rerun-ids.txt on the host -- the producer runs in a container that
+> # sees that folder as /committed/
+> make canonical-drafts CANONICAL_ARGS="--cluster-ids-file /committed/rerun-ids.txt"
+> # add --no-llm for the deterministic draft only (no Ollama needed)
+> ```
+>
+> The ids are `canonical_jds.cluster_id` (= `clusters.id`). What it guarantees:
+>
+> - **Only those clusters** are touched — every other draft is left exactly as it was,
+>   and the summary starts with `⚠ SCOPED RUN — only N NAMED cluster(s)`.
+> - **An id the Bank does not recognise stops the run before anything is written**, and
+>   every such id is listed. A cluster id is derived from its member documents, so a typo
+>   *and* a cluster whose membership has changed since the list was made both land here
+>   — make the list again from the current Bank.
+> - **A draft a reviewer has acted on is still left alone**, exactly as in a full run;
+>   naming a cluster is not an override. It is counted as `skipped (reviewer-touched)`.
+> - It **refuses** to combine with `--resume`, `--limit`, `--refreshed-since`,
+>   `--only-template` or `--only-undrafted` — each of those would silently skip some of
+>   the clusters you named. It does combine with `--no-llm` (and `--allow-downgrade`).
+> - ⚠ With `--no-llm`, a named draft that already holds AI-rewritten prose is **left
+>   alone** (counted as `skipped (would downgrade an LLM draft)`), exactly as in a full
+>   run. Add `--allow-downgrade` only if you mean to replace that prose with the
+>   deterministic draft.
+
 > ### ⚠ If a release bumps `parser_version`, the re-parse is not optional
 >
 > `parsed_jds` is keyed on `(document, parser_version)` and every **batch** consumer

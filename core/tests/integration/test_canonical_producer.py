@@ -2012,3 +2012,159 @@ async def test_refreshed_since_resumes_a_re_baseline_that_resume_cannot(
         assert continued.skipped_recently_refreshed == 1
         assert continued.drafts_refreshed == 0
         assert second.seen == []  # ...and NOT paid for twice
+
+
+# --- --cluster-ids: re-run NAMED clusters, and only those ---------------------------
+
+
+async def _seed_two_jdfn_clusters(
+    session: AsyncSession,
+) -> tuple[uuid.UUID, uuid.UUID]:
+    """Two independent two-analyst JDFN clusters; returns their content-derived ids."""
+    for prefix in ("p", "q"):
+        a = await _seed_jd(
+            session,
+            storage_ref=f"{prefix}1",
+            sha256=_sha(f"{prefix}1"),
+            parsed=_analyst(),
+        )
+        b = await _seed_jd(
+            session,
+            storage_ref=f"{prefix}2",
+            sha256=_sha(f"{prefix}2"),
+            parsed=_analyst(),
+        )
+        await _role_edge(session, a.id, b.id)
+    await session.commit()
+    return cluster_id_for(["p1", "p2"]), cluster_id_for(["q1", "q2"])
+
+
+@pytest.mark.asyncio
+async def test_only_cluster_ids_processes_the_named_clusters_and_nothing_else(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """🔴 WHY THIS EXISTS. After the ~89 h v9 pass a handful of clusters need re-running
+    once their fixes land. The only scopes were a whole cohort (``--only-template``),
+    "has no draft" (``--only-undrafted``) and a smoke-test prefix (``--limit``) — so a
+    re-run of five named clusters cost a full pass.
+
+    Operational scoping in the same class as ``--only-template``: it decides which
+    clusters THIS INVOCATION reaches and changes no rulebook decision.
+
+    The assertion that matters is the last: the un-named cluster's row is not merely
+    uncounted, it is UNTOUCHED.
+    """
+    async with session_maker() as session:
+        named, other = await _seed_two_jdfn_clusters(session)
+        first = await run_canonical_producer(session, rewrite_client=None)
+        await session.commit()
+        assert first.drafts_persisted == 2
+
+    async with session_maker() as session:
+        before = await session.scalar(
+            select(CanonicalJD).where(CanonicalJD.cluster_id == other)
+        )
+        assert before is not None
+        other_updated, other_content = before.updated_at, before.content
+
+    async with session_maker() as session:
+        rewrite = _FakeChat()
+        scoped = await run_canonical_producer(
+            session,
+            rewrite_client=rewrite,
+            audit_client=_FakeChat(),
+            only_cluster_ids={named},
+        )
+        await session.commit()
+
+        assert scoped.clusters_seen == 1
+        assert scoped.drafts_refreshed == 1
+        assert scoped.clusters_out_of_scope == 1
+        # The GPU hours are the point: ONE rewrite, for the one named cluster.
+        assert rewrite.seen == [SFUJobDescription]
+
+    async with session_maker() as session:
+        named_row = await session.scalar(
+            select(CanonicalJD).where(CanonicalJD.cluster_id == named)
+        )
+        assert named_row is not None
+        assert named_row.content["position_summary"] == _REWRITE_SUMMARY
+        untouched = await session.scalar(
+            select(CanonicalJD).where(CanonicalJD.cluster_id == other)
+        )
+        assert untouched is not None
+        assert untouched.updated_at == other_updated
+        assert untouched.content == other_content
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_cluster_id_is_refused_by_name_before_anything_is_written(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """Never silently skip. A typo'd or stale id (the clustering moved since the list
+    was made) must stop the run and NAME the id — a run that processed the ids it
+    recognised and reported success would leave the rest broken with nothing saying so.
+
+    And the refusal comes BEFORE any write: the known id in the same list is not drafted
+    either, so a refused run leaves the Bank exactly as it found it.
+    """
+    bogus = uuid.UUID("00000000-0000-0000-0000-00000000dead")
+    async with session_maker() as session:
+        named, _other = await _seed_two_jdfn_clusters(session)
+        with pytest.raises(canonical_runner.UnknownClusterIdsError) as excinfo:
+            await run_canonical_producer(
+                session, rewrite_client=None, only_cluster_ids={named, bogus}
+            )
+        assert excinfo.value.unknown == [bogus]
+        assert str(bogus) in str(excinfo.value)
+        await session.rollback()
+
+    async with session_maker() as session:
+        assert await session.scalar(select(func.count()).select_from(CanonicalJD)) == 0
+        assert await session.scalar(select(func.count()).select_from(AuditLog)) == 0
+
+
+@pytest.mark.asyncio
+async def test_a_named_reviewer_touched_cluster_is_still_left_untouched(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """Naming a cluster is not an override (NN #1). A cluster a reviewer has acted on is
+    skipped and counted exactly as a full run skips it — the guard lives in
+    ``_process_cluster`` and the scope only decides which clusters reach it."""
+    human_content = {"title": "REVIEWER-EDITED DRAFT — DO NOT TOUCH"}
+    async with session_maker() as session:
+        cluster_id, canonical_id = await _seed_cluster_and_canonical(
+            session,
+            status=CanonicalStatus.DRAFT,
+            content=human_content,
+            with_review_action=True,
+        )
+
+    async with session_maker() as session:
+        result = await run_canonical_producer(
+            session, rewrite_client=None, only_cluster_ids={cluster_id}
+        )
+        await session.commit()
+        assert result.skipped_reviewer_touched == 1
+        assert result.drafts_refreshed == 0
+        assert result.drafts_persisted == 0
+
+    async with session_maker() as session:
+        row = await session.get(CanonicalJD, canonical_id)
+        assert row is not None
+        assert row.content == human_content
+        assert row.change_log == {"seeded": True}
+
+
+@pytest.mark.asyncio
+async def test_an_empty_cluster_id_set_is_refused_rather_than_doing_nothing(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """An empty list (an empty file, a shell variable that expanded to nothing) would
+    otherwise process zero clusters and exit green — the silent no-op, again."""
+    async with session_maker() as session:
+        await _seed_two_jdfn_clusters(session)
+        with pytest.raises(ValueError, match="no cluster ids"):
+            await run_canonical_producer(
+                session, rewrite_client=None, only_cluster_ids=set()
+            )
