@@ -9,6 +9,7 @@ from the harmonize runner, never forked).
 
 from __future__ import annotations
 
+import json
 import uuid
 from pathlib import Path
 
@@ -642,3 +643,58 @@ def test_the_documented_file_location_is_really_mounted_into_the_producer() -> N
     volumes = _compose()["services"]["canonical"]["volumes"]
     assert "./docs/canonical:/committed" in volumes
     assert "/committed/" in cli._CONTAINER_MOUNTS_HINT
+
+
+def test_a_named_run_does_not_overwrite_the_full_pass_summary(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """🔴 Review of bd0e0be. `docs/canonical/summary.json` is the COMMITTED record of
+    the last full pass (2,446 clusters on v9). A five-cluster re-run with the default
+    ``--summary-out`` replaced it with a five-cluster tally that does not say it is
+    scoped — so the next commit of docs/canonical/ would quietly swap the full-pass
+    record for a scoped one. A named run's default summary goes BESIDE it, and names
+    its scope."""
+    full = tmp_path / "summary.json"
+    full.write_text('{"full": true}\n', encoding="utf-8")
+    monkeypatch.setattr(cli, "_DEFAULT_SUMMARY_OUT", str(full))
+    monkeypatch.setattr(
+        cli, "_SCOPED_SUMMARY_OUT", str(tmp_path / "summary-cluster-ids.json")
+    )
+
+    async def _ok(_args: object) -> CanonicalProducerResult:
+        return _result()
+
+    monkeypatch.setattr(cli, "_run", _ok)
+    assert cli.main(["--cluster-ids", f"{_ID_B},{_ID_A}", "--no-llm"]) == 0
+
+    assert full.read_text(encoding="utf-8") == '{"full": true}\n'
+    scoped = json.loads((tmp_path / "summary-cluster-ids.json").read_text("utf-8"))
+    assert scoped["scope"] == {"cluster_ids": sorted([str(_ID_A), str(_ID_B)])}
+
+
+def test_a_full_run_still_writes_the_committed_summary_without_a_scope(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    full = tmp_path / "summary.json"
+    monkeypatch.setattr(cli, "_DEFAULT_SUMMARY_OUT", str(full))
+
+    async def _ok(_args: object) -> CanonicalProducerResult:
+        return _result()
+
+    monkeypatch.setattr(cli, "_run", _ok)
+    assert cli.main(["--no-llm"]) == 0
+    assert "scope" not in json.loads(full.read_text(encoding="utf-8"))
+
+
+def test_an_explicit_summary_out_is_honoured_for_a_named_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    target = tmp_path / "mine.json"
+
+    async def _ok(_args: object) -> CanonicalProducerResult:
+        return _result()
+
+    monkeypatch.setattr(cli, "_run", _ok)
+    argv = ["--cluster-ids", str(_ID_A), "--no-llm", "--summary-out", str(target)]
+    assert cli.main(argv) == 0
+    assert json.loads(target.read_text("utf-8"))["scope"]["cluster_ids"] == [str(_ID_A)]

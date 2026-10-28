@@ -301,7 +301,7 @@ harmonize-measure:  ## Drive merge_cluster over real JDFN clusters; measure the 
 canonical-drafts: ## Phase-4.4a: produce DRAFT canonical_jds (--no-llm: no Ollama; --cluster-ids[-file]: re-run named clusters only)
 	$(BANK_GUARD)
 	docker compose run --rm -T canonical python -u -m src.jd_bank.canonical $(CANONICAL_ARGS)
-	@echo "✅ canonical-producer summary written to docs/canonical/summary.json"
+	@echo "✅ canonical-producer summary written to docs/canonical/summary.json (a --cluster-ids run: docs/canonical/summary-cluster-ids.json)"
 
 # ── Bank content audit (read-only) ─────────────────────────────────────────
 # What the live Bank actually CONTAINS, per form: for each section, how many clusters'

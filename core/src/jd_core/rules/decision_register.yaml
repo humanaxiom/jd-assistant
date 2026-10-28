@@ -9270,9 +9270,9 @@ decisions:
     provenance: our_invention
     tier: hr_policy
     why_it_matters: >-
-      HR-042 ratified the PHRASE ("equivalent combination") and was measured on JDFN
-      documents only; which FORMS the rule judges was set by engineering in CUPE Phase B
-      and never put to HR. On the WJQ it cannot do what it does on the JDFN form.
+      HR-042 ratified the PHRASE ("equivalent combination"); its recorded measurement
+      (Phase 2.5, 2026-07-12) predates the WJQ parser and CUPE Phase B, and which FORMS
+      the rule judges was set by engineering in CUPE Phase B and never put to HR. On the WJQ it cannot do what it does on the JDFN form.
       MEASURED 2026-10-27 over the 3,563 CUPE documents behind the 636 CUPE drafts
       (`docs/audit/2026-10-27-wjq-approvability.md`): the phrase is in the SOURCE FILE of
       3,556 (99.8%) — because the WJQ prints BOTH options of a "check one" box, the
@@ -9284,6 +9284,12 @@ decisions:
       phrase, so every CUPE JD would pass — including one whose author ticked "not
       acceptable". The information is WHICH box is ticked, and the Builder already
       records it as a structured field (HR-252); archive drafts do not carry it.
+      ⚠ THIS CONTRADICTS THE ARCHIVE BASELINE, AND BOTH ARE RIGHT: the baseline
+      (`docs/baseline/summary.json`) has this gate blocking 9 of 4,300 WJQ documents, and
+      HR-201's 59.0% CUPE approvability rests on that. The baseline scores each file
+      against its RAW text, which still holds both options, so the gate passes
+      vacuously; the Bank scores a draft against its own parse, which drops them. Read
+      the archive's CUPE approvability as overstated by this gate until the tick is read.
     impact_if_changed: >-
       Withholding the rule from the WJQ (`[jdfn]`) moves `rules_version`
       (rule_catalog.yaml is hashed) and removes this gate from 610 CUPE drafts; on its

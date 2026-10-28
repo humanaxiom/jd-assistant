@@ -234,6 +234,10 @@ footer{margin-top:3rem;padding-top:1.2rem;border-top:1px solid var(--line);font-
 </ul>
 <p>and the summary starts with <code>⚠ SCOPED RUN — only N NAMED cluster(s)</code>.</p>
 <ul>
+<li><strong>The full-pass record is not overwritten.</strong> The run's tally goes to</li>
+</ul>
+<p><code>docs/canonical/summary-cluster-ids.json</code> (with the ids it was given), not <code>docs/canonical/summary.json</code>, which keeps describing the last full pass.</p>
+<ul>
 <li><strong>An id the Bank does not recognise stops the run before anything is written</strong>, and</li>
 </ul>
 <p>every such id is listed. A cluster id is derived from its member documents, so a typo <em>and</em> a cluster whose membership has changed since the list was made both land here — make the list again from the current Bank.</p>

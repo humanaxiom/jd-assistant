@@ -431,6 +431,9 @@ docker compose -f docker-compose.prod.yml up -d
 >
 > - **Only those clusters** are touched — every other draft is left exactly as it was,
 >   and the summary starts with `⚠ SCOPED RUN — only N NAMED cluster(s)`.
+> - **The full-pass record is not overwritten.** The run's tally goes to
+>   `docs/canonical/summary-cluster-ids.json` (with the ids it was given), not
+>   `docs/canonical/summary.json`, which keeps describing the last full pass.
 > - **An id the Bank does not recognise stops the run before anything is written**, and
 >   every such id is listed. A cluster id is derived from its member documents, so a typo
 >   *and* a cluster whose membership has changed since the list was made both land here

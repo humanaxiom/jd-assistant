@@ -38,6 +38,7 @@ import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -78,6 +79,14 @@ def _utc_timestamp(value: str) -> dt.datetime:
 #: Where the `canonical` compose service can see a file a person wrote on the host.
 #: Kept beside the parser so the refusal below and docker-compose.yml cannot disagree
 #: silently: `./docs/canonical` is bound at `/committed`, `./core` at `/app` (the cwd).
+#: The COMMITTED record of the last full pass (bound to docs/canonical/).
+_DEFAULT_SUMMARY_OUT = "/committed/summary.json"
+#: Where a `--cluster-ids` run's summary goes when `--summary-out` is not given. Never
+#: the full-pass file: a five-cluster tally written over it (review of bd0e0be) would
+#: replace the committed record of a 2,446-cluster pass with a scoped one that does not
+#: say it is scoped, and the next commit of docs/canonical/ would carry it.
+_SCOPED_SUMMARY_OUT = "/committed/summary-cluster-ids.json"
+
 _CONTAINER_MOUNTS_HINT = (
     "the producer runs inside the `canonical` container, which sees only "
     "docs/canonical/ (as /committed/) and core/ (as /app/, the working directory) — "
@@ -246,21 +255,34 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser.add_argument(
         "--summary-out",
         type=str,
-        default="/committed/summary.json",
-        help="where the COMMITTED summary goes (bound to docs/canonical/); '' to skip",
+        default=None,
+        help="where the COMMITTED summary goes (bound to docs/canonical/); '' to skip. "
+        "Default /committed/summary.json — or, for --cluster-ids/--cluster-ids-file, "
+        "/committed/summary-cluster-ids.json, so a scoped re-run never overwrites the "
+        "full-pass record.",
     )
     return parser.parse_args(argv)
 
 
-def _write_summary(result: CanonicalProducerResult, *, path: Path, source: str) -> Path:
+def _write_summary(
+    result: CanonicalProducerResult,
+    *,
+    path: Path,
+    source: str,
+    scope: dict[str, Any] | None = None,
+) -> Path:
     """Write the counts-only summary (no JD text). Mirrors the other runners'
-    ``summary.json`` — the persisted rows carry the prose, this carries the tally."""
+    ``summary.json`` — the persisted rows carry the prose, this carries the tally.
+    ``scope`` (a named run's cluster ids) is recorded IN the file, so a scoped tally can
+    never be read back as a full pass; a full run's payload is unchanged."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
+    payload: dict[str, Any] = {
         "source": source,
         "generated_at": dt.datetime.now(dt.UTC).isoformat(),
         "result": result.model_dump(mode="json"),
     }
+    if scope is not None:
+        payload["scope"] = scope
     path.write_text(
         json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
@@ -464,10 +486,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         file=sys.stderr,
     )
 
-    if args.summary_out:
+    summary_out = args.summary_out
+    if summary_out is None:
+        scoped = args.cluster_ids is not None
+        summary_out = _SCOPED_SUMMARY_OUT if scoped else _DEFAULT_SUMMARY_OUT
+    if summary_out:
         written = _write_summary(
             result,
-            path=Path(args.summary_out),
+            path=Path(summary_out),
+            scope=(
+                {"cluster_ids": sorted(str(cid) for cid in args.cluster_ids)}
+                if args.cluster_ids is not None
+                else None
+            ),
             source=(
                 "parsed_jds + dedup_edges (recomputed clusters; forms per "
                 "harmonization.templates_harmonized — HR-206)"

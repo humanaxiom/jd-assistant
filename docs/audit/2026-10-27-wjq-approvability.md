@@ -118,6 +118,19 @@ pass every WJQ — including one ticked "not acceptable". The information is **w
 ticked**, which the Builder records as `wjq_form.equivalency_acceptable` (J2, HR-252) and
 which neither the parser nor the merge populates.
 
+⚠ **This contradicts a number HR has already read, and both are right.** The committed
+archive baseline (`docs/baseline/summary.json`, parser v6, 2026-08-29) has this gate
+blocking **9 of 4,300** WJQ documents, and the CUPE Phase B measurement behind HR-201
+reports WJQ **59.0% approvable**. That is not a different form or a parser regression: the
+archive baseline scores each file against its **raw extracted text**
+(`baseline/runner.py`: `evaluate_jd_rules(parsed.jd, text)`), which still holds both
+check-one options, so the gate passes *vacuously* — exactly the "keeping the lines" case
+above. The Bank scores a draft against **its own parse** (`flatten_jd`), from which both
+lines are dropped. So the archive's 0.2% and the Bank's 95.9% are the same gate on the
+same form reading two different texts; neither says the equivalency requirement is met.
+**Read the archive baseline's CUPE approvability (and HR-201's 59.0%) as overstated by
+this gate** until the tick is read (recommendation 3). Reviewer note, 2026-10-27.
+
 ### SFU-APPROVE-NO-PLACEHOLDERS — (c) mostly the WJQ's tick slots; some (a)
 
 Sampled `82538e50 b99c83a0 532dad0d 61b4071b f6dc493e 9bb39bec c362260f 3d79db9b 843a51f3
@@ -160,8 +173,10 @@ are exactly HR-046's open question.
 | SUMMARY-CONDITIONS | HR-046 | `markers.working_conditions` (incl. `housing`, `parking`, `relocation`) | open |
 | all | HR-004 | the blocking set | open |
 
-⚠ **Ratifying HR-042 and HR-052 did not settle whether they apply to CUPE.** Both were
-measured on the JDFN cohort, and which forms a rule judges (`applies_to`) was an
+⚠ **Ratifying HR-042 and HR-052 did not settle whether they apply to CUPE.** HR-042's
+recorded measurement (Phase 2.5, `087b3af`, 2026-07-12) predates the WJQ parser
+(`8640daf`, 2026-07-15) and CUPE Phase B (`46ab875`, 2026-08-14); HR-052's entry carries
+no measurement at all; and which forms a rule judges (`applies_to`) was an
 engineering setting from CUPE Phase B that no entry recorded — the same shape as HR-201
 (boilerplate on the WJQ), which *was* registered. HR-296/297 record that, `open`, with no
 value moved.
