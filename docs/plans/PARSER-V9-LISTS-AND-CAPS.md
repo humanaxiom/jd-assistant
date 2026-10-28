@@ -583,6 +583,15 @@ Still open: in 4 JDFN drafts the form order moves an "or an equivalent combinati
 continuation line away from the degree line it continues (it is kinded as a
 competency by the parser).
 
+**Round 2 (APPROVED, two follow-ups):** HR-303 is per form (`jdfn` only): on the WJQ
+the kind is the form section, and the guard had kept `ability` on 65 CUPE lines whose
+source is `skill` (and `knowledge` on 109 more). Replay: those 174 now take the
+source's kind; 93 CUPE drafts change in qualification kind/order only; no blocking set
+or approvable count moves. HR-290's register text now says what usually happens: 395 of
+the 587 CUPE drafts with 12+ model duties have their closest pair below HR-304's 0.2,
+so an overflow usually LISTS the model's last duty (fold-back protects the source
+content). Listing the least-similar duty instead was not done (a choice, not a fix).
+
 **Owner ruling (2026-10-27): ONE FULL PASS, not tiers.** The lists below stay as the
 per-cluster record of WHY each draft changes; the re-run is all 2,446 (≈ 89 h at the
 pass's own rate).

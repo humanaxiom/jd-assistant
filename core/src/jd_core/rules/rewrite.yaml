@@ -488,10 +488,17 @@ qualification_kind_min_overlap: 0.5
 # section looks like ("Ability to …" printed under Occupational Skills). Review of
 # 6000ba6: "Ability to process a high volume of information" took `skill` from a
 # "Diploma in Business Administration…" line. HR-303.
+#
+# PER FORM since the round-2 review: only where the kind is a READING of the words
+# (JDFN). On the WJQ the kind is the form section, and the guard kept the model's
+# `ability` on 65 lines in 45 CUPE drafts whose source line is a `skill` line ("Ability
+# to comprehend foreign languages" from "Skill in comprehension of foreign languages"),
+# moving them to Occupational Requirements — so the WJQ is not listed.
 qualification_kind_lead_words:
-  knowledge: [knowledge]
-  skill: [skill, skills, skilled]
-  ability: [ability, able]
+  jdfn:
+    knowledge: [knowledge]
+    skill: [skill, skills, skilled]
+    ability: [ability, able]
 
 # Whether a rewritten Position Summary may name a WORKING CONDITION (the
 # SFU-AUTH-SUMMARY-CONDITIONS markers, `markers.working_conditions`, HR-046 — not changed

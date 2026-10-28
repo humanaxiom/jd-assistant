@@ -1751,10 +1751,12 @@ class Rewrite(_RuleFile):
     #: The least share of a rewritten line's words the source line must hold for its
     #: kind to be taken (HR-302).
     qualification_kind_min_overlap: float = Field(default=0.0, ge=0.0, le=1.0)
-    #: The lead words that NAME a kind (HR-303): a line opening with one keeps that
-    #: kind unless the source line it rewords opens with the same word.
+    #: Per FORM, the lead words that NAME a kind (HR-303): a line opening with one
+    #: keeps that kind unless the source line it rewords opens with the same word. A
+    #: form not listed (the WJQ, where the kind is the form section) has no such guard.
     qualification_kind_lead_words: Annotated[
-        Mapping[QualificationKind, tuple[str, ...]], AfterValidator(_freeze)
+        Mapping[JDTemplate, Mapping[QualificationKind, tuple[str, ...]]],
+        AfterValidator(_freeze),
     ] = Field(default_factory=dict)
     #: The least token-Jaccard two rewritten duties need to be MERGED to fit the form
     #: (HR-304); below it the surplus duty is listed instead.
