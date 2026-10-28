@@ -9337,14 +9337,22 @@ decisions:
       the model's reply to it. MEASURED (the v9 full pass, 2,446 drafts): one CUPE draft
       (0cd5db26) came back with 13 major functions, so the Builder refused to clone it
       ("the form takes at most 12"); every JDFN rewrite stayed within five. `merge`
-      merges the two most similar duties — the second's statement and clauses become
-      clauses of the first, its frequency kept if the first has none — until the draft
-      fits, and records each merge (`merged_duties`). Nothing is dropped: a clause the
-      how/why cap cannot hold is listed for the reviewer (`over_form_limit`), and
-      fold-back (HR-271) still puts back any source sentence the merged draft no longer
-      covers. A model duty with more how/why clauses than the parser reads back
-      (`segmentation.duty_how_why_max_count`, HR-265) is cut to it the same way.
-      `keep` leaves the draft over the limit, as before.
+      brings the draft within the form one duty at a time. If the two most similar
+      duties reach HR-304's similarity (token Jaccard 0.2) they are MERGED — the
+      second's statement and clauses become clauses of the first (a frequency both
+      agree on is kept, a dispute recorded) — and each merge is recorded
+      (`merged_duties`). Below 0.2 nothing is merged: the model's LAST duty is LISTED
+      for the reviewer (`over_form_limit`), not kept. That is the usual case, not the
+      exception: measured in round-2 review, 395 of the 587 CUPE drafts with 12 or more
+      model duties have their closest pair below 0.2 (0cd5db26's is). Either way
+      fold-back (HR-271) puts back any SOURCE sentence the draft no longer covers, so
+      the source content is protected; only the model's own wording of a listed duty
+      leaves the draft. A clause the how/why cap cannot hold is listed the same way, and
+      a model duty with more how/why clauses than the parser reads back
+      (`segmentation.duty_how_why_max_count`, HR-265) is cut to it. Which duty is
+      listed — the last, the model's own order — is an open choice (listing the least
+      similar one instead was considered and not shipped). `keep` leaves the draft over
+      the limit, as before.
     impact_if_changed: >-
       Does NOT move `rules_version` (rewrite.yaml is unhashed). `keep` lets a rewritten
       CUPE draft exceed its form again, and the Builder then refuses to clone it.
@@ -9781,29 +9789,43 @@ decisions:
 
   - id: HR-303
     question: >-
-      Which opening words of a qualification line name its kind (Knowledge…, Skills…,
-      Ability…), so that the rewrite does not relabel it to another kind?
+      On a form where a qualification's kind is a reading of its words (the APSA form),
+      which opening words name that kind (Knowledge…, Skills…, Ability…), so that the
+      rewrite does not relabel the line to another kind?
     config:
       file: rewrite.yaml
       path: rewrite.qualification_kind_lead_words
     current_default:
-      knowledge: [knowledge]
-      skill: [skill, skills, skilled]
-      ability: [ability, able]
+      jdfn:
+        knowledge: [knowledge]
+        skill: [skill, skills, skilled]
+        ability: [ability, able]
     provenance: our_invention
     tier: technical
     why_it_matters: >-
       A line that OPENS by naming its kind ("Ability to process a high volume of
       information") was relabelled from a source line that does not ("Diploma in
-      Business Administration…", review of 6000ba6). Such a line keeps its kind —
-      unless the source line opens with the same word, which is exactly a CUPE form
-      section: the WJQ prints "Ability to …" lines under Occupational Skills, and the
-      merge records them as `skill`. Only the first word is read; a line with no kind
-      word in its lead is bound by HR-302 alone. Replay: CUPE relabels 6,760 -> 6,546
-      with HR-302 and this together; JDFN relabels 570 -> 0 (HR-294 off).
+      Business Administration…", review of 6000ba6). On the APSA form such a line keeps
+      its kind — unless the source line opens with the same word. Only the first word is
+      read; a line with no kind word in its lead is bound by HR-302 alone. PER FORM
+      since the round-2 review: on the WJQ the kind is the FORM SECTION (skill =
+      Occupational Skills, ability = Occupational Requirements), so a lead word there is
+      only a reading of a choice the form already made, and the guard kept the model's
+      `ability` on 65 lines in 45 CUPE drafts whose source line is a `skill` line
+      ("Ability to comprehend foreign languages" from "Skill in comprehension of
+      foreign languages") — exporting them under Requirements, the defect HR-294 fixes.
+      The WJQ is therefore not listed. HR-294 is off for JDFN as shipped, so this guard
+      binds only if that is turned on. REPLAY (2,396 drafts, before → after making it
+      per form): the 65 CUPE "Ability to…" lines now take their source's `skill`
+      (65 → 0 kept as `ability`); 109 CUPE "Knowledge of…" lines, which the guard had
+      also kept as `knowledge`, a kind no CUPE merge carries, take their source's kind
+      too (CUPE drafts with a `knowledge` line 84 → 32). 93 CUPE drafts change, all in
+      qualification kind/order only; no blocking set and no approvable count moves
+      (CUPE 7, JDFN 742); JDFN relabels stay 0.
     impact_if_changed: >-
-      Does NOT move `rules_version`. Removing a word lets lines opening with it be
-      relabelled again. Pinned by `test_rewrite_postpass_v9.py`.
+      Does NOT move `rules_version`. Listing `wjq` moves CUPE lines out of the form
+      section their source was printed in; removing a word lets APSA lines opening with
+      it be relabelled. Pinned by `test_rewrite_postpass_v9.py`.
     status: open
 
   - id: HR-304

@@ -55,7 +55,7 @@ from src.jd_core.models.parsed_jd import (
     SFUQualification,
     SFURelationships,
 )
-from src.jd_core.models.quality import DEFAULT_TEMPLATE, WJQ_TEMPLATE
+from src.jd_core.models.quality import DEFAULT_TEMPLATE, WJQ_TEMPLATE, JDTemplate
 from src.jd_core.quality.scoring import score_issues
 from src.jd_core.quality.validators import evaluate_jd_rules, template_of
 from src.jd_core.rules import Comparison, Rewrite, Rules, get_rules
@@ -663,7 +663,10 @@ def _lead_word(text: str) -> str:
 
 
 def _source_kind(
-    text: str, sources: Sequence[SFUQualification], rules: Rules
+    text: str,
+    sources: Sequence[SFUQualification],
+    rules: Rules,
+    template: JDTemplate = DEFAULT_TEMPLATE,
 ) -> str | None:
     """The kind of the SOURCE qualification ``text`` rewords (HR-294), or ``None`` when
     it may not be taken: the source line holding the largest share of its words (ties
@@ -694,14 +697,11 @@ def _source_kind(
     if chosen is None or best < rewrite.qualification_kind_min_overlap:
         return None
     lead = _lead_word(text)
-    named = next(
-        (
-            k
-            for k, words in rewrite.qualification_kind_lead_words.items()
-            if lead in words
-        ),
-        None,
-    )
+    # Per form (round-2 review): on the WJQ the kind is the form SECTION and a line's
+    # lead word only a reading of it — 65 CUPE lines kept `ability` and would print
+    # under Occupational Requirements instead of Occupational Skills.
+    lead_words = rewrite.qualification_kind_lead_words.get(template, {})
+    named = next((k for k, words in lead_words.items() if lead in words), None)
     if named is not None and named != chosen.kind and _lead_word(chosen.text) != lead:
         return None
     return chosen.kind
@@ -1113,12 +1113,13 @@ def _apply_anti_fabrication(
     restored_bars: list[str] = []
     relabelled: list[tuple[str, str, str]] = []
     source_competencies = [q for q in source.qualifications if q.kind in authorable]
-    relabel = template_of(merged.draft) in rewrite.qualification_kind_from_source
+    qual_form = template_of(merged.draft)
+    relabel = qual_form in rewrite.qualification_kind_from_source
     for qual in llm_jd.qualifications:
         if (
             relabel
             and qual.kind in authorable
-            and (kind := _source_kind(qual.text, source_competencies, rules))
+            and (kind := _source_kind(qual.text, source_competencies, rules, qual_form))
             and kind != qual.kind
         ):
             # HR-294: on this form the kind is the SOURCE's — the form section the

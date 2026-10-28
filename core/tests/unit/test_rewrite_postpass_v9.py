@@ -618,6 +618,44 @@ def test_the_same_lead_word_in_the_source_lets_the_form_section_win(
     )
 
 
+@pytest.mark.parametrize(
+    ("source", "line"),
+    [
+        (
+            "Skill in comprehension of foreign languages",
+            "Ability to comprehend foreign languages",
+        ),
+        (
+            "Excellent interpersonal and team skills, and ability to develop and "
+            "maintain collaborative working relationships",
+            "Ability to develop and maintain collaborative working relationships",
+        ),
+    ],
+    ids=["skill-in", "excellent-skills"],
+)
+def test_on_cupe_the_form_section_wins_over_the_lead_word(
+    rules: Rules, source: str, line: str
+) -> None:
+    """Round-2 review: on CUPE HR-303 kept the model's `ability` on 65 lines in 45
+    drafts whose source line is a `skill` line with another lead word — so they would
+    export under Occupational Requirements, the defect HR-294 exists to fix. The lead
+    word is a reading of the words; on the WJQ the kind is the form section."""
+    from src.jd_core.models.parsed_jd import SFUQualification
+
+    member = SFUJobDescription(
+        title="Clerk",
+        employee_group="cupe",
+        qualifications=[SFUQualification(text=source, kind="skill")],
+    )
+    merged = merge_cluster([member, member])
+    model = merged.draft.model_copy(
+        update={"qualifications": [SFUQualification(text=line, kind="ability")]}
+    )
+    guarded, record = _apply_anti_fabrication(model, merged, rules)
+    assert next(q for q in guarded.qualifications if q.text == line).kind == "skill"
+    assert record.relabelled_qualifications == ((line, "ability", "skill"),)
+
+
 def _duty(verb: str, statement: str, freq: str | None = None) -> SFUDuty:
     return SFUDuty(action_verb=verb, statement=statement, frequency=freq)
 
