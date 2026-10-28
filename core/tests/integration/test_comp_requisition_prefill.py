@@ -273,3 +273,71 @@ async def test_an_unknown_role_is_a_lookup_error_not_an_empty_form(
     async with session_maker() as session:
         with pytest.raises(LookupError):
             await prefill_from_role(session, uuid.uuid4())
+
+
+# ── K3: the caller picks ONE position for a multi-position role ──────────────────
+
+
+@pytest.mark.asyncio
+async def test_a_chosen_position_is_written_for_a_position_bearing_request(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """A role spans positions and the builder never picks; K3's picker hands the
+    chosen one in, and it must be one the role actually holds."""
+    async with session_maker() as session:
+        rid = await _role(
+            session,
+            content={"title": "Analyst"},
+            filenames=[
+                "20200601_00009999,_00001111_Analyst.docx",
+                "20200601_00005555_Analyst.docx",
+            ],
+        )
+        await session.commit()
+        prefill = await prefill_from_role(
+            session, rid, request_type="editorial", position_number="00005555"
+        )
+
+    assert prefill.position_number == "00005555"
+    assert prefill.candidate_positions == ("00001111", "00005555", "00009999")
+
+
+@pytest.mark.asyncio
+async def test_a_position_the_role_does_not_hold_is_refused(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        rid = await _role(
+            session,
+            content={"title": "Analyst"},
+            filenames=["20200601_00005555_Analyst.docx"],
+        )
+        await session.commit()
+        with pytest.raises(ValueError, match="00007777"):
+            await prefill_from_role(
+                session, rid, request_type="reevaluation", position_number="00007777"
+            )
+
+
+@pytest.mark.asyncio
+async def test_a_chosen_position_is_ignored_for_a_new_position(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """Section A is a NEW position — the form says "N/A if new" — so the chosen id
+    goes to the based-on list only, never to Position #."""
+    async with session_maker() as session:
+        rid = await _role(
+            session,
+            content={"title": "Analyst"},
+            filenames=["20200601_00005555_Analyst.docx"],
+        )
+        await session.commit()
+        prefill = await prefill_from_role(
+            session,
+            rid,
+            request_type="new_based_on_existing",
+            position_number="00005555",
+        )
+
+    assert prefill.position_number is None
+    assert prefill.based_on_positions_a == ("00005555",)

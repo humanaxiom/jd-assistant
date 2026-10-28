@@ -1,0 +1,127 @@
+{% extends "_base.html" %}
+{% from "_csrf.html" import csrf_token_field %}
+{% block title %}JD Bank — Compensation Requisition Form — {{ title }}{% endblock %}
+{% block header %}📄 Compensation Requisition Form — {{ title }}{% endblock %}
+{% block content %}
+
+<div class="panel">
+  <p class="meta">
+    <a href="/jd-bank/ui/library">🏦 JD Bank</a> ·
+    <a href="/jd-bank/ui/role/{{ cluster_id }}">🧩 {{ title }}</a>
+  </p>
+  <p>
+    This downloads <strong>SFU's own Compensation Requisition Form</strong> (the PDF
+    HR publishes, updated September 2024), with the few boxes the JD Bank can fill
+    already typed in. Everything else — the request details, approvals, signatures —
+    is yours to complete in Acrobat before sending it to Compensation. Nothing is stored
+    here: the form is rendered for you and forgotten.
+  </p>
+  {% if error %}
+  <p class="note" style="border-left:3px solid #d1242f;background:rgba(209,36,47,.08);padding:.6rem .9rem;border-radius:0 6px 6px 0">
+    <strong>Not downloaded:</strong> {{ error }}
+  </p>
+  {% endif %}
+</div>
+
+<div class="panel">
+  <h2>What the Bank will fill — please <em>confirm</em> each on the form</h2>
+  <p class="meta">
+    These come from the harmonized role, not from the position record, so check them
+    against PeopleSoft before you sign.
+  </p>
+  <table>
+    <thead><tr><th>Form box</th><th>Value from the Bank</th><th></th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Position Title</td>
+        <td>{{ prefill.position_title or "—" }}</td>
+        <td class="meta">{% if prefill.position_title %}confirm{% else %}left blank{% endif %}</td>
+      </tr>
+      <tr>
+        <td>Department</td>
+        <td>{{ prefill.department or "—" }}</td>
+        <td class="meta">{% if prefill.department %}confirm{% else %}left blank{% endif %}</td>
+      </tr>
+      <tr>
+        <td>Employee Group</td>
+        <td>
+          {% if prefill.employee_group %}{{ prefill.employee_group }}{% else %}—
+          <span class="meta">not an option on this form (its dropdown offers APSA and APEX only; a CUPE re-evaluation uses HR's Position Re-evaluation Request Form instead)</span>{% endif %}
+        </td>
+        <td class="meta">{% if prefill.employee_group %}confirm{% else %}left blank{% endif %}</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="meta">
+    Never filled by the Bank: anyone's name, the grade, the supervisor, hours,
+    accounting strings, dates, and the three signature lines.
+  </p>
+</div>
+
+<div class="panel">
+  <h2>Your choices</h2>
+  <form method="post" action="/jd-bank/ui/role/{{ cluster_id }}/comp-requisition">
+    {{ csrf_token_field(request) }}
+
+    <h3>Request type</h3>
+    <p class="meta">
+      Which section of the form you are filling. Pick one and the Bank fills that
+      section's position boxes; leave it unticked to fill only the general boxes and
+      tick the type yourself.
+    </p>
+    <p>
+      <label><input type="radio" name="request_type" value=""{% if not selected.request_type %} checked{% endif %}>
+        I'll tick the request type on the form myself</label>
+    </p>
+    {% for code, label in request_types %}
+    <p>
+      <label><input type="radio" name="request_type" value="{{ code }}"{% if selected.request_type == code %} checked{% endif %}>
+        {{ label }}</label>
+    </p>
+    {% endfor %}
+
+    <h3>Position #</h3>
+    {% if prefill.candidate_positions %}
+    <p class="meta">
+      This role was distilled from
+      {{ prefill.candidate_positions | length }} position{{ "s" if prefill.candidate_positions | length != 1 else "" }}
+      in the archive. The form is for <strong>one</strong> position: pick it. For a
+      new position (A) the pick is ignored — the form says <em>N/A if new</em> — and
+      every position here is listed as what it is based on.
+    </p>
+    {% if prefill.positions_incomplete %}
+    <p class="note" style="border-left:3px solid #bf8700;background:rgba(191,135,0,.08);padding:.6rem .9rem;border-radius:0 6px 6px 0">
+      ⚠ This list <strong>may be incomplete</strong>: at least one source file for this
+      role names no position number the Bank can read. If yours is missing, leave it
+      blank and type it on the form.
+    </p>
+    {% endif %}
+    <p>
+      <label><input type="radio" name="position_number" value=""{% if not selected.position_number %} checked{% endif %}>
+        Leave blank — I'll type it on the form</label>
+    </p>
+    {% for pid in prefill.candidate_positions %}
+    <p>
+      <label><input type="radio" name="position_number" value="{{ pid }}"{% if selected.position_number == pid %} checked{% endif %}>
+        <code>{{ pid }}</code></label>
+    </p>
+    {% endfor %}
+    {% else %}
+    <p class="empty">
+      The Bank reads no position number for this role (its source files name none it
+      can read), so the Position # box stays blank for you to type.
+    </p>
+    {% endif %}
+
+    <h3>Checklist</h3>
+    <p>
+      <label><input type="checkbox" name="jd_in_word_attached"{% if selected.jd_in_word_attached %} checked{% endif %}>
+        I am attaching the job description in Word format
+        <span class="meta">(download it from the Builder: open the role, <em>Start a new JD from this harmonized role</em>, then <em>Export .docx</em>)</span></label>
+    </p>
+
+    <p><button type="submit">Download the filled form (PDF) ↓</button></p>
+  </form>
+</div>
+
+{% endblock %}

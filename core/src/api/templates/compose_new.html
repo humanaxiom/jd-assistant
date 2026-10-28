@@ -240,6 +240,11 @@
     <input type="hidden" name="form" value="{{ form_spec.template }}">
     <button type="submit">Export .docx ↓</button>
   </form>
+  {% if cloned_from_cluster_id %}
+  <p class="meta">
+    Sending this to Compensation? <a href="/jd-bank/ui/role/{{ cloned_from_cluster_id }}/comp-requisition">📄 Download SFU's Compensation Requisition Form, prefilled from the role this draft started from →</a>
+  </p>
+  {% endif %}
 
   <h3>Submit for review</h3>
   <p class="meta">

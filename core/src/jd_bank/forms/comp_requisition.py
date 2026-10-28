@@ -28,6 +28,11 @@ Read-only. Reads ONLY what the Bank holds for the role's CURRENT canonical versi
   as a single-position role.
 * *The Word attachment.* ``jd_in_word_attached`` is False unless the caller says it is
   bundling the .docx; the Bank renders that file but does not know it is attached.
+* *The caller's pick (K3).* ``position_number=`` names the ONE position the form is
+  for. It must be one of ``candidate_positions`` (``ValueError`` otherwise — the
+  picker only offers those, so anything else is a tampered form), it is written
+  only for the position-bearing request types (B–E), and for Section A it is
+  ignored: the form says *N/A if new*.
 
 A fact the Bank lacks stays ``None`` / empty.
 """
@@ -54,6 +59,21 @@ RequestType = Literal[
     "other_changes",
 ]
 
+#: The form's sections, in the order they appear on it, as a person reads them.
+#: One table shared by the picker page and whatever else offers the choice.
+REQUEST_TYPE_LABELS: dict[RequestType, str] = {
+    "new_based_on_existing": "A — New position, based on an existing one",
+    "reevaluation": "B — Re-evaluation of an existing position",
+    "editorial": "C — Editorial changes",
+    "additional_duties": "D — Additional duties (temporary)",
+    "other_changes": "E — Other changes",
+}
+
+#: The request types whose section carries the position's own number.
+_POSITION_BEARING: frozenset[str] = frozenset(
+    {"reevaluation", "editorial", "additional_duties", "other_changes"}
+)
+
 
 def _clean(value: Any) -> str | None:
     text = str(value).strip() if value is not None else ""
@@ -66,8 +86,13 @@ async def prefill_from_role(
     request_type: RequestType | None = None,
     *,
     jd_in_word_attached: bool = False,
+    position_number: str | None = None,
 ) -> CompReqPrefill:
-    """The prefill for role (cluster) ``role_id``; ``LookupError`` if it has none."""
+    """The prefill for role (cluster) ``role_id``; ``LookupError`` if it has none.
+
+    ``position_number`` is the caller's pick among the role's positions (K3);
+    ``ValueError`` if the role does not hold it.
+    """
     current = (
         await session.execute(
             select(CanonicalJD)
@@ -109,18 +134,19 @@ async def prefill_from_role(
             )
         found.update(ids)
     positions = tuple(sorted(found))
+    if position_number is not None and position_number not in positions:
+        raise ValueError(
+            f"position {position_number} is not one this role holds "
+            f"({', '.join(positions) or 'none readable'})"
+        )
     single = positions[0] if len(positions) == 1 and not incomplete else None
+    chosen = position_number or single
 
     group_code = (_clean(content.get("employee_group")) or "").lower()
     group = load_field_map().employee_group_options.get(group_code)
 
     return CompReqPrefill(
-        position_number=(
-            single
-            if request_type
-            in ("reevaluation", "editorial", "additional_duties", "other_changes")
-            else None
-        ),
+        position_number=chosen if request_type in _POSITION_BEARING else None,
         position_title=_clean(content.get("title")),
         department=_clean(content.get("department")),
         based_on_positions_a=(

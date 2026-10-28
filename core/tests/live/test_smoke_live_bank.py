@@ -536,6 +536,89 @@ async def _crf_fill(session, cluster_id, **kwargs):  # type: ignore[no-untyped-d
     return prefill, {name: f.get("/V") for name, f in fields.items()}
 
 
+# ── K3: the CRF reaches a person — through the routes, against the live Bank ──────
+#
+# K2 passed its two smoke tests above for a week while NO route or button reached it
+# (Directive #1: a feature nothing links to has not been delivered). These drive the
+# REAL app (the `library` fixture: httpx ASGI transport, live session, CAS overridden)
+# the way a person would: role page -> the form's page -> the download. The expected
+# values are re-derived by raw SQL (`_CRF_ROLES`), never by calling the builder.
+# READ-ONLY: neither route writes.
+
+
+async def test_crf_download_reaches_a_person_through_the_live_role_page(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    import io
+    import re
+
+    from pypdf import PdfReader
+
+    from src.jd_core.rules import get_rules
+    from src.jd_export.comp_requisition import load_field_map
+
+    pattern = get_rules().segmentation.position_id_pattern.pattern
+    row = (
+        await session.execute(
+            text(_CRF_ROLES + """
+                SELECT c.cluster_id, c.content->>'title', c.content->>'department',
+                       upper(c.content->>'employee_group'), p.pids
+                FROM cur c JOIN pos p USING (cluster_id)
+                WHERE cardinality(p.pids) > 1
+                  AND c.cluster_id NOT IN (SELECT cluster_id FROM bad)
+                  AND nullif(trim(c.content->>'title'), '') IS NOT NULL
+                  AND nullif(trim(c.content->>'department'), '') IS NOT NULL
+                  AND c.content->>'employee_group' IN ('apsa', 'apex')
+                ORDER BY c.cluster_id
+                LIMIT 1
+                """),
+            {"pat": pattern},
+        )
+    ).first()
+    assert row is not None, "no live multi-position role has title + dept + group"
+    cluster_id, title, department, group, pids = row
+    page = f"/jd-bank/ui/role/{cluster_id}/comp-requisition"
+
+    # 1. Discoverable: the role page links to the form's page.
+    role_page = await library.get(f"/jd-bank/ui/role/{cluster_id}")
+    assert role_page.status_code == 200
+    assert f'href="{page}"' in role_page.text, "role page has no CRF link"
+
+    # 2. The page offers EVERY position the role holds (the Bank never picks one).
+    form_page = await library.get(page)
+    assert form_page.status_code == 200, form_page.text[:500]
+    offered = set(
+        re.findall(r'name="position_number" value="([0-9]+)"', form_page.text)
+    )
+    assert offered == set(pids), f"picker offers {offered}, Bank holds {set(pids)}"
+
+    # 3. The download is SFU's own PDF carrying the chosen position + the Bank's facts.
+    chosen = sorted(pids)[-1]
+    resp = await library.post(
+        page,
+        data={
+            "request_type": "reevaluation",
+            "position_number": chosen,
+            "jd_in_word_attached": "on",
+        },
+    )
+    assert resp.status_code == 200, resp.text[:500]
+    assert resp.headers["content-type"] == "application/pdf"
+    assert "attachment" in resp.headers["content-disposition"]
+    fields = PdfReader(io.BytesIO(resp.content)).get_fields() or {}
+    got = {name: f.get("/V") for name, f in fields.items()}
+    fmap = load_field_map()
+    pf = fmap.prefill_fields
+    assert got[pf["position_number"]] == chosen
+    assert got[pf["position_title"]] == title.strip()
+    assert got[pf["department"]] == department.strip()
+    assert got[pf["employee_group"]] == group
+    assert got[pf["jd_in_word_attached"]] == fmap.checkbox_on_value
+    assert got[pf["based_on_positions_b"]].startswith(", ".join(sorted(pids)[:2]))
+    for name in fmap.signature_fields:
+        assert not got.get(name), f"signature field {name} was written"
+
+
 async def test_crf_fills_from_a_live_single_position_role(session) -> None:  # type: ignore[no-untyped-def]
     """K2 — fill SFU's own CRF (re-evaluation) for a LIVE single-position role.
 

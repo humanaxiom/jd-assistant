@@ -188,6 +188,18 @@ EXPECTED_ACCESS: dict[tuple[str, str], Rule] = {
     ("GET", "/jd-bank/ui/role/{cluster_id}"): Rule(
         Access.ANY_AUTHENTICATED, Surface.UI
     ),
+    # The Compensation Requisition Form (Track K, K3): a picker page and the download
+    # of SFU's own PDF, prefilled from the same role content the role page shows. The
+    # POST persists nothing; it is a POST because it carries the requester's choices
+    # and a filled form must not be a cacheable, linkable GET.
+    ("GET", "/jd-bank/ui/role/{cluster_id}/comp-requisition"): Rule(
+        Access.ANY_AUTHENTICATED, Surface.UI
+    ),
+    ("POST", "/jd-bank/ui/role/{cluster_id}/comp-requisition"): Rule(
+        Access.ANY_AUTHENTICATED,
+        Surface.UI,
+        "renders SFU's CRF from the Bank; writes nothing",
+    ),
     ("GET", "/jd-bank/ui/jd/{source_document_id}"): Rule(
         Access.ANY_AUTHENTICATED, Surface.UI
     ),

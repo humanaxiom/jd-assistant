@@ -14,9 +14,15 @@ see a filename, a count, or a dashboard. Six surfaces:
   has yet to rule on.
 * ``GET /jd-bank/ui/funnel`` — the LIVE archive → published funnel + facets
   (Phase A4/A5), for a scope (``?scope=it``) or the whole Bank.
+* ``GET`` / ``POST /jd-bank/ui/role/{cluster_id}/comp-requisition`` — SFU's
+  Compensation Requisition Form, prefilled from the role (Track K, K3): the page
+  offers the requester's choices (request type, which ONE position, the Word
+  attachment); the POST streams the filled PDF. It persists nothing — it is a POST
+  because it carries choices, not because it writes.
 
 **Read-only (NN #1).** Every handler calls exactly one :mod:`src.jd_bank.library` read
-function and renders it — nothing here mutates a row, publishes, or overrides a gate.
+function (or, for the CRF, the :mod:`src.jd_bank.forms` prefill read) and renders
+it — nothing here mutates a row, publishes, or overrides a gate.
 The review service stays the sole approval authority; from a role page a reviewer
 *links* to the review queue, which is where approval happens (its own gate applies).
 
@@ -26,10 +32,11 @@ Jinja autoescape is on; no ``|safe`` on JD text (archive/canonical prose is untr
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from neo4j import AsyncDriver
@@ -37,11 +44,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.api.deps import may_review
 from src.api.main import get_session
+from src.api.routes._forms import first_value, read_form_pairs
 from src.api.routes.compose import (
     get_optional_embed_client,
     get_optional_neo4j_driver,
 )
 from src.jd_bank.embeddings.client import EmbedClient
+from src.jd_bank.forms import REQUEST_TYPE_LABELS, prefill_from_role
 from src.jd_bank.library import (
     build_facets,
     build_funnel,
@@ -59,6 +68,10 @@ from src.jd_bank.library import (
 )
 from src.jd_bank.library.service import SEMANTIC_UNAVAILABLE_BANNER
 from src.jd_bank.library.units import resolve_unit, unit_for
+from src.jd_export.comp_requisition import (
+    CompReqPrefill,
+    fill_compensation_requisition,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +175,122 @@ async def role_view(
         request,
         "role_detail.html",
         {"role": role, "may_review": may_review(request)},
+    )
+
+
+# ── The Compensation Requisition Form (Track K, K3) ─────────────────────────────
+
+
+def _crf_filename(title: str | None) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", (title or "").lower()).strip("-")[:60]
+    return f"compensation-requisition-{slug or 'role'}.pdf"
+
+
+def _render_crf(
+    request: Request,
+    cluster_id: UUID,
+    prefill: CompReqPrefill,
+    *,
+    selected: dict[str, object],
+    error: str | None,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "comp_requisition.html",
+        {
+            "title": prefill.position_title or "untitled role",
+            "cluster_id": cluster_id,
+            "prefill": prefill,
+            "request_types": list(REQUEST_TYPE_LABELS.items()),
+            "selected": selected,
+            "error": error,
+        },
+    )
+
+
+def _crf_not_found(request: Request, cluster_id: UUID) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request,
+        "library_not_found.html",
+        {"what": "role", "id": cluster_id},
+        status_code=404,
+    )
+
+
+@router.get("/role/{cluster_id}/comp-requisition", response_class=HTMLResponse)
+async def comp_requisition_view(
+    request: Request,
+    cluster_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> HTMLResponse:
+    """The requester's choices before the download: which section of the form,
+    which ONE of the role's positions, whether the Word JD is attached — and what
+    the Bank will type in, each marked *confirm*. Reads only; chooses nothing: with
+    no request type the Bank fills no section and offers every position."""
+    try:
+        prefill = await prefill_from_role(session, cluster_id)
+    except LookupError:
+        return _crf_not_found(request, cluster_id)
+    return _render_crf(request, cluster_id, prefill, selected={}, error=None)
+
+
+@router.post("/role/{cluster_id}/comp-requisition")
+async def comp_requisition_download(
+    request: Request,
+    cluster_id: UUID,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Stream SFU's own Compensation Requisition Form, filled with the role's facts
+    and the requester's choices. Pure rendering — nothing is validated, persisted or
+    published (NN #1). A choice the role cannot honour (a position it does not hold,
+    a request type the form does not have) re-renders the page with the error rather
+    than 500 — the page is one a person is standing on."""
+    pairs = await read_form_pairs(request)
+    request_type = first_value(pairs, "request_type") or None
+    position = first_value(pairs, "position_number") or None
+    attached = first_value(pairs, "jd_in_word_attached") != ""
+    selected: dict[str, object] = {
+        "request_type": request_type or "",
+        "position_number": position or "",
+        "jd_in_word_attached": attached,
+    }
+    if request_type is not None and request_type not in REQUEST_TYPE_LABELS:
+        try:
+            prefill = await prefill_from_role(session, cluster_id)
+        except LookupError:
+            return _crf_not_found(request, cluster_id)
+        return _render_crf(
+            request,
+            cluster_id,
+            prefill,
+            selected=selected,
+            error=f"{request_type!r} is not a request type on the form",
+        )
+    try:
+        prefill = await prefill_from_role(
+            session,
+            cluster_id,
+            request_type,
+            jd_in_word_attached=attached,
+            position_number=position,
+        )
+    except LookupError:
+        return _crf_not_found(request, cluster_id)
+    except ValueError as exc:
+        # Re-read without the pick so the page can still offer the picker.
+        prefill = await prefill_from_role(session, cluster_id)
+        return _render_crf(
+            request, cluster_id, prefill, selected=selected, error=str(exc)
+        )
+    pdf = fill_compensation_requisition(prefill)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{_crf_filename(prefill.position_title)}"'
+            )
+        },
     )
 
 
