@@ -72,8 +72,9 @@ def test_a_rewrite_over_the_cupe_function_limit_is_merged_within_it(
 ) -> None:
     """0cd5db26 (telephone billing clerk): the model returned 13 major functions for a
     12-duty merge; the Builder then refused to clone the role ("the form takes at most
-    12", HR-246) and smoke's every-CUPE-role clone test failed. The guard now merges the
-    two closest duties — nothing is dropped — and the role clones and reassembles."""
+    12", HR-246) and smoke's every-CUPE-role clone test failed. The guard now brings
+    it within the form — merging a similar pair, or listing the surplus duty — and the
+    role clones and reassembles."""
     merged, model = _case("0cd5db26")
     assert len(model.duties) == 13  # the real reply
 
@@ -85,14 +86,21 @@ def test_a_rewrite_over_the_cupe_function_limit_is_merged_within_it(
     assert len(final.duties) == limit
     again = assemble_wjq_jd(wjq_answers_from_jd(final))
     assert len(again.duties) == len(final.duties)
-    # merged, never dropped: the absorbed duty's headline is a clause of the one it
-    # went under, and the record names both
-    assert len(record.merged_duties) == 1
-    absorbed, into = record.merged_duties[0]
-    target = next(d for d in final.duties if d.statement == into)
+    # Review of 6000ba6: its closest pair ("work summaries and create detailed work
+    # orders" / "name‑change requests and update displays…") is below the HR-304
+    # floor, so nothing is merged: the model's last duty is LISTED, never silently gone.
+    assert not record.merged_duties
+    last = model.duties[-1]
+    assert last.statement not in {d.statement for d in final.duties}
+    assert any(last.statement in t for t in record.over_form_limit)
+    # with the floor at 0 the closest pair is merged instead, as before the review
+    loose, rec0 = _apply_anti_fabrication(
+        model, merged, _with(rules, duty_merge_min_similarity=0.0)
+    )
+    assert len(loose.duties) == limit and len(rec0.merged_duties) == 1
+    absorbed, into = rec0.merged_duties[0]
+    target = next(d for d in loose.duties if d.statement == into)
     assert any(absorbed in clause for clause in target.how_why)
-    assert absorbed not in {d.statement for d in final.duties}
-    assert not record.over_form_limit
 
 
 def test_with_the_old_rule_the_draft_stays_over_the_limit(rules: Rules) -> None:
@@ -458,13 +466,11 @@ def test_rewritten_qualifications_run_k_s_a_as_their_merge_does(
     bars = [q.text for q in merged.draft.qualifications if q.kind == "education"]
     assert [q.text for q in final.qualifications if q.kind == "education"] == bars
     # the ORDER alone (HR-293) holds the gate, whatever kinds the model wrote
-    order_only = _with(rules, qualification_kind_from_source=False)
+    order_only = _with(rules, qualification_kind_from_source=())
     guarded_order, _ = _apply_anti_fabrication(model, merged, order_only)
     assert "SFU-GATE-KSA-ORDER" not in _issue_ids(_final(merged, guarded_order), rules)
 
-    old = _with(
-        rules, qualification_order="model", qualification_kind_from_source=False
-    )
+    old = _with(rules, qualification_order="model", qualification_kind_from_source=())
     guarded_old, _ = _apply_anti_fabrication(model, merged, old)
     assert "SFU-GATE-KSA-ORDER" in _issue_ids(_final(merged, guarded_old), rules)
 
@@ -504,4 +510,273 @@ def test_the_summary_does_not_gain_working_conditions_its_source_lacks(
     guarded_off, _ = _apply_anti_fabrication(model, merged, off)
     assert "SFU-AUTH-SUMMARY-CONDITIONS" in _issue_ids(
         _final(merged, guarded_off), rules
+    )
+
+
+# --- review of 6000ba6 ----------------------------------------------------------
+
+
+def test_hr294_restores_the_cupe_form_section_and_is_off_for_jdfn(
+    rules: Rules,
+) -> None:
+    """On CUPE the kind IS the form section (skill = Occupational Skills, ability =
+    Occupational Requirements), so restoring the source's is right; on JDFN it is a
+    reading of the words, and the review found 93 lines in 79 drafts forced to a kind
+    their own wording contradicts. Per template, on for WJQ only."""
+    assert rules.rewrite.qualification_kind_from_source == ("wjq",)
+    merged, model = _case("000cebb7")
+    _, record = _apply_anti_fabrication(model, merged, rules)
+    assert not record.relabelled_qualifications
+
+
+def _jdfn_quals(
+    sources: list[tuple[str, str]], line: tuple[str, str]
+) -> tuple[MergedRole, SFUJobDescription]:
+    from src.jd_core.models.parsed_jd import SFUQualification
+
+    quals = [SFUQualification(text=t, kind=k) for t, k in sources]  # type: ignore[arg-type]
+    member = SFUJobDescription(title="Coordinator", qualifications=quals)
+    merged = merge_cluster([member, member])
+    model = SFUJobDescription(
+        title="Coordinator",
+        qualifications=[SFUQualification(text=line[0], kind=line[1])],  # type: ignore[arg-type]
+    )
+    return merged, model
+
+
+@pytest.mark.parametrize(
+    ("sources", "line"),
+    [
+        # 4b6cfc94: from a compound "…skills with the ability…" line
+        (
+            [
+                (
+                    "Excellent interpersonal skills with the ability to build "
+                    "consensus and negotiate solutions to sensitive problems",
+                    "skill",
+                )
+            ],
+            (
+                "Ability to build consensus and negotiate solutions to sensitive "
+                "problems",
+                "ability",
+            ),
+        ),
+        # 2930499e: from a mis-kinded diploma line
+        (
+            [
+                (
+                    "Diploma in Business Administration and the ability to process a "
+                    "high volume of information",
+                    "skill",
+                )
+            ],
+            ("Ability to process a high volume of information", "ability"),
+        ),
+    ],
+    ids=["compound-skill-line", "diploma-line"],
+)
+def test_a_line_whose_lead_word_names_its_kind_is_never_relabelled(
+    rules: Rules, sources: list[tuple[str, str]], line: tuple[str, str]
+) -> None:
+    on = _with(rules, qualification_kind_from_source=("jdfn", "wjq"))
+    merged, model = _jdfn_quals(sources, line)
+    guarded, record = _apply_anti_fabrication(model, merged, on)
+    kept = next(q for q in guarded.qualifications if q.text == line[0])
+    assert kept.kind == line[1]
+    assert not record.relabelled_qualifications
+
+
+def test_a_relabel_needs_the_overlap_floor(rules: Rules) -> None:
+    """1282d670: "Project Management Professional (PMP) certification" was forced to
+    `knowledge` from a source line it shares a quarter of its words with."""
+    from src.jd_bank.rewrite.harmonize import _source_kind
+    from src.jd_core.models.parsed_jd import SFUQualification
+
+    sources = [
+        SFUQualification(
+            text="Knowledge of project management principles and practices",
+            kind="knowledge",
+        )
+    ]
+    line = "Project Management Professional (PMP) certification"
+    assert _source_kind(line, sources, rules) is None
+    loose = _with(rules, qualification_kind_min_overlap=0.0)
+    assert _source_kind(line, sources, loose) == "knowledge"
+
+
+def test_the_same_lead_word_in_the_source_lets_the_form_section_win(
+    rules: Rules,
+) -> None:
+    """CUPE: "Ability to …" lines are `skill` in the merge because the WJQ printed them
+    under Occupational Skills — the source's own wording opens the same way."""
+    merged, model = _case("391c5ae6")
+    _, record = _apply_anti_fabrication(model, merged, rules)
+    assert any(
+        text.startswith("Ability") and old == "ability" and new == "skill"
+        for text, old, new in record.relabelled_qualifications
+    )
+
+
+def _duty(verb: str, statement: str, freq: str | None = None) -> SFUDuty:
+    return SFUDuty(action_verb=verb, statement=statement, frequency=freq)
+
+
+def _wjq_merged(duties: list[SFUDuty]) -> MergedRole:
+    member = SFUJobDescription(title="Clerk", employee_group="cupe", duties=duties)
+    return merge_cluster([member, member])
+
+
+def test_dissimilar_duties_over_the_limit_are_listed_not_merged(
+    rules: Rules,
+) -> None:
+    """HR-290 had no similarity floor: it merged whatever pair fitted the clause cap."""
+    words = ["ledgers", "vehicles", "orchids", "payroll", "telescopes", "concerts"]
+    model_duties = [
+        _duty("Maintains", f"{w}{i} catalogue{i} inventory{i}")
+        for i, w in enumerate(words)
+    ]
+    jdfn = SFUJobDescription(title="Clerk", duties=model_duties)
+    merged = merge_cluster([jdfn, jdfn])
+    guarded, record = _apply_anti_fabrication(jdfn, merged, rules)
+    assert not record.merged_duties
+    assert (
+        len(
+            [
+                d
+                for d in guarded.duties
+                if d.statement in {m.statement for m in model_duties}
+            ]
+        )
+        == 5
+    )
+    assert any("concerts5" in t for t in record.over_form_limit)
+
+
+def test_the_most_similar_pair_is_merged_even_if_another_fits_the_cap_better(
+    rules: Rules,
+) -> None:
+    cap = rules.segmentation.duty_how_why_max_count
+    twin = "Processes monthly telephone billing reports for departments"
+    duties = [
+        SFUDuty(
+            action_verb="Processes",
+            statement=twin,
+            how_why=["Checks the monthly telephone billing reports."] * cap,
+        ),
+        _duty("Processes", twin + " and adjusts charges"),
+        *[_duty("Maintains", f"unrelated{i} widget{i} archive{i}") for i in range(11)],
+    ]
+    merged = _wjq_merged(duties)
+    model = merged.draft.model_copy(update={"duties": duties})
+    _, record = _apply_anti_fabrication(model, merged, rules)
+    assert record.merged_duties == ((twin + " and adjusts charges", twin),)
+
+
+def test_a_merge_keeps_an_agreeing_frequency_and_records_a_conflict(
+    rules: Rules,
+) -> None:
+    base = "Processes monthly telephone billing reports for departments"
+    filler = [
+        _duty("Maintains", f"unrelated{i} widget{i} archive{i}") for i in range(11)
+    ]
+    for second, conflict in (("daily", False), ("weekly", True)):
+        duties = [
+            _duty("Processes", base, "daily"),
+            _duty("Processes", base + " promptly", second),
+            *filler,
+        ]
+        merged = _wjq_merged(duties)
+        model = merged.draft.model_copy(update={"duties": duties})
+        guarded, record = _apply_anti_fabrication(model, merged, rules)
+        kept = next(d for d in guarded.duties if d.statement == base)
+        assert kept.frequency == "daily"
+        assert bool(record.merged_duty_frequency_conflicts) is conflict
+
+
+def test_a_flagged_duty_merged_into_another_is_flagged_by_where_it_now_is(
+    rules: Rules,
+) -> None:
+    sources = [
+        _duty("Maintains", f"unrelated{i} widget{i} archive{i}") for i in range(12)
+    ]
+    merged = _wjq_merged(sources)
+    # the model's last two duties match no source duty (flagged) and each other
+    novel = "Coordinates quarterly volunteer appreciation banquets"
+    model = merged.draft.model_copy(
+        update={
+            "duties": [
+                *sources[:11],
+                _duty("Coordinates", novel),
+                _duty("Coordinates", novel + " annually"),
+            ]
+        }
+    )
+    _, record = _apply_anti_fabrication(model, merged, rules)
+    assert record.merged_duties == ((novel + " annually", novel),)
+    assert novel + " annually" not in record.flagged_duties
+    assert novel in record.flagged_duties
+
+
+@pytest.mark.parametrize(
+    ("text", "header"),
+    [
+        (
+            "Maintains the Educational Resource Library. Position number(s): "
+            "__01110_____________________Continued Assists students.",
+            "Position number(s): __01110_____________________Continued",
+        ),
+        (
+            "Resolves problems and makes corrections where necessary. Position Number "
+            "07514",
+            "Position Number 07514",
+        ),
+    ],
+    ids=["lower-case-5e1fe119", "trailing-43409115"],
+)
+def test_the_page_header_misses_found_in_review(
+    rules: Rules, text: str, header: str
+) -> None:
+    jd = SFUJobDescription(title="T", position_summary=text)
+    view, _, parts = source_view(jd, rules)
+    assert header not in (view.position_summary or "")
+    assert header in [p.text for p in parts if p.kind == "page_header"]
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    [
+        # parser v10 (wrapped heading joined): 27 parses carry it as a DM item
+        "Decisions the incumbent is expected to make in carrying out duties",
+        "Decisions the incumbent is expected to make in carrying out duties:",
+        "Decisions the incumbent is expected to make in carrying out the duties and "
+        "responsibilities of the position.",
+    ],
+)
+def test_the_made_decisions_prompt_is_set_aside_like_the_refer_prompt(
+    rules: Rules, prompt: str
+) -> None:
+    """20061205_697.doc and its siblings: "i) Decisions the incumbent is expected to
+    make in carrying out / duties" — once the parser reads the wrap, the questionnaire's
+    MAKE prompt is a Decision Making item, and HR-275 did not list it."""
+    made = "Coordinates scheduling and the assignment of peer educators."
+    jd = SFUJobDescription(title="T", decision_making=[prompt, made])
+    view, _, parts = source_view(jd, rules)
+    assert view.decision_making == [made]
+    assert any(p.kind == "form_instruction" for p in parts)
+
+
+def test_a_dropped_summary_sentence_keeps_the_paragraph_breaks(
+    rules: Rules,
+) -> None:
+    from src.jd_bank.rewrite.harmonize import _summary_conditions
+
+    summary = (
+        "Provides front-desk service to students.\n\n"
+        "Works evenings and weekends as required. Maintains the office records."
+    )
+    out, dropped = _summary_conditions(summary, "Provides front-desk service.", rules)
+    assert dropped == ["Works evenings and weekends as required."]
+    assert out == (
+        "Provides front-desk service to students.\n\nMaintains the office records."
     )

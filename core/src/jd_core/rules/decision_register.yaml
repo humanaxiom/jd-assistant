@@ -8693,6 +8693,7 @@ decisions:
       - For each item start with an action verb and briefly describe WHAT is done, HOW it is done and WHY it is done.
       - Indicate in the right hand column the percentage of time spent on each particular task.
       - Give some typical examples of the most important decisions the incumbent is expected to make in carrying out the duties and responsibilities of the position.
+      - Decisions the incumbent is expected to make in carrying out duties.
       - To what extent can the incumbent rely on established policies or advice from others in making these decisions?
       - Give some examples of the types of decisions the incumbent would refer to his/her supervisor.
       - Give some examples of the types of decisions the incumbent would refer to her/his supervisor.
@@ -8738,9 +8739,16 @@ decisions:
       carries them: removing them at the PARSER is the real fix, and it moves
       `PARSER_VERSION` and changes the placeholder gate (HR-047 reads "action verb" /
       "how and why", which the duty instruction contains). That is a separate decision.
-      2026-10-27 (the v9 full pass): twelve more wordings of the refer question — its
+      2026-10-27 (the v9 full pass): fourteen more wordings of the refer question — its
       other editions and typos — are listed, each also a referral marker (HR-282, which
-      gives the archive counts).
+      gives the archive counts). And the older edition's MAKE prompt, "Decisions the
+      incumbent is expected to make in carrying out duties": parser v9 cut it at the
+      wrapped "duties" line (21 parses, stripped here as a fragment of the long make
+      prompt); parser v10 joins the wrap, so 27 v10 parses (21 from that fix, 6 already;
+      measured on feat/v9-parser-wrap @ e05fe61)
+      carry it whole as a Decision Making item. ⚠ The deterministic draft keeps it (6 v9
+      merge drafts carry the phrase): the merge strips no instruction. It belongs with
+      the parser's own instruction handling, in the same v10 change.
     impact_if_changed: >-
       Does NOT move `rules_version`. Adding an instruction removes it from the rewrite's
       input. Pinned by `test_rewrite_fidelity.py`.
@@ -9308,7 +9316,7 @@ decisions:
       `test_rewrite_fidelity_r3_review.py`.
     status: open
 
-  # ── Post-pass fixes (the v9 Bank's full rewrite pass, 2026-10-27): HR-290…292.
+  # ── Post-pass fixes (the v9 Bank's full rewrite pass, 2026-10-27): HR-290…295 and HR-302…304.
   # Measured on the v9 Bank read-only and on the 2,446 merge drafts rebuilt in-process
   # (every one of the pass's 50 fallback drafts reproduced byte for byte).
   - id: HR-290
@@ -9351,7 +9359,7 @@ decisions:
     config:
       file: rewrite.yaml
       path: rewrite.page_header_pattern
-    current_default: '(?:(?:Continued\s+)?Administrative/Professional\s+Position\s*#\s*:?\s*(?:(?:\d+(?![\d%])|_+|\[contact redacted\])[\d_.]*\s*,?\s*#?\s*)*(?:,?\s*[Pp]age\s*\d+(?:\s*of\s*\d+)?(?![\d%]))?)|(?:Position\s*#\s*\d+\s*,?\s*[Pp]age\s*\d+(?![\d%]))|(?:(?:Continued\s+)?Position\s+(?:Numbers?(?:\(s\)|\^)?|[Nn]o\.?)\s*[:#]?\s*#?[^A-Za-z]{0,80}?(?:\[contact redacted\][^A-Za-z]{0,20})?(?:-?NEW|New_*|\(FT\)|N\d[A-Z]\d?[A-Z]?|i\s*\d+)?[^A-Za-z]{0,30}?\(?(?i:continued)\)?(?:\s*Page\s*\d+)?(?:\s*(?:[A-J]\.\s+)?[A-Z][A-Z &]{3,}\s*\(?(?i:continued)\)?)?)|(?:(?:Continued\s+)?Position\s*(?:#|Numbers?(?:\(s\))?)\s*:\s*(?:\d+(?:\s*(?:,|&|and)\s*\d+)*)?(?:\s+\d{1,2}(?![\d%]))?(?=\s|$))'
+    current_default: '(?:(?:Continued\s+)?Administrative/Professional\s+Position\s*#\s*:?\s*(?:(?:\d+(?![\d%])|_+|\[contact redacted\])[\d_.]*\s*,?\s*#?\s*)*(?:,?\s*[Pp]age\s*\d+(?:\s*of\s*\d+)?(?![\d%]))?)|(?:Position\s*#\s*\d+\s*,?\s*[Pp]age\s*\d+(?![\d%]))|(?:(?:Continued\s+)?Position\s+(?:[Nn]umbers?\)?(?:\(s\)|\^)?|[Nn]o\.?)\s*[:#]?\s*#?[^A-Za-z]{0,80}?(?:\[contact redacted\][^A-Za-z]{0,20})?(?:-?NEW|New_*|\(FT\)|N\d[A-Z]\d?[A-Z]?|i\s*\d+)?[^A-Za-z]{0,30}?\(?(?i:continued)\)?(?:\s*Page\s*\d+)?(?:\s*(?:[A-J]\.\s+)?[A-Z][A-Z &]{3,}\s*\(?(?i:continued)\)?)?)|(?:(?:Continued\s+)?Position\s*(?:#|Numbers?(?:\(s\))?)\s*:\s*(?:\d+(?:\s*(?:,|&|and)\s*\d+)*)?(?:\s+\d{1,2}(?![\d%]))?(?=\s|$))|(?:Position\s+Number\s+\d+(?=\s*$))'
     provenance: our_invention
     tier: technical
     why_it_matters: >-
@@ -9368,7 +9376,9 @@ decisions:
       and never a reference to another position ("the Tech Clerk (position # 79167)",
       lower case, in brackets). Set aside like a questionnaire instruction (HR-275): the
       model does not see it, nothing restores it, and the review page lists it as a page
-      header. The deterministic draft (rewrite failed) is untouched — the real fix is
+      header. Review of 6000ba6 (summaries too): a lower-case "Position number(s):
+      __01110___Continued" (5e1fe119) and a trailing "Position Number 07514" (43409115)
+      are headers as well. The deterministic draft (rewrite failed) is untouched — the real fix is
       in the parser and moves `PARSER_VERSION`.
     impact_if_changed: >-
       Does NOT move `rules_version`. Broader sets aside more text (a reference to a
@@ -9428,8 +9438,10 @@ decisions:
       education/experience bars last, and nothing re-applied the rank. `form` puts the
       bars where the merge has them and sorts the competencies by
       `qualifications.ksa_rank` (stable, so lines of one kind keep the model's order).
-      Whether K → S → A binds a CUPE job description at all is HR-297's question; this
-      only stops the rewrite producing an inversion its source does not have.
+      Whether K → S → A binds a CUPE job description at all is a separate question for
+      HR (raised on the branch feat/v9-targeted-rerun, which registers it as an `applies_to`
+      entry for SFU-GATE-KSA-ORDER); this only stops the rewrite producing an inversion
+      its source does not have.
       REPLAYED offline over the 2,396 rewritten v9 drafts (each reply reconstructed as
       the stored draft minus the guard's own restores; with this branch's rules off the
       replay reproduces the stored blocking set on 2,390 of them): K → S → A blocks
@@ -9442,29 +9454,37 @@ decisions:
 
   - id: HR-294
     question: >-
-      When the LLM rewrites a qualification line, should it keep the kind (knowledge,
-      skill, ability) of the source line it rewords, or may it change it?
+      On which forms should a rewritten qualification line keep the kind (knowledge,
+      skill, ability) of the source line it rewords, rather than the kind the LLM gave
+      it?
     config:
       file: rewrite.yaml
       path: rewrite.qualification_kind_from_source
-    current_default: true
+    current_default: [wjq]
     provenance: our_invention
     tier: hr_informed
     why_it_matters: >-
       The kind decides where a line is printed and which ORDER rule it is judged by.
       MEASURED (the v9 full pass): CUPE merge drafts carry `skill` and `ability` lines
       only (the WJQ parser never writes `knowledge`), yet 568 of the 612 rewritten CUPE
-      drafts failing K → S → A carry a `knowledge` line, and "Ability to use
-      word-processing…" came back `skill` in one place and `ability` two lines later.
-      `true`: a kept line takes the kind of the source line holding the largest share of
-      its words, and the change is recorded (`relabelled_qualifications`). A line no
-      source line shares a word with keeps the model's kind (it passed grounding against
-      the whole draft). The order rule (HR-293) alone already holds the gate on the
-      pinned cases; this keeps the label honest — a CUPE draft no longer gains a
-      `knowledge` kind its source never had.
+      drafts failing K → S → A carry a `knowledge` line. On the CUPE form the kind IS
+      the form section — `skill` is printed under Occupational Skills, `ability` under
+      Occupational Requirements — so a CUPE line takes the kind of the source line it
+      rewords, and the change is recorded (`relabelled_qualifications`). On the APSA
+      form the kind is only a READING of the words, and the source's reading can be
+      wrong: review of 6000ba6 found 93 lines in 79 JDFN drafts forced to a kind their
+      own wording contradicts ("Ability to build consensus…" -> skill, from "Excellent
+      interpersonal skills with the ability to…"; "Excellent project management skills"
+      -> knowledge), 407 more with no kind word relabelled arbitrarily, and approvable
+      moved on only 6 JDFN drafts. So it is OFF for JDFN. Wherever it is on, the
+      relabel needs HR-302's overlap and never contradicts a line's own lead word
+      (HR-303). The order rule (HR-293) holds the gate by itself; this decides the
+      LABEL — on CUPE, the form section.
     impact_if_changed: >-
-      Does NOT move `rules_version`. `false` lets the model relabel kinds again.
-      Pinned by `test_rewrite_postpass_v9.py`.
+      Does NOT move `rules_version`. Adding `jdfn` relabels APSA lines from their source
+      lines' (often parser-inferred) kinds; `[]` lets the model relabel CUPE lines,
+      moving them between the form's two sections. Pinned by
+      `test_rewrite_postpass_v9.py`.
     status: open
 
   - id: HR-295
@@ -9496,10 +9516,91 @@ decisions:
       weekends" 20, "on call"/"on-call" 5 plus 16 that match only through the gate's
       text fold, shift work 2, holidays 1) and 20 match a noun ("housing" 8, "parking"
       6, "relocation" 6) — summary text the gate would block anyway, lost from the
-      summary (not checked here whether a duty states it too).
+      summary (not checked here whether a duty states it too). A dropped sentence is cut
+      out in place, so the summary keeps its paragraph breaks (review of 6000ba6).
     impact_if_changed: >-
       Does NOT move `rules_version`. `false` lets the rewrite import conditions into the
       summary again. Pinned by `test_rewrite_postpass_v9.py`.
+    status: open
+
+  # ── Review of 6000ba6 (2026-10-27): the bounds HR-294 and HR-290 lacked.
+  - id: HR-302
+    question: >-
+      How much of a rewritten qualification line must a source line share before the
+      line takes that source line's kind?
+    config:
+      file: rewrite.yaml
+      path: rewrite.qualification_kind_min_overlap
+    current_default: 0.5
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      HR-294 took the kind of whichever source line shared the most words, however few.
+      Review of 6000ba6 (measured over the replay): 42 relabels shared less than a third
+      of their words with the line they took a kind from — "Project Management
+      Professional (PMP) certification" became `knowledge` from a project-management
+      knowledge line. Held at the qualification grounding bar (HR-183, 0.5): below it
+      the model's kind stands. Replay after the fix (and the reviewer's replay): 6,546 CUPE
+      relabels, none sharing less than half its words with the line it took a kind
+      from; 0 JDFN (HR-294 is off there).
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Lower relabels on weaker evidence; higher leaves
+      more CUPE lines in the section the model chose. Pinned by
+      `test_rewrite_postpass_v9.py`.
+    status: open
+
+  - id: HR-303
+    question: >-
+      Which opening words of a qualification line name its kind (Knowledge…, Skills…,
+      Ability…), so that the rewrite does not relabel it to another kind?
+    config:
+      file: rewrite.yaml
+      path: rewrite.qualification_kind_lead_words
+    current_default:
+      knowledge: [knowledge]
+      skill: [skill, skills, skilled]
+      ability: [ability, able]
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      A line that OPENS by naming its kind ("Ability to process a high volume of
+      information") was relabelled from a source line that does not ("Diploma in
+      Business Administration…", review of 6000ba6). Such a line keeps its kind —
+      unless the source line opens with the same word, which is exactly a CUPE form
+      section: the WJQ prints "Ability to …" lines under Occupational Skills, and the
+      merge records them as `skill`. Only the first word is read; a line with no kind
+      word in its lead is bound by HR-302 alone. Replay: CUPE relabels 6,760 -> 6,546
+      with HR-302 and this together; JDFN relabels 570 -> 0 (HR-294 off).
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Removing a word lets lines opening with it be
+      relabelled again. Pinned by `test_rewrite_postpass_v9.py`.
+    status: open
+
+  - id: HR-304
+    question: >-
+      How similar must two rewritten duties be before the rewrite merges them to fit the
+      form's duty limit, rather than listing the surplus duty for the reviewer?
+    config:
+      file: rewrite.yaml
+      path: rewrite.duty_merge_min_similarity
+    current_default: 0.2
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      HR-290 merged the closest pair whatever its similarity, and preferred any pair
+      that fitted the clause cap to a more similar one (review of 6000ba6). Now the
+      most similar pair is merged only if its token Jaccard reaches this; below it the
+      model's LAST duty is listed whole (`over_form_limit`) and fold-back still puts
+      back any source sentence it carried. Held at HR-184's 0.2, the guard's own "same
+      duty" overlap. A merge keeps a frequency both duties agree on and records one they
+      dispute (`merged_duty_frequency_conflicts`); a flagged duty merged away is flagged
+      by the duty it went under. Replay: the one over-limit draft (0cd5db26) has its
+      closest pair below 0.2 ("work summaries and create detailed work orders" /
+      "name‑change requests and update displays…"), so its 13th duty is listed, not
+      merged; no other draft has more duties than its form holds.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. 0 merges any pair; higher lists more model duties
+      instead of merging them. Pinned by `test_rewrite_postpass_v9.py`.
     status: open
 
 trivial:

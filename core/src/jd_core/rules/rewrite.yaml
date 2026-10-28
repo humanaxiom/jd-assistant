@@ -267,6 +267,10 @@ form_instructions:
   - For each item start with an action verb and briefly describe WHAT is done, HOW it is done and WHY it is done.
   - Indicate in the right hand column the percentage of time spent on each particular task.
   - Give some typical examples of the most important decisions the incumbent is expected to make in carrying out the duties and responsibilities of the position.
+  # The older edition's MAKE prompt ("i) Decisions the incumbent is expected to make in
+  # carrying out / duties"), which parser v10 reads as one Decision Making item once it
+  # joins the wrapped "duties" line (2026-10-27). HR-275.
+  - Decisions the incumbent is expected to make in carrying out duties.
   - To what extent can the incumbent rely on established policies or advice from others in making these decisions?
   - Give some examples of the types of decisions the incumbent would refer to his/her supervisor.
   - Give some examples of the types of decisions the incumbent would refer to her/his supervisor.
@@ -401,7 +405,7 @@ fragment_pattern:
 # HR-288.
 relationships_row_window: 3
 
-# --- post-pass fixes (the v9 Bank's full pass, 2026-10-27): HR-290…HR-292 -------------
+# --- post-pass fixes (the v9 Bank's full pass, 2026-10-27): HR-290…295, HR-302…304 ---
 
 # What happens when the model returns MORE duties than the draft's form holds — the CUPE
 # form's major-function limit (`cupe_form.function_limits`, HR-246, which the WJQ parser
@@ -417,6 +421,13 @@ relationships_row_window: 3
 # 5. HR-290.
 duties_over_form_limit: merge
 
+# The least token-Jaccard two rewritten duties need to be MERGED by HR-290. Below it the
+# model's last duty is listed for the reviewer instead (fold-back still puts back any
+# source sentence it carried). Review of 6000ba6: there was no floor, and a pair that
+# fitted the clause cap was preferred to a more similar one. Held at HR-184's "same
+# duty" overlap. HR-304.
+duty_merge_min_similarity: 0.2
+
 # A source document's own PAGE HEADER or FOOTER, which the parser read into role text:
 # "Position Number 31160 (Continued) C. DUTIES AND RESPONSIBILITIES (continued)",
 # "Administrative/Professional Position # ______ Page 2", "Position #: 00117368 2". Removed
@@ -429,7 +440,7 @@ duties_over_form_limit: merge
 # page-header shapes only — never a reference to ANOTHER position ("the Tech Clerk
 # (position # 79167)"). HR-291.
 page_header_pattern:
-  pattern: '(?:(?:Continued\s+)?Administrative/Professional\s+Position\s*#\s*:?\s*(?:(?:\d+(?![\d%])|_+|\[contact redacted\])[\d_.]*\s*,?\s*#?\s*)*(?:,?\s*[Pp]age\s*\d+(?:\s*of\s*\d+)?(?![\d%]))?)|(?:Position\s*#\s*\d+\s*,?\s*[Pp]age\s*\d+(?![\d%]))|(?:(?:Continued\s+)?Position\s+(?:Numbers?(?:\(s\)|\^)?|[Nn]o\.?)\s*[:#]?\s*#?[^A-Za-z]{0,80}?(?:\[contact redacted\][^A-Za-z]{0,20})?(?:-?NEW|New_*|\(FT\)|N\d[A-Z]\d?[A-Z]?|i\s*\d+)?[^A-Za-z]{0,30}?\(?(?i:continued)\)?(?:\s*Page\s*\d+)?(?:\s*(?:[A-J]\.\s+)?[A-Z][A-Z &]{3,}\s*\(?(?i:continued)\)?)?)|(?:(?:Continued\s+)?Position\s*(?:#|Numbers?(?:\(s\))?)\s*:\s*(?:\d+(?:\s*(?:,|&|and)\s*\d+)*)?(?:\s+\d{1,2}(?![\d%]))?(?=\s|$))'
+  pattern: '(?:(?:Continued\s+)?Administrative/Professional\s+Position\s*#\s*:?\s*(?:(?:\d+(?![\d%])|_+|\[contact redacted\])[\d_.]*\s*,?\s*#?\s*)*(?:,?\s*[Pp]age\s*\d+(?:\s*of\s*\d+)?(?![\d%]))?)|(?:Position\s*#\s*\d+\s*,?\s*[Pp]age\s*\d+(?![\d%]))|(?:(?:Continued\s+)?Position\s+(?:[Nn]umbers?\)?(?:\(s\)|\^)?|[Nn]o\.?)\s*[:#]?\s*#?[^A-Za-z]{0,80}?(?:\[contact redacted\][^A-Za-z]{0,20})?(?:-?NEW|New_*|\(FT\)|N\d[A-Z]\d?[A-Z]?|i\s*\d+)?[^A-Za-z]{0,30}?\(?(?i:continued)\)?(?:\s*Page\s*\d+)?(?:\s*(?:[A-J]\.\s+)?[A-Z][A-Z &]{3,}\s*\(?(?i:continued)\)?)?)|(?:(?:Continued\s+)?Position\s*(?:#|Numbers?(?:\(s\))?)\s*:\s*(?:\d+(?:\s*(?:,|&|and)\s*\d+)*)?(?:\s+\d{1,2}(?![\d%]))?(?=\s|$))|(?:Position\s+Number\s+\d+(?=\s*$))'
   ignore_case: false
 
 # When the model rewords a CUPE duty so heavily that no source duty matches it (it is
@@ -457,7 +468,30 @@ qualification_order: form
 # full pass): CUPE merge drafts carry `skill` and `ability` only — the WJQ parser never
 # writes `knowledge` — and 568 of the 612 rewritten drafts failing K -> S -> A carry a
 # `knowledge` line. HR-294.
-qualification_kind_from_source: true
+#
+# PER FORM since the review of 6000ba6. On the CUPE form the kind IS the form section
+# (skill = Occupational Skills, ability = Occupational Requirements), so restoring the
+# source's is right (6,546 relabels on the replay). On the APSA form it is a READING of
+# the words, and the review found 93 lines in 79 JDFN drafts forced to a kind their own
+# wording contradicts ("Ability to build consensus…" -> skill); it moved approvability
+# on 6 JDFN drafts. So: on for wjq only.
+qualification_kind_from_source: [wjq]
+
+# The least share of a rewritten line's words the source line must hold for the line to
+# take its kind — the qualification grounding bar (HR-183). Review of 6000ba6: with no
+# floor, 42 relabels shared less than a third of their words with the chosen line
+# ("Project Management Professional (PMP) certification" -> knowledge). HR-302.
+qualification_kind_min_overlap: 0.5
+
+# Lead words that NAME a kind. A rewritten line opening with one keeps that kind unless
+# the source line it rewords opens with the same word — which is what a CUPE form
+# section looks like ("Ability to …" printed under Occupational Skills). Review of
+# 6000ba6: "Ability to process a high volume of information" took `skill` from a
+# "Diploma in Business Administration…" line. HR-303.
+qualification_kind_lead_words:
+  knowledge: [knowledge]
+  skill: [skill, skills, skilled]
+  ability: [ability, able]
 
 # Whether a rewritten Position Summary may name a WORKING CONDITION (the
 # SFU-AUTH-SUMMARY-CONDITIONS markers, `markers.working_conditions`, HR-046 — not changed
