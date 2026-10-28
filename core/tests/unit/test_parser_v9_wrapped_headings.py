@@ -75,9 +75,10 @@ _DM_WRAP = _HEAD + (
 def test_the_wrapped_dm_prompt_keeps_its_decisions_in_decision_making() -> None:
     jd = parse_jd(_DM_WRAP).jd
 
-    assert jd.decision_making[0] == (
-        "Decisions the incumbent is expected to make in carrying out duties"
-    )
+    # The prompt itself is the form's question, set aside since v10 (HR-307).
+    assert [b.text for b in jd.set_aside if b.kind == "form_prompt"] == [
+        "i) Decisions the incumbent is expected to make in carrying out duties"
+    ]
     assert (
         "Coordinates scheduling and the assignment of career and learning skills "
         "peer educators." in jd.decision_making

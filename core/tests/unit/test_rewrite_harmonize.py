@@ -668,6 +668,11 @@ def test_every_jd_field_is_either_rewritable_or_preserved() -> None:
         # ticks and table rows. The model is never asked to reword it; a merged role
         # has none (None comes back from the grounded draft).
         "wjq_form",
+        # parser v10: legacy-form text the PARSER kept out of the JD (working
+        # conditions, signature block, form questions). A parse-level record, never
+        # content: the merge does not carry it, so a draft's is empty, and the model
+        # must never be handed it to reword back in.
+        "set_aside",
     }
 
 

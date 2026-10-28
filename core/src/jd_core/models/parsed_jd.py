@@ -124,6 +124,32 @@ class SFURelationships(BaseModel):
     _rel_null = field_validator("internal", "external", mode="before")(_null_to_empty)
 
 
+#: What a set-aside block of a legacy form WAS (parser v10).
+#: ``legacy_working_conditions`` = the old APSA form's "G. Unusual Working Conditions"
+#: (owner ruling 2026-10-27: the 2024 template has no slot for it, so it is not JD
+#: content — HR-305); ``form_approvals`` = its "J. Approvals" signature block, form
+#: scaffolding (HR-306); ``form_prompt`` = a question the form prints for whoever fills
+#: it in ("What combination of experience, training and/or formal education …?",
+#: "Decisions the incumbent is expected to make in carrying out duties", HR-307).
+SetAsideKind = Literal["legacy_working_conditions", "form_approvals", "form_prompt"]
+
+
+class SetAsideSection(BaseModel):
+    """Source text the parser read but deliberately did NOT put in the job description.
+
+    Recorded on the PARSE so a drop is never silent: a reviewer reading the source can
+    see what was set aside and under which heading. Never content — the merge builds a
+    draft from the JD's own sections and does not carry this field."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    kind: SetAsideKind
+    heading: str = Field(min_length=1, max_length=200)
+    #: The only bound: a record, not content, so it has no operative cap of its own.
+    #: MEASURED: the longest set-aside block in the archive is under 6,000 characters.
+    text: str = Field(default="", max_length=20000)
+
+
 #: Who filled in Part 1 of a CUPE form ("Part 1 is being completed by: ☐ Employee
 #: ☐ Evaluating Supervisor") — it decides how a re-evaluation is routed (CUPE 3338
 #: Art. 17.03).
@@ -284,6 +310,10 @@ class SFUJobDescription(BaseModel):
     # every JDFN JD, every parsed document and every draft written before J2 (missing
     # key -> default), so existing ``content`` JSONB deserializes unchanged.
     wjq_form: WJQForm | None = None
+    #: Legacy-form text the parser set aside rather than read as content (parser v10;
+    #: HR-305 / HR-306). Parse-level provenance only: empty for every modern document
+    #: and every draft, and then left OUT of a dump (see the serializer below).
+    set_aside: list[SetAsideSection] = Field(default_factory=list, max_length=10)
 
     @model_serializer(mode="wrap")
     def _omit_absent_wjq_form(self, handler: SerializerFunctionWrapHandler) -> Any:
@@ -296,6 +326,9 @@ class SFUJobDescription(BaseModel):
         data = handler(self)
         if isinstance(data, dict) and data.get("wjq_form") is None:
             data.pop("wjq_form", None)
+        # Parser v10: the same for `set_aside` — only a legacy-form parse carries it.
+        if isinstance(data, dict) and not data.get("set_aside"):
+            data.pop("set_aside", None)
         return data
 
     _lists_null = field_validator(

@@ -64,7 +64,7 @@ _WORD = re.compile(r"[a-z0-9]+")
 #: code constant ``segmenter._MAX_DUTY_STMT = 400``.
 _MAX_DUTY_STMT = get_rules().segmentation.duty_statement_max_chars
 #: The parser's ceiling for a decision / problem / qualification item
-#: (``segmenter._MAX_BULLET`` / ``_MAX_QUAL``).
+#: (``segmenter._MAX_BULLET`` / ``segmentation.qualification_max_chars``, HR-308).
 _MAX_LIST_ITEM = 400
 #: ``segmenter._MAX_SUPERVISORY``.
 _MAX_SUPERVISORY = 600

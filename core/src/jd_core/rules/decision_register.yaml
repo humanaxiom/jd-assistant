@@ -9568,6 +9568,170 @@ decisions:
       Must not be empty (loader-enforced). Pinned by `test_parser_v9_wrapped_headings.py`.
     status: open
 
+  # ── The old APSA form's lettered tail (owner rulings 2026-10-27): HR-300, 301, 305…308.
+  # Measured over every extracted archive file (docs/plans/PARSER-V9-LISTS-AND-CAPS.md §19).
+  - id: HR-300
+    question: >-
+      In the old (pre-2024) APSA position description, should the parser read the
+      section headed "H. Entrance Qualifications" as the job's Qualifications?
+    config:
+      file: segmentation.yaml
+      path: segmentation.legacy_qualifications_heading_pattern
+    current_default: '(?i)entrance\s+(?:qualification(?:s|ions)?|qttatjftcattons)\.?'
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Owner ruling 2026-10-27: fix it before the one full rebuild. The old form's
+      qualifications heading matched no pattern (only "MINIMUM ENTRANCE QUALIFICATIONS"
+      did), so everything after "F. Supervision Received" ran into Relationships and was
+      cut at its 600-character supervisory ceiling — on the LIVE v8 Bank 4,951 of 10,222
+      non-CUPE parses (48%) have no qualifications. MEASURED over all 14,522 extracted
+      archive files (2026-10-27): the heading in 4,666 lettered files + 87 unlettered
+      (11 with a full stop; misspellings "QUALIFICATIONIONS" 4, OCR "QTTATJFTCATTONS" 3).
+      Whole-archive before/after: 4,730 documents gain qualifications (documents with
+      any: 9,397 → 14,127), +604,599 qualification words; supervisory texts naming
+      "Entrance Qualifications" 436 → 17 (the 17 put the heading on the same line as
+      its text). The approve gates newly fire SFU-APPROVE-KSA-ORDER on documents that
+      now HAVE qualifications (plan §19).
+    impact_if_changed: >-
+      Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`;
+      changes what a parsed JD contains, so it needs a re-parse. Pinned by
+      `test_parser_v10_legacy_tail_headings.py`.
+    status: open
+
+  - id: HR-301
+    question: >-
+      In the old APSA position description, should the parser read "I. Organizational
+      Relationships" (the reporting chart) as part of the job's Relationships?
+    config:
+      file: segmentation.yaml
+      path: segmentation.legacy_relationships_heading_pattern
+    current_default: '(?i)organi[sz]ation(?:al)?\s*-?\s*relation(?:ships?|sips)\.?'
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Owner ruling 2026-10-27. The section holds the reporting chart — the form's
+      instruction ("Indicate in the appropriate blocks the title of the position to which
+      this position reports …") then the supervisor's and direct reports' titles, or
+      "See attached". "E. Supervision Exercised" and "F. Supervision Received" already
+      open Relationships; this joins them. MEASURED: 3,254 lettered files + 311
+      unlettered (ORGANISATIONAL 16 + 4; "RELATIONSIPS" 11; "ORGANIZATION
+      RELATIONSHIPS" 4; run together 4; "-RELATIONSHIPS" 3). ⚠ It lands in the
+      supervisory text, still held to its 600-character contract ceiling, which the
+      E/F form questions already spend: supervisory texts at the cut 6,793 → 5,778
+      (the qualifications no longer fill it), and 194 words the old parse kept are cut
+      by it now (plan §19).
+    impact_if_changed: >-
+      Unhashed; changes what a parsed JD contains — re-parse. Pinned by
+      `test_parser_v10_legacy_tail_headings.py`.
+    status: open
+
+  - id: HR-305
+    question: >-
+      The old APSA position description has a "G. Unusual Working Conditions" section
+      the 2024 template has no place for. Should the parser leave it out of the job
+      description and record that it did?
+    config:
+      file: segmentation.yaml
+      path: segmentation.legacy_working_conditions_heading_pattern
+    current_default: '(?i)unusu?al\s+working\s+cond(?:itions|tttons)\.?(?:\s*\(?continued\)?\.*)?'
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Owner ruling 2026-10-27: drop it from the JD — legacy-form content the 2024
+      template has no slot for — but RECORD the drop. It is kept on the parse as
+      `set_aside` (kind `legacy_working_conditions`, under its own heading), shown on the
+      source document's page ("Set aside from the source form"), and never carried into
+      a draft. Chosen over `additional_context`, which IS JD content and is exported.
+      MEASURED: 4,569 lettered files + 141 unlettered ("(CONTINUED)" 13; "UNUSAL" 3; OCR
+      "CONDTTTONS" 3). Set aside in 4,725 documents, 239,939 words, the longest 4,749
+      characters (the record is held only to its 20,000 contract ceiling). Before this,
+      that text sat in the supervisory text or was cut with it.
+    impact_if_changed: >-
+      Unhashed; changes what a parsed JD contains — re-parse. Pinned by
+      `test_parser_v10_legacy_tail_headings.py`.
+    status: open
+
+  - id: HR-306
+    question: >-
+      Should the signature block at the end of an old position description ("J.
+      Approvals": incumbent's, supervisor's and next level's signatures and dates) be
+      kept out of the job description?
+    config:
+      file: segmentation.yaml
+      path: segmentation.form_approvals_heading_pattern
+    current_default: '(?i)approvals?\.?'
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Form scaffolding, never content: signature and date lines and "SHOULD YOU REQUIRE
+      FURTHER ASSISTANCE IN COMPLETING THIS POSITION DESCRIPTION …". Without a heading it
+      became Relationships text (or, after HR-300, the tail of the qualifications). Set
+      aside like HR-305 (kind `form_approvals`). MEASURED: 2,791 lettered files + 341
+      unlettered + "APPROVAL" 19. Set aside in 3,155 documents, 85,079 words, the longest
+      3,555 characters. A lower-case "approval." that wraps out of a sentence is not
+      read as the heading (HR-298's guard).
+    impact_if_changed: >-
+      Unhashed; changes what a parsed JD contains — re-parse. Pinned by
+      `test_parser_v10_legacy_tail_headings.py`.
+    status: open
+
+  - id: HR-307
+    question: >-
+      The old position description prints questions for whoever fills it in — under its
+      qualifications heading ("What combination of experience, training and/or formal
+      education do you believe is the minimum required to perform the duties of this
+      position?") and over its Decision Making answers ("Decisions the incumbent is
+      expected to make in carrying out duties"). Should the parser keep those questions
+      out of the job description and record that it did?
+    config:
+      file: segmentation.yaml
+      path: segmentation.form_prompt_pattern
+    current_default: '(?im)what\s+combinations?\s+o[fn]\s+experience[^?]{0,200}?perform\s+the\s+duties\s+(?:of|in)\s+\w+\s+position\s*\?|what\s+are\s+the\s+minimum\s+formal\s+educational\s+qualifications[^?]{0,200}?perform\s+the\s+work\s+of\s+this\s+position\s*\?|^[ \t]*(?:\(?[ivx]{1,4}[.)][ \t]*)?decisions\s+the\s+incumbent\s+is\s+expected\s+to\s+make(?:\s+in\s+carrying\s+out(?:\s+(?:the\s+)?duties(?:\s+and\s+responsibilities(?:\s+of\s+the\s+position)?)?)?)?[ \t]*[.:]?[ \t]*$'
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Questions to the person filling in the form are not content. Once HR-300 opened
+      the qualifications, the qualifications question led 3,131 of them, and an
+      unbulleted answer fused onto it as one item cut at 400 characters (2,329 of the
+      4,957 over-long items started with it). The Decision Making question "Decisions the
+      incumbent is expected to make in carrying out duties" (27 parses, 3 more "… the
+      duties and responsibilities") reached 6 v9 deterministic drafts, which strip no
+      instruction. Removed here and recorded as `set_aside` kind `form_prompt` — 3,298
+      documents, 75,613 words. The Decision Making question is matched as a WHOLE LINE:
+      the longer "Give some typical examples of the most important decisions the
+      incumbent is expected to make …" contains it and stays the rewrite's to strip
+      (HR-275), never cut in half here.
+    impact_if_changed: >-
+      Unhashed; changes what a parsed JD contains — re-parse. Pinned by
+      `test_parser_v10_legacy_tail_headings.py`.
+    status: open
+
+  - id: HR-308
+    question: >-
+      How many characters of one qualification does the parser keep from an archive job
+      description?
+    config:
+      file: segmentation.yaml
+      path: segmentation.qualification_max_chars
+    current_default: 400
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      It was the code constant `_MAX_QUAL`, unregistered, and with HR-300 it started to
+      matter: the old form writes its requirements unbulleted, so they run together into
+      one item. MEASURED (v10 segmentation, before any cut): 84,517 items, p50 88 · p99
+      1,332 · max 3,179 characters; 4,713 over 400 in 4,644 documents. Held at 400 (the
+      `SFUQualification.text` contract, which the Builder's CUPE skill field also reads),
+      and an item over it is now SPLIT at its sentence breaks into items that fit, not
+      cut. Items left at the cut: 1,225 (a single sentence over 400); 335 words the old
+      parse kept are cut by it. Both readers (APSA and CUPE).
+    impact_if_changed: >-
+      Unhashed; changes what a parsed JD contains — re-parse. Must stay at or below
+      `SFUQualification.text`'s ceiling (loader-enforced); raising that contract would
+      also raise the Builder's CUPE skill limit.
+    status: open
+
 trivial:
   # ── The APSA export form (Track J4): HR's own wording, pinned by HR-258. ──
   - config: {file: apsa_form.yaml, path: apsa_form.banner}

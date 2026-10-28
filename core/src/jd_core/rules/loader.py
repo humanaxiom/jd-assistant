@@ -74,6 +74,7 @@ from src.jd_core.models.parsed_jd import (
     SFUDuty,
     SFUEmployeeGroup,
     SFUJobDescription,
+    SFUQualification,
     WJQForm,
 )
 from src.jd_core.models.quality import (
@@ -849,6 +850,26 @@ class Segmentation(_RuleFile):
     #: (JDFN/legacy reader only; the WJQ reader numbers its headings).
     wrapped_heading_guard: bool
     wrapped_heading_line_closers: str = Field(min_length=1)
+    #: Parser v10, owner ruling 2026-10-27 (HR-300, 301, 305 … 307). The old APSA
+    #: form's lettered tail — ``G. Unusual Working Conditions`` / ``H. Entrance
+    #: Qualifications`` / ``I. Organizational Relationships`` / ``J. Approvals`` —
+    #: matched no heading, so everything after ``F. Supervision Received`` ran into
+    #: Relationships
+    #: and was cut at 600 characters. Each is ``fullmatch``-ed against the normalised
+    #: heading line (letter prefix and trailing colon gone), JDFN/legacy reader only.
+    #: H opens Qualifications and I opens Relationships; G and J are SET ASIDE —
+    #: recorded on the parse (``SFUJobDescription.set_aside``), never JD content.
+    legacy_qualifications_heading_pattern: Regex
+    legacy_relationships_heading_pattern: Regex
+    legacy_working_conditions_heading_pattern: Regex
+    form_approvals_heading_pattern: Regex
+    #: HR-307: the form's printed question at the head of "H. Entrance Qualifications"
+    #: — searched in that section's text (whitespace, line breaks included), removed,
+    #: and recorded as a ``form_prompt`` set-aside block.
+    form_prompt_pattern: Regex
+    #: HR-308: how many characters of ONE qualification the parser keeps — the code
+    #: constant ``_MAX_QUAL`` (400, unregistered) until v10.
+    qualification_max_chars: int = Field(gt=0)
 
     @model_validator(mode="after")
     def _the_duty_caps_fit_the_model(self) -> Segmentation:
@@ -885,6 +906,12 @@ class Segmentation(_RuleFile):
                     f"bullet_max_count ({self.bullet_max_count}) exceeds "
                     f"SFUJobDescription.{field_name}'s max_length ({ceiling})"
                 )
+        qual_ceiling = _field_max_length(SFUQualification, "text")
+        if self.qualification_max_chars > qual_ceiling:
+            raise ValueError(
+                f"qualification_max_chars ({self.qualification_max_chars}) exceeds "
+                f"SFUQualification.text's max_length ({qual_ceiling})"
+            )
         return self
 
     @model_validator(mode="after")

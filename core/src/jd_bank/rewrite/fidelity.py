@@ -30,7 +30,7 @@ from typing import Final, Literal, TypeVar
 
 from src.jd_core.models.bank import StrippedSection, StrippedSourcePiece
 from src.jd_core.models.parsed_jd import SFUDuty, SFUJobDescription, SFUQualification
-from src.jd_core.parser.segmenter import _MAX_BULLET, _MAX_QUAL, _MAX_SUPERVISORY
+from src.jd_core.parser.segmenter import _MAX_BULLET, _MAX_SUPERVISORY
 from src.jd_core.rules import Comparison, Rules, get_rules
 from src.jd_core.textnorm import fold_text
 
@@ -191,7 +191,7 @@ def field_cap(field: str, rules: Rules) -> int:
         "internal": _MAX_BULLET,
         "external": _MAX_BULLET,
         "supervisory": _MAX_SUPERVISORY,
-        "qualifications": _MAX_QUAL,
+        "qualifications": seg.qualification_max_chars,
     }.get(field, 0)
 
 

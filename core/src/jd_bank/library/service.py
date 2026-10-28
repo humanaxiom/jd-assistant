@@ -183,6 +183,7 @@ async def get_source_jd(
         classification=jd.classification,
         rendered_text=render_sfu_jd_text(jd),
         role=role,
+        set_aside=tuple(jd.set_aside),
     )
 
 
