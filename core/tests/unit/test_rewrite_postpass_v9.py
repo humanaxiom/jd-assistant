@@ -780,3 +780,19 @@ def test_a_dropped_summary_sentence_keeps_the_paragraph_breaks(
     assert out == (
         "Provides front-desk service to students.\n\nMaintains the office records."
     )
+
+
+def test_a_summary_whose_every_sentence_is_dropped_comes_back_as_the_source(
+    rules: Rules,
+) -> None:
+    """HR-295: a rewritten summary made only of imported working conditions is not
+    emptied (SFU-APPROVE-MANDATORY-SECTIONS) — the source's own summary comes back.
+    Review of 155efbb: this branch had no test, and removing it stayed green."""
+    from src.jd_bank.rewrite.harmonize import _summary_conditions
+
+    source = "Provides front-desk service to students."
+    out, dropped = _summary_conditions(
+        "Works evenings and weekends. Is on call for emergencies.", source, rules
+    )
+    assert dropped == ["Works evenings and weekends.", "Is on call for emergencies."]
+    assert out == source
