@@ -246,7 +246,8 @@ make migrate
 # 2. Ingest + parse the archive (read-only mount; ~5 min)
 make ingest JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs
 #    expect "14565 files seen: 14522 newly ingested, 14522 newly parsed, 0 already done,
-#    43 failed." Then check the Bank, not the counter: 14,522 rows at jd_segmenter_v9.
+#    43 failed." Then check the Bank, not the counter: 14,522 rows at PARSER_VERSION
+#    (jd_segmenter_v10 since §18; a Bank still holding jd_segmenter_v9 rows was not wiped).
 
 # 3. Document + section vectors: a fresh index embeds everything (~52k calls at v8's
 #    14.4k documents + 37.7k sections; ~40–90 min on aria-gb10-2). Re-run = resume.
@@ -573,6 +574,110 @@ tier 1 (a defect in the stored draft) 1,109 clusters (613 CUPE, 496 JDFN,
 `v9-postpass-rerun-tier1.txt`); all 1,633 (`v9-postpass-rerun-all.txt`) adds every CUPE
 draft and the JDFN drafts whose qualification order/kinds change. At the pass's own
 rate (318,046 s / 2,446 ≈ 130 s per cluster): tier 1 ≈ 40 h, all ≈ 59 h of GPU.
+
+## 18. Wrapped heading words (owner ruling 2026-10-27 "fix it"; branch `feat/v9-parser-wrap`, `PARSER_VERSION` → `jd_segmenter_v10`)
+
+§17 finding 3, fixed in the segmenter. antiword hard-wraps a legacy `.doc` at its column
+width, so "i) Decisions the incumbent is expected to make in carrying out" / "duties" put
+the DUTIES heading's word alone on a line, and `match_heading`'s `fullmatch` opened a
+DUTIES section inside Decision Making. **Measured in-process over every extracted archive
+file** (14,565 files, 14,522 extracted; archive mounted `:ro`; no Bank touched), every
+heading match in both readers was listed with the line above it.
+
+**Classification: every all-lower-case heading match, read by eye**
+
+| reader | line | section it opened | lines | verdict |
+|---|---|---|---:|---|
+| JDFN/legacy | `duties` / `duties:` under "…make in carrying out" | DUTIES | 21 (10 + 11) | wrap |
+| JDFN/legacy | `relationships` under "…effective collegial" / "…long-term corporate" / "…nurture ongoing" | RELATIONSHIPS | 12 | wrap |
+| JDFN/legacy | `education and experience` under "…combination of" / "of" / "of equivalent" | QUALIFICATIONS | 5 | wrap |
+| WJQ | `1.  position identification` under "JOB DESCRIPTION" | identification | 2 | **real heading** (numbered) |
+| WJQ | `10.   working conditions` | working conditions | 3 | **real heading** (numbered) |
+
+That is 43 lines in 41 files (38 wraps in 36 files). The candidate rule's 45 lines in 42
+files differs by those few. The reviewer's `12. additional information` did not occur as
+a lower-case match in this extraction; it is in the must-not-demote tests anyway. Every
+wrap sits directly under a line ending in a **letter**. The mixed- and upper-case matches
+under an unpunctuated line ("Primary Working Relationships" ×55, "Minimum Entrance" /
+"Qualifications", "E. Supervision Exercised" …) were also read: all are real headings.
+
+**Rule** (`segmenter._is_wrapped_line`, JDFN/legacy reader only): a heading match is read
+as content of the section above it when it is all lower case, carries no `1.` / `c)`
+enumeration, sits directly under a non-blank line, and that line does not end in one of
+`.:;?!`. The guard is HR-298 (`wrapped_heading_guard`) and the closer set is HR-299
+(`wrapped_heading_line_closers`), both `open`. The WJQ reader is unchanged, because its
+headings are numbered.
+
+**Whole archive, before (guard off) vs after (guard on), same code** (`compare.py`):
+27 documents change, all JDFN.
+
+| field | words in | words out | net |
+|---|---:|---:|---:|
+| decision_making | 3,208 | 0 | +3,208 |
+| duties | 0 | 3,065 | −3,065 |
+| qualifications | 70 | 762 | −692 |
+| relationships | 9 | 48 | −39 |
+
+Item counts over the 27 documents: Decision Making 62 → 364, duties 646 → 355,
+qualifications 55 → 10. In 21 documents Decision Making goes from the prompt alone to its
+decisions, made and referred. The prompt now reads whole ("…carrying out duties"), and
+the referred run starts at the existing HR-282 marker "Types of decisions the incumbent
+would refer to his/her supervisor."
+
+🔴 **Words lost: NOT zero: 767 words in 7 documents.** Before/after word multisets
+per document, with a duty's `action_verb` left out of the count (it repeats the
+statement's first word):
+
+- **762 words in 4 documents:** `20050929_00097103`, `20051013_00099004`,
+  `20060315_00099045` and `20090123_00105512`. Their Qualifications were opened only BY the
+  wrap. Their real heading, `H. Entrance Qualifications`, matches no heading pattern.
+  With the wrap demoted, their qualifications fall into Relationships, where the
+  supervisory text is cut at 600 characters, exactly as in their siblings (below).
+- **3 words in `20060307_00001390`:** the unbulleted qualifications now start one line
+  earlier. They run together into one item, and the unregistered `_MAX_QUAL` 400-character
+  cut lands three words sooner. 3 words were also gained.
+- **2 docs, 1 token each** ("deve", "relations"): half-words at the 600-character
+  supervisory cut, which moved.
+
+**A bigger gap found while measuring, not fixed here.** The old APSA form's lettered tail
+headings match no heading pattern:
+
+| heading | files |
+|---|---:|
+| `H. ENTRANCE QUALIFICATIONS` | 4,654 (+11 with a full stop) |
+| `G. UNUSUAL WORKING CONDITIONS` | 4,560 |
+| `I. ORGANIZATIONAL RELATIONSHIPS` | 3,249 |
+| `J. APPROVALS` | 2,791 |
+
+The pattern list has only `MINIMUM ENTRANCE QUALIFICATIONS`. In 4,649 of 4,678 such
+documents, everything after `F. Supervision Received` falls into Relationships and is cut
+at 600 characters. Only 38 of the 4,678 have any qualifications. Of the 688,546 words
+under those headings, at most 336,996 appear anywhere in the parse. That figure is an
+overcount, because common words match elsewhere, so at least half of these documents'
+qualifications are not in the Bank. Fixing it means:
+- add the qualifications heading;
+- add stop headings for G/I/J, so working conditions and the signature block do not
+  become qualifications;
+- decide where working conditions belong.
+
+That changes about a third of the JDFN parses, so it is an owner decision. **It should be
+taken before the one full rebuild, not after.**
+
+**`PARSER_VERSION` → `jd_segmenter_v10`.** v9 never reached `main`, but the separate v9
+Bank holds 14,522 `jd_segmenter_v9` parses of the old output. Readers filter
+`parser_version = PARSER_VERSION`, and `parse_store` is idempotent per
+`(source_document_id, parser_version)`. Kept at v9, a re-ingest without the wipe would
+skip every document. The wrapped parses would stay, and the stale-parse checks
+(`test_the_document_vector_index_is_at_the_current_parser_version` and the other smoke
+`parser_version` predicates) would call them current, a silent failure. At v10 the same
+mistake fails loudly: no v10 rows, and smoke goes red. The label `jd_segmenter_v9` also
+keeps meaning one output, the one §§14–17 and `docs/canonical/v9-postpass-*` measured.
+The owner's full wipe and rebuild is unchanged.
+
+Tests: `core/tests/unit/test_parser_v9_wrapped_headings.py` (17), built from the real
+files' shapes. All 17 were red before the change. Breaking the guard's call site turns
+the 6 wrap tests red. Removing the enumeration exemption turns the 3 numbered
+must-not-demote cases red.
 
 ## 11. Containers (all removed at the end)
 

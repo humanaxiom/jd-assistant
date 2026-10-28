@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **288 decisions** (286 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 391 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **290 decisions** (288 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 393 parameters on the decision surface, all accounted for.
 
-**Of those 288, 91 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 195 are recorded for the same build check but are not yours to sign: 93 shape what a reviewer sees without deciding whether a job description passes, and 102 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 290, 91 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 197 are recorded for the same build check but are not yours to sign: 95 shape what a reviewer sees without deciding whether a job description passes, and 102 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -998,6 +998,8 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-293](#hr-293) | After the LLM rewrite, in what order should a job description's qualifications stand — the form's own (education and experience, then knowledge, skills, abilities) or the order the model wrote them in? | `form` | we chose it |
 | [HR-294](#hr-294) | When the LLM rewrites a qualification line, should it keep the kind (knowledge, skill, ability) of the source line it rewords, or may it change it? | `true` | we chose it |
 | [HR-295](#hr-295) | May the LLM rewrite add working conditions (evenings and weekends, on-call, shift work) to a Position Summary whose source summary does not mention them? | `true` | we chose it |
+| [HR-298](#hr-298) | When a sentence in an old Word (.doc) job description wraps so that its last word ("duties", "relationships", "education and experience") sits alone on a line, should the parser keep reading it as part of that sentence rather than as the start of a new section? | `true` | we chose it |
+| [HR-299](#hr-299) | Which characters at the end of a line mean the sentence has finished, so that a lower-case heading word on the next line is a real heading and not a wrapped word? | `.:;?!` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -1552,6 +1554,22 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** we chose it
 - **Why it matters:** SFU's toolkit keeps working conditions out of the Position Summary (SFU-AUTH-SUMMARY-CONDITIONS, a blocking gate). MEASURED (the v9 full pass): 35 CUPE drafts newly fail it after the rewrite, ~30 because the model moved the WJQ's working-conditions block into the summary ("…flexible hours, including evenings and weekends", "on-call or shift schedules"); the merge summaries do not say this. `true`: a rewritten summary sentence naming a condition marker (`markers.working_conditions`, HR-046, unchanged) that the SOURCE summary does not name is dropped and recorded as an ungrounded item — the HR-269 rule for this section. A summary left empty comes back as the source's. ⚠ The markers also match nouns ("Parking Services Office", "student housing"); those false positives are HR-046's question and are not changed here — this rule can drop such a sentence when the source summary does not name it. REPLAYED (as HR-293): a summary sentence is dropped in 61 drafts; the gate blocks 49 → 13 CUPE and 50 → 30 JDFN drafts (the rest are conditions the SOURCE summary states, or noun matches it also states). Of the 64 sentences dropped, 44 name a condition ("evenings and weekends" 20, "on call"/"on-call" 5 plus 16 that match only through the gate's text fold, shift work 2, holidays 1) and 20 match a noun ("housing" 8, "parking" 6, "relocation" 6) — summary text the gate would block anyway, lost from the summary (not checked here whether a duty states it too).
 - **If it changes:** Does NOT move `rules_version`. `false` lets the rewrite import conditions into the summary again. Pinned by `test_rewrite_postpass_v9.py`.
+
+##### HR-298 — When a sentence in an old Word (.doc) job description wraps so that its last word ("duties", "relationships", "education and experience") sits alone on a line, should the parser keep reading it as part of that sentence rather than as the start of a new section?
+
+- **We ship:** `true`
+- **Configured in:** `segmentation.yaml` → `segmentation.wrapped_heading_guard`
+- **Where the default came from:** we chose it
+- **Why it matters:** The parser finds sections by matching a whole line against the heading names, and antiword (the .doc reader) breaks lines at a fixed width. In the old APSA form the Decision Making prompt "Decisions the incumbent is expected to make in carrying out" wraps onto "duties", which opened a DUTIES section: every decision under it, made and referred, was read as a duty, and Decision Making kept the prompt alone. MEASURED over all 14,522 extracted archive files (2026-10-27): 38 heading matches in the APSA/APEX/POLY/legacy reader are all lower case, all 38 read by eye as wraps, in 36 files — 21 the Decision Making prompt, 12 "relationships" and 5 "education and experience" halfway through a qualification (each moved the rest of the qualifications into Relationships or a second Qualifications). None of that reader's real headings is lower case. Parsed before/after over the whole archive: 27 documents change; in 21, Decision Making goes from the prompt alone to its decisions (62 → 364 items, 3,208 words in from Duties). ⚠ In 4 documents the wrapped "education and experience" was the ONLY thing opening their Qualifications (their real heading, "H. Entrance Qualifications", matches no pattern — as in 4,666 other legacy documents), so those 4 now lose 762 qualification words to the Relationships section's 600-character cut, like their siblings. `true` demotes a heading match that is all lower case, carries no "1." / "c)" numbering, and sits directly (no blank line) under a line that does not end in a closer (HR-299). Numbered lower-case headings ("1. position identification", "12. additional information") and every upper/mixed-case heading are never demoted. The CUPE questionnaire reader is not affected (its headings are numbered).
+- **If it changes:** Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`; changes what a parsed JD contains, so it needs a re-parse. `false` restores the wrapped headings. Pinned by `test_parser_v9_wrapped_headings.py`.
+
+##### HR-299 — Which characters at the end of a line mean the sentence has finished, so that a lower-case heading word on the next line is a real heading and not a wrapped word?
+
+- **We ship:** `.:;?!`
+- **Configured in:** `segmentation.yaml` → `segmentation.wrapped_heading_line_closers`
+- **Where the default came from:** we chose it
+- **Why it matters:** The second half of HR-298's test. MEASURED (2026-10-27): every one of the 38 archive wraps sits under a line ending in a letter ("carrying out", "collegial", "combination of"), so any closer set that excludes letters separates them; this set is the sentence- and label-ending marks. A closer here can only KEEP a heading — a wider set demotes less. ")" and "]" are left out on purpose: no wrap in the archive follows one, and a line ending "(print and electronic)" is not a finished sentence.
+- **If it changes:** Unhashed (segmentation.yaml); changes what a parsed JD contains — re-parse. Must not be empty (loader-enforced). Pinned by `test_parser_v9_wrapped_headings.py`.
 
 #### An earlier version of this tool chose it — also unratified
 

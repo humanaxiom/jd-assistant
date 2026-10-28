@@ -293,3 +293,17 @@ duty_how_why_max_chars: 1200
 # a union over its members that the merge cuts at that ceiling, and its export must
 # re-read whole (the v9 Bank smoke found 50-item drafts re-reading as 40).
 bullet_max_count: 60
+
+# --- A wrapped content line is not a heading (parser v10, HR-298 / HR-299) ------------
+# antiword hard-wraps legacy .doc files, so "… make in carrying out / duties" puts the
+# word "duties" alone on a line, and it fullmatched the DUTIES heading. MEASURED over all
+# 14,522 extracted archive files (2026-10-27): 38 heading matches in the JDFN/legacy
+# reader are all lower case — all 38 wraps, every one directly under a line ending in a
+# letter (21 the Decision Making prompt; 12 "relationships", 5 "education and
+# experience" mid-qualification), in 36 files. No real heading in that reader is lower
+# case. Whole-archive before/after: 27 documents change (plan §18). The
+# guard demotes only: all lower case + no "1." / "c)" enumeration + no blank line above
+# + the line above does not end in a closer below. Changing either changes what a
+# parsed JD contains: bump PARSER_VERSION and re-parse.
+wrapped_heading_guard: true
+wrapped_heading_line_closers: ".:;?!"

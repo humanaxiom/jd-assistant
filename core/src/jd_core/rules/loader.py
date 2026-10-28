@@ -840,6 +840,15 @@ class Segmentation(_RuleFile):
     #: Parser v9 review (HR-268): how many Decision Making / Problem Solving items the
     #: parser keeps per section — the code constant 20 (``_MAX_BULLETS``) until v9.
     bullet_max_count: int = Field(gt=0)
+    #: Parser v10 wrap guard (HR-298, HR-299). antiword hard-wraps a legacy ``.doc``, so
+    #: a sentence's last word can sit alone on a line — and "duties" / "relationships"
+    #: / "education and experience" alone on a line ``fullmatch`` a heading. When the
+    #: guard is on, a heading match that is ALL LOWER CASE, carries no ``1.`` / ``c)``
+    #: enumeration, and directly follows (no blank line) a line that does not end in
+    #: one of ``wrapped_heading_line_closers`` is read as content of the section above
+    #: (JDFN/legacy reader only; the WJQ reader numbers its headings).
+    wrapped_heading_guard: bool
+    wrapped_heading_line_closers: str = Field(min_length=1)
 
     @model_validator(mode="after")
     def _the_duty_caps_fit_the_model(self) -> Segmentation:

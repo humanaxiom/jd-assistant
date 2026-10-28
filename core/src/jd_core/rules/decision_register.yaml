@@ -9502,6 +9502,72 @@ decisions:
       summary again. Pinned by `test_rewrite_postpass_v9.py`.
     status: open
 
+  # ── Wrapped heading words (the v9 full pass, 2026-10-27): HR-298 / HR-299. ──
+  # Measured over every extracted archive file (docs/plans/PARSER-V9-LISTS-AND-CAPS.md §18).
+  - id: HR-298
+    question: >-
+      When a sentence in an old Word (.doc) job description wraps so that its last word
+      ("duties", "relationships", "education and experience") sits alone on a line,
+      should the parser keep reading it as part of that sentence rather than as the start
+      of a new section?
+    config:
+      file: segmentation.yaml
+      path: segmentation.wrapped_heading_guard
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The parser finds sections by matching a whole line against the heading names, and
+      antiword (the .doc reader) breaks lines at a fixed width. In the old APSA form the
+      Decision Making prompt "Decisions the incumbent is expected to make in carrying
+      out" wraps onto "duties", which opened a DUTIES section: every decision under it,
+      made and referred, was read as a duty, and Decision Making kept the prompt alone.
+      MEASURED over all 14,522 extracted archive files (2026-10-27): 38 heading matches
+      in the APSA/APEX/POLY/legacy reader are all lower case, all 38 read by eye as
+      wraps, in 36 files — 21 the Decision Making prompt, 12 "relationships" and 5
+      "education and experience" halfway through a qualification (each moved the rest
+      of the qualifications into Relationships or a second Qualifications). None of
+      that reader's real headings is lower case. Parsed before/after over the whole
+      archive: 27 documents change; in 21, Decision Making goes from the prompt alone to
+      its decisions (62 → 364 items, 3,208 words in from Duties). ⚠ In 4 documents the
+      wrapped "education and experience" was the ONLY thing opening their Qualifications
+      (their real heading, "H. Entrance Qualifications", matches no pattern — as in
+      4,666 other legacy documents), so those 4 now lose 762 qualification words to the
+      Relationships section's 600-character cut, like their siblings. `true` demotes a heading match that is
+      all lower case, carries no "1." / "c)" numbering, and sits directly (no blank
+      line) under a line that does not end in a closer (HR-299). Numbered lower-case
+      headings ("1. position identification", "12. additional information") and every
+      upper/mixed-case heading are never demoted. The CUPE questionnaire reader is not
+      affected (its headings are numbered).
+    impact_if_changed: >-
+      Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`;
+      changes what a parsed JD contains, so it needs a re-parse. `false` restores the
+      wrapped headings. Pinned by `test_parser_v9_wrapped_headings.py`.
+    status: open
+
+  - id: HR-299
+    question: >-
+      Which characters at the end of a line mean the sentence has finished, so that a
+      lower-case heading word on the next line is a real heading and not a wrapped word?
+    config:
+      file: segmentation.yaml
+      path: segmentation.wrapped_heading_line_closers
+    current_default: ".:;?!"
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The second half of HR-298's test. MEASURED (2026-10-27): every one of the 38
+      archive wraps sits under a line ending in a letter ("carrying out", "collegial",
+      "combination of"), so any closer set that excludes letters separates them; this set
+      is the sentence- and label-ending marks. A closer here can only KEEP a heading — a
+      wider set demotes less. ")" and "]" are left out on purpose: no wrap in the
+      archive follows one, and a line ending "(print and electronic)" is not a finished
+      sentence.
+    impact_if_changed: >-
+      Unhashed (segmentation.yaml); changes what a parsed JD contains — re-parse.
+      Must not be empty (loader-enforced). Pinned by `test_parser_v9_wrapped_headings.py`.
+    status: open
+
 trivial:
   # ── The APSA export form (Track J4): HR's own wording, pinned by HR-258. ──
   - config: {file: apsa_form.yaml, path: apsa_form.banner}

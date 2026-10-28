@@ -106,7 +106,16 @@ if TYPE_CHECKING:  # the rules package imports the models; keep this module cycl
 #: and the 12-duty cap (both templates) move to `segmentation.yaml` (HR-261 … HR-263).
 #: Measured v8 -> v9 on a copy of the live Bank:
 #: `docs/plans/PARSER-V9-LISTS-AND-CAPS.md`.
-PARSER_VERSION = "jd_segmenter_v9"
+#: v10 = a wrapped content line is not a heading (HR-298 / HR-299). antiword hard-wraps
+#: legacy `.doc` files, and "… expected to make in carrying out" / "duties" opened a
+#: DUTIES section inside Decision Making: every decision, made and referred, became a
+#: duty. MEASURED over all 14,522 extracted files: 38 lower-case heading matches, all
+#: wraps; 27 documents change, 23 of them Decision Making. Bumped although v9 never
+#: shipped to `main`: the separate v9 Bank already holds `jd_segmenter_v9` parses of the
+#: OLD output, and `parsed_jds` is idempotent per `(source_document_id, parser_version)`
+#: — kept at v9, a re-ingest that skipped the wipe would keep the wrapped parses and
+#: every reader and smoke check would call them current. Plan §18.
+PARSER_VERSION = "jd_segmenter_v10"
 
 #: Which SFU document template ``parse_jd`` read: the APSA/APEX/POLY "JDFN" form (the
 #: original segmenter), the CUPE/WJQ questionnaire, or neither recognisably.
@@ -604,15 +613,41 @@ def _detect_era(collapsed: str, lettered_headings: int) -> Era:
     return "old" if old >= new else "new"
 
 
-def _segment(lines: list[str]) -> tuple[dict[SectionKey, str], set[int]]:
+#: A line that carries a letter or number enumeration (``1.`` / ``c)``) — a form's own
+#: heading numbering, never a word that wrapped onto a line by itself.
+_ENUMERATED_RE = re.compile(r"^\s*(?:[A-Za-z]|\d{1,2})[.)]\s+")
+
+
+def _is_wrapped_line(lines: list[str], i: int, seg: Segmentation) -> bool:
+    """True if heading-matched line ``i`` is the tail of the sentence above it.
+
+    antiword hard-wraps a legacy ``.doc``: "Decisions the incumbent is expected to make
+    in carrying out" / "duties" put the DUTIES heading's word alone on a line (HR-298).
+    A wrap is all lower case, unenumerated, directly under a non-blank line, and that
+    line ends in none of ``wrapped_heading_line_closers`` (HR-299). Every other heading
+    — upper or mixed case, numbered, after a blank or a closed line — is untouched."""
+    if not seg.wrapped_heading_guard or i == 0:
+        return False
+    line = lines[i]
+    letters = re.sub(r"[^A-Za-z]", "", line)
+    if not letters or letters != letters.lower() or _ENUMERATED_RE.match(line):
+        return False
+    prev = lines[i - 1].strip()
+    return bool(prev) and prev[-1] not in seg.wrapped_heading_line_closers
+
+
+def _segment(
+    lines: list[str], seg: Segmentation
+) -> tuple[dict[SectionKey, str], set[int]]:
     """Return ``{section: content}`` and the set of line indices that were
     headings. Content between a heading and the next is assigned to it;
-    duplicate sections concatenate."""
+    duplicate sections concatenate. A wrapped content line that happens to spell a
+    heading (:func:`_is_wrapped_line`) stays content."""
     hits: list[tuple[int, SectionKey]] = []
     heading_lines: set[int] = set()
     for i, line in enumerate(lines):
         matched = hd.match_heading(line)
-        if matched is not None:
+        if matched is not None and not _is_wrapped_line(lines, i, seg):
             hits.append((i, matched[0]))
             heading_lines.add(i)
     sections: dict[SectionKey, str] = {}
@@ -656,7 +691,7 @@ def parse_jd(text: str) -> ParseResult:
 
     lettered = sum(1 for ln in lines if hd.is_lettered_heading(ln))
     era = _detect_era(collapsed, lettered)
-    sections, heading_lines = _segment(lines)
+    sections, heading_lines = _segment(lines, get_rules().segmentation)
     found: set[SectionKey] = set(sections)
 
     # Identification — labels take priority; fall back to the first plain line.
