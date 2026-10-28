@@ -31,6 +31,7 @@ from src.jd_bank.jd_text import outline_jd
 from src.jd_bank.llm.client import ChatClient
 from src.jd_bank.llm.prompts import load_prompt
 from src.jd_bank.rewrite.fidelity import (
+    before_cut,
     carries_placeholder,
     content_tokens,
     cut_off_tail,
@@ -54,10 +55,11 @@ from src.jd_core.models.parsed_jd import (
     SFUQualification,
     SFURelationships,
 )
-from src.jd_core.models.quality import DEFAULT_TEMPLATE
+from src.jd_core.models.quality import DEFAULT_TEMPLATE, WJQ_TEMPLATE
 from src.jd_core.quality.scoring import score_issues
 from src.jd_core.quality.validators import evaluate_jd_rules, template_of
 from src.jd_core.rules import Comparison, Rewrite, Rules, get_rules
+from src.jd_core.textnorm import fold_text
 
 #: The ONLY fields the rewrite may change. Everything else on the draft is restored from
 #: the grounded 4.1 merge, which derived it from the source JDs.
@@ -394,7 +396,7 @@ class _ItemLog:
             if missing:
                 # Recorded at the granularity it is restored at, so "lost and not put
                 # back" (the review page's list) never names text that IS in the draft.
-                text = item if tail is None else item[: item.rfind(tail)].rstrip()
+                text = before_cut(item, tail)
                 if text and text not in back:
                     back.append(text)
             if tail is not None and not _covers(
@@ -652,6 +654,194 @@ class _DutyCoverage:
             self._restored.append((tokens, content_tokens(sentence, self._comparison)))
 
 
+def _source_kind(
+    text: str, sources: Sequence[SFUQualification], comparison: Comparison
+) -> str | None:
+    """The kind of the SOURCE qualification ``text`` rewords (HR-294): the one holding
+    the largest share of its words (ties to the first). ``None`` with no overlap.
+
+    🔴 MEASURED (the v9 full pass): the merge's CUPE lines are `skill` and `ability`
+    only — the WJQ parser never writes `knowledge` — yet 568 of the 612 rewritten CUPE
+    drafts failing K→S→A carry a `knowledge` line, and "Ability to use word-processing…"
+    came back `skill` in one place and `ability` two lines later."""
+    tokens = _content_tokens(text, comparison)
+    best, kind = 0.0, None
+    for src in sources:
+        if (
+            tokens
+            and (
+                share := len(tokens & _content_tokens(src.text, comparison))
+                / len(tokens)
+            )
+            > best
+        ):
+            best, kind = share, src.kind
+    return kind
+
+
+def _form_order(
+    competencies: Sequence[SFUQualification],
+    bars: Sequence[SFUQualification],
+    source: Sequence[SFUQualification],
+    rules: Rules,
+) -> list[SFUQualification]:
+    """Qualifications in the FORM's order (HR-293): the bars (education, experience, …)
+    where the merge has them — those it lists before its first competency first, the
+    rest after — and the competencies stably sorted by the rulebook's K→S→A rank
+    (``qualifications.ksa_rank``, HR-052).
+
+    🔴 MEASURED (the v9 full pass): every CUPE merge draft passes SFU-GATE-KSA-ORDER and
+    612 of 636 rewritten ones fail it. The reassembly kept the MODEL's order, appended
+    restored lines, then the bars — so a blocking gate failed on an order nobody chose.
+    """
+    rank = rules.qualifications.ksa_rank
+    last = max(rank.values(), default=0) + 1
+    authorable = {q.kind for q in competencies} | set(rank)
+    first = next((i for i, q in enumerate(source) if q.kind in authorable), len(source))
+    lead_texts = {q.text for q in source[:first]}
+    lead = [q for q in bars if q.text in lead_texts]
+    trail = [q for q in bars if q.text not in lead_texts]
+    ordered = sorted(competencies, key=lambda q: rank.get(q.kind, last))
+    return [*lead, *ordered, *trail]
+
+
+def _summary_conditions(
+    summary: str | None, source_summary: str | None, rules: Rules
+) -> tuple[str | None, list[str]]:
+    """The rewritten Position Summary minus every sentence naming a WORKING CONDITION
+    (``markers.working_conditions``, the SFU-AUTH-SUMMARY-CONDITIONS markers, HR-046)
+    that the source summary does not name itself (HR-295 — the HR-269 rule for this
+    section). Returns ``(summary, dropped)``; a summary left empty comes back as the
+    source's own.
+
+    🔴 MEASURED (the v9 full pass): 35 CUPE drafts newly fail the blocking summary gate
+    after the rewrite, ~30 of them because the model moved the WJQ's working-conditions
+    block into the summary ("…flexible hours, including evenings and weekends",
+    "on-call or shift schedules"). The markers are matched exactly as the gate matches
+    them (folded, case-insensitive substring) and are not changed here."""
+    if not summary:
+        return summary, []
+
+    def folded(text: str) -> str:
+        return fold_text(
+            text,
+            join_paragraphs=rules.textnorm.collapse_across_paragraph_break,
+            casefold=True,
+        ).folded
+
+    src = folded(source_summary or "")
+    foreign = [m for m in rules.markers.working_conditions if m.casefold() not in src]
+    parts = sentences(summary, rules.rewrite.sentence_abbreviations)
+    dropped = [p for p in parts if any(m.casefold() in folded(p) for m in foreign)]
+    if not dropped:
+        return summary, []
+    kept = [p for p in parts if p not in dropped]
+    return (" ".join(kept) if kept else source_summary), dropped
+
+
+def form_duty_limit(draft: SFUJobDescription, rules: Rules) -> int:
+    """How many duties ``draft``'s FORM holds (HR-290): the form's own ``duties_max``
+    and, on the CUPE form, the major-function limit the Builder holds an author to and
+    the WJQ parser reads back (``cupe_form.function_limits``, HR-246) — the smaller."""
+    template = template_of(draft)
+    limit = rules.thresholds_for(template).duties_max
+    if template == WJQ_TEMPLATE:
+        limit = min(limit, rules.cupe_form.function_limits["major_functions"])
+    return limit
+
+
+def _duty_sentence(duty: SFUDuty) -> str:
+    """A duty's headline as one sentence: its action verb in front of its statement,
+    unless the statement already starts with it."""
+    verb, statement = duty.action_verb.strip(), duty.statement.strip()
+    if verb and not statement.lower().startswith(verb.lower()):
+        return f"{verb} {statement}"
+    return statement
+
+
+def _fit_the_form(
+    duties: Sequence[SFUDuty], limit: int, clause_cap: int, comparison: Comparison
+) -> tuple[list[SFUDuty], list[tuple[str, str]], list[str]]:
+    """Bring the MODEL's duties within the form (HR-290): at most ``limit`` duties and
+    ``clause_cap`` how/why clauses each. Returns ``(duties, merged, over)``.
+
+    🔴 MEASURED (the v9 full pass): the prompt states the form's number and one CUPE
+    rewrite still came back with 13 major functions, which the Builder then refused to
+    clone ("the form takes at most 12", HR-246). Nothing held the reply to the form.
+
+    MERGE, NEVER DROP: while there are too many, the two most similar duties (token
+    Jaccard of their whole text; ties to the earliest pair) become one — the later one's
+    headline and clauses are appended as clauses of the earlier, which keeps its own
+    frequency or takes the later one's. ``merged`` pairs each absorbed headline with the
+    statement it went under. A pair whose merge fits the clause cap is preferred; a
+    clause no duty has room for is returned in ``over`` (listed for the reviewer), and
+    fold-back still puts back any source sentence the result no longer covers."""
+    out = list(duties)
+    over: list[str] = []
+    for i, duty in enumerate(out):
+        if len(duty.how_why) > clause_cap:
+            over.extend(duty.how_why[clause_cap:])
+            out[i] = duty.model_copy(update={"how_why": duty.how_why[:clause_cap]})
+    merged: list[tuple[str, str]] = []
+    while len(out) > limit:
+        tokens = [_content_tokens(duty_text(d), comparison) for d in out]
+        _, _, i, j = min(
+            (
+                len(out[i].how_why) + 1 + len(out[j].how_why) > clause_cap,
+                -_jaccard(tokens[i], tokens[j]),
+                i,
+                j,
+            )
+            for i in range(len(out))
+            for j in range(i + 1, len(out))
+        )
+        keep, absorbed = out[i], out.pop(j)
+        clauses = [_duty_sentence(absorbed), *absorbed.how_why]
+        room = max(clause_cap - len(keep.how_why), 0)
+        over.extend(clauses[room:])
+        out[i] = keep.model_copy(
+            update={
+                "how_why": [*keep.how_why, *clauses[:room]],
+                "frequency": keep.frequency or absorbed.frequency,
+            }
+        )
+        merged.append((absorbed.statement, keep.statement))
+    return out, merged, over
+
+
+def _frequency_by_coverage(
+    duty: SFUDuty, source_duties: Sequence[SFUDuty], rules: Rules
+) -> str | None:
+    """The frequency a FLAGGED rewritten duty carries (HR-292): that of the source
+    duties it covers by itself — at least ``flagged_duty_frequency_min_coverage`` of
+    each one's sentences, by the fold-back's own coverage test — when they all state
+    the same one. ``None`` otherwise, or when the knob is 0.
+
+    🔴 MEASURED (the v9 full pass, each CUPE draft against its OWN merge): 4,339
+    frequencies where the merges carried 4,596, all of the loss on flagged duties — a
+    flagged duty had no source duty to carry one from. "Assign and supervise temporary
+    staff, checking their work and providing guidance and training" is flagged against
+    "Assigns and checks the work of temporary staff" (the model's extra words sink the
+    Jaccard) and covers every sentence of it."""
+    share = rules.rewrite.flagged_duty_frequency_min_coverage
+    if share <= 0:
+        return None
+    covered = _DutyCoverage([duty], rules)
+    abbreviations = rules.rewrite.sentence_abbreviations
+    found: set[str | None] = set()
+    for src in source_duties:
+        parts = [
+            s
+            for text in (src.statement, *src.how_why)
+            for s in sentences(text, abbreviations)
+        ]
+        if parts and sum(1 for s in parts if covered(s)) / len(parts) >= share:
+            found.add(src.frequency)
+    if len(found) == 1:
+        return next(iter(found))
+    return None
+
+
 def _fold_back(
     duties: list[SFUDuty],
     source_duties: Sequence[SFUDuty],
@@ -776,11 +966,7 @@ def _fold_back(
         statement, statement_tail = cut_off_tail(
             src.statement, field_cap("statement", rules), rules
         )
-        head_text = (
-            src.statement
-            if statement_tail is None
-            else src.statement[: src.statement.rfind(statement_tail)].rstrip()
-        )
+        head_text = before_cut(src.statement, statement_tail)
         if (
             not head_text
             or carries_placeholder(head_text, rules)
@@ -860,7 +1046,18 @@ def _apply_anti_fabrication(
     kept: list[SFUQualification] = []
     scrubbed: list[str] = []
     restored_bars: list[str] = []
+    relabelled: list[tuple[str, str, str]] = []
+    source_competencies = [q for q in source.qualifications if q.kind in authorable]
     for qual in llm_jd.qualifications:
+        if (
+            rewrite.qualification_kind_from_source
+            and qual.kind in authorable
+            and (kind := _source_kind(qual.text, source_competencies, comparison))
+            and kind != qual.kind
+        ):
+            # HR-294: the kind is the SOURCE's — the line it rewords says what it is.
+            relabelled.append((qual.text, qual.kind, kind))
+            qual = qual.model_copy(update={"kind": kind})
         if qual.kind not in authorable:
             # Recorded only when the model's bar DIFFERS from the merge's. A model that
             # echoed the bar back unchanged had nothing overwritten, and a record that
@@ -895,9 +1092,7 @@ def _apply_anti_fabrication(
     back: list[SFUQualification] = []
     for qual in lost_quals:
         whole, tail = cut_off_tail(qual.text, field_cap("qualifications", rules), rules)
-        text = (
-            qual.text if tail is None else qual.text[: qual.text.rfind(tail)].rstrip()
-        )
+        text = before_cut(qual.text, tail)
         if text and whole and log.restorable([text]):
             back.append(
                 qual if text == qual.text else qual.model_copy(update={"text": text})
@@ -909,7 +1104,10 @@ def _apply_anti_fabrication(
         if len(kept) + len(bars) > _ceiling("qualifications"):
             kept = [q for q in source.qualifications if q.kind in authorable]
         log.restored.extend(("qualifications", q.text) for q in back)
-    kept.extend(bars)
+    if rewrite.qualification_order == "form":
+        kept = _form_order(kept, bars, source.qualifications, rules)
+    else:
+        kept.extend(bars)
 
     # Duties, reconciled against the source view in BOTH directions.
     source_duties = source.duties
@@ -968,6 +1166,14 @@ def _apply_anti_fabrication(
             # faithful ones of a flagged duty stay — and an ungrounded one still never
             # does.
             flagged.append(duty.statement)
+            if duty.frequency is None and (
+                frequency := _frequency_by_coverage(
+                    duty.model_copy(update={"how_why": kept_clauses}),
+                    source_duties,
+                    rules,
+                )
+            ):
+                restored["frequency"] = frequency
         else:
             # Review round 1: HR-272/278 read the STATEMENT too — "…program under
             # FIPPA" matched its source duty at a high Jaccard and nothing objected.
@@ -1004,15 +1210,26 @@ def _apply_anti_fabrication(
         for duty, tokens in zip(source_duties, draft_duty_tokens, strict=True)
         if _closest(tokens, llm_duty_tokens)[1] < rewrite.duty_flag_threshold
     ]
+    # Within the FORM before anything is folded back (HR-290): the model's reply is
+    # merged down to the form's duty limit and clause cap, so fold-back judges coverage
+    # against the duties the draft will actually carry — and never itself adds a duty
+    # past the limit.
+    duty_limit = form_duty_limit(merged.draft, rules)
+    clause_cap = min(
+        _ceiling("how_why", SFUDuty), rules.segmentation.duty_how_why_max_count
+    )
+    merged_duties: list[tuple[str, str]] = []
+    over_limit: list[str] = []
+    if rewrite.duties_over_form_limit == "merge":
+        duties, merged_duties, over_limit = _fit_the_form(
+            duties, duty_limit, clause_cap, comparison
+        )
     # …and what it LOST (HR-271): every source duty sentence no rewritten duty covers is
     # folded back or listed. This replaces the per-duty "restore the source's clauses"
     # rules of v9 review rounds 1–2, which asked the same question of the ONE matched
     # source duty and so misfired as soon as the model merged duties.
     duties, folded, dropped, origins = _fold_back(
-        duties,
-        source_duties,
-        rules,
-        duties_max=rules.thresholds_for(template_of(merged.draft)).duties_max,
+        duties, source_duties, rules, duties_max=duty_limit
     )
     if not duties and source_duties and rewrite.duty_coverage_policy == "fold_back":
         # Nothing to fold into: the model returned no duties at all for a draft that
@@ -1068,6 +1285,14 @@ def _apply_anti_fabrication(
                 section_values[section] = grounded
                 restored_sections.append(section)
 
+    if rewrite.summary_conditions_must_be_grounded:
+        summary, foreign = _summary_conditions(
+            llm_jd.position_summary, source.position_summary, rules
+        )
+        if foreign:
+            section_values["position_summary"] = summary
+            log.scrubbed.extend(("position_summary", s) for s in foreign)
+
     scrubbed_jd = llm_jd.model_copy(
         update={"qualifications": kept, "duties": duties, **section_values}
     )
@@ -1084,6 +1309,9 @@ def _apply_anti_fabrication(
         folded_duty_content=tuple(folded),
         folded_duty_origins=tuple(origins),
         dropped_duty_content=tuple(dropped),
+        merged_duties=tuple(merged_duties),
+        over_form_limit=tuple(over_limit),
+        relabelled_qualifications=tuple(relabelled),
         scrubbed_items=tuple(log.scrubbed),
         uncovered_items=tuple(log.uncovered),
         restored_items=tuple(log.restored),

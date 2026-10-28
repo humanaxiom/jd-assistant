@@ -8698,6 +8698,20 @@ decisions:
       - Give some examples of the types of decisions the incumbent would refer to her/his supervisor.
       - Give some examples of the types of decisions the incumbent would refer to his or her supervisor.
       - Give some examples of the types of decisions the incumbent would refer to the supervisor.
+      - Give some typical examples of the types of decisions the incumbent would refer to his/her supervisor.
+      - Give some typical examples of the most important decisions the incumbent would refer to his/her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to this/her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to his I her supervisor.
+      - Examples of the types of decisions the incumbent would refer to his/her supervisor.
+      - Examples of the types of decisions the incumbent would refer to her/his supervisor.
+      - Examples of decisions the incumbent would refer to his/her supervisor.
+      - Examples of the types of decisions referred to the supervisor.
+      - Examples of decisions the incumbent is expected to refer.
+      - Examples of decisions referred to supervisor.
+      - Types of decisions the incumbent would refer to his/her supervisor.
+      - Decisions the incumbent would refer to the Associate Director, Clinical Services.
+      - Decisions the incumbent would refer to the Director.
+      - Decisions the incumbent would refer to his/her supervisor.
       - Briefly describe the primary function and purpose of the position in one or two sentences.
       - Explain the nature of guidance received and how often work is checked or reviewed.
       - Describe the extent to which the supervisor determines the day to day work load of the position and assists in the completion of duties.
@@ -8724,6 +8738,9 @@ decisions:
       carries them: removing them at the PARSER is the real fix, and it moves
       `PARSER_VERSION` and changes the placeholder gate (HR-047 reads "action verb" /
       "how and why", which the duty instruction contains). That is a separate decision.
+      2026-10-27 (the v9 full pass): twelve more wordings of the refer question — its
+      other editions and typos — are listed, each also a referral marker (HR-282, which
+      gives the archive counts).
     impact_if_changed: >-
       Does NOT move `rules_version`. Adding an instruction removes it from the rewrite's
       input. Pinned by `test_rewrite_fidelity.py`.
@@ -8988,6 +9005,20 @@ decisions:
       - Give some examples of the types of decisions the incumbent would refer to her/his supervisor.
       - Give some examples of the types of decisions the incumbent would refer to his or her supervisor.
       - Give some examples of the types of decisions the incumbent would refer to the supervisor.
+      - Give some typical examples of the types of decisions the incumbent would refer to his/her supervisor.
+      - Give some typical examples of the most important decisions the incumbent would refer to his/her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to this/her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to his I her supervisor.
+      - Examples of the types of decisions the incumbent would refer to his/her supervisor.
+      - Examples of the types of decisions the incumbent would refer to her/his supervisor.
+      - Examples of decisions the incumbent would refer to his/her supervisor.
+      - Examples of the types of decisions referred to the supervisor.
+      - Examples of decisions the incumbent is expected to refer.
+      - Examples of decisions referred to supervisor.
+      - Types of decisions the incumbent would refer to his/her supervisor.
+      - Decisions the incumbent would refer to the Associate Director, Clinical Services.
+      - Decisions the incumbent would refer to the Director.
+      - Decisions the incumbent would refer to his/her supervisor.
       - Refers decisions regarding
     provenance: our_invention
     tier: hr_informed
@@ -9013,6 +9044,22 @@ decisions:
       a lead-in ("Refers decisions regarding:") — "Refers decisions regarding X to the
       Director." is a complete referral and labels nothing after it (it had labelled
       47 made decisions in the archive, "Makes decisions regarding…" among them).
+      2026-10-27 (the v9 full pass): fourteen more wordings of the refer question — the
+      questionnaire's other editions and typos ("Examples of the types of decisions the
+      incumbent would refer to his/her supervisor", "…to this/her supervisor", "Decisions
+      the incumbent would refer to his/her supervisor:", …) — are markers and prompts
+      (HR-275). On 82e5c2d0 the missed wording let "Staff terminations" read as a
+      decision the incumbent makes. MEASURED over the 14,522 v9 parses: 154 documents'
+      Decision Making labelling changes, 457 more decisions labelled referred, in the
+      merge drafts of 34 clusters (read by eye, 12 sampled clusters: every new label is
+      on a referral answer — "Budget requests", "Space allocations", "Requests for
+      unbudgeted funds"; one, 1255208a, labels an item the parser had already fused
+      with the next prompt). A prompt followed only by another marker ("…supervisor Refers
+      decisions regarding") or by one lower-case word ("…supervisor are") adds no item.
+      Still unlabelled (≤ 6 documents each): typos "referto", "his/lier", "supen'is";
+      lead-ins naming the title ("The Project Manager, Advanced Research Computing
+      would refer decisions involving", "The Systems & Web Developer would refer their
+      supervisor for").
     impact_if_changed: >-
       Does NOT move `rules_version` (harmonization.yaml is unhashed), but changes the
       merge draft — the deterministic draft too — of every cluster whose members carry a
@@ -9187,6 +9234,11 @@ decisions:
       MEASURED (round-2 replay, 23 replies): restored items that were a lead-in, cut-off
       or continuation line 32 -> 0; 18 duty pieces newly listed instead of folded, each a
       headline ending "by" / "such as" or a table cut-off. Review of c873b13: an item
+      2026-10-27 (the v9 full pass, 82e5c2d0): an item the parser cut that is a ";"
+      LIST loses only its last entry — "Makes annual budget recommendations…; …; hires
+      continuing and temporary staff, t" returns its five whole decisions and lists the
+      cut one, where the whole list used to be listed and none restored (43 rewritten
+      drafts carry such a list-and-not-restored item). Review of c873b13: an item
       ending ";" is NOT a fragment — ";" ends a list item ("Hiring of staff;",
       "Signing authority up to $5,000;") far more often than it wraps one.
     impact_if_changed: >-
@@ -9254,6 +9306,200 @@ decisions:
       earlier (referred decisions read as made); narrower runs longer (a made decision
       after an unrecognised lead-in reads as referred). Pinned by
       `test_rewrite_fidelity_r3_review.py`.
+    status: open
+
+  # ── Post-pass fixes (the v9 Bank's full rewrite pass, 2026-10-27): HR-290…292.
+  # Measured on the v9 Bank read-only and on the 2,446 merge drafts rebuilt in-process
+  # (every one of the pass's 50 fallback drafts reproduced byte for byte).
+  - id: HR-290
+    question: >-
+      When the LLM rewrite returns more duties than the job description's form holds,
+      should the draft be brought back within the form by merging the closest duties
+      together, or left over the limit?
+    config:
+      file: rewrite.yaml
+      path: rewrite.duties_over_form_limit
+    current_default: merge
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The CUPE form takes at most twelve major functions (HR-246) and the WJQ parser
+      reads at most twelve back from an export; the APSA form holds five duties
+      (`thresholds.duties_max`). The prompt states the form's number, but nothing held
+      the model's reply to it. MEASURED (the v9 full pass, 2,446 drafts): one CUPE draft
+      (0cd5db26) came back with 13 major functions, so the Builder refused to clone it
+      ("the form takes at most 12"); every JDFN rewrite stayed within five. `merge`
+      merges the two most similar duties — the second's statement and clauses become
+      clauses of the first, its frequency kept if the first has none — until the draft
+      fits, and records each merge (`merged_duties`). Nothing is dropped: a clause the
+      how/why cap cannot hold is listed for the reviewer (`over_form_limit`), and
+      fold-back (HR-271) still puts back any source sentence the merged draft no longer
+      covers. A model duty with more how/why clauses than the parser reads back
+      (`segmentation.duty_how_why_max_count`, HR-265) is cut to it the same way.
+      `keep` leaves the draft over the limit, as before.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (rewrite.yaml is unhashed). `keep` lets a rewritten
+      CUPE draft exceed its form again, and the Builder then refuses to clone it.
+      Pinned by `test_rewrite_postpass_v9.py`.
+    status: open
+
+  - id: HR-291
+    question: >-
+      Which text in a source job description is the document's own page header or
+      footer (its position number, page number, "Continued"), to be set aside before
+      the LLM rewrite rather than treated as part of the role?
+    config:
+      file: rewrite.yaml
+      path: rewrite.page_header_pattern
+    current_default: '(?:(?:Continued\s+)?Administrative/Professional\s+Position\s*#\s*:?\s*(?:(?:\d+(?![\d%])|_+|\[contact redacted\])[\d_.]*\s*,?\s*#?\s*)*(?:,?\s*[Pp]age\s*\d+(?:\s*of\s*\d+)?(?![\d%]))?)|(?:Position\s*#\s*\d+\s*,?\s*[Pp]age\s*\d+(?![\d%]))|(?:(?:Continued\s+)?Position\s+(?:Numbers?(?:\(s\)|\^)?|[Nn]o\.?)\s*[:#]?\s*#?[^A-Za-z]{0,80}?(?:\[contact redacted\][^A-Za-z]{0,20})?(?:-?NEW|New_*|\(FT\)|N\d[A-Z]\d?[A-Z]?|i\s*\d+)?[^A-Za-z]{0,30}?\(?(?i:continued)\)?(?:\s*Page\s*\d+)?(?:\s*(?:[A-J]\.\s+)?[A-Z][A-Z &]{3,}\s*\(?(?i:continued)\)?)?)|(?:(?:Continued\s+)?Position\s*(?:#|Numbers?(?:\(s\))?)\s*:\s*(?:\d+(?:\s*(?:,|&|and)\s*\d+)*)?(?:\s+\d{1,2}(?![\d%]))?(?=\s|$))'
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The parser reads a page break's header or footer into the text around it — "…and
+      donor recognition events). Position Number 31160 (Continued) C. DUTIES AND
+      RESPONSIBILITIES (continued) Participates as a member of…". MEASURED (the v9 full
+      pass): fold-back (HR-271) restored four such pieces as how/why clauses of their
+      own, the export printed each at the start of a line, and the parser re-read it as
+      the role's position number — 4 of 1,810 JDFN roles failed the export round trip
+      (23a58c9c's line also split a duty in two). Over the 2,446 merge drafts, 198
+      "Position Number / # / No" occurrences sit in role-content text in 120 drafts; this
+      pattern takes the page-header shapes ("Administrative/Professional Position #
+      ______ Page 2", "Position Number(s): 30218 Continued", "Position #: 00117368 2")
+      and never a reference to another position ("the Tech Clerk (position # 79167)",
+      lower case, in brackets). Set aside like a questionnaire instruction (HR-275): the
+      model does not see it, nothing restores it, and the review page lists it as a page
+      header. The deterministic draft (rewrite failed) is untouched — the real fix is
+      in the parser and moves `PARSER_VERSION`.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Broader sets aside more text (a reference to a
+      position number in a duty could go); narrower lets headers back into restored
+      text and into the export. Pinned by `test_rewrite_postpass_v9.py`.
+    status: open
+
+  - id: HR-292
+    question: >-
+      When the LLM rewords a CUPE major function so heavily that it no longer matches
+      any source function, may it still carry how often the function is done (daily,
+      weekly, …) from the source function it clearly rewords?
+    config:
+      file: rewrite.yaml
+      path: rewrite.flagged_duty_frequency_min_coverage
+    current_default: 1.0
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A rewritten duty carries its source duty's frequency only when the two match
+      (HR-184's 0.2 token overlap); a FLAGGED duty carried none. MEASURED (the v9 full
+      pass, each CUPE draft against its OWN merge): 4,339 frequencies where the merges
+      carried 4,596 (59.3% vs 63.1%). No unflagged duty that matches a source duty with
+      a frequency lacks one; the loss is on flagged duties. A flagged duty that, by
+      itself, covers this share of ONE source duty's sentences (the fold-back's own
+      coverage test, HR-267/284) is that duty reworded — "Assign and supervise temporary
+      staff, checking their work…" for "Assigns and checks the work of temporary staff"
+      — and carries its frequency, only when every source duty it so covers agrees on
+      one. At 1.0 (every sentence) this recovers few of them by design — on the stored
+      v9 drafts, 19 frequencies in 18 CUPE drafts: most flagged
+      duties cover no single source duty, and a frequency guessed from a weak match
+      would state a fact the source does not. ⚠ The audit's own "the rewrite is
+      destroying a field" flag compares rewritten drafts with the 50 FAILED ones (59.3%
+      vs 59.5%, z = 0.03) — different clusters, so it is noise; the paired number above
+      is the measurement.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Lower carries frequencies on weaker evidence; 0
+      restores the old rule (a flagged duty has none). Pinned by
+      `test_rewrite_postpass_v9.py`.
+    status: open
+
+  - id: HR-293
+    question: >-
+      After the LLM rewrite, in what order should a job description's qualifications
+      stand — the form's own (education and experience, then knowledge, skills,
+      abilities) or the order the model wrote them in?
+    config:
+      file: rewrite.yaml
+      path: rewrite.qualification_order
+    current_default: form
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      SFU-GATE-KSA-ORDER is BLOCKING (K → S → A, HR-052). MEASURED (the v9 full pass):
+      every CUPE merge draft passes it and 612 of 636 rewritten CUPE drafts fail it —
+      the reassembly kept the MODEL's order, appended restored lines, then put the
+      education/experience bars last, and nothing re-applied the rank. `form` puts the
+      bars where the merge has them and sorts the competencies by
+      `qualifications.ksa_rank` (stable, so lines of one kind keep the model's order).
+      Whether K → S → A binds a CUPE job description at all is HR-297's question; this
+      only stops the rewrite producing an inversion its source does not have.
+      REPLAYED offline over the 2,396 rewritten v9 drafts (each reply reconstructed as
+      the stored draft minus the guard's own restores; with this branch's rules off the
+      replay reproduces the stored blocking set on 2,390 of them): K → S → A blocks
+      612 → 0 CUPE drafts and 359 → 0 JDFN drafts — every JDFN failure had the same
+      cause. With HR-290…295 together, approvable 0 → 7 CUPE and 452 → 742 JDFN.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. `model` restores the order that failed the gate.
+      Pinned by `test_rewrite_postpass_v9.py`.
+    status: open
+
+  - id: HR-294
+    question: >-
+      When the LLM rewrites a qualification line, should it keep the kind (knowledge,
+      skill, ability) of the source line it rewords, or may it change it?
+    config:
+      file: rewrite.yaml
+      path: rewrite.qualification_kind_from_source
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The kind decides where a line is printed and which ORDER rule it is judged by.
+      MEASURED (the v9 full pass): CUPE merge drafts carry `skill` and `ability` lines
+      only (the WJQ parser never writes `knowledge`), yet 568 of the 612 rewritten CUPE
+      drafts failing K → S → A carry a `knowledge` line, and "Ability to use
+      word-processing…" came back `skill` in one place and `ability` two lines later.
+      `true`: a kept line takes the kind of the source line holding the largest share of
+      its words, and the change is recorded (`relabelled_qualifications`). A line no
+      source line shares a word with keeps the model's kind (it passed grounding against
+      the whole draft). The order rule (HR-293) alone already holds the gate on the
+      pinned cases; this keeps the label honest — a CUPE draft no longer gains a
+      `knowledge` kind its source never had.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. `false` lets the model relabel kinds again.
+      Pinned by `test_rewrite_postpass_v9.py`.
+    status: open
+
+  - id: HR-295
+    question: >-
+      May the LLM rewrite add working conditions (evenings and weekends, on-call, shift
+      work) to a Position Summary whose source summary does not mention them?
+    config:
+      file: rewrite.yaml
+      path: rewrite.summary_conditions_must_be_grounded
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      SFU's toolkit keeps working conditions out of the Position Summary
+      (SFU-AUTH-SUMMARY-CONDITIONS, a blocking gate). MEASURED (the v9 full pass): 35
+      CUPE drafts newly fail it after the rewrite, ~30 because the model moved the WJQ's
+      working-conditions block into the summary ("…flexible hours, including evenings
+      and weekends", "on-call or shift schedules"); the merge summaries do not say this.
+      `true`: a rewritten summary sentence naming a condition marker
+      (`markers.working_conditions`, HR-046, unchanged) that the SOURCE summary does not
+      name is dropped and recorded as an ungrounded item — the HR-269 rule for this
+      section. A summary left empty comes back as the source's. ⚠ The markers also match
+      nouns ("Parking Services Office", "student housing"); those false positives are
+      HR-046's question and are not changed here — this rule can drop such a sentence
+      when the source summary does not name it. REPLAYED (as HR-293): a summary
+      sentence is dropped in 61 drafts; the gate blocks 49 → 13 CUPE and 50 → 30 JDFN
+      drafts (the rest are conditions the SOURCE summary states, or noun matches it
+      also states). Of the 64 sentences dropped, 44 name a condition ("evenings and
+      weekends" 20, "on call"/"on-call" 5 plus 16 that match only through the gate's
+      text fold, shift work 2, holidays 1) and 20 match a noun ("housing" 8, "parking"
+      6, "relocation" 6) — summary text the gate would block anyway, lost from the
+      summary (not checked here whether a duty states it too).
+    impact_if_changed: >-
+      Does NOT move `rules_version`. `false` lets the rewrite import conditions into the
+      summary again. Pinned by `test_rewrite_postpass_v9.py`.
     status: open
 
 trivial:

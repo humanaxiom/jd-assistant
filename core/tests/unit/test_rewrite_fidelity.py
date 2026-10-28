@@ -414,6 +414,22 @@ def test_a_sentence_with_a_template_placeholder_is_never_folded_back(
     )
 
     assert not any("____" in c for c in _clauses(out))
+    # Since 2026-10-27 (HR-291) the header is the source's PAGE HEADER and is set aside
+    # before the rewrite — recorded as such, not listed as dropped duty content.
+    assert any(
+        p.kind == "page_header" and "____" in p.text
+        for p in record.stripped_source_parts
+    )
+    # …and the placeholder rule still holds with the header rule switched off.
+    off = rules.model_copy(
+        update={
+            "rewrite": rules.rewrite.model_copy(update={"page_header_pattern": None})
+        }
+    )
+    out, record = _apply_anti_fabrication(
+        llm, merged.model_copy(update={"draft": draft}), off
+    )
+    assert not any("____" in c for c in _clauses(out))
     assert any("____" in d for d in record.dropped_duty_content)
 
 

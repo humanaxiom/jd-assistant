@@ -128,6 +128,12 @@ def label_referred_decisions(items: Sequence[str], rules: Rules) -> list[str]:
     ]
     prompts = [_word_sequence(p) for p in rules.rewrite.form_instructions]
     run_end = harmon.referred_decision_run_end_pattern
+    #: Each marker's word sequence: text after a prompt that is ONLY another marker
+    #: ("…would refer to his/her supervisor Refers decisions regarding" — the v9 full
+    #: pass, e11cabc0) is the template's lead-in, not a decision, and is not an item.
+    marker_seqs = {
+        " ".join(_TOKEN.findall(m.lower())) for m in harmon.referred_decision_markers
+    }
 
     def words(text: str) -> bool:
         return bool(re.search(r"[A-Za-z0-9]", text))
@@ -138,6 +144,13 @@ def label_referred_decisions(items: Sequence[str], rules: Rules) -> list[str]:
 
     def lead_in(text: str) -> bool:
         return run_end is not None and bool(run_end.search(text.strip()))
+
+    def residue(text: str) -> bool:
+        """What is left of the prompt's own sentence, not a decision: another marker
+        alone, or one lower-case word ("…supervisor are" — the v9 full pass, db90f0eb).
+        """
+        seq = " ".join(_TOKEN.findall(text.lower()))
+        return seq in marker_seqs or bool(re.fullmatch(r"[a-z]+\W*", text.strip()))
 
     out: list[str] = []
     referring = False
@@ -161,7 +174,7 @@ def label_referred_decisions(items: Sequence[str], rules: Rules) -> list[str]:
                 out.append(labelled(before) if referring else before)
             if is_prompt or not words(after) or lead_in(item):
                 referring = True
-                if words(after):
+                if words(after) and not residue(after):
                     out.append(labelled(after))
             else:
                 # A complete referral ("Refers decisions regarding X to the

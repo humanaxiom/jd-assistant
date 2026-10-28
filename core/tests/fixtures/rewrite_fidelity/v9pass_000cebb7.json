@@ -1,0 +1,564 @@
+{
+ "source": "v9 Bank cluster 000cebb7-beef-55f2-98e4-4fe8d700a9e9 (full pass 2026-10-21..25); merge rebuilt in-process from its v9 parses; model = stored final draft minus the guard's own restores",
+ "merged": {
+  "draft": {
+   "title": "Manager, Academic Programs",
+   "position_number": null,
+   "department": "School of Computing Science",
+   "grade": "08",
+   "classification": null,
+   "employee_group": "apsa",
+   "supervisor_title": null,
+   "supervisor_position_number": null,
+   "about_sfu_present": false,
+   "position_summary": "The Manager, Academic Programs provides managerial, administrative, and operational support for the undergraduate and graduate programs offered at the School of Computing Science. Provides advice and information regarding academic services; oversees the coordination of the School’s calendar; administers staffing activities including recruitment, supervision, training and development, and evaluation; and participates in long-range course planning and short and long-term marketing strategy development. The Manager oversees the design of recruitment and marketing materials for the School’s Professional Master’s Programs; works with faculty and instructors to determine Teaching Assistant (TA) needs; manages the TA selection and appointment process; manages the School’s website; and reviews/approves invoices, journal vouchers, and receipts for reimbursement. The Manager oversees the School’s daily operations and program delivery, including the monitoring of administrative databases, providing instructors with the necessary resources for course delivery, and ensuring the compliance of administrative processes and policy requirements.",
+   "duties": [
+    {
+     "action_verb": "Provides",
+     "statement": "Provides academic services and support",
+     "how_why": [
+      "Manages the administration of the academic programs within the School of Computing Science, across 2 campuses.",
+      "Supports the development of a sustainable academic service model, organizational reviews, and succession plans in consultation with the Supervisor.",
+      "Responsible for carrying out and implementing the School’s Academic Strategic plans",
+      "Provides advice and information regarding academic services, including course management tools, and School and University policies.",
+      "Oversees the coordination of the School’s calendar revisions for the undergraduate and graduate calendar section",
+      "Supports faculty and instructors with course-related administrative matters; TA support & performance, evaluations, academic honesty, etc.",
+      "Ensures administrative procedures are in place each semester for student intake, course registration, and graduation completion in compliance with University policies and procedures.",
+      "In consultation with academic program directors, determines the teaching assistant needs for all undergraduate and graduate courses, and manages and administers the teaching assistant selection, hiring, performance assessment, and disciplinary processes in compliance with terms of the collective agreement."
+     ],
+     "frequency": null
+    },
+    {
+     "action_verb": "Provides",
+     "statement": "Provides operational management",
+     "how_why": [
+      "Organizes and administers the daily activities of the School, with respect to administrative policies and procedures in consultation with the supervisor and respective Directors.",
+      "Ensures all administrative processes and policy requirements have been met.",
+      "Oversees and assigns the day-to-day work for all personnel responsible the administration of all Academic activities within the School.",
+      "Monitors and uses School administrative databases including: graduate, budget, scheduling, teaching assistants and space."
+     ],
+     "frequency": null
+    },
+    {
+     "action_verb": "Works",
+     "statement": "Works on a variety of special projects, as assigned by the supervisor.",
+     "how_why": [],
+     "frequency": null
+    }
+   ],
+   "decision_making": [
+    "Allocations of teaching assistant base units according to School policy",
+    "Determines the priority of day-to-day administrative activities",
+    "Minor policy implementations that have no fiscal implications",
+    "Recommends staffing requirements, defines responsibilities and hires temporary and continuing support staff, trains and evaluates staff performance and recommends professional development plans, approves leaves, etc.",
+    "Selecting and hiring teaching assistants following School policy guidelines, course enrolment and the TSSU collective agreement",
+    "The Manager, Academic Programs is responsible for",
+    "Works with the Associate Director, Academic Affairs in the Dean’s office to handle grievances and other HR related matters"
+   ],
+   "problem_solving": [],
+   "relationships": {
+    "supervisory": "Establishes and maintains relationships with peers and contacts with access to information and to key business partners. Shares information and advice on how to get things done and who to involve. Supervisory Supervises staff by providing guidance and mentorship, ensuring the appropriateness and accuracy of job responsibilities; including recruitment, work assignment and work-load management, and performance evaluation. In consultation with the Supervisor and the Office of the Dean, coordinates all discipline, termination, conflict, or grievance resolution. Primary Working Relationships Intern",
+    "internal": [],
+    "external": []
+   },
+   "qualifications": [
+    {
+     "text": "Bachelor’s degree in Business Administration or a related discipline, and four years of related experience in areas such as financial administration, staffing, and post-secondary curriculum planning and coordination; or an equivalent combination of education, training and experience.",
+     "kind": "education",
+     "modifier": null
+    },
+    {
+     "text": "Broad knowledge of University policies and procedures.",
+     "kind": "knowledge",
+     "modifier": null
+    },
+    {
+     "text": "Knowledge of post-secondary academic program and administrative structures.",
+     "kind": "knowledge",
+     "modifier": null
+    },
+    {
+     "text": "Ability to adapt to new software applications and proficient in the use of enterprise level information systems, and word processing/spreadsheet applications (i.e. Word, Excel, Outlook).",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent financial administration, staffing, and team management skills.",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent interpersonal and communication skills (oral and written).",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent leadership, supervisory, and mentoring skills.",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent organizational, analytical reasoning, problem solving, and conflict management skills.",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent time management skills.",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to exercise mature judgment, initiative, diplomacy, and tact.",
+     "kind": "ability",
+     "modifier": null
+    },
+    {
+     "text": "Ability to handle confidential and sensitive matters with discretion.",
+     "kind": "ability",
+     "modifier": null
+    },
+    {
+     "text": "Demonstrated ability to work effectively in a team environment.",
+     "kind": "ability",
+     "modifier": null
+    }
+   ],
+   "territorial_acknowledgement_present": false,
+   "employment_equity_present": false,
+   "additional_context": null
+  },
+  "provenance": {
+   "member_count": 3,
+   "skill_frequency": [
+    [
+     "academic",
+     3
+    ],
+    [
+     "adapt",
+     3
+    ],
+    [
+     "administration",
+     3
+    ],
+    [
+     "administrative",
+     3
+    ],
+    [
+     "analytical",
+     3
+    ],
+    [
+     "and",
+     3
+    ],
+    [
+     "broad",
+     3
+    ],
+    [
+     "communication",
+     3
+    ],
+    [
+     "confidential",
+     3
+    ],
+    [
+     "conflict",
+     3
+    ],
+    [
+     "demonstrated",
+     3
+    ],
+    [
+     "diplomacy",
+     3
+    ],
+    [
+     "discretion",
+     3
+    ],
+    [
+     "effectively",
+     3
+    ],
+    [
+     "enterprise",
+     3
+    ],
+    [
+     "environment",
+     3
+    ],
+    [
+     "excel",
+     3
+    ],
+    [
+     "exercise",
+     3
+    ],
+    [
+     "financial",
+     3
+    ],
+    [
+     "handle",
+     3
+    ],
+    [
+     "information",
+     3
+    ],
+    [
+     "initiative",
+     3
+    ],
+    [
+     "interpersonal",
+     3
+    ],
+    [
+     "judgment",
+     3
+    ],
+    [
+     "leadership",
+     3
+    ],
+    [
+     "matters",
+     3
+    ],
+    [
+     "mature",
+     3
+    ],
+    [
+     "mentoring",
+     3
+    ],
+    [
+     "new",
+     3
+    ],
+    [
+     "oral",
+     3
+    ],
+    [
+     "organizational",
+     3
+    ],
+    [
+     "outlook",
+     3
+    ],
+    [
+     "policies",
+     3
+    ],
+    [
+     "post",
+     3
+    ],
+    [
+     "problem",
+     3
+    ],
+    [
+     "procedures",
+     3
+    ],
+    [
+     "processing",
+     3
+    ],
+    [
+     "proficient",
+     3
+    ],
+    [
+     "program",
+     3
+    ],
+    [
+     "reasoning",
+     3
+    ],
+    [
+     "secondary",
+     3
+    ],
+    [
+     "sensitive",
+     3
+    ],
+    [
+     "software",
+     3
+    ],
+    [
+     "solving",
+     3
+    ],
+    [
+     "spreadsheet",
+     3
+    ],
+    [
+     "staffing",
+     3
+    ],
+    [
+     "structures",
+     3
+    ],
+    [
+     "supervisory",
+     3
+    ],
+    [
+     "systems",
+     3
+    ],
+    [
+     "tact",
+     3
+    ],
+    [
+     "team",
+     3
+    ],
+    [
+     "the",
+     3
+    ],
+    [
+     "time",
+     3
+    ],
+    [
+     "university",
+     3
+    ],
+    [
+     "use",
+     3
+    ],
+    [
+     "written",
+     3
+    ]
+   ],
+   "duty_coverage": [
+    [
+     "Provides academic services and support",
+     1
+    ],
+    [
+     "Provides operational management",
+     1
+    ],
+    [
+     "Works on a variety of special projects, as assigned by the supervisor.",
+     1
+    ]
+   ],
+   "section_contributors": [
+    [
+     "decision_making",
+     [
+      2
+     ]
+    ],
+    [
+     "department",
+     [
+      0,
+      1
+     ]
+    ],
+    [
+     "employee_group",
+     [
+      0,
+      1,
+      2
+     ]
+    ],
+    [
+     "grade",
+     [
+      0
+     ]
+    ],
+    [
+     "position_summary",
+     [
+      0
+     ]
+    ],
+    [
+     "relationships",
+     [
+      2
+     ]
+    ],
+    [
+     "title",
+     [
+      0,
+      1,
+      2
+     ]
+    ]
+   ],
+   "flags": [
+    "sections_not_merged"
+   ],
+   "seniority_bars": [
+    {
+     "kind": "education",
+     "policy": "max",
+     "chosen": 2,
+     "member_bars": [
+      2,
+      2,
+      2
+     ]
+    }
+   ]
+  }
+ },
+ "model": {
+  "title": "Academic Programs Manager",
+  "position_number": null,
+  "department": "School of Computing Science",
+  "grade": "08",
+  "classification": null,
+  "employee_group": "apsa",
+  "supervisor_title": null,
+  "supervisor_position_number": null,
+  "about_sfu_present": true,
+  "position_summary": "The Academic Programs Manager provides comprehensive managerial, administrative and operational support for undergraduate and graduate programs within the School of Computing Science. The role ensures effective delivery of academic services, oversees daily school operations, and leads special projects related to staffing, policy implementation and stakeholder collaboration. By coordinating calendars, managing teaching assistant processes, supervising staff, and maintaining compliance with university policies, the manager contributes to the strategic goals and continuous improvement of academic programs.",
+  "duties": [
+   {
+    "action_verb": "Provide",
+    "statement": "academic services and support",
+    "how_why": [
+     "Manage the administration of academic programs across two campuses.",
+     "Support development of a sustainable academic service model, conduct organizational reviews, and plan succession in consultation with the supervisor.",
+     "Carry out and implement the School’s Academic Strategic plans.",
+     "Advise and inform on academic services, including course management tools and School and University policies.",
+     "Coordinate revisions of the School’s undergraduate and graduate calendars.",
+     "Support faculty and instructors with course‑related administrative matters, including TA support, performance evaluations, and academic honesty.",
+     "Ensure semester administrative procedures for student intake, course registration, and graduation comply with University policies.",
+     "Determine teaching assistant needs for all courses, and manage selection, hiring, performance assessment, and disciplinary processes in line with the collective agreement."
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Manage",
+    "statement": "operational activities and daily administration of the School",
+    "how_why": [
+     "Organize and administer daily School activities in accordance with administrative policies and procedures, consulting with the supervisor and directors.",
+     "Verify that all administrative processes and policy requirements are met.",
+     "Oversee and assign day‑to‑day work for personnel responsible for academic administration.",
+     "Monitor and utilize administrative databases for graduate records, budgeting, scheduling, teaching assistants, and space management."
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Lead",
+    "statement": "special projects, staffing and policy initiatives",
+    "how_why": [],
+    "frequency": null
+   }
+  ],
+  "decision_making": [
+   "Allocations of teaching assistant base units according to School policy",
+   "Determines the priority of day-to-day administrative activities",
+   "Minor policy implementations that have no fiscal implications",
+   "Recommends staffing requirements, defines responsibilities and hires temporary and continuing support staff, trains and evaluates staff performance and recommends professional development plans, approves leaves, etc.",
+   "Selecting and hiring teaching assistants following School policy guidelines, course enrolment and the TSSU collective agreement",
+   "The Manager, Academic Programs is responsible for",
+   "Works with the Associate Director, Academic Affairs in the Dean’s office to handle grievances and other HR related matters"
+  ],
+  "problem_solving": [],
+  "relationships": {
+   "supervisory": "Establishes and maintains relationships with peers and contacts with access to information and to key business partners. Shares information and advice on how to get things done and who to involve. Supervisory Supervises staff by providing guidance and mentorship, ensuring the appropriateness and accuracy of job responsibilities; including recruitment, work assignment and work-load management, and performance evaluation. In consultation with the Supervisor and the Office of the Dean, coordinates all discipline, termination, conflict, or grievance resolution. Primary Working Relationships Intern",
+   "internal": [],
+   "external": []
+  },
+  "qualifications": [
+   {
+    "text": "Broad knowledge of University policies and procedures",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Knowledge of post‑secondary academic program and administrative structures",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Ability to adapt to new software applications and proficiency with enterprise‑level information systems and word processing/spreadsheet applications (e.g., Word, Excel, Outlook)",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Excellent financial administration, staffing, and team management skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Excellent interpersonal and communication skills (oral and written)",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Excellent leadership, supervisory, and mentoring skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Excellent organizational, analytical reasoning, problem solving, and conflict management skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Excellent time management skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to exercise mature judgment, initiative, diplomacy, and tact",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to handle confidential and sensitive matters with discretion",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Demonstrated ability to work effectively in a team environment",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Bachelor’s degree in Business Administration or a related discipline, and four years of related experience in areas such as financial administration, staffing, and post-secondary curriculum planning and coordination; or an equivalent combination of education, training and experience.",
+    "kind": "education",
+    "modifier": null
+   }
+  ],
+  "territorial_acknowledgement_present": true,
+  "employment_equity_present": true,
+  "additional_context": null
+ }
+}

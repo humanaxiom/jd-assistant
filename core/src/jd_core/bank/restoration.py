@@ -93,6 +93,15 @@ REMOVED_REASON_LABELS: Final[Mapping[str, str]] = {
         "Matched SFU's standard wording (territorial acknowledgement, About SFU or "
         "employment equity) and was set aside — check it is not part of the role."
     ),
+    "page_header_stripped": (
+        "A page header or footer of the source document (its position number, page "
+        'number or "Continued") that was read into the text — not part of the role, '
+        "so set aside."
+    ),
+    "rewrite_over_form_limit": (
+        "The rewrite wrote more than the form holds here, so this was left out; any "
+        "source content it carried is put back in the draft or listed separately."
+    ),
 }
 
 #: Shown for a reason this build does not know (a packet from a newer build). Never a

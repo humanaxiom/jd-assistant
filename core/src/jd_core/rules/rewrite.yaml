@@ -272,6 +272,22 @@ form_instructions:
   - Give some examples of the types of decisions the incumbent would refer to her/his supervisor.
   - Give some examples of the types of decisions the incumbent would refer to his or her supervisor.
   - Give some examples of the types of decisions the incumbent would refer to the supervisor.
+  # The refer question's other editions and typos (2026-10-27; HR-282 lists the counts).
+  # Longest first: the short ones also match inside the long ones.
+  - Give some typical examples of the types of decisions the incumbent would refer to his/her supervisor.
+  - Give some typical examples of the most important decisions the incumbent would refer to his/her supervisor.
+  - Give some examples of the types of decisions the incumbent would refer to this/her supervisor.
+  - Give some examples of the types of decisions the incumbent would refer to his I her supervisor.
+  - Examples of the types of decisions the incumbent would refer to his/her supervisor.
+  - Examples of the types of decisions the incumbent would refer to her/his supervisor.
+  - Examples of decisions the incumbent would refer to his/her supervisor.
+  - Examples of the types of decisions referred to the supervisor.
+  - Examples of decisions the incumbent is expected to refer.
+  - Examples of decisions referred to supervisor.
+  - Types of decisions the incumbent would refer to his/her supervisor.
+  - Decisions the incumbent would refer to the Associate Director, Clinical Services.
+  - Decisions the incumbent would refer to the Director.
+  - Decisions the incumbent would refer to his/her supervisor.
   - Briefly describe the primary function and purpose of the position in one or two sentences.
   - Explain the nature of guidance received and how often work is checked or reviewed.
   - Describe the extent to which the supervisor determines the day to day work load of the position and assists in the completion of duties.
@@ -384,6 +400,74 @@ fragment_pattern:
 # still requires its names. Scrubbed contacts 30 -> 19. 1 restores the item-only rule.
 # HR-288.
 relationships_row_window: 3
+
+# --- post-pass fixes (the v9 Bank's full pass, 2026-10-27): HR-290…HR-292 -------------
+
+# What happens when the model returns MORE duties than the draft's form holds — the CUPE
+# form's major-function limit (`cupe_form.function_limits`, HR-246, which the WJQ parser
+# also reads back at most) and the form's own `duties_max` (HR-022 / HR-202), whichever
+# is smaller. `merge`: the two closest duties are merged (the second's statement and
+# clauses become clauses of the first) until the draft fits — never dropped; a clause the
+# how/why cap cannot hold is listed, and fold-back (HR-271) still puts back any source
+# sentence the merged draft no longer covers. A model duty carrying more how/why clauses
+# than the parser reads back (`segmentation.duty_how_why_max_count`) is cut to that cap
+# the same way. `keep`: left over the limit, as before. MEASURED (the v9 full pass, 2,446
+# drafts): 1 CUPE draft (0cd5db26) came back with 13 major functions, so the Builder
+# refused to clone it ("the form takes at most 12"); every JDFN rewrite stayed within its
+# 5. HR-290.
+duties_over_form_limit: merge
+
+# A source document's own PAGE HEADER or FOOTER, which the parser read into role text:
+# "Position Number 31160 (Continued) C. DUTIES AND RESPONSIBILITIES (continued)",
+# "Administrative/Professional Position # ______ Page 2", "Position #: 00117368 2". Removed
+# from the rewrite's input as a questionnaire instruction is (HR-275), so the model never
+# sees it and no restore puts it back. MEASURED (the v9 full pass): fold-back restored
+# four of them as how/why clauses of their own, the export then printed each at the start
+# of a line, and the parser re-read it as the role's position number (4 roles; on
+# 23a58c9c the line also split a duty in two). Over the 2,446 in-process merge drafts
+# 198 "Position Number/#/No" occurrences sit in role-content text; the pattern takes the
+# page-header shapes only — never a reference to ANOTHER position ("the Tech Clerk
+# (position # 79167)"). HR-291.
+page_header_pattern:
+  pattern: '(?:(?:Continued\s+)?Administrative/Professional\s+Position\s*#\s*:?\s*(?:(?:\d+(?![\d%])|_+|\[contact redacted\])[\d_.]*\s*,?\s*#?\s*)*(?:,?\s*[Pp]age\s*\d+(?:\s*of\s*\d+)?(?![\d%]))?)|(?:Position\s*#\s*\d+\s*,?\s*[Pp]age\s*\d+(?![\d%]))|(?:(?:Continued\s+)?Position\s+(?:Numbers?(?:\(s\)|\^)?|[Nn]o\.?)\s*[:#]?\s*#?[^A-Za-z]{0,80}?(?:\[contact redacted\][^A-Za-z]{0,20})?(?:-?NEW|New_*|\(FT\)|N\d[A-Z]\d?[A-Z]?|i\s*\d+)?[^A-Za-z]{0,30}?\(?(?i:continued)\)?(?:\s*Page\s*\d+)?(?:\s*(?:[A-J]\.\s+)?[A-Z][A-Z &]{3,}\s*\(?(?i:continued)\)?)?)|(?:(?:Continued\s+)?Position\s*(?:#|Numbers?(?:\(s\))?)\s*:\s*(?:\d+(?:\s*(?:,|&|and)\s*\d+)*)?(?:\s+\d{1,2}(?![\d%]))?(?=\s|$))'
+  ignore_case: false
+
+# When the model rewords a CUPE duty so heavily that no source duty matches it (it is
+# FLAGGED, HR-184), it carried NO frequency. MEASURED (the v9 full pass, paired against
+# each draft's own merge): rewritten CUPE drafts carry 4,339 frequencies where their merges
+# carried 4,596 (59.3% vs 63.1%); no UNflagged duty that matches a source duty with a
+# frequency lacks one, so the loss is on flagged duties.
+# A flagged duty that by itself covers (the fold-back's own coverage test, HR-267/284)
+# at least this share of ONE source duty's sentences is that duty reworded, and carries
+# its frequency — only when every source duty it so covers agrees on one frequency.
+# 0 switches it off. HR-292.
+flagged_duty_frequency_min_coverage: 1.0
+
+# The ORDER of the rewritten qualifications. `form`: the bars (education, experience, …)
+# where the merge has them — those it lists before its first competency first — then the
+# competencies by the rulebook's own K -> S -> A rank (`qualifications.ksa_rank`, HR-052).
+# `model`: the model's order, then restored lines, then the bars (before 2026-10-27).
+# MEASURED (the v9 full pass): every CUPE merge draft passes the blocking
+# SFU-GATE-KSA-ORDER and 612 of 636 rewritten ones fail it; the JDFN side 359 of 1,810.
+# HR-293.
+qualification_order: form
+
+# Whether a kept rewritten competency takes the KIND of the source line it rewords (the
+# one holding most of its words) instead of the kind the model gave it. MEASURED (the v9
+# full pass): CUPE merge drafts carry `skill` and `ability` only — the WJQ parser never
+# writes `knowledge` — and 568 of the 612 rewritten drafts failing K -> S -> A carry a
+# `knowledge` line. HR-294.
+qualification_kind_from_source: true
+
+# Whether a rewritten Position Summary may name a WORKING CONDITION (the
+# SFU-AUTH-SUMMARY-CONDITIONS markers, `markers.working_conditions`, HR-046 — not changed
+# here) that the source summary does not name itself. `true`: such a sentence is dropped
+# and recorded, as an ungrounded item is (HR-269); a summary left empty comes back as the
+# source's. MEASURED (the v9 full pass): 35 CUPE drafts newly fail the blocking summary
+# gate after the rewrite, ~30 because the model moved the WJQ's working-conditions block
+# into the summary ("…including evenings and weekends", "on-call or shift schedules").
+# HR-295.
+summary_conditions_must_be_grounded: true
 
 # The minimum token-Jaccard a rewritten DUTY must share with SOME draft duty. Below it the
 # duty is FLAGGED (recorded, never dropped — a duty may legitimately rephrase, so a
