@@ -8206,6 +8206,125 @@ decisions:
       the merged-duties defect straight back, and the live smoke
       (`test_every_live_apsa_role_exports_and_rereads_its_duties`) goes red.
     status: open
+  - id: HR-309
+    question: >-
+      When a harmonized role lacks a department or an employee group, may the
+      Compensation Requisition Form take it from the role's source files instead?
+    config:
+      file: comp_requisition.yaml
+      path: comp_requisition.fill_from_sources_when_role_lacks
+    current_default:
+      - department
+      - employee_group
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      MEASURED 2026-10-28 over the 2,503 current roles: the harmonized content names a
+      department for 1,746 and an APSA/APEX employee group for 1,077, while the member
+      files' current parse raises those to 1,851 and 1,113. The first form the owner
+      tested (AV Systems Analyst) was one of the gaps: its three source files all say
+      "IT Services" and APSA, and the role said neither, so the PDF came out with only
+      a title. The grade is deliberately NOT in this list: proposing one is the
+      evaluator's job (ADR-007), so it is shown as reference only (HR-314).
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. Only facts the prefill knows
+      how to read are allowed (`Literal`); removing one leaves that box blank for the
+      requester.
+    status: open
+  - id: HR-310
+    question: >-
+      When the source files disagree on a fact (two departments across one role), should
+      the form stay blank, or take the majority?
+    config:
+      file: comp_requisition.yaml
+      path: comp_requisition.sources_must_agree
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      27 of the 2,503 current roles have members in more than one department. A form
+      sent to Compensation with the wrong department typed in is worse than one with
+      the box empty, so a disagreement writes nothing. `false` would take the most
+      frequent value.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. Affects only what a downloaded
+      form has typed in; the requester edits it in Acrobat either way.
+    status: open
+  - id: HR-311
+    question: >-
+      Should the Bank tick the "Type of request" box (A–E) the requester chose, or leave
+      every box for them to tick on the form?
+    config:
+      file: comp_requisition.yaml
+      path: comp_requisition.tick_request_type
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The requester picks the request type on the choices page and the Bank fills that
+      section's position boxes accordingly; a form with the section filled but the type
+      unticked reads as unfinished. The box map (A -> Check Box71, B -> 75, C -> 72,
+      D -> 76, E -> 73) is dictated by the form and lives in the field map.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. `false` leaves the five boxes
+      untouched.
+    status: open
+  - id: HR-312
+    question: >-
+      When the Bank lists the positions a request is based on (Section A or B), should
+      it also tick that section's "based off of an existing position? Yes" box?
+    config:
+      file: comp_requisition.yaml
+      path: comp_requisition.tick_based_on_existing
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Writing the list without ticking Yes leaves the form contradicting itself. Only
+      the Yes box is ever ticked, and only when a list is written; No is never asserted
+      (a new position based on nothing needs nothing from the Bank).
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. `false` leaves Check Box66
+      (Section A) and Check Box55 (Section B) untouched.
+    status: open
+  - id: HR-313
+    question: >-
+      May the Bank type the signed-in requester's name and email into "Contact Name &
+      Position Title" / its Email box, when they leave that choice ticked?
+    config:
+      file: comp_requisition.yaml
+      path: comp_requisition.contact_from_requester
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The contact is the person downloading the form, whose identity the CAS session
+      already carries — never an incumbent (the Bank holds no incumbent names, and the
+      prefill model has no field for one). The requester can untick it on the choices
+      page, and the email stays blank when the session carries none.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. `false` leaves both contact
+      boxes blank regardless of the page's choice.
+    status: open
+  - id: HR-314
+    question: >-
+      Should the choices page SHOW the grades the role's source files carry, as
+      reference, while never writing a grade to the form?
+    config:
+      file: comp_requisition.yaml
+      path: comp_requisition.show_source_grades_for_reference
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      "Anticipated grade" is the evaluator's call (ADR-007: the Bank does not classify),
+      so no grade is ever typed in. The sources' grades are still useful context for the
+      requester, so they are shown beside the choices, labelled as reference and as
+      coming from the source files.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. Affects the choices page only;
+      the PDF is identical either way.
+    status: open
 
 trivial:
   # ── The APSA export form (Track J4): HR's own wording, pinned by HR-258. ──

@@ -19,6 +19,7 @@ version.
 from src.jd_core.rules.loader import (
     APSA_FORM_FILE,
     CLASSIFICATION_FILE,
+    COMP_REQUISITION_FILE,
     CONTENT_HASH_LENGTH,
     CUPE_FORM_FILE,
     DEDUP_FILE,
@@ -45,6 +46,7 @@ from src.jd_core.rules.loader import (
     ClusterTier,
     CodedTerms,
     Comparison,
+    CompRequisition,
     ConfigRef,
     CupeForm,
     DecisionProvenance,
@@ -111,6 +113,7 @@ from src.jd_core.rules.loader import (
 __all__ = [
     "APSA_FORM_FILE",
     "CLASSIFICATION_FILE",
+    "COMP_REQUISITION_FILE",
     "CONTENT_HASH_LENGTH",
     "CUPE_FORM_FILE",
     "DEDUP_FILE",
@@ -127,6 +130,7 @@ __all__ = [
     "ApsaForm",
     "AuthoringGuard",
     "BlockingRulesGate",
+    "CompRequisition",
     "Boilerplate",
     "Classification",
     "ClusterAlgorithm",

@@ -497,6 +497,10 @@ def test_the_decision_surface_walks_every_rule_file(rules: Rules) -> None:
         # `apsa_form.yaml` (Track J4) — the APSA/APEX/Poly form as EXPORTED, plus the
         # criminal-record-check sentence the Builder inserts. Unhashed, same class.
         "apsa_form",
+        # `comp_requisition.yaml` (Track K3) — what the Bank SUGGESTS onto SFU's
+        # Compensation Requisition Form. Unhashed like the two form files: it decides
+        # what a downloaded PDF has typed in, never how a JD is scored/approved.
+        "comp_requisition",
     }
     # ...and that is every rule file there is, bar the register itself.
     described = {name.removesuffix(".yaml") for name in RULE_FILES}
@@ -542,6 +546,7 @@ def test_the_unhashed_files_are_the_ones_that_cannot_change_a_jds_score() -> Non
         # criminal-record-check sentence. No validator reads the FILE (the sentence
         # reaches one only as a draft's own text), so it moves neither stamp.
         "apsa_form.yaml",
+        "comp_requisition.yaml",
     }
     hashed = set(loader._HASHED_FIELDS)
     assert "segmentation" not in hashed

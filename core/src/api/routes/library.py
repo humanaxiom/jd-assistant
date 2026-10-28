@@ -203,6 +203,7 @@ def _render_crf(
             "prefill": prefill,
             "request_types": list(REQUEST_TYPE_LABELS.items()),
             "selected": selected,
+            "requester": getattr(request.state, "user", None),
             "error": error,
         },
     )
@@ -231,7 +232,9 @@ async def comp_requisition_view(
         prefill = await prefill_from_role(session, cluster_id)
     except LookupError:
         return _crf_not_found(request, cluster_id)
-    return _render_crf(request, cluster_id, prefill, selected={}, error=None)
+    return _render_crf(
+        request, cluster_id, prefill, selected={"contact_me": True}, error=None
+    )
 
 
 @router.post("/role/{cluster_id}/comp-requisition")
@@ -249,10 +252,19 @@ async def comp_requisition_download(
     request_type = first_value(pairs, "request_type") or None
     position = first_value(pairs, "position_number") or None
     attached = first_value(pairs, "jd_in_word_attached") != ""
+    contact_me = first_value(pairs, "contact_me") != ""
     selected: dict[str, object] = {
         "request_type": request_type or "",
         "position_number": position or "",
         "jd_in_word_attached": attached,
+        "contact_me": contact_me,
+    }
+    # The requester: the signed-in person, from the session — never a request
+    # parameter, so the contact can only ever be whoever is downloading.
+    user = getattr(request.state, "user", None)
+    contact: dict[str, str | None] = {
+        "contact_name": getattr(user, "display_name", None) if contact_me else None,
+        "contact_email": getattr(user, "email", None) if contact_me else None,
     }
     if request_type is not None and request_type not in REQUEST_TYPE_LABELS:
         try:
@@ -273,6 +285,7 @@ async def comp_requisition_download(
             request_type,
             jd_in_word_attached=attached,
             position_number=position,
+            **contact,
         )
     except LookupError:
         return _crf_not_found(request, cluster_id)

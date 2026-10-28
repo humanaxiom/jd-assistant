@@ -600,6 +600,7 @@ async def test_crf_download_reaches_a_person_through_the_live_role_page(  # type
             "request_type": "reevaluation",
             "position_number": chosen,
             "jd_in_word_attached": "on",
+            "contact_me": "on",
         },
     )
     assert resp.status_code == 200, resp.text[:500]
@@ -615,6 +616,16 @@ async def test_crf_download_reaches_a_person_through_the_live_role_page(  # type
     assert got[pf["employee_group"]] == group
     assert got[pf["jd_in_word_attached"]] == fmap.checkbox_on_value
     assert got[pf["based_on_positions_b"]].startswith(", ".join(sorted(pids)[:2]))
+    # The boxes the rulebook asserts (HR-311 / HR-312): B ticked, Section B's Yes
+    # ticked, Section A's Yes and every No box untouched.
+    assert got[fmap.request_type_boxes["reevaluation"]] == fmap.checkbox_on_value
+    yes = fmap.based_on_existing_yes_boxes
+    assert got[yes["based_on_positions_b"]] == fmap.checkbox_on_value
+    assert got.get(yes["based_on_positions_a"]) in (None, "/Off")
+    for no_box in ("Check Box67", "Check Box56"):
+        assert got.get(no_box) in (None, "/Off"), no_box
+    # The requester (the smoke's synthetic user) is the contact (HR-313).
+    assert got[pf["contact_name"]]
     for name in fmap.signature_fields:
         assert not got.get(name), f"signature field {name} was written"
 

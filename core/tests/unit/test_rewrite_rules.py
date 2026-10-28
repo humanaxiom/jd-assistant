@@ -105,6 +105,8 @@ def test_rewrite_is_an_unhashed_file(rules: Rules) -> None:
         "cupe_form.yaml",
         # Track J4 added `apsa_form.yaml` — the twelfth (test_jd_export_apsa).
         "apsa_form.yaml",
+        # Track K3 added `comp_requisition.yaml` — the thirteenth.
+        "comp_requisition.yaml",
     }
     assert "rewrite" not in loader._HASHED_FIELDS
 

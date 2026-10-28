@@ -79,8 +79,13 @@ def _mock_prefill(
         *,
         jd_in_word_attached=False,
         position_number=None,
+        contact_name=None,
+        contact_email=None,
     ):
         assert cluster_id == CLUSTER
+        fake.calls.append(
+            {"contact_name": contact_name, "contact_email": contact_email}
+        )
         if position_number and position_number not in prefill.candidate_positions:
             raise ValueError(f"position {position_number} is not one this role holds")
         update: dict[str, object] = {"jd_in_word_attached": jd_in_word_attached}
@@ -90,7 +95,9 @@ def _mock_prefill(
             update["position_number"] = position_number
         return prefill.model_copy(update=update)
 
+    fake.calls = []  # type: ignore[attr-defined]
     mock = AsyncMock(side_effect=fake)
+    mock.contact_calls = fake.calls  # type: ignore[attr-defined]
     monkeypatch.setattr(library_routes, "prefill_from_role", mock)
     return mock
 
@@ -194,7 +201,12 @@ def test_the_download_passes_the_request_type_and_attachment_to_the_bank_read(
     mock.assert_awaited_once()
     args, kwargs = mock.await_args
     assert args[2] == "new_based_on_existing"
-    assert kwargs == {"jd_in_word_attached": False, "position_number": None}
+    assert kwargs == {
+        "jd_in_word_attached": False,
+        "position_number": None,
+        "contact_name": None,
+        "contact_email": None,
+    }
 
 
 def test_no_request_type_fills_only_the_general_fields(
@@ -245,6 +257,57 @@ def test_a_download_for_an_unknown_role_is_a_404_page(
     )
     resp = _client().post(PAGE, data={"request_type": "editorial"})
     assert resp.status_code == 404
+
+
+# ── the requester as contact, and what the page says about provenance ───────────
+
+
+def test_the_contact_is_the_signed_in_user_when_the_box_is_ticked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The name comes off the session, never off the form body."""
+    mock = _mock_prefill(monkeypatch, _prefill())
+    _client().post(
+        PAGE,
+        data={
+            "request_type": "editorial",
+            "contact_me": "on",
+            "contact_name": "Mallory Forged",
+        },
+    )
+    [call] = mock.contact_calls
+    assert call["contact_name"]  # the dev user's display name
+    assert call["contact_name"] != "Mallory Forged"
+
+
+def test_the_contact_is_blank_when_the_box_is_unticked(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mock = _mock_prefill(monkeypatch, _prefill())
+    _client().post(PAGE, data={"request_type": "editorial"})
+    [call] = mock.contact_calls
+    assert call == {"contact_name": None, "contact_email": None}
+
+
+def test_the_page_offers_the_contact_choice_ticked_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _mock_prefill(monkeypatch, _prefill())
+    html = _client().get(PAGE).text
+    assert 'name="contact_me" checked' in html
+
+
+def test_the_page_says_which_facts_came_from_the_source_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _mock_prefill(
+        monkeypatch,
+        _prefill(filled_from_sources=("department",), reference_grades=("07",)),
+    )
+    html = _client().get(PAGE).text
+    assert "from the source files" in html
+    assert "reference only" in html
+    assert "07" in html
 
 
 # ── discoverable: the role page and the Builder link here ─────────────────────────

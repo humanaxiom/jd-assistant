@@ -11,8 +11,8 @@
   </p>
   <p>
     This downloads <strong>SFU's own Compensation Requisition Form</strong> (the PDF
-    HR publishes, updated September 2024), with the few boxes the JD Bank can fill
-    already typed in. Everything else — the request details, approvals, signatures —
+    HR publishes, updated September 2024), with the boxes the JD Bank can fill already
+    typed in. Everything else — hours, grade, accounting strings, approvals, signatures —
     is yours to complete in Acrobat before sending it to Compensation. Nothing is stored
     here: the form is rendered for you and forgotten.
   </p>
@@ -24,23 +24,23 @@
 </div>
 
 <div class="panel">
-  <h2>What the Bank will fill — please <em>confirm</em> each on the form</h2>
+  <h2>What the Bank will type in — please <em>confirm</em> each on the form</h2>
   <p class="meta">
-    These come from the harmonized role, not from the position record, so check them
-    against PeopleSoft before you sign.
+    These come from the harmonized role, or — where the role is silent and every source
+    file agrees — from the source files. Check them against PeopleSoft before you sign.
   </p>
   <table>
-    <thead><tr><th>Form box</th><th>Value from the Bank</th><th></th></tr></thead>
+    <thead><tr><th>Form box</th><th>Value</th><th>Where it came from</th></tr></thead>
     <tbody>
       <tr>
         <td>Position Title</td>
         <td>{{ prefill.position_title or "—" }}</td>
-        <td class="meta">{% if prefill.position_title %}confirm{% else %}left blank{% endif %}</td>
+        <td class="meta">{% if prefill.position_title %}the harmonized role · confirm{% else %}left blank{% endif %}</td>
       </tr>
       <tr>
         <td>Department</td>
         <td>{{ prefill.department or "—" }}</td>
-        <td class="meta">{% if prefill.department %}confirm{% else %}left blank{% endif %}</td>
+        <td class="meta">{% if prefill.department %}{% if "department" in prefill.filled_from_sources %}from the source files{% else %}the harmonized role{% endif %} · confirm{% else %}left blank{% endif %}</td>
       </tr>
       <tr>
         <td>Employee Group</td>
@@ -48,12 +48,29 @@
           {% if prefill.employee_group %}{{ prefill.employee_group }}{% else %}—
           <span class="meta">not an option on this form (its dropdown offers APSA and APEX only; a CUPE re-evaluation uses HR's Position Re-evaluation Request Form instead)</span>{% endif %}
         </td>
-        <td class="meta">{% if prefill.employee_group %}confirm{% else %}left blank{% endif %}</td>
+        <td class="meta">{% if prefill.employee_group %}{% if "employee_group" in prefill.filled_from_sources %}from the source files{% else %}the harmonized role{% endif %} · confirm{% else %}left blank{% endif %}</td>
+      </tr>
+      <tr>
+        <td>Contact Name &amp; Position Title · Email</td>
+        <td>{% if requester %}{{ requester.display_name }}{% if requester.email %} · {{ requester.email }}{% endif %}{% else %}—{% endif %}</td>
+        <td class="meta">you, the signed-in requester (untick below to leave it blank)</td>
+      </tr>
+      <tr>
+        <td>Type of request · Position # · based-on lists</td>
+        <td>from your choices below</td>
+        <td class="meta">the box you pick is ticked; a written list ticks that section's <em>based off of an existing position? Yes</em></td>
       </tr>
     </tbody>
   </table>
+  {% if prefill.reference_grades %}
   <p class="meta">
-    Never filled by the Bank: anyone's name, the grade, the supervisor, hours,
+    <strong>Grade, for reference only:</strong> the source files carry grade
+    {{ prefill.reference_grades | join(", ") }}. The Bank never types a grade onto the
+    form — <em>Anticipated grade</em> is the evaluator's call.
+  </p>
+  {% endif %}
+  <p class="meta">
+    Never filled by the Bank: an incumbent's name, the grade, the supervisor, hours,
     accounting strings, dates, and the three signature lines.
   </p>
 </div>
@@ -65,9 +82,9 @@
 
     <h3>Request type</h3>
     <p class="meta">
-      Which section of the form you are filling. Pick one and the Bank fills that
-      section's position boxes; leave it unticked to fill only the general boxes and
-      tick the type yourself.
+      Which section of the form you are filling. Pick one and the Bank ticks that box
+      and fills the section's position boxes; leave it unticked to fill only the general
+      boxes and tick the type yourself.
     </p>
     <p>
       <label><input type="radio" name="request_type" value=""{% if not selected.request_type %} checked{% endif %}>
@@ -113,7 +130,11 @@
     </p>
     {% endif %}
 
-    <h3>Checklist</h3>
+    <h3>Contact and checklist</h3>
+    <p>
+      <label><input type="checkbox" name="contact_me"{% if selected.contact_me %} checked{% endif %}>
+        Fill me in as the contact{% if requester %} ({{ requester.display_name }}){% endif %}</label>
+    </p>
     <p>
       <label><input type="checkbox" name="jd_in_word_attached"{% if selected.jd_in_word_attached %} checked{% endif %}>
         I am attaching the job description in Word format

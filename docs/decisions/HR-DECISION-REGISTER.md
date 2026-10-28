@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **253 decisions** (251 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 356 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **259 decisions** (257 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 362 parameters on the decision surface, all accounted for.
 
-**Of those 253, 88 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 163 are recorded for the same build check but are not yours to sign: 71 shape what a reviewer sees without deciding whether a job description passes, and 92 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 259, 88 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 169 are recorded for the same build check but are not yours to sign: 77 shape what a reviewer sees without deciding whether a job description passes, and 92 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -949,6 +949,12 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-256](#hr-256) | Should the APSA/APEX/Poly export print a heading above the territorial acknowledgement and Employment Equity statement, when HR's 2024 template prints them with no heading at all? | `TERRITORIAL ACKNOWLEDGEMENT AND EDI COMMITMENT` | we chose it |
 | [HR-258](#hr-258) | Is the identification table the APSA/APEX/Poly export prints in its page header a faithful copy of HR's 2024 template — and is printing the supervisor's title and position # there, which the template does not ask for, acceptable? | *7 entries — see below* | we chose it |
 | [HR-259](#hr-259) | May the APSA/APEX/Poly export type its bullets as characters (so the Bank can read its own export back) instead of using Word's list formatting as HR's template does? | `•` | we chose it |
+| [HR-309](#hr-309) | When a harmonized role lacks a department or an employee group, may the Compensation Requisition Form take it from the role's source files instead? | `department`, `employee_group` | we chose it |
+| [HR-310](#hr-310) | When the source files disagree on a fact (two departments across one role), should the form stay blank, or take the majority? | `true` | we chose it |
+| [HR-311](#hr-311) | Should the Bank tick the "Type of request" box (A–E) the requester chose, or leave every box for them to tick on the form? | `true` | we chose it |
+| [HR-312](#hr-312) | When the Bank lists the positions a request is based on (Section A or B), should it also tick that section's "based off of an existing position? Yes" box? | `true` | we chose it |
+| [HR-313](#hr-313) | May the Bank type the signed-in requester's name and email into "Contact Name & Position Title" / its Email box, when they leave that choice ticked? | `true` | we chose it |
+| [HR-314](#hr-314) | Should the choices page SHOW the grades the role's source files carry, as reference, while never writing a grade to the form? | `true` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -1327,6 +1333,54 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** we chose it
 - **Why it matters:** MEASURED 2026-10-19: 1,798 of 1,876 current non-CUPE roles exported and re-read by the Bank came back with a different duty count — usually 5 exported, 1 re-read. The export used Word's "List Bullet" style, and a Word list bullet is formatting: it never reaches the text the parser reads, so every duty ran into one. The archive has the same problem in reverse (measured read-only over all 9,947 archive .docx: of the 5,114 JDFN files whose duties are Word-formatted lists, 48.4% parse as ONE duty), so the parser, not the archive, is the reader that cannot see Word bullets — fixing that is a parser change, not made here. The export now types this mark, a tab and a hanging indent before every duty, decision, problem, contact and qualification: it looks like a bullet, and it IS one to the parser. The template's "How and why" sub-bullets stay Word sub-bullets on purpose, so they re-read as part of their duty. The trade-off HR should know: editing the exported file in Word, a new line after an item does not continue the list automatically.
 - **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`; changes only the exported `.docx`. The mark must be one the parser reads as a bullet (`test_the_bullet_glyph_is_one_the_parser_reads`); a mark it does not read brings the merged-duties defect straight back, and the live smoke (`test_every_live_apsa_role_exports_and_rereads_its_duties`) goes red.
+
+##### HR-309 — When a harmonized role lacks a department or an employee group, may the Compensation Requisition Form take it from the role's source files instead?
+
+- **We ship:** `department`, `employee_group`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.fill_from_sources_when_role_lacks`
+- **Where the default came from:** we chose it
+- **Why it matters:** MEASURED 2026-10-28 over the 2,503 current roles: the harmonized content names a department for 1,746 and an APSA/APEX employee group for 1,077, while the member files' current parse raises those to 1,851 and 1,113. The first form the owner tested (AV Systems Analyst) was one of the gaps: its three source files all say "IT Services" and APSA, and the role said neither, so the PDF came out with only a title. The grade is deliberately NOT in this list: proposing one is the evaluator's job (ADR-007), so it is shown as reference only (HR-314).
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. Only facts the prefill knows how to read are allowed (`Literal`); removing one leaves that box blank for the requester.
+
+##### HR-310 — When the source files disagree on a fact (two departments across one role), should the form stay blank, or take the majority?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.sources_must_agree`
+- **Where the default came from:** we chose it
+- **Why it matters:** 27 of the 2,503 current roles have members in more than one department. A form sent to Compensation with the wrong department typed in is worse than one with the box empty, so a disagreement writes nothing. `false` would take the most frequent value.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. Affects only what a downloaded form has typed in; the requester edits it in Acrobat either way.
+
+##### HR-311 — Should the Bank tick the "Type of request" box (A–E) the requester chose, or leave every box for them to tick on the form?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.tick_request_type`
+- **Where the default came from:** we chose it
+- **Why it matters:** The requester picks the request type on the choices page and the Bank fills that section's position boxes accordingly; a form with the section filled but the type unticked reads as unfinished. The box map (A -> Check Box71, B -> 75, C -> 72, D -> 76, E -> 73) is dictated by the form and lives in the field map.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` leaves the five boxes untouched.
+
+##### HR-312 — When the Bank lists the positions a request is based on (Section A or B), should it also tick that section's "based off of an existing position? Yes" box?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.tick_based_on_existing`
+- **Where the default came from:** we chose it
+- **Why it matters:** Writing the list without ticking Yes leaves the form contradicting itself. Only the Yes box is ever ticked, and only when a list is written; No is never asserted (a new position based on nothing needs nothing from the Bank).
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` leaves Check Box66 (Section A) and Check Box55 (Section B) untouched.
+
+##### HR-313 — May the Bank type the signed-in requester's name and email into "Contact Name & Position Title" / its Email box, when they leave that choice ticked?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.contact_from_requester`
+- **Where the default came from:** we chose it
+- **Why it matters:** The contact is the person downloading the form, whose identity the CAS session already carries — never an incumbent (the Bank holds no incumbent names, and the prefill model has no field for one). The requester can untick it on the choices page, and the email stays blank when the session carries none.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` leaves both contact boxes blank regardless of the page's choice.
+
+##### HR-314 — Should the choices page SHOW the grades the role's source files carry, as reference, while never writing a grade to the form?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.show_source_grades_for_reference`
+- **Where the default came from:** we chose it
+- **Why it matters:** "Anticipated grade" is the evaluator's call (ADR-007: the Bank does not classify), so no grade is ever typed in. The sources' grades are still useful context for the requester, so they are shown beside the choices, labelled as reference and as coming from the source files.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. Affects the choices page only; the PDF is identical either way.
 
 #### An earlier version of this tool chose it — also unratified
 
