@@ -1763,7 +1763,7 @@ class Rewrite(_RuleFile):
     fragment_pattern: Regex
     #: How many consecutive contact items one model contact is grounded in (HR-288).
     relationships_row_window: int = Field(default=1, ge=1)
-    # --- post-pass fixes (the v9 Bank's full pass, 2026-10-27; HR-290…HR-292) -------
+    # --- post-pass fixes (the v9 Bank's full pass, 2026-10-27; HR-290…295, 302…304) -
     #: What happens when the model returns more duties than the draft's FORM holds
     #: (HR-290): ``merge`` folds the closest pair together until it fits (nothing is
     #: dropped; what cannot fit is listed), ``keep`` leaves the draft over its limit.
@@ -1781,9 +1781,20 @@ class Rewrite(_RuleFile):
     #: ``model`` — the model's order, restored lines and bars appended (before
     #: 2026-10-27).
     qualification_order: Literal["form", "model"] = "model"
-    #: Whether a kept rewritten competency takes the kind of the source line it rewords
-    #: (HR-294) rather than the kind the model gave it.
-    qualification_kind_from_source: bool = False
+    #: The FORMS on which a kept rewritten competency takes the kind of the source line
+    #: it rewords (HR-294) rather than the kind the model gave it. Empty: none.
+    qualification_kind_from_source: tuple[JDTemplate, ...] = ()
+    #: The least share of a rewritten line's words the source line must hold for its
+    #: kind to be taken (HR-302).
+    qualification_kind_min_overlap: float = Field(default=0.0, ge=0.0, le=1.0)
+    #: The lead words that NAME a kind (HR-303): a line opening with one keeps that
+    #: kind unless the source line it rewords opens with the same word.
+    qualification_kind_lead_words: Annotated[
+        Mapping[QualificationKind, tuple[str, ...]], AfterValidator(_freeze)
+    ] = Field(default_factory=dict)
+    #: The least token-Jaccard two rewritten duties need to be MERGED to fit the form
+    #: (HR-304); below it the surplus duty is listed instead.
+    duty_merge_min_similarity: float = Field(default=0.0, ge=0.0, le=1.0)
     #: Whether a rewritten Position Summary may name a working condition its source
     #: summary does not (HR-295): ``True`` drops such a sentence.
     summary_conditions_must_be_grounded: bool = False

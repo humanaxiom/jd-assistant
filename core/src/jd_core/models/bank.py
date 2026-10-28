@@ -492,6 +492,9 @@ class AntiFabricationRecord(BaseModel):
     #: ``(text, kind the model gave, kind of the source line it rewords)`` for each kept
     #: qualification whose kind was put back to the source's (HR-294, 2026-10-27).
     relabelled_qualifications: tuple[tuple[str, str, str], ...] = ()
+    #: ``(absorbed statement, frequency kept, absorbed duty's frequency)`` for every
+    #: HR-290 merge whose two duties stated different frequencies (review of 6000ba6).
+    merged_duty_frequency_conflicts: tuple[tuple[str, str, str], ...] = ()
     #: ``(section, text)`` of every Decision Making / Problem Solving / Relationships
     #: item the model returned that no item of the merge's SAME section grounds
     #: (``rewrite.section_item_grounding_threshold``, HR-269) — dropped.

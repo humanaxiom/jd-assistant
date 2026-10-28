@@ -654,29 +654,57 @@ class _DutyCoverage:
             self._restored.append((tokens, content_tokens(sentence, self._comparison)))
 
 
+_LEAD_WORD: Final[re.Pattern[str]] = re.compile(r"[A-Za-z]+")
+
+
+def _lead_word(text: str) -> str:
+    match = _LEAD_WORD.search(text)
+    return match.group(0).lower() if match else ""
+
+
 def _source_kind(
-    text: str, sources: Sequence[SFUQualification], comparison: Comparison
+    text: str, sources: Sequence[SFUQualification], rules: Rules
 ) -> str | None:
-    """The kind of the SOURCE qualification ``text`` rewords (HR-294): the one holding
-    the largest share of its words (ties to the first). ``None`` with no overlap.
+    """The kind of the SOURCE qualification ``text`` rewords (HR-294), or ``None`` when
+    it may not be taken: the source line holding the largest share of its words (ties
+    to the first), if that share reaches ``qualification_kind_min_overlap`` (HR-302) and
+    ``text`` does not NAME a different kind by its lead word (HR-303).
 
     🔴 MEASURED (the v9 full pass): the merge's CUPE lines are `skill` and `ability`
     only — the WJQ parser never writes `knowledge` — yet 568 of the 612 rewritten CUPE
     drafts failing K→S→A carry a `knowledge` line, and "Ability to use word-processing…"
-    came back `skill` in one place and `ability` two lines later."""
+    came back `skill` in one place and `ability` two lines later.
+
+    🔴 REVIEW of 6000ba6 (measured on JDFN): with no floor, "PMP certification" took
+    `knowledge` from a line sharing a quarter of its words; "Ability to build
+    consensus…" took `skill` from "Excellent interpersonal skills with the ability to…".
+    A line whose lead word names a kind keeps it — unless the source line opens with the
+    same word, which is what a CUPE form section looks like ("Ability to …" printed
+    under Occupational Skills)."""
+    rewrite = rules.rewrite
+    comparison = grounding_comparison(rules)
     tokens = _content_tokens(text, comparison)
-    best, kind = 0.0, None
+    if not tokens:
+        return None
+    best, chosen = 0.0, None
     for src in sources:
-        if (
-            tokens
-            and (
-                share := len(tokens & _content_tokens(src.text, comparison))
-                / len(tokens)
-            )
-            > best
-        ):
-            best, kind = share, src.kind
-    return kind
+        share = len(tokens & _content_tokens(src.text, comparison)) / len(tokens)
+        if share > best:
+            best, chosen = share, src
+    if chosen is None or best < rewrite.qualification_kind_min_overlap:
+        return None
+    lead = _lead_word(text)
+    named = next(
+        (
+            k
+            for k, words in rewrite.qualification_kind_lead_words.items()
+            if lead in words
+        ),
+        None,
+    )
+    if named is not None and named != chosen.kind and _lead_word(chosen.text) != lead:
+        return None
+    return chosen.kind
 
 
 def _form_order(
@@ -703,6 +731,9 @@ def _form_order(
     trail = [q for q in bars if q.text not in lead_texts]
     ordered = sorted(competencies, key=lambda q: rank.get(q.kind, last))
     return [*lead, *ordered, *trail]
+
+
+_SPACES_RUN: Final[re.Pattern[str]] = re.compile(r"[ \t]+")
 
 
 def _summary_conditions(
@@ -735,8 +766,16 @@ def _summary_conditions(
     dropped = [p for p in parts if any(m.casefold() in folded(p) for m in foreign)]
     if not dropped:
         return summary, []
-    kept = [p for p in parts if p not in dropped]
-    return (" ".join(kept) if kept else source_summary), dropped
+    if len(dropped) == len(parts):
+        return source_summary, dropped
+    # Cut the dropped sentences out IN PLACE (review of 6000ba6): re-joining the kept
+    # ones with " " lost the summary's paragraph breaks.
+    out = summary
+    for sentence in dropped:
+        out = out.replace(sentence, "", 1)
+    lines = [_SPACES_RUN.sub(" ", line).strip() for line in out.split("\n")]
+    text = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+    return text, dropped
 
 
 def form_duty_limit(draft: SFUJobDescription, rules: Rules) -> int:
@@ -759,9 +798,24 @@ def _duty_sentence(duty: SFUDuty) -> str:
     return statement
 
 
+class _Fit(BaseModel):
+    """What :func:`_fit_the_form` did."""
+
+    duties: list[SFUDuty]
+    merged: list[tuple[str, str]] = []
+    over: list[str] = []
+    #: ``(absorbed statement, kept frequency, absorbed frequency)`` when they differ.
+    conflicts: list[tuple[str, str, str]] = []
+
+
 def _fit_the_form(
-    duties: Sequence[SFUDuty], limit: int, clause_cap: int, comparison: Comparison
-) -> tuple[list[SFUDuty], list[tuple[str, str]], list[str]]:
+    duties: Sequence[SFUDuty],
+    limit: int,
+    clause_cap: int,
+    comparison: Comparison,
+    *,
+    min_similarity: float = 0.0,
+) -> _Fit:
     """Bring the MODEL's duties within the form (HR-290): at most ``limit`` duties and
     ``clause_cap`` how/why clauses each. Returns ``(duties, merged, over)``.
 
@@ -769,44 +823,55 @@ def _fit_the_form(
     rewrite still came back with 13 major functions, which the Builder then refused to
     clone ("the form takes at most 12", HR-246). Nothing held the reply to the form.
 
-    MERGE, NEVER DROP: while there are too many, the two most similar duties (token
+    MERGE, NEVER DROP: while there are too many, the two MOST SIMILAR duties (token
     Jaccard of their whole text; ties to the earliest pair) become one — the later one's
-    headline and clauses are appended as clauses of the earlier, which keeps its own
-    frequency or takes the later one's. ``merged`` pairs each absorbed headline with the
-    statement it went under. A pair whose merge fits the clause cap is preferred; a
-    clause no duty has room for is returned in ``over`` (listed for the reviewer), and
-    fold-back still puts back any source sentence the result no longer covers."""
-    out = list(duties)
-    over: list[str] = []
+    headline and clauses are appended as clauses of the earlier. Its frequency is kept
+    when the two agree or one is blank; when they differ the earlier one's stands and
+    the conflict is recorded. ``merged`` pairs each absorbed headline with the statement
+    it went under; a clause the cap cannot hold is returned in ``over``.
+
+    Review of 6000ba6: similarity is the ONLY ordering (it used to prefer any pair that
+    fitted the clause cap over a more similar one), and below ``min_similarity``
+    (HR-304) nothing is merged: the model's LAST duty is listed whole in ``over``
+    instead. Either way fold-back still puts back any source sentence the result no
+    longer covers."""
+    fit = _Fit(duties=list(duties))
+    out = fit.duties
     for i, duty in enumerate(out):
         if len(duty.how_why) > clause_cap:
-            over.extend(duty.how_why[clause_cap:])
+            fit.over.extend(duty.how_why[clause_cap:])
             out[i] = duty.model_copy(update={"how_why": duty.how_why[:clause_cap]})
-    merged: list[tuple[str, str]] = []
     while len(out) > limit:
         tokens = [_content_tokens(duty_text(d), comparison) for d in out]
-        _, _, i, j = min(
-            (
-                len(out[i].how_why) + 1 + len(out[j].how_why) > clause_cap,
-                -_jaccard(tokens[i], tokens[j]),
-                i,
-                j,
-            )
+        score, i, j = min(
+            (-_jaccard(tokens[i], tokens[j]), i, j)
             for i in range(len(out))
             for j in range(i + 1, len(out))
         )
+        if -score < min_similarity:
+            last = out.pop()
+            fit.over.extend([_duty_sentence(last), *last.how_why])
+            continue
         keep, absorbed = out[i], out.pop(j)
         clauses = [_duty_sentence(absorbed), *absorbed.how_why]
         room = max(clause_cap - len(keep.how_why), 0)
-        over.extend(clauses[room:])
+        fit.over.extend(clauses[room:])
+        if (
+            keep.frequency
+            and absorbed.frequency
+            and keep.frequency != absorbed.frequency
+        ):
+            fit.conflicts.append(
+                (absorbed.statement, keep.frequency, absorbed.frequency)
+            )
         out[i] = keep.model_copy(
             update={
                 "how_why": [*keep.how_why, *clauses[:room]],
                 "frequency": keep.frequency or absorbed.frequency,
             }
         )
-        merged.append((absorbed.statement, keep.statement))
-    return out, merged, over
+        fit.merged.append((absorbed.statement, keep.statement))
+    return fit
 
 
 def _frequency_by_coverage(
@@ -1048,14 +1113,16 @@ def _apply_anti_fabrication(
     restored_bars: list[str] = []
     relabelled: list[tuple[str, str, str]] = []
     source_competencies = [q for q in source.qualifications if q.kind in authorable]
+    relabel = template_of(merged.draft) in rewrite.qualification_kind_from_source
     for qual in llm_jd.qualifications:
         if (
-            rewrite.qualification_kind_from_source
+            relabel
             and qual.kind in authorable
-            and (kind := _source_kind(qual.text, source_competencies, comparison))
+            and (kind := _source_kind(qual.text, source_competencies, rules))
             and kind != qual.kind
         ):
-            # HR-294: the kind is the SOURCE's — the line it rewords says what it is.
+            # HR-294: on this form the kind is the SOURCE's — the form section the
+            # line it rewords was printed in (HR-302/303 bound it).
             relabelled.append((qual.text, qual.kind, kind))
             qual = qual.model_copy(update={"kind": kind})
         if qual.kind not in authorable:
@@ -1220,10 +1287,29 @@ def _apply_anti_fabrication(
     )
     merged_duties: list[tuple[str, str]] = []
     over_limit: list[str] = []
+    conflicts: list[tuple[str, str, str]] = []
     if rewrite.duties_over_form_limit == "merge":
-        duties, merged_duties, over_limit = _fit_the_form(
-            duties, duty_limit, clause_cap, comparison
+        fit = _fit_the_form(
+            duties,
+            duty_limit,
+            clause_cap,
+            comparison,
+            min_similarity=rewrite.duty_merge_min_similarity,
         )
+        duties, merged_duties, over_limit = fit.duties, fit.merged, fit.over
+        conflicts = fit.conflicts
+        # A flagged duty merged into another is a clause now: the flag names the duty
+        # it went under (review of 6000ba6), once.
+        into = dict(merged_duties)
+
+        def went_under(statement: str) -> str:
+            # follow a chain of merges; each absorbed statement left the list, so
+            # the chain is finite
+            while statement in into:
+                statement = into[statement]
+            return statement
+
+        flagged = list(dict.fromkeys(went_under(s) for s in flagged))
     # …and what it LOST (HR-271): every source duty sentence no rewritten duty covers is
     # folded back or listed. This replaces the per-duty "restore the source's clauses"
     # rules of v9 review rounds 1–2, which asked the same question of the ONE matched
@@ -1312,6 +1398,7 @@ def _apply_anti_fabrication(
         merged_duties=tuple(merged_duties),
         over_form_limit=tuple(over_limit),
         relabelled_qualifications=tuple(relabelled),
+        merged_duty_frequency_conflicts=tuple(conflicts),
         scrubbed_items=tuple(log.scrubbed),
         uncovered_items=tuple(log.uncovered),
         restored_items=tuple(log.restored),

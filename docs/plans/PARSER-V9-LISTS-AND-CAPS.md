@@ -569,6 +569,25 @@ not move. Tests: `core/tests/unit/test_rewrite_postpass_v9.py` (21 of 23 red on
 
 Replay, all fixes together: approvable 0 → 7 CUPE, 452 → 742 JDFN.
 
+**Review of 6000ba6 (CHANGES REQUIRED) — fixed, tests red first, each guard broken once:**
+HR-294 is per form (`[wjq]`: on CUPE the kind is the form section; on JDFN it forced
+93 lines in 79 drafts to a kind their own wording contradicts); a relabel needs HR-302's
+overlap (0.5) and never contradicts a line's own lead word (HR-303) unless the source
+line opens with the same word. HR-290 orders by similarity only and merges only above
+HR-304's floor (0.2) — below it the surplus duty is listed; a merge keeps an agreeing
+frequency and records a conflict; a flagged duty merged away is flagged by the duty it
+went under. HR-291 also takes "Position number(s): __01110___Continued" and a trailing
+"Position Number 07514". HR-295 keeps paragraph breaks. Replay after the review (mine
+and the reviewer's agree): approvable unchanged at 7 CUPE / 742 JDFN, K→S→A 0 / 0,
+summary conditions 13 / 30; relabels 6,546 CUPE (none under half overlap), 0 JDFN.
+Still open: in 4 JDFN drafts the form order moves an "or an equivalent combination…"
+continuation line away from the degree line it continues (it is kinded as a
+competency by the parser).
+
+**Owner ruling (2026-10-27): ONE FULL PASS, not tiers.** The lists below stay as the
+per-cluster record of WHY each draft changes; the re-run is all 2,446 (≈ 89 h at the
+pass's own rate).
+
 **Re-run list** (`docs/canonical/v9-postpass-rerun.json`, reasons per cluster):
 tier 1 (a defect in the stored draft) 1,109 clusters (613 CUPE, 496 JDFN,
 `v9-postpass-rerun-tier1.txt`); all 1,633 (`v9-postpass-rerun-all.txt`) adds every CUPE
