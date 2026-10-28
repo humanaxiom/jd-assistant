@@ -49,6 +49,26 @@ tomorrow, without me?* Full statement in [`CLAUDE.md`](../CLAUDE.md); runbook in
 ---
 ---
 
+# ▶ NOW — 2026-10-28: the v9 Bank, then the rest of Tracks I · J · K
+
+**This section comes before the MVP run order below, which was set on 2026-08-29.** State,
+branch shas and traps are in [`HANDOFF.md`](../HANDOFF.md) under *START HERE*. This section
+is only the order.
+
+| # | what | gate to start | why here |
+|---|---|---|---|
+| **V1** | **Parser v10 + post-pass fixes + targeted re-run → `bank/v9`** | the Opus verdict on `feat/v9-parser-wrap`; the other two branches are approved | The first full v9 pass ended with `make bank-audit` and smoke red. These three branches are the measured fix, and the owner ruled they land before the rebuild |
+| **V2** | **Wipe + rebuild the v9 Bank, then smoke** | V1 merged, register clean | Owner ruling 2026-10-27: one full rebuild, not tiers |
+| **V3** | **One full v9 rewrite pass** (~89 h, holds `aria-gb10-2`) | V2's smoke green | Record T0 and resume with `--refreshed-since`. Afterwards run `embed-roles`, `bank-audit` and `smoke` |
+| **V4** | **Ship v9 to `main`**: parser, rewrite fidelity, migration 0008 | v9 smoke green (Directive #0) | Ordinary PRs. Migration 0008 locks the live `parsed_jds` for about 10 s. The live Bank then needs its own re-parse and producer pass, scheduled deliberately |
+| **I3** | **LLM query plan for both search boxes**, flag off | none on the code side; enabling it waits on Q8 | The original ask was "NLP-powered search". I1/I2 delivered title + embedding search but no LLM reading of the query. Design: [tracks plan](plans/TRACKS-IJK-SEARCH-HR-FORMS-COMPREQ.md) |
+| **K3** | **CRF download in the Builder + Library** | K2 (merged in #213); position picker per Q2 | The filler exists, but no route reaches it, so it is not delivered (Directive #1) |
+| **J3 · J5** | CUPE Part II questionnaire · re-evaluation package | J2 merged; J5 also needs K3 and Q5 | Re-evaluations are half of HR's guidance and nothing serves them yet |
+| **K1** | HRIS position import | ⏸ owner Q3: PeopleSoft export TBD | — |
+
+⚠ The I3/K3/J lanes do not touch `aria-gb10-2`'s producer path, so they can run while V3
+holds the GPU. **They must not merge to `main` while live smoke is red.**
+
 # ▶ THE MVP RUN ORDER — set 2026-08-29
 
 **The dev/test iteration is closed.** The policy questions that gated it are ratified

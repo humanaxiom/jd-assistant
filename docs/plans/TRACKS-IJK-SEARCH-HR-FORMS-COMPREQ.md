@@ -1,6 +1,29 @@
 # Tracks I · J · K — NLP search, HR form conformance, Compensation Requisition Form
 
-**Plan only. Nothing here is built.** Written 2026-10-19 from three read-only research
+## ▶ Status at 2026-10-28
+
+| PR | state |
+|---|---|
+| I1 | ✅ merged #213 |
+| I2 | ✅ merged #215 |
+| **I3** | ❌ **not built.** This is the LLM part of "NLP-powered search" |
+| J0 | ◐ the CUPE sources are vendored (`fixtures/hr/cupe/`). Whether the contradictions are registered has not been checked: verify before calling J0 done |
+| J1 | ✅ merged #212 |
+| J2 | ✅ merged #216 (Q9 = option C) |
+| J3 | ❌ not started |
+| J4 | ✅ merged #214 |
+| J5 | ❌ not started |
+| K0 | ❌ owner Q1 not formally recorded |
+| K1 | ⏸ on hold (owner Q3: PeopleSoft export TBD) |
+| K2 | ✅ the filler merged inside #213 (#211 closed as superseded) |
+| **K3** | ❌ **not built.** No route or button reaches K2, so the CRF is not yet delivered |
+
+Order and gates: [`../plan.md`](../plan.md) § *NOW*. The precondition section below is the
+2026-10-19 record; run `make smoke` for today's state.
+
+---
+
+Written 2026-10-19 as a plan only, from three read-only research
 passes (Opus), each checked against the tree or the live Bank before being relied on.
 The reports, queries and raw results are in
 [`docs/audit/2026-10-19-search-hr-compreq/`](../audit/2026-10-19-search-hr-compreq/):
