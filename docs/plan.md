@@ -62,7 +62,7 @@ is only the order.
 | **V3** | **One full v9 rewrite pass** (~89 h, holds `aria-gb10-2`) | V2's smoke green | Record T0 and resume with `--refreshed-since`. Afterwards run `embed-roles`, `bank-audit` and `smoke` |
 | **V4** | **Ship v9 to `main`**: parser, rewrite fidelity, migration 0008 | v9 smoke green (Directive #0) | Ordinary PRs. Migration 0008 locks the live `parsed_jds` for about 10 s. The live Bank then needs its own re-parse and producer pass, scheduled deliberately |
 | **I3** | **LLM query plan for both search boxes**, flag off | none on the code side; enabling it waits on Q8 | The original ask was "NLP-powered search". I1/I2 delivered title + embedding search but no LLM reading of the query. Design: [tracks plan](plans/TRACKS-IJK-SEARCH-HR-FORMS-COMPREQ.md) |
-| **K3** | **CRF download in the Builder + Library** | K2 (merged in #213); position picker per Q2 | The filler exists, but no route reaches it, so it is not delivered (Directive #1) |
+| ~~**K3**~~ | ~~CRF download in the Builder + Library~~ **built: PR #219** | — | Choices page + PDF download under each role; linked from the role page and the Builder. Source fallback, ticked boxes and the requester as contact are registered HR-309–314. Q2 (picker) and Q6 (CUPE) still await rulings |
 | **J3 · J5** | CUPE Part II questionnaire · re-evaluation package | J2 merged; J5 also needs K3 and Q5 | Re-evaluations are half of HR's guidance and nothing serves them yet |
 | **K1** | HRIS position import | ⏸ owner Q3: PeopleSoft export TBD | — |
 

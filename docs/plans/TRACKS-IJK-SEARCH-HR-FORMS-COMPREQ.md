@@ -16,7 +16,7 @@
 | K0 | ❌ owner Q1 not formally recorded |
 | K1 | ⏸ on hold (owner Q3: PeopleSoft export TBD) |
 | K2 | ✅ the filler merged inside #213 (#211 closed as superseded) |
-| **K3** | ❌ **not built.** No route or button reaches K2, so the CRF is not yet delivered |
+| **K3** | ✅ PR #219: `GET`/`POST /jd-bank/ui/role/{cluster_id}/comp-requisition` — request type A–E, which ONE position, requester as contact, Word attached; linked from the role page and the Builder's Export block. Fills title, department and group (from the role, or the source files when they agree — HR-309/310), ticks the type and the based-on Yes boxes (HR-311/312), names the requester (HR-313), shows source grades as reference (HR-314). Live smoke drives it. Q2 implemented as *the requester picks*; Q6 as a note, no block |
 
 Order and gates: [`../plan.md`](../plan.md) § *NOW*. The precondition section below is the
 2026-10-19 record; run `make smoke` for today's state.

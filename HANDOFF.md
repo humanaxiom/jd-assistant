@@ -32,9 +32,13 @@ The plan is in [`docs/plans/TRACKS-IJK-SEARCH-HR-FORMS-COMPREQ.md`](docs/plans/T
 - **I3, the LLM query plan.** This is the "NLP-powered (LLM) search" of the original ask.
   I1 and I2 are hybrid title + *embedding* search; no chat model reads the query yet. I3 is
   designed in the tracks plan: its flag ships **off**, and Q8 is still open.
-- **K3, the CRF download button.** K2's filler exists and is tested, but **no route or
-  Builder button reaches it**, so by Directive #1 it is *not delivered*. K1 (the HRIS
-  position import) is on hold, because owner Q3 left the PeopleSoft export TBD.
+- ~~**K3, the CRF download button.**~~ **Built 2026-10-28/29 on PR #219** (role page and
+  Builder → choices page → SFU's filled PDF; rules file `comp_requisition.yaml`,
+  HR-309–314). The owner's first download came out nearly blank: the role lacked a
+  department/group its sources carried, and nothing ticked the request type — both
+  fixed on the same PR. ⚠ Still blank by construction: grade, job code, union code,
+  department code, Reg/Temp, hours — PeopleSoft facts. K1 (the HRIS position import)
+  is on hold, because owner Q3 left the PeopleSoft export TBD.
 - **J3** (the CUPE Part II questionnaire) and **J5** (the re-evaluation package) have not
   been started.
 
@@ -104,6 +108,8 @@ baseline scores raw text. Say so wherever that figure is quoted.
 - Fold-back readability.
 - A newly approved role is missing from the role-vector index until `make embed-roles` runs.
 - Trap (d) below.
+- The CRF choices page could also offer the Builder's current draft (today it is per
+  role); J5's package needs it.
 
 ### 5. Traps from this stretch
 
@@ -136,6 +142,13 @@ baseline scores raw text. Say so wherever that figure is quoted.
   build output before you commit.
 - **(e) Auto mode blocks `gh pr merge`**, even after the owner has said "merge". The owner
   merges on GitHub.
+- **(g) The dev API does not hot-reload, and `make smoke` cannot tell.** `api` bind-mounts
+  `./core` with `uvicorn --reload`, but a Windows bind mount fires no file events, and
+  compose keeps the container when the image is unchanged — so after `build.ps1` +
+  `launch.ps1` on 2026-10-28 the live API served two-hour-old code while gates and smoke
+  (in-process ASGI) were green. PR #219 makes `launch.ps1` force-recreate api/worker and
+  sets `WATCHFILES_FORCE_POLLING`. Before the owner clicks through a change, check
+  `docker logs -t jd-bank-api-1 | grep "Started server"` is newer than the edit.
 - **(f) Docker ran out of network address pools** with many worktree stacks up. Remove only
   empty networks that *we* created, never another project's.
 
