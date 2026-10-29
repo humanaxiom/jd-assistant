@@ -6,6 +6,141 @@ check it. This page is state and traps, **forward-looking only**; the build reco
 funnel before trusting it — a handoff that records intent as outcome is worse than one
 merely out of date.
 
+## ▶ START HERE — state at 2026-10-28 (the newest section; everything below is older)
+
+⚠ **The September material further down was written before any of this.** Re-derive a row
+there before you work it (lesson 3 under *WHAT IS OPEN*). Check this section against
+`git fetch && gh pr list` and the branch shas below. They are what had been pushed when
+this was written, not a promise that nothing has moved since.
+
+### 1. What shipped to `main` in October (Tracks I · J · K)
+
+The plan is in [`docs/plans/TRACKS-IJK-SEARCH-HR-FORMS-COMPREQ.md`](docs/plans/TRACKS-IJK-SEARCH-HR-FORMS-COMPREQ.md).
+
+| PR | what |
+|---|---|
+| #210 | the I/J/K plan, plus the gap analysis against HR's guidance ([`docs/audit/2026-10-19-search-hr-compreq/`](docs/audit/2026-10-19-search-hr-compreq/)) |
+| #212 | **J1**: CUPE drafts export on HR's CUPE form (`jd_export/cupe.py`, `cupe_form.yaml`) |
+| #213 | **I1**: hybrid title + meaning search in the Library. It also carried **K2**, the Compensation Requisition Form (CRF) filler (`jd_export/comp_requisition.py`, `pypdf`). #211 was closed as superseded |
+| #214 | **J4**: the APSA export follows HR's 2024 template and reads back |
+| #215 | **I2**: typo tolerance (`pg_trgm`, migration 0007), a title pass over the current parse only, and search survives a dead embed host |
+| #216 | **J2**: CUPE form structure (functions, frequencies, checkboxes, tables, and Occupational Skills per owner ruling Q9 = option C) |
+| #217 | **parallel Bank isolation**: a second Bank can run beside the live one (`deploy/BankTarget.ps1`, a per-checkout `.env`) |
+
+🔴 **The owner asked for these and they are NOT built yet. Do not report them as done:**
+
+- **I3, the LLM query plan.** This is the "NLP-powered (LLM) search" of the original ask.
+  I1 and I2 are hybrid title + *embedding* search; no chat model reads the query yet. I3 is
+  designed in the tracks plan: its flag ships **off**, and Q8 is still open.
+- **K3, the CRF download button.** K2's filler exists and is tested, but **no route or
+  Builder button reaches it**, so by Directive #1 it is *not delivered*. K1 (the HRIS
+  position import) is on hold, because owner Q3 left the PeopleSoft export TBD.
+- **J3** (the CUPE Part II questionnaire) and **J5** (the re-evaluation package) have not
+  been started.
+
+### 2. The v9 Bank: a SEPARATE Bank, built beside the live one
+
+**Owner ruling 2026-10-20:** *"a new bank for v9. Leave the existing database alone. A
+complete new set of images for this build."* Nothing in this section touches the live Bank
+(`jd-bank`, `C:\repos\JD-Assistant`, ports 25xxx).
+
+| | |
+|---|---|
+| checkout | `C:\repos\JD-Assistant-v9`. **Branch of record: `bank/v9`** (pushed) |
+| stack | compose project `jd-bank-v9`, images `jd-bank-<svc>:v9`, its own volumes |
+| ports | API **26800** · Postgres 26432 · Neo4j 26474/26687 · Redis 26379 · CAS **off** (`launch.ps1 -NoCas`) |
+| what it is | parser v9 (lists and caps; migration 0008 adds a stored `parsed_jds.title`) plus the hardened rewrite (fidelity rules HR-267–289). Design: `docs/plans/PARSER-V9-LISTS-AND-CAPS.md`, **on `bank/v9`** |
+| first full pass | ran 2026-10-21T15:27Z → 2026-10-25 (about 89 h) over all clusters. Log and audit artefacts are on `bank/v9`: `docs/canonical/v9-fullpass-2026-10-21.log`, `bank-audit.json`, `summary.json`, `roles-summary.json`. **It ended RED:** `make bank-audit` failed and smoke had 2 failures (29 passed). The three branches below are the fix |
+
+🔴 **Directive #0 covers v9 as a whole.** Nothing on `bank/v9` reaches `main` until smoke
+is green **on v9**, and even then only through ordinary PRs. When migration 0008 lands on
+live, it locks `parsed_jds` for about 10 s.
+
+### 3. Pending: three branches, all pushed, NOT yet merged into `bank/v9`
+
+| branch | head | what | review |
+|---|---|---|---|
+| `feat/v9-targeted-rerun` | `0020671` | `--cluster-ids` / `--cluster-ids-file` on `canonical-drafts`; the WJQ approvability study (`docs/audit/2026-10-27-wjq-approvability.md`, on the branch); HR-296/297 | ✅ approved by the Opus reviewer |
+| `feat/v9-postpass-fixes` | `9d7b175` | form limits (merge floor 0.2), page headers, referral markers, K→S→A order, kind taken from the source (WJQ only), lead word (JDFN only), summary conditions grounded in the source; HR-290–295 and HR-302–304; replay lists in `docs/canonical/v9-postpass-rerun*` | ✅ approved by the Opus reviewer (2 rounds) |
+| `feat/v9-parser-wrap` | `e547a74` | **parser v10** (`jd_segmenter_v10`). It adds a wrapped-heading guard (HR-298/299). It maps the legacy lettered headings: H → qualifications (HR-300) and I → relationships (HR-301). G (working conditions), J (approvals) and form prompts are **set aside, not dropped** (HR-305–307), via a new `SFUJobDescription.set_aside` field and a source-JD panel. The qualification cap becomes 400 (HR-308). It already contains `feat/v9-postpass-fixes` | ⏳ **Opus review was still running at handover.** If this session ended first, **dispatch it again**: nothing is approved until a verdict exists |
+
+The owner rulings behind them (2026-10-27):
+- After the fixes, run ONE full rebuild and ONE full pass, not tiers.
+- Fix the wrapped-heading defect.
+- Fix the legacy lettered headings before the rebuild.
+- Drop G. UNUSUAL WORKING CONDITIONS from the role text. It is recorded and set aside, not deleted.
+
+### 4. Next, in order
+
+1. **Get the parser-v10 verdict.** The review must cover five things:
+   - an independent check over the whole archive;
+   - a sample of the set-aside text;
+   - headings demoted by mistake;
+   - a recommendation on the 600-character supervisory cap and the 400-character qualification cap;
+   - the `set_aside` plumbing.
+2. **Merge the three branches into `bank/v9`.** Do it in `C:\repos\JD-Assistant-v9`, after
+   `git branch --show-current` prints `bank/v9`. Then run the duplicate-ID check and
+   `make register-check` (see trap c).
+3. **Wipe and rebuild the v9 Bank** from that checkout:
+   `teardown.ps1 -Volumes -Force` → `launch.ps1 -NoCas` → `make ingest`
+   (`JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs`) → `embed` → near-dup → `dedup-role` →
+   `cluster` → `canonical-drafts --no-llm` → `embed-roles` → **`make smoke`**.
+4. **One full rewrite pass.** It takes about 89 h, runs detached and holds `aria-gb10-2`
+   throughout. **Record T0.** To resume an interrupted pass, use `--refreshed-since <T0>`,
+   **never `--resume`** (the September section below explains why). Afterwards run
+   `make embed-roles`, `make bank-audit` and `make smoke`.
+5. Only once v9 smoke is green: open PRs to `main`.
+
+**Open questions for HR and the owner that this work raised:**
+- HR-296/297: WJQ equivalency fails because the form does not fit, not because the rewrite is wrong.
+- HR-046 and HR-284.
+- From the tracks plan: Q2, Q4–Q8 and Q10.
+
+⚠ The WJQ study found that HR-201's CUPE approvability figure is overstated, because the
+baseline scores raw text. Say so wherever that figure is quoted.
+
+**Smaller follow-ups, noted but not started:**
+- The Builder still shows an "N% similar" figure (memory: similarity has no threshold).
+- Fold-back readability.
+- A newly approved role is missing from the role-vector index until `make embed-roles` runs.
+- Trap (d) below.
+
+### 5. Traps from this stretch
+
+- **(a) Another agent shares the v9 checkout's git record.** Codex works in
+  `C:\repos\GH-Versions\JD-Assistant-v9`. That folder is a *copy* of ours, and its `.git`
+  still points at **our** worktree record, so when Codex switches branch,
+  `C:\repos\JD-Assistant-v9` switches too (it has been seen on `agent/codex-harness`).
+  Codex runs its own stack, `jd-bank-codex-dev`, on ports **27xxx**.
+  - **The owner's instruction: ignore all Codex changes and leave Codex to the owner.** Do
+    not touch its folder, branch or stack, and do not edit `.git/worktrees`.
+  - Before every v9 action, run `git -C C:/repos/JD-Assistant-v9 branch --show-current`.
+    If it is not `bank/v9`, switch it back.
+  - **Do not create a second v9 checkout.** The owner said "avoid proliferation".
+- **(b) Worktree subagents refuse a lowercase cwd.** If the session started in
+  `c:\repos\...`, run `cd C:/repos/JD-Assistant` before dispatching an
+  `isolation: worktree` agent. Once a worktree's branch is pushed, clean up its entry
+  under `.claude/worktrees/`.
+- **(c) Squash merges make an integrated branch conflict again, and git's auto-merge
+  silently DUPLICATES register entries when you merge `main` back in.** After any merge
+  that touches `decision_register.yaml`:
+  - `grep -oE "^  - id: HR-[0-9]+" core/src/jd_core/rules/decision_register.yaml | sort | uniq -d`
+    must print nothing;
+  - `make register-check` must pass.
+
+  Give each parallel lane its own HR-id range up front. The next free id comes after the
+  highest one on any pending branch. That was HR-308 at handover, but check it rather than
+  trust this line.
+- **(d) Under a fresh compose project, `make register` wrote the image-build log into
+  `HR-DECISION-REGISTER.md`.** Build the images first, then run it, then grep the file for
+  build output before you commit.
+- **(e) Auto mode blocks `gh pr merge`**, even after the owner has said "merge". The owner
+  merges on GitHub.
+- **(f) Docker ran out of network address pools** with many worktree stacks up. Remove only
+  empty networks that *we* created, never another project's.
+
+---
+
 ## 🔴 WHERE THE NUMBERS LIVE — read this before quoting any figure
 
 This project has shipped wrong numbers that were **consistent across several documents**,
