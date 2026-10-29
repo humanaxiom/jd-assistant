@@ -8325,6 +8325,165 @@ decisions:
       Does NOT move `rules_version` or `PARSER_VERSION`. Affects the choices page only;
       the PDF is identical either way.
     status: open
+  - id: HR-315
+    question: >-
+      Should a self-hosted chat model read what a person types into the Library and
+      Builder search boxes before the title and vector passes run?
+    config:
+      file: search.yaml
+      path: search.query_understanding_enabled
+    current_default: false
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      MEASURED 2026-10-19 on 22 live queries: guarded, the model lifted the Library from
+      hit@5 20/22 (P@10 0.67) to 21/22 (0.84) and the Builder from 0.72 to 0.87 — it
+      expands "AP clerk", "coop coord", "IT sysadmin". UNGUARDED it invented an
+      employee-group filter on 75–85% of queries and emptied pages, so the guard is code
+      (group only when typed, unit only from the rulebook and only as a suggestion, the
+      words as typed always searched) and the model can only ADD results. Ships OFF: the
+      model choice is HR/ITS's (plan Q8), it adds 3.3 s p50 / 6.1 s p95 to a search, and
+      enabling it makes the live smoke depend on the inference host. With it off no
+      client is built and no call is made.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. On: every non-blank search makes
+      one plan call (bounded by HR-321), the page shows the model's reading, and
+      `make smoke` must make a real plan call before anything ships (Directive #0).
+    status: open
+  - id: HR-316
+    question: >-
+      Which self-hosted chat model should read search queries?
+    config:
+      file: search.yaml
+      path: search.query_model
+    current_default: gpt-oss:20b
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      MEASURED 2026-10-19: gpt-oss:20b matched 120b on guarded quality (Builder P@10
+      0.868 vs 0.859, Library 0.836 vs 0.827), answered about 1.4 s faster warm and
+      cold-loaded 2.5x faster — and a search is interactive, so latency is the cost
+      that matters. A rulebook decision, never `settings.agent_model`, and separate
+      from the rewrite's model (HR-176).
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. The model must exist on the
+      inference host; a missing one is "no plan" on every search (the page still
+      renders), visible in the API log.
+    status: open
+  - id: HR-317
+    question: >-
+      At what sampling temperature should the search-query model run?
+    config:
+      file: search.yaml
+      path: search.query_temperature
+    current_default: 0.0
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      0 makes the same search read the same way every time, which is what a person
+      re-running a search expects. Same per-pass knob shape as HR-177.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`.
+    status: open
+  - id: HR-318
+    question: >-
+      How hard should the search-query model reason before answering?
+    config:
+      file: search.yaml
+      path: search.query_reasoning_effort
+    current_default: low
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The plan is four small fields and every second is a second the person waits;
+      `low` is the measured spike setting. Same per-pass knob shape as HR-191.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. `null` sends nothing (the
+      model's own default); higher effort costs latency against HR-321's budget.
+    status: open
+  - id: HR-319
+    question: >-
+      What reply budget, in tokens, does one search-query plan get?
+    config:
+      file: search.yaml
+      path: search.query_max_tokens
+    current_default: 300
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The plan is a tiny JSON object; 300 is roomy and bounds a runaway reply.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. Too small truncates the JSON,
+      which reads as "no plan".
+    status: open
+  - id: HR-320
+    question: >-
+      How many times is an invalid plan reply re-asked with a repair nudge?
+    config:
+      file: search.yaml
+      path: search.query_max_retries
+    current_default: 0
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      Interactive: a bad reply means "no plan" and the page renders from the words as
+      typed, rather than the person waiting for a second attempt. The reply is
+      schema-constrained, which the spike found never failed in 44 calls.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. Each retry spends part of
+      HR-321's budget.
+    status: open
+  - id: HR-321
+    question: >-
+      How long may the whole search-query plan call take before the page is rendered
+      without it?
+    config:
+      file: search.yaml
+      path: search.query_timeout_seconds
+    current_default: 6.0
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      MEASURED warm p95 6.1 s on gpt-oss:20b (7.4 s on 120b); cold load about 10 s.
+      Past the budget the plain search is shown — never a blank page, never a 500.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. The worst-case wait a person
+      sees on a search with the feature on.
+    status: open
+  - id: HR-322
+    question: >-
+      Which versioned prompt pair does the search-query plan use?
+    config:
+      file: search.yaml
+      path: search.query_prompt_version
+    current_default: jd_search_plan_v1
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The prompt tells the model to expand abbreviations, never guess a group, and name
+      a unit only from the rulebook list it is handed. The `_v1` suffix is the version
+      stamped onto every reading shown on the page.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. A new prompt is a new
+      `jd_search_plan_vN` pair under jd_bank/llm/templates/.
+    status: open
+  - id: HR-323
+    question: >-
+      How many title keywords may one search run, including the words as typed?
+    config:
+      file: search.yaml
+      path: search.query_max_title_keywords
+    current_default: 4
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      Each keyword is one more title scan over roles and documents (and, in the
+      Builder, both). 4 bounds the cost at the three expansions the spike found
+      useful; the words as typed are always the first and are never dropped.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. 1 means "no added keywords"
+      (the plan still rewrites the vector query).
+    status: open
 
 trivial:
   # ── The APSA export form (Track J4): HR's own wording, pinned by HR-258. ──

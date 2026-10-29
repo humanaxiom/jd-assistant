@@ -6,7 +6,7 @@
 |---|---|
 | I1 | ✅ merged #213 |
 | I2 | ✅ merged #215 |
-| **I3** | ❌ **not built.** This is the LLM part of "NLP-powered search" |
+| **I3** | ✅ PR #219, **flag OFF** (`search.yaml`, HR-315–323): `jd_bank/query_plan.py` — a schema-constrained plan (semantic query, ≤3 added title keywords, group, unit) from `gpt-oss:20b`, then the deterministic guard (group only if typed, unit only from `org_units.yaml` and only as a suggestion, the words as typed always first); both pages show "Read as: …" with what was ignored and a *search the words as typed* link (`?plain=1`). Built synchronously inside the request with a 6 s budget, not the htmx swap the design sketched. Rerank: not built, as designed. The Builder page also stopped showing "N% similar". Q8 still gates enabling it |
 | J0 | ◐ the CUPE sources are vendored (`fixtures/hr/cupe/`). Whether the contradictions are registered has not been checked: verify before calling J0 done |
 | J1 | ✅ merged #212 |
 | J2 | ✅ merged #216 (Q9 = option C) |

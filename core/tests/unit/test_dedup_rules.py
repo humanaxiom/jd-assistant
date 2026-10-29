@@ -105,6 +105,8 @@ def test_dedup_is_the_fourth_unhashed_file(rules: Rules) -> None:
         "apsa_form.yaml",
         # Track K3 added `comp_requisition.yaml` (test_comp_requisition).
         "comp_requisition.yaml",
+        # Track I3 added `search.yaml` (test_query_plan).
+        "search.yaml",
     }
     assert "dedup" not in loader._HASHED_FIELDS
 

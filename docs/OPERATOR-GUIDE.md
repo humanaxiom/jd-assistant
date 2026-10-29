@@ -140,6 +140,7 @@ before the Builder in this guide too.
 | Task | How | Notes |
 |---|---|---|
 | Browse/search harmonized roles | Open **🏦 JD Bank**, optionally type a title into **Search roles by title** | Lists every **harmonized role** the Bank has distilled from the source archive — each a draft awaiting HR review, or a published JD. The counts are on 📈 Funnel (§5). |
+| Let a model read your search (optional, **off** unless ITS/HR switch it on) | Type the search as usual | When `search.yaml`'s `query_understanding_enabled` is on, a self-hosted model reads what you typed first — expanding "AP clerk" to *accounts payable clerk* — and the page shows **🧠 Read as: …** with the extra title keywords it added (each a link), anything it wanted that was ignored, and a **search the words as typed instead** link. It can only add results, never filter them: an employee group counts only if *you* typed it, a unit is only a suggestion. If the model is slow or down you get the plain search. The same applies to the Builder's **🔎 Search to clone**. |
 | Sort the list | Click a column heading (**Role · Sources · Score · Quality · Status**) | Toggles ascending/descending; sorting resets to the first page. |
 | Read a role | Click a role's title or **Open →** — `/jd-bank/ui/role/{cluster_id}` | Shows the harmonized JD text plus every source JD it was distilled from, each opening to its full text. |
 | Read a single source JD | **Read →** next to a source file | Renders that one archive document as text — `/jd-bank/ui/jd/{source_document_id}`. |

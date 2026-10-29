@@ -1607,3 +1607,69 @@ async def test_builder_search_meets_its_latency_budget_and_recall_floor(  # type
     assert (
         hits >= floor
     ), f"Builder hit@10 = {hits}/{len(queries)} (floor {floor}); misses: {misses}"
+
+
+# ── QUERY UNDERSTANDING (Track I3) — the LLM read of a search, through the routes ──
+#
+# Ships OFF (HR-315). Off, the property that matters is NEGATIVE — no chat client is
+# ever built by either search page — and a negative is exactly what a fixture suite
+# cannot prove about the live app, so it is pinned here through the real routes. On,
+# the property is a REAL plan call on fixed queries, within the rulebook budget, with
+# the guard holding (no group the person did not type). Enabling it therefore ties
+# shipping to the inference host being up (Directive #0), which is why it is off.
+
+
+async def test_search_pages_build_no_chat_client_while_understanding_is_off(  # type: ignore[no-untyped-def]
+    library,
+) -> None:
+    from src.api.main import app
+    from src.api.routes.compose import get_chat_client_factory
+    from src.jd_core.rules import get_rules
+
+    if get_rules().search.query_understanding_enabled:
+        pytest.skip("query understanding is ON: the live plan test below covers it")
+    built: list[int] = []
+
+    def forbidden() -> None:
+        built.append(1)
+        raise AssertionError("a chat client was built while query understanding is OFF")
+
+    app.dependency_overrides[get_chat_client_factory] = lambda: forbidden
+    try:
+        for url in ("/jd-bank/ui/library", "/jd-bank/ui/compose/search"):
+            resp = await library.get(url, params={"q": "financial analyst"})
+            assert resp.status_code == 200, f"{url} -> {resp.status_code}"
+            assert (
+                "Read as:" not in resp.text
+            ), f"{url} showed a model reading while OFF"
+    finally:
+        app.dependency_overrides.pop(get_chat_client_factory, None)
+    assert built == []
+
+
+async def test_live_query_plan_is_guarded_and_within_budget(library) -> None:  # type: ignore[no-untyped-def]
+    import time
+
+    from src.jd_bank.query_plan import rulebook_chat_client, try_understand_query
+    from src.jd_core.rules import get_rules
+
+    rules = get_rules()
+    if not rules.search.query_understanding_enabled:
+        pytest.skip(
+            "query understanding is OFF (HR-315); switch it on to make this real"
+        )
+    budget = rules.search.query_timeout_seconds
+    for q in ("AP clerk", "coop coord", "IT sysadmin"):
+        started = time.monotonic()
+        plan = await try_understand_query(q, client_factory=rulebook_chat_client)
+        elapsed = time.monotonic() - started
+        assert plan is not None, f"no plan for {q!r} within {budget}s"
+        assert elapsed <= budget + 0.5, f"{q!r} took {elapsed:.1f}s"
+        assert plan.title_keywords[0] == q, "the words as typed must be searched first"
+        assert plan.employee_group is None, "no group was typed, none may be applied"
+        assert (
+            plan.extra_keywords
+        ), f"{q!r}: the model added no keyword — nothing gained"
+    resp = await library.get("/jd-bank/ui/library", params={"q": "AP clerk"})
+    assert resp.status_code == 200
+    assert "Read as:" in resp.text

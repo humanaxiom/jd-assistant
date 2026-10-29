@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from pathlib import Path
 from uuid import UUID
 
@@ -46,6 +47,7 @@ from src.api.deps import may_review
 from src.api.main import get_session
 from src.api.routes._forms import first_value, read_form_pairs
 from src.api.routes.compose import (
+    get_chat_client_factory,
     get_optional_embed_client,
     get_optional_neo4j_driver,
 )
@@ -68,6 +70,8 @@ from src.jd_bank.library import (
 )
 from src.jd_bank.library.service import SEMANTIC_UNAVAILABLE_BANNER
 from src.jd_bank.library.units import resolve_unit, unit_for
+from src.jd_bank.llm.client import ChatClient
+from src.jd_bank.query_plan import try_understand_query
 from src.jd_export.comp_requisition import (
     CompReqPrefill,
     fill_compensation_requisition,
@@ -115,9 +119,11 @@ async def library_view(
     offset: int = 0,
     sort: str = "",
     dir: str = "asc",
+    plain: int = 0,
     session: AsyncSession = Depends(get_session),
     embed_client: EmbedClient | None = Depends(get_optional_embed_client),
     neo4j_driver: AsyncDriver | None = Depends(get_optional_neo4j_driver),
+    chat_factory: Callable[[], ChatClient] = Depends(get_chat_client_factory),
 ) -> HTMLResponse:
     """Browse/search/sort the harmonized roles — HR's home for the JD content.
 
@@ -125,6 +131,13 @@ async def library_view(
     clients are the OPTIONAL factories, so a misconfigured or unreachable inference host
     costs the meaning pass and shows a banner — it never takes the library down.
     """
+    # The optional LLM read of the query (Track I3): off by default, bounded, and
+    # switched off for one search by `?plain=1` (the page offers that link).
+    plan = (
+        None
+        if plain or not q.strip()
+        else await try_understand_query(q, client_factory=chat_factory)
+    )
     try:
         page = await list_roles(
             session,
@@ -135,6 +148,7 @@ async def library_view(
             direction=dir,
             embed_client=embed_client,
             neo4j_driver=neo4j_driver,
+            plan=plan,
         )
     finally:
         await _close_quietly(embed_client, neo4j_driver)

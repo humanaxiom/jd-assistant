@@ -194,6 +194,12 @@ APSA_FORM_FILE: Final[str] = "apsa_form.yaml"
 #: (:data:`_UNHASHED_FILES`), and it does NOT move ``PARSER_VERSION``.
 COMP_REQUISITION_FILE: Final[str] = "comp_requisition.yaml"
 
+#: The optional LLM read of a search query in front of both search boxes (Track I,
+#: PR I3): off/on, model, budget. No validator reads it and the parser never sees
+#: it — registered and on the surface but NOT hashed (:data:`_UNHASHED_FILES`),
+#: and it does NOT move ``PARSER_VERSION``.
+SEARCH_FILE: Final[str] = "search.yaml"
+
 #: The content-bearing SFU sections an embedding may be built from — the subset of
 #: :data:`~src.jd_core.models.quality.SFUSection` that carries free text at all.
 #: ``identification`` is structured columns, not prose; ``about_sfu`` /
@@ -2155,6 +2161,36 @@ class CompRequisition(_RuleFile):
     show_source_grades_for_reference: bool
 
 
+class Search(_RuleFile):
+    """Query understanding for the Library and Builder search boxes
+    (``search.yaml``, Track I PR I3): whether a self-hosted chat model reads the query
+    first, and with what model and budget.
+
+    **On the register, but NOT in the content hash** (:data:`_UNHASHED_FILES`): it
+    decides what a search PAGE offers, never what a JD is or how it scores, and it
+    does not move ``PARSER_VERSION``. The GUARD (group only when typed, unit only
+    from the rulebook, words-as-typed always searched) is code, not a knob — see
+    ``jd_bank/query_plan.py``.
+
+    Shaped **flat** (:data:`_FLAT_SURFACE_FILES`), so every knob is on the decision
+    surface the moment it is declared.
+    """
+
+    #: Ships OFF (HR-315). Off means no client is built and no call is made.
+    query_understanding_enabled: bool
+    #: The chat model that reads the query (HR-316) — never ``settings.agent_model``.
+    query_model: str = Field(min_length=1)
+    query_temperature: float = Field(ge=0.0, le=2.0)
+    query_reasoning_effort: ReasoningEffortLevel | None = None
+    query_max_tokens: int = Field(gt=0)
+    query_max_retries: int = Field(ge=0)
+    #: Wall-clock budget for the whole plan call; past it the page renders without.
+    query_timeout_seconds: float = Field(gt=0.0)
+    query_prompt_version: str = Field(min_length=1)
+    #: Title keywords per search INCLUDING the words as typed, so ``1`` means none.
+    query_max_title_keywords: int = Field(ge=1)
+
+
 class ApsaForm(_RuleFile):
     """SFU's APSA/APEX/Poly job-description form, as EXPORTED — plus the one sentence
     the Builder inserts for a criminal record check (``apsa_form.yaml``, Track J PR J4).
@@ -3839,6 +3875,8 @@ class Rules(BaseModel):
     #: On the register, but NOT in the content hash — see :class:`CompRequisition`
     #: (Track K3).
     comp_requisition: CompRequisition
+    #: On the register, but NOT in the content hash — see :class:`Search` (Track I3).
+    search: Search
     decision_register: DecisionRegister
 
     def thresholds_for(self, template: JDTemplate) -> Thresholds:
@@ -4346,6 +4384,7 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "cupe_form",
     "apsa_form",
     "comp_requisition",
+    "search",
 )
 
 
@@ -4622,6 +4661,7 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     (CUPE_FORM_FILE, "cupe_form", CupeForm),
     (APSA_FORM_FILE, "apsa_form", ApsaForm),
     (COMP_REQUISITION_FILE, "comp_requisition", CompRequisition),
+    (SEARCH_FILE, "search", Search),
     (REGISTER_FILE, "decision_register", DecisionRegister),
 )
 
@@ -4668,6 +4708,7 @@ _UNHASHED_FILES: Final[frozenset[str]] = frozenset(
         CUPE_FORM_FILE,
         APSA_FORM_FILE,
         COMP_REQUISITION_FILE,
+        SEARCH_FILE,
     }
 )
 

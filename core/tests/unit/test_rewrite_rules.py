@@ -107,6 +107,8 @@ def test_rewrite_is_an_unhashed_file(rules: Rules) -> None:
         "apsa_form.yaml",
         # Track K3 added `comp_requisition.yaml` — the thirteenth.
         "comp_requisition.yaml",
+        # Track I3 added `search.yaml` — the fourteenth (test_query_plan).
+        "search.yaml",
     }
     assert "rewrite" not in loader._HASHED_FIELDS
 

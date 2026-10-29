@@ -24,6 +24,17 @@
   {% if page.banner %}
   <p class="banner" role="status"><strong>Heads up:</strong> {{ page.banner }}</p>
   {% endif %}
+{% if page.interpretation %}{% set i = page.interpretation %}
+  <p class="meta" id="interpretation">
+    🧠 <strong>Read as:</strong> “{{ i.semantic_query }}”{% if i.extra_keywords %} · also titles containing
+    {% for k in i.extra_keywords %}<a href="/jd-bank/ui/library?q={{ k | urlencode }}">{{ k }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}{% if i.unit_label %}
+    · unit suggested: <a href="/jd-bank/ui/unit/{{ i.unit_slug }}">{{ i.unit_label }}</a> (not applied){% endif %}{% if i.employee_group %}
+    · {{ i.employee_group | upper }} as you typed{% endif %}
+    · <a href="/jd-bank/ui/library?q={{ i.raw_query | urlencode }}&amp;plain=1">search the words as typed instead</a>
+    {% for d in i.discarded %}<br><span class="empty">ignored: {{ d }}</span>{% endfor %}
+    <br><span class="empty">A self-hosted model ({{ i.model }}) read your search; it can only add results, never filter them.</span>
+  </p>
+{% endif %}
   {% if page.items %}
   <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }} · {% if page.q %}best matches first · {% if page.sort != 'relevance' %}<a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;limit={{ page.limit }}">sort by best match</a> · {% endif %}{% endif %}click a column heading to sort</p>
   {# A sortable column heading: links to the same query sorted by `key`, toggling
@@ -54,7 +65,7 @@
         <td>{{ "%.1f"|format(item.score) if item.score is not none else "—" }}</td>
         <td>{{ item.grade or "—" }}</td>
         <td>{{ item.status }}</td>
-        {% if page.q %}<td>{{ "Title" if item.matched_by == "title" else "Similar spelling" if item.matched_by == "spelling" else "Related by meaning" if item.matched_by == "meaning" else "—" }}</td>{% endif %}
+        {% if page.q %}<td>{{ "Title" if item.matched_by == "title" else "Similar spelling" if item.matched_by == "spelling" else "Related by meaning" if item.matched_by == "meaning" else "Interpreted title" if item.matched_by == "keyword" else "—" }}</td>{% endif %}
         <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">Open →</a></td>
       </tr>
       {% endfor %}

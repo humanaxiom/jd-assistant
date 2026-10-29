@@ -29,9 +29,13 @@ The plan is in [`docs/plans/TRACKS-IJK-SEARCH-HR-FORMS-COMPREQ.md`](docs/plans/T
 
 🔴 **The owner asked for these and they are NOT built yet. Do not report them as done:**
 
-- **I3, the LLM query plan.** This is the "NLP-powered (LLM) search" of the original ask.
-  I1 and I2 are hybrid title + *embedding* search; no chat model reads the query yet. I3 is
-  designed in the tracks plan: its flag ships **off**, and Q8 is still open.
+- ~~**I3, the LLM query plan.**~~ **Built 2026-10-29 on PR #219, flag OFF.** `search.yaml`
+  (HR-315–323) + `jd_bank/query_plan.py`: a guarded, bounded chat-model read of the query
+  on BOTH boxes, shown on the page as "Read as: …" and removable per search. ⚠ It is
+  not "NLP-powered search" until someone flips `query_understanding_enabled` — that is
+  owner/HR Q8 (the model), and switching it on makes `make smoke` place a real plan
+  call, so shipping then needs the GPU free (Directive #0). To try it: set the flag,
+  `launch.ps1`, search "AP clerk" in the Library.
 - ~~**K3, the CRF download button.**~~ **Built 2026-10-28/29 on PR #219** (role page and
   Builder → choices page → SFU's filled PDF; rules file `comp_requisition.yaml`,
   HR-309–314). The owner's first download came out nearly blank: the role lacked a

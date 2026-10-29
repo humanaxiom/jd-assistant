@@ -21,7 +21,15 @@ from typing import Any
 
 import yaml
 
-from src.jd_core.rules import Comparison, CupeForm, Dedup, Embeddings, Rewrite, Rules
+from src.jd_core.rules import (
+    Comparison,
+    CupeForm,
+    Dedup,
+    Embeddings,
+    Rewrite,
+    Rules,
+    Search,
+)
 
 _PKG_DIR = Path(__file__).resolve().parents[2] / "src" / "jd_core" / "rules"
 _COMPARISON = _PKG_DIR / "comparison.yaml"
@@ -29,6 +37,7 @@ _DEDUP = _PKG_DIR / "dedup.yaml"
 _EMBEDDINGS = _PKG_DIR / "embeddings.yaml"
 _REWRITE = _PKG_DIR / "rewrite.yaml"
 _CUPE_FORM = _PKG_DIR / "cupe_form.yaml"
+_SEARCH = _PKG_DIR / "search.yaml"
 
 
 def raw_comparison() -> dict[str, Any]:
@@ -90,3 +99,16 @@ def retuned_cupe_form(rules: Rules, **fields: Any) -> Rules:
     """``rules`` with ``cupe_form.yaml`` re-validated, ``fields`` overridden (J2)."""
     cupe_form = CupeForm.model_validate({**raw_cupe_form(), **fields})
     return rules.model_copy(update={"cupe_form": cupe_form})
+
+
+def raw_search() -> dict[str, Any]:
+    """The shipped ``search.yaml``, as the loader sees it before validation."""
+    data: dict[str, Any] = yaml.safe_load(_SEARCH.read_text(encoding="utf-8"))
+    return data
+
+
+def retuned_search(rules: Rules, **fields: Any) -> Rules:
+    """``rules`` with ``search.yaml`` re-validated, ``fields`` overridden — the "what if
+    HR/ITS switched it on" fixture for query understanding (Track I3)."""
+    search = Search.model_validate({**raw_search(), **fields})
+    return rules.model_copy(update={"search": search})
