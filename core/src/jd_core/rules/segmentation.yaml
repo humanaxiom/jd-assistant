@@ -319,7 +319,11 @@ wrapped_heading_line_closers: ".:;?!"
 # + 311; APPROVALS 2,791 + 341 (+ "APPROVAL" 19). The spelling variants are the
 # archive's own (counts in the register entries).
 legacy_qualifications_heading_pattern:
-  pattern: '(?i)entrance\s+(?:qualification(?:s|ions)?|qttatjftcattons)\.?'
+  # Widened 2026-10-29 after the review found 16 files whose qualifications sank into
+  # the G block: QUALIFICATIONS REQUIRED 6, OCR O-for-Q 2+1, QUALIFIACTIONS 2,
+  # "…TO BE REVIEWED" 1. `[qo]ualif[a-z]*` reads every spelling the archive has; the
+  # bare JDFN heading QUALIFICATIONS is NOT claimed (it needs ENTRANCE or REQUIRED).
+  pattern: '(?i)(?:entrance\s+(?:[qo]ualif[a-z]*|qttatjftcattons)(?:\s+to\s+be\s+reviewed)?|qualifications\s+required)\.?'
   ignore_case: false
 legacy_relationships_heading_pattern:
   pattern: '(?i)organi[sz]ation(?:al)?\s*-?\s*relation(?:ships?|sips)\.?'

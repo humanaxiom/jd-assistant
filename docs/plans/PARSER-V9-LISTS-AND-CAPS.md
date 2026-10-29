@@ -725,7 +725,7 @@ This supersedes §18's "not fixed here" and resolves its 4 documents.
 | `J. APPROVALS` (+ "APPROVAL" 19) | 2,791 + 341 | **set aside** (HR-306) |
 | `A. IDENTIFICATION Position Number: …` (heading and its first field on ONE line) | 1,646 + ~150 | unchanged: identification fields are read from the whole text anyway |
 | `C. DUTIES … (CONTINUED)` / `- CONTINUED` / `. CONTINUED…` | ~75 | unchanged: the section above is already Duties |
-| typos: `B. POSTION SUMMARY` 21, `POSITION SUMMAR` 4, `D. DECISION MAKTNG` 5, `F. SUPERVISON RECEIVED` 3, `E. SUPER VISION EXERCISED` 3, `SUPERVISION EXERCISE` 4, `QUALIFICATIONS REQUIRED` 6, `DUTIES AND RESPONSBILITIES` 3, `MAJOR RESPONSIBILITIES AND DUTIES` 5 | ≤ 21 each | **not changed** — listed for a later pass |
+| typos: `B. POSTION SUMMARY` 21, `POSITION SUMMAR` 4, `D. DECISION MAKTNG` 5, `F. SUPERVISON RECEIVED` 3, `E. SUPER VISION EXERCISED` 3, `SUPERVISION EXERCISE` 4, ~~`QUALIFICATIONS REQUIRED` 6~~ (read as the H heading since 2026-10-29, see below), `DUTIES AND RESPONSBILITIES` 3, `MAJOR RESPONSIBILITIES AND DUTIES` 5 | ≤ 21 each | **not changed** — listed for a later pass |
 | `D. DECISION MAKING Makes decisions…` (heading + text on one line) | 13 | not changed |
 | `F. SUPERVISION RECEIVED` / `E. … EXERCISED` with text on the same line | 8 / 6 | not changed |
 | `I. GIVE SOME TYPICAL EXAMPLES OF…` | 66 | not a heading: the Decision Making question, enumerated "I." |
@@ -815,6 +815,22 @@ Tests: `core/tests/unit/test_parser_v10_legacy_tail_headings.py` (25, from the a
 shapes), plus two in `test_library_ui.py`. 18 of the 25 go red with the legacy-heading
 match removed, and 4 prompt tests (3 here, 1 in `test_parser_v9_wrapped_headings.py`) go
 red with the prompt strip removed (each broken once, restored).
+
+**Review correction (2026-10-29, `docs/audit/2026-10-29-parser-v10-review.md` §2).**
+The whole-archive check found **16 files whose qualifications were set aside as
+working conditions**: HR-300 did not recognise `H. QUALIFICATIONS REQUIRED` (6, five
+coach JDs), a letter with no period (`H         ENTRANCE QUALIFICATIONS`, 4), the OCR
+spellings `OUALIFICATIONS` / `OUALIFICIATIONS` (3), `QUALIFIACTIONS` (2) and
+`ENTRANCE QUALIFICATIONS TO BE REVIEWED` (1), so the G block ran on through the whole
+section. The row above that called `QUALIFICATIONS REQUIRED` "not changed" was wrong
+from 37c9f29 on: those files were set aside, outside the JD. Fixed on the same branch:
+the HR-300 pattern now reads every spelling the archive has (never the bare JDFN
+`QUALIFICATIONS`), and `normalise_heading` strips a bare letter set off by a tab or
+two+ spaces. Still `jd_segmenter_v10`: v10 has parsed no Bank yet. The review also
+measured the two caps — the unregistered 600-character supervisory cap cuts 58.8% of
+supervisory texts, the 400-character qualification cap 1,112 items (308 of them the
+equivalency clause) — and recommends 1,200 / 600; both are owner/HR decisions to take
+before the one full rebuild, not changes made here.
 
 ## 11. Containers (all removed at the end)
 

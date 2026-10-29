@@ -9606,7 +9606,7 @@ decisions:
     config:
       file: segmentation.yaml
       path: segmentation.legacy_qualifications_heading_pattern
-    current_default: '(?i)entrance\s+(?:qualification(?:s|ions)?|qttatjftcattons)\.?'
+    current_default: '(?i)(?:entrance\s+(?:[qo]ualif[a-z]*|qttatjftcattons)(?:\s+to\s+be\s+reviewed)?|qualifications\s+required)\.?'
     provenance: our_invention
     tier: hr_informed
     why_it_matters: >-
@@ -9621,7 +9621,12 @@ decisions:
       any: 9,397 → 14,127), +604,599 qualification words; supervisory texts naming
       "Entrance Qualifications" 436 → 17 (the 17 put the heading on the same line as
       its text). The approve gates newly fire SFU-APPROVE-KSA-ORDER on documents that
-      now HAVE qualifications (plan §19).
+      now HAVE qualifications (plan §19). Widened 2026-10-29: the review's whole-archive
+      check (docs/audit/2026-10-29-parser-v10-review.md) found 16 files whose heading
+      the pattern missed — "QUALIFICATIONS REQUIRED" 6, OCR "OUALIFICATIONS" 3,
+      "QUALIFIACTIONS" 2, "…TO BE REVIEWED" 1, and 4 with the letter but no period —
+      so their qualifications were set aside as working conditions and they parsed
+      with none. The bare JDFN heading is deliberately not claimed.
     impact_if_changed: >-
       Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`;
       changes what a parsed JD contains, so it needs a re-parse. Pinned by

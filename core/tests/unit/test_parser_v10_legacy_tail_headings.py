@@ -225,6 +225,16 @@ def test_approvals_right_after_the_qualifications_does_not_join_them() -> None:
         ("UNUSUAL WORKING CONDITIONS", "g"),  # 141 files, unlettered
         ("J. APPROVAL", "j"),  # 5 files
         ("APPROVALS", "j"),  # 341 files, unlettered
+        # The 16 files the 2026-10-29 review found with their qualifications set
+        # aside as working conditions (docs/audit/2026-10-29-parser-v10-review.md §2):
+        ("H. QUALIFICATIONS REQUIRED", "q"),  # 6 files (5 coach JDs)
+        ("H         ENTRANCE QUALIFICATIONS", "q"),  # 4 files: letter, no period
+        ("ENTRANCE OUALIFICATIONS", "q"),  # 2 files, OCR O for Q
+        ("H. ENTRANCE QUALIFIACTIONS", "q"),  # 2 files
+        ("H. ENTRANCE OUALIFICIATIONS", "q"),  # 1 file
+        ("H. ENTRANCE QUALIFICATIONS TO BE REVIEWED", "q"),  # 1 file
+        ("G\tUNUSUAL WORKING CONDITIONS", "g"),  # letter + tab, no period
+        ("J         APPROVALS", "j"),  # letter + spaces, no period
     ],
 )
 def test_the_archive_spellings(heading: str, kind: str) -> None:
@@ -240,6 +250,35 @@ def test_the_archive_spellings(heading: str, kind: str) -> None:
     else:
         assert any("Payload line here" in t for t in aside)
         assert "Payload line here" not in sup
+
+
+def test_a_misspelled_qualifications_heading_is_not_working_conditions() -> None:
+    """20010201_00000224Head_men_s_soccer_coach.doc and 15 others: with the H heading
+    unrecognised, the G block ran on through the whole qualifications section, which
+    was set aside as working conditions and the JD got 0 qualifications."""
+    text = _HEAD + (
+        "G. UNUSUAL WORKING CONDITIONS\n"
+        "Evening and week-end hours during the season.\n"
+        "H. QUALIFICATIONS REQUIRED\n"
+        "• University degree in kinesiology, physical education, coaching\n"
+        "• Minimum of 5 years coaching experience\n"
+    )
+    jd = parse_jd(text).jd
+    aside = [b.text for b in jd.set_aside if b.kind == "legacy_working_conditions"]
+
+    assert _quals(jd) == [
+        "University degree in kinesiology, physical education, coaching",
+        "Minimum of 5 years coaching experience",
+    ]
+    assert aside == ["Evening and week-end hours during the season."]
+
+
+def test_a_plain_qualifications_heading_is_still_the_jdfn_one() -> None:
+    """The widened legacy pattern must not claim the modern form's own heading or
+    ordinary content: `QUALIFICATIONS` alone keeps its JDFN reading."""
+    jd = parse_jd(_HEAD + "QUALIFICATIONS\n• Bachelor's degree\n").jd
+    assert _quals(jd) == ["Bachelor's degree"]
+    assert not [b for b in jd.set_aside if b.kind == "legacy_working_conditions"]
 
 
 def test_a_wrapped_approval_word_stays_content() -> None:
