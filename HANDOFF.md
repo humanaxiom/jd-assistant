@@ -70,7 +70,7 @@ live, it locks `parsed_jds` for about 10 s.
 |---|---|---|---|
 | `feat/v9-targeted-rerun` | `0020671` | `--cluster-ids` / `--cluster-ids-file` on `canonical-drafts`; the WJQ approvability study (`docs/audit/2026-10-27-wjq-approvability.md`, on the branch); HR-296/297 | ✅ approved by the Opus reviewer |
 | `feat/v9-postpass-fixes` | `9d7b175` | form limits (merge floor 0.2), page headers, referral markers, K→S→A order, kind taken from the source (WJQ only), lead word (JDFN only), summary conditions grounded in the source; HR-290–295 and HR-302–304; replay lists in `docs/canonical/v9-postpass-rerun*` | ✅ approved by the Opus reviewer (2 rounds) |
-| `feat/v9-parser-wrap` | `e547a74` | **parser v10** (`jd_segmenter_v10`). It adds a wrapped-heading guard (HR-298/299). It maps the legacy lettered headings: H → qualifications (HR-300) and I → relationships (HR-301). G (working conditions), J (approvals) and form prompts are **set aside, not dropped** (HR-305–307), via a new `SFUJobDescription.set_aside` field and a source-JD panel. The qualification cap becomes 400 (HR-308). It already contains `feat/v9-postpass-fixes` | ⏳ **Opus review was still running at handover.** If this session ended first, **dispatch it again**: nothing is approved until a verdict exists |
+| `feat/v9-parser-wrap` | `e547a74` | **parser v10** (`jd_segmenter_v10`). It adds a wrapped-heading guard (HR-298/299). It maps the legacy lettered headings: H → qualifications (HR-300) and I → relationships (HR-301). G (working conditions), J (approvals) and form prompts are **set aside, not dropped** (HR-305–307), via a new `SFUJobDescription.set_aside` field and a source-JD panel. The qualification cap becomes 400 (HR-308). It already contains `feat/v9-postpass-fixes` | ✅ **Reviewed 2026-10-29 — APPROVE WITH CHANGES** (`docs/audit/2026-10-29-parser-v10-review.md`, on `bank/v9`). The one blocking change (D1: 16 files whose qualifications sank into the G block) is **fixed and pushed as `7b99314`** on this branch, with the design-doc correction (D2). Head is now `7b99314`, not `e547a74` |
 
 The owner rulings behind them (2026-10-27):
 - After the fixes, run ONE full rebuild and ONE full pass, not tiers.
@@ -80,12 +80,16 @@ The owner rulings behind them (2026-10-27):
 
 ### 4. Next, in order
 
-1. **Get the parser-v10 verdict.** The review must cover five things:
-   - an independent check over the whole archive;
-   - a sample of the set-aside text;
-   - headings demoted by mistake;
-   - a recommendation on the 600-character supervisory cap and the 400-character qualification cap;
-   - the `set_aside` plumbing.
+1. ~~**Get the parser-v10 verdict.**~~ **Done 2026-10-29.** All five points covered (whole
+   archive: 14,565 files, 0 parse errors, 0 lost headings, all 38 wrap-guard demotions
+   correct; set-aside sample 0 misfiled; D1 fixed on the branch). 🔴 **Two owner/HR
+   decisions the review raised, to take BEFORE the rebuild** (it bakes them into every
+   draft): the **600-character supervisory cap** (unregistered code constant
+   `_MAX_SUPERVISORY`; cuts 58.8% of supervisory texts, 2.48 M characters — the review
+   recommends stripping the Relationships section's printed E/F/I questions first, then
+   1,200 in `segmentation.yaml` with a register entry) and the **400-character
+   qualification cap** (HR-308; cuts 1,112 items, 308 of them the "or an equivalent
+   combination…" clause — recommends 600). Neither was changed.
 2. **Merge the three branches into `bank/v9`.** Do it in `C:\repos\JD-Assistant-v9`, after
    `git branch --show-current` prints `bank/v9`. Then run the duplicate-ID check and
    `make register-check` (see trap c).
@@ -101,6 +105,7 @@ The owner rulings behind them (2026-10-27):
 
 **Open questions for HR and the owner that this work raised:**
 - HR-296/297: WJQ equivalency fails because the form does not fit, not because the rewrite is wrong.
+- The two caps above (supervisory 600 → register + raise; qualification 400 → 600): owner/HR, before V2.
 - HR-046 and HR-284.
 - From the tracks plan: Q2, Q4–Q8 and Q10.
 
