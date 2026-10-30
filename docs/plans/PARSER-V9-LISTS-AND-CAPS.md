@@ -544,6 +544,64 @@ definition, it reports 36 disagreements, which is the definition change itself:
   carry a marker. The replay used the recorded merge drafts, so item 2 is proven by the
   merge test and the archive measurement, not by the replay.
 
+## 17. Post-pass fixes (the v9 full pass, 2026-10-27; branch `feat/v9-postpass-fixes`)
+
+The full pass (2,446 drafts, 50 fallbacks) left smoke at 29/31 and `bank-audit` red.
+Everything below was measured read-only: the v9 Bank exported through `--rm` containers
+on `jd-bank-v9_default` with `default_transaction_read_only=on`, merges rebuilt
+in-process (the rebuild reproduces all 50 stored fallback drafts byte for byte), and an
+offline guard replay over the 2,396 rewritten drafts (reply = stored draft minus the
+guard's own restores; with the new rules off it reproduces the stored blocking set on
+2,390). Register HR-290…295 (all `open`); HR-275/282/287 updated. `rules_version` does
+not move. Tests: `core/tests/unit/test_rewrite_postpass_v9.py` (21 of 23 red on
+`bank/v9`; each guard broken once in a scratch copy turns its test red).
+
+| # | finding | cause | fix |
+|---|---|---|---|
+| 1 | 0cd5db26: 13 CUPE major functions, clone refused (HR-246) | the model's reply was never held to the form | HR-290: merge the closest pair until the form fits (never drop); clause cap too |
+| 2 | 4 APSA roles re-read a position number; 23a58c9c also 5→6 duties | fold-back restored the source's PAGE HEADER ("Position Number 31160 (Continued) C. DUTIES…") as a clause; the export put it at a line start | HR-291: page headers set aside in the source view (170 of 198 occurrences in merge role text; the 28 left name another position) |
+| 3 | JDFN decision_making carry-through 1752/1755 | **parser**, not the rewrite: in 21 antiword `.doc` files the wrapped prompt line "duties" is read as the DUTIES heading, so Decision Making holds only "…make in carrying out" and the decisions (made AND referred) land in duties. A candidate rule ("an all-lower-case heading line after a line with no closing punctuation is a wrapped line") hits 45 lines in 42 archive files — also "relationships"/"education and experience"/"qualifications:" mid-qualifications | **not fixed here**: it moves `PARSER_VERSION` and owes a re-ingest — an owner decision (as in §15). The gate stays red on 3 clusters (ca79961d, 5b0818e9, 4161bcd0) |
+| 4 | referred decisions unlabelled (82e5c2d0 "Staff terminations") | 14 more wordings of the refer question | HR-282/275: markers + prompts; 154 documents, 457 decisions, 34 clusters' merge drafts. A cut ";" list now returns its whole entries (HR-287) |
+| 5 | audit: "rewrite destroying frequency" (59.3% vs 59.5%) | the flag is noise (z = 0.03, different clusters); PAIRED against each draft's own merge the loss is real: 63.1% → 59.3%, all on flagged duties | HR-292: a flagged duty that covers every sentence of one source duty carries its frequency (19 in 18 drafts) |
+| 6 | K→S→A: 612/636 CUPE, 359/1,810 JDFN fail after the rewrite, 0 before | reassembly kept the model's order, appended restores and bars; model relabelled kinds | HR-293 form order by `ksa_rank`; HR-294 kind from the source line. Replay: 612→0 and 359→0 |
+| 7 | summary gains working conditions (~30 of 49 CUPE) | the model imported the WJQ's conditions block | HR-295: a summary sentence naming a condition marker its source summary lacks is dropped. Replay: 49→13 CUPE, 50→30 JDFN; of 64 sentences dropped, 20 are marker noun matches (HR-046, unchanged) |
+
+Replay, all fixes together: approvable 0 → 7 CUPE, 452 → 742 JDFN.
+
+**Review of 6000ba6 (CHANGES REQUIRED) — fixed, tests red first, each guard broken once:**
+HR-294 is per form (`[wjq]`: on CUPE the kind is the form section; on JDFN it forced
+93 lines in 79 drafts to a kind their own wording contradicts); a relabel needs HR-302's
+overlap (0.5) and never contradicts a line's own lead word (HR-303) unless the source
+line opens with the same word. HR-290 orders by similarity only and merges only above
+HR-304's floor (0.2) — below it the surplus duty is listed; a merge keeps an agreeing
+frequency and records a conflict; a flagged duty merged away is flagged by the duty it
+went under. HR-291 also takes "Position number(s): __01110___Continued" and a trailing
+"Position Number 07514". HR-295 keeps paragraph breaks. Replay after the review (mine
+and the reviewer's agree): approvable unchanged at 7 CUPE / 742 JDFN, K→S→A 0 / 0,
+summary conditions 13 / 30; relabels 6,546 CUPE (none under half overlap), 0 JDFN.
+Still open: in 4 JDFN drafts the form order moves an "or an equivalent combination…"
+continuation line away from the degree line it continues (it is kinded as a
+competency by the parser).
+
+**Round 2 (APPROVED, two follow-ups):** HR-303 is per form (`jdfn` only): on the WJQ
+the kind is the form section, and the guard had kept `ability` on 65 CUPE lines whose
+source is `skill` (and `knowledge` on 109 more). Replay: those 174 now take the
+source's kind; 93 CUPE drafts change in qualification kind/order only; no blocking set
+or approvable count moves. HR-290's register text now says what usually happens: 395 of
+the 587 CUPE drafts with 12+ model duties have their closest pair below HR-304's 0.2,
+so an overflow usually LISTS the model's last duty (fold-back protects the source
+content). Listing the least-similar duty instead was not done (a choice, not a fix).
+
+**Owner ruling (2026-10-27): ONE FULL PASS, not tiers.** The lists below stay as the
+per-cluster record of WHY each draft changes; the re-run is all 2,446 (≈ 89 h at the
+pass's own rate).
+
+**Re-run list** (`docs/canonical/v9-postpass-rerun.json`, reasons per cluster):
+tier 1 (a defect in the stored draft) 1,109 clusters (613 CUPE, 496 JDFN,
+`v9-postpass-rerun-tier1.txt`); all 1,633 (`v9-postpass-rerun-all.txt`) adds every CUPE
+draft and the JDFN drafts whose qualification order/kinds change. At the pass's own
+rate (318,046 s / 2,446 ≈ 130 s per cluster): tier 1 ≈ 40 h, all ≈ 59 h of GPU.
+
 ## 11. Containers (all removed at the end)
 
 - **This round:** `p9measure-dump`, `p9measure-pg` (127.0.0.1:25999, network `p9measure-net`), `p9measure-ingest-flat`, `p9measure-ingest-grouped`, `p9measure-mA` / `-mB` / `-mD`, `p9measure-losscause`, `p9measure-smoke`, `p9measure-intro`, and the network `p9measure-net`.

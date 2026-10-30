@@ -202,6 +202,7 @@ def build_harmonization_diff(
         plain: tuple[tuple[Sequence[str], RemovedReason], ...] = (
             (record.scrubbed_how_why, "how_why_scrubbed_ungrounded"),
             (record.dropped_duty_content, "duty_content_dropped_by_rewrite"),
+            (record.over_form_limit, "rewrite_over_form_limit"),
         )
         for contents, reason in plain:
             removed.extend(
@@ -242,6 +243,8 @@ def _stripped(record: AntiFabricationRecord, rules: Rules) -> list[RemovedConten
         reason: RemovedReason
         if piece.kind == "form_instruction":
             reason = "form_instruction_stripped"
+        elif piece.kind == "page_header":
+            reason = "page_header_stripped"
         elif piece.section in review:
             reason = "boilerplate_matched_in_role_content"
         else:

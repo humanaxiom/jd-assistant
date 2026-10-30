@@ -284,6 +284,10 @@ RemovedReason = Literal[
     "form_instruction_stripped",
     "boilerplate_stripped",
     "boilerplate_matched_in_role_content",
+    # 2026-10-27 (the v9 full pass): a source page header set aside (HR-291), and a
+    # rewritten clause the form's clause cap could not hold (HR-290).
+    "page_header_stripped",
+    "rewrite_over_form_limit",
 ]
 
 
@@ -378,7 +382,9 @@ class StrippedSourcePiece(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     section: StrippedSection
-    kind: Literal["form_instruction", "boilerplate"]
+    #: ``page_header`` (2026-10-27, HR-291): the source document's own page header or
+    #: footer — its position number, page number, "Continued" — read into role text.
+    kind: Literal["form_instruction", "boilerplate", "page_header"]
     text: str
 
 
@@ -475,6 +481,20 @@ class AntiFabricationRecord(BaseModel):
     #: ``record_only`` policy, or no room left under the how/why cap. Shown to the
     #: reviewer as dropped from the merge.
     dropped_duty_content: tuple[str, ...] = ()
+    #: ``(absorbed statement, statement it went under)`` for every rewritten duty MERGED
+    #: into another because the model returned more duties than the form holds
+    #: (``rewrite.duties_over_form_limit``, HR-290, 2026-10-27). Its headline and
+    #: clauses are clauses of that duty now — in the draft, not removed.
+    merged_duties: tuple[tuple[str, str], ...] = ()
+    #: Rewritten how/why clauses the form's clause cap could not hold (HR-290) — not
+    #: in the draft; any SOURCE sentence they carried is folded back or listed as usual.
+    over_form_limit: tuple[str, ...] = ()
+    #: ``(text, kind the model gave, kind of the source line it rewords)`` for each kept
+    #: qualification whose kind was put back to the source's (HR-294, 2026-10-27).
+    relabelled_qualifications: tuple[tuple[str, str, str], ...] = ()
+    #: ``(absorbed statement, frequency kept, absorbed duty's frequency)`` for every
+    #: HR-290 merge whose two duties stated different frequencies (review of 6000ba6).
+    merged_duty_frequency_conflicts: tuple[tuple[str, str, str], ...] = ()
     #: ``(section, text)`` of every Decision Making / Problem Solving / Relationships
     #: item the model returned that no item of the merge's SAME section grounds
     #: (``rewrite.section_item_grounding_threshold``, HR-269) — dropped.

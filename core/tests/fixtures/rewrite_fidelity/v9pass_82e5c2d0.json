@@ -1,0 +1,170 @@
+{
+ "source": "v9 Bank cluster 82e5c2d0-8198-56d3-88d4-1d0e66b3af1a (full pass 2026-10-21..25); merge rebuilt in-process from its v9 parses; model = stored final draft minus the guard's own restores",
+ "merged": {
+  "draft": {
+   "title": "Operations Supervisor",
+   "position_number": null,
+   "department": "Harbour Centre Administration (Operations)",
+   "grade": null,
+   "classification": null,
+   "employee_group": null,
+   "supervisor_title": null,
+   "supervisor_position_number": null,
+   "about_sfu_present": false,
+   "position_summary": "Responsible for the administration of the physical plant, mail services, room set-ups, warehouse/stores, shipping and receiving services and staff supervision of the Harbour Centre Campus.",
+   "duties": [
+    {
+     "action_verb": "Responsible",
+     "statement": "Responsible for the daily operation of the facility by ensuring that contracted electrical, mechanical, maintenance, elevator, escalator and other facility services are provided to ensure that the building is fully operational for each day of business and that a high standard is maintained with respect to the general appearance of the campus. Responsible for the daily administration of mail services, warehouse/stores and shipping and receiving to support the activities of the building. Responsible for monitoring the janitorial contract and services by checking the general appearance of the facility to ensure services are provided efficiently, consistently and cost-effectively in order to maintain a high standard of cleanliness. Responsible for ensuring the daily provision of room set-up services and other activities by liaising with Meeting and Event Services, Information/Registration, Continuing Studies and other departments and coordinating janitorial and operations services in order to provide effective support to the variety of events being held on the campus. Evaluates, reviews and makes recommendations to the Operations Manager for the more effective provision of the services",
+     "how_why": [],
+     "frequency": null
+    }
+   ],
+   "decision_making": [
+    "Makes annual budget recommendations for facility services; makes decisions to approve expenses within budget; evaluates the performance of contract staff and makes recommendations for progressive discipline to the contract supervisor; makes decisions regarding required revisions to service levels; makes recommendations for changes to the janitorial contract; hires continuing and temporary staff, t",
+    "Refers to the supervisor: Matters falling outside established policies and procedures; serious contract infractions or significant revisions to contract service levels and staffing; staff terminations; etc."
+   ],
+   "problem_solving": [],
+   "relationships": {
+    "supervisory": "Number of employees for whom the position is responsible. 5 Total number of employees for whom the position has direct responsibility 5 The position works under general supervision. The incumbent meets bi- weekly or as necessary with the Manager to discuss facility and general operational problems or issues to keep the Manager appraised of events or initiatives for which the incumbent requires direction or advice. G. UNUSUAL WORKING CONDITIONS The Supervisor will be required to be on call in order to respond to emergency situations. H. ENTRANCE QUALIFICATIONS A diploma in property management, ",
+    "internal": [],
+    "external": []
+   },
+   "qualifications": [],
+   "territorial_acknowledgement_present": false,
+   "employment_equity_present": false,
+   "additional_context": null
+  },
+  "provenance": {
+   "member_count": 2,
+   "skill_frequency": [],
+   "duty_coverage": [
+    [
+     "Responsible for the daily operation of the facility by ensuring that contracted electrical, mechanical, maintenance, elevator, escalator and other facility services are provided to ensure that the building is fully operational for each day of business and that a high standard is maintained with respect to the general appearance of the campus. Responsible for the daily administration of mail services, warehouse/stores and shipping and receiving to support the activities of the building. Responsible for monitoring the janitorial contract and services by checking the general appearance of the facility to ensure services are provided efficiently, consistently and cost-effectively in order to maintain a high standard of cleanliness. Responsible for ensuring the daily provision of room set-up services and other activities by liaising with Meeting and Event Services, Information/Registration, Continuing Studies and other departments and coordinating janitorial and operations services in order to provide effective support to the variety of events being held on the campus. Evaluates, reviews and makes recommendations to the Operations Manager for the more effective provision of the services",
+     2
+    ]
+   ],
+   "section_contributors": [
+    [
+     "decision_making",
+     [
+      0,
+      1
+     ]
+    ],
+    [
+     "department",
+     [
+      0,
+      1
+     ]
+    ],
+    [
+     "position_summary",
+     [
+      0
+     ]
+    ],
+    [
+     "relationships",
+     [
+      0
+     ]
+    ],
+    [
+     "title",
+     [
+      0,
+      1
+     ]
+    ]
+   ],
+   "flags": [
+    "no_core_skills",
+    "sections_not_merged"
+   ],
+   "seniority_bars": []
+  }
+ },
+ "model": {
+  "title": "Operations Supervisor",
+  "position_number": null,
+  "department": "Harbour Centre Administration (Operations)",
+  "grade": null,
+  "classification": null,
+  "employee_group": null,
+  "supervisor_title": null,
+  "supervisor_position_number": null,
+  "about_sfu_present": true,
+  "position_summary": "The Operations Supervisor ensures the Harbour Centre Campus facilities and support services operate efficiently and maintain a high standard of appearance, providing essential administrative and logistical support to campus activities. This role oversees contracted building services, manages mail, warehouse and shipping functions, monitors janitorial performance, coordinates room set‑up and event support, and evaluates service delivery to recommend improvements and budgetary actions. By collaborating with internal departments and contract providers, the supervisor helps sustain a safe, functional, and welcoming environment for staff, students, and visitors.",
+  "duties": [
+   {
+    "action_verb": "Oversee",
+    "statement": "daily facility operations to ensure contracted services are delivered and the building remains fully operational and presentable",
+    "how_why": [
+     "ensure contracted electrical, mechanical, maintenance, elevator, escalator and other facility services are provided each business day",
+     "maintain a high standard of general appearance of the campus"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Administer",
+    "statement": "mail, warehouse, and shipping/receiving services to support building activities",
+    "how_why": [
+     "daily administration of mail services, warehouse/stores and shipping and receiving to support the activities of the building"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Monitor",
+    "statement": "janitorial contract performance to maintain cleanliness efficiently, consistently, and cost‑effectively",
+    "how_why": [
+     "check the general appearance of the facility",
+     "ensure services are provided efficiently, consistently and cost‑effectively",
+     "maintain a high standard of cleanliness"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Coordinate",
+    "statement": "room set‑up and related event support by liaising with internal departments and aligning janitorial and operations services",
+    "how_why": [
+     "liaise with Meeting and Event Services, Information/Registration, Continuing Studies and other departments",
+     "coordinate janitorial and operations services",
+     "provide effective support to the variety of events held on the campus"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Evaluate",
+    "statement": "service provision and contract performance, providing recommendations to the Operations Manager for enhancements, budget considerations, and staffing",
+    "how_why": [
+     "evaluate, review and make recommendations for more effective provision of services",
+     "make annual budget recommendations for facility services"
+    ],
+    "frequency": null
+   }
+  ],
+  "decision_making": [
+   "Matters falling outside established policies and procedures",
+   "Serious contract infractions or significant revisions to contract service levels and staffing",
+   "Staff terminations",
+   "Annual budget recommendations for facility services",
+   "Approval of expenses within budget",
+   "Evaluation of contract staff performance and recommendation of progressive discipline",
+   "Decisions regarding required revisions to service levels",
+   "Recommendations for changes to the janitorial contract",
+   "Hiring of continuing and temporary staff"
+  ],
+  "problem_solving": [],
+  "relationships": {
+   "supervisory": "5 direct reports Number of employees for whom the position is responsible. 5 Total number of employees for whom the position has direct responsibility 5 The position works under general supervision. The incumbent meets bi- weekly or as necessary with the Manager to discuss facility and general operational problems or issues to keep the Manager appraised of events or initiatives for which the incumbent requires direction or advice. G. UNUSUAL WORKING CONDITIONS The Supervisor will be required to be on call in order to respond to emergency situations.",
+   "internal": [],
+   "external": []
+  },
+  "qualifications": [],
+  "territorial_acknowledgement_present": true,
+  "employment_equity_present": true,
+  "additional_context": null
+ }
+}

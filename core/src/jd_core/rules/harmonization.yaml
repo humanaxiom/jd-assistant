@@ -151,6 +151,32 @@ referred_decision_markers:
   - Give some examples of the types of decisions the incumbent would refer to her/his supervisor.
   - Give some examples of the types of decisions the incumbent would refer to his or her supervisor.
   - Give some examples of the types of decisions the incumbent would refer to the supervisor.
+  # The v9 full pass (2026-10-27): the refer question in the questionnaire's OTHER
+  # editions and typos, which the five above missed — so their referred decisions read
+  # as decisions the incumbent makes (82e5c2d0: "Decisions the incumbent would refer to
+  # his/her supervisor: Matters falling outside…; staff terminations; etc." came out as
+  # "Staff terminations"). MEASURED over the 14,522 v9 parses: each wording below and the
+  # documents carrying it unlabelled — 46 "Examples of the types…", 14 "…to this/her
+  # supervisor" (sic), 9 "Types of decisions…", 8 "Give some typical examples of the
+  # types…", 8 "Examples of Decisions referred to Supervisor", 9 "…to the Associate
+  # Director, Clinical Services", 7 "Decisions the incumbent would refer to his/her
+  # supervisor", 5 "…his I her…" (OCR), 3 each for the rest. Longest first: a marker
+  # also matches inside a longer one, and the first that matches wins. Each is a
+  # questionnaire prompt too (`rewrite.form_instructions`, HR-275).
+  - Give some typical examples of the types of decisions the incumbent would refer to his/her supervisor.
+  - Give some typical examples of the most important decisions the incumbent would refer to his/her supervisor.
+  - Give some examples of the types of decisions the incumbent would refer to this/her supervisor.
+  - Give some examples of the types of decisions the incumbent would refer to his I her supervisor.
+  - Examples of the types of decisions the incumbent would refer to his/her supervisor.
+  - Examples of the types of decisions the incumbent would refer to her/his supervisor.
+  - Examples of decisions the incumbent would refer to his/her supervisor.
+  - Examples of the types of decisions referred to the supervisor.
+  - Examples of decisions the incumbent is expected to refer.
+  - Examples of decisions referred to supervisor.
+  - Types of decisions the incumbent would refer to his/her supervisor.
+  - Decisions the incumbent would refer to the Associate Director, Clinical Services.
+  - Decisions the incumbent would refer to the Director.
+  - Decisions the incumbent would refer to his/her supervisor.
   - Refers decisions regarding
 referred_decision_label: "Refers to the supervisor:"
 

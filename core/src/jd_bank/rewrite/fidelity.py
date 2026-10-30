@@ -199,7 +199,13 @@ def cut_off_tail(text: str, cap: int, rules: Rules) -> tuple[list[str], str | No
     """``text``'s sentences, and its last one separately if the PARSER cut it: an item
     exactly at its field's character cap whose last sentence has no closing punctuation
     ("…Partners with a wide circle of contacts and involves", a 400-character contacts
-    item). That piece is a partial clause — listed, never restored (HR-287)."""
+    item). That piece is a partial clause — listed, never restored (HR-287).
+
+    A cut sentence that is a ";" LIST loses only its last entry (the v9 full pass,
+    82e5c2d0): "Makes annual budget recommendations…; makes decisions to approve
+    expenses…; …; hires continuing and temporary staff, t" is five whole decisions and
+    one cut one, and treating all of it as the partial clause listed the six instead of
+    putting them back. The entries before the last ";" stay a piece of their own."""
     parts = sentences(text, rules.rewrite.sentence_abbreviations)
     if (
         cap
@@ -207,8 +213,23 @@ def cut_off_tail(text: str, cap: int, rules: Rules) -> tuple[list[str], str | No
         and parts
         and not parts[-1].rstrip().endswith((".", "!", "?", ")", '"', "”"))
     ):
-        return parts[:-1], parts[-1]
+        last = parts[-1]
+        cut = last.rfind(";")
+        head = last[:cut].strip() if cut > 0 else ""
+        rest = last[cut + 1 :].strip()
+        if head and _TOKEN.search(head.lower()):
+            # Nothing after the last ";": the cut fell on an entry boundary.
+            return [*parts[:-1], head], (rest or None)
+        return parts[:-1], last
     return parts, None
+
+
+def before_cut(text: str, tail: str | None) -> str:
+    """``text`` up to its parser cut-off ``tail`` (:func:`cut_off_tail`), without the
+    ";" or "," that joined them; ``text`` itself when nothing was cut."""
+    if tail is None:
+        return text
+    return text[: text.rfind(tail)].rstrip(" \t;,")
 
 
 @dataclass(frozen=True)
@@ -224,6 +245,8 @@ class _Matcher:
     #: The content-token set of each boilerplate passage.
     passages: tuple[frozenset[str], ...]
     boilerplate_threshold: float
+    #: A source document's own page header / footer (HR-291), or ``None``.
+    page_header: re.Pattern[str] | None = None
 
 
 def _matcher(rules: Rules) -> _Matcher:
@@ -256,6 +279,7 @@ def _matcher(rules: Rules) -> _Matcher:
             if tokens
         ),
         boilerplate_threshold=rewrite.grounding_boilerplate_threshold,
+        page_header=rewrite.page_header_pattern,
     )
 
 
@@ -303,7 +327,9 @@ class _Strips:
         self.pieces: list[StrippedSourcePiece] = []
 
     def add(
-        self, kind: Literal["form_instruction", "boilerplate"], texts: Iterable[str]
+        self,
+        kind: Literal["form_instruction", "boilerplate", "page_header"],
+        texts: Iterable[str],
     ) -> None:
         self.pieces.extend(
             StrippedSourcePiece(section=self.section, kind=kind, text=text)
@@ -315,8 +341,19 @@ class _Strips:
 def _clean(text: str, matcher: _Matcher, stripped: _Strips) -> str:
     """``text`` minus every form instruction and boilerplate sentence in it. Returned
     BYTE-IDENTICAL when nothing matched — a restore must put back the source's own
-    words, not a re-spaced copy of them."""
+    words, not a re-spaced copy of them.
+
+    The source document's own page headers go first (HR-291): "…events). Position
+    Number 31160 (Continued) C. DUTIES AND RESPONSIBILITIES (continued) Participates…"
+    is one sentence to the splitter, and a header restored as a line of its own was
+    re-read by the parser as the role's position number (the v9 full pass, 4 roles)."""
     out = text
+    if matcher.page_header is not None:
+        stripped.add(
+            "page_header",
+            [m.group(0).strip() for m in matcher.page_header.finditer(out)],
+        )
+        out = matcher.page_header.sub(" ", out)
     for pattern in matcher.instructions:
         stripped.add(
             "form_instruction", [m.group(0).strip() for m in pattern.finditer(out)]
