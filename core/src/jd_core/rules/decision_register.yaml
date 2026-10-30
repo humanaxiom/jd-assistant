@@ -9748,7 +9748,7 @@ decisions:
     config:
       file: segmentation.yaml
       path: segmentation.qualification_max_chars
-    current_default: 400
+    current_default: null
     provenance: our_invention
     tier: hr_informed
     why_it_matters: >-
@@ -9757,13 +9757,23 @@ decisions:
       one item. MEASURED (v10 segmentation, before any cut): 84,517 items, p50 88 · p99
       1,332 · max 3,179 characters; 4,713 over 400 in 4,644 documents. Held at 400 (the
       `SFUQualification.text` contract, which the Builder's CUPE skill field also reads),
-      and an item over it is now SPLIT at its sentence breaks into items that fit, not
+      and an item over it was SPLIT at its sentence breaks into items that fit, not
       cut. Items left at the cut: 1,225 (a single sentence over 400); 335 words the old
-      parse kept are cut by it. Both readers (APSA and CUPE).
+      parse kept were cut by it. The parser-v10 review
+      (docs/audit/2026-10-29-parser-v10-review.md §4) re-measured the cut over all
+      14,522 files: 1,112 items, 308 of them the "or an equivalent combination of
+      education and experience" clause, and recommended 600. ✅ Owner ruling
+      2026-10-29: "remove the 400 cap" — applied as `null` (every item kept whole; an
+      unbulleted paragraph is ONE item and nothing is split) and RECORDED here rather
+      than ratified, since it is the project owner's call, not an HR signature. Both
+      readers (APSA and CUPE).
     impact_if_changed: >-
-      Unhashed; changes what a parsed JD contains — re-parse. Must stay at or below
-      `SFUQualification.text`'s ceiling (loader-enforced); raising that contract would
-      also raise the Builder's CUPE skill limit.
+      Unhashed; changes what a parsed JD contains — re-parse. A number restores the
+      split-at-sentences-then-cut reading at that length; the rewrite's fidelity table
+      (HR-287) follows it. The model declares no ceiling, so no value here can fail a
+      parse; the Builder's qualification inputs are bounded by their own form ceiling
+      (`QUAL_INPUT_CEILING`, 20,000), not by this. Pinned by
+      `test_parser_v10_qualification_uncapped.py`.
     status: open
 
   # ── Review of 6000ba6 (2026-10-27): the bounds HR-294 and HR-290 lacked.

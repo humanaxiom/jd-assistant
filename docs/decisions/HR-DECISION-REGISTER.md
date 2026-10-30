@@ -1005,7 +1005,7 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-305](#hr-305) | The old APSA position description has a "G. Unusual Working Conditions" section the 2024 template has no place for. Should the parser leave it out of the job description and record that it did? | *a text pattern — see below* | we chose it |
 | [HR-306](#hr-306) | Should the signature block at the end of an old position description ("J. Approvals": incumbent's, supervisor's and next level's signatures and dates) be kept out of the job description? | *a text pattern — see below* | we chose it |
 | [HR-307](#hr-307) | The old position description prints questions for whoever fills it in — under its qualifications heading ("What combination of experience, training and/or formal education do you believe is the minimum required to perform the duties of this position?") and over its Decision Making answers ("Decisions the incumbent is expected to make in carrying out duties"). Should the parser keep those questions out of the job description and record that it did? | *a text pattern — see below* | we chose it |
-| [HR-308](#hr-308) | How many characters of one qualification does the parser keep from an archive job description? | `400` | we chose it |
+| [HR-308](#hr-308) | How many characters of one qualification does the parser keep from an archive job description? | `null` | we chose it |
 | [HR-324](#hr-324) | How many characters of the supervisory text ("Supervision Exercised" and the relationships it describes) does the parser keep from an archive job description? | `null` | we chose it |
 
 #### We chose it — nobody has ratified these
@@ -1620,11 +1620,11 @@ The two bands now say two different, true things. The merged band said one false
 
 ##### HR-308 — How many characters of one qualification does the parser keep from an archive job description?
 
-- **We ship:** `400`
+- **We ship:** `null`
 - **Configured in:** `segmentation.yaml` → `segmentation.qualification_max_chars`
 - **Where the default came from:** we chose it
-- **Why it matters:** It was the code constant `_MAX_QUAL`, unregistered, and with HR-300 it started to matter: the old form writes its requirements unbulleted, so they run together into one item. MEASURED (v10 segmentation, before any cut): 84,517 items, p50 88 · p99 1,332 · max 3,179 characters; 4,713 over 400 in 4,644 documents. Held at 400 (the `SFUQualification.text` contract, which the Builder's CUPE skill field also reads), and an item over it is now SPLIT at its sentence breaks into items that fit, not cut. Items left at the cut: 1,225 (a single sentence over 400); 335 words the old parse kept are cut by it. Both readers (APSA and CUPE).
-- **If it changes:** Unhashed; changes what a parsed JD contains — re-parse. Must stay at or below `SFUQualification.text`'s ceiling (loader-enforced); raising that contract would also raise the Builder's CUPE skill limit.
+- **Why it matters:** It was the code constant `_MAX_QUAL`, unregistered, and with HR-300 it started to matter: the old form writes its requirements unbulleted, so they run together into one item. MEASURED (v10 segmentation, before any cut): 84,517 items, p50 88 · p99 1,332 · max 3,179 characters; 4,713 over 400 in 4,644 documents. Held at 400 (the `SFUQualification.text` contract, which the Builder's CUPE skill field also reads), and an item over it was SPLIT at its sentence breaks into items that fit, not cut. Items left at the cut: 1,225 (a single sentence over 400); 335 words the old parse kept were cut by it. The parser-v10 review (docs/audit/2026-10-29-parser-v10-review.md §4) re-measured the cut over all 14,522 files: 1,112 items, 308 of them the "or an equivalent combination of education and experience" clause, and recommended 600. ✅ Owner ruling 2026-10-29: "remove the 400 cap" — applied as `null` (every item kept whole; an unbulleted paragraph is ONE item and nothing is split) and RECORDED here rather than ratified, since it is the project owner's call, not an HR signature. Both readers (APSA and CUPE).
+- **If it changes:** Unhashed; changes what a parsed JD contains — re-parse. A number restores the split-at-sentences-then-cut reading at that length; the rewrite's fidelity table (HR-287) follows it. The model declares no ceiling, so no value here can fail a parse; the Builder's qualification inputs are bounded by their own form ceiling (`QUAL_INPUT_CEILING`, 20,000), not by this. Pinned by `test_parser_v10_qualification_uncapped.py`.
 
 ##### HR-324 — How many characters of the supervisory text ("Supervision Exercised" and the relationships it describes) does the parser keep from an archive job description?
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import pytest
 
+import src.jd_core.rules as rules_pkg
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.parser import parse_jd
 from src.jd_core.rules import get_rules
@@ -102,10 +103,23 @@ def test_an_unbulleted_answer_no_longer_fuses_onto_the_question() -> None:
     ]
 
 
-def test_an_over_long_qualification_is_split_at_sentences_not_cut() -> None:
+def test_an_over_long_qualification_is_split_at_sentences_not_cut(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """20060307_00001390IT_coordinator.doc: unbulleted requirements run together; the
     400-character cut (HR-308) dropped "…without formal authority" and everything after.
+    The knob now ships null (whole item, no split — `test_parser_v10_qualification_
+    uncapped.py`); this pins the split-not-cut reading a NUMBER in the knob gives.
     """
+    rules = get_rules()
+    capped = rules.model_copy(
+        update={
+            "segmentation": rules.segmentation.model_copy(
+                update={"qualification_max_chars": 400}
+            )
+        }
+    )
+    monkeypatch.setattr(rules_pkg, "get_rules", lambda: capped)
     reqs = [
         "Undergraduate degree and three years work experience or a combination of "
         "equivalent education and experience.",
@@ -121,9 +135,7 @@ def test_an_over_long_qualification_is_split_at_sentences_not_cut() -> None:
     quals = _quals(parse_jd(text).jd)
 
     assert " ".join(quals) == " ".join(reqs)
-    assert all(
-        len(q) <= get_rules().segmentation.qualification_max_chars for q in quals
-    )
+    assert len(quals) > 1 and all(len(q) <= 400 for q in quals)
 
 
 def test_the_decision_making_make_prompt_is_set_aside_not_a_decision() -> None:

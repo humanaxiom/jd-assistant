@@ -46,6 +46,7 @@ from collections.abc import Iterable
 
 from pydantic import BaseModel
 
+from src.jd_bank.composer.answers import QUAL_INPUT_CEILING
 from src.jd_bank.composer.wjq_answers import (
     WJQ_CONTEXT_TARGETS,
     WJQ_LEVEL_TARGETS,
@@ -98,7 +99,9 @@ def _ceiling(model: type[BaseModel], field: str) -> int:
 
 
 #: The draft model's own ceilings the answer counts are checked against (review L2).
-_QUAL_MAX: int = _ceiling(SFUQualification, "text")
+#: A qualification line has none since HR-308 was ruled null (2026-10-29), so the
+#: joined helper + text is held to the form's own input ceiling instead.
+_QUAL_MAX: int = QUAL_INPUT_CEILING
 _QUALS_MAX: int = _ceiling(SFUJobDescription, "qualifications")
 _REQUIREMENTS_MAX: int = _ceiling(WJQForm, "occupational_requirements")
 _CONTACTS_MAX: int = _ceiling(SFURelationships, "internal")

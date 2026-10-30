@@ -357,8 +357,15 @@ form_prompt_pattern:
   ignore_case: false
 
 # --- One qualification's character cap (parser v10, HR-308) ---------------------------
-# Was the code constant `_MAX_QUAL` 400, unregistered.
-qualification_max_chars: 400
+# Was the code constant `_MAX_QUAL` 400, unregistered, then 400 here with an over-cap
+# item split at its sentence breaks. MEASURED by the parser-v10 review over all 14,522
+# extracted archive files (docs/audit/2026-10-29-parser-v10-review.md §4): 1,112 items
+# still cut at 400, 308 of them the "or an equivalent combination…" clause. Owner
+# ruling 2026-10-29: "remove the 400 cap" — `null` means the parser keeps every item
+# whole (an unbulleted paragraph is ONE item; nothing is split). A number here splits
+# an over-long item at its sentence breaks and cuts a single sentence at that length
+# (the rewrite's fidelity table follows it, HR-287).
+qualification_max_chars: null
 
 # --- The supervisory text's character cap (parser v10, HR-324) ------------------------
 # Was the code constant `_MAX_SUPERVISORY` 600, unregistered. MEASURED by the parser-v10

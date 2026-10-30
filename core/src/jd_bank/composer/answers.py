@@ -97,13 +97,20 @@ class JDFNDutyAnswer(DutyAnswer):
         return value
 
 
+#: The form's input ceiling for ONE qualification line, not the parser's cap: the
+#: parser no longer cuts an item (HR-308, null) and ``SFUQualification.text`` declares
+#: no ceiling, so a role cloned from the Bank may carry a long one (the archive's
+#: longest measured is 3,179 characters). Bounds a crafted body, nothing else.
+QUAL_INPUT_CEILING = 20_000
+
+
 class ModifiedQual(BaseModel):
     """A knowledge or skill qualification carrying its Toolkit modifier
     (knowledge: excellent/working; skill: basic/intermediate/advanced/expert)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    text: str = Field(min_length=1, max_length=400)
+    text: str = Field(min_length=1, max_length=QUAL_INPUT_CEILING)
     modifier: str | None = Field(default=None, max_length=20)
 
 

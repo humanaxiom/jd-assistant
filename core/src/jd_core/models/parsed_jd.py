@@ -106,7 +106,9 @@ class SFUQualification(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    text: str = Field(min_length=1, max_length=400)
+    #: No ceiling, on purpose: the parser's cap is rulebook data
+    #: (``segmentation.qualification_max_chars``, HR-308) and ships as ``null``.
+    text: str = Field(min_length=1)
     kind: QualificationKind = "ability"
     modifier: str | None = Field(default=None, max_length=20)
 

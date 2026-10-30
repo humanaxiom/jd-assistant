@@ -191,7 +191,7 @@ def field_cap(field: str, rules: Rules) -> int:
         "internal": _MAX_BULLET,
         "external": _MAX_BULLET,
         "supervisory": seg.supervisory_max_chars or 0,
-        "qualifications": seg.qualification_max_chars,
+        "qualifications": seg.qualification_max_chars or 0,
     }.get(field, 0)
 
 

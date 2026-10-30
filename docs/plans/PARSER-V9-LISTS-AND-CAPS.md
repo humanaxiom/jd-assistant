@@ -839,7 +839,20 @@ the Builder contract declare no ceiling. ⚠ Still `jd_segmenter_v10` (no Bank h
 parsed at v10), but the review's §4 numbers were measured WITH the 600 cut: after the
 rebuild, supervisory texts will be longer than anything measured so far, and the form's
 printed E/F/I questions (3,421 files) are inside them until a Relationships prompt strip
-is built. The 400-character qualification cap (HR-308) is unchanged pending a ruling.
+is built.
+
+**Owner ruling 2026-10-29, second: "remove the 400 cap"** (the qualification one).
+Applied as `segmentation.qualification_max_chars: null` (HR-308 updated, not a new
+entry): the parser keeps every qualification item whole — an unbulleted paragraph of
+the old form is ONE item, and the sentence split (which only existed to serve the cap)
+does not run. `SFUQualification.text` declares no ceiling; the Builder's qualification
+inputs (`ModifiedQual`, `SkillAnswer`) are bounded by a 20,000-character form ceiling
+instead, wide enough for the archive's longest measured item (3,179). A number in the
+knob restores the split-then-cut reading at that length. ⚠ The review's "1,112 items
+cut" and "4,713 items over 400" were measured with the split in force: after the rebuild
+those 4,644 documents carry fewer, longer items, and the K→S→A gate reads one kind per
+paragraph rather than per sentence. If HR wants a per-sentence item reading without a
+cut, that is a separate rule to register, not a cap.
 
 ## 11. Containers (all removed at the end)
 

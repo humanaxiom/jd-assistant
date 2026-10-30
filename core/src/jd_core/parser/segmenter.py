@@ -542,13 +542,17 @@ def _strip_form_prompts(block: str, prompt: re.Pattern[str]) -> tuple[str, list[
     return prompt.sub(cut, block), found
 
 
-def _structure_quals(block: str, max_chars: int) -> list[SFUQualification]:
+def _structure_quals(
+    block: str, max_chars: int | None = None
+) -> list[SFUQualification]:
     """Qualifications → typed items. ``max_chars`` is `segmentation.qualification_max_
-    chars` (HR-308). An item over it is split at its SENTENCE breaks into items that fit
-    (v10) instead of cut: the old form's unbulleted requirements run together into one
-    logical line — MEASURED, 4,713 items over 400 in 4,644 documents once "H. Entrance
-    Qualifications" was read — and the cut dropped every requirement after the first
-    400 characters. A single sentence over the cap is still cut."""
+    chars` (HR-308): ``None`` (the shipped value since the owner's 2026-10-29 ruling)
+    keeps every logical line whole as ONE item. With a number, an item over it is
+    split at its SENTENCE breaks into items that fit (v10) instead of cut: the old
+    form's unbulleted requirements run together into one logical line — MEASURED,
+    4,713 items over 400 in 4,644 documents once "H. Entrance Qualifications" was
+    read — and the cut dropped every requirement after the first 400 characters. A
+    single sentence over the cap is still cut."""
     quals: list[SFUQualification] = []
     for item in _logical_lines(block):
         # A "…:" lead-in is KEPT, minus its colon (v9, review H1): it is often a whole
@@ -557,11 +561,12 @@ def _structure_quals(block: str, max_chars: int) -> list[SFUQualification]:
         text = _clean(item).strip(" -–—•◦*").rstrip(" :")
         if not text:
             continue
-        for piece in _sentence_chunks(text, max_chars):
+        pieces = [text] if max_chars is None else _sentence_chunks(text, max_chars)
+        for piece in pieces:
             kind = _classify_qual(piece)
             quals.append(
                 SFUQualification(
-                    text=piece[:max_chars],
+                    text=piece[:max_chars] if max_chars else piece,
                     kind=kind,
                     modifier=_detect_modifier(piece, kind),
                 )

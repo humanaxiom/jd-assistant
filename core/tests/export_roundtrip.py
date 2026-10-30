@@ -50,6 +50,7 @@ instructions, ``wjq.instruction_markers``).
 from __future__ import annotations
 
 import re
+import sys
 from collections import Counter
 
 from src.jd_core.models.parsed_jd import SFUJobDescription, WJQRow
@@ -63,11 +64,13 @@ _WORD = re.compile(r"[a-z0-9]+")
 #: legitimately cut on re-read. Rulebook data since parser v9 (HR-261); it was the
 #: code constant ``segmenter._MAX_DUTY_STMT = 400``.
 _MAX_DUTY_STMT = get_rules().segmentation.duty_statement_max_chars
-#: The parser's ceiling for a decision / problem / qualification item
-#: (``segmenter._MAX_BULLET`` / ``segmentation.qualification_max_chars``, HR-308).
+#: The parser's ceiling for a decision / problem item (``segmenter._MAX_BULLET``).
 _MAX_LIST_ITEM = 400
-#: ``segmenter._MAX_SUPERVISORY``.
-_MAX_SUPERVISORY = 600
+#: … and for a qualification (``segmentation.qualification_max_chars``, HR-308) and
+#: the supervisory text (``segmentation.supervisory_max_chars``, HR-324). Both ship
+#: ``null`` = never cut, so no ceiling tolerance applies: every word must come back.
+_MAX_QUAL = get_rules().segmentation.qualification_max_chars or sys.maxsize
+_MAX_SUPERVISORY = get_rules().segmentation.supervisory_max_chars or sys.maxsize
 
 #: Which kind each original qualification kind reads back as, through the CUPE form.
 _CUPE_KIND_BACK = {
@@ -414,10 +417,10 @@ def _item_survives(want: list[str], back_text: str, cap: int) -> bool:
 
 def _supervisory_survives(want: list[str], back_text: str) -> bool:
     """The supervisory prose came back — all its words, or, when the re-read reached
-    the parser's ceiling (``segmenter._MAX_SUPERVISORY``), every word up to the cut, in
-    order. The parser keeps the line's ``Supervisory:`` label in the prose (it files
-    every non-contact line there), so a 600-character original re-reads as label + 587
-    characters: a CEILING cut, not a loss the export can avoid."""
+    the parser's ceiling (``segmentation.supervisory_max_chars``, if set), every word
+    up to the cut, in order. The parser keeps the line's ``Supervisory:`` label in the
+    prose (it files every non-contact line there), so a 600-character original re-reads
+    as label + 587 characters: a CEILING cut, not a loss the export can avoid."""
     got = words(back_text)
     if _contained(want, got):
         return True
@@ -507,7 +510,7 @@ def jdfn_round_trip_losses(
         "qualification",
         [words(_qual_text(q.text, q.modifier)) for q in original.qualifications],
         [q.text for q in reparsed.qualifications],
-        _MAX_LIST_ITEM,
+        _MAX_QUAL,
     )
 
     rel_src, rel_back = original.relationships, reparsed.relationships

@@ -40,7 +40,7 @@ from typing import Any, ClassVar, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from src.jd_bank.composer.answers import AnswerContract
+from src.jd_bank.composer.answers import QUAL_INPUT_CEILING, AnswerContract
 from src.jd_core.models.parsed_jd import (
     SFUDuty,
     SFUJobDescription,
@@ -99,11 +99,16 @@ WJQ_LEVEL_TARGETS: Mapping[WjqSection, str] = {
     "continuing_education": "continuing_education_levels",
 }
 
-#: A qualification line's ceiling, read off the model rather than restated.
-_QUAL_MAX: int = next(
-    int(meta.max_length)
-    for meta in SFUQualification.model_fields["text"].metadata
-    if getattr(meta, "max_length", None) is not None
+#: A qualification line's ceiling, read off the model rather than restated — and
+#: ``None`` since the model stopped declaring one (HR-308 ruled null, 2026-10-29): the
+#: form then bounds its input at ``QUAL_INPUT_CEILING`` and no phrase can fail to fit.
+_QUAL_MAX: int | None = next(
+    (
+        int(meta.max_length)
+        for meta in SFUQualification.model_fields["text"].metadata
+        if getattr(meta, "max_length", None) is not None
+    ),
+    None,
 )
 
 #: A point-factor section's text ceiling: the model's own ``additional_context``
@@ -267,9 +272,10 @@ class SkillAnswer(_Row):
         Column("helper", "Starts with", "occupational_skills_helpers", "0 0 10rem"),
     )
 
-    #: The qualification line's own ceiling (``SFUQualification.text``); the assembler
-    #: refuses — with a message — a phrase + text that would not fit in it.
-    text: str = Field(min_length=1, max_length=_QUAL_MAX)
+    #: The qualification line's own ceiling (``SFUQualification.text``) when it has one;
+    #: the form's input ceiling otherwise. The assembler refuses — with a message — a
+    #: phrase + text that would not fit in it.
+    text: str = Field(min_length=1, max_length=_QUAL_MAX or QUAL_INPUT_CEILING)
     helper: str | None = Field(default=None, max_length=20)
 
 
@@ -283,7 +289,7 @@ def _modified_text(text: str, modifier: str | None) -> str:
     if (
         mod
         and mod.lower() not in text.lower()
-        and len(mod) + 1 + len(text) <= _QUAL_MAX
+        and (_QUAL_MAX is None or len(mod) + 1 + len(text) <= _QUAL_MAX)
     ):
         return f"{mod} {text}"
     return text
@@ -331,7 +337,7 @@ def fold_legacy_quals(
             phrase is not None
             and not (modifier or "").strip()
             and not full_phrase.search(text)
-            and len(phrase) + 1 + len(text) <= _QUAL_MAX
+            and (_QUAL_MAX is None or len(phrase) + 1 + len(text) <= _QUAL_MAX)
         ):
             out.append(SkillAnswer(helper=phrase, text=text))
         else:

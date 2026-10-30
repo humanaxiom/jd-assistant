@@ -518,9 +518,10 @@ def _structure_quals(text: str, wjq: Wjq) -> list[SFUQualification]:
             continue
         if line.endswith(":"):
             continue
+        qual_cap = get_rules().segmentation.qualification_max_chars
         quals.append(
             SFUQualification(
-                text=line[: get_rules().segmentation.qualification_max_chars],
+                text=line[:qual_cap] if qual_cap else line,
                 kind=current_kind,
                 modifier=_detect_modifier(line, current_kind),
             )
