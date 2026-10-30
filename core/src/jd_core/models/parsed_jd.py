@@ -117,7 +117,9 @@ class SFURelationships(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    supervisory: str | None = Field(default=None, max_length=600)
+    #: No ceiling, on purpose: the parser's cap is rulebook data
+    #: (``segmentation.supervisory_max_chars``, HR-324) and ships as ``null``.
+    supervisory: str | None = None
     internal: list[str] = Field(default_factory=list, max_length=30)
     external: list[str] = Field(default_factory=list, max_length=30)
 

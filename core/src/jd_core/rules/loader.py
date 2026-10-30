@@ -870,6 +870,9 @@ class Segmentation(_RuleFile):
     #: HR-308: how many characters of ONE qualification the parser keeps — the code
     #: constant ``_MAX_QUAL`` (400, unregistered) until v10.
     qualification_max_chars: int = Field(gt=0)
+    #: The supervisory text's cap (HR-324); ``null`` keeps the whole text (owner
+    #: ruling 2026-10-29). The model declares no ceiling for it, on purpose.
+    supervisory_max_chars: int | None = Field(default=None, gt=0)
 
     @model_validator(mode="after")
     def _the_duty_caps_fit_the_model(self) -> Segmentation:

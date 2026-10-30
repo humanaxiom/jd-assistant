@@ -9859,6 +9859,35 @@ decisions:
       Does NOT move `rules_version`. 0 merges any pair; higher lists more model duties
       instead of merging them. Pinned by `test_rewrite_postpass_v9.py`.
     status: open
+  - id: HR-324
+    question: >-
+      How many characters of the supervisory text ("Supervision Exercised" and the
+      relationships it describes) does the parser keep from an archive job description?
+    config:
+      file: segmentation.yaml
+      path: segmentation.supervisory_max_chars
+    current_default: null
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      It was the code constant `_MAX_SUPERVISORY` 600, unregistered, and HR-301 (the
+      old form's "I. Organizational Relationships" now read as relationships) made it
+      matter. MEASURED by the parser-v10 review over all 14,522 extracted archive files
+      (docs/audit/2026-10-29-parser-v10-review.md §4): 5,772 documents (58.8%) were
+      over 600 and 2.48 M characters were cut — in 3,421 of them because the form's
+      printed E/F questions use the budget first; prompt-stripped p50 552 · p75 742 ·
+      p90 1,016 · p95 1,291 · p99 2,711, max 5,185. ✅ Owner ruling 2026-10-29: "remove
+      the cap" — applied as `null` (the whole text is kept) and RECORDED here rather
+      than ratified, since it is the project owner's call, not an HR signature. The
+      form's printed E/F/I questions are still inside the kept text (the review's
+      recommended prompt strip for the Relationships section is not built).
+    impact_if_changed: >-
+      Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`;
+      changes what a parsed JD contains, so it needs a re-parse. A number cuts the text
+      at that many characters; the rewrite's fidelity table (HR-287) and the model
+      follow it — the model declares no ceiling, so no value here can fail a parse.
+      Pinned by `test_parser_v10_supervisory_uncapped.py`.
+    status: open
 
 trivial:
   # ── The APSA export form (Track J4): HR's own wording, pinned by HR-258. ──

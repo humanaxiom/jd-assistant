@@ -130,6 +130,10 @@ class AnswerContract(BaseModel):
     cloned_from_cluster_id: UUID | None = None
 
 
+#: The form's supervisory input ceiling — see ``ComposerAnswers.supervisory``.
+_SUPERVISORY_INPUT_CEILING = 20_000
+
+
 class ComposerAnswers(AnswerContract):
     """Everything the guided flow collects for one JDFN draft. All optional — the
     Builder validates live as the author fills it in (Phase 5.1)."""
@@ -189,7 +193,11 @@ class ComposerAnswers(AnswerContract):
         default_factory=list, max_length=_BULLETS_CEILING
     )
     # 7. Relationships
-    supervisory: str | None = Field(default=None, max_length=600)
+    #: The FORM's input ceiling, not the parser's cap: the parser no longer cuts the
+    #: supervisory text (HR-324) and the model declares no ceiling, so a role cloned
+    #: from the Bank may carry a long one. Wide enough for the archive's longest
+    #: (5,185 characters measured) and renders as a textarea.
+    supervisory: str | None = Field(default=None, max_length=_SUPERVISORY_INPUT_CEILING)
     internal: list[str] = Field(default_factory=list, max_length=30)
     external: list[str] = Field(default_factory=list, max_length=30)
     # 8. Qualifications — kept split by kind so the assembler can honour the

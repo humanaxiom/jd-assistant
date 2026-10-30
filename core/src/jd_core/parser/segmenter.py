@@ -141,7 +141,10 @@ _MAX_VERB = 60
 #: A set-aside block is a RECORD, not content: held only to the model's own ceiling.
 _MAX_SET_ASIDE = 20000
 _MAX_BULLET = 400
-_MAX_SUPERVISORY = 600
+#: v10: the supervisory text's cap is rulebook data — `segmentation.supervisory_
+#: max_chars` (HR-324), null = whole text; it was the code constant
+#: `_MAX_SUPERVISORY` 600, which the 2026-10-29 review measured cutting 58.8% of
+#: supervisory texts.
 _MAX_QUALS = 40
 
 
@@ -592,7 +595,9 @@ def _after_colon(line: str) -> str:
     return _clean(rest if sep else line)
 
 
-def _structure_relationships(block: str) -> SFURelationships | None:
+def _structure_relationships(
+    block: str, supervisory_cap: int | None = None
+) -> SFURelationships | None:
     supervisory: str | None = None
     internal: list[str] = []
     external: list[str] = []
@@ -626,7 +631,11 @@ def _structure_relationships(block: str) -> SFURelationships | None:
     if supervisory is None and not internal and not external:
         return None
     return SFURelationships(
-        supervisory=(supervisory[:_MAX_SUPERVISORY] if supervisory else None),
+        supervisory=(
+            (supervisory[:supervisory_cap] if supervisory_cap else supervisory)
+            if supervisory
+            else None
+        ),
         internal=internal[:30],
         external=external[:30],
     )
@@ -825,7 +834,10 @@ def parse_jd(text: str) -> ParseResult:
     problem_solving = _structure_bullets(
         sections.get(SectionKey.PROBLEM_SOLVING, ""), bullet_cap
     )
-    relationships = _structure_relationships(sections.get(SectionKey.RELATIONSHIPS, ""))
+    relationships = _structure_relationships(
+        sections.get(SectionKey.RELATIONSHIPS, ""),
+        get_rules().segmentation.supervisory_max_chars,
+    )
     qualifications = _structure_quals(
         without_prompts(SectionKey.QUALIFICATIONS),
         get_rules().segmentation.qualification_max_chars,

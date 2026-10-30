@@ -832,6 +832,15 @@ supervisory texts, the 400-character qualification cap 1,112 items (308 of them 
 equivalency clause) — and recommends 1,200 / 600; both are owner/HR decisions to take
 before the one full rebuild, not changes made here.
 
+**Owner ruling 2026-10-29: "remove the cap"** (the supervisory one). Applied as rulebook
+data: `segmentation.supervisory_max_chars: null` (HR-324) — the parser keeps the whole
+supervisory text, the rewrite's fidelity table reports no cut for it, and the model and
+the Builder contract declare no ceiling. ⚠ Still `jd_segmenter_v10` (no Bank has been
+parsed at v10), but the review's §4 numbers were measured WITH the 600 cut: after the
+rebuild, supervisory texts will be longer than anything measured so far, and the form's
+printed E/F/I questions (3,421 files) are inside them until a Relationships prompt strip
+is built. The 400-character qualification cap (HR-308) is unchanged pending a ruling.
+
 ## 11. Containers (all removed at the end)
 
 - **This round:** `p9measure-dump`, `p9measure-pg` (127.0.0.1:25999, network `p9measure-net`), `p9measure-ingest-flat`, `p9measure-ingest-grouped`, `p9measure-mA` / `-mB` / `-mD`, `p9measure-losscause`, `p9measure-smoke`, `p9measure-intro`, and the network `p9measure-net`.

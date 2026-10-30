@@ -359,3 +359,12 @@ form_prompt_pattern:
 # --- One qualification's character cap (parser v10, HR-308) ---------------------------
 # Was the code constant `_MAX_QUAL` 400, unregistered.
 qualification_max_chars: 400
+
+# --- The supervisory text's character cap (parser v10, HR-324) ------------------------
+# Was the code constant `_MAX_SUPERVISORY` 600, unregistered. MEASURED by the parser-v10
+# review over all 14,522 extracted archive files (docs/audit/2026-10-29-parser-v10-review.md
+# §4): 5,772 documents (58.8%) were over 600, 2.48 M characters cut; prompt-stripped
+# p50 552 · p90 1,016 · p99 2,711. Owner ruling 2026-10-29: "remove the cap" — `null`
+# means the parser keeps the whole text. A number here cuts at that many characters
+# (the rewrite's fidelity table follows it, HR-287).
+supervisory_max_chars: null
