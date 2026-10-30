@@ -64,13 +64,19 @@ complete new set of images for this build."* Nothing in this section touches the
 is green **on v9**, and even then only through ordinary PRs. When migration 0008 lands on
 live, it locks `parsed_jds` for about 10 s.
 
-### 3. Pending: three branches, all pushed, NOT yet merged into `bank/v9`
+### 3. The three branches — MERGED into `bank/v9` on 2026-10-29
+
+**Merged in `C:\repos\JD-Assistant-v9` (branch verified `bank/v9` first): `08e46fc`
+(targeted-rerun) → `3939afc` (postpass-fixes; register conflict, both lanes' entries
+kept) → `ef647b9` (parser-wrap `9faf308`; register YAML merged clean, Markdown
+re-rendered).** Duplicate-id check printed nothing; `make register-check` in step;
+`make gates-fast` on the merged head: GREEN (ruff, black, mypy --strict, 3,295 unit tests, 2026-10-29); pushed to origin. The table below is now history.
 
 | branch | head | what | review |
 |---|---|---|---|
 | `feat/v9-targeted-rerun` | `0020671` | `--cluster-ids` / `--cluster-ids-file` on `canonical-drafts`; the WJQ approvability study (`docs/audit/2026-10-27-wjq-approvability.md`, on the branch); HR-296/297 | ✅ approved by the Opus reviewer |
 | `feat/v9-postpass-fixes` | `9d7b175` | form limits (merge floor 0.2), page headers, referral markers, K→S→A order, kind taken from the source (WJQ only), lead word (JDFN only), summary conditions grounded in the source; HR-290–295 and HR-302–304; replay lists in `docs/canonical/v9-postpass-rerun*` | ✅ approved by the Opus reviewer (2 rounds) |
-| `feat/v9-parser-wrap` | `e547a74` | **parser v10** (`jd_segmenter_v10`). It adds a wrapped-heading guard (HR-298/299). It maps the legacy lettered headings: H → qualifications (HR-300) and I → relationships (HR-301). G (working conditions), J (approvals) and form prompts are **set aside, not dropped** (HR-305–307), via a new `SFUJobDescription.set_aside` field and a source-JD panel. The qualification cap becomes 400 (HR-308). It already contains `feat/v9-postpass-fixes` | ✅ **Reviewed 2026-10-29 — APPROVE WITH CHANGES** (`docs/audit/2026-10-29-parser-v10-review.md`, on `bank/v9`). The one blocking change (D1: 16 files whose qualifications sank into the G block) is **fixed and pushed as `7b99314`** on this branch, with the design-doc correction (D2). Then the owner ruled "remove the cap" (2026-10-29): the 600-character supervisory cap is gone — `segmentation.supervisory_max_chars: null`, HR-324, pushed as `0318deb`. **Head is now `0318deb`**, not `e547a74` |
+| `feat/v9-parser-wrap` | `e547a74` | **parser v10** (`jd_segmenter_v10`). It adds a wrapped-heading guard (HR-298/299). It maps the legacy lettered headings: H → qualifications (HR-300) and I → relationships (HR-301). G (working conditions), J (approvals) and form prompts are **set aside, not dropped** (HR-305–307), via a new `SFUJobDescription.set_aside` field and a source-JD panel. The qualification cap becomes 400 (HR-308). It already contains `feat/v9-postpass-fixes` | ✅ **Reviewed 2026-10-29 — APPROVE WITH CHANGES** (`docs/audit/2026-10-29-parser-v10-review.md`, on `bank/v9`). The one blocking change (D1: 16 files whose qualifications sank into the G block) is **fixed and pushed as `7b99314`** on this branch, with the design-doc correction (D2). Then the owner ruled "remove the cap" (2026-10-29): the 600-character supervisory cap is gone — `segmentation.supervisory_max_chars: null`, HR-324, pushed as `0318deb`. Then "remove the 400 cap": `qualification_max_chars: null`, HR-308 updated, pushed as `9faf308`. **Head is `9faf308`**, merged into `bank/v9` as `ef647b9` |
 
 The owner rulings behind them (2026-10-27):
 - After the fixes, run ONE full rebuild and ONE full pass, not tiers.
@@ -92,10 +98,17 @@ The owner rulings behind them (2026-10-27):
    `0318deb`; the form's printed E/F/I questions stay inside the kept text until a
    Relationships prompt strip is built — and the **400-character qualification cap**
    (HR-308; cuts 1,112 items, 308 of them the "or an equivalent combination…" clause —
-   recommends 600), **still open**.
-2. **Merge the three branches into `bank/v9`.** Do it in `C:\repos\JD-Assistant-v9`, after
-   `git branch --show-current` prints `bank/v9`. Then run the duplicate-ID check and
-   `make register-check` (see trap c).
+   recommends 600) — ✅ **RULED 2026-10-29: "remove the 400 cap"**, applied as
+   `qualification_max_chars: null` (HR-308 updated in place, not a new id) on
+   `feat/v9-parser-wrap` `9faf308`. With no cap there is no sentence split either: an
+   unbulleted paragraph of the old form is ONE qualification item. `SFUQualification.text`
+   has no ceiling; the Builder's qualification inputs are bounded by a 20,000-character
+   form ceiling (`QUAL_INPUT_CEILING`). ⚠ Every number the review quotes for both caps
+   was measured WITH the cuts in force — after the rebuild, expect fewer and longer
+   qualification items (4,644 documents) and longer supervisory texts than anything
+   measured so far.
+2. ~~**Merge the three branches into `bank/v9`.**~~ **Done 2026-10-29** — see §3 above
+   (`ef647b9`). Duplicate-ID check clean, `make register-check` in step.
 3. **Wipe and rebuild the v9 Bank** from that checkout:
    `teardown.ps1 -Volumes -Force` → `launch.ps1 -NoCas` → `make ingest`
    (`JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs`) → `embed` → near-dup → `dedup-role` →
@@ -108,7 +121,7 @@ The owner rulings behind them (2026-10-27):
 
 **Open questions for HR and the owner that this work raised:**
 - HR-296/297: WJQ equivalency fails because the form does not fit, not because the rewrite is wrong.
-- The qualification cap (HR-308, 400 → 600?): owner/HR, before V2. (The supervisory cap is ruled: removed, HR-324.)
+- ~~The qualification cap (HR-308, 400 → 600?)~~ Both caps are ruled by the owner (2026-10-29): removed — HR-324 null, HR-308 null. A per-sentence item reading without a cut would be a NEW rule to register, not a cap.
 - HR-046 and HR-284.
 - From the tracks plan: Q2, Q4–Q8 and Q10.
 
@@ -148,8 +161,8 @@ baseline scores raw text. Say so wherever that figure is quoted.
 
   Give each parallel lane its own HR-id range up front. The next free id comes after the
   highest one on any pending branch. HR-323 is on `feat/k3-crf-download` (#219) and HR-324 on
-  `feat/v9-parser-wrap` as of 2026-10-29, so the next free id is **HR-325** — check it rather
-  than trust this line.
+  `bank/v9` (via `feat/v9-parser-wrap`) as of 2026-10-29, so the next free id is **HR-325** —
+  check it rather than trust this line.
 - **(d) Under a fresh compose project, `make register` wrote the image-build log into
   `HR-DECISION-REGISTER.md`.** Build the images first, then run it, then grep the file for
   build output before you commit.
