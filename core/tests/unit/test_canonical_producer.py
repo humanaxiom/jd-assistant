@@ -9,7 +9,9 @@ from the harmonize runner, never forked).
 
 from __future__ import annotations
 
+import json
 import uuid
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -514,3 +516,185 @@ def test_either_flag_alone_is_still_accepted() -> None:
     for argv in (["--resume"], ["--allow-downgrade", "--no-llm"]):
         args = cli._parse_args(argv)
         assert cli._reject_contradictory_flags(args) is None
+
+
+# --- --cluster-ids / --cluster-ids-file: re-run NAMED clusters -----------------------
+
+_ID_A = uuid.UUID("11111111-1111-1111-1111-111111111111")
+_ID_B = uuid.UUID("22222222-2222-2222-2222-222222222222")
+
+
+def test_cluster_ids_parse_to_a_set_of_uuids() -> None:
+    args = cli._parse_args(["--cluster-ids", f"{_ID_A}, {_ID_B},{_ID_A}"])
+    assert args.cluster_ids == frozenset({_ID_A, _ID_B})
+
+
+def test_no_cluster_ids_means_no_scope() -> None:
+    assert cli._parse_args([]).cluster_ids is None
+
+
+@pytest.mark.parametrize("raw", ["not-a-uuid", f"{_ID_A},,nope", ""])
+def test_a_malformed_cluster_id_is_refused(
+    raw: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A malformed id is refused at the door, never dropped: dropping it is the silent
+    skip this flag exists to make impossible. An EMPTY list is refused too — it would
+    process nothing and exit green."""
+    with pytest.raises(SystemExit) as excinfo:
+        cli._parse_args(["--cluster-ids", raw])
+    assert excinfo.value.code == 2
+    assert "--cluster-ids" in capsys.readouterr().err
+
+
+def test_cluster_ids_file_reads_one_uuid_per_line(tmp_path: Path) -> None:
+    path = tmp_path / "ids.txt"
+    path.write_text(f"# the v9 re-run list\n{_ID_A}\n\n  {_ID_B}  \n", encoding="utf-8")
+    args = cli._parse_args(["--cluster-ids-file", str(path)])
+    assert args.cluster_ids == frozenset({_ID_A, _ID_B})
+
+
+def test_a_bad_line_in_the_file_is_refused_by_line_number(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = tmp_path / "ids.txt"
+    path.write_text(f"{_ID_A}\n{_ID_B},{_ID_A}\n", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        cli._parse_args(["--cluster-ids-file", str(path)])
+    assert "line 2" in capsys.readouterr().err
+
+
+def test_an_empty_file_is_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    path = tmp_path / "ids.txt"
+    path.write_text("# nothing yet\n\n", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        cli._parse_args(["--cluster-ids-file", str(path)])
+    assert "no cluster ids" in capsys.readouterr().err
+
+
+def test_a_missing_file_names_the_container_mounts(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The producer runs in a container, so a host path is the likeliest mistake. The
+    refusal says where a file IS visible rather than leaving a person to guess."""
+    with pytest.raises(SystemExit):
+        cli._parse_args(["--cluster-ids-file", "/nowhere/ids.txt"])
+    err = capsys.readouterr().err
+    assert "/committed/" in err and "docs/canonical/" in err
+
+
+def test_both_id_flags_at_once_are_refused(tmp_path: Path) -> None:
+    path = tmp_path / "ids.txt"
+    path.write_text(f"{_ID_A}\n", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        cli._parse_args(["--cluster-ids", str(_ID_B), "--cluster-ids-file", str(path)])
+
+
+@pytest.mark.parametrize(
+    ("extra", "named"),
+    [
+        (["--resume"], "--resume"),
+        (["--limit", "500"], "--limit"),
+        (["--refreshed-since", "2026-10-01T00:00:00Z"], "--refreshed-since"),
+        (["--only-template", "wjq"], "--only-template"),
+        (["--only-undrafted"], "--only-undrafted"),
+    ],
+)
+def test_cluster_ids_with_another_scope_is_refused_by_name(
+    extra: list[str], named: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Every other scope would silently drop some NAMED clusters (``--limit`` makes them
+    unknown; ``--resume`` / ``--refreshed-since`` skip them; ``--only-template`` /
+    ``--only-undrafted`` count them out of scope). Naming a cluster and then not running
+    it is the outcome this flag exists to prevent, so the combination is refused."""
+    exit_code = cli.main(["--cluster-ids", str(_ID_A), "--no-llm", *extra])
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert named in err and "--cluster-ids" in err
+
+
+def test_cluster_ids_combine_with_no_llm_and_allow_downgrade() -> None:
+    for extra in ([], ["--no-llm"], ["--no-llm", "--allow-downgrade"]):
+        args = cli._parse_args(["--cluster-ids", str(_ID_A), *extra])
+        assert cli._reject_contradictory_flags(args) is None
+
+
+def test_an_unknown_cluster_id_exits_2_and_lists_every_one(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    async def _refuse(_args: object) -> CanonicalProducerResult:
+        raise canon_runner.UnknownClusterIdsError([_ID_A, _ID_B])
+
+    monkeypatch.setattr(cli, "_run", _refuse)
+    exit_code = cli.main(["--cluster-ids", f"{_ID_A},{_ID_B}", "--no-llm"])
+    assert exit_code == 2
+    err = capsys.readouterr().err
+    assert str(_ID_A) in err and str(_ID_B) in err
+
+
+def test_the_documented_file_location_is_really_mounted_into_the_producer() -> None:
+    """Directive #1: a person passes a file by saving it in docs/canonical/ and naming
+    it /committed/<name>. That only works while the `canonical` service binds that
+    folder there — so the compose file is read, not trusted (the `gates` service mounts
+    it at /docker-compose.yml for exactly this kind of check)."""
+    from tests.unit.test_compose_env_delivery import _compose
+
+    volumes = _compose()["services"]["canonical"]["volumes"]
+    assert "./docs/canonical:/committed" in volumes
+    assert "/committed/" in cli._CONTAINER_MOUNTS_HINT
+
+
+def test_a_named_run_does_not_overwrite_the_full_pass_summary(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """🔴 Review of bd0e0be. `docs/canonical/summary.json` is the COMMITTED record of
+    the last full pass (2,446 clusters on v9). A five-cluster re-run with the default
+    ``--summary-out`` replaced it with a five-cluster tally that does not say it is
+    scoped — so the next commit of docs/canonical/ would quietly swap the full-pass
+    record for a scoped one. A named run's default summary goes BESIDE it, and names
+    its scope."""
+    full = tmp_path / "summary.json"
+    full.write_text('{"full": true}\n', encoding="utf-8")
+    monkeypatch.setattr(cli, "_DEFAULT_SUMMARY_OUT", str(full))
+    monkeypatch.setattr(
+        cli, "_SCOPED_SUMMARY_OUT", str(tmp_path / "summary-cluster-ids.json")
+    )
+
+    async def _ok(_args: object) -> CanonicalProducerResult:
+        return _result()
+
+    monkeypatch.setattr(cli, "_run", _ok)
+    assert cli.main(["--cluster-ids", f"{_ID_B},{_ID_A}", "--no-llm"]) == 0
+
+    assert full.read_text(encoding="utf-8") == '{"full": true}\n'
+    scoped = json.loads((tmp_path / "summary-cluster-ids.json").read_text("utf-8"))
+    assert scoped["scope"] == {"cluster_ids": sorted([str(_ID_A), str(_ID_B)])}
+
+
+def test_a_full_run_still_writes_the_committed_summary_without_a_scope(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    full = tmp_path / "summary.json"
+    monkeypatch.setattr(cli, "_DEFAULT_SUMMARY_OUT", str(full))
+
+    async def _ok(_args: object) -> CanonicalProducerResult:
+        return _result()
+
+    monkeypatch.setattr(cli, "_run", _ok)
+    assert cli.main(["--no-llm"]) == 0
+    assert "scope" not in json.loads(full.read_text(encoding="utf-8"))
+
+
+def test_an_explicit_summary_out_is_honoured_for_a_named_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    target = tmp_path / "mine.json"
+
+    async def _ok(_args: object) -> CanonicalProducerResult:
+        return _result()
+
+    monkeypatch.setattr(cli, "_run", _ok)
+    argv = ["--cluster-ids", str(_ID_A), "--no-llm", "--summary-out", str(target)]
+    assert cli.main(argv) == 0
+    assert json.loads(target.read_text("utf-8"))["scope"]["cluster_ids"] == [str(_ID_A)]

@@ -9256,6 +9256,78 @@ decisions:
       `test_rewrite_fidelity_r3_review.py`.
     status: open
 
+  # ── Do two JDFN qualification gates apply to a CUPE/WJQ JD? (WJQ approvability) ──
+  - id: HR-296
+    question: >-
+      Must a CUPE (WJQ) job description pass the "equivalent combination" approval gate
+      the way a JDFN one must — or is the WJQ's own section-13 choice ("an equivalent
+      combination … is acceptable" / "… is not acceptable because:") the CUPE
+      equivalent of that requirement?
+    config:
+      file: rule_catalog.yaml
+      path: rule_catalog.SFU-QUAL-EQUIVALENT.applies_to
+    current_default: [jdfn, wjq]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      HR-042 ratified the PHRASE ("equivalent combination"); its recorded measurement
+      (Phase 2.5, 2026-07-12) predates the WJQ parser and CUPE Phase B, and which FORMS
+      the rule judges was set by engineering in CUPE Phase B and never put to HR. On the WJQ it cannot do what it does on the JDFN form.
+      MEASURED 2026-10-27 over the 3,563 CUPE documents behind the 636 CUPE drafts
+      (`docs/audit/2026-10-27-wjq-approvability.md`): the phrase is in the SOURCE FILE of
+      3,556 (99.8%) — because the WJQ prints BOTH options of a "check one" box, the
+      "acceptable" one and the "not acceptable because" one — and the parser drops those
+      option lines as form instructions (`wjq.instruction_markers`, HR-144), so it
+      survives in only 235 parses. The gate therefore blocks 610 of 636 CUPE drafts
+      (95.9%), before and after the rewrite alike, on a property of the form, not the job.
+      Simply keeping the option lines would be no better: both options contain the
+      phrase, so every CUPE JD would pass — including one whose author ticked "not
+      acceptable". The information is WHICH box is ticked, and the Builder already
+      records it as a structured field (HR-252); archive drafts do not carry it.
+      ⚠ THIS CONTRADICTS THE ARCHIVE BASELINE, AND BOTH ARE RIGHT: the baseline
+      (`docs/baseline/summary.json`) has this gate blocking 9 of 4,300 WJQ documents, and
+      HR-201's 59.0% CUPE approvability rests on that. The baseline scores each file
+      against its RAW text, which still holds both options, so the gate passes
+      vacuously; the Bank scores a draft against its own parse, which drops them. Read
+      the archive's CUPE approvability as overstated by this gate until the tick is read.
+    impact_if_changed: >-
+      Withholding the rule from the WJQ (`[jdfn]`) moves `rules_version`
+      (rule_catalog.yaml is hashed) and removes this gate from 610 CUPE drafts; on its
+      own it unblocks 11 of them, because 591 of the 610 are also blocked by the K/S/A
+      order gate (HR-297) — see the write-up's blocking-set table. The alternative that
+      keeps the requirement is engineering, not a YAML edit: read the ticked option into
+      the structured field and judge THAT on the WJQ form. Either way the ratified
+      phrase (HR-042) is unchanged for JDFN.
+    status: open
+
+  - id: HR-297
+    question: >-
+      Must the qualifications of a CUPE (WJQ) job description run Knowledge -> Skills ->
+      Abilities to be approvable, as a JDFN one must?
+    config:
+      file: rule_catalog.yaml
+      path: rule_catalog.SFU-GATE-KSA-ORDER.applies_to
+    current_default: [jdfn, wjq]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      HR-052 ratified the ORDER; which FORMS the order binds was set by engineering in
+      CUPE Phase B and never put to HR. The WJQ's section 13 is not written in K/S/A at
+      all — it asks for education, certification, years, "occupational skills" and
+      "occupational requirements" — so the knowledge/skill/ability label on a CUPE line is
+      inferred by the parser or the rewrite, not chosen by the author. MEASURED
+      2026-10-27 (`docs/audit/2026-10-27-wjq-approvability.md`): the deterministic merge
+      draft passes this gate on all 636 CUPE drafts; the rewritten drafts fail it on 612
+      (96.2%). That jump is a defect in the rewrite (it relabels lines and does not keep
+      the order), which engineering should fix whatever HR rules here — this entry is the
+      separate question of whether the order is a CUPE requirement at all.
+    impact_if_changed: >-
+      `[jdfn]` moves `rules_version` (rule_catalog.yaml is hashed) and removes this gate
+      from the CUPE cohort; HR-052's ranks are unchanged for JDFN. Keeping `[jdfn, wjq]`
+      is coherent only once the rewrite preserves the order; until then the gate blocks
+      CUPE drafts for an ordering the rewrite introduced.
+    status: open
+
 trivial:
   # ── The APSA export form (Track J4): HR's own wording, pinned by HR-258. ──
   - config: {file: apsa_form.yaml, path: apsa_form.banner}
