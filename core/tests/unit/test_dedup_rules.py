@@ -103,6 +103,10 @@ def test_dedup_is_the_fourth_unhashed_file(rules: Rules) -> None:
         # Track J4 added `apsa_form.yaml` — the twelfth. The APSA export's look and the
         # Builder's criminal-record-check sentence; moves neither stamp.
         "apsa_form.yaml",
+        # Track K3 added `comp_requisition.yaml` (test_comp_requisition).
+        "comp_requisition.yaml",
+        # Track I3 added `search.yaml` (test_query_plan).
+        "search.yaml",
     }
     assert "dedup" not in loader._HASHED_FIELDS
 

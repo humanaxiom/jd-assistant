@@ -42,6 +42,11 @@ def _full() -> CompReqPrefill:
         based_on_positions_b=("00001234",),
         jd_in_word_attached=True,
         employee_group="APSA",
+        contact_name="Pat Requester, Manager",
+        contact_email="requester@sfu.ca",
+        request_type="reevaluation",
+        based_on_existing_a=True,
+        based_on_existing_b=True,
     )
 
 
@@ -100,6 +105,61 @@ def test_every_prefilled_value_reads_back_exactly() -> None:
     assert out[pf["based_on_positions_b"]] == "00001234"
     assert out[pf["jd_in_word_attached"]] == fmap.checkbox_on_value
     assert out[pf["employee_group"]] == "APSA"
+    assert out[pf["contact_name"]] == "Pat Requester, Manager"
+    assert out[pf["contact_email"]] == "requester@sfu.ca"
+    assert out[fmap.request_type_boxes["reevaluation"]] == fmap.checkbox_on_value
+    yes = fmap.based_on_existing_yes_boxes
+    assert out[yes["based_on_positions_a"]] == fmap.checkbox_on_value
+    assert out[yes["based_on_positions_b"]] == fmap.checkbox_on_value
+
+
+@pytest.mark.parametrize(
+    "request_type",
+    [
+        "new_based_on_existing",
+        "reevaluation",
+        "editorial",
+        "additional_duties",
+        "other_changes",
+    ],
+)
+def test_the_chosen_request_type_ticks_exactly_its_box(request_type: str) -> None:
+    fmap = load_field_map()
+    out = _values(
+        fill_compensation_requisition(
+            CompReqPrefill(request_type=request_type)  # type: ignore[arg-type]
+        )
+    )
+    for code, box in fmap.request_type_boxes.items():
+        expected = fmap.checkbox_on_value if code == request_type else None
+        assert out[box] in ((expected,) if expected else (None, "/Off")), code
+
+
+def test_the_based_on_no_boxes_are_never_written() -> None:
+    """Only the Yes box of each pair is mapped; No is never asserted."""
+    fmap = load_field_map()
+    out = _values(
+        fill_compensation_requisition(
+            CompReqPrefill(based_on_existing_a=True, based_on_existing_b=True)
+        )
+    )
+    for no_box in ("Check Box67", "Check Box56"):
+        assert out[no_box] in (None, "/Off"), no_box
+    yes = fmap.based_on_existing_yes_boxes
+    assert out[yes["based_on_positions_a"]] == fmap.checkbox_on_value
+    assert out[yes["based_on_positions_b"]] == fmap.checkbox_on_value
+
+
+def test_the_box_maps_point_only_at_real_unsigned_checkboxes() -> None:
+    fmap = load_field_map()
+    names = set(fmap.all_fields)
+    boxes = list(fmap.request_type_boxes.values()) + list(
+        fmap.based_on_existing_yes_boxes.values()
+    )
+    assert len(boxes) == len(set(boxes)) == 7
+    assert set(boxes) <= names
+    assert not set(boxes) & set(fmap.signature_fields)
+    assert not set(boxes) & set(fmap.prefill_fields.values())
 
 
 def test_signature_fields_are_never_filled() -> None:
@@ -113,7 +173,11 @@ def test_every_field_that_was_not_prefilled_is_unchanged_from_the_blank_form() -
     fmap = load_field_map()
     blank = _values((crf.TEMPLATE_DIR / fmap.template_file).read_bytes())
     filled = _values(fill_compensation_requisition(_full()))
-    touched = set(fmap.prefill_fields.values())
+    touched = (
+        set(fmap.prefill_fields.values())
+        | set(fmap.request_type_boxes.values())
+        | set(fmap.based_on_existing_yes_boxes.values())
+    )
     for name in fmap.all_fields:
         if name not in touched:
             assert filled[name] == blank[name], name
@@ -156,9 +220,13 @@ def test_no_incumbent_or_signature_value_can_be_passed_in(field: str) -> None:
         CompReqPrefill(**{field: "Jane Doe"})  # type: ignore[arg-type]
 
 
-def test_the_model_has_no_field_that_could_carry_a_person() -> None:
+def test_the_model_has_no_field_that_could_carry_an_incumbent() -> None:
+    """The one person the model can name is the REQUESTER (`contact_*`, HR-313),
+    the signed-in user downloading the form. Nothing else may carry a person,
+    and those two are an explicit allow-list, not a loophole."""
     forbidden = ("incumbent", "name_of", "employee_name", "signature", "email")
-    for field in CompReqPrefill.model_fields:
+    allowed = {"contact_name", "contact_email"}
+    for field in set(CompReqPrefill.model_fields) - allowed:
         assert not any(bit in field for bit in forbidden), field
 
 
@@ -166,17 +234,27 @@ def test_the_model_fields_are_the_mapped_fields_plus_the_declared_unwritten_ones
     None
 ):
     fmap = load_field_map()
-    assert set(CompReqPrefill.model_fields) == set(fmap.prefill_fields) | set(
-        fmap.unwritten_fields
+    assert set(CompReqPrefill.model_fields) == (
+        set(fmap.prefill_fields)
+        | set(fmap.unwritten_fields)
+        | {"request_type", "based_on_existing_a", "based_on_existing_b"}
     )
-    assert set(fmap.unwritten_fields) == {"candidate_positions", "positions_incomplete"}
+    assert set(fmap.unwritten_fields) == {
+        "candidate_positions",
+        "positions_incomplete",
+        "reference_grades",
+        "filled_from_sources",
+    }
 
 
 def test_candidate_positions_and_the_incomplete_flag_never_reach_the_pdf() -> None:
     fmap = load_field_map()
     blank = _values((crf.TEMPLATE_DIR / fmap.template_file).read_bytes())
     pre = CompReqPrefill(
-        candidate_positions=("00000001", "00000002"), positions_incomplete=True
+        candidate_positions=("00000001", "00000002"),
+        positions_incomplete=True,
+        reference_grades=("07", "08"),
+        filled_from_sources=("department",),
     )
     assert _values(fill_compensation_requisition(pre)) == blank
 

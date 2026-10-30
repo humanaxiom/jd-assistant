@@ -77,6 +77,10 @@ services:
     command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
     ports: ["${JD_API_PORT:-25800}:8000"]
     environment: &app_env
+      # uvicorn --reload watches /app through a Windows bind mount, which delivers no
+      # file-change events; polling is the only way a mid-session edit reaches the
+      # running process (launch.ps1 also recreates api/worker on every launch).
+      WATCHFILES_FORCE_POLLING: "true"
       # EVERY value here is `${VAR:-<dev default>}` ON PURPOSE, and it is a security
       # property, not a style: a hardcoded literal cannot be overridden by the operator's
       # repo-root `.env`, so a setting the production startup check (P0.2,

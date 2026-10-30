@@ -32,6 +32,19 @@
 {% if notice %}
 <div class="panel"><p class="banner" role="status"><strong>Heads up:</strong> {{ notice }}</p></div>
 {% endif %}
+<div class="panel" style="padding-top:0;padding-bottom:0">
+{% if interpretation %}{% set i = interpretation %}
+  <p class="meta" id="interpretation">
+    🧠 <strong>Read as:</strong> “{{ i.semantic_query }}”{% if i.extra_keywords %} · also titles containing
+    {% for k in i.extra_keywords %}<a href="/jd-bank/ui/compose/search?q={{ k | urlencode }}&amp;form={{ form_spec.template }}">{{ k }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}{% if i.unit_label %}
+    · unit suggested: <a href="/jd-bank/ui/unit/{{ i.unit_slug }}">{{ i.unit_label }}</a> (not applied){% endif %}{% if i.employee_group %}
+    · {{ i.employee_group | upper }} as you typed{% endif %}
+    · <a href="/jd-bank/ui/compose/search?q={{ i.raw_query | urlencode }}&amp;form={{ form_spec.template }}&amp;plain=1">search the words as typed instead</a>
+    {% for d in i.discarded %}<br><span class="empty">ignored: {{ d }}</span>{% endfor %}
+    <br><span class="empty">A self-hosted model ({{ i.model }}) read your search; it can only add results, never filter them.</span>
+  </p>
+{% endif %}
+</div>
 
 {% if query %}
 <div class="panel">
@@ -61,8 +74,11 @@
           {% elif hit.match == "title" %}
           <span class="badge ok">title match</span>
           {% else %}
-          {{ (hit.score * 100) | round(0, 'floor') | int }}% similar
+          {# Rank only — a cosine is not a percentage of anything a person can check
+             (memory: unrelated roles out-score true twins), so no number is shown. #}
+          <span class="badge">related by meaning</span>
           {% endif %}
+          {% if hit.by_keyword %}<div class="meta">interpreted as “{{ hit.by_keyword }}”</div>{% endif %}
           {# A spelling match is ranked by closeness and shows no number (I2). #}
           {% if hit.by_spelling %}<div class="meta">similar spelling</div>{% endif %}
         </td>

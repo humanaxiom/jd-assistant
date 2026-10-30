@@ -17,6 +17,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.jd_bank.query_plan import QueryUnderstanding
 from src.jd_core.models.parsed_jd import JobClassification
 
 
@@ -108,7 +109,9 @@ class RoleListItem(_Frozen):
     #: There is deliberately NO similarity field: a role's cosine is not a usable
     #: number (an unrelated role can outscore a true twin), so the reader is told the
     #: reason, never a percentage.
-    matched_by: Literal["title", "spelling", "meaning"] | None = None
+    #: ``keyword``: found by a title keyword the query-understanding step ADDED
+    #: (Track I3) — shown as the interpreted word, never as a score.
+    matched_by: Literal["title", "spelling", "meaning", "keyword"] | None = None
 
 
 class RolePage(_Frozen):
@@ -126,6 +129,9 @@ class RolePage(_Frozen):
     #: A visible notice for the page (e.g. search-by-meaning is unavailable so only
     #: title matches are shown). ``None`` when nothing is degraded.
     banner: str | None = None
+    #: How the query-understanding step read the search (Track I3), for the page to
+    #: show and the person to switch off. ``None`` when it did not run.
+    interpretation: QueryUnderstanding | None = None
 
 
 class SourceListItem(_Frozen):
