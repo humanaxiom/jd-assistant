@@ -246,7 +246,8 @@ make migrate
 # 2. Ingest + parse the archive (read-only mount; ~5 min)
 make ingest JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs
 #    expect "14565 files seen: 14522 newly ingested, 14522 newly parsed, 0 already done,
-#    43 failed." Then check the Bank, not the counter: 14,522 rows at jd_segmenter_v9.
+#    43 failed." Then check the Bank, not the counter: 14,522 rows at PARSER_VERSION
+#    (jd_segmenter_v10 since §18; a Bank still holding jd_segmenter_v9 rows was not wiped).
 
 # 3. Document + section vectors: a fresh index embeds everything (~52k calls at v8's
 #    14.4k documents + 37.7k sections; ~40–90 min on aria-gb10-2). Re-run = resume.
@@ -601,6 +602,257 @@ tier 1 (a defect in the stored draft) 1,109 clusters (613 CUPE, 496 JDFN,
 `v9-postpass-rerun-tier1.txt`); all 1,633 (`v9-postpass-rerun-all.txt`) adds every CUPE
 draft and the JDFN drafts whose qualification order/kinds change. At the pass's own
 rate (318,046 s / 2,446 ≈ 130 s per cluster): tier 1 ≈ 40 h, all ≈ 59 h of GPU.
+
+## 18. Wrapped heading words (owner ruling 2026-10-27 "fix it"; branch `feat/v9-parser-wrap`, `PARSER_VERSION` → `jd_segmenter_v10`)
+
+§17 finding 3, fixed in the segmenter. antiword hard-wraps a legacy `.doc` at its column
+width, so "i) Decisions the incumbent is expected to make in carrying out" / "duties" put
+the DUTIES heading's word alone on a line, and `match_heading`'s `fullmatch` opened a
+DUTIES section inside Decision Making. **Measured in-process over every extracted archive
+file** (14,565 files, 14,522 extracted; archive mounted `:ro`; no Bank touched), every
+heading match in both readers was listed with the line above it.
+
+**Classification: every all-lower-case heading match, read by eye**
+
+| reader | line | section it opened | lines | verdict |
+|---|---|---|---:|---|
+| JDFN/legacy | `duties` / `duties:` under "…make in carrying out" | DUTIES | 21 (10 + 11) | wrap |
+| JDFN/legacy | `relationships` under "…effective collegial" / "…long-term corporate" / "…nurture ongoing" | RELATIONSHIPS | 12 | wrap |
+| JDFN/legacy | `education and experience` under "…combination of" / "of" / "of equivalent" | QUALIFICATIONS | 5 | wrap |
+| WJQ | `1.  position identification` under "JOB DESCRIPTION" | identification | 2 | **real heading** (numbered) |
+| WJQ | `10.   working conditions` | working conditions | 3 | **real heading** (numbered) |
+
+That is 43 lines in 41 files (38 wraps in 36 files). The candidate rule's 45 lines in 42
+files differs by those few. The reviewer's `12. additional information` did not occur as
+a lower-case match in this extraction; it is in the must-not-demote tests anyway. Every
+wrap sits directly under a line ending in a **letter**. The mixed- and upper-case matches
+under an unpunctuated line ("Primary Working Relationships" ×55, "Minimum Entrance" /
+"Qualifications", "E. Supervision Exercised" …) were also read: all are real headings.
+
+**Rule** (`segmenter._is_wrapped_line`, JDFN/legacy reader only): a heading match is read
+as content of the section above it when it is all lower case, carries no `1.` / `c)`
+enumeration, sits directly under a non-blank line, and that line does not end in one of
+`.:;?!`. The guard is HR-298 (`wrapped_heading_guard`) and the closer set is HR-299
+(`wrapped_heading_line_closers`), both `open`. The WJQ reader is unchanged, because its
+headings are numbered.
+
+**Whole archive, before (guard off) vs after (guard on), same code** (`compare.py`):
+27 documents change, all JDFN.
+
+| field | words in | words out | net |
+|---|---:|---:|---:|
+| decision_making | 3,208 | 0 | +3,208 |
+| duties | 0 | 3,065 | −3,065 |
+| qualifications | 70 | 762 | −692 |
+| relationships | 9 | 48 | −39 |
+
+Item counts over the 27 documents: Decision Making 62 → 364, duties 646 → 355,
+qualifications 55 → 10. In 21 documents Decision Making goes from the prompt alone to its
+decisions, made and referred. The prompt now reads whole ("…carrying out duties"), and
+the referred run starts at the existing HR-282 marker "Types of decisions the incumbent
+would refer to his/her supervisor."
+
+🔴 **Words lost: NOT zero: 767 words in 7 documents.** Before/after word multisets
+per document, with a duty's `action_verb` left out of the count (it repeats the
+statement's first word):
+
+- **762 words in 4 documents:** `20050929_00097103`, `20051013_00099004`,
+  `20060315_00099045` and `20090123_00105512`. Their Qualifications were opened only BY the
+  wrap. Their real heading, `H. Entrance Qualifications`, matches no heading pattern.
+  With the wrap demoted, their qualifications fall into Relationships, where the
+  supervisory text is cut at 600 characters, exactly as in their siblings (below).
+- **3 words in `20060307_00001390`:** the unbulleted qualifications now start one line
+  earlier. They run together into one item, and the unregistered `_MAX_QUAL` 400-character
+  cut lands three words sooner. 3 words were also gained.
+- **2 docs, 1 token each** ("deve", "relations"): half-words at the 600-character
+  supervisory cut, which moved.
+
+**A bigger gap found while measuring, not fixed here.** The old APSA form's lettered tail
+headings match no heading pattern:
+
+| heading | files |
+|---|---:|
+| `H. ENTRANCE QUALIFICATIONS` | 4,654 (+11 with a full stop) |
+| `G. UNUSUAL WORKING CONDITIONS` | 4,560 |
+| `I. ORGANIZATIONAL RELATIONSHIPS` | 3,249 |
+| `J. APPROVALS` | 2,791 |
+
+The pattern list has only `MINIMUM ENTRANCE QUALIFICATIONS`. In 4,649 of 4,678 such
+documents, everything after `F. Supervision Received` falls into Relationships and is cut
+at 600 characters. Only 38 of the 4,678 have any qualifications. Of the 688,546 words
+under those headings, at most 336,996 appear anywhere in the parse. That figure is an
+overcount, because common words match elsewhere, so at least half of these documents'
+qualifications are not in the Bank. Fixing it means:
+- add the qualifications heading;
+- add stop headings for G/I/J, so working conditions and the signature block do not
+  become qualifications;
+- decide where working conditions belong.
+
+That changes about a third of the JDFN parses, so it is an owner decision. **It should be
+taken before the one full rebuild, not after.**
+
+**`PARSER_VERSION` → `jd_segmenter_v10`.** v9 never reached `main`, but the separate v9
+Bank holds 14,522 `jd_segmenter_v9` parses of the old output. Readers filter
+`parser_version = PARSER_VERSION`, and `parse_store` is idempotent per
+`(source_document_id, parser_version)`. Kept at v9, a re-ingest without the wipe would
+skip every document. The wrapped parses would stay, and the stale-parse checks
+(`test_the_document_vector_index_is_at_the_current_parser_version` and the other smoke
+`parser_version` predicates) would call them current, a silent failure. At v10 the same
+mistake fails loudly: no v10 rows, and smoke goes red. The label `jd_segmenter_v9` also
+keeps meaning one output, the one §§14–17 and `docs/canonical/v9-postpass-*` measured.
+The owner's full wipe and rebuild is unchanged.
+
+Tests: `core/tests/unit/test_parser_v9_wrapped_headings.py` (17), built from the real
+files' shapes. All 17 were red before the change. Breaking the guard's call site turns
+the 6 wrap tests red. Removing the enumeration exemption turns the 3 numbered
+must-not-demote cases red.
+
+## 19. The old APSA form's lettered tail (owner rulings 2026-10-27; still `jd_segmenter_v10`)
+
+Rulings: (1) fix the legacy lettered headings BEFORE the one full rebuild; (2) DROP
+"G. Unusual Working Conditions" from the JD but RECORD the drop. Confirmed on the LIVE v8
+Bank (read-only, by the coordinator): 4,951 of 10,222 non-CUPE parses (48%) have no
+qualifications, 4,818 of them with `relationships.supervisory` at the 600-character cut.
+This supersedes §18's "not fixed here" and resolves its 4 documents.
+
+**Heading inventory** (JDFN reader, 10,213 documents; FILES; lettered + unlettered):
+
+| heading (and the archive's variants) | files | now |
+|---|---:|---|
+| `H. ENTRANCE QUALIFICATIONS` (+ "." 11, "QUALIFICATIONIONS" 4, OCR "QTTATJFTCATTONS" 3) | 4,666 + 87 | Qualifications (HR-300) |
+| `G. UNUSUAL WORKING CONDITIONS` (+ "(CONTINUED)" 13, "UNUSAL" 3, OCR "CONDTTTONS" 3) | 4,569 + 141 | **set aside** (HR-305) |
+| `I. ORGANIZATIONAL RELATIONSHIPS` (+ ORGANISATIONAL 16 + 4, "RELATIONSIPS" 11, "ORGANIZATION" 4, run together 4, "-RELATIONSHIPS" 3) | 3,254 + 311 | Relationships (HR-301) |
+| `J. APPROVALS` (+ "APPROVAL" 19) | 2,791 + 341 | **set aside** (HR-306) |
+| `A. IDENTIFICATION Position Number: …` (heading and its first field on ONE line) | 1,646 + ~150 | unchanged: identification fields are read from the whole text anyway |
+| `C. DUTIES … (CONTINUED)` / `- CONTINUED` / `. CONTINUED…` | ~75 | unchanged: the section above is already Duties |
+| typos: `B. POSTION SUMMARY` 21, `POSITION SUMMAR` 4, `D. DECISION MAKTNG` 5, `F. SUPERVISON RECEIVED` 3, `E. SUPER VISION EXERCISED` 3, `SUPERVISION EXERCISE` 4, ~~`QUALIFICATIONS REQUIRED` 6~~ (read as the H heading since 2026-10-29, see below), `DUTIES AND RESPONSBILITIES` 3, `MAJOR RESPONSIBILITIES AND DUTIES` 5 | ≤ 21 each | **not changed** — listed for a later pass |
+| `D. DECISION MAKING Makes decisions…` (heading + text on one line) | 13 | not changed |
+| `F. SUPERVISION RECEIVED` / `E. … EXERCISED` with text on the same line | 8 / 6 | not changed |
+| `I. GIVE SOME TYPICAL EXAMPLES OF…` | 66 | not a heading: the Decision Making question, enumerated "I." |
+
+`I.` holds the reporting chart: the form's instruction ("Indicate in the appropriate
+blocks the title of the position to which this position reports …"), then titles, or
+"See attached". `E. Supervision Exercised` / `F. Supervision Received` already open
+Relationships, so `I.` joins them in the supervisory text.
+
+**Set aside, never silent.** `SFUJobDescription.set_aside: list[SetAsideSection]` (kind +
+heading + text) is a PARSE-level record: left out of a dump when empty (every modern
+parse and every draft serializes byte-identically), never carried into a draft by the
+merge, and shown on the source document's page ("Set aside from the source form",
+`jd_view.html`). `additional_context` was rejected: it IS JD content and is exported.
+Three kinds: `legacy_working_conditions` (G), `form_approvals` (J), `form_prompt` (the
+form's printed questions — below).
+
+**Two things the tail exposed, fixed in the same change.**
+- **The qualifications question** ("What combination of experience, training and/or formal
+  education do you believe is the minimum required …?", 3,169 files incl. typos; "What
+  are the minimum formal educational qualifications …?" 104) led 3,131 qualification
+  sections, and an unbulleted answer fused onto it as ONE item. HR-307 removes it (and,
+  per the post-pass review, the Decision Making question "Decisions the incumbent is
+  expected to make in carrying out duties" — 27 + 3 parses, 6 v9 deterministic drafts —
+  matched as a WHOLE line so the longer HR-275 question is never cut in half). Both are
+  recorded as `form_prompt`.
+- **`_MAX_QUAL` (400, unregistered)** → `segmentation.qualification_max_chars` (HR-308),
+  held at 400 because it IS the `SFUQualification.text` contract and the Builder's CUPE
+  skill field reads that ceiling. Unbulleted requirements run together: uncapped,
+  84,517 items, p50 88 · p99 1,332 · max 3,179; 4,713 over 400 in 4,644 documents. An
+  over-cap item is now SPLIT at its sentence breaks (`_sentence_chunks`, the duty
+  precedent) instead of cut. 1,225 items are still at the cut (one sentence over 400).
+
+**Whole archive, v10-before (`e05fe61`: the tail patterns never match) vs v10-after**,
+in-process, archive `:ro`, no Bank (`compare2.py`): **4,865 documents change**, all JDFN.
+
+| field | words in | words out | net |
+|---|---:|---:|---:|
+| qualifications | 604,599 | 523 | +604,076 |
+| set_aside (record) | 421,346 | 0 | +421,346 |
+| relationships | 818 | 25,605 | −24,787 |
+| duties | 0 | 2,437 | −2,437 |
+| position_summary | 0 | 1,528 | −1,528 |
+| decision_making | 0 | 1,467 | −1,467 |
+
+- Documents with any qualifications: **9,397 → 14,127** of 14,522 (4,730 gain them).
+  Qualification items 182,963 → 210,061.
+- Supervisory texts at the 600 cut: 6,793 → 5,778. Supervisory texts naming "Entrance
+  Qualifications": 436 → **17** (heading and text on one line, e.g. "MINIMUM ENTRANCE
+  QUALIFICATIONS: Postgraduate degree …" — not changed).
+- Set aside: working conditions 4,725 documents / 239,939 words (longest 4,749 chars);
+  approvals 3,155 / 85,079 (longest 3,555); form questions 3,298 / 75,613.
+- The duties / summary / Decision Making words moved OUT are a heading that opened
+  inside them (e.g. a short form's `C. ENTRANCE QUALIFICATIONS` after the summary).
+- **Words lost to the parse: 3,860 in 1,421 documents, NOT zero** (`losses2.py`; a word
+  the before-parse holds that the after-parse — set-aside record included — does not):
+  2,378 are the heading lines' own words, now read as headings ("H", "ENTRANCE",
+  "QUALIFICATIONS", "APPROVALS" … that sat inside the supervisory text); 931 half-words
+  the old 600 cut made; **551 real words**: 194 cut by the 600 supervisory ceiling (the
+  `I.` chart now reaches it), 335 by the 400 qualification cut (a single over-long
+  sentence), 22 other. The class split is by token, so it is approximate.
+- §18's 4 documents: `20050929_00097103` 16 qualifications, `20051013_00099004` 14,
+  `20060315_00099045` 18, `20090123_00105512` 3 (each had 0 at `e05fe61`).
+
+**Validator, in-process, same two parses** (`validate2.py`, all 14,522): approvable
+**unchanged** — JDFN 204 → 204, CUPE 2,544 → 2,544; among the 4,865 changed documents 0
+→ 0, because every one of them is still blocked by SFU-APPROVE-EDI-FOOTER (the old form
+has no EDI footer). Blocking gates among the changed documents:
+
+| gate | before | after |
+|---|---:|---:|
+| SFU-APPROVE-MANDATORY-SECTIONS | 4,783 | **191** |
+| SFU-APPROVE-SEVERITY-FLOOR | 4,783 | 191 |
+| SFU-APPROVE-SCORE-FLOOR | 4,790 | 1,339 |
+| SFU-APPROVE-GRADE-FLOOR | 4,790 | 1,339 |
+| SFU-APPROVE-KSA-ORDER | 58 | **1,871 (+1,813)** |
+| SFU-APPROVE-QUAL-MINIMUM | 0 | 10 (+10) |
+| SFU-APPROVE-QUAL-EQUIVALENT | 461 | 460 |
+| SFU-APPROVE-SUMMARY-LENGTH | 1,424 | 1,407 |
+| EDI-FOOTER / NO-PLACEHOLDERS / DUTY-ALLOCATION / SUMMARY-CONDITIONS | unchanged | |
+
+Score among the changed: mean **+18.8** (p10 +19.0, p50 +19.6); grade D → C 3,441, F → D
+1,240, D → B 10. As expected, the legacy documents that now HAVE qualifications start to
+fail K → S → A ordering — those gates had nothing to read before.
+
+Tests: `core/tests/unit/test_parser_v10_legacy_tail_headings.py` (25, from the archive's
+shapes), plus two in `test_library_ui.py`. 18 of the 25 go red with the legacy-heading
+match removed, and 4 prompt tests (3 here, 1 in `test_parser_v9_wrapped_headings.py`) go
+red with the prompt strip removed (each broken once, restored).
+
+**Review correction (2026-10-29, `docs/audit/2026-10-29-parser-v10-review.md` §2).**
+The whole-archive check found **16 files whose qualifications were set aside as
+working conditions**: HR-300 did not recognise `H. QUALIFICATIONS REQUIRED` (6, five
+coach JDs), a letter with no period (`H         ENTRANCE QUALIFICATIONS`, 4), the OCR
+spellings `OUALIFICATIONS` / `OUALIFICIATIONS` (3), `QUALIFIACTIONS` (2) and
+`ENTRANCE QUALIFICATIONS TO BE REVIEWED` (1), so the G block ran on through the whole
+section. The row above that called `QUALIFICATIONS REQUIRED` "not changed" was wrong
+from 37c9f29 on: those files were set aside, outside the JD. Fixed on the same branch:
+the HR-300 pattern now reads every spelling the archive has (never the bare JDFN
+`QUALIFICATIONS`), and `normalise_heading` strips a bare letter set off by a tab or
+two+ spaces. Still `jd_segmenter_v10`: v10 has parsed no Bank yet. The review also
+measured the two caps — the unregistered 600-character supervisory cap cuts 58.8% of
+supervisory texts, the 400-character qualification cap 1,112 items (308 of them the
+equivalency clause) — and recommends 1,200 / 600; both are owner/HR decisions to take
+before the one full rebuild, not changes made here.
+
+**Owner ruling 2026-10-29: "remove the cap"** (the supervisory one). Applied as rulebook
+data: `segmentation.supervisory_max_chars: null` (HR-324) — the parser keeps the whole
+supervisory text, the rewrite's fidelity table reports no cut for it, and the model and
+the Builder contract declare no ceiling. ⚠ Still `jd_segmenter_v10` (no Bank has been
+parsed at v10), but the review's §4 numbers were measured WITH the 600 cut: after the
+rebuild, supervisory texts will be longer than anything measured so far, and the form's
+printed E/F/I questions (3,421 files) are inside them until a Relationships prompt strip
+is built.
+
+**Owner ruling 2026-10-29, second: "remove the 400 cap"** (the qualification one).
+Applied as `segmentation.qualification_max_chars: null` (HR-308 updated, not a new
+entry): the parser keeps every qualification item whole — an unbulleted paragraph of
+the old form is ONE item, and the sentence split (which only existed to serve the cap)
+does not run. `SFUQualification.text` declares no ceiling; the Builder's qualification
+inputs (`ModifiedQual`, `SkillAnswer`) are bounded by a 20,000-character form ceiling
+instead, wide enough for the archive's longest measured item (3,179). A number in the
+knob restores the split-then-cut reading at that length. ⚠ The review's "1,112 items
+cut" and "4,713 items over 400" were measured with the split in force: after the rebuild
+those 4,644 documents carry fewer, longer items, and the K→S→A gate reads one kind per
+paragraph rather than per sentence. If HR wants a per-sentence item reading without a
+cut, that is a separate rule to register, not a cap.
 
 ## 11. Containers (all removed at the end)
 

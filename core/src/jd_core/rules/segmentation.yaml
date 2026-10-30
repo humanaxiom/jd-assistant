@@ -293,3 +293,85 @@ duty_how_why_max_chars: 1200
 # a union over its members that the merge cuts at that ceiling, and its export must
 # re-read whole (the v9 Bank smoke found 50-item drafts re-reading as 40).
 bullet_max_count: 60
+
+# --- A wrapped content line is not a heading (parser v10, HR-298 / HR-299) ------------
+# antiword hard-wraps legacy .doc files, so "… make in carrying out / duties" puts the
+# word "duties" alone on a line, and it fullmatched the DUTIES heading. MEASURED over all
+# 14,522 extracted archive files (2026-10-27): 38 heading matches in the JDFN/legacy
+# reader are all lower case — all 38 wraps, every one directly under a line ending in a
+# letter (21 the Decision Making prompt; 12 "relationships", 5 "education and
+# experience" mid-qualification), in 36 files. No real heading in that reader is lower
+# case. Whole-archive before/after: 27 documents change (plan §18). The
+# guard demotes only: all lower case + no "1." / "c)" enumeration + no blank line above
+# + the line above does not end in a closer below. Changing either changes what a
+# parsed JD contains: bump PARSER_VERSION and re-parse.
+wrapped_heading_guard: true
+wrapped_heading_line_closers: ".:;?!"
+
+# --- The old APSA form's lettered tail (parser v10; owner rulings 2026-10-27) ----------
+# HR-300, HR-301, HR-305 … HR-307. The pre-2024 form ends F. Supervision Received /
+# G. Unusual Working Conditions / H. Entrance Qualifications / I. Organizational
+# Relationships / J. Approvals; only F matched a heading, so G…J ran into Relationships
+# and were cut at its 600-character supervisory ceiling. Each pattern is fullmatched
+# against the NORMALISED line (its "H." prefix and trailing colon already gone). MEASURED
+# (files, of 10,213 JDFN-reader documents): ENTRANCE QUALIFICATIONS 4,666 lettered + 87
+# unlettered; UNUSUAL WORKING CONDITIONS 4,569 + 141; ORGANIZATIONAL RELATIONSHIPS 3,254
+# + 311; APPROVALS 2,791 + 341 (+ "APPROVAL" 19). The spelling variants are the
+# archive's own (counts in the register entries).
+legacy_qualifications_heading_pattern:
+  # Widened 2026-10-29 after the review found 16 files whose qualifications sank into
+  # the G block: QUALIFICATIONS REQUIRED 6, OCR O-for-Q 2+1, QUALIFIACTIONS 2,
+  # "…TO BE REVIEWED" 1. `[qo]ualif[a-z]*` reads every spelling the archive has; the
+  # bare JDFN heading QUALIFICATIONS is NOT claimed (it needs ENTRANCE or REQUIRED).
+  pattern: '(?i)(?:entrance\s+(?:[qo]ualif[a-z]*|qttatjftcattons)(?:\s+to\s+be\s+reviewed)?|qualifications\s+required)\.?'
+  ignore_case: false
+legacy_relationships_heading_pattern:
+  pattern: '(?i)organi[sz]ation(?:al)?\s*-?\s*relation(?:ships?|sips)\.?'
+  ignore_case: false
+# SET ASIDE, never content (owner ruling 2026-10-27): the 2024 template has no slot for
+# working conditions. Recorded on the parse (`set_aside`), so the drop is never silent.
+legacy_working_conditions_heading_pattern:
+  pattern: '(?i)unusu?al\s+working\s+cond(?:itions|tttons)\.?(?:\s*\(?continued\)?\.*)?'
+  ignore_case: false
+# The signature block: form scaffolding. Set aside the same way.
+form_approvals_heading_pattern:
+  pattern: '(?i)approvals?\.?'
+  ignore_case: false
+# The form's printed questions, removed from the Qualifications and Decision Making
+# sections and recorded as `form_prompt` set-aside blocks (HR-307) — never content.
+# Searched in the section's raw text, so a question wrapped over two lines matches.
+# MEASURED wordings (files):
+#  - under "H. Entrance Qualifications": "What combination of experience, training and/or
+#    formal education do you believe is the minimum required to perform the duties of
+#    this position?" 3,169 incl. its typos; "What are the minimum formal educational
+#    qualifications, years of experience and occupational skills and requirements
+#    required to satisfactorily perform the work of this position?" 104. Unbulleted
+#    answers fused onto it as ONE qualification.
+#  - under "D. Decision Making", a WHOLE line only: "i) Decisions the incumbent is
+#    expected to make in carrying out duties" 27, "… the duties and responsibilities" 3,
+#    bare 1. Anchored to the line, because the longer question ("Give some typical
+#    examples of the most important decisions the incumbent is expected to make …")
+#    CONTAINS it — that one is the rewrite's to strip (HR-275), not cut in half here.
+form_prompt_pattern:
+  pattern: '(?im)what\s+combinations?\s+o[fn]\s+experience[^?]{0,200}?perform\s+the\s+duties\s+(?:of|in)\s+\w+\s+position\s*\?|what\s+are\s+the\s+minimum\s+formal\s+educational\s+qualifications[^?]{0,200}?perform\s+the\s+work\s+of\s+this\s+position\s*\?|^[ \t]*(?:\(?[ivx]{1,4}[.)][ \t]*)?decisions\s+the\s+incumbent\s+is\s+expected\s+to\s+make(?:\s+in\s+carrying\s+out(?:\s+(?:the\s+)?duties(?:\s+and\s+responsibilities(?:\s+of\s+the\s+position)?)?)?)?[ \t]*[.:]?[ \t]*$'
+  ignore_case: false
+
+# --- One qualification's character cap (parser v10, HR-308) ---------------------------
+# Was the code constant `_MAX_QUAL` 400, unregistered, then 400 here with an over-cap
+# item split at its sentence breaks. MEASURED by the parser-v10 review over all 14,522
+# extracted archive files (docs/audit/2026-10-29-parser-v10-review.md §4): 1,112 items
+# still cut at 400, 308 of them the "or an equivalent combination…" clause. Owner
+# ruling 2026-10-29: "remove the 400 cap" — `null` means the parser keeps every item
+# whole (an unbulleted paragraph is ONE item; nothing is split). A number here splits
+# an over-long item at its sentence breaks and cuts a single sentence at that length
+# (the rewrite's fidelity table follows it, HR-287).
+qualification_max_chars: null
+
+# --- The supervisory text's character cap (parser v10, HR-324) ------------------------
+# Was the code constant `_MAX_SUPERVISORY` 600, unregistered. MEASURED by the parser-v10
+# review over all 14,522 extracted archive files (docs/audit/2026-10-29-parser-v10-review.md
+# §4): 5,772 documents (58.8%) were over 600, 2.48 M characters cut; prompt-stripped
+# p50 552 · p90 1,016 · p99 2,711. Owner ruling 2026-10-29: "remove the cap" — `null`
+# means the parser keeps the whole text. A number here cuts at that many characters
+# (the rewrite's fidelity table follows it, HR-287).
+supervisory_max_chars: null

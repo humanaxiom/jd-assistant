@@ -36,4 +36,17 @@
   <pre>{{ view.rendered_text }}</pre>
 </div>
 
+{% if view.set_aside %}
+<div class="panel">
+  <h2>Set aside from the source form</h2>
+  <p class="meta">The parser read these parts of the old form but kept them out of the
+    job description: the 2024 template has no place for working conditions, and the
+    signature block and the form's printed questions are not content.</p>
+  {% for block in view.set_aside %}
+  <h3>{{ block.heading }}</h3>
+  <pre>{{ block.text or "(empty)" }}</pre>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% endblock %}

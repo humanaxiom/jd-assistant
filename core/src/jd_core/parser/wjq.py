@@ -65,7 +65,6 @@ from src.jd_core.parser.headings import SectionKey
 from src.jd_core.parser.segmenter import (
     _FALLBACK_TITLE,
     _MAX_BULLET,
-    _MAX_QUAL,
     _MAX_QUALS,
     _MAX_SUMMARY,
     _MAX_TITLE,
@@ -519,9 +518,10 @@ def _structure_quals(text: str, wjq: Wjq) -> list[SFUQualification]:
             continue
         if line.endswith(":"):
             continue
+        qual_cap = get_rules().segmentation.qualification_max_chars
         quals.append(
             SFUQualification(
-                text=line[:_MAX_QUAL],
+                text=line[:qual_cap] if qual_cap else line,
                 kind=current_kind,
                 modifier=_detect_modifier(line, current_kind),
             )

@@ -114,6 +114,43 @@ def test_source_jd_shows_role_back_link(monkeypatch: pytest.MonkeyPatch) -> None
     assert "Budget Analyst" in resp.text
 
 
+def test_source_jd_shows_what_the_parser_set_aside(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Parser v10 (owner ruling 2026-10-27): the old form's working conditions are NOT
+    JD content, but the drop is never silent — the source page shows it."""
+    from src.jd_core.models.parsed_jd import SetAsideSection
+
+    view = _source_view(
+        set_aside=(
+            SetAsideSection(
+                kind="legacy_working_conditions",
+                heading="UNUSUAL WORKING CONDITIONS",
+                text="Some evening and weekend work is required",
+            ),
+        )
+    )
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=view))
+
+    body = make_client().get(f"/jd-bank/ui/jd/{view.source_document_id}").text
+
+    assert "Set aside" in body
+    assert "UNUSUAL WORKING CONDITIONS" in body
+    assert "Some evening and weekend work is required" in body
+
+
+def test_source_jd_without_set_aside_text_shows_no_panel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    view = _source_view()
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=view))
+
+    assert (
+        "Set aside"
+        not in make_client().get(f"/jd-bank/ui/jd/{view.source_document_id}").text
+    )
+
+
 def test_source_jd_shows_grade_with_provenance(monkeypatch: pytest.MonkeyPatch) -> None:
     view = _source_view(
         classification=JobClassification(scheme="cupe", value="8", source="parsed")

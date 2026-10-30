@@ -701,7 +701,7 @@ def test_the_duty_count_caps_are_rulebook_data_and_fit_the_contract() -> None:
 
 
 def test_the_parser_version_moved() -> None:
-    assert PARSER_VERSION == "jd_segmenter_v9"
+    assert PARSER_VERSION == "jd_segmenter_v10"
 
 
 def _max_length(model: type[object], field: str) -> int:

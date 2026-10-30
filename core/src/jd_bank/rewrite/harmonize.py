@@ -274,6 +274,16 @@ def _ceiling(field: str, model: type[BaseModel] = SFUJobDescription) -> int:
     raise LookupError(f"{model.__name__}.{field} has no max_length")  # pragma: no cover
 
 
+def _optional_ceiling(field: str, model: type[BaseModel]) -> int | None:
+    """:func:`_ceiling`, for a field the contract leaves UNBOUNDED on purpose —
+    ``SFURelationships.supervisory`` since HR-324 (its cap is rulebook data and ships
+    as null). ``None`` means nothing to fit under."""
+    try:
+        return _ceiling(field, model)
+    except LookupError:
+        return None
+
+
 def _has(value: object) -> bool:
     """Whether a section VALUE carries content. A ``SFURelationships`` with no
     supervisory text and no contacts is empty, though the object itself is truthy."""
@@ -488,9 +498,10 @@ def _reconcile_relationships(
         joined = " ".join(part for part in (supervisory, *lost_sup) if part)
         # Over the ceiling, the SOURCE's text (minus any parser cut-off) replaces the
         # model's: it covers itself, and it fits, being shorter than the source field.
+        sup_ceiling = _optional_ceiling("supervisory", SFURelationships)
         supervisory = (
             joined
-            if len(joined) <= _ceiling("supervisory", SFURelationships)
+            if sup_ceiling is None or len(joined) <= sup_ceiling
             else " ".join(lost_sup)
         )
     internal = [*internal, *lost_int]

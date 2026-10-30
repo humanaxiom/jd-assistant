@@ -97,13 +97,20 @@ class JDFNDutyAnswer(DutyAnswer):
         return value
 
 
+#: The form's input ceiling for ONE qualification line, not the parser's cap: the
+#: parser no longer cuts an item (HR-308, null) and ``SFUQualification.text`` declares
+#: no ceiling, so a role cloned from the Bank may carry a long one (the archive's
+#: longest measured is 3,179 characters). Bounds a crafted body, nothing else.
+QUAL_INPUT_CEILING = 20_000
+
+
 class ModifiedQual(BaseModel):
     """A knowledge or skill qualification carrying its Toolkit modifier
     (knowledge: excellent/working; skill: basic/intermediate/advanced/expert)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    text: str = Field(min_length=1, max_length=400)
+    text: str = Field(min_length=1, max_length=QUAL_INPUT_CEILING)
     modifier: str | None = Field(default=None, max_length=20)
 
 
@@ -128,6 +135,10 @@ class AnswerContract(BaseModel):
     #: ``extra="forbid"``, and the assemblers ignore it — it never reaches the JD, the
     #: validator or the review queue.
     cloned_from_cluster_id: UUID | None = None
+
+
+#: The form's supervisory input ceiling — see ``ComposerAnswers.supervisory``.
+_SUPERVISORY_INPUT_CEILING = 20_000
 
 
 class ComposerAnswers(AnswerContract):
@@ -189,7 +200,11 @@ class ComposerAnswers(AnswerContract):
         default_factory=list, max_length=_BULLETS_CEILING
     )
     # 7. Relationships
-    supervisory: str | None = Field(default=None, max_length=600)
+    #: The FORM's input ceiling, not the parser's cap: the parser no longer cuts the
+    #: supervisory text (HR-324) and the model declares no ceiling, so a role cloned
+    #: from the Bank may carry a long one. Wide enough for the archive's longest
+    #: (5,185 characters measured) and renders as a textarea.
+    supervisory: str | None = Field(default=None, max_length=_SUPERVISORY_INPUT_CEILING)
     internal: list[str] = Field(default_factory=list, max_length=30)
     external: list[str] = Field(default_factory=list, max_length=30)
     # 8. Qualifications — kept split by kind so the assembler can honour the

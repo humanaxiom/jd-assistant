@@ -262,7 +262,7 @@ def test_parser_version_constant() -> None:
     **v9 = Word LIST paragraphs are items, and the duty caps are rulebook data**
     (HR-261 … HR-263): 48.4% of JDFN `.docx` with a Word-list duty section parsed to ONE
     duty, and 25,095 of 96,784 duty statements sat at the hardcoded 400-char cut."""
-    assert parse_jd("anything").parser_version == "jd_segmenter_v9"
+    assert parse_jd("anything").parser_version == "jd_segmenter_v10"
 
 
 # ── End-to-end on the real legacy .doc ───────────────────────────────────────

@@ -74,6 +74,7 @@ from src.jd_core.models.parsed_jd import (
     SFUDuty,
     SFUEmployeeGroup,
     SFUJobDescription,
+    SFUQualification,
     WJQForm,
 )
 from src.jd_core.models.quality import (
@@ -712,6 +713,15 @@ def _field_max_length(model: type[BaseModel], field_name: str) -> int:
     raise LookupError(f"{model.__name__}.{field_name} declares no max_length")
 
 
+def _optional_field_max_length(model: type[BaseModel], field_name: str) -> int | None:
+    """:func:`_field_max_length` for a field the contract leaves UNBOUNDED on purpose
+    (``SFUQualification.text`` since HR-308 was ruled null): ``None`` then."""
+    try:
+        return _field_max_length(model, field_name)
+    except LookupError:
+        return None
+
+
 class Segmentation(_RuleFile):
     """How the archive baseline SEGMENTS the corpus (``segmentation.yaml``).
 
@@ -840,6 +850,39 @@ class Segmentation(_RuleFile):
     #: Parser v9 review (HR-268): how many Decision Making / Problem Solving items the
     #: parser keeps per section — the code constant 20 (``_MAX_BULLETS``) until v9.
     bullet_max_count: int = Field(gt=0)
+    #: Parser v10 wrap guard (HR-298, HR-299). antiword hard-wraps a legacy ``.doc``, so
+    #: a sentence's last word can sit alone on a line — and "duties" / "relationships"
+    #: / "education and experience" alone on a line ``fullmatch`` a heading. When the
+    #: guard is on, a heading match that is ALL LOWER CASE, carries no ``1.`` / ``c)``
+    #: enumeration, and directly follows (no blank line) a line that does not end in
+    #: one of ``wrapped_heading_line_closers`` is read as content of the section above
+    #: (JDFN/legacy reader only; the WJQ reader numbers its headings).
+    wrapped_heading_guard: bool
+    wrapped_heading_line_closers: str = Field(min_length=1)
+    #: Parser v10, owner ruling 2026-10-27 (HR-300, 301, 305 … 307). The old APSA
+    #: form's lettered tail — ``G. Unusual Working Conditions`` / ``H. Entrance
+    #: Qualifications`` / ``I. Organizational Relationships`` / ``J. Approvals`` —
+    #: matched no heading, so everything after ``F. Supervision Received`` ran into
+    #: Relationships
+    #: and was cut at 600 characters. Each is ``fullmatch``-ed against the normalised
+    #: heading line (letter prefix and trailing colon gone), JDFN/legacy reader only.
+    #: H opens Qualifications and I opens Relationships; G and J are SET ASIDE —
+    #: recorded on the parse (``SFUJobDescription.set_aside``), never JD content.
+    legacy_qualifications_heading_pattern: Regex
+    legacy_relationships_heading_pattern: Regex
+    legacy_working_conditions_heading_pattern: Regex
+    form_approvals_heading_pattern: Regex
+    #: HR-307: the form's printed question at the head of "H. Entrance Qualifications"
+    #: — searched in that section's text (whitespace, line breaks included), removed,
+    #: and recorded as a ``form_prompt`` set-aside block.
+    form_prompt_pattern: Regex
+    #: HR-308: how many characters of ONE qualification the parser keeps — the code
+    #: constant ``_MAX_QUAL`` (400, unregistered) until v10; ``null`` keeps every item
+    #: whole (owner ruling 2026-10-29). The model declares no ceiling, on purpose.
+    qualification_max_chars: int | None = Field(default=None, gt=0)
+    #: The supervisory text's cap (HR-324); ``null`` keeps the whole text (owner
+    #: ruling 2026-10-29). The model declares no ceiling for it, on purpose.
+    supervisory_max_chars: int | None = Field(default=None, gt=0)
 
     @model_validator(mode="after")
     def _the_duty_caps_fit_the_model(self) -> Segmentation:
@@ -876,6 +919,16 @@ class Segmentation(_RuleFile):
                     f"bullet_max_count ({self.bullet_max_count}) exceeds "
                     f"SFUJobDescription.{field_name}'s max_length ({ceiling})"
                 )
+        qual_ceiling = _optional_field_max_length(SFUQualification, "text")
+        if (
+            self.qualification_max_chars is not None
+            and qual_ceiling is not None
+            and self.qualification_max_chars > qual_ceiling
+        ):
+            raise ValueError(
+                f"qualification_max_chars ({self.qualification_max_chars}) exceeds "
+                f"SFUQualification.text's max_length ({qual_ceiling})"
+            )
         return self
 
     @model_validator(mode="after")

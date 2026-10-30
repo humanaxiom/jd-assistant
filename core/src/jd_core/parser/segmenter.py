@@ -40,6 +40,8 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 from src.jd_core.models.parsed_jd import (
+    SetAsideKind,
+    SetAsideSection,
     SFUDuty,
     SFUEmployeeGroup,
     SFUJobDescription,
@@ -106,7 +108,16 @@ if TYPE_CHECKING:  # the rules package imports the models; keep this module cycl
 #: and the 12-duty cap (both templates) move to `segmentation.yaml` (HR-261 … HR-263).
 #: Measured v8 -> v9 on a copy of the live Bank:
 #: `docs/plans/PARSER-V9-LISTS-AND-CAPS.md`.
-PARSER_VERSION = "jd_segmenter_v9"
+#: v10 = a wrapped content line is not a heading (HR-298 / HR-299). antiword hard-wraps
+#: legacy `.doc` files, and "… expected to make in carrying out" / "duties" opened a
+#: DUTIES section inside Decision Making: every decision, made and referred, became a
+#: duty. MEASURED over all 14,522 extracted files: 38 lower-case heading matches, all
+#: wraps; 27 documents change, 23 of them Decision Making. Bumped although v9 never
+#: shipped to `main`: the separate v9 Bank already holds `jd_segmenter_v9` parses of the
+#: OLD output, and `parsed_jds` is idempotent per `(source_document_id, parser_version)`
+#: — kept at v9, a re-ingest that skipped the wipe would keep the wrapped parses and
+#: every reader and smoke check would call them current. Plan §18.
+PARSER_VERSION = "jd_segmenter_v10"
 
 #: Which SFU document template ``parse_jd`` read: the APSA/APEX/POLY "JDFN" form (the
 #: original segmenter), the CUPE/WJQ questionnaire, or neither recognisably.
@@ -125,9 +136,15 @@ _MAX_TITLE = 200
 _MAX_POSITION_NO = 50
 _MAX_SUMMARY = 4000
 _MAX_VERB = 60
-_MAX_QUAL = 400
+#: v10: one qualification's cap is rulebook data — `segmentation.qualification_max_
+#: chars` (HR-308), both readers; it was the code constant `_MAX_QUAL` 400.
+#: A set-aside block is a RECORD, not content: held only to the model's own ceiling.
+_MAX_SET_ASIDE = 20000
 _MAX_BULLET = 400
-_MAX_SUPERVISORY = 600
+#: v10: the supervisory text's cap is rulebook data — `segmentation.supervisory_
+#: max_chars` (HR-324), null = whole text; it was the code constant
+#: `_MAX_SUPERVISORY` 600, which the 2026-10-29 review measured cutting 58.8% of
+#: supervisory texts.
 _MAX_QUALS = 40
 
 
@@ -508,7 +525,34 @@ def _detect_modifier(text: str, kind: str) -> str | None:
     return None
 
 
-def _structure_quals(block: str) -> list[SFUQualification]:
+def _strip_form_prompts(block: str, prompt: re.Pattern[str]) -> tuple[str, list[str]]:
+    """``block`` without the form's printed question(s), and each one removed (cleaned).
+
+    The old APSA form prints "What combination of experience, training and/or formal
+    education do you believe is the minimum required …?" under its qualifications
+    heading; an unbulleted answer then fused onto it as one 400-character item (HR-307).
+    The match spans line breaks, and the line it ended on is broken there, so the answer
+    starts an item of its own."""
+    found: list[str] = []
+
+    def cut(m: re.Match[str]) -> str:
+        found.append(_clean(m.group(0)))
+        return "\n"
+
+    return prompt.sub(cut, block), found
+
+
+def _structure_quals(
+    block: str, max_chars: int | None = None
+) -> list[SFUQualification]:
+    """Qualifications → typed items. ``max_chars`` is `segmentation.qualification_max_
+    chars` (HR-308): ``None`` (the shipped value since the owner's 2026-10-29 ruling)
+    keeps every logical line whole as ONE item. With a number, an item over it is
+    split at its SENTENCE breaks into items that fit (v10) instead of cut: the old
+    form's unbulleted requirements run together into one logical line — MEASURED,
+    4,713 items over 400 in 4,644 documents once "H. Entrance Qualifications" was
+    read — and the cut dropped every requirement after the first 400 characters. A
+    single sentence over the cap is still cut."""
     quals: list[SFUQualification] = []
     for item in _logical_lines(block):
         # A "…:" lead-in is KEPT, minus its colon (v9, review H1): it is often a whole
@@ -517,16 +561,18 @@ def _structure_quals(block: str) -> list[SFUQualification]:
         text = _clean(item).strip(" -–—•◦*").rstrip(" :")
         if not text:
             continue
-        kind = _classify_qual(text)
-        quals.append(
-            SFUQualification(
-                text=text[:_MAX_QUAL],
-                kind=kind,
-                modifier=_detect_modifier(text, kind),
+        pieces = [text] if max_chars is None else _sentence_chunks(text, max_chars)
+        for piece in pieces:
+            kind = _classify_qual(piece)
+            quals.append(
+                SFUQualification(
+                    text=piece[:max_chars] if max_chars else piece,
+                    kind=kind,
+                    modifier=_detect_modifier(piece, kind),
+                )
             )
-        )
-        if len(quals) >= _MAX_QUALS:
-            break
+            if len(quals) >= _MAX_QUALS:
+                return quals
     return quals
 
 
@@ -554,7 +600,9 @@ def _after_colon(line: str) -> str:
     return _clean(rest if sep else line)
 
 
-def _structure_relationships(block: str) -> SFURelationships | None:
+def _structure_relationships(
+    block: str, supervisory_cap: int | None = None
+) -> SFURelationships | None:
     supervisory: str | None = None
     internal: list[str] = []
     external: list[str] = []
@@ -588,7 +636,11 @@ def _structure_relationships(block: str) -> SFURelationships | None:
     if supervisory is None and not internal and not external:
         return None
     return SFURelationships(
-        supervisory=(supervisory[:_MAX_SUPERVISORY] if supervisory else None),
+        supervisory=(
+            (supervisory[:supervisory_cap] if supervisory_cap else supervisory)
+            if supervisory
+            else None
+        ),
         internal=internal[:30],
         external=external[:30],
     )
@@ -604,27 +656,96 @@ def _detect_era(collapsed: str, lettered_headings: int) -> Era:
     return "old" if old >= new else "new"
 
 
-def _segment(lines: list[str]) -> tuple[dict[SectionKey, str], set[int]]:
-    """Return ``{section: content}`` and the set of line indices that were
-    headings. Content between a heading and the next is assigned to it;
-    duplicate sections concatenate."""
-    hits: list[tuple[int, SectionKey]] = []
+#: A line that carries a letter or number enumeration (``1.`` / ``c)``) — a form's own
+#: heading numbering, never a word that wrapped onto a line by itself.
+_ENUMERATED_RE = re.compile(r"^\s*(?:[A-Za-z]|\d{1,2})[.)]\s+")
+
+
+def _is_wrapped_line(lines: list[str], i: int, seg: Segmentation) -> bool:
+    """True if heading-matched line ``i`` is the tail of the sentence above it.
+
+    antiword hard-wraps a legacy ``.doc``: "Decisions the incumbent is expected to make
+    in carrying out" / "duties" put the DUTIES heading's word alone on a line (HR-298).
+    A wrap is all lower case, unenumerated, directly under a non-blank line, and that
+    line ends in none of ``wrapped_heading_line_closers`` (HR-299). Every other heading
+    — upper or mixed case, numbered, after a blank or a closed line — is untouched."""
+    if not seg.wrapped_heading_guard or i == 0:
+        return False
+    line = lines[i]
+    letters = re.sub(r"[^A-Za-z]", "", line)
+    if not letters or letters != letters.lower() or _ENUMERATED_RE.match(line):
+        return False
+    prev = lines[i - 1].strip()
+    return bool(prev) and prev[-1] not in seg.wrapped_heading_line_closers
+
+
+def _match_legacy_heading(
+    line: str, seg: Segmentation
+) -> SectionKey | SetAsideKind | None:
+    """The old APSA form's lettered tail headings (parser v10; HR-300, 301, 305, 306):
+    a section for H / I, a SET-ASIDE kind for G / J, else ``None``."""
+    norm = hd.normalise_heading(line)
+    if not norm:
+        return None
+    if seg.legacy_qualifications_heading_pattern.fullmatch(norm):
+        return SectionKey.QUALIFICATIONS
+    if seg.legacy_relationships_heading_pattern.fullmatch(norm):
+        return SectionKey.RELATIONSHIPS
+    if seg.legacy_working_conditions_heading_pattern.fullmatch(norm):
+        return "legacy_working_conditions"
+    if seg.form_approvals_heading_pattern.fullmatch(norm):
+        return "form_approvals"
+    return None
+
+
+def _segment_all(
+    lines: list[str], seg: Segmentation
+) -> tuple[dict[SectionKey, str], set[int], list[SetAsideSection]]:
+    """:func:`_segment`, plus the blocks set aside under a G / J legacy heading — each
+    kind once, in document order, its repeats (``(CONTINUED)``) concatenated."""
+    hits: list[tuple[int, SectionKey | SetAsideKind]] = []
     heading_lines: set[int] = set()
     for i, line in enumerate(lines):
         matched = hd.match_heading(line)
-        if matched is not None:
-            hits.append((i, matched[0]))
+        key: SectionKey | SetAsideKind | None = (
+            matched[0] if matched is not None else _match_legacy_heading(line, seg)
+        )
+        if key is not None and not _is_wrapped_line(lines, i, seg):
+            hits.append((i, key))
             heading_lines.add(i)
     sections: dict[SectionKey, str] = {}
-    for idx, (line_no, section) in enumerate(hits):
+    aside: dict[SetAsideKind, tuple[str, str]] = {}
+    for idx, (line_no, key) in enumerate(hits):
         start = line_no + 1
         end = hits[idx + 1][0] if idx + 1 < len(hits) else len(lines)
         content = "\n".join(lines[start:end]).strip()
-        sections[section] = (
-            f"{sections[section]}\n{content}".strip()
-            if section in sections
-            else content
+        if isinstance(key, SectionKey):
+            sections[key] = (
+                f"{sections[key]}\n{content}".strip() if key in sections else content
+            )
+        else:
+            heading, before = aside.get(key, (hd.normalise_heading(lines[line_no]), ""))
+            aside[key] = (heading, f"{before}\n{content}".strip())
+    set_aside = [
+        SetAsideSection(
+            kind=kind,
+            heading=heading[:_MAX_TITLE],
+            text=_clean(body)[:_MAX_SET_ASIDE],
         )
+        for kind, (heading, body) in aside.items()
+    ]
+    return sections, heading_lines, set_aside
+
+
+def _segment(
+    lines: list[str], seg: Segmentation
+) -> tuple[dict[SectionKey, str], set[int]]:
+    """Return ``{section: content}`` and the set of line indices that were
+    headings. Content between a heading and the next is assigned to it;
+    duplicate sections concatenate. A wrapped content line that happens to spell a
+    heading (:func:`_is_wrapped_line`) stays content. Set-aside blocks
+    (:func:`_segment_all`) are in no section."""
+    sections, heading_lines, _ = _segment_all(lines, seg)
     return sections, heading_lines
 
 
@@ -656,7 +777,7 @@ def parse_jd(text: str) -> ParseResult:
 
     lettered = sum(1 for ln in lines if hd.is_lettered_heading(ln))
     era = _detect_era(collapsed, lettered)
-    sections, heading_lines = _segment(lines)
+    sections, heading_lines, set_aside = _segment_all(lines, get_rules().segmentation)
     found: set[SectionKey] = set(sections)
 
     # Identification — labels take priority; fall back to the first plain line.
@@ -696,14 +817,36 @@ def parse_jd(text: str) -> ParseResult:
         sections.get(SectionKey.DUTIES, ""), get_rules().segmentation
     )
     bullet_cap = get_rules().segmentation.bullet_max_count
+    prompt_rx = get_rules().segmentation.form_prompt_pattern
+
+    def without_prompts(key: SectionKey) -> str:
+        """The section's text minus the form's printed questions (HR-307), each
+        recorded as a ``form_prompt`` set-aside under the section's heading."""
+        block, prompts = _strip_form_prompts(sections.get(key, ""), prompt_rx)
+        if prompts:
+            set_aside.append(
+                SetAsideSection(
+                    kind="form_prompt",
+                    heading=hd.CANONICAL_HEADING[key],
+                    text=" ".join(prompts)[:_MAX_SET_ASIDE],
+                )
+            )
+        return block
+
     decision_making = _structure_bullets(
-        sections.get(SectionKey.DECISION_MAKING, ""), bullet_cap
+        without_prompts(SectionKey.DECISION_MAKING), bullet_cap
     )
     problem_solving = _structure_bullets(
         sections.get(SectionKey.PROBLEM_SOLVING, ""), bullet_cap
     )
-    relationships = _structure_relationships(sections.get(SectionKey.RELATIONSHIPS, ""))
-    qualifications = _structure_quals(sections.get(SectionKey.QUALIFICATIONS, ""))
+    relationships = _structure_relationships(
+        sections.get(SectionKey.RELATIONSHIPS, ""),
+        get_rules().segmentation.supervisory_max_chars,
+    )
+    qualifications = _structure_quals(
+        without_prompts(SectionKey.QUALIFICATIONS),
+        get_rules().segmentation.qualification_max_chars,
+    )
     # `additional_context` has its own registered cap (HR-200), not the summary's.
     # Sharing `_MAX_SUMMARY` between the two is what truncated 81.4% of CUPE JDs; no
     # JDFN document in the archive reaches even the old 4,000, so this path is
@@ -738,6 +881,7 @@ def parse_jd(text: str) -> ParseResult:
         territorial_acknowledgement_present=territorial,
         employment_equity_present=equity,
         additional_context=additional_context,
+        set_aside=set_aside,
     )
 
     confidence = _score_sections(

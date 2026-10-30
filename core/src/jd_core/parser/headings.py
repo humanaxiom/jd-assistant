@@ -168,8 +168,13 @@ _COMPILED: list[tuple[SectionKey, HeadingEra, re.Pattern[str]]] = [
     for era, pat in HEADING_PATTERNS[section]
 ]
 
-# Leading enumeration prefix on a heading line: ``A.`` / ``B)`` / ``1.`` etc.
-_LETTER_PREFIX = re.compile(r"^\s*(?:[A-Za-z]|\d{1,2})[.)]\s+")
+# Leading enumeration prefix on a heading line: ``A.`` / ``B)`` / ``1.`` etc. — and a
+# bare letter set off by a tab or two+ spaces (``H         ENTRANCE QUALIFICATIONS``):
+# 32 archive files carry the old form's G/H/I/J letters with no period after them
+# (2026-10-29 review). A single space is NOT enough — ``A very …`` is content.
+_LETTER_PREFIX = re.compile(
+    r"^\s*(?:(?:[A-Za-z]|\d{1,2})[.)]\s+|[A-J](?:\t|[ ]{2,})(?=[A-Z]))"
+)
 _LETTERED_HEADING = re.compile(r"^\s*[A-J][.)]\s+[A-Z]")
 
 
