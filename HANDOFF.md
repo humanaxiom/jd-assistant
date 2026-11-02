@@ -130,9 +130,13 @@ The owner rulings behind them (2026-10-27):
    `teardown.ps1 -Volumes -Force` → `launch.ps1 -NoCas` → `make ingest`
    (`JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs`) → `embed` → near-dup → `dedup-role` →
    `cluster` → `canonical-drafts --no-llm` → `embed-roles` → **`make smoke`**.
-4. **One full rewrite pass — NOT started; needs the owner's go** (it holds the GPU for ~4
-   days, and on 2026-10-29 a 120B model was resident on `aria-gb10-2` — check
-   `/api/ps` first). It takes about 89 h, runs detached and holds `aria-gb10-2`
+4. **One full rewrite pass — STARTED 2026-11-02 (owner: "start the pass"). T0 =
+   2026-11-02T21:58:49Z, head `b6a64a6`, GPU idle at launch.** Detached `make
+   canonical-drafts` (LLM on, all 2,258 clusters) from `C:\repos\JD-Assistant-v9`, log
+   `docs/canonical/v9-fullpass-2026-11-02.log` (on the box; commit it when the pass ends,
+   like the 2026-10-21 one). Expect ~89 h → about 2026-11-06. If it stops, resume with
+   `CANONICAL_ARGS="--refreshed-since 2026-11-02T21:58:49Z"`. It takes about 89 h, runs
+   detached and holds `aria-gb10-2`
    throughout. **Record T0.** To resume an interrupted pass, use `--refreshed-since <T0>`,
    **never `--resume`** (the September section below explains why). Afterwards run
    `make embed-roles`, `make bank-audit` and `make smoke`.
