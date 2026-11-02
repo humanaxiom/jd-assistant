@@ -109,11 +109,30 @@ The owner rulings behind them (2026-10-27):
    measured so far.
 2. ~~**Merge the three branches into `bank/v9`.**~~ **Done 2026-10-29** — see §3 above
    (`ef647b9`). Duplicate-ID check clean, `make register-check` in step.
-3. **Wipe and rebuild the v9 Bank** from that checkout:
+3. ~~**Wipe and rebuild the v9 Bank**~~ **Done 2026-11-02** (owner: "rebuild"). From
+   `C:\repos\JD-Assistant-v9` at `ef647b9`: `teardown.ps1 -Volumes -Force` → `build.ps1`
+   (fresh `:v9` images from the merged code — do not skip this, the old images were
+   8 days stale) → `launch.ps1 -NoCas` → the chain below, serial, stop-on-failure.
+   **Rebuild T0 = 2026-11-02T13:20:17Z; smoke green 14:39Z** (log in the session
+   scratchpad; artefacts committed on `bank/v9` as `b6a64a6`). **Measured in the Bank,
+   not the counters:** 14,565 files seen, 14,522 parsed at `jd_segmenter_v10`, 43
+   extraction failures (the known damaged/mis-typed files); max stored supervisory
+   5,185 chars and max qualification 3,179 chars — both caps are off in the DATA;
+   14,147 parses carry qualifications. Embed 14,412 docs + 42,463 sections. **Clusters
+   2,258 (was 2,454), coverage 0.840 (was 0.748), singletons 2,319 (was 3,658),
+   flagged 22 (was 6)** — parser v10 changed the text every dedup tier reads, so the
+   clustering moved. `canonical-drafts --no-llm`: 2,258 persisted, 0 failures.
+   `embed-roles`: 2,250 embedded, 8 empty. `make smoke`: **31 passed**.
+   ⚠ **Cluster ids were regenerated.** The replay lists `docs/canonical/v9-postpass-rerun*`
+   name the OLD ids and are now stale — a `--cluster-ids-file` run against them will
+   hit nothing. The next pass is the full one anyway.
+   The original step, kept for the record:
    `teardown.ps1 -Volumes -Force` → `launch.ps1 -NoCas` → `make ingest`
    (`JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs`) → `embed` → near-dup → `dedup-role` →
    `cluster` → `canonical-drafts --no-llm` → `embed-roles` → **`make smoke`**.
-4. **One full rewrite pass.** It takes about 89 h, runs detached and holds `aria-gb10-2`
+4. **One full rewrite pass — NOT started; needs the owner's go** (it holds the GPU for ~4
+   days, and on 2026-10-29 a 120B model was resident on `aria-gb10-2` — check
+   `/api/ps` first). It takes about 89 h, runs detached and holds `aria-gb10-2`
    throughout. **Record T0.** To resume an interrupted pass, use `--refreshed-since <T0>`,
    **never `--resume`** (the September section below explains why). Afterwards run
    `make embed-roles`, `make bank-audit` and `make smoke`.
