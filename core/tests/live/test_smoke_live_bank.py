@@ -536,6 +536,100 @@ async def _crf_fill(session, cluster_id, **kwargs):  # type: ignore[no-untyped-d
     return prefill, {name: f.get("/V") for name, f in fields.items()}
 
 
+# ── K3: the CRF reaches a person — through the routes, against the live Bank ──────
+#
+# K2 passed its two smoke tests above for a week while NO route or button reached it
+# (Directive #1: a feature nothing links to has not been delivered). These drive the
+# REAL app (the `library` fixture: httpx ASGI transport, live session, CAS overridden)
+# the way a person would: role page -> the form's page -> the download. The expected
+# values are re-derived by raw SQL (`_CRF_ROLES`), never by calling the builder.
+# READ-ONLY: neither route writes.
+
+
+async def test_crf_download_reaches_a_person_through_the_live_role_page(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    import io
+    import re
+
+    from pypdf import PdfReader
+
+    from src.jd_core.rules import get_rules
+    from src.jd_export.comp_requisition import load_field_map
+
+    pattern = get_rules().segmentation.position_id_pattern.pattern
+    row = (
+        await session.execute(
+            text(_CRF_ROLES + """
+                SELECT c.cluster_id, c.content->>'title', c.content->>'department',
+                       upper(c.content->>'employee_group'), p.pids
+                FROM cur c JOIN pos p USING (cluster_id)
+                WHERE cardinality(p.pids) > 1
+                  AND c.cluster_id NOT IN (SELECT cluster_id FROM bad)
+                  AND nullif(trim(c.content->>'title'), '') IS NOT NULL
+                  AND nullif(trim(c.content->>'department'), '') IS NOT NULL
+                  AND c.content->>'employee_group' IN ('apsa', 'apex')
+                ORDER BY c.cluster_id
+                LIMIT 1
+                """),
+            {"pat": pattern},
+        )
+    ).first()
+    assert row is not None, "no live multi-position role has title + dept + group"
+    cluster_id, title, department, group, pids = row
+    page = f"/jd-bank/ui/role/{cluster_id}/comp-requisition"
+
+    # 1. Discoverable: the role page links to the form's page.
+    role_page = await library.get(f"/jd-bank/ui/role/{cluster_id}")
+    assert role_page.status_code == 200
+    assert f'href="{page}"' in role_page.text, "role page has no CRF link"
+
+    # 2. The page offers EVERY position the role holds (the Bank never picks one).
+    form_page = await library.get(page)
+    assert form_page.status_code == 200, form_page.text[:500]
+    offered = set(
+        re.findall(r'name="position_number" value="([0-9]+)"', form_page.text)
+    )
+    assert offered == set(pids), f"picker offers {offered}, Bank holds {set(pids)}"
+
+    # 3. The download is SFU's own PDF carrying the chosen position + the Bank's facts.
+    chosen = sorted(pids)[-1]
+    resp = await library.post(
+        page,
+        data={
+            "request_type": "reevaluation",
+            "position_number": chosen,
+            "jd_in_word_attached": "on",
+            "contact_me": "on",
+        },
+    )
+    assert resp.status_code == 200, resp.text[:500]
+    assert resp.headers["content-type"] == "application/pdf"
+    assert "attachment" in resp.headers["content-disposition"]
+    fields = PdfReader(io.BytesIO(resp.content)).get_fields() or {}
+    got = {name: f.get("/V") for name, f in fields.items()}
+    fmap = load_field_map()
+    pf = fmap.prefill_fields
+    assert got[pf["position_number"]] == chosen
+    assert got[pf["position_title"]] == title.strip()
+    assert got[pf["department"]] == department.strip()
+    assert got[pf["employee_group"]] == group
+    assert got[pf["jd_in_word_attached"]] == fmap.checkbox_on_value
+    assert got[pf["based_on_positions_b"]].startswith(", ".join(sorted(pids)[:2]))
+    # The boxes the rulebook asserts (HR-311 / HR-312): B ticked, Section B's Yes
+    # ticked, Section A's Yes and every No box untouched.
+    assert got[fmap.request_type_boxes["reevaluation"]] == fmap.checkbox_on_value
+    yes = fmap.based_on_existing_yes_boxes
+    assert got[yes["based_on_positions_b"]] == fmap.checkbox_on_value
+    assert got.get(yes["based_on_positions_a"]) in (None, "/Off")
+    for no_box in ("Check Box67", "Check Box56"):
+        assert got.get(no_box) in (None, "/Off"), no_box
+    # The requester (the smoke's synthetic user) is the contact (HR-313).
+    assert got[pf["contact_name"]]
+    for name in fmap.signature_fields:
+        assert not got.get(name), f"signature field {name} was written"
+
+
 async def test_crf_fills_from_a_live_single_position_role(session) -> None:  # type: ignore[no-untyped-def]
     """K2 — fill SFU's own CRF (re-evaluation) for a LIVE single-position role.
 
@@ -1513,3 +1607,69 @@ async def test_builder_search_meets_its_latency_budget_and_recall_floor(  # type
     assert (
         hits >= floor
     ), f"Builder hit@10 = {hits}/{len(queries)} (floor {floor}); misses: {misses}"
+
+
+# ── QUERY UNDERSTANDING (Track I3) — the LLM read of a search, through the routes ──
+#
+# Ships OFF (HR-315). Off, the property that matters is NEGATIVE — no chat client is
+# ever built by either search page — and a negative is exactly what a fixture suite
+# cannot prove about the live app, so it is pinned here through the real routes. On,
+# the property is a REAL plan call on fixed queries, within the rulebook budget, with
+# the guard holding (no group the person did not type). Enabling it therefore ties
+# shipping to the inference host being up (Directive #0), which is why it is off.
+
+
+async def test_search_pages_build_no_chat_client_while_understanding_is_off(  # type: ignore[no-untyped-def]
+    library,
+) -> None:
+    from src.api.main import app
+    from src.api.routes.compose import get_chat_client_factory
+    from src.jd_core.rules import get_rules
+
+    if get_rules().search.query_understanding_enabled:
+        pytest.skip("query understanding is ON: the live plan test below covers it")
+    built: list[int] = []
+
+    def forbidden() -> None:
+        built.append(1)
+        raise AssertionError("a chat client was built while query understanding is OFF")
+
+    app.dependency_overrides[get_chat_client_factory] = lambda: forbidden
+    try:
+        for url in ("/jd-bank/ui/library", "/jd-bank/ui/compose/search"):
+            resp = await library.get(url, params={"q": "financial analyst"})
+            assert resp.status_code == 200, f"{url} -> {resp.status_code}"
+            assert (
+                "Read as:" not in resp.text
+            ), f"{url} showed a model reading while OFF"
+    finally:
+        app.dependency_overrides.pop(get_chat_client_factory, None)
+    assert built == []
+
+
+async def test_live_query_plan_is_guarded_and_within_budget(library) -> None:  # type: ignore[no-untyped-def]
+    import time
+
+    from src.jd_bank.query_plan import rulebook_chat_client, try_understand_query
+    from src.jd_core.rules import get_rules
+
+    rules = get_rules()
+    if not rules.search.query_understanding_enabled:
+        pytest.skip(
+            "query understanding is OFF (HR-315); switch it on to make this real"
+        )
+    budget = rules.search.query_timeout_seconds
+    for q in ("AP clerk", "coop coord", "IT sysadmin"):
+        started = time.monotonic()
+        plan = await try_understand_query(q, client_factory=rulebook_chat_client)
+        elapsed = time.monotonic() - started
+        assert plan is not None, f"no plan for {q!r} within {budget}s"
+        assert elapsed <= budget + 0.5, f"{q!r} took {elapsed:.1f}s"
+        assert plan.title_keywords[0] == q, "the words as typed must be searched first"
+        assert plan.employee_group is None, "no group was typed, none may be applied"
+        assert (
+            plan.extra_keywords
+        ), f"{q!r}: the model added no keyword — nothing gained"
+    resp = await library.get("/jd-bank/ui/library", params={"q": "AP clerk"})
+    assert resp.status_code == 200
+    assert "Read as:" in resp.text

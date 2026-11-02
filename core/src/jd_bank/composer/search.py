@@ -75,6 +75,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.jd_bank.composer.answers import AnswerContract
 from src.jd_bank.db.models import CanonicalJD, Cluster, ParsedJDRow
 from src.jd_bank.embeddings.client import EmbedClient
+from src.jd_bank.query_plan import QueryUnderstanding
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.models.quality import DEFAULT_TEMPLATE, WJQ_TEMPLATE, JDTemplate
 from src.jd_core.parser import PARSER_VERSION
@@ -283,6 +284,9 @@ class SearchHit(BaseModel):
     #: containing the query. Ranked by closeness, and still carries no ``score``: a
     #: trigram similarity is a spelling distance, not a measure of the job.
     by_spelling: bool = False
+    #: A title hit found by a keyword the query-understanding step ADDED (Track I3):
+    #: the keyword itself, shown as the reason. ``None`` for every other hit.
+    by_keyword: str | None = None
 
 
 class SearchOutcome(BaseModel):
@@ -297,6 +301,9 @@ class SearchOutcome(BaseModel):
 
     hits: list[SearchHit]
     notice: str | None = None
+    #: How the query-understanding step read the search (Track I3); ``None`` when
+    #: it did not run.
+    interpretation: QueryUnderstanding | None = None
 
 
 async def _nearest_source_ids(
@@ -718,6 +725,7 @@ async def search_jds(
     limit: int = 10,
     form: JDTemplate = DEFAULT_TEMPLATE,
     rules: Rules | None = None,
+    plan: QueryUnderstanding | None = None,
 ) -> SearchOutcome:
     """Search for a JD to start from — **four passes, titles before vectors**.
 
@@ -759,10 +767,17 @@ async def search_jds(
     seen_clusters: set[UUID] = set()
 
     async def done(notice: str | None = None) -> SearchOutcome:
-        return SearchOutcome(hits=await _with_departments(session, hits), notice=notice)
+        return SearchOutcome(
+            hits=await _with_departments(session, hits),
+            notice=notice,
+            interpretation=plan,
+        )
 
     def add_roles(
-        rows: Sequence[tuple[UUID, str, str | None]], *, by_spelling: bool = False
+        rows: Sequence[tuple[UUID, str, str | None]],
+        *,
+        by_spelling: bool = False,
+        by_keyword: str | None = None,
     ) -> bool:
         """Append in-scope role title hits; ``True`` once the page is full."""
         for cluster_id, role_title, group in rows:
@@ -777,6 +792,7 @@ async def search_jds(
                     score=None,
                     match="role_title",
                     by_spelling=by_spelling,
+                    by_keyword=by_keyword,
                 )
             )
             if len(hits) >= limit:
@@ -784,7 +800,10 @@ async def search_jds(
         return False
 
     async def add_docs(
-        titled: Mapping[UUID, SFUJobDescription], *, by_spelling: bool = False
+        titled: Mapping[UUID, SFUJobDescription],
+        *,
+        by_spelling: bool = False,
+        by_keyword: str | None = None,
     ) -> bool:
         """Append in-scope document title hits, COLLAPSED into the role each was
         harmonized into. Listing a role and then its own member documents underneath
@@ -811,6 +830,7 @@ async def search_jds(
                     score=None,
                     match="title",
                     by_spelling=by_spelling,
+                    by_keyword=by_keyword,
                 )
             )
             if len(hits) >= limit:
@@ -823,11 +843,23 @@ async def search_jds(
     roles = await _role_title_matches(session, query_text, limit=limit)
     if add_roles(roles):
         return await done()
+    # The keywords the query-understanding step ADDED (Track I3): after every match
+    # on the words as typed, each keyword its own role-title scan. They only add.
+    for keyword in plan.extra_keywords if plan is not None else ():
+        if add_roles(
+            await _role_title_matches(session, keyword, limit=limit), by_keyword=keyword
+        ):
+            return await done()
 
     # 2. Archive DOCUMENTS by title — the CURRENT parse only.
     titled = await _title_matches(session, query_text, limit=limit)
     if await add_docs(titled):
         return await done()
+    for keyword in plan.extra_keywords if plan is not None else ():
+        if await add_docs(
+            await _title_matches(session, keyword, limit=limit), by_keyword=keyword
+        ):
+            return await done()
 
     # 2b. The TYPO fallback (Track I2, HR-241) — only when NO title contains the query.
     #     Measured: "adminstrative cordinator" and "labratory techician" reached the
@@ -861,7 +893,8 @@ async def search_jds(
         return await asyncio.wait_for(step, timeout=max(0.0, deadline - loop.time()))
 
     try:
-        vector = (await bounded(embed_client.embed_batch([query_text])))[0]
+        semantic = plan.semantic_query if plan is not None else query_text
+        vector = (await bounded(embed_client.embed_batch([semantic])))[0]
         near_roles = await bounded(
             _nearest_role_ids(
                 neo4j_driver,

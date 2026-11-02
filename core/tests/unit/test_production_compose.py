@@ -64,6 +64,11 @@ _DOCKERFILE_PATHS = (
 #: with the reason. Asserted exactly, so dropping a key is a decision rather than an
 #: oversight.
 DEV_ONLY_ENV_KEYS: dict[str, str] = {
+    "WATCHFILES_FORCE_POLLING": (
+        "dev only: it makes `uvicorn --reload` see edits through the Windows bind "
+        "mount of ./core. Production ships the code INSIDE the image, mounts nothing "
+        "and does not run --reload, so there is nothing for it to poll."
+    ),
     # Both are ways to be someone without authenticating. `_unsafe_for_production`
     # already refuses a set CAS_DEV_FAKE_USER, and this file pins it empty rather than
     # interpolating it — there is no value of it that is correct here.

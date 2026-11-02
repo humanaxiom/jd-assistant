@@ -30,6 +30,25 @@ prefill_fields:
   based_on_positions_b: "No      If no specify effective date of changeRow1"  # Sec B: list all position #
   jd_in_word_attached: "Check Box79"                 # Checklist: Job description in Word format
   employee_group: "Employee Group"                   # VPA section: Employee Group (APSA | APEX)
+  contact_name: "Supervisor Position Title"          # General: Contact Name & Position Title (the field name is misleading)
+  contact_email: "Email_2"                           # General: the Email beside the contact
+
+# Type of request (the five boxes at the top of page 1). Which box is which was read
+# off the rendered form (comp-form-mapping.md / evidence/widget_labels.txt). Ticked
+# only when the rulebook says so (comp_requisition.tick_request_type, HR-311).
+request_type_boxes:
+  new_based_on_existing: "Check Box71"   # A. New Position
+  reevaluation: "Check Box75"            # B. Re-evaluation
+  editorial: "Check Box72"               # C. Editorial Changes
+  additional_duties: "Check Box76"       # D. Additional Duties (Temporary)
+  other_changes: "Check Box73"           # E. Other Changes
+
+# "Is this based off of an existing position?" — the YES box of each pair (Check
+# Box67 / Check Box56 are the No boxes and are never written). Ticked only when that
+# section's list is written (comp_requisition.tick_based_on_existing, HR-312).
+based_on_existing_yes_boxes:
+  based_on_positions_a: "Check Box66"
+  based_on_positions_b: "Check Box55"
 
 # Bank employee_group code -> the dropdown option. CUPE / Poly / excluded are NOT options on
 # the form, so they map to nothing and the field stays empty (never coerced).
@@ -42,6 +61,8 @@ employee_group_options:
 unwritten_fields:
   - candidate_positions
   - positions_incomplete
+  - reference_grades      # the sources' grades, shown on the page only (HR-314)
+  - filled_from_sources   # which facts came from the source files, for the page
 
 # OVERFLOW of the single-line "list all position #" boxes. MEASURED off the template:
 # `Text70` (Sec A) is 212.03 pt wide at a FIXED 12 pt Helvetica; a padded id is 8 digits

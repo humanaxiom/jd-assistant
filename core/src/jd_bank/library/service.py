@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Collection, Sequence
+from collections.abc import Callable, Collection, Sequence
 from typing import Any, Literal
 from uuid import UUID
 
@@ -50,6 +50,7 @@ from src.jd_bank.library.models import (
     SourceListItem,
     SourcePage,
 )
+from src.jd_bank.query_plan import QueryUnderstanding
 from src.jd_core.bank.render import render_sfu_jd_text
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.parser import PARSER_VERSION
@@ -256,7 +257,7 @@ async def get_role(session: AsyncSession, cluster_id: UUID) -> RoleView | None:
 
 def _role_list_item(
     canonical: CanonicalJD,
-    matched_by: Literal["title", "spelling", "meaning"] | None = None,
+    matched_by: Literal["title", "spelling", "meaning", "keyword"] | None = None,
 ) -> RoleListItem:
     content = canonical.content or {}
     validator = (canonical.change_log or {}).get("validator") or {}
@@ -315,6 +316,15 @@ async def _meaning_candidates(
     return [cluster_id for cluster_id, _title, _group in near]
 
 
+def _keyword_rank(keyword: str) -> Callable[[Any], tuple[int, str, str]]:
+    """Sort key for one keyword's title rows: closest title first, then stable."""
+
+    def key(row: Any) -> tuple[int, str, str]:
+        return (title_rank(row[1] or "", keyword), (row[1] or "").lower(), str(row[0]))
+
+    return key
+
+
 async def _search_roles(
     session: AsyncSession,
     base: Select[Any],
@@ -327,6 +337,7 @@ async def _search_roles(
     embed_client: EmbedClient | None,
     neo4j_driver: AsyncDriver | None,
     rules: Rules | None,
+    plan: QueryUnderstanding | None = None,
 ) -> RolePage:
     """Title tiers first (exact, prefix, contains), then roles found by meaning, each
     role once. ``base`` is already scoped to the current version per cluster (and to
@@ -344,6 +355,25 @@ async def _search_roles(
         key=lambda r: (title_rank(r[1] or "", query), (r[1] or "").lower(), str(r[0]))
     )
     title_ids = [row[0] for row in title_rows]
+    by_raw_title = set(title_ids)
+    # The keywords the query-understanding step ADDED (Track I3), each its own
+    # title scan, after every match on the words as typed. They can only add.
+    by_keyword: set[UUID] = set()
+    for keyword in plan.extra_keywords if plan is not None else ():
+        extra = list(
+            (
+                await session.execute(
+                    base.with_only_columns(CanonicalJD.cluster_id, ROLE_TITLE).where(
+                        ROLE_TITLE.ilike(_like_pattern(keyword), escape="\\")
+                    )
+                )
+            ).all()
+        )
+        extra.sort(key=_keyword_rank(keyword))
+        for cluster_id, _title in extra:
+            if cluster_id not in by_raw_title and cluster_id not in by_keyword:
+                title_ids.append(cluster_id)
+                by_keyword.add(cluster_id)
     # The TYPO fallback (Track I2, HR-241), the same one the Builder runs: only when no
     # role title CONTAINS the query. Ranked closest-spelling first; never a score.
     spelled: list[UUID] = []
@@ -364,7 +394,10 @@ async def _search_roles(
     meaning: list[UUID] = []
     if embed_client is not None and neo4j_driver is not None:
         found = await _meaning_candidates(
-            query, embed_client=embed_client, neo4j_driver=neo4j_driver, rules=rules
+            plan.semantic_query if plan is not None else query,
+            embed_client=embed_client,
+            neo4j_driver=neo4j_driver,
+            rules=rules,
         )
         if found is None:
             banner = SEMANTIC_UNAVAILABLE_BANNER
@@ -422,9 +455,11 @@ async def _search_roles(
             )
     by_spelling = set(spelled)
 
-    def why(cluster_id: UUID) -> Literal["title", "spelling", "meaning"]:
+    def why(cluster_id: UUID) -> Literal["title", "spelling", "meaning", "keyword"]:
         if cluster_id in by_spelling:
             return "spelling"
+        if cluster_id in by_keyword:
+            return "keyword"
         return "title" if cluster_id in titled else "meaning"
 
     return RolePage(
@@ -436,6 +471,7 @@ async def _search_roles(
         sort="relevance" if relevance else sort,
         direction="desc" if (descending and not relevance) else "asc",
         banner=banner,
+        interpretation=plan,
     )
 
 
@@ -451,6 +487,7 @@ async def list_roles(
     embed_client: EmbedClient | None = None,
     neo4j_driver: AsyncDriver | None = None,
     rules: Rules | None = None,
+    plan: QueryUnderstanding | None = None,
 ) -> RolePage:
     """A page of harmonized roles (one per cluster, the current version), optionally
     searched and sorted by a clickable column (``sort`` in :data:`_ROLE_SORTS`,
@@ -501,6 +538,7 @@ async def list_roles(
             embed_client=embed_client,
             neo4j_driver=neo4j_driver,
             rules=rules,
+            plan=plan,
         )
     total = await session.scalar(select(func.count()).select_from(base.subquery())) or 0
     column = _ROLE_SORTS[sort_key]

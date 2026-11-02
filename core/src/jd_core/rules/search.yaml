@@ -1,0 +1,57 @@
+# SEARCH QUERY UNDERSTANDING — the optional LLM step in front of both search boxes.
+# Rulebook-as-data (CLAUDE.md non-negotiable #2). Track I, PR I3.
+#
+# WHAT THIS FILE DECIDES
+# ----------------------
+# Whether, and how, a self-hosted chat model READS a search query before the Library and
+# the Builder run their title + vector passes: it turns "AP clerk" into a semantic query
+# ("accounts payable clerk") and a few extra title keywords. It decides nothing about
+# what a JD IS — no validator reads it, the parser never sees it — so it is UNHASHED
+# (not part of `rules_version`) and does NOT move `PARSER_VERSION`.
+#
+# THE GUARD IS NOT A KNOB. Measured 2026-10-19 (docs/audit/2026-10-19-search-hr-compreq/
+# search-nlp-spike.md): unguarded, the model invented an employee-group filter on 75–85%
+# of queries and emptied result pages. So, in code and not here: an employee group is
+# honoured only when the user TYPED it; a unit only when it is one of `org_units.yaml`'s
+# keys, and then as a suggestion the user clicks, never a filter; the words as typed are
+# always the first title keyword, so exact-title behaviour is never worse than without
+# the model. The model's reading is shown on the page and can be switched off per search.
+#
+# SHIPS OFF. `query_understanding_enabled: false` until HR/ITS rule on the model (plan
+# Q8). Enabling it ties interactive search latency to the inference host (3.3 s p50 /
+# 6.1 s p95 measured on gpt-oss:20b, warm) and, by Directive #0, ties SHIPPING to the GPU
+# being free, because the live smoke then has to make a real plan call.
+version: jd_rules_sfu_v4
+
+# Off until ruled on (HR-315). When off, NO chat call is made and no client is built.
+query_understanding_enabled: false
+
+# The chat model that reads the query (HR-316). MEASURED: gpt-oss:20b matched 120b on
+# guarded quality (P@10 0.868 vs 0.859 Builder, 0.836 vs 0.827 Library), warm 1.4 s
+# faster, cold-loads 2.5x faster. A rulebook decision, never `settings.agent_model`.
+query_model: gpt-oss:20b
+
+# Sampling temperature (HR-317). 0: the same query reads the same way every time.
+query_temperature: 0.0
+
+# Reasoning effort sent with the request (HR-318). `low`: this is a four-field plan, and
+# every second here is a second the person waits.
+query_reasoning_effort: low
+
+# Reply budget in tokens (HR-319). The plan is tiny; 300 is roomy.
+query_max_tokens: 300
+
+# Repair retries on an invalid reply (HR-320). 0: interactive — a bad reply means "no
+# plan", and the page is rendered from the words as typed.
+query_max_retries: 0
+
+# Wall-clock budget for the whole plan call, in seconds (HR-321). Measured warm p95 is
+# 6.1 s on 20b; past this the page is rendered without the model's reading.
+query_timeout_seconds: 6.0
+
+# The versioned prompt pair under jd_bank/llm/templates/ (HR-322).
+query_prompt_version: jd_search_plan_v1
+
+# How many title keywords the plan may add, INCLUDING the words as typed (HR-323). Each
+# one is a title scan over roles and documents; 4 bounds the cost.
+query_max_title_keywords: 4

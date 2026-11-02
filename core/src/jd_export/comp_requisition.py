@@ -21,6 +21,11 @@ Invariants (each has a test):
 * **The three signature fields are never filled.**
 * **No incumbent name can be passed in** — :class:`CompReqPrefill` has no such field
   (``extra="forbid"``), and the Bank strips incumbent names at ingestion anyway.
+  The only person it can name is the **requester** (``contact_name`` /
+  ``contact_email``: the signed-in user downloading the form, HR-313).
+* **Checkboxes are asserted, never guessed.** The request-type box and the
+  "based off of an existing position? Yes" boxes are ticked only when the prefill
+  says so; the No boxes are never written.
 * **Unfilled stays empty**: a ``None`` / empty value writes nothing; nothing is guessed.
 """
 
@@ -39,6 +44,30 @@ from pypdf import PdfReader, PdfWriter
 #: Where the template PDF and its field map ship (inside the image: ``COPY . .``).
 TEMPLATE_DIR: Final[Path] = Path(__file__).resolve().parent / "templates"
 FIELD_MAP_FILE: Final[str] = "comp_requisition.yaml"
+
+
+#: The form's request types (sections A–E). ``new_based_on_existing`` is A with a
+#: source position; a brand-new position based on nothing needs nothing from the Bank.
+RequestType = Literal[
+    "new_based_on_existing",
+    "reevaluation",
+    "editorial",
+    "additional_duties",
+    "other_changes",
+]
+REQUEST_TYPES: Final[frozenset[str]] = frozenset(
+    {
+        "new_based_on_existing",
+        "reevaluation",
+        "editorial",
+        "additional_duties",
+        "other_changes",
+    }
+)
+#: Prefill fields written as a BOX (ticked / left alone), not as text.
+_BOX_FIELDS: Final[frozenset[str]] = frozenset(
+    {"request_type", "based_on_existing_a", "based_on_existing_b"}
+)
 
 
 class TemplateMismatchError(ValueError):
@@ -68,6 +97,8 @@ class CompReqFieldMap(BaseModel):
     template_sha256: str
     checkbox_on_value: str
     prefill_fields: dict[str, str]
+    request_type_boxes: dict[str, str]
+    based_on_existing_yes_boxes: dict[str, str]
     unwritten_fields: tuple[str, ...]
     overflow: OverflowRules
     employee_group_options: dict[str, str]
@@ -94,18 +125,47 @@ class CompReqPrefill(BaseModel):
     jd_in_word_attached: bool = False
     #: VPA section dropdown — only APSA / APEX exist on the form.
     employee_group: Literal["APSA", "APEX"] | None = None
+    #: The REQUESTER (the signed-in person downloading the form) as the contact —
+    #: never an incumbent. Blank unless the caller supplies them (HR-313).
+    contact_name: str | None = None
+    contact_email: str | None = None
+    #: Which Type-of-request box to tick; ``None`` ticks nothing (HR-311).
+    request_type: RequestType | None = None
+    #: Tick "based off of an existing position? Yes" in Section A / B (HR-312).
+    based_on_existing_a: bool = False
+    based_on_existing_b: bool = False
     #: Every position the Bank can name for the role, for the caller's picker. NEVER
     #: written to the PDF.
     candidate_positions: tuple[str, ...] = Field(default=())
     #: True when some member file names no position the pattern can read (e.g. an
     #: unpadded id), so ``candidate_positions`` may be a partial list. NEVER written.
     positions_incomplete: bool = False
+    #: The grades the source files carry, for the caller's page as REFERENCE only
+    #: (HR-314). NEVER written: proposing a grade is the evaluator's job.
+    reference_grades: tuple[str, ...] = Field(default=())
+    #: Which text facts the caller read from the source files rather than the role,
+    #: so a page can say so (HR-309). NEVER written.
+    filled_from_sources: tuple[str, ...] = Field(default=())
 
 
 def validate_field_map(fmap: CompReqFieldMap) -> CompReqFieldMap:
     """Refuse a map that could write something it must not. Returns ``fmap``."""
     names = set(fmap.all_fields)
-    targets = set(fmap.prefill_fields.values())
+    boxes = set(fmap.request_type_boxes.values()) | set(
+        fmap.based_on_existing_yes_boxes.values()
+    )
+    targets = set(fmap.prefill_fields.values()) | boxes
+    if set(fmap.request_type_boxes) != REQUEST_TYPES:
+        raise ValueError("request_type_boxes must name exactly the request types")
+    if set(fmap.based_on_existing_yes_boxes) != {
+        "based_on_positions_a",
+        "based_on_positions_b",
+    }:
+        raise ValueError("based_on_existing_yes_boxes must cover Sections A and B")
+    if len(boxes) != len(fmap.request_type_boxes) + len(
+        fmap.based_on_existing_yes_boxes
+    ):
+        raise ValueError("two box keys point at the same PDF field")
     if targets & set(fmap.signature_fields):
         raise ValueError("prefill_fields points at a signature field")
     if not targets <= names:
@@ -113,12 +173,12 @@ def validate_field_map(fmap: CompReqFieldMap) -> CompReqFieldMap:
         raise ValueError(f"prefill_fields names unknown PDF fields: {unknown}")
     if not set(fmap.signature_fields) <= names:
         raise ValueError("signature_fields names a field the form does not have")
-    if set(fmap.prefill_fields) | set(fmap.unwritten_fields) != set(
+    if set(fmap.prefill_fields) | set(fmap.unwritten_fields) | _BOX_FIELDS != set(
         CompReqPrefill.model_fields
     ):
         raise ValueError(
-            "prefill_fields + unwritten_fields must cover exactly the "
-            "CompReqPrefill fields"
+            "prefill_fields + unwritten_fields + the box fields must cover exactly "
+            "the CompReqPrefill fields"
         )
     if set(fmap.prefill_fields) & set(fmap.unwritten_fields):
         raise ValueError("a field cannot be both written and unwritten")
@@ -179,6 +239,15 @@ def _values_to_write(fmap: CompReqFieldMap, prefill: CompReqPrefill) -> dict[str
     if prefill.jd_in_word_attached:
         out[pf["jd_in_word_attached"]] = fmap.checkbox_on_value
     put("employee_group", prefill.employee_group)
+    put("contact_name", prefill.contact_name)
+    put("contact_email", prefill.contact_email)
+    if prefill.request_type is not None:
+        out[fmap.request_type_boxes[prefill.request_type]] = fmap.checkbox_on_value
+    yes = fmap.based_on_existing_yes_boxes
+    if prefill.based_on_existing_a:
+        out[yes["based_on_positions_a"]] = fmap.checkbox_on_value
+    if prefill.based_on_existing_b:
+        out[yes["based_on_positions_b"]] = fmap.checkbox_on_value
     # Defence in depth: whatever the map said, a signature field is never written.
     return {k: v for k, v in out.items() if k not in fmap.signature_fields}
 

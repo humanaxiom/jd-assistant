@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **253 decisions** (251 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 356 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **268 decisions** (266 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 371 parameters on the decision surface, all accounted for.
 
-**Of those 253, 88 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 163 are recorded for the same build check but are not yours to sign: 71 shape what a reviewer sees without deciding whether a job description passes, and 92 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 268, 88 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 178 are recorded for the same build check but are not yours to sign: 78 shape what a reviewer sees without deciding whether a job description passes, and 100 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -949,6 +949,13 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-256](#hr-256) | Should the APSA/APEX/Poly export print a heading above the territorial acknowledgement and Employment Equity statement, when HR's 2024 template prints them with no heading at all? | `TERRITORIAL ACKNOWLEDGEMENT AND EDI COMMITMENT` | we chose it |
 | [HR-258](#hr-258) | Is the identification table the APSA/APEX/Poly export prints in its page header a faithful copy of HR's 2024 template — and is printing the supervisor's title and position # there, which the template does not ask for, acceptable? | *7 entries — see below* | we chose it |
 | [HR-259](#hr-259) | May the APSA/APEX/Poly export type its bullets as characters (so the Bank can read its own export back) instead of using Word's list formatting as HR's template does? | `•` | we chose it |
+| [HR-309](#hr-309) | When a harmonized role lacks a department or an employee group, may the Compensation Requisition Form take it from the role's source files instead? | `department`, `employee_group` | we chose it |
+| [HR-310](#hr-310) | When the source files disagree on a fact (two departments across one role), should the form stay blank, or take the majority? | `true` | we chose it |
+| [HR-311](#hr-311) | Should the Bank tick the "Type of request" box (A–E) the requester chose, or leave every box for them to tick on the form? | `true` | we chose it |
+| [HR-312](#hr-312) | When the Bank lists the positions a request is based on (Section A or B), should it also tick that section's "based off of an existing position? Yes" box? | `true` | we chose it |
+| [HR-313](#hr-313) | May the Bank type the signed-in requester's name and email into "Contact Name & Position Title" / its Email box, when they leave that choice ticked? | `true` | we chose it |
+| [HR-314](#hr-314) | Should the choices page SHOW the grades the role's source files carry, as reference, while never writing a grade to the form? | `true` | we chose it |
+| [HR-315](#hr-315) | Should a self-hosted chat model read what a person types into the Library and Builder search boxes before the title and vector passes run? | `false` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -1328,6 +1335,62 @@ The two bands now say two different, true things. The merged band said one false
 - **Why it matters:** MEASURED 2026-10-19: 1,798 of 1,876 current non-CUPE roles exported and re-read by the Bank came back with a different duty count — usually 5 exported, 1 re-read. The export used Word's "List Bullet" style, and a Word list bullet is formatting: it never reaches the text the parser reads, so every duty ran into one. The archive has the same problem in reverse (measured read-only over all 9,947 archive .docx: of the 5,114 JDFN files whose duties are Word-formatted lists, 48.4% parse as ONE duty), so the parser, not the archive, is the reader that cannot see Word bullets — fixing that is a parser change, not made here. The export now types this mark, a tab and a hanging indent before every duty, decision, problem, contact and qualification: it looks like a bullet, and it IS one to the parser. The template's "How and why" sub-bullets stay Word sub-bullets on purpose, so they re-read as part of their duty. The trade-off HR should know: editing the exported file in Word, a new line after an item does not continue the list automatically.
 - **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`; changes only the exported `.docx`. The mark must be one the parser reads as a bullet (`test_the_bullet_glyph_is_one_the_parser_reads`); a mark it does not read brings the merged-duties defect straight back, and the live smoke (`test_every_live_apsa_role_exports_and_rereads_its_duties`) goes red.
 
+##### HR-309 — When a harmonized role lacks a department or an employee group, may the Compensation Requisition Form take it from the role's source files instead?
+
+- **We ship:** `department`, `employee_group`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.fill_from_sources_when_role_lacks`
+- **Where the default came from:** we chose it
+- **Why it matters:** MEASURED 2026-10-28 over the 2,503 current roles: the harmonized content names a department for 1,746 and an APSA/APEX employee group for 1,077, while the member files' current parse raises those to 1,851 and 1,113. The first form the owner tested (AV Systems Analyst) was one of the gaps: its three source files all say "IT Services" and APSA, and the role said neither, so the PDF came out with only a title. The grade is deliberately NOT in this list: proposing one is the evaluator's job (ADR-007), so it is shown as reference only (HR-314).
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. Only facts the prefill knows how to read are allowed (`Literal`); removing one leaves that box blank for the requester.
+
+##### HR-310 — When the source files disagree on a fact (two departments across one role), should the form stay blank, or take the majority?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.sources_must_agree`
+- **Where the default came from:** we chose it
+- **Why it matters:** 27 of the 2,503 current roles have members in more than one department. A form sent to Compensation with the wrong department typed in is worse than one with the box empty, so a disagreement writes nothing. `false` would take the most frequent value.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. Affects only what a downloaded form has typed in; the requester edits it in Acrobat either way.
+
+##### HR-311 — Should the Bank tick the "Type of request" box (A–E) the requester chose, or leave every box for them to tick on the form?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.tick_request_type`
+- **Where the default came from:** we chose it
+- **Why it matters:** The requester picks the request type on the choices page and the Bank fills that section's position boxes accordingly; a form with the section filled but the type unticked reads as unfinished. The box map (A -> Check Box71, B -> 75, C -> 72, D -> 76, E -> 73) is dictated by the form and lives in the field map.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` leaves the five boxes untouched.
+
+##### HR-312 — When the Bank lists the positions a request is based on (Section A or B), should it also tick that section's "based off of an existing position? Yes" box?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.tick_based_on_existing`
+- **Where the default came from:** we chose it
+- **Why it matters:** Writing the list without ticking Yes leaves the form contradicting itself. Only the Yes box is ever ticked, and only when a list is written; No is never asserted (a new position based on nothing needs nothing from the Bank).
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` leaves Check Box66 (Section A) and Check Box55 (Section B) untouched.
+
+##### HR-313 — May the Bank type the signed-in requester's name and email into "Contact Name & Position Title" / its Email box, when they leave that choice ticked?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.contact_from_requester`
+- **Where the default came from:** we chose it
+- **Why it matters:** The contact is the person downloading the form, whose identity the CAS session already carries — never an incumbent (the Bank holds no incumbent names, and the prefill model has no field for one). The requester can untick it on the choices page, and the email stays blank when the session carries none.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` leaves both contact boxes blank regardless of the page's choice.
+
+##### HR-314 — Should the choices page SHOW the grades the role's source files carry, as reference, while never writing a grade to the form?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.show_source_grades_for_reference`
+- **Where the default came from:** we chose it
+- **Why it matters:** "Anticipated grade" is the evaluator's call (ADR-007: the Bank does not classify), so no grade is ever typed in. The sources' grades are still useful context for the requester, so they are shown beside the choices, labelled as reference and as coming from the source files.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. Affects the choices page only; the PDF is identical either way.
+
+##### HR-315 — Should a self-hosted chat model read what a person types into the Library and Builder search boxes before the title and vector passes run?
+
+- **We ship:** `false`
+- **Configured in:** `search.yaml` → `search.query_understanding_enabled`
+- **Where the default came from:** we chose it
+- **Why it matters:** MEASURED 2026-10-19 on 22 live queries: guarded, the model lifted the Library from hit@5 20/22 (P@10 0.67) to 21/22 (0.84) and the Builder from 0.72 to 0.87 — it expands "AP clerk", "coop coord", "IT sysadmin". UNGUARDED it invented an employee-group filter on 75–85% of queries and emptied pages, so the guard is code (group only when typed, unit only from the rulebook and only as a suggestion, the words as typed always searched) and the model can only ADD results. Ships OFF: the model choice is HR/ITS's (plan Q8), it adds 3.3 s p50 / 6.1 s p95 to a search, and enabling it makes the live smoke depend on the inference host. With it off no client is built and no call is made.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. On: every non-blank search makes one plan call (bounded by HR-321), the page shows the model's reading, and `make smoke` must make a real plan call before anything ships (Directive #0).
+
 #### An earlier version of this tool chose it — also unratified
 
 Numbers an earlier version of this software already used, which we kept. SFU has never published a scoring model, so these are **not** SFU rules and **not** industry standards — they are engineering guesses that happen to be older than the rest. They need your ruling exactly as much as the group above.
@@ -1634,6 +1697,14 @@ Model names, dimensions, timeouts, retries, text-matching patterns and search in
 | [HR-237](#hr-237) | When someone types a search into the JD Bank library, how many of the closest roles by MEANING should it consider after the roles whose title matches? | `100` | we chose it |
 | [HR-241](#hr-241) | When nobody's job title contains the words someone typed into a search, how closely must a title's spelling match each of those words before we offer it as "similar spelling"? | `0.5` | we chose it |
 | [HR-242](#hr-242) | How fast must the Builder's "start from an existing JD" search answer — in the slowest one in twenty searches — before the system check counts it as too slow? | `1.0` | we chose it |
+| [HR-316](#hr-316) | Which self-hosted chat model should read search queries? | `gpt-oss:20b` | we chose it |
+| [HR-317](#hr-317) | At what sampling temperature should the search-query model run? | `0.0` | we chose it |
+| [HR-318](#hr-318) | How hard should the search-query model reason before answering? | `low` | we chose it |
+| [HR-319](#hr-319) | What reply budget, in tokens, does one search-query plan get? | `300` | we chose it |
+| [HR-320](#hr-320) | How many times is an invalid plan reply re-asked with a repair nudge? | `0` | we chose it |
+| [HR-321](#hr-321) | How long may the whole search-query plan call take before the page is rendered without it? | `6.0` | we chose it |
+| [HR-322](#hr-322) | Which versioned prompt pair does the search-query plan use? | `jd_search_plan_v1` | we chose it |
+| [HR-323](#hr-323) | How many title keywords may one search run, including the words as typed? | `4` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -2165,6 +2236,70 @@ We picked these because the system needed *a* value. There is no SFU precedent b
 - **Where the default came from:** we chose it
 - **Why it matters:** The end-to-end system check (`make smoke`) times a fixed set of 24 searches through the Builder and fails if the slowest one in twenty takes longer than this. It is an acceptance bar, not a timeout: no search is ever cut off at this number (how long a search waits for the inference host is HR-198). Measured on 2026-10-19: before this change the search took 3.1 seconds typically and 3.6 seconds at that slow end, almost all of it one scan of every archive document's title in every version ever parsed; after it, 0.2 seconds at the slow end. One second leaves about five times that for a busy server, and fails well before the old 3.6 seconds could quietly return.
 - **If it changes:** Lower: the check fails more readily — on a busy inference host, or the first search after a quiet period — so it may block a release over something users would not notice. Higher: a real slowdown can return without the check noticing. Changes nothing a person sees and nothing about any JD; it only decides when the system check calls search too slow.
+
+##### HR-316 — Which self-hosted chat model should read search queries?
+
+- **We ship:** `gpt-oss:20b`
+- **Configured in:** `search.yaml` → `search.query_model`
+- **Where the default came from:** we chose it
+- **Why it matters:** MEASURED 2026-10-19: gpt-oss:20b matched 120b on guarded quality (Builder P@10 0.868 vs 0.859, Library 0.836 vs 0.827), answered about 1.4 s faster warm and cold-loaded 2.5x faster — and a search is interactive, so latency is the cost that matters. A rulebook decision, never `settings.agent_model`, and separate from the rewrite's model (HR-176).
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. The model must exist on the inference host; a missing one is "no plan" on every search (the page still renders), visible in the API log.
+
+##### HR-317 — At what sampling temperature should the search-query model run?
+
+- **We ship:** `0.0`
+- **Configured in:** `search.yaml` → `search.query_temperature`
+- **Where the default came from:** we chose it
+- **Why it matters:** 0 makes the same search read the same way every time, which is what a person re-running a search expects. Same per-pass knob shape as HR-177.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`.
+
+##### HR-318 — How hard should the search-query model reason before answering?
+
+- **We ship:** `low`
+- **Configured in:** `search.yaml` → `search.query_reasoning_effort`
+- **Where the default came from:** we chose it
+- **Why it matters:** The plan is four small fields and every second is a second the person waits; `low` is the measured spike setting. Same per-pass knob shape as HR-191.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `null` sends nothing (the model's own default); higher effort costs latency against HR-321's budget.
+
+##### HR-319 — What reply budget, in tokens, does one search-query plan get?
+
+- **We ship:** `300`
+- **Configured in:** `search.yaml` → `search.query_max_tokens`
+- **Where the default came from:** we chose it
+- **Why it matters:** The plan is a tiny JSON object; 300 is roomy and bounds a runaway reply.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. Too small truncates the JSON, which reads as "no plan".
+
+##### HR-320 — How many times is an invalid plan reply re-asked with a repair nudge?
+
+- **We ship:** `0`
+- **Configured in:** `search.yaml` → `search.query_max_retries`
+- **Where the default came from:** we chose it
+- **Why it matters:** Interactive: a bad reply means "no plan" and the page renders from the words as typed, rather than the person waiting for a second attempt. The reply is schema-constrained, which the spike found never failed in 44 calls.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. Each retry spends part of HR-321's budget.
+
+##### HR-321 — How long may the whole search-query plan call take before the page is rendered without it?
+
+- **We ship:** `6.0`
+- **Configured in:** `search.yaml` → `search.query_timeout_seconds`
+- **Where the default came from:** we chose it
+- **Why it matters:** MEASURED warm p95 6.1 s on gpt-oss:20b (7.4 s on 120b); cold load about 10 s. Past the budget the plain search is shown — never a blank page, never a 500.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. The worst-case wait a person sees on a search with the feature on.
+
+##### HR-322 — Which versioned prompt pair does the search-query plan use?
+
+- **We ship:** `jd_search_plan_v1`
+- **Configured in:** `search.yaml` → `search.query_prompt_version`
+- **Where the default came from:** we chose it
+- **Why it matters:** The prompt tells the model to expand abbreviations, never guess a group, and name a unit only from the rulebook list it is handed. The `_v1` suffix is the version stamped onto every reading shown on the page.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. A new prompt is a new `jd_search_plan_vN` pair under jd_bank/llm/templates/.
+
+##### HR-323 — How many title keywords may one search run, including the words as typed?
+
+- **We ship:** `4`
+- **Configured in:** `search.yaml` → `search.query_max_title_keywords`
+- **Where the default came from:** we chose it
+- **Why it matters:** Each keyword is one more title scan over roles and documents (and, in the Builder, both). 4 bounds the cost at the three expansions the spike found useful; the words as typed are always the first and are never dropped.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. 1 means "no added keywords" (the plan still rewrites the vector query).
 
 #### An earlier version of this tool chose it — also unratified
 

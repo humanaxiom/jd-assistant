@@ -1,0 +1,54 @@
+# The Compensation Requisition Form (CRF) PREFILL POLICY — rulebook-as-data
+# (CLAUDE.md non-negotiable #2). Track K, PR K3.
+#
+# WHAT THIS FILE DECIDES
+# ----------------------
+# Which facts the Bank SUGGESTS onto SFU's own Compensation Requisition Form beyond the
+# ones it reads straight off the harmonized role (title, department, employee group,
+# the member positions). Every knob here is a judgement HR may object to, so every knob
+# is registered (HR-309 ff.). It decides nothing about what a JD IS: no validator reads
+# it and the parser never sees it, so it is UNHASHED (not part of `rules_version`) and
+# it does NOT move `PARSER_VERSION`.
+#
+# WHAT IS NOT HERE, on purpose
+# ----------------------------
+# The PDF field map (which AcroForm field carries which value) is dictated by the form
+# itself and lives beside the template, in `jd_export/templates/comp_requisition.yaml`.
+# The grade is never written: proposing one is the evaluator's job (ADR-007), so at most
+# the source files' grades are SHOWN on the choices page as reference.
+#
+# SOURCE
+# ------
+# SFU HR, Compensation Requisition Form (updated September 17, 2024), vendored at
+# `fixtures/hr/CompensationRequisitionForm_2024.pdf`; the field-by-field mapping and
+# the measured coverage are in docs/audit/2026-10-19-search-hr-compreq/comp-form-mapping.md.
+version: jd_rules_sfu_v4
+
+# When the harmonized role lacks one of these facts, read it from the role's member
+# source files instead (their CURRENT parse). Measured 2026-10-28 over 2,503 current
+# roles: department 1,746 -> 1,851 roles, employee group (APSA/APEX) 1,077 -> 1,113.
+fill_from_sources_when_role_lacks:
+  - department
+  - employee_group
+
+# A fact read from the sources is used only when every source file that states it
+# agrees. 27 roles have members in more than one department: those stay blank rather
+# than guessed.
+sources_must_agree: true
+
+# Tick the request-type box (A–E) the requester chose on the choices page. Off, the
+# box is left for them to tick on the form.
+tick_request_type: true
+
+# Tick "is this based off of an existing position? Yes" (Section A, and Section B)
+# whenever the Bank writes that section's list of positions.
+tick_based_on_existing: true
+
+# Fill "Contact Name & Position Title" and its email with the SIGNED-IN requester (the
+# person downloading the form), when they leave the choices page's box ticked. Never
+# an incumbent: the Bank holds no incumbent names.
+contact_from_requester: true
+
+# Show the grades the source files carry on the choices page, as reference only.
+# They are NEVER written to the form (Anticipated grade is the evaluator's).
+show_source_grades_for_reference: true

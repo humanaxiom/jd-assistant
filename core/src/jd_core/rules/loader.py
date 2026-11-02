@@ -187,6 +187,19 @@ CUPE_FORM_FILE: Final[str] = "cupe_form.yaml"
 #: (:data:`_UNHASHED_FILES`), and it does NOT move ``PARSER_VERSION``.
 APSA_FORM_FILE: Final[str] = "apsa_form.yaml"
 
+#: What the Bank SUGGESTS onto SFU's Compensation Requisition Form beyond the facts
+#: it reads off the role (Track K, PR K3): source fallback, the request-type and
+#: based-on boxes, the requester as contact. No validator reads it and the parser
+#: never sees it — registered and on the surface but NOT hashed
+#: (:data:`_UNHASHED_FILES`), and it does NOT move ``PARSER_VERSION``.
+COMP_REQUISITION_FILE: Final[str] = "comp_requisition.yaml"
+
+#: The optional LLM read of a search query in front of both search boxes (Track I,
+#: PR I3): off/on, model, budget. No validator reads it and the parser never sees
+#: it — registered and on the surface but NOT hashed (:data:`_UNHASHED_FILES`),
+#: and it does NOT move ``PARSER_VERSION``.
+SEARCH_FILE: Final[str] = "search.yaml"
+
 #: The content-bearing SFU sections an embedding may be built from — the subset of
 #: :data:`~src.jd_core.models.quality.SFUSection` that carries free text at all.
 #: ``identification`` is structured columns, not prose; ``about_sfu`` /
@@ -2112,6 +2125,72 @@ ApsaIdField = Literal[
 ]
 
 
+class CompRequisition(_RuleFile):
+    """The Compensation Requisition Form PREFILL POLICY (``comp_requisition.yaml``,
+    Track K PR K3): which facts the Bank suggests onto SFU's own CRF beyond those it
+    reads straight off the harmonized role.
+
+    **On the register, but NOT in the content hash** (:data:`_UNHASHED_FILES`): no
+    validator reads it and the parser never sees it, so it cannot move a JD's score,
+    and it does not move ``PARSER_VERSION``. It decides only what a downloaded form
+    has typed in before the requester finishes it.
+
+    The PDF field map is NOT here: which AcroForm field carries which value is
+    dictated by the form and lives beside the template
+    (``jd_export/templates/comp_requisition.yaml``).
+
+    Shaped **flat** (:data:`_FLAT_SURFACE_FILES`), so every knob is on the decision
+    surface the moment it is declared.
+    """
+
+    #: Facts read from the member source files' current parse when the harmonized
+    #: role lacks them. Only facts the prefill knows how to read are allowed.
+    fill_from_sources_when_role_lacks: tuple[
+        Literal["department", "employee_group"], ...
+    ]
+    #: A source-read fact is used only when every source stating it agrees.
+    sources_must_agree: bool
+    #: Tick the A–E box the requester chose.
+    tick_request_type: bool
+    #: Tick "based off of an existing position? Yes" when that section's list is
+    #: written.
+    tick_based_on_existing: bool
+    #: Fill the contact name/email with the signed-in requester.
+    contact_from_requester: bool
+    #: Show the sources' grades on the choices page (never written to the form).
+    show_source_grades_for_reference: bool
+
+
+class Search(_RuleFile):
+    """Query understanding for the Library and Builder search boxes
+    (``search.yaml``, Track I PR I3): whether a self-hosted chat model reads the query
+    first, and with what model and budget.
+
+    **On the register, but NOT in the content hash** (:data:`_UNHASHED_FILES`): it
+    decides what a search PAGE offers, never what a JD is or how it scores, and it
+    does not move ``PARSER_VERSION``. The GUARD (group only when typed, unit only
+    from the rulebook, words-as-typed always searched) is code, not a knob — see
+    ``jd_bank/query_plan.py``.
+
+    Shaped **flat** (:data:`_FLAT_SURFACE_FILES`), so every knob is on the decision
+    surface the moment it is declared.
+    """
+
+    #: Ships OFF (HR-315). Off means no client is built and no call is made.
+    query_understanding_enabled: bool
+    #: The chat model that reads the query (HR-316) — never ``settings.agent_model``.
+    query_model: str = Field(min_length=1)
+    query_temperature: float = Field(ge=0.0, le=2.0)
+    query_reasoning_effort: ReasoningEffortLevel | None = None
+    query_max_tokens: int = Field(gt=0)
+    query_max_retries: int = Field(ge=0)
+    #: Wall-clock budget for the whole plan call; past it the page renders without.
+    query_timeout_seconds: float = Field(gt=0.0)
+    query_prompt_version: str = Field(min_length=1)
+    #: Title keywords per search INCLUDING the words as typed, so ``1`` means none.
+    query_max_title_keywords: int = Field(ge=1)
+
+
 class ApsaForm(_RuleFile):
     """SFU's APSA/APEX/Poly job-description form, as EXPORTED — plus the one sentence
     the Builder inserts for a criminal record check (``apsa_form.yaml``, Track J PR J4).
@@ -3793,6 +3872,11 @@ class Rules(BaseModel):
     cupe_form: CupeForm
     #: On the register, but NOT in the content hash — see :class:`ApsaForm` (Track J4).
     apsa_form: ApsaForm
+    #: On the register, but NOT in the content hash — see :class:`CompRequisition`
+    #: (Track K3).
+    comp_requisition: CompRequisition
+    #: On the register, but NOT in the content hash — see :class:`Search` (Track I3).
+    search: Search
     decision_register: DecisionRegister
 
     def thresholds_for(self, template: JDTemplate) -> Thresholds:
@@ -4299,6 +4383,8 @@ _FLAT_SURFACE_FILES: Final[tuple[str, ...]] = (
     "classification",
     "cupe_form",
     "apsa_form",
+    "comp_requisition",
+    "search",
 )
 
 
@@ -4574,6 +4660,8 @@ _FILE_MODELS: Final[tuple[tuple[str, str, type[_RuleFile]], ...]] = (
     (CLASSIFICATION_FILE, "classification", Classification),
     (CUPE_FORM_FILE, "cupe_form", CupeForm),
     (APSA_FORM_FILE, "apsa_form", ApsaForm),
+    (COMP_REQUISITION_FILE, "comp_requisition", CompRequisition),
+    (SEARCH_FILE, "search", Search),
     (REGISTER_FILE, "decision_register", DecisionRegister),
 )
 
@@ -4619,6 +4707,8 @@ _UNHASHED_FILES: Final[frozenset[str]] = frozenset(
         CLASSIFICATION_FILE,
         CUPE_FORM_FILE,
         APSA_FORM_FILE,
+        COMP_REQUISITION_FILE,
+        SEARCH_FILE,
     }
 )
 

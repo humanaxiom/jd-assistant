@@ -6,7 +6,7 @@
 |---|---|
 | I1 | ✅ merged #213 |
 | I2 | ✅ merged #215 |
-| **I3** | ❌ **not built.** This is the LLM part of "NLP-powered search" |
+| **I3** | ✅ PR #219, **flag OFF** (`search.yaml`, HR-315–323): `jd_bank/query_plan.py` — a schema-constrained plan (semantic query, ≤3 added title keywords, group, unit) from `gpt-oss:20b`, then the deterministic guard (group only if typed, unit only from `org_units.yaml` and only as a suggestion, the words as typed always first); both pages show "Read as: …" with what was ignored and a *search the words as typed* link (`?plain=1`). Built synchronously inside the request with a 6 s budget, not the htmx swap the design sketched. Rerank: not built, as designed. The Builder page also stopped showing "N% similar". Q8 still gates enabling it |
 | J0 | ◐ the CUPE sources are vendored (`fixtures/hr/cupe/`). Whether the contradictions are registered has not been checked: verify before calling J0 done |
 | J1 | ✅ merged #212 |
 | J2 | ✅ merged #216 (Q9 = option C) |
@@ -16,7 +16,7 @@
 | K0 | ❌ owner Q1 not formally recorded |
 | K1 | ⏸ on hold (owner Q3: PeopleSoft export TBD) |
 | K2 | ✅ the filler merged inside #213 (#211 closed as superseded) |
-| **K3** | ❌ **not built.** No route or button reaches K2, so the CRF is not yet delivered |
+| **K3** | ✅ PR #219: `GET`/`POST /jd-bank/ui/role/{cluster_id}/comp-requisition` — request type A–E, which ONE position, requester as contact, Word attached; linked from the role page and the Builder's Export block. Fills title, department and group (from the role, or the source files when they agree — HR-309/310), ticks the type and the based-on Yes boxes (HR-311/312), names the requester (HR-313), shows source grades as reference (HR-314). Live smoke drives it. Q2 implemented as *the requester picks*; Q6 as a note, no block |
 
 Order and gates: [`../plan.md`](../plan.md) § *NOW*. The precondition section below is the
 2026-10-19 record; run `make smoke` for today's state.
