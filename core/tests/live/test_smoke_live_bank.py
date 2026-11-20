@@ -634,6 +634,36 @@ _CRF_ROLES = f"""
 """
 
 
+async def _expected_department(session, cluster_id, pid, role_department):  # type: ignore[no-untyped-def]
+    """HR-337, re-derived by raw SQL: the picked position's own member files (current
+    parse) when every one that states a department agrees, else the role's."""
+    from src.jd_core.parser import PARSER_VERSION
+
+    stated = (
+        (
+            await session.execute(
+                text(f"""
+                WITH cur AS ({_CURRENT})
+                SELECT DISTINCT lower(trim(p.parsed->>'department'))
+                FROM cur c
+                CROSS JOIN LATERAL jsonb_array_elements(c.source_document_ids) e
+                JOIN source_documents s ON s.id::text = e->>'source_id'
+                JOIN parsed_jds p ON p.source_document_id = s.id
+                                 AND p.parser_version = :v
+                WHERE c.cluster_id = :cid AND s.filename LIKE '%' || :pid || '%'
+                  AND nullif(trim(p.parsed->>'department'), '') IS NOT NULL
+                """),
+                {"cid": cluster_id, "pid": pid, "v": PARSER_VERSION},
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if len(stated) == 1:
+        return stated[0]
+    return (role_department or "").strip().lower()
+
+
 async def _crf_fill(session, cluster_id, **kwargs):  # type: ignore[no-untyped-def]
     import io
 
@@ -703,6 +733,9 @@ async def test_crf_download_reaches_a_person_through_the_live_role_page(  # type
         re.findall(r'name="position_number" value="([0-9]+)"', form_page.text)
     )
     assert offered == set(pids), f"picker offers {offered}, Bank holds {set(pids)}"
+    # The contact box arrives prefilled from the session; a browser posts it back.
+    prefilled = re.search(r'name="contact_name" value="([^"]*)"', form_page.text)
+    assert prefilled and prefilled.group(1), "the contact box is not prefilled"
 
     # 3. The download is SFU's own PDF carrying the chosen position + the Bank's facts.
     chosen = sorted(pids)[-1]
@@ -713,6 +746,7 @@ async def test_crf_download_reaches_a_person_through_the_live_role_page(  # type
             "position_number": chosen,
             "jd_in_word_attached": "on",
             "contact_me": "on",
+            "contact_name": prefilled.group(1),
         },
     )
     assert resp.status_code == 200, resp.text[:500]
@@ -724,10 +758,12 @@ async def test_crf_download_reaches_a_person_through_the_live_role_page(  # type
     pf = fmap.prefill_fields
     assert got[pf["position_number"]] == chosen
     assert got[pf["position_title"]] == title.strip()
-    assert got[pf["department"]] == department.strip()
+    want = await _expected_department(session, cluster_id, chosen, department)
+    assert str(got[pf["department"]]).strip().lower() == want
     assert got[pf["employee_group"]] == group
     assert got[pf["jd_in_word_attached"]] == fmap.checkbox_on_value
-    assert got[pf["based_on_positions_b"]].startswith(", ".join(sorted(pids)[:2]))
+    # Only the pick is listed — never every position the role spans.
+    assert got[pf["based_on_positions_b"]] == chosen
     # The boxes the rulebook asserts (HR-311 / HR-312): B ticked, Section B's Yes
     # ticked, Section A's Yes and every No box untouched.
     assert got[fmap.request_type_boxes["reevaluation"]] == fmap.checkbox_on_value
@@ -736,8 +772,8 @@ async def test_crf_download_reaches_a_person_through_the_live_role_page(  # type
     assert got.get(yes["based_on_positions_a"]) in (None, "/Off")
     for no_box in ("Check Box67", "Check Box56"):
         assert got.get(no_box) in (None, "/Off"), no_box
-    # The requester (the smoke's synthetic user) is the contact (HR-313).
-    assert got[pf["contact_name"]]
+    # The requester's contact line, as the page prefilled and posted it (HR-313).
+    assert got[pf["contact_name"]] == prefilled.group(1)
     for name in fmap.signature_fields:
         assert not got.get(name), f"signature field {name} was written"
 
@@ -774,15 +810,26 @@ async def test_crf_fills_from_a_live_single_position_role(session) -> None:  # t
     assert row is not None, "no live role has one position + title + dept + group"
     cluster_id, title, department, group, pids = row
 
-    _, got = await _crf_fill(
-        session, cluster_id, request_type="reevaluation", jd_in_word_attached=True
-    )
-
+    # The one position is SUGGESTED, and written only when the requester picks it;
+    # "leave blank" leaves it blank (UAT review 2026-11-19).
+    blank, unpicked = await _crf_fill(session, cluster_id, request_type="reevaluation")
+    assert blank.suggested_position == pids[0]
     fmap = load_field_map()
     pf = fmap.prefill_fields
+    assert unpicked[pf["position_number"]] in (None, "")
+    assert unpicked[pf["based_on_positions_b"]] in (None, "")
+
+    _, got = await _crf_fill(
+        session,
+        cluster_id,
+        request_type="reevaluation",
+        jd_in_word_attached=True,
+        position_number=pids[0],
+    )
     assert got[pf["position_number"]] == pids[0]
     assert got[pf["position_title"]] == title.strip()
-    assert got[pf["department"]] == department.strip()
+    want = await _expected_department(session, cluster_id, pids[0], department)
+    assert str(got[pf["department"]]).strip().lower() == want
     assert got[pf["employee_group"]] == group
     assert got[pf["based_on_positions_b"]] == pids[0]
     assert got[pf["based_on_positions_a"]] in (None, "")  # not a Section A request
@@ -791,12 +838,11 @@ async def test_crf_fills_from_a_live_single_position_role(session) -> None:  # t
         assert got[name] in (None, ""), f"{name} must stay empty"
 
 
-async def test_crf_caps_a_live_many_position_role(session) -> None:  # type: ignore[no-untyped-def]
-    """K2 — a live role with MORE positions than the single-line field holds.
-
-    The Section A box is ~2 ids wide; the full list must land in the Reason field and
-    the box carries the cap + a `+K more` marker, never an overflowing line.
-    """
+async def test_crf_never_lists_a_live_many_position_role_wholesale(session) -> None:  # type: ignore[no-untyped-def]
+    """UAT review 2026-11-19: Section A used to list EVERY position of a many-position
+    role (58 ids for one) and spill the overflow into the requester's own Reason box.
+    On the live role with the most positions: no pick lists nothing and writes no
+    Reason; a pick lists exactly that one; the picker still offers every position."""
     from src.jd_core.rules import get_rules
     from src.jd_export.comp_requisition import load_field_map
 
@@ -818,19 +864,25 @@ async def test_crf_caps_a_live_many_position_role(session) -> None:  # type: ign
     ).first()
     assert row is not None, "no live role has more positions than the box holds"
     cluster_id, pids = row
+    pf = fmap.prefill_fields
 
-    prefill, got = await _crf_fill(
+    prefill, unpicked = await _crf_fill(
         session, cluster_id, request_type="new_based_on_existing"
     )
+    assert unpicked[pf["based_on_positions_a"]] in (None, "")
+    assert unpicked.get(ov.details_field) in (None, "")  # the Reason box is theirs
+    assert unpicked[pf["position_number"]] in (None, "")  # N/A if new
+    assert set(pids) <= set(prefill.candidate_positions)
 
-    pf = fmap.prefill_fields
-    expected = ", ".join(pids[: ov.max_ids]) + f" +{len(pids) - ov.max_ids} more"
-    assert got[pf["based_on_positions_a"]] == expected
-    assert got[pf["position_number"]] in (None, "")  # N/A if new
-    reason = str(got[ov.details_field])
-    assert all(pid in reason for pid in pids)
-    assert str(len(pids)) in reason
-    assert list(prefill.candidate_positions) == list(pids)
+    _, picked = await _crf_fill(
+        session,
+        cluster_id,
+        request_type="new_based_on_existing",
+        position_number=pids[-1],
+    )
+    assert picked[pf["based_on_positions_a"]] == pids[-1]
+    assert picked.get(ov.details_field) in (None, "")
+    assert picked[pf["position_number"]] in (None, "")
 
 
 # ── The FULL filename position reader (HR-325 … HR-331), against the live Bank ────
