@@ -560,10 +560,18 @@ async def _rerender_detail_with_error(
 # "queue" is never captured as a canonical_id path param (same rule as 4.4c's routes).
 
 
+#: Rows per queue page. Measured 2026-11-19: the unpaged queue was one 1.36 MB page of
+#: 2,499 rows. A page size, not a decision — every draft is still reachable.
+QUEUE_PAGE_SIZE = 100
+_QUEUE_MAX_PAGE_SIZE = 500
+
+
 @router.get("/queue", response_class=HTMLResponse)
 async def queue_view(
     request: Request,
     limit: int | None = None,
+    offset: int = 0,
+    q: str = "",
     sort: str | None = None,
     dir: str | None = None,
     session: AsyncSession = Depends(get_session),
@@ -572,17 +580,33 @@ async def queue_view(
     # service actually applied rather than the string the URL asked for — a stale or
     # hand-edited `?sort=` would otherwise draw an arrow on a column that is not sorted.
     active_sort, active_dir = service.normalise_queue_sort(sort, dir)
+    # The WHOLE queue in its order, then filtered and paged here, so "of TOTAL" and the
+    # next/prev links describe the real queue (the service's own `limit` would cut it
+    # before the count).
     items = await service.list_review_queue(
-        session, limit=limit, sort=active_sort, direction=active_dir
+        session, limit=None, sort=active_sort, direction=active_dir
     )
+    query = q.strip()
+    if query:
+        needle = query.casefold()
+        items = tuple(i for i in items if needle in i.title.casefold())
+    page_size = max(1, min(limit or QUEUE_PAGE_SIZE, _QUEUE_MAX_PAGE_SIZE))
+    start = max(0, offset)
+    total = len(items)
     return templates.TemplateResponse(
         request,
         "review_queue.html",
         {
-            "items": items,
+            "items": items[start : start + page_size],
             "sort": active_sort,
             "direction": active_dir,
             "limit": limit,
+            "q": query,
+            "total": total,
+            "shown_from": start + 1 if total and start < total else 0,
+            "shown_to": min(start + page_size, total),
+            "prev_offset": max(0, start - page_size) if start > 0 else None,
+            "next_offset": (start + page_size if start + page_size < total else None),
         },
     )
 
