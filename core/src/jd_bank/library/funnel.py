@@ -461,7 +461,7 @@ async def build_gap(session: AsyncSession, scope: Scope) -> ArchiveGap:
                 count=no_title,
                 benign=False,
                 detail=(
-                    "The parser wrote its placeholder instead of a title. A parser "
+                    "The file was read, but no title could be found in it. A reading "
                     "defect, not a property of the document."
                 ),
             ),
@@ -472,7 +472,7 @@ async def build_gap(session: AsyncSession, scope: Scope) -> ArchiveGap:
                 benign=False,
                 detail=(
                     "Letterhead, an all-caps banner, a row of dashes or an image "
-                    "placeholder ended up in the title field. A parser defect."
+                    "placeholder ended up in the title field. A reading defect."
                 ),
             ),
             GapBucket(
@@ -484,14 +484,14 @@ async def build_gap(session: AsyncSession, scope: Scope) -> ArchiveGap:
                     "Parsed cleanly, with a title appearing exactly once in the "
                     "archive. "
                     "A role is built from a GROUP of near-duplicates, so a job with no "
-                    "duplicate anywhere never enters clustering and produces no "
+                    "duplicate anywhere is never grouped and produces no "
                     "role. It "
                     "is not rejected — it is never considered."
                 ),
             ),
             GapBucket(
                 key="should_have_clustered",
-                label="Shares a title with documents that did cluster",
+                label="Shares a title with documents that became roles",
                 count=shared_t,
                 benign=False,
                 detail=(

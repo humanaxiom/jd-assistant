@@ -1976,3 +1976,62 @@ async def test_live_query_plan_is_guarded_and_within_budget(library) -> None:  #
     resp = await library.get("/jd-bank/ui/library", params={"q": "AP clerk"})
     assert resp.status_code == 200
     assert "Read as:" in resp.text
+
+
+#: Internal vocabulary that must not reach the visible text of a page HR testers use
+#: (UAT review 2026-11-19). The detail dashboards are labelled technical reports and
+#: are exempt; their index, the funnel and every authoring/reading page are not.
+_JARGON = re.compile(
+    r"HR-\d{3}|\bdocs/|\b\w+\.(?:md|ya?ml|py|json)\b|\bparser\b|\brulebook\b"
+    r"|\bJDFN\b|[Pp]arse confidence|\bTier 1/2/3\b|\bsingletons?\b|\bcosine\b"
+)
+
+
+def _visible_text(page: str) -> str:
+    from html import unescape
+
+    page = re.sub(r"(?is)<(script|style|title)\b.*?</\1>", " ", page)
+    page = re.sub(r"(?s)<!--.*?-->", " ", page)
+    return unescape(re.sub(r"\s+", " ", re.sub(r"(?s)<[^>]+>", " ", page)))
+
+
+async def test_tester_facing_pages_speak_plain_language(library, session) -> None:  # type: ignore[no-untyped-def]
+    """No internal ids, repo paths or pipeline vocabulary on the pages an HR tester
+    reads — rendered from the live Bank, visible text only."""
+    role = (
+        await session.execute(
+            text(
+                f"SELECT cluster_id FROM ({_CURRENT}) cur "
+                "WHERE jsonb_array_length(source_document_ids) > 3 "
+                "ORDER BY cluster_id LIMIT 1"
+            )
+        )
+    ).scalar()
+    doc = (
+        await session.execute(
+            text("SELECT source_document_id FROM parsed_jds ORDER BY 1 LIMIT 1")
+        )
+    ).scalar()
+    pages = [
+        "/jd-bank/ui/library",
+        "/jd-bank/ui/library?q=analyst",
+        f"/jd-bank/ui/role/{role}",
+        f"/jd-bank/ui/role/{role}/comp-requisition",
+        f"/jd-bank/ui/jd/{doc}",
+        "/jd-bank/ui/archive",
+        "/jd-bank/ui/collection/it",
+        "/jd-bank/ui/funnel",
+        "/jd-bank/ui/compose/new",
+        "/jd-bank/ui/compose/new?form=wjq",
+        "/jd-bank/ui/my-drafts",
+        "/jd-bank/ui/dashboard",
+    ]
+    found: dict[str, list[str]] = {}
+    for path in pages:
+        resp = await library.get(path)
+        assert resp.status_code == 200, path
+        text_ = _visible_text(resp.text)
+        hits = sorted({m.group(0) for m in _JARGON.finditer(text_)})
+        if hits:
+            found[path] = hits
+    assert not found, f"internal vocabulary on tester pages: {found}"
