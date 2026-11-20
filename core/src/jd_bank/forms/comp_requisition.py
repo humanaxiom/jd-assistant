@@ -8,9 +8,11 @@ Read-only. Reads what the Bank holds for the role's CURRENT canonical version:
   source documents' CURRENT parse, when every source stating it agrees
   (``sources_must_agree``, HR-310). What came from the sources is named on
   ``filled_from_sources`` so the page can say so.
-* the **position numbers** from the member source documents' FILENAMES, with the
-  rulebook's ``segmentation.position_id_pattern`` — the join key the archive baseline
-  uses (``baseline/facets.py``). The header ``position_number`` is NOT used: it is noisy
+* the **position numbers** from the member source documents' FILENAMES, with the full
+  filename reader (``jd_bank/positions``, HR-325 … HR-331) while ``crf`` is one of its
+  ``consumers`` — a superset of ``segmentation.position_id_pattern`` (the baseline's
+  padded join key, which it falls back to otherwise) that also reads the unpadded
+  leading list and labelled ids. The header ``position_number`` is NOT used: it is noisy
   (``Lab Coordinator``, ``Various``, ``702``) and is set on 1 of ~2,500 roles.
 * the sources' **grades**, as ``reference_grades`` for the page only (HR-314). A grade
   is never written: proposing one is the evaluator's job (ADR-007).
@@ -29,9 +31,8 @@ Read-only. Reads what the Bank holds for the role's CURRENT canonical version:
   "based off of an existing position? Yes" (HR-312).
 * *A single position.* A role spans several positions (2.4 on average, up to 73).
   ``position_number`` is set only when the role maps to exactly one position AND every
-  member file names a position the pattern can read. The pattern reads only the PADDED
-  ``0NNNNNNN`` form: **508 archive files lead with an UNPADDED id** (e.g.
-  ``61,_30785,_208,_975_JDFN_APSA_20211117.docx``) and 993 carry none. A role with such
+  member file names a position the reader can read. MEASURED over the archive, 186 of
+  14,565 filenames name none (993 under the padded pattern alone). A role with such
   a member may hold a position we cannot see, so it is flagged
   ``positions_incomplete=True`` and gets no ``position_number`` — it is never presented
   as a single-position role.
@@ -52,6 +53,7 @@ A fact the Bank lacks stays ``None`` / empty.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable
 from typing import Any, Literal, cast
 from uuid import UUID
 
@@ -59,6 +61,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.jd_bank.db.models import CanonicalJD, ParsedJDRow, SourceDocument
+from src.jd_bank.positions import load_position_index
 from src.jd_core.parser import PARSER_VERSION
 from src.jd_core.rules import get_rules
 from src.jd_export.comp_requisition import CompReqPrefill, RequestType, load_field_map
@@ -103,6 +106,24 @@ def _agreed(values: list[str], *, must_agree: bool) -> str | None:
         spellings,
         key=lambda v: (spellings.count(v), sum(c.isupper() for c in v), v),
     )
+
+
+async def _position_reader(
+    session: AsyncSession,
+) -> Callable[[UUID, str], tuple[str, ...]]:
+    """How a member file's positions are read (HR-331).
+
+    With ``crf`` among ``segmentation.filename_positions.consumers``: the FULL filename
+    reader (``jd_bank/positions``, HR-325 … HR-330), which also reads the unpadded
+    leading list and labelled ids — and needs the whole Bank, for the corroboration
+    gate (HR-328). Otherwise the padded ``segmentation.position_id_pattern`` alone.
+    """
+    segmentation = get_rules().segmentation
+    if "crf" in segmentation.filename_positions.consumers:
+        index = await load_position_index(session)
+        return lambda doc_id, _name: index.positions_of(doc_id)
+    pattern = segmentation.position_id_pattern
+    return lambda _doc_id, name: tuple(pattern.findall(name))
 
 
 async def prefill_from_role(
@@ -163,11 +184,11 @@ async def prefill_from_role(
             ).scalars()
         ]
 
-    pattern = get_rules().segmentation.position_id_pattern
+    read_positions = await _position_reader(session)
     found: set[str] = set()
     incomplete = False
     for member in member_ids:
-        ids = pattern.findall(names.get(member) or "")
+        ids = read_positions(member, names.get(member) or "")
         if not ids:
             incomplete = (
                 True  # unpadded, absent, or no filename: a position we can't see

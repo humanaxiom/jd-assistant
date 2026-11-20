@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import os
 import re
+import uuid
 
 import pytest
 
@@ -721,32 +722,109 @@ async def test_crf_caps_a_live_many_position_role(session) -> None:  # type: ign
     assert list(prefill.candidate_positions) == list(pids)
 
 
-async def test_crf_never_claims_one_position_for_an_unpadded_role(session) -> None:  # type: ignore[no-untyped-def]
-    """The measured trap: a role with ONE padded id whose other member files carry only
-    unpadded ids (the pattern cannot read 508 archive files) is not a single-position
-    role. Every such live role must come back flagged with no position number."""
-    from src.jd_bank.forms import prefill_from_role
+# ── The FULL filename position reader (HR-325 … HR-331), against the live Bank ────
+#
+# The CRF reads a role's positions with `jd_bank/positions` (a superset of the padded
+# `position_id_pattern`). Fixtures cannot tell us how much of the REAL archive it
+# reads, so these measure it on the live Bank and print what they measured. The
+# floors leave headroom under the architect's measurement (14,379 files; 75 roles).
+
+#: Files the reader must find a position in (of ~14,565).
+FILENAME_POSITIONS_MIN_FILES = 14_300
+#: Current roles the CRF may still flag "we cannot see every position".
+CRF_INCOMPLETE_MAX_ROLES = 100
+
+
+async def test_the_filename_position_reader_covers_the_live_bank(  # type: ignore[no-untyped-def]
+    session, capsys
+) -> None:
+    from src.jd_bank.positions import PositionIndex, load_position_index
     from src.jd_core.rules import get_rules
 
-    pattern = get_rules().segmentation.position_id_pattern.pattern
+    seg = get_rules().segmentation
     rows = (
+        await session.execute(text("SELECT id, filename FROM source_documents"))
+    ).all()
+    index = PositionIndex.build(((r[0], r[1]) for r in rows), seg)
+    padded = 0
+    for doc_id, name in rows:
+        ids = seg.position_id_pattern.findall(name or "")
+        padded += bool(ids)
+        # A SUPERSET of the padded pattern: no file loses a position it had.
+        assert set(ids) <= set(index.positions_of(doc_id)), name
+    covered = index.files_with_positions
+    with capsys.disabled():
+        print(
+            f"\n[filename positions] {covered:,} of {len(rows):,} Bank filenames carry "
+            f"a readable position (padded pattern alone: {padded:,}); "
+            f"{len(index.by_position):,} distinct positions"
+        )
+    assert covered >= FILENAME_POSITIONS_MIN_FILES, covered
+    # The process-cached loader serves the same index the raw rows build.
+    cached = await load_position_index(session)
+    assert cached.files_with_positions == covered
+
+
+async def test_crf_positions_reconcile_with_the_filename_reader_for_every_role(  # type: ignore[no-untyped-def]
+    session, capsys
+) -> None:
+    """Every current role, through the builder, against an expectation derived from
+    raw SQL membership + the reader over raw rows (not the builder's cached index).
+
+    Replaces the K2 padded-only trap test: a role with ANY member whose filename names
+    no readable position (or whose file is missing) is ``positions_incomplete`` and is
+    never given a single position number — the same invariant, on the wider reader.
+    """
+    from src.jd_bank.forms import prefill_from_role
+    from src.jd_bank.positions import PositionIndex
+    from src.jd_core.rules import get_rules
+
+    seg = get_rules().segmentation
+    files = (
+        await session.execute(text("SELECT id, filename FROM source_documents"))
+    ).all()
+    index = PositionIndex.build(((r[0], r[1]) for r in files), seg)
+    names = {str(doc_id): name for doc_id, name in files}
+    roles = (
         await session.execute(
-            text(_CRF_ROLES + """
-                SELECT c.cluster_id
-                FROM cur c JOIN pos p USING (cluster_id)
-                WHERE cardinality(p.pids) = 1
-                  AND c.cluster_id IN (SELECT cluster_id FROM bad)
-                ORDER BY c.cluster_id
-                """),
-            {"pat": pattern},
+            text(
+                f"WITH cur AS ({_CURRENT}) "
+                "SELECT c.cluster_id, array_agg(e->>'source_id') "
+                "FROM cur c CROSS JOIN LATERAL "
+                "jsonb_array_elements(c.source_document_ids) e "
+                "WHERE coalesce(e->>'source_id', '') <> '' "
+                "GROUP BY c.cluster_id ORDER BY c.cluster_id"
+            )
         )
     ).all()
-    for (cluster_id,) in rows:
+    assert roles, "no current roles in the live Bank"
+    incomplete = padded_incomplete = 0
+    for cluster_id, members in roles:
+        found: set[str] = set()
+        unreadable = padded_unreadable = False
+        for member in members:
+            ids = index.positions_of(uuid.UUID(member)) if member in names else ()
+            unreadable |= not ids
+            padded_unreadable |= not seg.position_id_pattern.search(
+                names.get(member) or ""
+            )
+            found.update(ids)
         prefill = await prefill_from_role(
             session, cluster_id, request_type="reevaluation"
         )
-        assert prefill.positions_incomplete is True, cluster_id
-        assert prefill.position_number is None, cluster_id
+        assert prefill.candidate_positions == tuple(sorted(found)), cluster_id
+        assert prefill.positions_incomplete is unreadable, cluster_id
+        if unreadable:
+            assert prefill.position_number is None, cluster_id
+        incomplete += unreadable
+        padded_incomplete += padded_unreadable
+    with capsys.disabled():
+        print(
+            f"\n[filename positions] CRF positions_incomplete: {incomplete:,} of "
+            f"{len(roles):,} current roles "
+            f"(padded pattern alone: {padded_incomplete:,})"
+        )
+    assert incomplete <= CRF_INCOMPLETE_MAX_ROLES, incomplete
 
 
 # ── 9-11. EXPORT — a live role, rendered and read back by the Bank's own parser ────

@@ -203,16 +203,16 @@ async def test_a_multi_position_role_lists_them_all_and_does_not_pick_one(
 async def test_an_unpadded_member_file_blocks_the_single_position_claim(
     session_maker: async_sessionmaker[AsyncSession],
 ) -> None:
-    """One member names 00001234; another names positions the pattern cannot read
-    (508 archive files lead with an unpadded id). The role may hold another position,
-    so it must not be presented as a single one."""
+    """One member names 00001234; another's name holds no position the filename
+    reader can read (a bare number after the title is not read, HR-330). The role may
+    hold another position, so it must not be presented as a single one."""
     async with session_maker() as session:
         rid = await _role(
             session,
             content={"title": "Analyst"},
             filenames=[
                 "20200601_00001234_Analyst.docx",
-                "20200601_61,_30785,_208,_975_JDFN_APSA_20211117.docx",
+                "20060612_Clerk,_gr_7,_64368,_Res___Housing.doc",
             ],
         )
         await session.commit()
@@ -221,6 +221,84 @@ async def test_an_unpadded_member_file_blocks_the_single_position_claim(
     assert prefill.positions_incomplete is True
     assert prefill.position_number is None
     assert prefill.candidate_positions == ("00001234",)
+
+
+_BUNDLE = "20200601_61,_30785,_208,_975_JDFN_APSA_20211117.docx"
+
+
+@pytest.mark.asyncio
+async def test_an_unpadded_leading_bundle_offers_every_position_it_names(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """The full filename reader (HR-325 … HR-331): a role whose only member file leads
+    with UNPADDED ids is no longer "we cannot see every position". ``61`` is two
+    digits, so it counts only because ANOTHER file in the Bank names it padded
+    (HR-328) — a file that is not even a member of this role."""
+    async with session_maker() as session:
+        await _doc(session, "20190101_00000061_Clerk.docx")  # vouches for 61
+        rid = await _role(
+            session,
+            content={"title": "Advisor", "employee_group": "apsa"},
+            filenames=[_BUNDLE],
+        )
+        await session.commit()
+        prefill = await prefill_from_role(session, rid, request_type="reevaluation")
+
+    assert prefill.positions_incomplete is False
+    assert prefill.candidate_positions == (
+        "00000061",
+        "00000208",
+        "00000975",
+        "00030785",
+    )
+    assert prefill.position_number is None  # four positions: the Bank never picks
+    assert prefill.based_on_positions_b == prefill.candidate_positions
+
+
+@pytest.mark.asyncio
+async def test_an_unvouched_short_id_is_not_offered(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """Without a padded witness anywhere in the Bank, ``61`` is held back (HR-328);
+    the three longer ids still make the role's positions readable."""
+    async with session_maker() as session:
+        rid = await _role(session, content={"title": "Advisor"}, filenames=[_BUNDLE])
+        await session.commit()
+        prefill = await prefill_from_role(session, rid)
+
+    assert prefill.candidate_positions == ("00000208", "00000975", "00030785")
+    assert prefill.positions_incomplete is False
+
+
+@pytest.mark.asyncio
+async def test_without_crf_in_consumers_the_form_reads_only_padded_ids(
+    session_maker: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HR-331 is read, not hardcoded: take ``crf`` out of ``consumers`` and the form
+    falls back to ``segmentation.position_id_pattern`` — the bundle reads as nothing."""
+    from src.jd_bank.forms import comp_requisition
+    from src.jd_core.rules import get_rules
+
+    rules = get_rules()
+    seg = rules.segmentation
+    off = seg.model_copy(
+        update={
+            "filename_positions": seg.filename_positions.model_copy(
+                update={"consumers": frozenset()}
+            )
+        }
+    )
+    retuned = rules.model_copy(update={"segmentation": off})
+    monkeypatch.setattr(comp_requisition, "get_rules", lambda: retuned)
+    async with session_maker() as session:
+        await _doc(session, "20190101_00000061_Clerk.docx")
+        rid = await _role(session, content={"title": "Advisor"}, filenames=[_BUNDLE])
+        await session.commit()
+        prefill = await prefill_from_role(session, rid)
+
+    assert prefill.candidate_positions == ()
+    assert prefill.positions_incomplete is True
 
 
 @pytest.mark.asyncio
