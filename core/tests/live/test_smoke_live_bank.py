@@ -2086,6 +2086,7 @@ async def test_tester_facing_pages_speak_plain_language(library, session) -> Non
         "/jd-bank/ui/compose/new",
         "/jd-bank/ui/compose/new?form=wjq",
         "/jd-bank/ui/my-drafts",
+        "/jd-bank/ui/queue",
         "/jd-bank/ui/dashboard",
     ]
     found: dict[str, list[str]] = {}
@@ -2147,3 +2148,33 @@ async def test_a_position_number_search_reaches_its_files_on_the_live_bank(  # t
     assert resp.status_code == 200
     assert f"Position 00000061 — {len(sixty_one)} files in the archive" in resp.text
     assert "/jd-bank/ui/compose/clone" in resp.text
+
+
+async def test_the_review_queue_pages_and_counts_every_live_draft(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    """UAT review 2026-11-19: the queue was one 1.36 MB page of 2,499 rows with raw
+    cluster ids and six-decimal scores. Through the real route: one page, a total that
+    matches the Bank's own count of drafts, and no cluster id on the page."""
+    from src.api.routes.ui import QUEUE_PAGE_SIZE
+
+    drafts = (
+        await session.execute(
+            text("SELECT count(*) FROM canonical_jds WHERE status = 'DRAFT'")
+        )
+    ).scalar()
+    resp = await library.get("/jd-bank/ui/queue")
+    assert resp.status_code == 200
+    shown = min(QUEUE_PAGE_SIZE, drafts)
+    assert f"Showing {1 if drafts else 0}–{shown} of {drafts}" in resp.text
+    assert resp.text.count("Review →") == shown
+    assert len(resp.content) < 250_000, f"{len(resp.content):,} bytes"
+    cluster = (
+        await session.execute(
+            text(
+                "SELECT cluster_id::text FROM canonical_jds WHERE status = 'DRAFT' "
+                "ORDER BY created_at, id LIMIT 1"
+            )
+        )
+    ).scalar()
+    assert cluster is None or cluster not in resp.text

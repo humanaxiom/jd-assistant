@@ -198,6 +198,7 @@ def _queue_item(canonical: CanonicalJD) -> ReviewQueueItem:
         # system uses (CUPE Phase D) — never from the cluster row or a stored label,
         # which could disagree with what the reviewer is about to read.
         template=template_of_content(canonical.content),
+        source_count=len(canonical.source_document_ids or []),
         stored_score=validator.get("score"),
         stored_grade=validator.get("grade"),
         stored_approvable=approvable,
