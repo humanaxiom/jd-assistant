@@ -781,3 +781,63 @@ def test_unknown_scope_is_a_404_not_the_whole_bank(
     monkeypatch.setattr(library_route, "scope_for", AsyncMock(return_value=None))
     response = make_client().get("/jd-bank/ui/funnel?scope=nope")
     assert response.status_code == 404
+
+
+# --- searching by position number (HR-339) --------------------------------------------
+
+
+def test_library_position_search_lists_files_and_marks_roles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import datetime as dt
+
+    from src.jd_bank.library import PositionFile, PositionLookup
+
+    role = _role_item("Academic Advisor").model_copy(update={"matched_by": "position"})
+    loose = uuid.uuid4()
+    lookup = PositionLookup(
+        position="00000061",
+        files=(
+            PositionFile(
+                source_document_id=uuid.uuid4(),
+                filename="20200601_61,_30785_JDFN_APSA_20211117.docx",
+                file_date=dt.date(2020, 6, 1),
+                role=RoleRef(
+                    cluster_id=role.cluster_id,
+                    canonical_id=role.canonical_id,
+                    title="Academic Advisor",
+                    status="draft",
+                ),
+            ),
+            PositionFile(
+                source_document_id=loose,
+                filename="20120101_00000061_Clerk.doc",
+                file_date=None,
+                role=None,
+            ),
+        ),
+    )
+    page = _role_page(items=(role,), total=1, q="61", sort="relevance", position=lookup)
+    monkeypatch.setattr(library_route, "list_roles", AsyncMock(return_value=page))
+
+    body = make_client().get("/jd-bank/ui/library", params={"q": "61"}).text
+
+    assert "Position 00000061 — 2 files in the archive" in body
+    assert "2020-06-01" in body
+    assert f"/jd-bank/ui/jd/{loose}" in body
+    assert "not part of a role" in body
+    assert "Filed under this position" in body
+    assert "/compose/clone" not in body  # start-from links are the Builder's
+
+
+def test_library_says_when_no_file_carries_the_position(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.jd_bank.library import PositionLookup
+
+    page = _role_page(q="4242", position=PositionLookup(position="00004242", files=()))
+    monkeypatch.setattr(library_route, "list_roles", AsyncMock(return_value=page))
+
+    body = make_client().get("/jd-bank/ui/library", params={"q": "4242"}).text
+
+    assert "No archive file name carries position 00004242" in body

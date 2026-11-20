@@ -46,6 +46,7 @@ from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.library.models import (
     FilenamePosition,
     MemberJD,
+    PositionLookup,
     RoleListItem,
     RolePage,
     RoleRef,
@@ -53,6 +54,11 @@ from src.jd_bank.library.models import (
     SourceJDView,
     SourceListItem,
     SourcePage,
+)
+from src.jd_bank.library.positions import (
+    find_position,
+    read_position_query,
+    role_ids,
 )
 from src.jd_bank.positions import load_position_index, read_filename
 from src.jd_bank.query_plan import QueryUnderstanding
@@ -321,7 +327,9 @@ async def get_role(session: AsyncSession, cluster_id: UUID) -> RoleView | None:
 
 def _role_list_item(
     canonical: CanonicalJD,
-    matched_by: Literal["title", "spelling", "meaning", "keyword"] | None = None,
+    matched_by: (
+        Literal["title", "spelling", "meaning", "keyword", "position"] | None
+    ) = None,
     *,
     composed: dict[UUID, str | None],
     departments: dict[UUID, str],
@@ -340,6 +348,52 @@ def _role_list_item(
         score=validator.get("score"),
         grade=validator.get("grade"),
         matched_by=matched_by,
+    )
+
+
+async def _position_page(
+    session: AsyncSession,
+    base: Select[Any],
+    lookup: PositionLookup,
+    *,
+    query: str,
+    limit: int,
+    offset: int,
+    include_composed: bool,
+) -> RolePage:
+    """The roles a position's files were distilled into (HR-339), title order, each
+    marked ``position``. ``base`` keeps the current-version and Builder-draft scoping;
+    the files themselves ride on ``position`` for the page to list."""
+    ids = role_ids(lookup)
+    scoped = base.where(CanonicalJD.cluster_id.in_(ids))
+    total = (
+        await session.scalar(select(func.count()).select_from(scoped.subquery())) or 0
+    )
+    rows = (
+        await session.scalars(
+            scoped.order_by(
+                CanonicalJD.content["title"].astext.asc(), CanonicalJD.id.asc()
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+    ).all()
+    page_ids = [row.cluster_id for row in rows]
+    composed = await _composed_authors(session, page_ids)
+    departments = await composer_search._role_departments(session, page_ids)
+    return RolePage(
+        items=tuple(
+            _role_list_item(row, "position", composed=composed, departments=departments)
+            for row in rows
+        ),
+        include_composed=include_composed,
+        total=int(total),
+        limit=limit,
+        offset=offset,
+        q=query,
+        sort="relevance",
+        direction="asc",
+        position=lookup,
     )
 
 
@@ -633,7 +687,19 @@ async def list_roles(
         )
         base = base.where(not_(hidden))
     if query:
-        return await _search_roles(
+        position = read_position_query(query, rulebook)
+        lookup = await find_position(session, position) if position else None
+        if lookup is not None and lookup.files:
+            return await _position_page(
+                session,
+                base,
+                lookup,
+                query=query,
+                limit=limit,
+                offset=offset,
+                include_composed=include_composed,
+            )
+        page = await _search_roles(
             session,
             base,
             query=query,
@@ -647,6 +713,8 @@ async def list_roles(
             plan=plan,
             include_composed=include_composed,
         )
+        # A number no file carries: say so (the page), then the words' results.
+        return page if lookup is None else page.model_copy(update={"position": lookup})
     total = await session.scalar(select(func.count()).select_from(base.subquery())) or 0
     column = _ROLE_SORTS[sort_key]
     ordering = (column.desc() if descending else column.asc()).nulls_last()

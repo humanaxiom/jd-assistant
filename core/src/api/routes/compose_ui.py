@@ -85,6 +85,7 @@ from src.jd_bank.composer.forms import (
 )
 from src.jd_bank.composer.wjq_answers import WJQ_LEVEL_TARGETS, Column, WJQAnswers
 from src.jd_bank.embeddings.client import EmbedClient
+from src.jd_bank.library.positions import find_position, read_position_query
 from src.jd_bank.llm.client import ChatClient
 from src.jd_bank.query_plan import try_understand_query
 from src.jd_core.models.parsed_jd import SFUJobDescription
@@ -1112,7 +1113,14 @@ async def search_page(
     hits: list[SearchHit] = []
     notice: str | None = None
     interpretation = None
-    if query:
+    # Only a position number (HR-339): answered from the archive file names. A number
+    # no file carries falls through to the ordinary search, and the page says so.
+    position = read_position_query(query) if query else None
+    lookup = await find_position(session, position) if position else None
+    if lookup is not None and lookup.files:
+        await embed_client.close()
+        await neo4j_driver.close()
+    elif query:
         # The wait on the inference host is bounded INSIDE the search (HR-198): this
         # route holds a checked-out AsyncSession out of a small pool for the whole call,
         # so an embedding host that ACCEPTS and stalls would take the Builder down after
@@ -1164,6 +1172,7 @@ async def search_page(
             "role_clusters": role_clusters,
             "notice": notice,
             "interpretation": interpretation,
+            "position_lookup": lookup,
             # Carried so a second search from this page keeps the instrument, and so
             # the page can say which one it is scoped to.
             "form_spec": spec,
