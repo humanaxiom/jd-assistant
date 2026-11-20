@@ -39,7 +39,7 @@ and deployed.
 | #223 | **Position-number search** (`61`, `00000061`, `Pos 61`) in the Library and the Builder (HR-339) |
 | #224 | Review queue: 100 per page, title filter, "N archive files" instead of raw ids, scores to one decimal |
 
-**HR register:** the next free id is **HR-340**. `main` tops out at HR-339, and `bank/v9`
+**HR register:** the next free id is **HR-341** (HR-340 is taken by #227 on `bank/v9`). `main` tops out at HR-339, and `bank/v9`
 holds HR-267–308 and HR-324, below it. Re-check before you take one:
 `grep -oE '^  - id: HR-[0-9]+' core/src/jd_core/rules/decision_register.yaml | sort -t- -k2 -n | tail -1`,
 on `main` **and** on `origin/bank/v9`.
@@ -73,34 +73,40 @@ on `main` **and** on `origin/bank/v9`.
    - the v9 **API container is stopped**. `docker start` would re-expose it with CAS off,
      so bind it to loopback first.
 
-   🔴 **Blocked first on an owner ruling (found 2026-11-20): the parser's `_MAX_BULLET =
-   400`.** It is an unregistered constant, also on `main` alongside a 20-item count cap
-   (`_MAX_BULLETS`). It cuts decision-making, problem-solving and contact items at 400
-   characters when the archive is read: **4,668 v9 parses** carry a cut item (4,226
-   decision-making items sit at exactly 400). It is also why **v9 smoke is red** (one role's
-   contact is cut on export and re-read). It is the same family as the caps removed on
-   2026-10-29. "Remove it" means parser v11 and a v9 re-parse, which regenerates clusters,
-   so **rule before the retry**, or the 26 h are wasted. Evidence: PR #226.
+   **Owner rulings 2026-11-20: "remove the 400 cap and fix prompt."** Both are built and
+   their gates are green. They are open PRs into `bank/v9`:
+   - **#226**: P6 (a failed rewrite or audit records why) plus prompt **v5** (FINDINGS §13e
+     fix 3; HR-180 is now `jd_harmonize_v5`);
+   - **#227**: parser **v11**, which removes the unregistered `_MAX_BULLET = 400`
+     (**HR-340**, ships `null`). It cut 5,716 decision-making, problem-solving and contact
+     items in 4,668 v9 parses, and it is why v9 smoke is red.
 
-   Next, in order (after that ruling):
-   1. Merge **P6** (PR #226 into `bank/v9`, open). Then retry the 641 with
-      `CANONICAL_ARGS="--resume"`. That is correct *here*, because the v9
-      Bank was rebuilt `--no-llm`, so no prose predates the pass. A `--refreshed-since`
-      run would now skip everything.
-   2. The retry takes about 26 h on `aria-gb10-2`. Do not run it while testers are on, and
-      do not run it alongside another producer pass.
-   3. Then run `make embed-roles`, `make bank-audit` and `make smoke`, **on v9**.
-   4. Then merge `main` into `bank/v9`. It is 56 ahead and 7 behind; run the duplicate-id
-      check and `make register-check`.
-   5. Then ship through ordinary PRs. Migration 0008 locks the live `parsed_jds` for about
-      10 s, and the live Bank then needs its own re-parse and producer pass, scheduled
+   Because v11 changes what a parse contains, the v9 Bank must be **rebuilt**, and a full LLM
+   pass **replaces** the retry of the 641. Next, in order:
+   1. The owner merges #226, then #227, into `bank/v9`.
+   2. Decide what happens to the role **published by `dev-anonymous`**. A wipe-and-rebuild
+      deletes it.
+   3. Rebuild v9 from the v9 checkout, following the runbook in
+      `docs/plans/PARSER-V9-LISTS-AND-CAPS.md` §10. Then run the full LLM pass:
+      **~44 h with `aria-gb10-2` free**. Do not run it while testers are on, or alongside
+      another producer pass.
+      ⚠ **The host is shared.** On 2026-11-20 it took 76 s to answer "ok", and one rewrite
+      call waited 30 min. The rewrite client keeps the SDK's 600 s timeout, retried twice,
+      plus our own retry, so a stalled host costs up to ~1 h per cluster, and nothing
+      registers that number. Check the host first.
+   4. Run `make embed-roles`, `make bank-audit` and `make smoke`, **on v9**. Smoke goes green
+      only on a v11 Bank: #227's new check reads 4.1% at v10.
+   5. Merge `main` into `bank/v9`. It is 56 ahead and 7 behind; run the duplicate-id check
+      and `make register-check`.
+   6. Ship through ordinary PRs. Migration 0008 locks the live `parsed_jds` for about 10 s,
+      and the live Bank then needs its own re-parse and producer pass, scheduled
       deliberately.
-4. **P6: rewrite failures record their reason. Built 2026-11-20, PR #226 into `bank/v9`.**
-   It records `rewrite_error` / `audit_error` on the draft, the exception type in the audit
-   row and on stderr, and the failing field in the repair nudge. FINDINGS §13e **fix 3** (the
-   prompt annotation) was left out on purpose: it changes the registered prompt version
-   (HR-180), so the retried drafts would differ from the 1,616 that succeeded. That is
-   the owner's call. `main` still swallows the reason (`runner.py:379`) until v9 ships (V4).
+4. **P6 and prompt v5: built 2026-11-20 (#226).** P6 records `rewrite_error` /
+   `audit_error` on the draft, the exception type in the audit row and on stderr, and the
+   failing field in the repair nudge. v5 says the equivalency sentence goes in a
+   qualification's `text`, and that `modifier` is one word. Neither was live-tested: the
+   host was too slow. `main` still swallows the reason (`runner.py:379`) until v9 ships
+   (V4).
 5. **Re-cut the offline bundle before any fresh-box install.** The owner reported it done
    on 2026-11-20, but `dist/jd-bank-bundle` (the default output) still dated from
    2026-08-28 at that check. Confirm where the new one went before relying on it. Since then `core/requirements.txt` has changed (#213, 2026-10-19) and

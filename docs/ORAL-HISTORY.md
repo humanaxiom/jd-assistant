@@ -298,6 +298,7 @@ is in the archived handoffs and [`HARNESS_LESSONS.md`](HARNESS_LESSONS.md).
 | 2026-10-20 | v9 gets **its own Bank**; leave the live one alone |
 | 2026-10-29 | Remove the supervisory and qualification caps (HR-324, HR-308) |
 | 2026-11-19 | CAS on now; testers use the **live** Bank with the **author** role, after a backup |
+| 2026-11-20 | Remove the list-item cap too (HR-340, parser v11, #227) and fix the rewrite prompt (v5, #226); v9 is rebuilt and fully redrafted instead of retrying the 641 |
 | standing | Deliverables live in the repo and are never published elsewhere. The owner merges; the assistant does not |
 
 ## 11. Where the rest is written down
