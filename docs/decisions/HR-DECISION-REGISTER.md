@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **268 decisions** (266 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 371 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **275 decisions** (273 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 378 parameters on the decision surface, all accounted for.
 
-**Of those 268, 88 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 178 are recorded for the same build check but are not yours to sign: 78 shape what a reviewer sees without deciding whether a job description passes, and 100 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 275, 88 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 185 are recorded for the same build check but are not yours to sign: 80 shape what a reviewer sees without deciding whether a job description passes, and 105 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -956,6 +956,8 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-313](#hr-313) | May the Bank type the signed-in requester's name and email into "Contact Name & Position Title" / its Email box, when they leave that choice ticked? | `true` | we chose it |
 | [HR-314](#hr-314) | Should the choices page SHOW the grades the role's source files carry, as reference, while never writing a grade to the form? | `true` | we chose it |
 | [HR-315](#hr-315) | Should a self-hosted chat model read what a person types into the Library and Builder search boxes before the title and vector passes run? | `false` | we chose it |
+| [HR-328](#hr-328) | When does a short or oddly padded number in a file name need confirming before it is treated as a position? | `unvouched_min_digits` → 3; `seven_digit_00_requires_corroboration` → True | we chose it |
+| [HR-331](#hr-331) | Which features use the full file-name position reading (HR-325 … HR-330) instead of only the zero-padded form? | `crf` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -1391,6 +1393,22 @@ The two bands now say two different, true things. The merged band said one false
 - **Why it matters:** MEASURED 2026-10-19 on 22 live queries: guarded, the model lifted the Library from hit@5 20/22 (P@10 0.67) to 21/22 (0.84) and the Builder from 0.72 to 0.87 — it expands "AP clerk", "coop coord", "IT sysadmin". UNGUARDED it invented an employee-group filter on 75–85% of queries and emptied pages, so the guard is code (group only when typed, unit only from the rulebook and only as a suggestion, the words as typed always searched) and the model can only ADD results. Ships OFF: the model choice is HR/ITS's (plan Q8), it adds 3.3 s p50 / 6.1 s p95 to a search, and enabling it makes the live smoke depend on the inference host. With it off no client is built and no call is made.
 - **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. On: every non-blank search makes one plan call (bounded by HR-321), the page shows the model's reading, and `make smoke` must make a real plan call before anything ships (Directive #0).
 
+##### HR-328 — When does a short or oddly padded number in a file name need confirming before it is treated as a position?
+
+- **We ship:** `unvouched_min_digits` → 3; `seven_digit_00_requires_corroboration` → True
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.corroboration`
+- **Where the default came from:** we chose it
+- **Why it matters:** A one- or two-digit number (`20200101_14_-_Template_…`) or a seven-digit number starting `00` (`0011878`, one zero short of the usual form) is as likely to be a template number or a typo as a position. Such a number is kept only when the same position appears zero-padded in some file name in the Bank. MEASURED over the whole archive: this holds back 19 numbers in 19 files — the three template numbers (`14`, `14`, `15`) and sixteen seven-digit `00…` numbers no other file confirms.
+- **If it changes:** Turn it off and those 19 numbers are offered as positions on the Compensation Requisition Form, some of them wrongly. Make it stricter and real positions written without zeros stop being offered until another file confirms them.
+
+##### HR-331 — Which features use the full file-name position reading (HR-325 … HR-330) instead of only the zero-padded form?
+
+- **We ship:** `crf`
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.consumers`
+- **Where the default came from:** we chose it
+- **Why it matters:** Today only the Compensation Requisition Form (`crf`) uses it, to list the positions a role covers. MEASURED on the live Bank's 2,498 roles: the form's "we cannot see every position this role covers" warning falls from 371 roles to 75. The archive baseline and duplicate detection deliberately stay on the zero-padded reading (HR-114), so their registered numbers do not move; they are not valid values here.
+- **If it changes:** Remove `crf` and the form goes back to the padded reading (371 roles flagged). Other features can be added only once they are built to use it.
+
 #### An earlier version of this tool chose it — also unratified
 
 Numbers an earlier version of this software already used, which we kept. SFU has never published a scoring model, so these are **not** SFU rules and **not** industry standards — they are engineering guesses that happen to be older than the rest. They need your ruling exactly as much as the group above.
@@ -1705,6 +1723,11 @@ Model names, dimensions, timeouts, retries, text-matching patterns and search in
 | [HR-321](#hr-321) | How long may the whole search-query plan call take before the page is rendered without it? | `6.0` | we chose it |
 | [HR-322](#hr-322) | Which versioned prompt pair does the search-query plan use? | `jd_search_plan_v1` | we chose it |
 | [HR-323](#hr-323) | How many title keywords may one search run, including the words as typed? | `4` | we chose it |
+| [HR-325](#hr-325) | How are the positions listed at the START of a job description's file name read? | *a text pattern — see below* | we chose it |
+| [HR-326](#hr-326) | How is a position LABELLED in a file name ("Pos. 1433", "Position #…") read? | *a text pattern — see below* | we chose it |
+| [HR-327](#hr-327) | What is the largest number that can be a position number? | `999999` | we chose it |
+| [HR-329](#hr-329) | Is a short number after a `^` in a file name a position, or a suffix? | `3` | we chose it |
+| [HR-330](#hr-330) | Should a bare number elsewhere in a file name (not at the start, not labelled) be read as a position? | `false` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -2300,6 +2323,46 @@ We picked these because the system needed *a* value. There is no SFU precedent b
 - **Where the default came from:** we chose it
 - **Why it matters:** Each keyword is one more title scan over roles and documents (and, in the Builder, both). 4 bounds the cost at the three expansions the spike found useful; the words as typed are always the first and are never dropped.
 - **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. 1 means "no added keywords" (the plan still rewrites the vector query).
+
+##### HR-325 — How are the positions listed at the START of a job description's file name read?
+
+- **We ship:** `^(?:19|20)\d{6}_+((?:\d+\^?\d*(?:(?:,_*|_+|\^|,| )+|(?=[A-Za-z(.]|$)))+)`
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.leading_list_pattern`
+- **Where the default came from:** we chose it
+- **Why it matters:** Archive file names start with the PeopleSoft as-of date and then, very often, the positions the description covers, frequently without the leading zeros (`20200601_61,_30785,_208,_975_JDFN_APSA_20211117.docx` covers positions 00000061, 00030785, 00000208 and 00000975). The zero-padded reading used by the archive baseline (HR-114) misses all of these. This pattern reads the run of numbers right after the date, joined by commas, underscores, `^` or spaces, and stops at the first letter, so a grade or a year later in the name is never read. A second 8-digit date straight after the first (`20110525_20070810_01038_…`) is treated as a date. MEASURED over all 14,565 archive file names: together with HR-326 it raises the number of files with a readable position from 13,572 to 14,379, and 1,284 of the 1,322 new file-to-position links (counted before HR-328's check) come from this list.
+- **If it changes:** Used only by the features named in HR-331 (today the Compensation Requisition Form); the baseline and duplicate detection keep the padded reading, so no baseline number moves. Loosen it and numbers that are not positions can be offered on the form; tighten it and more roles fall back to "we cannot see every position". Does NOT move `rules_version` or `PARSER_VERSION`; nothing is stored, so no re-run is owed.
+
+##### HR-326 — How is a position LABELLED in a file name ("Pos. 1433", "Position #…") read?
+
+- **We ship:** `(?i)(?<![a-z])Pos(?:n|ition)?\.?[_#\s]*((?:\d+(?:(?:,_*|_+)(?=\d))?)+)`
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.labelled_position_pattern`
+- **Where the default came from:** we chose it
+- **Why it matters:** Older file names sometimes put the position after a label instead of at the start: `20090601_Secretary,_gr_6,_Pos.__1433.doc` is position 00001433 (and the `6` is a grade, which is never read). MEASURED: 38 file-to-position links over the whole archive come only from a label; 30 of them name a position that also appears zero-padded in another file name.
+- **If it changes:** Same reach as HR-325 (only the features in HR-331). Dropping it loses those 38 links; widening it beyond a `Pos`-style label risks reading other numbers.
+
+##### HR-327 — What is the largest number that can be a position number?
+
+- **We ship:** `999999`
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.max_position_id`
+- **Where the default came from:** we chose it
+- **Why it matters:** A number above this in a file name is not read as a position. MEASURED: the largest zero-padded position in the archive is 00138592, so 999999 leaves room for growth while refusing tokens such as `001354781` (a mistyped or run-together number).
+- **If it changes:** Lower it below the real range and genuine positions stop being offered; raise it and long stray numbers can be read as positions. Zero-padded 8-digit ids are always read whatever this is set to, exactly as the archive baseline reads them.
+
+##### HR-329 — Is a short number after a `^` in a file name a position, or a suffix?
+
+- **We ship:** `3`
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.caret_tail_min_digits`
+- **Where the default came from:** we chose it
+- **Why it matters:** Some names join positions with `^` (`20260624_00126035^00138583_JDFN_APSA_20260624.docx` covers both), but a short number after `^` is a suffix: in `…_11083^1_JDFN_CUPE_…` the `1` is not position 00000001. MEASURED: two such suffixes in the archive; both are refused at 3 digits.
+- **If it changes:** Lower it to 1 and those suffixes can be read as positions such as 00000001.
+
+##### HR-330 — Should a bare number elsewhere in a file name (not at the start, not labelled) be read as a position?
+
+- **We ship:** `false`
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.bare_trailing_ids`
+- **Where the default came from:** we chose it
+- **Why it matters:** Names such as `20060612_Clerk,_gr_7,_64368,_Res___Housing.doc` hold a number that may be a position, but the same place holds grades, years and other numbers. This reading was measured as a report only and is NOT built: the rulebook refuses to load if it is switched on, so the setting can never claim a behaviour the system lacks.
+- **If it changes:** None today: `true` is refused at load. Building it is a separate change that would have to be measured and registered on its own.
 
 #### An earlier version of this tool chose it — also unratified
 

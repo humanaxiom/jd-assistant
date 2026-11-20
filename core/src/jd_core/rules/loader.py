@@ -61,7 +61,9 @@ from pydantic import (
     ValidationError,
     field_validator,
     model_validator,
+    with_config,
 )
+from typing_extensions import TypedDict
 
 from src.jd_core.models.bank import (
     HayFactorSignal,
@@ -711,6 +713,78 @@ class TextNorm(_RuleFile):
     collapse_across_paragraph_break: bool
 
 
+#: Which surfaces read a position off a filename with the FULL filename reader
+#: (``jd_bank/positions``, HR-331) rather than the padded pattern alone. A closed set of
+#: the surfaces actually wired: a name here that nothing reads would be a switch that
+#: does nothing. The archive baseline and near-dedup are deliberately NOT in the
+#: vocabulary — they stay on ``position_id_pattern`` so their registered numbers hold.
+FilenamePositionConsumer = Literal["crf"]
+
+
+@with_config(ConfigDict(extra="forbid"))
+class FilenameCorroboration(TypedDict):
+    """When a short or oddly padded number in a filename needs a second witness
+    (HR-328). One register entry because it is one decision with two edges."""
+
+    #: A token with fewer significant digits than this counts only if the same id
+    #: appears zero-padded in some filename.
+    unvouched_min_digits: Annotated[int, Field(ge=0)]
+    #: A 7-digit token starting ``00`` (one zero short of the padded form) likewise.
+    seven_digit_00_requires_corroboration: bool
+
+
+class FilenamePositions(BaseModel):
+    """How the FULL filename reader finds positions (``segmentation.yaml:
+    filename_positions``, HR-325 … HR-331).
+
+    A SEPARATE reader from :attr:`Segmentation.position_id_pattern`, on purpose: that
+    pattern is the archive baseline's join key (HR-114) and near-dedup's
+    ``_same_position``, and widening it would move registered numbers. This reader is a
+    SUPERSET of it — every padded id is still read — that also reads the unpadded
+    leading list (``20200601_61,_30785,_208,_975_JDFN_…``) and labelled ids
+    (``Pos.__1433``). Read on demand from ``source_documents.filename``; nothing is
+    stored, so changing a knob here needs no migration and no re-parse.
+
+    A NESTED block (the ``dedup.authoring_guard`` shape): every leaf lands on the
+    decision surface as ``segmentation.filename_positions.<field>``.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: The run of numbers right after the leading date (HR-325). Group 1 is the run.
+    leading_list_pattern: Regex
+    #: A ``Pos`` / ``Posn`` / ``Position`` label and its list (HR-326). Group 1.
+    labelled_position_pattern: Regex
+    #: The largest number that can be a position (HR-327). Above it, never an id.
+    max_position_id: int = Field(gt=0)
+    corroboration: Annotated[FilenameCorroboration, AfterValidator(_freeze)]
+    #: A number after ``^`` shorter than this is a suffix, not a position (HR-329).
+    caret_tail_min_digits: int = Field(ge=1)
+    #: Read bare numbers elsewhere in the name (HR-330). Measured, NOT implemented:
+    #: refused when true, so the switch cannot claim a behaviour the code lacks.
+    bare_trailing_ids: bool
+    #: Which surfaces use this reader (HR-331).
+    consumers: frozenset[FilenamePositionConsumer]
+
+    @field_validator("leading_list_pattern", "labelled_position_pattern")
+    @classmethod
+    def _captures_the_list(cls, value: re.Pattern[str]) -> re.Pattern[str]:
+        if value.groups < 1:
+            raise ValueError(
+                f"{value.pattern!r} must capture the list of numbers as group 1"
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _bare_tier_is_not_built(self) -> FilenamePositions:
+        if self.bare_trailing_ids:
+            raise ValueError(
+                "bare_trailing_ids: the bare-number tier was measured but is not "
+                "implemented; it must stay false"
+            )
+        return self
+
+
 class Segmentation(_RuleFile):
     """How the archive baseline SEGMENTS the corpus (``segmentation.yaml``).
 
@@ -773,6 +847,10 @@ class Segmentation(_RuleFile):
     #: reading, and a passing mention ("supervises CUPE staff") was labelling APSA
     #: managers CUPE and scoring them on the wrong instrument. HR-226.
     employee_group_label_only: frozenset[str] = Field(default=frozenset())
+    #: The FULL filename position reader (HR-325 … HR-331) — a superset of
+    #: :attr:`position_id_pattern` for the surfaces named in its ``consumers``. The
+    #: baseline and near-dedup never read it.
+    filename_positions: FilenamePositions
 
     #: A JDFN filename carries two dates. ``true`` = the trailing REVISION date decides
     #: which file is a position's current version (HR-112).

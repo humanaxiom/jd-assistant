@@ -8485,6 +8485,159 @@ decisions:
       (the plan still rewrites the vector query).
     status: open
 
+  - id: HR-325
+    question: >-
+      How are the positions listed at the START of a job description's file name read?
+    config:
+      file: segmentation.yaml
+      path: segmentation.filename_positions.leading_list_pattern
+    current_default: '^(?:19|20)\d{6}_+((?:\d+\^?\d*(?:(?:,_*|_+|\^|,| )+|(?=[A-Za-z(.]|$)))+)'
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      Archive file names start with the PeopleSoft as-of date and then, very often, the
+      positions the description covers, frequently without the leading zeros
+      (`20200601_61,_30785,_208,_975_JDFN_APSA_20211117.docx` covers positions 00000061,
+      00030785, 00000208 and 00000975). The zero-padded reading used by the archive
+      baseline (HR-114) misses all of these. This pattern reads the run of numbers right
+      after the date, joined by commas, underscores, `^` or spaces, and stops at the first
+      letter, so a grade or a year later in the name is never read. A second 8-digit date
+      straight after the first (`20110525_20070810_01038_…`) is treated as a date.
+      MEASURED over all 14,565 archive file names: together with HR-326 it raises the
+      number of files with a readable position from 13,572 to 14,379, and 1,284 of the
+      1,322 new file-to-position links (counted before HR-328's check) come from this
+      list.
+    impact_if_changed: >-
+      Used only by the features named in HR-331 (today the Compensation Requisition
+      Form); the baseline and duplicate detection keep the padded reading, so no baseline
+      number moves. Loosen it and numbers that are not positions can be offered on the
+      form; tighten it and more roles fall back to "we cannot see every position". Does
+      NOT move `rules_version` or `PARSER_VERSION`; nothing is stored, so no re-run is
+      owed.
+    status: open
+
+  - id: HR-326
+    question: >-
+      How is a position LABELLED in a file name ("Pos. 1433", "Position #…") read?
+    config:
+      file: segmentation.yaml
+      path: segmentation.filename_positions.labelled_position_pattern
+    current_default: '(?i)(?<![a-z])Pos(?:n|ition)?\.?[_#\s]*((?:\d+(?:(?:,_*|_+)(?=\d))?)+)'
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      Older file names sometimes put the position after a label instead of at the start:
+      `20090601_Secretary,_gr_6,_Pos.__1433.doc` is position 00001433 (and the `6` is a
+      grade, which is never read). MEASURED: 38 file-to-position links over the whole
+      archive come only from a label; 30 of them name a position that also appears
+      zero-padded in another file name.
+    impact_if_changed: >-
+      Same reach as HR-325 (only the features in HR-331). Dropping it loses those 38
+      links; widening it beyond a `Pos`-style label risks reading other numbers.
+    status: open
+
+  - id: HR-327
+    question: What is the largest number that can be a position number?
+    config:
+      file: segmentation.yaml
+      path: segmentation.filename_positions.max_position_id
+    current_default: 999999
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      A number above this in a file name is not read as a position. MEASURED: the largest
+      zero-padded position in the archive is 00138592, so 999999 leaves room for growth
+      while refusing tokens such as `001354781` (a mistyped or run-together number).
+    impact_if_changed: >-
+      Lower it below the real range and genuine positions stop being offered; raise it
+      and long stray numbers can be read as positions. Zero-padded 8-digit ids are always
+      read whatever this is set to, exactly as the archive baseline reads them.
+    status: open
+
+  - id: HR-328
+    question: >-
+      When does a short or oddly padded number in a file name need confirming before it
+      is treated as a position?
+    config:
+      file: segmentation.yaml
+      path: segmentation.filename_positions.corroboration
+    current_default:
+      unvouched_min_digits: 3
+      seven_digit_00_requires_corroboration: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A one- or two-digit number (`20200101_14_-_Template_…`) or a seven-digit number
+      starting `00` (`0011878`, one zero short of the usual form) is as likely to be a
+      template number or a typo as a position. Such a number is kept only when the same
+      position appears zero-padded in some file name in the Bank. MEASURED over the whole
+      archive: this holds back 19 numbers in 19 files — the three template numbers (`14`,
+      `14`, `15`) and sixteen seven-digit `00…` numbers no other file confirms.
+    impact_if_changed: >-
+      Turn it off and those 19 numbers are offered as positions on the Compensation
+      Requisition Form, some of them wrongly. Make it stricter and real positions written
+      without zeros stop being offered until another file confirms them.
+    status: open
+
+  - id: HR-329
+    question: >-
+      Is a short number after a `^` in a file name a position, or a suffix?
+    config:
+      file: segmentation.yaml
+      path: segmentation.filename_positions.caret_tail_min_digits
+    current_default: 3
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      Some names join positions with `^`
+      (`20260624_00126035^00138583_JDFN_APSA_20260624.docx` covers both), but a short
+      number after `^` is a suffix: in `…_11083^1_JDFN_CUPE_…` the `1` is not position
+      00000001. MEASURED: two such suffixes in the archive; both are refused at 3 digits.
+    impact_if_changed: >-
+      Lower it to 1 and those suffixes can be read as positions such as 00000001.
+    status: open
+
+  - id: HR-330
+    question: >-
+      Should a bare number elsewhere in a file name (not at the start, not labelled) be
+      read as a position?
+    config:
+      file: segmentation.yaml
+      path: segmentation.filename_positions.bare_trailing_ids
+    current_default: false
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      Names such as `20060612_Clerk,_gr_7,_64368,_Res___Housing.doc` hold a number that
+      may be a position, but the same place holds grades, years and other numbers. This
+      reading was measured as a report only and is NOT built: the rulebook refuses to load
+      if it is switched on, so the setting can never claim a behaviour the system lacks.
+    impact_if_changed: >-
+      None today: `true` is refused at load. Building it is a separate change that would
+      have to be measured and registered on its own.
+    status: open
+
+  - id: HR-331
+    question: >-
+      Which features use the full file-name position reading (HR-325 … HR-330) instead
+      of only the zero-padded form?
+    config:
+      file: segmentation.yaml
+      path: segmentation.filename_positions.consumers
+    current_default: [crf]
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Today only the Compensation Requisition Form (`crf`) uses it, to list the positions
+      a role covers. MEASURED on the live Bank's 2,498 roles: the form's "we cannot see
+      every position this role covers" warning falls from 371 roles to 75. The archive
+      baseline and duplicate detection deliberately stay on the zero-padded reading
+      (HR-114), so their registered numbers do not move; they are not valid values here.
+    impact_if_changed: >-
+      Remove `crf` and the form goes back to the padded reading (371 roles flagged).
+      Other features can be added only once they are built to use it.
+    status: open
+
 trivial:
   # ── The APSA export form (Track J4): HR's own wording, pinned by HR-258. ──
   - config: {file: apsa_form.yaml, path: apsa_form.banner}

@@ -665,7 +665,15 @@ def test_every_field_of_the_segmentation_file_is_on_the_surface(rules: Rules) ->
     the other half holds too: a YAML key with no field is rejected outright."""
     surface = decision_surface(rules)
     for field in type(rules.segmentation).model_fields:
-        if field != "version":
+        if field == "version":
+            continue
+        if isinstance(getattr(rules.segmentation, field), BaseModel):
+            # A nested block (`filename_positions`, HR-325 … HR-331) contributes its
+            # LEAVES — every one of them, never the block itself.
+            block = getattr(rules.segmentation, field)
+            for leaf in type(block).model_fields:
+                assert f"segmentation.{field}.{leaf}" in surface, (field, leaf)
+        else:
             assert f"segmentation.{field}" in surface, field
 
 
