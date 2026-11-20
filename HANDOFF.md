@@ -56,9 +56,10 @@ on `main` **and** on `origin/bank/v9`.
    later").** Do not start it unprompted. What is waiting:
    - `sfuai.ca:7000` is plain HTTP carrying CAS cookies (BGL-1, no TLS anywhere in the
      path);
-   - `ALLOWED_SERVICE_ORIGINS` still lists the box's **old** LAN IP `192.168.1.80`, while
-     the box is now `.73`. The gateway's `:7000` forward was set up to `.80:25800`
-     (NETWORK-SETUP §6), so it may now point at nothing. Verify from a genuinely external
+   - the box has two LAN addresses: **`192.168.1.80`** (wired, reconnected by the owner on
+     2026-11-20) and `192.168.1.73`. `ALLOWED_SERVICE_ORIGINS` lists `.80` and **not**
+     `.73`, so CAS sign-in via `.73` falls back. The gateway's `:7000` forward targets
+     `.80:25800` (NETWORK-SETUP §6), which answers again. Verify from a genuinely external
      network **and** in the app log; the gateway does not hairpin;
    - the network posture for the data-centre boxes ([`docs/NETWORK-SETUP.md`](docs/NETWORK-SETUP.md)).
 3. **The v9 Bank: finish it, then ship it.** It is a separate Bank: checkout
