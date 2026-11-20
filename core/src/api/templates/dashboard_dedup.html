@@ -1,5 +1,5 @@
 {% extends "_base.html" %}
-{% block title %}JD Bank — Deduplication (Tier 1/2/3){% endblock %}
+{% block title %}JD Bank — Duplicates in the archive{% endblock %}
 {% block content %}
 {% include "_snapshot_notice.html" %}
 <style>
@@ -50,7 +50,7 @@
 {% endmacro %}
 
 <div class="panel">
-  <h2>Deduplication &mdash; Tier 1 / Tier 2 / Tier 3</h2>
+  <h2>Duplicates in the archive <span class="meta">(tiers 1–3)</span></h2>
   <p class="meta"><a href="/jd-bank/ui/dashboard">&larr; Dashboards</a></p>
   <p class="meta">
     Read-only. Every figure below is read at request time from the committed dedup
@@ -61,7 +61,7 @@
 
 <!-- ================= Tier 1 — exact duplicates ================= -->
 <div class="panel">
-  <h2>Tier 1 &mdash; exact duplicates</h2>
+  <h2>Exact copies <span class="meta">(tier 1)</span></h2>
   {% if tier1 is none %}
   <p class="empty">
     The Tier-1 exact-duplicate report has not been generated (or
@@ -125,7 +125,7 @@
 
 <!-- ================= Tier 2 — near duplicates ================= -->
 <div class="panel">
-  <h2>Tier 2 &mdash; near duplicates</h2>
+  <h2>Near copies <span class="meta">(tier 2)</span></h2>
   {% if tier2 is none %}
   <p class="empty">
     The Tier-2 near-duplicate report has not been generated (or
@@ -184,7 +184,7 @@
 
 <!-- ================= Tier 3 — role equivalence ================= -->
 <div class="panel">
-  <h2>Tier 3 &mdash; role equivalence</h2>
+  <h2>Different wording, same role <span class="meta">(tier 3)</span></h2>
   {% if tier3 is none %}
   <p class="empty">
     The Tier-3 role-equivalence report has not been generated (or

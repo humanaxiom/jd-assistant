@@ -34,7 +34,8 @@
       {% else %}
       <tr><th>Position #</th><td>{{ view.position_number or "—" }}</td></tr>
       {% endif %}
-      <tr><th>Parse confidence</th><td>{{ (view.parse_confidence * 100) | round(0, 'floor') | int }}%</td></tr>
+      <tr><th>Standard sections found</th><td>{{ (view.parse_confidence * 100) | round(0, 'floor') | int }}%
+        <span class="meta">— how much of SFU's usual job description layout could be read in this file</span></td></tr>
     </tbody>
   </table>
   {% if view.role %}
