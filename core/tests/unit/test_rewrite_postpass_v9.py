@@ -38,6 +38,12 @@ from src.jd_export import render_sfu_docx
 _FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "rewrite_fidelity"
 
 
+def _at_the_old_400_cap(rules: Rules) -> Rules:
+    """``rules`` with the list-item cap at the pre-v11 parser's 400 (HR-340)."""
+    seg = rules.segmentation.model_copy(update={"bullet_max_chars": 400})
+    return rules.model_copy(update={"segmentation": seg})
+
+
 def _case(name: str) -> tuple[MergedRole, SFUJobDescription]:
     raw = json.loads((_FIXTURES / f"v9pass_{name}.json").read_text(encoding="utf-8"))
     return (
@@ -337,7 +343,11 @@ def test_a_cut_decision_list_comes_back_whole_up_to_its_cut_entry(
     character cap ("…; hires continuing and temporary staff, t"). The whole item counted
     as the cut-off sentence, so a model that lost it had all six decisions LISTED and
     none put back. Now the five whole entries come back and only the cut one is listed.
+
+    The fixture predates parser v11, which no longer cuts (HR-340 ships null); the
+    knob is set back to 400 to pin what a number in it still does.
     """
+    rules = _at_the_old_400_cap(rules)
     merged, model = _case("82e5c2d0")
     label = rules.harmonization.referred_decision_label
     assert _OPS_MADE in merged.draft.decision_making

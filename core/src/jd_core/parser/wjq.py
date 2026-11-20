@@ -64,7 +64,6 @@ from src.jd_core.parser.classification import extract_classification
 from src.jd_core.parser.headings import SectionKey
 from src.jd_core.parser.segmenter import (
     _FALLBACK_TITLE,
-    _MAX_BULLET,
     _MAX_QUALS,
     _MAX_SUMMARY,
     _MAX_TITLE,
@@ -74,6 +73,7 @@ from src.jd_core.parser.segmenter import (
     _detect_era,
     _detect_modifier,
     _leading_verb,
+    cut_to,
 )
 from src.jd_core.rules import Wjq, WjqSection, get_rules
 
@@ -549,6 +549,7 @@ def _structure_relationships(text: str, wjq: Wjq) -> SFURelationships | None:
     form does not label rows internal vs external, so this classifies by keyword and
     invents NO supervisory signal (the JDFN template's supervisory scope has no WJQ
     equivalent)."""
+    item_cap = get_rules().segmentation.bullet_max_chars  # HR-340; null = whole
     internal: list[str] = []
     external: list[str] = []
     for raw in text.splitlines():
@@ -561,7 +562,7 @@ def _structure_relationships(text: str, wjq: Wjq) -> SFURelationships | None:
             continue
         target = external if any(cue in low for cue in _EXTERNAL_CUES) else internal
         if len(target) < 30:
-            target.append(contact[:_MAX_BULLET])
+            target.append(cut_to(contact, item_cap))
     if not internal and not external:
         return None
     return SFURelationships(supervisory=None, internal=internal, external=external)

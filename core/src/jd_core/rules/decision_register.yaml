@@ -9969,6 +9969,38 @@ decisions:
       Pinned by `test_parser_v10_supervisory_uncapped.py`.
     status: open
 
+  - id: HR-340
+    question: >-
+      How many characters of one Decision Making or Problem Solving item, or of one
+      internal or external contact, does the parser keep from an archive job description?
+    config:
+      file: segmentation.yaml
+      path: segmentation.bullet_max_chars
+    current_default: null
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      It was the code constant `_MAX_BULLET` 400, unregistered, in BOTH readers (the
+      APSA/APEX/POLY decision, problem and connection items; the CUPE contacts table) —
+      the third cap of the HR-308 / HR-324 family, missed when those two were lifted.
+      Found by the v9 Bank smoke on 2026-11-20: a CUPE role's contact, exported and read
+      back, came back cut at 400. MEASURED on the v9 Bank (parser v10, all current
+      parses, 14,522): 4,668 documents held 5,716 items at EXACTLY 400 characters,
+      against 160 items at 390–399 — a cut, not a length people write. Items at 400:
+      Decision Making 4,226 (in 3,468 documents), internal contacts 1,106, external
+      contacts 304, Problem Solving 80. ✅ Owner ruling 2026-11-20: "remove the 400 cap" — applied as `null`
+      (every item is kept whole) and RECORDED here rather than ratified, since it is the
+      project owner's call, not an HR signature.
+    impact_if_changed: >-
+      Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`;
+      changes what a parsed JD contains, so it needs PARSER_VERSION bumped and a re-parse
+      (v11 is that bump). A number cuts each item at that many characters in both readers;
+      the rewrite's fidelity table (HR-287) and the export round-trip oracle follow it. The
+      model declares no per-item ceiling and the CUPE Builder's contact row is bounded by a
+      form input ceiling, so no value here can fail a parse or a clone. Pinned by
+      `test_parser_v11_list_items_uncapped.py`.
+    status: open
+
 trivial:
   # ── The APSA export form (Track J4): HR's own wording, pinned by HR-258. ──
   - config: {file: apsa_form.yaml, path: apsa_form.banner}

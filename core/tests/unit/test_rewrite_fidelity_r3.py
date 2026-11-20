@@ -27,6 +27,12 @@ from src.jd_core.rules import Rules, get_rules
 _FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "rewrite_fidelity"
 
 
+def _at_the_old_400_cap(rules: Rules) -> Rules:
+    """``rules`` with the list-item cap at the pre-v11 parser's 400 (HR-340)."""
+    seg = rules.segmentation.model_copy(update={"bullet_max_chars": 400})
+    return rules.model_copy(update={"segmentation": seg})
+
+
 def _case(name: str) -> tuple[MergedRole, SFUJobDescription]:
     raw = json.loads((_FIXTURES / f"{name}.json").read_text(encoding="utf-8"))
     return (
@@ -240,9 +246,13 @@ def test_an_item_the_parser_cut_comes_back_whole_sentences_only(rules: Rules) ->
     """The museum's internal-contacts item is exactly 400 characters — the parser's own
     cap — so its last sentence ("Partners with a wide circle of contacts and involves")
     is a cut-off. Restored at the item's boundary, minus the cut, never as bullets of
-    single sentences."""
+    single sentences.
+
+    The fixture predates parser v11, which no longer cuts (HR-340 ships null); the
+    knob is set back to 400 to pin what a number in it still does."""
+    capped = _at_the_old_400_cap(rules)
     merged, model = _case("r2_museum_1d68c603")
-    out, record = _apply_anti_fabrication(model, merged, rules)
+    out, record = _apply_anti_fabrication(model, merged, capped)
     assert out.relationships is not None
     internal = out.relationships.internal
     assert not any(c.rstrip().endswith("involves") for c in internal)
