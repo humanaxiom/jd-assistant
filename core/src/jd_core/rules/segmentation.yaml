@@ -147,9 +147,16 @@ filename_positions:
   # Bare numbers elsewhere in the name (`Clerk,_gr_7,_64368,_Res…`). Measured, report
   # only; NOT implemented, and refused if switched on. (HR-330)
   bare_trailing_ids: false
-  # Which surfaces use this reader. Only the Compensation Requisition Form today; the
-  # baseline and near-dedup stay on `position_id_pattern` by design. (HR-331)
-  consumers: [crf]
+  # Which surfaces use this reader: `crf` = the Compensation Requisition Form's
+  # position list; `source_page` = the source JD page's "Position # (from the file
+  # name)" row, shown BESIDE the number typed in the document. The baseline and
+  # near-dedup stay on `position_id_pattern` by design. (HR-331)
+  consumers: [crf, source_page]
+  # When a source JD's text yields no title ("Untitled Position" — 1,245 live files),
+  # its page shows the title the FILE NAME gives (`20180720_00001049_Clerk.doc` ->
+  # "Clerk"), with a note saying so. MEASURED: 1,138 of the 1,245 name one; the rest
+  # stay "Untitled Position". The page only — counts and search are unchanged. (HR-338)
+  title_when_untitled: true
 
 # --- which groups a BARE MENTION may not establish ----------------------------
 # The parser reads the bargaining unit three ways, strongest first: an explicit

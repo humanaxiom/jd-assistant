@@ -928,6 +928,68 @@ async def test_the_filename_position_reader_covers_the_live_bank(  # type: ignor
     assert cached.files_with_positions == covered
 
 
+#: Of the live files whose text yields no title, how many must get one from their name.
+#: MEASURED 2026-11-20: 1,138 of 1,245.
+UNTITLED_WITH_FILENAME_TITLE_MIN = 1_100
+
+_LATEST_PARSE = """
+    SELECT DISTINCT ON (p.source_document_id) p.source_document_id AS id, d.filename,
+           p.parsed->>'title' AS title, p.parsed->>'position_number' AS pn
+    FROM parsed_jds p JOIN source_documents d ON d.id = p.source_document_id
+    ORDER BY p.source_document_id, p.created_at DESC
+"""
+
+
+async def test_live_source_pages_show_the_file_name_s_position_and_title(  # type: ignore[no-untyped-def]
+    library, session, capsys
+) -> None:
+    """HR-331 `source_page` + HR-338, through the real route on the live Bank: a file
+    whose text has no position shows the one its NAME gives, and a file whose text has
+    no title shows the name's title, flagged."""
+    from markupsafe import escape
+
+    from src.jd_bank.positions import read_filename
+    from src.jd_core.parser import FALLBACK_TITLE
+    from src.jd_core.rules import get_rules
+
+    seg = get_rules().segmentation
+    rows = (await session.execute(text(_LATEST_PARSE))).all()
+
+    # The Bank, not a sample: every untitled file the name can title.
+    untitled = [r for r in rows if (r.title or "").strip() in ("", FALLBACK_TITLE)]
+    titled = [
+        r
+        for r in untitled
+        if r.filename and read_filename(r.filename, seg, frozenset()).title_slug
+    ]
+    with capsys.disabled():
+        print(
+            f"\n[source page] {len(titled):,} of {len(untitled):,} untitled files "
+            "take a title from their file name"
+        )
+    assert len(titled) >= UNTITLED_WITH_FILENAME_TITLE_MIN, len(titled)
+
+    # A file with no position in its text, a padded one in its name.
+    no_pn = sorted(
+        (r for r in rows if not (r.pn or "").strip() and r.filename),
+        key=lambda r: r.filename,
+    )
+    sample = next(r for r in no_pn if seg.position_id_pattern.search(r.filename))
+    padded = seg.position_id_pattern.findall(sample.filename)[0]
+    resp = await library.get(f"/jd-bank/ui/jd/{sample.id}")
+    assert resp.status_code == 200, sample.filename
+    assert "Position # (from the file name)" in resp.text
+    assert padded in resp.text, sample.filename
+
+    # An untitled file whose name gives a title.
+    pick = min(titled, key=lambda r: r.filename)
+    slug = read_filename(pick.filename, seg, frozenset()).title_slug
+    resp = await library.get(f"/jd-bank/ui/jd/{pick.id}")
+    assert resp.status_code == 200, pick.filename
+    assert str(escape(slug)) in resp.text, pick.filename
+    assert "title above is taken from the file name" in resp.text
+
+
 async def test_crf_positions_reconcile_with_the_filename_reader_for_every_role(  # type: ignore[no-untyped-def]
     session, capsys
 ) -> None:

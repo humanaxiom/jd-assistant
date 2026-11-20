@@ -34,6 +34,15 @@ class RoleRef(_Frozen):
     status: str
 
 
+class FilenamePosition(_Frozen):
+    """One position a source file's NAME gives it (HR-331 `source_page`)."""
+
+    #: The PeopleSoft id, zero-padded to 8 digits.
+    id8: str
+    #: The token as written in the file name (`61`, `00030785`).
+    written: str
+
+
 class SourceJDView(_Frozen):
     """One archive source JD, rendered readable — the answer to "where is the actual
     content of this .docx?". Assembled from a ``source_documents`` row + its latest
@@ -55,6 +64,15 @@ class SourceJDView(_Frozen):
     #: back-link that makes "this file → that role" navigable. ``None`` for a singleton
     #: or an as-yet-unclustered document.
     role: RoleRef | None = None
+    #: Whether this page reads its file name for positions at all (HR-331
+    #: `source_page`). Off: one "Position #" row, the document's own value.
+    reads_filename_positions: bool = False
+    #: The positions the file NAME gives, in the order written. The file name is how
+    #: PeopleSoft attached the JD (`<as-of date>_<user file name>`); the number typed
+    #: in the document is shown beside it, never replaced by it.
+    filename_positions: tuple[FilenamePosition, ...] = ()
+    #: True when the parse found no title and :attr:`title` is the file name's (HR-338).
+    title_from_filename: bool = False
 
 
 class MemberJD(_Frozen):

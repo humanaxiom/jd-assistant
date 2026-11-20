@@ -44,6 +44,7 @@ from src.jd_bank.db.models import (
 )
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.library.models import (
+    FilenamePosition,
     MemberJD,
     RoleListItem,
     RolePage,
@@ -53,10 +54,11 @@ from src.jd_bank.library.models import (
     SourceListItem,
     SourcePage,
 )
+from src.jd_bank.positions import load_position_index, read_filename
 from src.jd_bank.query_plan import QueryUnderstanding
 from src.jd_core.bank.render import render_sfu_jd_text
 from src.jd_core.models.parsed_jd import SFUJobDescription
-from src.jd_core.parser import PARSER_VERSION
+from src.jd_core.parser import FALLBACK_TITLE, PARSER_VERSION
 from src.jd_core.rules import Rules, get_rules
 
 logger = logging.getLogger(__name__)
@@ -204,10 +206,28 @@ async def get_source_jd(
             .limit(1)
         )
     ).first()
+    seg = get_rules().segmentation
+    reader = seg.filename_positions
+    reads_positions = "source_page" in reader.consumers
+    positions: tuple[FilenamePosition, ...] = ()
+    if reads_positions:
+        # The WHOLE Bank's index, not this name alone: a short unpadded id counts only
+        # when some other filename writes it zero-padded (HR-328).
+        facets = (await load_position_index(session)).by_doc.get(source_document_id)
+        if facets is not None:
+            positions = tuple(
+                FilenamePosition(id8=p.id8, written=p.raw) for p in facets.positions
+            )
+    title, title_from_filename = jd.title, False
+    if reader.title_when_untitled and doc.filename and _untitled(jd.title):
+        # The slug never depends on the corroboration set, so no index is needed.
+        slug = read_filename(doc.filename, seg, frozenset()).title_slug
+        if slug:
+            title, title_from_filename = slug, True
     return SourceJDView(
         source_document_id=source_document_id,
         filename=doc.filename,
-        title=jd.title,
+        title=title,
         employee_group=jd.employee_group,
         department=jd.department,
         grade=jd.grade,
@@ -216,7 +236,15 @@ async def get_source_jd(
         classification=jd.classification,
         rendered_text=render_sfu_jd_text(jd),
         role=role,
+        reads_filename_positions=reads_positions,
+        filename_positions=positions,
+        title_from_filename=title_from_filename,
     )
+
+
+def _untitled(title: str | None) -> bool:
+    """The parser's own "no title found" (``FALLBACK_TITLE``), or nothing at all."""
+    return not (title or "").strip() or title == FALLBACK_TITLE
 
 
 # --- the role (roles → sources) -------------------------------------------------------

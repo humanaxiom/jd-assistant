@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **277 decisions** (275 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 380 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **278 decisions** (276 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 381 parameters on the decision surface, all accounted for.
 
-**Of those 277, 88 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 187 are recorded for the same build check but are not yours to sign: 82 shape what a reviewer sees without deciding whether a job description passes, and 105 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 278, 88 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 188 are recorded for the same build check but are not yours to sign: 83 shape what a reviewer sees without deciding whether a job description passes, and 105 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -957,9 +957,10 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-314](#hr-314) | Should the choices page SHOW the grades the role's source files carry, as reference, while never writing a grade to the form? | `true` | we chose it |
 | [HR-315](#hr-315) | Should a self-hosted chat model read what a person types into the Library and Builder search boxes before the title and vector passes run? | `false` | we chose it |
 | [HR-328](#hr-328) | When does a short or oddly padded number in a file name need confirming before it is treated as a position? | `unvouched_min_digits` → 3; `seven_digit_00_requires_corroboration` → True | we chose it |
-| [HR-331](#hr-331) | Which features use the full file-name position reading (HR-325 … HR-330) instead of only the zero-padded form? | `crf` | we chose it |
+| [HR-331](#hr-331) | Which features use the full file-name position reading (HR-325 … HR-330) instead of only the zero-padded form? | `crf`, `source_page` | we chose it |
 | [HR-332](#hr-332) | Should job descriptions people have written in the Builder, and not yet had published, be left out of the Library's normal list and search (shown only when a reader ticks "Include drafts written in the Builder")? | `true` | we chose it |
 | [HR-337](#hr-337) | When the requester picks one position on the form's choices page, should the Department box show where THAT position sits (as its own job description files say), rather than the department of the whole family of similar roles? | `true` | we chose it |
+| [HR-338](#hr-338) | When the text of an archive job description has no title we can read, should its page show the title written in its file name instead of "Untitled Position"? | `true` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -1405,11 +1406,11 @@ The two bands now say two different, true things. The merged band said one false
 
 ##### HR-331 — Which features use the full file-name position reading (HR-325 … HR-330) instead of only the zero-padded form?
 
-- **We ship:** `crf`
+- **We ship:** `crf`, `source_page`
 - **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.consumers`
 - **Where the default came from:** we chose it
-- **Why it matters:** Today only the Compensation Requisition Form (`crf`) uses it, to list the positions a role covers. MEASURED on the live Bank's 2,498 roles: the form's "we cannot see every position this role covers" warning falls from 371 roles to 75. The archive baseline and duplicate detection deliberately stay on the zero-padded reading (HR-114), so their registered numbers do not move; they are not valid values here.
-- **If it changes:** Remove `crf` and the form goes back to the padded reading (371 roles flagged). Other features can be added only once they are built to use it.
+- **Why it matters:** Two features use it. The Compensation Requisition Form (`crf`) lists the positions a role covers: MEASURED on the live Bank's 2,498 roles, its "we cannot see every position this role covers" warning falls from 371 roles to 75. The source job description page (`source_page`) shows "Position # (from the file name)" beside the number typed in the document: MEASURED on 14,522 parsed files, 3,939 have no number in the document but one in the file name, and on 2,322 the document's number is a different position (often copied from the JD it was based on). The archive baseline and duplicate detection deliberately stay on the zero-padded reading (HR-114), so their registered numbers do not move; they are not valid values here.
+- **If it changes:** Remove `crf` and the form goes back to the padded reading (371 roles flagged). Remove `source_page` and that page shows only the number typed in the document. Other features can be added only once they are built to use it.
 
 ##### HR-332 — Should job descriptions people have written in the Builder, and not yet had published, be left out of the Library's normal list and search (shown only when a reader ticks "Include drafts written in the Builder")?
 
@@ -1426,6 +1427,14 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** we chose it
 - **Why it matters:** A role in the JD Bank is a family of similar job descriptions, and the family can span departments. Found in the 2026-11-19 walkthrough: for one 58-position role the source files sit in Lifelong Learning, Continuing Studies, Physics, Chemistry and others, yet the form typed "Lifelong Learning" whichever position was picked. The picked position's own files are read only when every one of them that states a department agrees, and only when a request type is chosen (so the position is actually written); otherwise the family's department stands, marked "confirm". This reads the picked position's files whether or not HR-309 lists the department as a fact to read from the sources: HR-309 fills a gap in the family, HR-337 describes one position.
 - **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` types the family's department (or the source files' agreed one, HR-309) for every position.
+
+##### HR-338 — When the text of an archive job description has no title we can read, should its page show the title written in its file name instead of "Untitled Position"?
+
+- **We ship:** `true`
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.title_when_untitled`
+- **Where the default came from:** we chose it
+- **Why it matters:** MEASURED on 14,522 parsed files: 1,245 read as "Untitled Position", mostly older `.doc` files; 1,138 of them name the job in the file name (`20180720_00001049_Clerk.doc` gives "Clerk"). The file-name title is shown as written — sometimes with a grade or a date in it ("Clerk Gr 7 CU 26Sep08") — and the page says it was taken from the file name. Only that page changes; search, counts and the roles built from these files are unaffected.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` shows "Untitled Position" for all 1,245.
 
 #### An earlier version of this tool chose it — also unratified
 

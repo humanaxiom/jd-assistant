@@ -25,6 +25,7 @@ from src.jd_bank.library import (
     Facet,
     FacetBucket,
     FamilyCandidate,
+    FilenamePosition,
     Funnel,
     FunnelStage,
     MemberJD,
@@ -123,6 +124,77 @@ def test_source_jd_shows_grade_with_provenance(monkeypatch: pytest.MonkeyPatch) 
     body = make_client().get(f"/jd-bank/ui/jd/{view.source_document_id}").text
 
     assert "8" in body and "cupe" in body and "parsed" in body  # value/scheme/source
+
+
+def test_source_jd_shows_file_name_positions_beside_the_document_s(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HR-331 `source_page`: two labelled rows, the unpadded spelling shown, and the
+    document's own (here different) number kept."""
+    view = _source_view(
+        position_number="00012345",
+        reads_filename_positions=True,
+        filename_positions=(
+            FilenamePosition(id8="00000061", written="61"),
+            FilenamePosition(id8="00030785", written="00030785"),
+        ),
+    )
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=view))
+
+    body = make_client().get(f"/jd-bank/ui/jd/{view.source_document_id}").text
+
+    assert "Position # (from the file name)" in body
+    assert "00000061" in body and "written “61”" in body
+    assert "00030785" in body and "written “00030785”" not in body
+    assert "Position # (typed in the document)" in body and "00012345" in body
+
+
+def test_source_jd_with_no_file_name_position_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    view = _source_view(reads_filename_positions=True, filename_positions=())
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=view))
+
+    body = make_client().get(f"/jd-bank/ui/jd/{view.source_document_id}").text
+
+    assert "Position # (from the file name)" in body
+    assert "none in the file name" in body
+
+
+def test_source_jd_without_the_reader_keeps_one_position_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    view = _source_view()
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=view))
+
+    body = make_client().get(f"/jd-bank/ui/jd/{view.source_document_id}").text
+
+    assert "<th>Position #</th>" in body and "P123" in body
+    assert "from the file name" not in body
+
+
+def test_source_jd_flags_a_title_taken_from_the_file_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HR-338: never let a filename slug pass for a title the document states."""
+    view = _source_view(title="Secretary", title_from_filename=True)
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=view))
+
+    body = make_client().get(f"/jd-bank/ui/jd/{view.source_document_id}").text
+
+    assert "Secretary" in body
+    assert "title above is taken from the file name" in body
+
+
+def test_source_jd_with_its_own_title_has_no_file_name_note(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    view = _source_view()
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=view))
+
+    body = make_client().get(f"/jd-bank/ui/jd/{view.source_document_id}").text
+
+    assert "taken from the file name" not in body
 
 
 def test_source_jd_unknown_returns_404(monkeypatch: pytest.MonkeyPatch) -> None:
