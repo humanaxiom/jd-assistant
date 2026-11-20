@@ -2,6 +2,9 @@
 {% block title %}JD Bank — the library{% endblock %}
 {% block header %}🏦 JD Bank — the library{% endblock %}
 {% block content %}
+{# Carried on every sort / page link so paging never silently drops the reader's choice
+   to include Builder-written drafts. #}
+{% set bq = "&builder=1" if page.include_composed else "" %}
 
 <div class="panel">
   <p>
@@ -11,10 +14,17 @@
     awaiting HR review (or a published JD). Open a role to read its harmonized text and
     the source JDs behind it, or browse the
     <a href="/jd-bank/ui/archive">source archive</a> file by file.
+    Drafts people have written in the Builder are not archive roles, so they are left
+    out unless you tick the box below; your own are always in
+    <a href="/jd-bank/ui/my-drafts">📝 My drafts</a>.
   </p>
   <form method="get" action="/jd-bank/ui/library">
     <label for="q">Search roles by title or by what the job does</label>
     <input id="q" name="q" value="{{ page.q }}" placeholder="e.g. financial analyst, someone who processes invoices">
+    {# Builder-written drafts are left out by default: they are authors' drafts, not
+       roles distilled from the archive, and listed among them they read as archive
+       roles (UAT). The box keeps the choice across a second search. #}
+    <label style="display:flex;gap:.4rem;align-items:center"><input type="checkbox" name="builder" value="1" style="width:auto"{% if page.include_composed %} checked{% endif %}> Include drafts written in the Builder</label>
     <button type="submit">Search</button>
   </form>
 </div>
@@ -36,14 +46,14 @@
   </p>
 {% endif %}
   {% if page.items %}
-  <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }} · {% if page.q %}best matches first · {% if page.sort != 'relevance' %}<a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;limit={{ page.limit }}">sort by best match</a> · {% endif %}{% endif %}click a column heading to sort</p>
+  <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }} · {% if page.q %}best matches first · {% if page.sort != 'relevance' %}<a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;limit={{ page.limit }}{{ bq }}">sort by best match</a> · {% endif %}{% endif %}click a column heading to sort</p>
   {# A sortable column heading: links to the same query sorted by `key`, toggling
      direction if it is already the active sort; shows ▲/▼ when active. Sorting resets to
      the first page (no offset). #}
   {% macro sorth(key, label) -%}
     {%- set active = (page.sort == key) -%}
     {%- set next_dir = 'desc' if (active and page.direction == 'asc') else 'asc' -%}
-    <th><a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ key }}&amp;dir={{ next_dir }}&amp;limit={{ page.limit }}">{{ label }}{% if active %} {{ '▲' if page.direction == 'asc' else '▼' }}{% endif %}</a></th>
+    <th><a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ key }}&amp;dir={{ next_dir }}&amp;limit={{ page.limit }}{{ "&builder=1" if page.include_composed }}">{{ label }}{% if active %} {{ '▲' if page.direction == 'asc' else '▼' }}{% endif %}</a></th>
   {%- endmacro %}
   <table>
     <thead>
@@ -60,8 +70,9 @@
     <tbody>
       {% for item in page.items %}
       <tr>
-        <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">{{ item.title }}</a></td>
-        <td>{{ item.source_count }}</td>
+        <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">{{ item.title }}</a>{% if item.composed %}
+          <div class="meta">Written in the Builder{% if item.composed_by %} by {{ item.composed_by }}{% endif %}</div>{% endif %}</td>
+        <td>{{ "—" if item.composed else item.source_count }}</td>
         <td>{{ "%.1f"|format(item.score) if item.score is not none else "—" }}</td>
         <td>{{ item.grade or "—" }}</td>
         <td>{{ item.status }}</td>
@@ -73,10 +84,10 @@
   </table>
   <p class="meta">
     {% if pagination.prev_offset is not none %}
-    <a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.prev_offset }}&amp;limit={{ pagination.limit }}">← Prev</a>
+    <a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.prev_offset }}&amp;limit={{ pagination.limit }}{{ bq }}">← Prev</a>
     {% endif %}
     {% if pagination.next_offset is not none %}
-    <a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.next_offset }}&amp;limit={{ pagination.limit }}">Next →</a>
+    <a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.next_offset }}&amp;limit={{ pagination.limit }}{{ bq }}">Next →</a>
     {% endif %}
   </p>
   {% else %}
@@ -89,8 +100,8 @@
      — rendered a sentence and nothing to click. A page that strands the reader is the
      same dead end as a 404, wearing a 200. #}
   <p class="meta">
-    {% if page.q %}<a href="/jd-bank/ui/library">← Show all roles</a> · {% endif %}
-    {% if not page.items and page.offset %}<a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;limit={{ page.limit }}">← Back to the first page</a> · {% endif %}
+    {% if page.q %}<a href="/jd-bank/ui/library?q={{ bq }}">← Show all roles</a> · {% endif %}
+    {% if not page.items and page.offset %}<a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;limit={{ page.limit }}{{ bq }}">← Back to the first page</a> · {% endif %}
     <a href="/jd-bank/ui/compose/new">🧱 Write a new job description</a> ·
     <a href="/jd-bank/ui/archive">🗂 Browse the source archive</a>
   </p>

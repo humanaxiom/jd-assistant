@@ -120,6 +120,7 @@ async def library_view(
     sort: str = "",
     dir: str = "asc",
     plain: int = 0,
+    builder: int = 0,
     session: AsyncSession = Depends(get_session),
     embed_client: EmbedClient | None = Depends(get_optional_embed_client),
     neo4j_driver: AsyncDriver | None = Depends(get_optional_neo4j_driver),
@@ -149,6 +150,7 @@ async def library_view(
             embed_client=embed_client,
             neo4j_driver=neo4j_driver,
             plan=plan,
+            include_composed=bool(builder),
         )
     finally:
         await _close_quietly(embed_client, neo4j_driver)

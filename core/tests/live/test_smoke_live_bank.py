@@ -55,10 +55,12 @@ from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from src.jd_bank.composer.persist import COMPOSED_ORIGIN
 from src.jd_bank.library import (
     build_funnel,
     build_gap,
     family_for,
+    list_roles,
     list_source_jds,
     membership_coverage,
     resolve_members,
@@ -348,6 +350,13 @@ async def test_the_document_vector_index_is_at_the_current_parser_version(  # ty
 # closed port on purpose.
 
 _ROLE_LINK = re.compile(r'href="/jd-bank/ui/role/([0-9a-f-]{36})"')
+#: A role an author wrote in the Builder (the composer's own marker, bound as
+#: `:composed`). The library leaves these out by default, so a findability sample of
+#: the DEFAULT library must too.
+_NOT_COMPOSED = (
+    "cluster_id NOT IN (SELECT id FROM clusters "
+    "WHERE constraint_metadata->>'origin' = :composed)"
+)
 #: Deterministic sample size for exact-title findability.
 TITLE_SAMPLE = 50
 
@@ -401,8 +410,10 @@ async def test_sampled_live_roles_are_found_by_exact_title(library, session) -> 
             text(
                 f"SELECT cluster_id, content->>'title' FROM ({_CURRENT}) cur "
                 "WHERE coalesce(content->>'title','') <> '' "
+                f"AND {_NOT_COMPOSED} "
                 f"ORDER BY md5(cluster_id::text) LIMIT {TITLE_SAMPLE}"
-            )
+            ),
+            {"composed": COMPOSED_ORIGIN},
         )
     ).all()
     assert len(rows) == TITLE_SAMPLE, "the live Bank has too few titled roles to sample"
@@ -474,6 +485,50 @@ async def test_dead_embed_host_keeps_title_hits_and_banner(library, session) -> 
 
     assert str(title_row[0]) in ids, "title hits must survive a dead embed host"
     assert "Search by meaning is unavailable" in resp.text
+
+
+async def test_builder_drafts_are_out_of_the_default_library_and_labelled(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    """UAT: a draft an author submits from the Builder became its own role and read as
+    an archive role ("distilled from 0 source JDs"). On the LIVE Bank: the default
+    library leaves out exactly the composed roles, `?builder=1` brings them back
+    labelled, and a composed role's page says where it came from."""
+    composed = (
+        await session.execute(
+            text(
+                f"SELECT cluster_id, content->>'title' FROM ({_CURRENT}) cur "
+                f"WHERE NOT ({_NOT_COMPOSED}) "
+                "ORDER BY md5(cluster_id::text)"
+            ),
+            {"composed": COMPOSED_ORIGIN},
+        )
+    ).all()
+    default = await list_roles(session, limit=1)
+    everything = await list_roles(session, limit=1, include_composed=True)
+    assert everything.total - default.total == len(
+        composed
+    ), "the default library must leave out exactly the Builder-written roles"
+    titled = [(cid, title) for cid, title in composed if (title or "").strip()]
+    if not titled:
+        pytest.skip("the live Bank holds no titled Builder-written role to look at")
+
+    cluster_id, title = titled[0]
+    # By title, so the exclusion is checked on the search path, not just the browse.
+    query = title[:120]
+    _, hidden = await _search_ids(library, query, limit=200)
+    assert str(cluster_id) not in hidden, "a Builder draft leaked into default search"
+    resp = await library.get(
+        "/jd-bank/ui/library", params={"q": query, "limit": 200, "builder": 1}
+    )
+    assert resp.status_code == 200
+    assert str(cluster_id) in _ROLE_LINK.findall(resp.text)
+    assert "Written in the Builder" in resp.text
+
+    page = await library.get(f"/jd-bank/ui/role/{cluster_id}")
+    assert page.status_code == 200
+    assert "written in the builder" in page.text.lower()
+    assert "Distilled from" not in page.text
 
 
 async def test_archive_finds_documents_by_current_parsed_title(session) -> None:  # type: ignore[no-untyped-def]
