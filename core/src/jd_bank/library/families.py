@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass
 from uuid import UUID
 
 from sqlalchemy import text
@@ -40,6 +41,7 @@ from src.jd_bank.library.models import (
     MembershipCoverage,
     SignalCoverage,
 )
+from src.jd_core.parser import FALLBACK_TITLE
 from src.jd_core.rules import FunctionalFamily, Rules, get_rules
 
 #: How many candidates a review queue returns at most — a worklist, not a corpus dump.
@@ -144,34 +146,96 @@ def _classification_regex(family: FunctionalFamily) -> str | None:
 # --- membership: the authority ----------------------------------------------------
 
 
+@dataclass(frozen=True)
+class _Signal:
+    """One membership signal: what it is called, when one document row matches it, and
+    when that row cannot be judged by it at all."""
+
+    label: str
+    #: SQL over one ``doc`` row (:data:`_DOC_CTE`). NULL counts as "no match".
+    predicate: str
+    #: SQL true when the row lacks the attribute the signal reads — its blind spot.
+    #: A role is unevaluable only when EVERY one of its rows is blind.
+    blind: str
+
+
+#: Every current role joined to each of its source documents: one row per (role,
+#: document), and one row with a NULL document for a role that has none.
+#:
+#: Title and department are read out of ``content`` ONCE PER ROLE, inside the
+#: DISTINCT ON (which Postgres cannot flatten). Read after the join, the large jsonb
+#: was de-TOASTed once per DOCUMENT row (~11,000 on the live Bank) and the OR of the
+#: signals took ~2.6 s where each alone took < 0.6 s.
+_DOC_CTE = """
+    WITH cur AS (
+      SELECT DISTINCT ON (cluster_id) cluster_id, source_document_ids,
+             content->>'title' AS title,
+             content->>'department' AS department
+      FROM canonical_jds ORDER BY cluster_id, version DESC
+    ),
+    doc AS (
+      SELECT c.cluster_id, d.filename, c.title, c.department
+      FROM cur c
+      LEFT JOIN LATERAL jsonb_array_elements(c.source_document_ids) s ON TRUE
+      LEFT JOIN source_documents d ON d.id = (s.value->>'source_id')::uuid
+    )
+"""
+
+
+def _signals(family: FunctionalFamily) -> tuple[list[_Signal], dict[str, object]]:
+    """The family's configured signals, each carrying its OWN label, and their bound
+    parameters. A signal and its label travel together: pairing them by position
+    once reported the title count as the filename-code count for any family with no
+    codes."""
+    signals: list[_Signal] = []
+    params: dict[str, object] = {}
+    classification = _classification_regex(family)
+    if classification is not None:
+        signals.append(
+            _Signal(
+                "classification code in the filename",
+                "filename ~ :classification",
+                "filename IS NULL",
+            )
+        )
+        params["classification"] = classification
+    if family.title_terms:
+        signals.append(
+            _Signal(
+                "the role's title",
+                "EXISTS (SELECT 1 FROM unnest(CAST(:title_terms AS text[])) t"
+                " WHERE lower(coalesce(title,'')) ~ t)",
+                f"coalesce(title, '') = '' OR title = '{FALLBACK_TITLE}'",
+            )
+        )
+        params["title_terms"] = postgres_patterns(family.title_terms)
+    if family.department_terms:
+        # The terms are lowered and trimmed ONCE (an uncorrelated ARRAY(...) is an
+        # InitPlan), not once per row: the per-row form cost ~1.9 s on the live Bank.
+        signals.append(
+            _Signal(
+                "the department",
+                "lower(trim(coalesce(department,''))) = ANY(ARRAY("
+                "SELECT lower(trim(d)) FROM unnest(CAST(:department_terms AS text[])) d"
+                "))",
+                "coalesce(department, '') = ''",
+            )
+        )
+        params["department_terms"] = list(family.department_terms)
+    return signals, params
+
+
 def _membership_predicates(
     family: FunctionalFamily,
 ) -> tuple[list[str], dict[str, object]]:
     """The SQL for each membership signal, and its bound parameters.
 
-    Returned as a list so :func:`membership_coverage` can evaluate them one at a time
-    and report what each contributes. **A signal nobody can see the contribution of is a
-    signal nobody can check.**
+    Returned as a list so the live smoke can evaluate them one at a time and check
+    the union. **A signal nobody can see the contribution of is a signal nobody can
+    check.**
     """
-    predicates: list[str] = []
-    params: dict[str, object] = {}
-    classification = _classification_regex(family)
-    if classification is not None:
-        predicates.append("filename ~ :classification")
-        params["classification"] = classification
-    if family.title_terms:
-        predicates.append(
-            "EXISTS (SELECT 1 FROM unnest(CAST(:title_terms AS text[])) t"
-            " WHERE lower(coalesce(title,'')) ~ t)"
-        )
-        params["title_terms"] = postgres_patterns(family.title_terms)
-    if family.department_terms:
-        predicates.append(
-            "EXISTS (SELECT 1 FROM unnest(CAST(:department_terms AS text[])) d"
-            " WHERE lower(trim(coalesce(department,''))) = lower(trim(d)))"
-        )
-        params["department_terms"] = list(family.department_terms)
-    return predicates, params
+    signals, params = _signals(family)
+    return [s.predicate for s in signals], params
 
 
 async def resolve_members(
@@ -214,21 +278,10 @@ async def resolve_members(
     matched: set[UUID] = set()
     if predicates:
         rows = await session.execute(
-            text(f"""
-                WITH cur AS ({_CURRENT}),
-                doc AS (
-                  SELECT c.cluster_id,
-                         d.filename,
-                         c.content->>'title' AS title,
-                         c.content->>'department' AS department
-                  FROM cur c
-                  LEFT JOIN LATERAL jsonb_array_elements(c.source_document_ids) s
-                    ON TRUE
-                  LEFT JOIN source_documents d
-                    ON d.id = (s.value->>'source_id')::uuid
-                )
-                SELECT DISTINCT cluster_id FROM doc WHERE {" OR ".join(predicates)}
-            """),
+            text(
+                f"{_DOC_CTE} SELECT DISTINCT cluster_id FROM doc "
+                f"WHERE {' OR '.join(predicates)}"
+            ),
             params,
         )
         matched.update(row[0] for row in rows)
@@ -237,15 +290,20 @@ async def resolve_members(
 
 
 async def collection_stats(
-    session: AsyncSession, family: FunctionalFamily
+    session: AsyncSession,
+    family: FunctionalFamily,
+    *,
+    members: frozenset[UUID] | None = None,
 ) -> CollectionStats:
     """The headline for a family's collection page — roles, documents, approvable.
 
     ``source_documents`` counts the documents behind the family's roles, which is the
     compression story ("469 documents became 45 roles"). It is deliberately reported
-    alongside ``roles`` and never on its own.
+    alongside ``roles`` and never on its own. Pass ``members`` (from
+    :func:`resolve_members`) when the caller already has them.
     """
-    members = await resolve_members(session, family)
+    if members is None:
+        members = await resolve_members(session, family)
     if not members:
         return CollectionStats(
             label=family.label,
@@ -321,17 +379,28 @@ async def rank_candidates(
     rows = await session.execute(
         text(f"""
             WITH cur AS ({_CURRENT}),
-            scored AS (
+            -- Each role's text is built ONCE, here (MATERIALIZED, so the planner
+            -- cannot inline it back). Written inside the per-term subquery it was
+            -- rebuilt — title + summary + every duty, lowercased — once per duty TERM,
+            -- and the IT queue took ~13 s on the live Bank.
+            base AS MATERIALIZED (
               SELECT c.cluster_id,
                      c.id AS canonical_id,
                      c.content->>'title' AS title,
                      c.status::text AS status,
                      jsonb_array_length(c.source_document_ids) AS sources,
                      c.content->>'department' AS department,
+                     {_BODY} AS body
+              FROM cur c
+              WHERE NOT (c.cluster_id = ANY(CAST(:members AS uuid[])))
+            ),
+            scored AS (
+              SELECT b.cluster_id, b.canonical_id, b.title, b.status, b.sources,
+                     b.department,
                      (SELECT count(*) FROM unnest(CAST(:duty AS text[])) t
-                        WHERE {_BODY} ~ t)::int AS duty_hits,
+                        WHERE b.body ~ t)::int AS duty_hits,
                      (SELECT count(*) FROM unnest(CAST(:title AS text[])) t
-                        WHERE lower(coalesce(c.content->>'title','')) ~ t)::int
+                        WHERE lower(coalesce(b.title,'')) ~ t)::int
                         AS title_hits,
                      -- Department is compared case-INSENSITIVELY and whole-string:
                      -- `FACILITIES SERVICES` and `Facilities Services` are two distinct
@@ -339,11 +408,10 @@ async def rank_candidates(
                      -- `School of Computing Science`, an academic unit that is not ITS.
                      EXISTS (
                        SELECT 1 FROM unnest(CAST(:departments AS text[])) d
-                       WHERE lower(trim(coalesce(c.content->>'department',''))) =
+                       WHERE lower(trim(coalesce(b.department,''))) =
                              lower(trim(d))
                      ) AS department_match
-              FROM cur c
-              WHERE NOT (c.cluster_id = ANY(CAST(:members AS uuid[])))
+              FROM base b
             )
             SELECT cluster_id, canonical_id, title, status, sources, department,
                    duty_hits, title_hits, department_match
@@ -378,7 +446,10 @@ async def rank_candidates(
 
 
 async def membership_coverage(
-    session: AsyncSession, family: FunctionalFamily
+    session: AsyncSession,
+    family: FunctionalFamily,
+    *,
+    members: frozenset[UUID] | None = None,
 ) -> MembershipCoverage:
     """What each membership signal found, and **what none of them could see**.
 
@@ -391,80 +462,49 @@ async def membership_coverage(
     Every role in the Bank lands in exactly one of: a member, a candidate for review, or
     unmatched by any signal. The three sum to the whole Bank — and the page shows all
     three, so the claim can be checked rather than believed.
-    """
-    predicates, params = _membership_predicates(family)
-    #: Where each signal cannot be evaluated AT ALL — the attribute it reads is absent,
-    #: or is the parser's placeholder. This is the signal's honest blind spot, and it is
-    #: not the same as "did not match": a department signal says nothing whatever
-    #: about a
-    #: role with no department recorded, and reporting the two as one number is how a
-    #: filter becomes unfalsifiable.
-    blind_conditions = (
-        "filename IS NULL",
-        "coalesce(title, '') = '' OR title = 'Untitled Position'",
-        "coalesce(department, '') = ''",
-    )
-    doc_cte = f"""
-        WITH cur AS ({_CURRENT}),
-        doc AS (
-          SELECT c.cluster_id, d.filename,
-                 c.content->>'title' AS title,
-                 c.content->>'department' AS department
-          FROM cur c
-          LEFT JOIN LATERAL jsonb_array_elements(c.source_document_ids) s ON TRUE
-          LEFT JOIN source_documents d ON d.id = (s.value->>'source_id')::uuid
-        )
-    """
-    per_signal: list[SignalCoverage] = []
-    for label, predicate, blind in zip(
-        ("classification code in the filename", "the role's title", "the department"),
-        predicates,
-        blind_conditions,
-        strict=False,
-    ):
-        matched = int(
-            (
-                await session.execute(
-                    text(
-                        f"{doc_cte} SELECT count(DISTINCT cluster_id) FROM doc "
-                        f"WHERE {predicate}"
-                    ),
-                    params,
-                )
-            ).scalar()
-            or 0
-        )
-        # A role is unevaluable for this signal only when NONE of its documents carries
-        # the attribute — one usable filename or department is enough to speak for it.
-        unevaluable = int(
-            (
-                await session.execute(
-                    text(
-                        f"{doc_cte} SELECT count(DISTINCT cluster_id) FROM doc "
-                        f"WHERE cluster_id NOT IN "
-                        f"(SELECT cluster_id FROM doc WHERE NOT ({blind}))"
-                    )
-                )
-            ).scalar()
-            or 0
-        )
-        per_signal.append(
-            SignalCoverage(label=label, roles=matched, unevaluable=unevaluable)
-        )
 
-    total = int(
-        (
-            await session.execute(
-                text(f"WITH cur AS ({_CURRENT}) SELECT count(*) FROM cur")
-            )
-        ).scalar()
-        or 0
+    "Cannot judge at all" (:attr:`_Signal.blind`) is not "looked and found nothing": a
+    department signal says nothing whatever about a role with no department recorded,
+    and reporting the two as one number is how a filter becomes unfalsifiable. A role
+    is unevaluable for a signal only when NONE of its documents carries the attribute —
+    one usable filename or department is enough to speak for it.
+
+    ONE grouped pass over the role/document join. It was seven queries, three of them a
+    ``NOT IN`` anti-join, and took ~20 s of the IT page's ~25 s on the live Bank.
+    """
+    signals, params = _signals(family)
+    per_role = ",\n".join(
+        f"bool_or({s.predicate}) AS m{i}, bool_and(coalesce(({s.blind}), true)) AS u{i}"
+        for i, s in enumerate(signals)
     )
-    members = await resolve_members(session, family)
+    counts = ", ".join(
+        f"count(*) FILTER (WHERE m{i}), count(*) FILTER (WHERE u{i})"
+        for i in range(len(signals))
+    )
+    row = (
+        await session.execute(
+            text(
+                f"{_DOC_CTE}, per AS (SELECT cluster_id"
+                f"{', ' + per_role if per_role else ''} FROM doc GROUP BY cluster_id) "
+                f"SELECT count(*){', ' + counts if counts else ''} FROM per"
+            ),
+            params,
+        )
+    ).one()
+    per_signal = tuple(
+        SignalCoverage(
+            label=s.label,
+            roles=int(row[1 + 2 * i] or 0),
+            unevaluable=int(row[2 + 2 * i] or 0),
+        )
+        for i, s in enumerate(signals)
+    )
+    if members is None:
+        members = await resolve_members(session, family)
     return MembershipCoverage(
-        total_roles=total,
+        total_roles=int(row[0] or 0),
         members=len(members),
-        signals=tuple(per_signal),
+        signals=per_signal,
         included_by_hand=len(family.include),
         excluded_by_hand=len(family.exclude),
     )

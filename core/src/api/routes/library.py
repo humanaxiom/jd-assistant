@@ -412,10 +412,11 @@ async def collection_view(
             {"what": "collection", "id": slug},
             status_code=404,
         )
-    stats = await collection_stats(session, family)
-    coverage = await membership_coverage(session, family)
-    candidates = await rank_candidates(session, family) if queue else ()
+    # Resolved ONCE: the headline, the coverage and the list all read the same set.
     members = await resolve_members(session, family)
+    stats = await collection_stats(session, family, members=members)
+    coverage = await membership_coverage(session, family, members=members)
+    candidates = await rank_candidates(session, family) if queue else ()
     page = await list_roles(
         session,
         limit=limit,
