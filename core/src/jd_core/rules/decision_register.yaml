@@ -8677,18 +8677,45 @@ decisions:
     config:
       file: segmentation.yaml
       path: segmentation.filename_positions.consumers
-    current_default: [crf]
+    current_default: [crf, source_page]
     provenance: our_invention
     tier: hr_informed
     why_it_matters: >-
-      Today only the Compensation Requisition Form (`crf`) uses it, to list the positions
-      a role covers. MEASURED on the live Bank's 2,498 roles: the form's "we cannot see
-      every position this role covers" warning falls from 371 roles to 75. The archive
-      baseline and duplicate detection deliberately stay on the zero-padded reading
-      (HR-114), so their registered numbers do not move; they are not valid values here.
+      Two features use it. The Compensation Requisition Form (`crf`) lists the
+      positions a role covers: MEASURED on the live Bank's 2,498 roles, its "we cannot
+      see every position this role covers" warning falls from 371 roles to 75. The
+      source job description page (`source_page`) shows "Position # (from the file
+      name)" beside the number typed in the document: MEASURED on 14,522 parsed files,
+      3,939 have no number in the document but one in the file name, and on 2,322 the
+      document's number is a different position (often copied from the JD it was based
+      on). The archive baseline and duplicate detection deliberately stay on the
+      zero-padded reading (HR-114), so their registered numbers do not move; they are
+      not valid values here.
     impact_if_changed: >-
       Remove `crf` and the form goes back to the padded reading (371 roles flagged).
+      Remove `source_page` and that page shows only the number typed in the document.
       Other features can be added only once they are built to use it.
+    status: open
+  - id: HR-338
+    question: >-
+      When the text of an archive job description has no title we can read, should its
+      page show the title written in its file name instead of "Untitled Position"?
+    config:
+      file: segmentation.yaml
+      path: segmentation.filename_positions.title_when_untitled
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      MEASURED on 14,522 parsed files: 1,245 read as "Untitled Position", mostly older
+      `.doc` files; 1,138 of them name the job in the file name
+      (`20180720_00001049_Clerk.doc` gives "Clerk"). The file-name title is shown as
+      written — sometimes with a grade or a date in it ("Clerk Gr 7 CU 26Sep08") — and
+      the page says it was taken from the file name. Only that page changes; search,
+      counts and the roles built from these files are unaffected.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. `false` shows "Untitled
+      Position" for all 1,245.
     status: open
 
 trivial:

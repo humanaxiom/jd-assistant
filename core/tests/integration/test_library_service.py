@@ -199,6 +199,155 @@ async def test_get_source_jd_back_links_to_its_role(
     assert view.role.title == "Academic Advisor"
 
 
+# --- the source page reads its file name (HR-331 `source_page`, HR-338) ---------------
+
+#: The owner's PeopleSoft sample (position 00000061): an unpadded leading list.
+_BUNDLE = "20200601_61,_30785,_208,_975_JDFN_APSA_20211117.docx"
+
+
+def _retuned(monkeypatch: pytest.MonkeyPatch, **fp_update: object) -> None:
+    """Point the library service at a rulebook with ``filename_positions`` changed."""
+    from src.jd_bank.library import service
+
+    rules = get_rules()
+    seg = rules.segmentation
+    off = seg.model_copy(
+        update={
+            "filename_positions": seg.filename_positions.model_copy(update=fp_update)
+        }
+    )
+    retuned = rules.model_copy(update={"segmentation": off})
+    monkeypatch.setattr(service, "get_rules", lambda: retuned)
+
+
+@pytest.mark.asyncio
+async def test_the_source_page_shows_the_positions_its_file_name_names(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """UAT review 2026-11-19: 3,939 live source pages said "Position # —" while the
+    file name named the position; on 2,322 more the number typed in the document is a
+    different id. The file name is how PeopleSoft attached the JD, so the page shows it
+    — beside what the document says, never in place of it."""
+    async with session_maker() as session:
+        # A padded witness elsewhere vouches for the short `61` (HR-328).
+        await _seed_source(
+            session, filename="20190101_00000061_Clerk.docx", jd=_jd("Clerk")
+        )
+        sid = await _seed_source(
+            session, filename=_BUNDLE, jd=_jd("Advisor", position_number="00012345")
+        )
+        await session.commit()
+
+        view = await get_source_jd(session, sid)
+
+    assert view is not None
+    assert view.reads_filename_positions is True
+    assert [(p.id8, p.written) for p in view.filename_positions] == [
+        ("00000061", "61"),
+        ("00030785", "30785"),
+        ("00000208", "208"),
+        ("00000975", "975"),
+    ]
+    assert view.position_number == "00012345"  # the document's own value is kept
+
+
+@pytest.mark.asyncio
+async def test_without_source_page_in_consumers_the_page_reads_no_file_name(
+    session_maker: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HR-331 is read, not hardcoded: take ``source_page`` out and the page goes back
+    to the single "Position #" row from the document."""
+    _retuned(monkeypatch, consumers=frozenset({"crf"}))
+    async with session_maker() as session:
+        sid = await _seed_source(
+            session, filename="20190101_00000061_Clerk.docx", jd=_jd("Clerk")
+        )
+        await session.commit()
+
+        view = await get_source_jd(session, sid)
+
+    assert view is not None
+    assert view.reads_filename_positions is False
+    assert view.filename_positions == ()
+
+
+@pytest.mark.asyncio
+async def test_an_untitled_parse_takes_its_title_from_the_file_name(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """1,245 live files parse as "Untitled Position"; 1,138 of them name the job in
+    the file name (`20180720_00001049_Clerk.doc`). Show that, flagged (HR-338)."""
+    async with session_maker() as session:
+        sid = await _seed_source(
+            session,
+            filename="20180720_00001049_Clerk_gr6_Campus_Security.doc",
+            jd=_jd("Untitled Position"),
+        )
+        await session.commit()
+
+        view = await get_source_jd(session, sid)
+
+    assert view is not None
+    assert view.title == "Clerk gr6 Campus Security"
+    assert view.title_from_filename is True
+
+
+@pytest.mark.asyncio
+async def test_a_parsed_title_is_never_replaced_by_the_file_name(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        sid = await _seed_source(
+            session,
+            filename="20180720_00001049_Clerk.doc",
+            jd=_jd("Records Assistant"),
+        )
+        await session.commit()
+
+        view = await get_source_jd(session, sid)
+
+    assert view is not None
+    assert view.title == "Records Assistant"
+    assert view.title_from_filename is False
+
+
+@pytest.mark.asyncio
+async def test_an_untitled_parse_with_no_name_in_its_file_stays_untitled(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """`61,_30785,…_JDFN_APSA_….docx` names no job: nothing is invented."""
+    async with session_maker() as session:
+        sid = await _seed_source(session, filename=_BUNDLE, jd=_jd("Untitled Position"))
+        await session.commit()
+
+        view = await get_source_jd(session, sid)
+
+    assert view is not None
+    assert view.title == "Untitled Position"
+    assert view.title_from_filename is False
+
+
+@pytest.mark.asyncio
+async def test_with_the_title_fallback_off_an_untitled_parse_stays_untitled(
+    session_maker: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HR-338 is read, not hardcoded."""
+    _retuned(monkeypatch, title_when_untitled=False)
+    async with session_maker() as session:
+        sid = await _seed_source(
+            session, filename="20180720_00001049_Clerk.doc", jd=_jd("Untitled Position")
+        )
+        await session.commit()
+
+        view = await get_source_jd(session, sid)
+
+    assert view is not None
+    assert view.title == "Untitled Position"
+    assert view.title_from_filename is False
+
+
 @pytest.mark.asyncio
 async def test_get_source_jd_none_for_unknown_or_unparsed(
     session_maker: async_sessionmaker[AsyncSession],

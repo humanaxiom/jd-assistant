@@ -226,7 +226,8 @@ def test_the_bare_trailing_tier_cannot_be_switched_on(seg: Segmentation) -> None
         },
         "caret_tail_min_digits": 3,
         "bare_trailing_ids": False,
-        "consumers": ["crf"],
+        "consumers": ["crf", "source_page"],
+        "title_when_untitled": True,
     }
     FilenamePositions.model_validate(data)
     with pytest.raises(ValidationError, match="bare_trailing_ids"):
@@ -247,7 +248,8 @@ def test_the_padded_baseline_pattern_is_untouched(seg: Segmentation) -> None:
     """HR-114's numbers, near-dedup's ``_same_position`` and the baseline all read the
     PADDED pattern. Widening it moves registered numbers; the reader is separate."""
     assert seg.position_id_pattern.pattern == r"(?<![0-9])(0[0-9]{7})(?![0-9])"
-    assert "crf" in seg.filename_positions.consumers
+    assert {"crf", "source_page"} <= seg.filename_positions.consumers
+    assert seg.filename_positions.title_when_untitled is True
 
 
 def test_the_filename_positions_knobs_are_registered_open() -> None:
@@ -257,7 +259,7 @@ def test_the_filename_positions_knobs_are_registered_open() -> None:
         for d in rules.decision_register.decisions
         if d.config.path.startswith("segmentation.filename_positions.")
     }
-    assert sorted(entries) == [f"HR-{n}" for n in range(325, 332)]
+    assert sorted(entries) == [*(f"HR-{n}" for n in range(325, 332)), "HR-338"]
     for decision in entries.values():
         assert decision.status == "open"
         assert decision.provenance == "our_invention"

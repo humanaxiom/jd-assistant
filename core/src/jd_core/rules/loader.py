@@ -716,9 +716,11 @@ class TextNorm(_RuleFile):
 #: Which surfaces read a position off a filename with the FULL filename reader
 #: (``jd_bank/positions``, HR-331) rather than the padded pattern alone. A closed set of
 #: the surfaces actually wired: a name here that nothing reads would be a switch that
-#: does nothing. The archive baseline and near-dedup are deliberately NOT in the
-#: vocabulary — they stay on ``position_id_pattern`` so their registered numbers hold.
-FilenamePositionConsumer = Literal["crf"]
+#: does nothing. `crf` = the Compensation Requisition Form's position list;
+#: `source_page` = the source JD page's "Position # (from the file name)" row. The
+#: archive baseline and near-dedup are deliberately NOT in the vocabulary — they stay
+#: on ``position_id_pattern`` so their registered numbers hold.
+FilenamePositionConsumer = Literal["crf", "source_page"]
 
 
 @with_config(ConfigDict(extra="forbid"))
@@ -765,6 +767,10 @@ class FilenamePositions(BaseModel):
     bare_trailing_ids: bool
     #: Which surfaces use this reader (HR-331).
     consumers: frozenset[FilenamePositionConsumer]
+    #: When a source JD's parse found no title, the source page shows the title its
+    #: FILE NAME gives (`20180720_00001049_Clerk.doc` -> "Clerk"), flagged as such
+    #: (HR-338). The page reads the file name's title from ``jd_bank/positions``.
+    title_when_untitled: bool
 
     @field_validator("leading_list_pattern", "labelled_position_pattern")
     @classmethod

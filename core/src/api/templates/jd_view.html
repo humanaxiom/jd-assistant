@@ -8,6 +8,10 @@
     <a href="/jd-bank/ui/library">🏦 JD Bank</a> ·
     <a href="/jd-bank/ui/archive">source archive</a>
   </p>
+  {% if view.title_from_filename %}
+  <p class="note">The text of this file has no title we could read, so the
+    title above is taken from the file name.</p>
+  {% endif %}
   <table>
     <tbody>
       <tr><th>File</th><td>{{ view.filename or "—" }}</td></tr>
@@ -18,7 +22,18 @@
         <span class="meta">({{ view.classification.scheme }} · {{ view.classification.source }})</span>
         {% else %}—{% endif %}
       </td></tr>
+      {% if view.reads_filename_positions %}
+      {# HR-331 `source_page`: the file name is how PeopleSoft attached this JD; the
+         number typed in the document is often copied from another JD. Both, labelled. #}
+      <tr><th>Position # (from the file name)</th><td>
+        {% for p in view.filename_positions %}{{ p.id8 }}{% if p.written != p.id8 %}
+        <span class="meta">(written “{{ p.written }}”)</span>{% endif %}{% if not loop.last %}, {% endif %}
+        {% else %}<span class="meta">none in the file name</span>{% endfor %}
+      </td></tr>
+      <tr><th>Position # (typed in the document)</th><td>{{ view.position_number or "—" }}</td></tr>
+      {% else %}
       <tr><th>Position #</th><td>{{ view.position_number or "—" }}</td></tr>
+      {% endif %}
       <tr><th>Parse confidence</th><td>{{ (view.parse_confidence * 100) | round(0, 'floor') | int }}%</td></tr>
     </tbody>
   </table>
