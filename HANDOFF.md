@@ -47,11 +47,14 @@ box's OLD LAN IP `192.168.1.80`; it is now `.73`.
 `harness_restored`: 2,504 canonical / 15 user_roles / 16,087 chained rows, fingerprint
 `46578330…be2e6` identical; scratch db dropped.
 
-**UAT work on branches (none merged; Directive #0 applies):** CRF fixes on
-`fix/k3-review-uat`, Library fixes on `fix/library-uat`, filename position reader
-(HR-325–331) on `feat/filename-positions` — all off `feat/k3-crf-download` (#219), to be
-folded into #219. HR ids: 325–331 filename positions, 332–336 Library lane, 337 CRF
-department-follows-position. **Next free id: HR-338** — check.
+**UAT work MERGED 2026-11-20:** the CRF fixes, Library fixes and filename position
+reader (HR-325–331) were folded into #219, which the owner squash-merged as `824a9f9`
+(tree identical to `fa6d547`, which live runs). **#220** (`fix/source-page-filename-facts`,
+open) makes the source JD page show the file name's position(s) beside the document's
+own, and the file name's title when the text has none (HR-331 `source_page`, HR-338).
+HR ids: 325–331 filename positions, 332 Library Builder drafts (333–336 never used),
+337 CRF department-follows-position, 338 source-page title. **Next free id: HR-339** —
+check.
 
 ## ▶ state at 2026-10-28 (older; corrected above)
 
