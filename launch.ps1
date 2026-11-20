@@ -163,7 +163,7 @@ Write-Step 'Starting services'
 Write-Info "Starting: $($Services -join ', ')"
 # --wait blocks until every service with a healthcheck reports healthy, so the migration
 # step below cannot race a Postgres that is still starting up.
-Invoke-Compose up -d --wait
+Invoke-Compose up --detach --wait
 # The api/worker containers bind-mount ./core and run uvicorn --reload, but a Windows
 # bind mount delivers NO file-change events into the container: on 2026-10-28 the API
 # served two-hour-old code after a build + launch, because compose saw an unchanged
@@ -186,7 +186,7 @@ if ($inProgress.Count -gt 0) {
     $recreate = @('api')
     Write-Warn "worker is running $($inProgress.Count) job(s); NOT recreated, so it may serve older code. Re-run launch when it is idle."
 }
-Invoke-Compose up -d --no-deps --force-recreate --wait @recreate
+Invoke-Compose up --detach --no-deps --force-recreate --wait @recreate
 Write-Ok 'All services report healthy'
 
 # ── API readiness ───────────────────────────────────────────────────────────

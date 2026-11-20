@@ -151,6 +151,9 @@ class RolePage(_Frozen):
     #: authors' drafts, not roles distilled from the archive, and listing them beside
     #: the archive roles made them read as archive roles.
     include_composed: bool = False
+    #: How many unpublished Builder drafts the plain listing left out (HR-332), so the
+    #: page can say so and its total still reconciles with the Funnel. 0 for a search.
+    hidden_builder_drafts: int = 0
     #: A search whose every result was found by MEANING alone — no title, spelling or
     #: interpreted-title hit. The vector index always returns its nearest roles, however
     #: unrelated (`q=zzzqqq` returned 100), so the page must say so in words. It is a

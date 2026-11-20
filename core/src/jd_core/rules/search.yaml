@@ -55,3 +55,11 @@ query_prompt_version: jd_search_plan_v1
 # How many title keywords the plan may add, INCLUDING the words as typed (HR-323). Each
 # one is a title scan over roles and documents; 4 bounds the cost.
 query_max_title_keywords: 4
+
+# Leave UNPUBLISHED job descriptions written in the Builder out of the Library's default
+# listing and search (HR-332). An author's submitted draft becomes its own role, and
+# listed among the roles distilled from the archive it read as one ("distilled from 0
+# source JDs" — the 2026-11-19 UAT walkthrough). A Builder JD HR has PUBLISHED stays
+# listed. The Library says how many drafts are hidden and offers a box to show them;
+# authors always see their own in My drafts. Off: every role is listed.
+hide_unpublished_builder_drafts: true

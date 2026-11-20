@@ -44,9 +44,10 @@ tick_request_type: true
 # whenever the Bank writes that section's list of positions.
 tick_based_on_existing: true
 
-# Fill "Contact Name & Position Title" and its email with the SIGNED-IN requester (the
-# person downloading the form), when they leave the choices page's box ticked. Never
-# an incumbent: the Bank holds no incumbent names.
+# Fill "Contact Name & Position Title" and its email with what the REQUESTER (the person
+# downloading the form) types on the choices page — prefilled from their sign-in, which
+# carries only a computing ID — when they leave the box ticked. Never an incumbent: the
+# Bank holds no incumbent names. Nothing typed is stored.
 contact_from_requester: true
 
 # Show the grades the source files carry on the choices page, as reference only.

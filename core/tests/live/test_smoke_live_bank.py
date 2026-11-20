@@ -351,12 +351,12 @@ async def test_the_document_vector_index_is_at_the_current_parser_version(  # ty
 # closed port on purpose.
 
 _ROLE_LINK = re.compile(r'href="/jd-bank/ui/role/([0-9a-f-]{36})"')
-#: A role an author wrote in the Builder (the composer's own marker, bound as
-#: `:composed`). The library leaves these out by default, so a findability sample of
-#: the DEFAULT library must too.
+#: Listed in the DEFAULT library: not an UNPUBLISHED role an author wrote in the Builder
+#: (the composer's own marker, bound as `:composed`; HR-332 keeps a published one
+#: listed). A findability sample of the default library must use the same rule.
 _NOT_COMPOSED = (
-    "cluster_id NOT IN (SELECT id FROM clusters "
-    "WHERE constraint_metadata->>'origin' = :composed)"
+    "NOT (status <> 'PUBLISHED' AND cluster_id IN (SELECT id FROM clusters "
+    "WHERE constraint_metadata->>'origin' = :composed))"
 )
 #: Deterministic sample size for exact-title findability.
 TITLE_SAMPLE = 50
@@ -564,7 +564,8 @@ async def test_builder_drafts_are_out_of_the_default_library_and_labelled(  # ty
     everything = await list_roles(session, limit=1, include_composed=True)
     assert everything.total - default.total == len(
         composed
-    ), "the default library must leave out exactly the Builder-written roles"
+    ), "the default library must leave out exactly the unpublished Builder drafts"
+    assert default.hidden_builder_drafts == len(composed), "the page must say so"
     titled = [(cid, title) for cid, title in composed if (title or "").strip()]
     if not titled:
         pytest.skip("the live Bank holds no titled Builder-written role to look at")

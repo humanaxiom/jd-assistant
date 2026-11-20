@@ -8345,7 +8345,11 @@ decisions:
       the source files sit in Lifelong Learning, Continuing Studies, Physics, Chemistry
       and others, yet the form typed "Lifelong Learning" whichever position was picked.
       The picked position's own files are read only when every one of them that states
-      a department agrees; otherwise the family's department stands, marked "confirm".
+      a department agrees, and only when a request type is chosen (so the position is
+      actually written); otherwise the family's department stands, marked "confirm".
+      This reads the picked position's files whether or not HR-309 lists the department
+      as a fact to read from the sources: HR-309 fills a gap in the family, HR-337
+      describes one position.
     impact_if_changed: >-
       Does NOT move `rules_version` or `PARSER_VERSION`. `false` types the family's
       department (or the source files' agreed one, HR-309) for every position.
@@ -8508,6 +8512,30 @@ decisions:
     impact_if_changed: >-
       Does NOT move `rules_version` or `PARSER_VERSION`. 1 means "no added keywords"
       (the plan still rewrites the vector query).
+    status: open
+
+  - id: HR-332
+    question: >-
+      Should job descriptions people have written in the Builder, and not yet had
+      published, be left out of the Library's normal list and search (shown only when a
+      reader ticks "Include drafts written in the Builder")?
+    config:
+      file: search.yaml
+      path: search.hide_unpublished_builder_drafts
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A submitted Builder draft becomes a role of its own. Listed among the roles the
+      Bank distilled from the archive, it read as one of them ("distilled from 0 source
+      JDs"), and during testing every tester's submission would appear to everyone —
+      found in the 2026-11-19 walkthrough, where live already held five, one titled
+      with a whole paragraph. Once HR publishes one, it is listed like any other role.
+      The Library states how many drafts it is hiding, so its total still reconciles
+      with the Funnel; authors always see their own in My drafts.
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. `false` lists every role,
+      Builder drafts included, labelled "Written in the Builder".
     status: open
 
   - id: HR-325

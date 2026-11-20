@@ -674,3 +674,23 @@ async def test_the_contact_is_whoever_the_caller_names_and_blank_otherwise(
 
     assert (named.contact_name, named.contact_email) == ("Pat Requester", "p@sfu.ca")
     assert (blank.contact_name, blank.contact_email) == (None, None)
+
+
+@pytest.mark.asyncio
+async def test_with_no_request_type_the_department_stays_the_role_s(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """Judge review 2026-11-19: with no request type the picked position is never
+    written, so the department must not silently switch to that position's."""
+    async with session_maker() as session:
+        rid = await _role(
+            session,
+            content={"title": "Analyst", "department": "Lifelong Learning"},
+            filenames=["20200601_00005555_Analyst.docx"],
+            parsed=[{"department": "Physics"}],
+        )
+        await session.commit()
+        prefill = await prefill_from_role(session, rid, position_number="00005555")
+
+    assert prefill.position_number is None
+    assert prefill.department == "Lifelong Learning"

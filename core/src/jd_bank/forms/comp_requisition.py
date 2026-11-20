@@ -234,7 +234,13 @@ async def prefill_from_role(
     # The picked position's own files say where THAT position sits; a role spans
     # positions in several departments (HR-337). Unanimous among those files, or the
     # role's department stands.
-    if chosen is not None and policy.department_follows_chosen_position:
+    # Only when the pick is WRITTEN (a request type is chosen): otherwise the form
+    # carries no position, and its department must not silently become one's.
+    if (
+        chosen is not None
+        and request_type is not None
+        and policy.department_follows_chosen_position
+    ):
         stated = [
             v
             for v in (

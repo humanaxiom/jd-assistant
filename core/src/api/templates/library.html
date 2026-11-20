@@ -14,8 +14,8 @@
     awaiting HR review (or a published JD). Open a role to read its harmonized text and
     the source JDs behind it, or browse the
     <a href="/jd-bank/ui/archive">source archive</a> file by file.
-    Drafts people have written in the Builder are not archive roles, so they are left
-    out unless you tick the box below; your own are always in
+    Drafts people have written in the Builder are not archive roles, so until HR
+    publishes one it is left out unless you tick the box below; your own are always in
     <a href="/jd-bank/ui/my-drafts">📝 My drafts</a>.
   </p>
   <form method="get" action="/jd-bank/ui/library">
@@ -52,7 +52,7 @@
   </p>
 {% endif %}
   {% if page.items %}
-  <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }} · {% if page.q %}best matches first · {% if page.sort != 'relevance' %}<a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;limit={{ page.limit }}{{ bq }}">sort by best match</a> · {% endif %}{% endif %}click a column heading to sort</p>
+  <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }}{% if page.hidden_builder_drafts %} · {{ page.hidden_builder_drafts }} unpublished draft{{ "s" if page.hidden_builder_drafts != 1 else "" }} written in the Builder not shown (<a href="/jd-bank/ui/library?builder=1&amp;limit={{ page.limit }}">show them</a>){% endif %} · {% if page.q %}best matches first · {% if page.sort != 'relevance' %}<a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;limit={{ page.limit }}{{ bq }}">sort by best match</a> · {% endif %}{% endif %}click a column heading to sort</p>
   {# A sortable column heading: links to the same query sorted by `key`, toggling
      direction if it is already the active sort; shows ▲/▼ when active. Sorting resets to
      the first page (no offset). #}

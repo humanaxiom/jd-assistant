@@ -25,7 +25,7 @@ from collections.abc import AsyncIterator, Iterator
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import text
+from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from testcontainers.postgres import PostgresContainer
 
@@ -54,6 +54,7 @@ from src.jd_core.models.parsed_jd import (
     SFUJobDescription,
 )
 from src.jd_core.parser import PARSER_VERSION
+from src.jd_core.rules import get_rules
 from tests.integration.test_dedup_tier1 import ALEMBIC_INI
 
 
@@ -422,9 +423,63 @@ async def test_builder_roles_are_left_out_of_the_default_library(
 
     assert [i.title for i in browse.items] == ["Finance Analyst"]
     assert browse.total == 1 and browse.include_composed is False
+    assert browse.hidden_builder_drafts == 1  # said on the page: reconciles the total
     assert [i.title for i in search.items] == ["Finance Analyst"]
     assert composed not in {i.cluster_id for i in typo.items}
     assert composed in {i.cluster_id for i in typo_all.items}, "the typo path is live"
+
+
+@pytest.mark.asyncio
+async def test_a_published_builder_role_stays_in_the_default_library(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """Judge review 2026-11-19: live's one HR-PUBLISHED Builder JD ("PeopleSoft
+    Developer") vanished from the default library. HR-332 hides only UNPUBLISHED
+    Builder drafts."""
+    async with session_maker() as session:
+        await _seed_role(session, content=_jd("Finance Analyst"), members=[])
+        await session.commit()
+        published = await _seed_composed(session, "Finance Systems Developer", "a1")
+        await session.execute(
+            update(CanonicalJD)
+            .where(CanonicalJD.cluster_id == published)
+            .values(status=CanonicalStatus.PUBLISHED)
+        )
+        await session.commit()
+        await _seed_composed(session, "Finance Draft Writer", "a2")
+
+        browse = await list_roles(session)
+        search = await list_roles(session, q="finance")
+
+    assert {i.title for i in browse.items} == {
+        "Finance Analyst",
+        "Finance Systems Developer",
+    }
+    assert browse.hidden_builder_drafts == 1
+    assert published in {i.cluster_id for i in search.items}
+    row = next(i for i in browse.items if i.cluster_id == published)
+    assert row.composed  # still labelled "Written in the Builder"
+
+
+@pytest.mark.asyncio
+async def test_with_hr_332_off_every_builder_role_is_listed(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    rules = get_rules()
+    off = rules.model_copy(
+        update={
+            "search": rules.search.model_copy(
+                update={"hide_unpublished_builder_drafts": False}
+            )
+        }
+    )
+    async with session_maker() as session:
+        await _seed_role(session, content=_jd("Finance Analyst"), members=[])
+        await session.commit()
+        await _seed_composed(session, "Finance Draft Writer", "a2")
+        browse = await list_roles(session, rules=off)
+
+    assert browse.total == 2 and browse.hidden_builder_drafts == 0
 
 
 @pytest.mark.asyncio

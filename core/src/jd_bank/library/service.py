@@ -22,7 +22,7 @@ from typing import Any, Literal
 from uuid import UUID
 
 from neo4j import AsyncDriver
-from sqlalchemy import Float, Select, func, or_, select
+from sqlalchemy import Float, Select, and_, func, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.jd_bank.composer import search as composer_search
@@ -37,6 +37,7 @@ from src.jd_bank.composer.search import (
 )
 from src.jd_bank.db.models import (
     CanonicalJD,
+    CanonicalStatus,
     Cluster,
     ParsedJDRow,
     SourceDocument,
@@ -586,8 +587,23 @@ async def list_roles(
     base = select(CanonicalJD).join(latest_ids, CanonicalJD.id == latest_ids.c.id)
     if cluster_ids is not None:
         base = base.where(CanonicalJD.cluster_id.in_(list(cluster_ids)))
-    if not include_composed:
-        base = base.where(CanonicalJD.cluster_id.not_in(_COMPOSED_CLUSTERS))
+    hidden_drafts = 0
+    rulebook = rules if rules is not None else get_rules()
+    if not include_composed and rulebook.search.hide_unpublished_builder_drafts:
+        # HR-332: an UNPUBLISHED Builder draft is left out; one HR published stays.
+        # Counted, so the page can say how many it hides and still reconcile with
+        # the Funnel (which counts every current role).
+        hidden = and_(
+            CanonicalJD.cluster_id.in_(_COMPOSED_CLUSTERS),
+            CanonicalJD.status != CanonicalStatus.PUBLISHED,
+        )
+        hidden_drafts = int(
+            await session.scalar(
+                select(func.count()).select_from(base.where(hidden).subquery())
+            )
+            or 0
+        )
+        base = base.where(not_(hidden))
     if query:
         return await _search_roles(
             session,
@@ -627,6 +643,7 @@ async def list_roles(
             for row in rows
         ),
         include_composed=include_composed,
+        hidden_builder_drafts=hidden_drafts,
         total=int(total),
         limit=limit,
         offset=offset,

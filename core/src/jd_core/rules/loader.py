@@ -2270,6 +2270,8 @@ class Search(_RuleFile):
     query_prompt_version: str = Field(min_length=1)
     #: Title keywords per search INCLUDING the words as typed, so ``1`` means none.
     query_max_title_keywords: int = Field(ge=1)
+    #: Leave unpublished Builder-written roles out of the default Library (HR-332).
+    hide_unpublished_builder_drafts: bool
 
 
 class ApsaForm(_RuleFile):
