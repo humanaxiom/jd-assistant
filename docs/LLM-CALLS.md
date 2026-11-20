@@ -32,7 +32,7 @@ pipeline** (`core/src/agents/` — application code, unrelated to Claude Code su
 
 | # | Use | Function | Entry point(s) | Model / mode | Prompt |
 |---|---|---|---|---|---|
-| 1 | **Harmonization rewrite** (4.2a) — reword the deterministic merge draft | `rewrite_merged_role` [rewrite/harmonize.py](../core/src/jd_bank/rewrite/harmonize.py) | `make canonical-drafts` → `canonical/__main__._build_clients` → `runner._run_llm_passes`; also `make rewrite-golden` | `rules.rewrite.model` (`gpt-oss:120b`), **loose JSON mode**, `reasoning_effort: null`, **`max_tokens` 8192** (HR-178) | `jd_harmonize_v4` |
+| 1 | **Harmonization rewrite** (4.2a) — reword the deterministic merge draft | `rewrite_merged_role` [rewrite/harmonize.py](../core/src/jd_bank/rewrite/harmonize.py) | `make canonical-drafts` → `canonical/__main__._build_clients` → `runner._run_llm_passes`; also `make rewrite-golden` | `rules.rewrite.model` (`gpt-oss:120b`), **loose JSON mode**, `reasoning_effort: null`, **`max_tokens` 8192** (HR-178) | `jd_harmonize_v5` (HR-180) |
 | 2 | **Quality audit** (4.2b) — advisory findings on the chosen draft | `audit_quality` [quality/audit.py:101](../core/src/jd_bank/quality/audit.py#L101) | same producer run, its **own** client (`rules.quality.*`); also the audit golden | `rules.quality.model` (`gpt-oss:120b`), **schema-constrained**, `reasoning_effort: low`, **`max_tokens` 2048** (HR-187) | `jd_quality_v1` |
 | 3 | **Summary assist** (5.5) — suggest a Position Summary | `suggest_summary` [composer/assist.py:120](../core/src/jd_bank/composer/assist.py#L120) | `POST /jd-bank/compose/assist/summary`; `POST /jd-bank/ui/compose/assist` (with a timeout budget) | `rules.rewrite.model`, loose JSON | `jd_compose_summary_v1` |
 
@@ -104,7 +104,7 @@ flowchart LR
     EMB_RUN["embeddings/runner.py<br/>serialize_document + max_chars ladder"]
     ROLE_RUN["embeddings/roles.py<br/>run_role_embedding"]
     PROD["canonical/runner.py<br/>deterministic merge draft"]
-    REWRITE["rewrite_merged_role<br/>jd_harmonize_v4 · loose JSON · max_tokens 8192"]
+    REWRITE["rewrite_merged_role<br/>jd_harmonize_v5 · loose JSON · max_tokens 8192"]
     AUDIT["audit_quality<br/>jd_quality_v1 · schema-constrained · effort low · max_tokens 2048"]
     VAL1["Validator (oracle)<br/>score · grade · gates"]
   end
