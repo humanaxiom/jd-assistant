@@ -775,3 +775,120 @@ async def test_cluster_id_for_source_resolves_membership(
 
         assert await cluster_id_for_source(session, member) == cluster_id
         assert await cluster_id_for_source(session, singleton) is None
+
+
+# --- searching by position number (HR-339, HR-331 `search`) --------------------------
+
+
+async def _position_bank(session: AsyncSession) -> dict[str, uuid.UUID]:
+    """Position 61 in three files: the bundle (role A), a padded file (role B), and a
+    file in no role. Plus a role whose TITLE holds the digits, which a position search
+    must not return as a position hit."""
+    bundle = await _seed_source(session, filename=_BUNDLE, jd=_jd("Advisor"))
+    padded = await _seed_source(
+        session, filename="20190101_00000061_Clerk.docx", jd=_jd("Clerk")
+    )
+    loose = await _seed_source(
+        session, filename="20120101_00000061_Clerk.doc", jd=_jd("Clerk")
+    )
+    other = await _seed_source(
+        session, filename="20120101_00009999_Clerk.doc", jd=_jd("Clerk")
+    )
+    role_a, _ = await _seed_role(
+        session,
+        content=_jd("Academic Advisor"),
+        members=[{"source_id": str(bundle), "filename": _BUNDLE}],
+    )
+    role_b, _ = await _seed_role(
+        session,
+        content=_jd("Records Clerk"),
+        members=[{"source_id": str(padded)}, {"source_id": str(other)}],
+    )
+    role_c, _ = await _seed_role(
+        session, content=_jd("Room 61 Coordinator"), members=[]
+    )
+    return {
+        "bundle": bundle,
+        "padded": padded,
+        "loose": loose,
+        "role_a": role_a,
+        "role_b": role_b,
+        "role_c": role_c,
+    }
+
+
+@pytest.mark.asyncio
+async def test_a_position_number_finds_its_files_and_their_roles(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """Measured on the live Bank: 5,620 positions, up to 19 files each; 1,377 have
+    files in NO role and 1,298 span several — so the files are listed, not only the
+    roles."""
+    async with session_maker() as session:
+        ids = await _position_bank(session)
+        await session.commit()
+        page = await list_roles(session, q="61")
+
+    assert page.position is not None
+    assert page.position.position == "00000061"
+    files = {f.source_document_id: f for f in page.position.files}
+    assert set(files) == {ids["bundle"], ids["padded"], ids["loose"]}
+    assert files[ids["loose"]].role is None
+    assert files[ids["bundle"]].role is not None
+    assert files[ids["bundle"]].role.cluster_id == ids["role_a"]
+    # Newest file first, by the date its name starts with.
+    assert [
+        f.file_date.isoformat() if f.file_date else None for f in page.position.files
+    ] == [
+        "2020-06-01",
+        "2019-01-01",
+        "2012-01-01",
+    ]
+    assert {i.cluster_id for i in page.items} == {ids["role_a"], ids["role_b"]}
+    assert {i.matched_by for i in page.items} == {"position"}
+    assert page.total == 2
+
+
+@pytest.mark.asyncio
+async def test_a_number_no_file_carries_falls_back_to_the_words(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        await _position_bank(session)
+        await session.commit()
+        page = await list_roles(session, q="4242")
+
+    assert page.position is not None
+    assert page.position.position == "00004242"
+    assert page.position.files == ()
+    assert all(i.matched_by != "position" for i in page.items)
+
+
+@pytest.mark.asyncio
+async def test_without_search_in_consumers_a_number_is_only_words(
+    session_maker: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.jd_bank.library import positions
+
+    rules = get_rules()
+    seg = rules.segmentation
+    off = rules.model_copy(
+        update={
+            "segmentation": seg.model_copy(
+                update={
+                    "filename_positions": seg.filename_positions.model_copy(
+                        update={"consumers": frozenset({"crf"})}
+                    )
+                }
+            )
+        }
+    )
+    monkeypatch.setattr(positions, "get_rules", lambda: off)
+    async with session_maker() as session:
+        ids = await _position_bank(session)
+        await session.commit()
+        page = await list_roles(session, q="61", rules=off)
+
+    assert page.position is None
+    assert ids["role_c"] in {i.cluster_id for i in page.items}  # its title has "61"

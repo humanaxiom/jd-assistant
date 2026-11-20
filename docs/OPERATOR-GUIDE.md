@@ -36,7 +36,9 @@ anything.
 
 1. **Find a job description.** Open 🏦 **JD Bank** and search the way you normally
    would, for example a title ("Program Assistant"), a short form ("AP clerk"), or a
-   misspelling. Open a role, then open one of its **source** job descriptions.
+   misspelling, or a **PeopleSoft position number** ("61" or "00000061") to list every
+   archive file filed under it and the roles built from them. Open a role, then open one
+   of its **source** job descriptions.
    *Ask yourself:* is the role I expected there? Are the job descriptions readable? Can I
    tell two roles with the same title apart?
 2. **Download the Compensation Requisition Form.** On a role, choose **📄 Download SFU's
@@ -194,6 +196,7 @@ before the Builder in this guide too.
 | Task | How | Notes |
 |---|---|---|
 | Browse/search harmonized roles | Open **🏦 JD Bank**, optionally type a title into **Search roles by title** | Lists every **harmonized role** the Bank has distilled from the source archive — each a draft awaiting HR review, or a published JD. The counts are on 📈 Funnel (§5). Each row shows the role's **Department** so same-titled roles can be told apart: the role's own department, or else one its source documents state (a role whose sources sit in several departments shows only one of them), blank when none states one. Drafts written in the Builder are left out until HR publishes them; the page says how many it is not showing, with a link to show them. A search that matched no title, only meaning, says so above the results — *"No titles match your words…"* — because the nearest-by-meaning list is never empty, however unrelated the words. |
+| Look up a PeopleSoft position number | Type only the number into the **🏦 JD Bank** search or the Builder's **🔎 Search to clone** — `61`, `00000061`, `#61` or `Pos 61` | Lists every archive file whose **file name** carries that position (newest first, by the date the file name starts with), each with the role it went into — or *not part of a role* — and lists those roles below. In the Builder each file offers *Start from its role* or *Start from this file*. A number no file name carries says so and searches the words instead. The pattern is `search.yaml`'s `position_query_pattern` (HR-339); it needs `search` among `segmentation.filename_positions.consumers` (HR-331). |
 | See drafts people wrote in the Builder | Tick **Include drafts written in the Builder** and search | Left out by default: they are authors' drafts, not roles distilled from the archive. Each is labelled **Written in the Builder (by …)**, and its page says so instead of listing source JDs. Your own are always in 📝 My drafts. |
 | Let a model read your search (optional, **off** unless ITS/HR switch it on) | Type the search as usual | When `search.yaml`'s `query_understanding_enabled` is on, a self-hosted model reads what you typed first — expanding "AP clerk" to *accounts payable clerk* — and the page shows **🧠 Read as: …** with the extra title keywords it added (each a link), anything it wanted that was ignored, and a **search the words as typed instead** link. It can only add results, never filter them: an employee group counts only if *you* typed it, a unit is only a suggestion. If the model is slow or down you get the plain search. The same applies to the Builder's **🔎 Search to clone**. |
 | Sort the list | Click a column heading (**Role · Sources · Score · Quality · Status**) | Toggles ascending/descending; sorting resets to the first page. **Score** and **Quality** are the automatic wording check (higher score, A grade = closer to SFU's JD writing standards) — not the job's level or pay grade; hover a heading for the same note. |

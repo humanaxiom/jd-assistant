@@ -2075,6 +2075,8 @@ async def test_tester_facing_pages_speak_plain_language(library, session) -> Non
     pages = [
         "/jd-bank/ui/library",
         "/jd-bank/ui/library?q=analyst",
+        "/jd-bank/ui/library?q=61",
+        "/jd-bank/ui/compose/search?q=Pos+61",
         f"/jd-bank/ui/role/{role}",
         f"/jd-bank/ui/role/{role}/comp-requisition",
         f"/jd-bank/ui/jd/{doc}",
@@ -2095,3 +2097,53 @@ async def test_tester_facing_pages_speak_plain_language(library, session) -> Non
         if hits:
             found[path] = hits
     assert not found, f"internal vocabulary on tester pages: {found}"
+
+
+async def test_a_position_number_search_reaches_its_files_on_the_live_bank(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    """HR-339 through the real routes. Position 61 (the owner's PeopleSoft sample,
+    "1 of 6") is filed under 8 archive files; the Library and the Builder must list
+    them, and a sample of positions must reconcile with the reader over RAW rows."""
+    from src.jd_bank.library.positions import find_position
+    from src.jd_bank.positions import PositionIndex
+    from src.jd_core.rules import get_rules
+
+    seg = get_rules().segmentation
+    rows = (
+        await session.execute(text("SELECT id, filename FROM source_documents"))
+    ).all()
+    raw = PositionIndex.build(((r[0], r[1]) for r in rows), seg)
+    role_rows = (
+        await session.execute(
+            text(
+                f"SELECT cluster_id, s.value->>'source_id' FROM ({_CURRENT}) cur "
+                "CROSS JOIN LATERAL jsonb_array_elements(cur.source_document_ids) s"
+            )
+        )
+    ).all()
+    roles_of: dict[str, set[uuid.UUID]] = {}
+    for cluster_id, source_id in role_rows:
+        roles_of.setdefault(source_id, set()).add(cluster_id)
+
+    sample = sorted(raw.by_position)[:: max(1, len(raw.by_position) // 50)]
+    for position in sample:
+        lookup = await find_position(session, position)
+        assert {f.source_document_id for f in lookup.files} == set(
+            raw.docs_for(position)
+        ), position
+        for f in lookup.files:
+            expected = roles_of.get(str(f.source_document_id), set())
+            assert (f.role.cluster_id if f.role else None) in (expected or {None})
+
+    sixty_one = raw.docs_for("00000061")
+    assert len(sixty_one) >= 8
+    resp = await library.get("/jd-bank/ui/library", params={"q": "61"})
+    assert resp.status_code == 200
+    assert f"Position 00000061 — {len(sixty_one)} files in the archive" in resp.text
+    for doc_id in sixty_one:
+        assert f"/jd-bank/ui/jd/{doc_id}" in resp.text
+    resp = await library.get("/jd-bank/ui/compose/search", params={"q": "Pos 61"})
+    assert resp.status_code == 200
+    assert f"Position 00000061 — {len(sixty_one)} files in the archive" in resp.text
+    assert "/jd-bank/ui/compose/clone" in resp.text

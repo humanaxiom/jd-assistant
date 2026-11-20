@@ -717,10 +717,11 @@ class TextNorm(_RuleFile):
 #: (``jd_bank/positions``, HR-331) rather than the padded pattern alone. A closed set of
 #: the surfaces actually wired: a name here that nothing reads would be a switch that
 #: does nothing. `crf` = the Compensation Requisition Form's position list;
-#: `source_page` = the source JD page's "Position # (from the file name)" row. The
+#: `source_page` = the source JD page's "Position # (from the file name)" row.
+#: `search` = a position-number search in the Library or Builder (HR-339). The
 #: archive baseline and near-dedup are deliberately NOT in the vocabulary — they stay
 #: on ``position_id_pattern`` so their registered numbers hold.
-FilenamePositionConsumer = Literal["crf", "source_page"]
+FilenamePositionConsumer = Literal["crf", "source_page", "search"]
 
 
 @with_config(ConfigDict(extra="forbid"))
@@ -2278,6 +2279,18 @@ class Search(_RuleFile):
     query_max_title_keywords: int = Field(ge=1)
     #: Leave unpublished Builder-written roles out of the default Library (HR-332).
     hide_unpublished_builder_drafts: bool
+    #: A query that is only a position number (HR-339). Group 1 is the number; read
+    #: only when `segmentation.filename_positions.consumers` lists `search`.
+    position_query_pattern: Regex
+
+    @field_validator("position_query_pattern")
+    @classmethod
+    def _captures_the_number(cls, value: re.Pattern[str]) -> re.Pattern[str]:
+        if value.groups < 1:
+            raise ValueError(
+                f"{value.pattern!r} must capture the position number as group 1"
+            )
+        return value
 
 
 class ApsaForm(_RuleFile):

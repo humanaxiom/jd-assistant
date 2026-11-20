@@ -63,3 +63,13 @@ query_max_title_keywords: 4
 # listed. The Library says how many drafts are hidden and offers a box to show them;
 # authors always see their own in My drafts. Off: every role is listed.
 hide_unpublished_builder_drafts: true
+
+# A search that is ONLY a PeopleSoft position number — `61`, `00000061`, `#61`,
+# `Pos 61`, `Position #61` — is looked up by position: the Library and the Builder list
+# the archive files whose NAMES carry that position (read by the file-name reader,
+# HR-325 … HR-331, which must list `search` among its consumers) and the roles built
+# from them. Group 1 is the number. Anything else ("61 analyst", "Grade 7") is searched
+# as words. A number no file carries says so, then searches the words. (HR-339)
+position_query_pattern:
+  pattern: '(?i)^\s*(?:pos(?:n|ition)?\.?\s*)?#?\s*(\d{1,8})\s*$'
+  ignore_case: false

@@ -14,7 +14,7 @@
     {# Keep the instrument across a second search on this page (HR-225). #}
     <input type="hidden" name="form" value="{{ form_spec.template }}">
     <label for="q">Describe the role</label>
-    <input id="q" name="q" value="{{ query }}" placeholder="e.g. financial analyst, research coordinator">
+    <input id="q" name="q" value="{{ query }}" placeholder="e.g. financial analyst, research coordinator, or a position number such as 61">
     <button type="submit">Search</button>
   </form>
   {# Say what the results are scoped to. A search that silently returns the OTHER
@@ -46,7 +46,8 @@
 {% endif %}
 </div>
 
-{% if query %}
+{% with lookup = position_lookup, builder = true %}{% include "_position_files.html" %}{% endwith %}
+{% if query and not (position_lookup and position_lookup.files) %}
 <div class="panel">
   <h2>Matches for “{{ query }}”</h2>
   {% if hits %}
@@ -108,7 +109,7 @@
     </tbody>
   </table>
   {% else %}
-  <p class="meta">No JDFN matches — try different words, or
+  <p class="meta">No {{ form_spec.label }} matches — try different words, or
     <a href="/jd-bank/ui/compose/new">start from a blank Builder</a>.</p>
   {% endif %}
 </div>

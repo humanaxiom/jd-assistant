@@ -12,6 +12,7 @@ nothing in this package mutates a row.
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Literal
 from uuid import UUID
 
@@ -135,7 +136,11 @@ class RoleListItem(_Frozen):
     #: reason, never a percentage.
     #: ``keyword``: found by a title keyword the query-understanding step ADDED
     #: (Track I3) — shown as the interpreted word, never as a score.
-    matched_by: Literal["title", "spelling", "meaning", "keyword"] | None = None
+    #: ``position``: built from a file filed under the position number searched for
+    #: (HR-339).
+    matched_by: (
+        Literal["title", "spelling", "meaning", "keyword", "position"] | None
+    ) = None
     #: Written in the Builder rather than distilled from the archive (see
     #: :attr:`RoleView.composed`). Left out of the library unless the reader asks.
     composed: bool = False
@@ -145,6 +150,29 @@ class RoleListItem(_Frozen):
     #: its source documents state — the Builder's rule, shared. ``None`` when nothing
     #: states one; never invented.
     department: str | None = None
+
+
+class PositionFile(_Frozen):
+    """One archive file whose NAME carries the position searched for (HR-339)."""
+
+    source_document_id: UUID
+    filename: str | None
+    #: The date the file name starts with — PeopleSoft's as-of date for that
+    #: attachment (confirmed on one sample). ``None`` when the name has none.
+    file_date: dt.date | None
+    #: The role the file was distilled into, if any — 1,377 live positions have files
+    #: in no role.
+    role: RoleRef | None
+
+
+class PositionLookup(_Frozen):
+    """A search for a position number, answered from the archive file names."""
+
+    #: The PeopleSoft id, zero-padded to 8 digits.
+    position: str
+    #: Newest first. Empty when no file name carries the position — the page then says
+    #: so and searches the words instead.
+    files: tuple[PositionFile, ...]
 
 
 class RolePage(_Frozen):
@@ -178,6 +206,9 @@ class RolePage(_Frozen):
     #: flag, never a filter: no similarity threshold exists that separates related from
     #: unrelated here, and none is applied.
     meaning_only: bool = False
+    #: The search read as a position number (HR-339), with the files filed under it.
+    #: ``None`` when the query is not a position number or the lookup is switched off.
+    position: PositionLookup | None = None
 
 
 class SourceListItem(_Frozen):

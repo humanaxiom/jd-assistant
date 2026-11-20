@@ -1927,3 +1927,85 @@ def test_the_new_page_search_box_carries_the_form(
 
     assert resp.status_code == 200
     assert 'name="form" value="wjq"' in resp.text
+
+
+# --- searching by position number (HR-339) --------------------------------------------
+
+
+def _position_lookup() -> tuple[object, uuid.UUID, uuid.UUID, uuid.UUID]:
+    import datetime as dt
+
+    from src.jd_bank.library import PositionFile, PositionLookup, RoleRef
+
+    in_role, loose, cluster = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    lookup = PositionLookup(
+        position="00000061",
+        files=(
+            PositionFile(
+                source_document_id=in_role,
+                filename="20200601_61,_30785_JDFN_APSA_20211117.docx",
+                file_date=dt.date(2020, 6, 1),
+                role=RoleRef(
+                    cluster_id=cluster,
+                    canonical_id=uuid.uuid4(),
+                    title="Academic Advisor",
+                    status="draft",
+                ),
+            ),
+            PositionFile(
+                source_document_id=loose,
+                filename="20120101_00000061_Clerk.doc",
+                file_date=dt.date(2012, 1, 1),
+                role=None,
+            ),
+        ),
+    )
+    return lookup, in_role, loose, cluster
+
+
+def test_a_position_search_lists_its_files_with_start_links_and_no_meaning_search(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lookup, in_role, loose, cluster = _position_lookup()
+
+    async def no_search(query: str, **kwargs: object) -> SearchOutcome:
+        raise AssertionError("a position number must not go to the meaning search")
+
+    monkeypatch.setattr(compose_ui, "search_jds", no_search)
+    monkeypatch.setattr(compose_ui, "find_position", AsyncMock(return_value=lookup))
+    embed, neo = _FakeClose(), _FakeClose()
+    app.dependency_overrides[compose.get_embed_client] = lambda: embed
+    app.dependency_overrides[compose.get_neo4j_driver] = lambda: neo
+    _override_session_object()
+
+    html = _client().get("/jd-bank/ui/compose/search?q=61").text
+
+    assert "Position 00000061 — 2 files in the archive" in html
+    assert f"/jd-bank/ui/compose/clone-role/{cluster}" in html
+    assert f"/jd-bank/ui/compose/clone/{loose}" in html
+    assert f"/jd-bank/ui/jd/{in_role}" in html
+    assert "not part of a role" in html
+    assert "Matches for" not in html
+    assert embed.closed is True and neo.closed is True
+
+
+def test_a_position_no_file_carries_says_so_and_searches_the_words(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.jd_bank.library import PositionLookup
+
+    async def fake_search(query: str, **kwargs: object) -> SearchOutcome:
+        return SearchOutcome(hits=[])
+
+    monkeypatch.setattr(compose_ui, "search_jds", fake_search)
+    monkeypatch.setattr(
+        compose_ui,
+        "find_position",
+        AsyncMock(return_value=PositionLookup(position="00004242", files=())),
+    )
+    _override_session_object()
+
+    html = _client().get("/jd-bank/ui/compose/search?q=4242").text
+
+    assert "No archive file name carries position 00004242" in html
+    assert "Matches for" in html

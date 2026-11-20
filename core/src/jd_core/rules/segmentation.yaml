@@ -149,9 +149,10 @@ filename_positions:
   bare_trailing_ids: false
   # Which surfaces use this reader: `crf` = the Compensation Requisition Form's
   # position list; `source_page` = the source JD page's "Position # (from the file
-  # name)" row, shown BESIDE the number typed in the document. The baseline and
+  # name)" row, shown BESIDE the number typed in the document. `search` = a search for a
+  # position number in the Library or the Builder (HR-339). The baseline and
   # near-dedup stay on `position_id_pattern` by design. (HR-331)
-  consumers: [crf, source_page]
+  consumers: [crf, search, source_page]
   # When a source JD's text yields no title ("Untitled Position" — 1,245 live files),
   # its page shows the title the FILE NAME gives (`20180720_00001049_Clerk.doc` ->
   # "Clerk"), with a note saying so. MEASURED: 1,138 of the 1,245 name one; the rest
