@@ -162,6 +162,66 @@ async def test_collection_membership_is_a_true_union_of_its_signals(session) -> 
     ), "member + unmatched must equal the Bank — the blind spot is reported, not lost"
 
 
+#: Wall-time budget for the IT collection page through the route. MEASURED 2026-11-20:
+#: 24–26 s before the one-pass coverage rewrite, ~0.7 s of queries after it.
+COLLECTION_PAGE_BUDGET_S = 5.0
+
+
+async def test_collection_coverage_matches_signal_by_signal_sql_and_is_fast(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    """The one-pass coverage must say exactly what evaluating each signal on its own
+    says — checked here with the ORIGINAL per-signal SQL (a ``NOT IN`` anti-join for the
+    blind spot) as the oracle, over the whole live Bank — and the page must load
+    within budget."""
+    import time
+
+    from src.jd_bank.library.families import _signals
+
+    family = family_for("it")
+    assert family is not None
+    signals, params = _signals(family)
+    doc_cte = f"""
+        WITH cur AS ({_CURRENT}),
+        doc AS (
+          SELECT c.cluster_id, d.filename,
+                 c.content->>'title' AS title, c.content->>'department' AS department
+          FROM cur c
+          LEFT JOIN LATERAL jsonb_array_elements(c.source_document_ids) s ON TRUE
+          LEFT JOIN source_documents d ON d.id = (s.value->>'source_id')::uuid
+        )
+    """
+    coverage = await membership_coverage(session, family)
+    assert [s.label for s in coverage.signals] == [s.label for s in signals]
+    for signal, reported in zip(signals, coverage.signals, strict=True):
+        used = {k: v for k, v in params.items() if f":{k}" in signal.predicate}
+        matched = (
+            await session.execute(
+                text(
+                    f"{doc_cte} SELECT count(DISTINCT cluster_id) FROM doc "
+                    f"WHERE {signal.predicate}"
+                ),
+                used,
+            )
+        ).scalar()
+        blind = (
+            await session.execute(
+                text(
+                    f"{doc_cte} SELECT count(DISTINCT cluster_id) FROM doc WHERE "
+                    f"cluster_id NOT IN (SELECT cluster_id FROM doc "
+                    f"WHERE NOT ({signal.blind}))"
+                )
+            )
+        ).scalar()
+        assert (reported.roles, reported.unevaluable) == (matched, blind), signal.label
+
+    started = time.perf_counter()
+    resp = await library.get("/jd-bank/ui/collection/it")
+    elapsed = time.perf_counter() - started
+    assert resp.status_code == 200
+    assert elapsed <= COLLECTION_PAGE_BUDGET_S, f"/collection/it took {elapsed:.1f} s"
+
+
 async def test_random_documents_are_findable_in_the_archive_browser(session) -> None:  # type: ignore[no-untyped-def]
     """The 'anyone scanning random documents' test, automated: a sample of the real
     archive, each document found by exact filename through the same query the archive
