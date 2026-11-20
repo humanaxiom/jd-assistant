@@ -64,7 +64,7 @@ import time
 from collections import Counter, defaultdict
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Final
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -280,6 +280,8 @@ def build_change_log_packet(
     llm_enabled: bool,
     rewrite_failed: bool,
     audit_failed: bool,
+    rewrite_error: str | None = None,
+    audit_error: str | None = None,
 ) -> dict[str, Any]:
     """The self-contained reviewer packet stored in ``canonical_jds.change_log``.
 
@@ -311,10 +313,39 @@ def build_change_log_packet(
             "llm_enabled": llm_enabled,
             "rewrite_ran": rewritten is not None,
             "rewrite_failed": rewrite_failed,
+            # WHY it failed (P6, FINDINGS §13b) — ``None`` when it did not. Before this,
+            # 54 re-baseline failures and v9's 641 left no reason anywhere.
+            "rewrite_error": rewrite_error,
             "audit_ran": quality_audit is not None,
             "audit_failed": audit_failed,
+            "audit_error": audit_error,
         },
     }
+
+
+#: Bound on a stored failure reason. A diagnostic, not a decision: no JD is judged by
+#: it, so it is a code constant rather than a registered rule.
+FAILURE_REASON_MAX_CHARS: Final[int] = 500
+
+
+def failure_reason(exc: BaseException) -> str:
+    """``Type: message (caused by Type: message)``, bounded — what a failed rewrite or
+    audit records on the draft (P6). The cause matters: the client and the SDK raise
+    ``from`` the real error, and the outer type alone hides whether it was a timeout, a
+    refused connection or a schema mismatch. Stored on the draft (``change_log``), which
+    already holds JD text; the counts-only stderr stream and the flags-only audit row
+    get :func:`type` names only."""
+    reason = f"{type(exc).__name__}: {exc}"
+    cause = exc.__cause__
+    if cause is not None:
+        reason += f" (caused by {type(cause).__name__}: {cause})"
+    if len(reason) > FAILURE_REASON_MAX_CHARS:
+        reason = reason[: FAILURE_REASON_MAX_CHARS - 1] + "…"
+    return reason
+
+
+def _type_name(exc: BaseException | None) -> str | None:
+    return type(exc).__name__ if exc is not None else None
 
 
 # --- per-cluster outcome (internal accumulator) --------------------------------------
@@ -341,6 +372,10 @@ class _Outcome:
     skipped_recently_refreshed: bool = False
     rewrite_failed: bool = False
     audit_failed: bool = False
+    #: The exception that failed the rewrite / audit (P6) — kept as the object so the
+    #: draft gets :func:`failure_reason` and the logs get only its type.
+    rewrite_exc: BaseException | None = None
+    audit_exc: BaseException | None = None
     #: The validator's verdict on the draft this cluster WROTE — ``None`` when no draft
     #: was written (reviewer-touched, or the cluster failed). Kept ``None`` rather than
     #: zeroed: a cluster the producer did not score must not enter the cohort's mean as
@@ -407,8 +442,9 @@ async def _run_llm_passes(
             merged, client=rewrite_client, rules=rules
         )
         final_draft = rewritten.draft
-    except Exception:  # noqa: BLE001 - a model failure isolates, never aborts the run
+    except Exception as exc:  # noqa: BLE001 - a model failure isolates, never aborts
         outcome.rewrite_failed = True
+        outcome.rewrite_exc = exc
         final_draft = merged.draft
 
     quality_audit: QualityAudit | None = None
@@ -417,8 +453,9 @@ async def _run_llm_passes(
             quality_audit = await audit_quality(
                 final_draft, client=audit_client, rules=rules
             )
-        except Exception:  # noqa: BLE001 - the audit is advisory; drop it on failure
+        except Exception as exc:  # noqa: BLE001 - the audit is advisory; drop it
             outcome.audit_failed = True
+            outcome.audit_exc = exc
 
     return final_draft, rewritten, quality_audit
 
@@ -678,6 +715,10 @@ async def _process_cluster(
         llm_enabled=rewrite_client is not None,
         rewrite_failed=outcome.rewrite_failed,
         audit_failed=outcome.audit_failed,
+        rewrite_error=(
+            failure_reason(outcome.rewrite_exc) if outcome.rewrite_exc else None
+        ),
+        audit_error=failure_reason(outcome.audit_exc) if outcome.audit_exc else None,
     )
     content: dict[str, Any] = final_draft.model_dump(mode="json")
     source_document_ids: list[dict[str, Any]] = [
@@ -828,8 +869,12 @@ async def _process_cluster(
                 "merge_flags": list(merged.provenance.flags),
                 "rewrite_ran": rewritten is not None,
                 "rewrite_failed": outcome.rewrite_failed,
+                # Flags only here: the exception TYPE, never its message (the full
+                # reason is on the draft's change_log).
+                "rewrite_error_type": _type_name(outcome.rewrite_exc),
                 "audit_ran": quality_audit is not None,
                 "audit_failed": outcome.audit_failed,
+                "audit_error_type": _type_name(outcome.audit_exc),
             },
         )
     )
@@ -859,6 +904,20 @@ def _log_progress(
         file=sys.stderr,
         flush=True,
     )
+
+
+def _log_llm_failure(cluster_id: UUID, outcome: _Outcome) -> None:
+    """One STDERR line per failed rewrite / audit: the cluster and the exception TYPE
+    (P6). Never the message — a validation or fidelity message can quote JD text, and
+    this stream is counts-only (NN #6). The full reason is on the draft."""
+    for label, exc in (("rewrite", outcome.rewrite_exc), ("audit", outcome.audit_exc)):
+        if exc is not None:
+            print(
+                f"[canonical-producer] {label} failed: cluster {cluster_id} "
+                f"({type(exc).__name__})",
+                file=sys.stderr,
+                flush=True,
+            )
 
 
 # --- the pass ------------------------------------------------------------------------
@@ -1122,6 +1181,7 @@ async def run_canonical_producer(
             skipped_recently_refreshed += int(outcome.skipped_recently_refreshed)
             rewrite_failures += int(outcome.rewrite_failed)
             audit_failures += int(outcome.audit_failed)
+            _log_llm_failure(record.cluster_id, outcome)
             # AUTHORED means "fed a draft THIS RUN WROTE", which is only knowable here.
             # Counting it off the cluster's FORM before processing (what it did until
             # 2026-08-21) meant a resumed pass that skipped every cluster still

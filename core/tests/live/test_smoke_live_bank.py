@@ -1590,3 +1590,29 @@ async def test_builder_search_meets_its_latency_budget_and_recall_floor(  # type
     assert (
         hits >= floor
     ), f"Builder hit@10 = {hits}/{len(queries)} (floor {floor}); misses: {misses}"
+
+
+async def test_a_failed_rewrite_records_its_reason(session) -> None:  # type: ignore[no-untyped-def]
+    """P6 (FINDINGS §13b): a rewrite or audit that fails records WHY on the draft.
+
+    Scoped to packets that carry the ``rewrite_error`` key, i.e. drafts written by a
+    producer with P6 in it. ⚠ On a Bank whose drafts all predate P6 this asserts nothing
+    and says so in its message; it bites from the first producer run after P6 lands
+    (the v9 retry of its 641 ``rewrite_failed`` drafts is the first)."""
+    failed = "(p->>'rewrite_failed')::bool"
+    reason = "p->>'rewrite_error'"
+    written, failed_no_reason, ok_with_reason = (await session.execute(text(f"""
+                SELECT count(*),
+                       count(*) FILTER (WHERE {failed} AND {reason} IS NULL),
+                       count(*) FILTER (WHERE NOT {failed} AND {reason} IS NOT NULL)
+                FROM (SELECT change_log->'pipeline' AS p FROM canonical_jds) c
+                WHERE p ? 'rewrite_error'
+            """))).one()
+    assert failed_no_reason == 0, (
+        f"{failed_no_reason} of {written} drafts written since P6 failed their rewrite "
+        "and recorded no reason"
+    )
+    assert (
+        ok_with_reason == 0
+    ), f"{ok_with_reason} drafts carry a rewrite_error although the rewrite landed"
+    print(f"P6: {written} drafts written since P6 carry the reason fields")

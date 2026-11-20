@@ -119,12 +119,50 @@ class ChatBadRequestError(RuntimeError):
     """
 
 
+#: How many schema problems a repair nudge / error message names. A reply can break
+#: dozens of fields at once; the first few tell the model (and the reader of a failure
+#: reason) what kind of mistake it was. A diagnostic bound — no JD is judged by it.
+_MAX_PROBLEMS_NAMED: Final[int] = 5
+
+
+def describe_validation_error(exc: ValidationError) -> tuple[str, ...]:
+    """``field.path: what is wrong`` lines for a failed validation — P6, FINDINGS §13c.
+
+    Built with ``include_input=False`` on purpose: pydantic's own ``str(exc)`` prints
+    each offending value, and on a rewrite that value is JD text. The field path and the
+    rule are what the model needs to repair, and what a failure reason needs to say."""
+    problems = [
+        f"{'.'.join(str(part) for part in err['loc']) or '(the reply)'}: {err['msg']}"
+        for err in exc.errors(include_url=False, include_input=False)
+    ]
+    if len(problems) > _MAX_PROBLEMS_NAMED:
+        more = len(problems) - _MAX_PROBLEMS_NAMED
+        problems = [*problems[:_MAX_PROBLEMS_NAMED], f"... and {more} more"]
+    return tuple(problems)
+
+
+def _repair_nudge(problems: Sequence[str]) -> str:
+    """The terse nudge plus WHAT failed. Before P6 it said only "not valid JSON
+    matching the required schema", so a model that filed a 67-character sentence in a
+    20-character field was never told which field — and repeated it identically."""
+    if not problems:
+        return _REPAIR_NUDGE
+    named = "\n".join(f"- {problem}" for problem in problems)
+    return f"{_REPAIR_NUDGE}\nWhat did not match the schema:\n{named}"
+
+
 class LLMOutputInvalidError(RuntimeError):
     """The model never returned JSON that validates into the requested schema.
 
     Raised after the ``max_retries`` repair budget is spent (or immediately if the
-    response is structurally unusable — no choice at the intended index).
+    response is structurally unusable — no choice at the intended index). ``problems``
+    names what failed validation on the last reply (field path + rule, never the value);
+    it is empty when the response was unusable before validation.
     """
+
+    def __init__(self, message: str, *, problems: Sequence[str] = ()) -> None:
+        super().__init__(message)
+        self.problems: tuple[str, ...] = tuple(problems)
 
 
 class ChatClient:
@@ -270,6 +308,7 @@ class ChatClient:
         )
         convo: list[ChatCompletionMessageParam] = list(messages)
         last_error: Exception | None = None
+        problems: tuple[str, ...] = ()
         for attempt in range(max_retries + 1):
             response = await self._create(convo, max_tokens, response_format)
             content = self._content_of(response)
@@ -277,14 +316,16 @@ class ChatClient:
                 return model_cls.model_validate_json(content)
             except ValidationError as exc:
                 last_error = exc
+                problems = describe_validation_error(exc)
                 if attempt == max_retries:
                     break
                 convo = [
                     *convo,
                     {"role": "assistant", "content": content},
-                    {"role": "user", "content": _REPAIR_NUDGE},
+                    {"role": "user", "content": _repair_nudge(problems)},
                 ]
         raise LLMOutputInvalidError(
             f"the model did not return valid JSON for {model_cls.__name__} after "
-            f"{max_retries + 1} attempt(s)"
+            f"{max_retries + 1} attempt(s): {'; '.join(problems)}",
+            problems=problems,
         ) from last_error
