@@ -50,6 +50,11 @@
 <div class="panel">
   <h2>Matches for “{{ query }}”</h2>
   {% if hits %}
+  {# Same rule as the library: when nothing matched by title or spelling, every hit is
+     the vector index's nearest, however unrelated — say so, without a number. #}
+  {% if not (hits | rejectattr("match", "equalto", "semantic") | list) %}
+  <p class="banner" role="status">No titles match your words. These are the closest by meaning and may be unrelated.</p>
+  {% endif %}
   <table>
     <thead>
       <tr><th>Role</th><th>Match</th><th></th><th></th></tr>

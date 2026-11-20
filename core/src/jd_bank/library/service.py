@@ -25,6 +25,8 @@ from neo4j import AsyncDriver
 from sqlalchemy import Float, Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.jd_bank.composer import search as composer_search
+from src.jd_bank.composer.persist import COMPOSED_ORIGIN
 from src.jd_bank.composer.search import (
     DOC_TITLE,
     ROLE_TITLE,
@@ -73,6 +75,35 @@ _ROLE_SORTS = {
     "score": CanonicalJD.change_log["validator"]["score"].astext.cast(Float),
     "grade": CanonicalJD.change_log["validator"]["grade"].astext,
 }
+
+
+#: The clusters the Builder minted for an author's submitted draft — the composer's own
+#: marker (:data:`~src.jd_bank.composer.persist.COMPOSED_ORIGIN`, the same predicate
+#: "My drafts" lists by), not a heuristic such as "has no members".
+_IS_COMPOSED = Cluster.constraint_metadata["origin"].astext == COMPOSED_ORIGIN
+_COMPOSED_CLUSTERS = select(Cluster.id).where(_IS_COMPOSED)
+
+
+def _author_of(meta: dict[str, Any]) -> str | None:
+    """The author the Builder recorded on a composed cluster, or ``None``."""
+    author = str(meta.get("author") or "").strip()
+    return author or None
+
+
+async def _composed_authors(
+    session: AsyncSession, cluster_ids: Sequence[UUID]
+) -> dict[UUID, str | None]:
+    """``{cluster_id: author}`` for the Builder-written roles among ``cluster_ids``."""
+    if not cluster_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(Cluster.id, Cluster.constraint_metadata).where(
+                Cluster.id.in_(list(cluster_ids)), _IS_COMPOSED
+            )
+        )
+    ).all()
+    return {cluster_id: _author_of(meta or {}) for cluster_id, meta in rows}
 
 
 def _clamp_limit(limit: int | None) -> int:
@@ -237,7 +268,11 @@ async def get_role(session: AsyncSession, cluster_id: UUID) -> RoleView | None:
     jd = SFUJobDescription.model_validate(canonical.content)
     members = await _member_views(session, cluster, canonical)
     validator = (canonical.change_log or {}).get("validator") or {}
+    meta = (cluster.constraint_metadata if cluster is not None else None) or {}
+    composed = meta.get("origin") == COMPOSED_ORIGIN
     return RoleView(
+        composed=composed,
+        composed_by=_author_of(meta) if composed else None,
         canonical_id=canonical.id,
         cluster_id=cluster_id,
         title=jd.title,
@@ -258,10 +293,16 @@ async def get_role(session: AsyncSession, cluster_id: UUID) -> RoleView | None:
 def _role_list_item(
     canonical: CanonicalJD,
     matched_by: Literal["title", "spelling", "meaning", "keyword"] | None = None,
+    *,
+    composed: dict[UUID, str | None],
+    departments: dict[UUID, str],
 ) -> RoleListItem:
     content = canonical.content or {}
     validator = (canonical.change_log or {}).get("validator") or {}
     return RoleListItem(
+        composed=canonical.cluster_id in composed,
+        composed_by=composed.get(canonical.cluster_id),
+        department=departments.get(canonical.cluster_id),
         canonical_id=canonical.id,
         cluster_id=canonical.cluster_id,
         title=content.get("title") or "(untitled)",
@@ -338,10 +379,12 @@ async def _search_roles(
     neo4j_driver: AsyncDriver | None,
     rules: Rules | None,
     plan: QueryUnderstanding | None = None,
+    include_composed: bool = False,
 ) -> RolePage:
     """Title tiers first (exact, prefix, contains), then roles found by meaning, each
     role once. ``base`` is already scoped to the current version per cluster (and to
-    any collection)."""
+    any collection, and away from Builder-written roles unless ``include_composed``)
+    — every pass, the typo and meaning ones included, is filtered through it."""
     title_rows = list(
         (
             await session.execute(
@@ -462,8 +505,20 @@ async def _search_roles(
             return "keyword"
         return "title" if cluster_id in titled else "meaning"
 
+    page_ids = [r.cluster_id for r in rows]
+    composed = await _composed_authors(session, page_ids)
+    departments = await composer_search._role_departments(session, page_ids)
     return RolePage(
-        items=tuple(_role_list_item(r, why(r.cluster_id)) for r in rows),
+        items=tuple(
+            _role_list_item(
+                r, why(r.cluster_id), composed=composed, departments=departments
+            )
+            for r in rows
+        ),
+        include_composed=include_composed,
+        # Over the WHOLE result, not this page: page 3 of a search with title hits on
+        # page 1 is not a meaning-only search.
+        meaning_only=bool(ordered) and titled.isdisjoint(ordered),
         total=len(ordered),
         limit=limit,
         offset=offset,
@@ -488,6 +543,7 @@ async def list_roles(
     neo4j_driver: AsyncDriver | None = None,
     rules: Rules | None = None,
     plan: QueryUnderstanding | None = None,
+    include_composed: bool = False,
 ) -> RolePage:
     """A page of harmonized roles (one per cluster, the current version), optionally
     searched and sorted by a clickable column (``sort`` in :data:`_ROLE_SORTS`,
@@ -510,6 +566,10 @@ async def list_roles(
     EMPTY collection returns an empty page, never the whole library: the difference
     matters, because the wrong direction here shows a stakeholder the entire archive
     under their own unit's name.
+
+    **Roles written in the Builder are left out unless ``include_composed``** — an
+    author's submitted draft is its own cluster (``origin="composed"``) and is not a
+    role distilled from the archive. It still lists in the author's "My drafts".
     """
     limit = _clamp_limit(limit)
     offset = max(0, offset)
@@ -526,6 +586,8 @@ async def list_roles(
     base = select(CanonicalJD).join(latest_ids, CanonicalJD.id == latest_ids.c.id)
     if cluster_ids is not None:
         base = base.where(CanonicalJD.cluster_id.in_(list(cluster_ids)))
+    if not include_composed:
+        base = base.where(CanonicalJD.cluster_id.not_in(_COMPOSED_CLUSTERS))
     if query:
         return await _search_roles(
             session,
@@ -539,6 +601,7 @@ async def list_roles(
             neo4j_driver=neo4j_driver,
             rules=rules,
             plan=plan,
+            include_composed=include_composed,
         )
     total = await session.scalar(select(func.count()).select_from(base.subquery())) or 0
     column = _ROLE_SORTS[sort_key]
@@ -555,8 +618,15 @@ async def list_roles(
             .offset(offset)
         )
     ).all()
+    page_ids = [row.cluster_id for row in rows]
+    composed = await _composed_authors(session, page_ids)
+    departments = await composer_search._role_departments(session, page_ids)
     return RolePage(
-        items=tuple(_role_list_item(row) for row in rows),
+        items=tuple(
+            _role_list_item(row, composed=composed, departments=departments)
+            for row in rows
+        ),
+        include_composed=include_composed,
         total=int(total),
         limit=limit,
         offset=offset,

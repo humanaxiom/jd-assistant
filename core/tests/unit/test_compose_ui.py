@@ -849,6 +849,43 @@ def test_role_hits_link_to_the_role_and_a_spelling_hit_shows_no_number(
     assert not re.search(r"\d\s*%", spelling_row), spelling_row
 
 
+_MEANING_ONLY = "No titles match your words."
+
+
+@pytest.mark.parametrize(
+    ("matches", "flagged"),
+    [(["semantic", "semantic"], True), (["role_title", "semantic"], False)],
+)
+def test_a_builder_page_of_meaning_hits_alone_says_they_may_be_unrelated(
+    monkeypatch: pytest.MonkeyPatch, matches: list[str], flagged: bool
+) -> None:
+    """UAT: nonsense typed into a search returns the vector index's k nearest anyway.
+    When NOTHING matched by title or spelling the page says so, in words — no
+    threshold, no number."""
+    from src.jd_bank.composer import SearchHit
+
+    hits = [
+        SearchHit(
+            cluster_id=uuid.uuid4(),
+            title=f"Role {i}",
+            match=match,  # type: ignore[arg-type]
+            score=0.5 if match == "semantic" else None,
+        )
+        for i, match in enumerate(matches)
+    ]
+
+    async def fake_search(query: str, **kwargs: object) -> SearchOutcome:
+        return SearchOutcome(hits=hits)
+
+    monkeypatch.setattr(compose_ui, "search_jds", fake_search)
+    app.dependency_overrides[compose.get_embed_client] = lambda: _FakeClose()
+    app.dependency_overrides[compose.get_neo4j_driver] = lambda: _FakeClose()
+    _override_session_object()
+
+    html = _client().get("/jd-bank/ui/compose/search?q=zzzqqq").text
+    assert (_MEANING_ONLY in html) is flagged
+
+
 def test_search_without_a_query_prompts_and_does_not_search(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

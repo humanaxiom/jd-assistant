@@ -87,6 +87,12 @@ class RoleView(_Frozen):
     rendered_text: str
     members: tuple[MemberJD, ...]
     source_count: int
+    #: Written by an author in the Builder (its cluster carries
+    #: ``origin="composed"``), NOT distilled from the archive — the page must say so
+    #: rather than report "distilled from 0 source JDs". ``composed_by`` is the author
+    #: the Builder recorded, when it recorded one.
+    composed: bool = False
+    composed_by: str | None = None
 
 
 class RoleListItem(_Frozen):
@@ -112,6 +118,15 @@ class RoleListItem(_Frozen):
     #: ``keyword``: found by a title keyword the query-understanding step ADDED
     #: (Track I3) — shown as the interpreted word, never as a score.
     matched_by: Literal["title", "spelling", "meaning", "keyword"] | None = None
+    #: Written in the Builder rather than distilled from the archive (see
+    #: :attr:`RoleView.composed`). Left out of the library unless the reader asks.
+    composed: bool = False
+    composed_by: str | None = None
+    #: What tells same-titled roles apart (UAT: twelve identical "Manager, Academic and
+    #: Administrative Services" rows). The role's own department, else the first one
+    #: its source documents state — the Builder's rule, shared. ``None`` when nothing
+    #: states one; never invented.
+    department: str | None = None
 
 
 class RolePage(_Frozen):
@@ -132,6 +147,16 @@ class RolePage(_Frozen):
     #: How the query-understanding step read the search (Track I3), for the page to
     #: show and the person to switch off. ``None`` when it did not run.
     interpretation: QueryUnderstanding | None = None
+    #: Whether roles written in the Builder are included. Off by default: they are
+    #: authors' drafts, not roles distilled from the archive, and listing them beside
+    #: the archive roles made them read as archive roles.
+    include_composed: bool = False
+    #: A search whose every result was found by MEANING alone — no title, spelling or
+    #: interpreted-title hit. The vector index always returns its nearest roles, however
+    #: unrelated (`q=zzzqqq` returned 100), so the page must say so in words. It is a
+    #: flag, never a filter: no similarity threshold exists that separates related from
+    #: unrelated here, and none is applied.
+    meaning_only: bool = False
 
 
 class SourceListItem(_Frozen):

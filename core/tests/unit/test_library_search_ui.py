@@ -114,6 +114,33 @@ def test_degraded_meaning_search_shows_the_banner(
     assert "Accounts Clerk" in resp.text
 
 
+@pytest.mark.parametrize("meaning_only", [True, False])
+def test_a_page_of_meaning_hits_alone_says_they_may_be_unrelated(
+    monkeypatch: pytest.MonkeyPatch, meaning_only: bool
+) -> None:
+    """UAT: `q=zzzqqq` showed 100 confident rows. The page now says, in words, when no
+    title matched — and shows no number (rank only)."""
+    page = _role_page(
+        items=(_item("Payables Assistant", "meaning"),),
+        total=1,
+        q="zzzqqq",
+        sort="relevance",
+        meaning_only=meaning_only,
+    )
+    monkeypatch.setattr(library_route, "list_roles", AsyncMock(return_value=page))
+    client = make_client()
+    _inject(_Closable(), _Closable())
+
+    body = client.get("/jd-bank/ui/library", params={"q": "zzzqqq"}).text
+
+    banner = (
+        "No titles match your words. These are the closest by meaning and may be "
+        "unrelated."
+    )
+    assert (banner in body) is meaning_only
+    assert "%" not in body.split("<table>")[1].split("</table>")[0]
+
+
 def test_a_client_that_cannot_be_built_still_renders_with_a_banner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

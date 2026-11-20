@@ -11,15 +11,24 @@
     {% if role.score is not none %}· Score: <strong>{{ "%.1f"|format(role.score) }}</strong> · Quality: <strong>{{ role.grade or "—" }}</strong>{% endif %}
   </p>
   <p class="note" style="border-left:3px solid var(--accent);background:rgba(47,129,247,.08);padding:.6rem .9rem;border-radius:0 6px 6px 0">
+    {# A Builder draft is its own cluster with no members. Saying "distilled from 0
+       source JDs in the archive" about it made an author's draft read as an archive
+       role (UAT) — say where it really came from. #}
+    {% if role.composed %}
+    This JD was <strong>written in the Builder</strong>{% if role.composed_by %} by
+    <strong>{{ role.composed_by }}</strong>{% endif %}. It did not come from the
+    archive, so it has no source JDs. It is a
+    {% else %}
     This is a <strong>harmonized role</strong> distilled from
     <strong>{{ role.source_count }}</strong> source JD{{ "s" if role.source_count != 1 else "" }} in the archive
     (listed below). It is a
+    {% endif %}
     {% if role.status == "published" %}published JD{% else %}draft awaiting HR review{% endif %}{#
       #}{% if may_review %} —
     <a href="/jd-bank/ui/review/{{ role.canonical_id }}">{% if role.status == "published" %}update it (creates a new draft for review) →{% else %}open in the review queue →{% endif %}</a>{% endif %}.
   </p>
   <p>
-    <a href="/jd-bank/ui/compose/clone-role/{{ role.cluster_id }}">🧱 Start a new JD from this harmonized role →</a>
+    <a href="/jd-bank/ui/compose/clone-role/{{ role.cluster_id }}">🧱 Start a new JD from this {{ "draft" if role.composed else "harmonized role" }} →</a>
   </p>
   <p>
     <a href="/jd-bank/ui/role/{{ role.cluster_id }}/comp-requisition">📄 Download SFU's Compensation Requisition Form, prefilled from this role →</a>
@@ -28,10 +37,11 @@
 </div>
 
 <div class="panel">
-  <h2>Harmonized job description</h2>
+  <h2>{{ "Job description" if role.composed else "Harmonized job description" }}</h2>
   <pre>{{ role.rendered_text }}</pre>
 </div>
 
+{% if not role.composed %}
 <div class="panel">
   <h2>Distilled from {{ role.source_count }} source JD{{ "s" if role.source_count != 1 else "" }}</h2>
   {% if role.members %}
@@ -57,5 +67,6 @@
   <p class="empty">No source members recorded for this role.</p>
   {% endif %}
 </div>
+{% endif %}
 
 {% endblock %}
