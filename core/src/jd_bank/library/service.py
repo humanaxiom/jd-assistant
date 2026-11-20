@@ -25,6 +25,7 @@ from neo4j import AsyncDriver
 from sqlalchemy import Float, Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.jd_bank.composer import search as composer_search
 from src.jd_bank.composer.persist import COMPOSED_ORIGIN
 from src.jd_bank.composer.search import (
     DOC_TITLE,
@@ -294,12 +295,14 @@ def _role_list_item(
     matched_by: Literal["title", "spelling", "meaning", "keyword"] | None = None,
     *,
     composed: dict[UUID, str | None],
+    departments: dict[UUID, str],
 ) -> RoleListItem:
     content = canonical.content or {}
     validator = (canonical.change_log or {}).get("validator") or {}
     return RoleListItem(
         composed=canonical.cluster_id in composed,
         composed_by=composed.get(canonical.cluster_id),
+        department=departments.get(canonical.cluster_id),
         canonical_id=canonical.id,
         cluster_id=canonical.cluster_id,
         title=content.get("title") or "(untitled)",
@@ -502,10 +505,15 @@ async def _search_roles(
             return "keyword"
         return "title" if cluster_id in titled else "meaning"
 
-    composed = await _composed_authors(session, [r.cluster_id for r in rows])
+    page_ids = [r.cluster_id for r in rows]
+    composed = await _composed_authors(session, page_ids)
+    departments = await composer_search._role_departments(session, page_ids)
     return RolePage(
         items=tuple(
-            _role_list_item(r, why(r.cluster_id), composed=composed) for r in rows
+            _role_list_item(
+                r, why(r.cluster_id), composed=composed, departments=departments
+            )
+            for r in rows
         ),
         include_composed=include_composed,
         # Over the WHOLE result, not this page: page 3 of a search with title hits on
@@ -610,9 +618,14 @@ async def list_roles(
             .offset(offset)
         )
     ).all()
-    composed = await _composed_authors(session, [row.cluster_id for row in rows])
+    page_ids = [row.cluster_id for row in rows]
+    composed = await _composed_authors(session, page_ids)
+    departments = await composer_search._role_departments(session, page_ids)
     return RolePage(
-        items=tuple(_role_list_item(row, composed=composed) for row in rows),
+        items=tuple(
+            _role_list_item(row, composed=composed, departments=departments)
+            for row in rows
+        ),
         include_composed=include_composed,
         total=int(total),
         limit=limit,

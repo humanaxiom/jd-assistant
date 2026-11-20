@@ -516,6 +516,32 @@ async def test_a_nonsense_search_is_flagged_and_a_title_search_is_not(  # type: 
     assert _MEANING_ONLY not in resp.text
 
 
+async def test_same_titled_live_roles_show_their_departments(library, session) -> None:  # type: ignore[no-untyped-def]
+    """UAT: twelve identical title rows, told apart only by Sources/Score/Quality. A
+    live title shared by roles in different departments must show each department."""
+    from markupsafe import escape
+
+    row = (
+        await session.execute(
+            text(
+                f"SELECT content->>'title', array_agg(DISTINCT content->>'department') "
+                f"FROM ({_CURRENT}) cur WHERE {_NOT_COMPOSED} "
+                "AND coalesce(content->>'department','') <> '' "
+                "GROUP BY content->>'title' "
+                "HAVING count(DISTINCT content->>'department') >= 2 "
+                "ORDER BY md5(content->>'title') LIMIT 1"
+            ),
+            {"composed": COMPOSED_ORIGIN},
+        )
+    ).one_or_none()
+    assert row is not None, "the live Bank has no same-titled roles in two departments"
+    title, departments = row
+    resp, _ = await _search_ids(library, title, limit=200)
+    assert "<th>Department</th>" in resp.text
+    missing = [d for d in departments if f"<td>{escape(d)}</td>" not in resp.text]
+    assert not missing, f"{title!r}: departments not shown: {missing}"
+
+
 async def test_builder_drafts_are_out_of_the_default_library_and_labelled(  # type: ignore[no-untyped-def]
     library, session
 ) -> None:

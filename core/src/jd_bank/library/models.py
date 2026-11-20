@@ -122,6 +122,11 @@ class RoleListItem(_Frozen):
     #: :attr:`RoleView.composed`). Left out of the library unless the reader asks.
     composed: bool = False
     composed_by: str | None = None
+    #: What tells same-titled roles apart (UAT: twelve identical "Manager, Academic and
+    #: Administrative Services" rows). The role's own department, else the first one
+    #: its source documents state — the Builder's rule, shared. ``None`` when nothing
+    #: states one; never invented.
+    department: str | None = None
 
 
 class RolePage(_Frozen):

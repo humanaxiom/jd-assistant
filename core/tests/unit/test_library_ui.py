@@ -321,6 +321,43 @@ def test_archive_lists_source_files(monkeypatch: pytest.MonkeyPatch) -> None:
     assert mock.await_args.kwargs["q"] == "finance"
 
 
+def test_same_titled_roles_are_told_apart_by_department(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """UAT: twelve identical "Manager, Academic and Administrative Services" rows.
+    The department tells them apart; an unknown one is blank, never invented."""
+    title = "Manager, Academic and Administrative Services"
+    items = (
+        _role_item(title).model_copy(update={"department": "Faculty of Science"}),
+        _role_item(title).model_copy(update={"department": None}),
+    )
+    mock = AsyncMock(return_value=_role_page(items=items, total=2))
+    monkeypatch.setattr(library_route, "list_roles", mock)
+    client = make_client()
+
+    body = client.get("/jd-bank/ui/library").text
+
+    assert "<th>Department</th>" in body
+    assert "<td>Faculty of Science</td>" in body
+    assert "<td></td>" in body
+
+
+def test_score_and_quality_headings_explain_themselves(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mock = AsyncMock(return_value=_role_page(items=(_role_item("Analyst"),), total=1))
+    monkeypatch.setattr(library_route, "list_roles", mock)
+    client = make_client()
+
+    body = client.get("/jd-bank/ui/library").text
+
+    score = body[body.index("sort=score") :]
+    quality = body[body.index("sort=grade") :]
+    assert 'title="' in score[: score.index("</th>")]
+    assert 'title="' in quality[: quality.index("</th>")]
+    assert "not a pay grade" in body.lower()
+
+
 def test_library_labels_a_builder_role_and_offers_the_toggle(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

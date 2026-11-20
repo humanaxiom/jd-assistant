@@ -353,6 +353,41 @@ async def test_list_roles_sorts_by_column(
         assert [i.title for i in fallback.items] == ["Alpha Role", "Beta Role"]
 
 
+@pytest.mark.asyncio
+async def test_list_roles_carries_the_department_that_tells_twins_apart(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """UAT: same-titled roles were indistinguishable. The role's own department
+    first; where it is blank, the first one its source documents state (the Builder's
+    rule); otherwise ``None`` — never invented."""
+    title = "Manager, Academic and Administrative Services"
+    async with session_maker() as session:
+        stated, _ = await _seed_role(
+            session, content=_jd(title, department="Faculty of Science"), members=[]
+        )
+        src = await _seed_source(
+            session, filename="m.docx", jd=_jd(title, department="Library")
+        )
+        from_source, _ = await _seed_role(
+            session,
+            content=_jd(title),
+            members=[{"source_id": str(src), "filename": "m.docx"}],
+        )
+        unknown, _ = await _seed_role(session, content=_jd(title), members=[])
+        await session.commit()
+
+        browse = await list_roles(session)
+        search = await list_roles(session, q="academic and administrative")
+
+    for page in (browse, search):
+        departments = {i.cluster_id: i.department for i in page.items}
+        assert departments == {
+            stated: "Faculty of Science",
+            from_source: "Library",
+            unknown: None,
+        }
+
+
 # --- Builder-written roles are labelled, and kept out of the default library ----------
 #
 # UAT finding: a JD an author submits from the Builder becomes its own cluster
