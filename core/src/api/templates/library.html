@@ -2,6 +2,9 @@
 {% block title %}JD Bank — the library{% endblock %}
 {% block header %}🏦 JD Bank — the library{% endblock %}
 {% block content %}
+{# Carried on every sort / page link so paging never silently drops the reader's choice
+   to include Builder-written drafts. #}
+{% set bq = "&builder=1" if page.include_composed else "" %}
 
 <div class="panel">
   <p>
@@ -11,36 +14,65 @@
     awaiting HR review (or a published JD). Open a role to read its harmonized text and
     the source JDs behind it, or browse the
     <a href="/jd-bank/ui/archive">source archive</a> file by file.
+    Drafts people have written in the Builder are not archive roles, so until HR
+    publishes one it is left out unless you tick the box below; your own are always in
+    <a href="/jd-bank/ui/my-drafts">📝 My drafts</a>.
   </p>
   <form method="get" action="/jd-bank/ui/library">
     <label for="q">Search roles by title or by what the job does</label>
     <input id="q" name="q" value="{{ page.q }}" placeholder="e.g. financial analyst, someone who processes invoices">
+    {# Builder-written drafts are left out by default: they are authors' drafts, not
+       roles distilled from the archive, and listed among them they read as archive
+       roles (UAT). The box keeps the choice across a second search. #}
+    <label style="display:flex;gap:.4rem;align-items:center"><input type="checkbox" name="builder" value="1" style="width:auto"{% if page.include_composed %} checked{% endif %}> Include drafts written in the Builder</label>
     <button type="submit">Search</button>
   </form>
 </div>
 
 <div class="panel">
   <h2>Roles{% if page.q %} matching “{{ page.q }}”{% endif %}</h2>
+  {# Nothing matched by title or spelling: every row is the vector index's nearest,
+     which it returns however unrelated the words were. Said in words, never as a
+     score — no similarity threshold separates related from unrelated here. #}
+  {% if page.meaning_only %}
+  <p class="banner" role="status">No titles match your words. These are the closest by meaning and may be unrelated.</p>
+  {% endif %}
   {% if page.banner %}
   <p class="banner" role="status"><strong>Heads up:</strong> {{ page.banner }}</p>
   {% endif %}
+{% if page.interpretation %}{% set i = page.interpretation %}
+  <p class="meta" id="interpretation">
+    🧠 <strong>Read as:</strong> “{{ i.semantic_query }}”{% if i.extra_keywords %} · also titles containing
+    {% for k in i.extra_keywords %}<a href="/jd-bank/ui/library?q={{ k | urlencode }}">{{ k }}</a>{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}{% if i.unit_label %}
+    · unit suggested: <a href="/jd-bank/ui/unit/{{ i.unit_slug }}">{{ i.unit_label }}</a> (not applied){% endif %}{% if i.employee_group %}
+    · {{ i.employee_group | upper }} as you typed{% endif %}
+    · <a href="/jd-bank/ui/library?q={{ i.raw_query | urlencode }}&amp;plain=1">search the words as typed instead</a>
+    {% for d in i.discarded %}<br><span class="empty">ignored: {{ d }}</span>{% endfor %}
+    <br><span class="empty">A self-hosted model ({{ i.model }}) read your search; it can only add results, never filter them.</span>
+  </p>
+{% endif %}
   {% if page.items %}
-  <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }} · {% if page.q %}best matches first · {% if page.sort != 'relevance' %}<a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;limit={{ page.limit }}">sort by best match</a> · {% endif %}{% endif %}click a column heading to sort</p>
+  <p class="meta">Showing {{ pagination.shown_from }}–{{ pagination.shown_to }} of {{ page.total }}{% if page.hidden_builder_drafts %} · {{ page.hidden_builder_drafts }} unpublished draft{{ "s" if page.hidden_builder_drafts != 1 else "" }} written in the Builder not shown (<a href="/jd-bank/ui/library?builder=1&amp;limit={{ page.limit }}">show them</a>){% endif %} · {% if page.q %}best matches first · {% if page.sort != 'relevance' %}<a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;limit={{ page.limit }}{{ bq }}">sort by best match</a> · {% endif %}{% endif %}click a column heading to sort</p>
   {# A sortable column heading: links to the same query sorted by `key`, toggling
      direction if it is already the active sort; shows ▲/▼ when active. Sorting resets to
      the first page (no offset). #}
-  {% macro sorth(key, label) -%}
+  {# The two columns readers asked about (UAT). Both are the automatic wording check's
+     stored result — neither says anything about the job's level or pay. #}
+  {% set score_tip = "How well the draft's wording follows SFU's job description writing standards, from the automatic check. Higher is better. Not a measure of the job's level or pay." %}
+  {% set quality_tip = "The same automatic check as a letter grade (A is best). Not a pay grade." %}
+  {% macro sorth(key, label, tip="") -%}
     {%- set active = (page.sort == key) -%}
     {%- set next_dir = 'desc' if (active and page.direction == 'asc') else 'asc' -%}
-    <th><a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ key }}&amp;dir={{ next_dir }}&amp;limit={{ page.limit }}">{{ label }}{% if active %} {{ '▲' if page.direction == 'asc' else '▼' }}{% endif %}</a></th>
+    <th><a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ key }}&amp;dir={{ next_dir }}&amp;limit={{ page.limit }}{{ "&builder=1" if page.include_composed }}"{% if tip %} title="{{ tip }}"{% endif %}>{{ label }}{% if active %} {{ '▲' if page.direction == 'asc' else '▼' }}{% endif %}</a></th>
   {%- endmacro %}
   <table>
     <thead>
       <tr>
         {{ sorth('title', 'Role') }}
+        <th>Department</th>
         {{ sorth('sources', 'Sources') }}
-        {{ sorth('score', 'Score') }}
-        {{ sorth('grade', 'Quality') }}
+        {{ sorth('score', 'Score', score_tip) }}
+        {{ sorth('grade', 'Quality', quality_tip) }}
         {{ sorth('status', 'Status') }}
         {% if page.q %}<th>Why it matched</th>{% endif %}
         <th></th>
@@ -49,23 +81,28 @@
     <tbody>
       {% for item in page.items %}
       <tr>
-        <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">{{ item.title }}</a></td>
-        <td>{{ item.source_count }}</td>
+        <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">{{ item.title }}</a>{% if item.composed %}
+          <div class="meta">Written in the Builder{% if item.composed_by %} by {{ item.composed_by }}{% endif %}</div>{% endif %}</td>
+        <td>{{ item.department or "" }}</td>
+        <td>{{ "—" if item.composed else item.source_count }}</td>
         <td>{{ "%.1f"|format(item.score) if item.score is not none else "—" }}</td>
         <td>{{ item.grade or "—" }}</td>
         <td>{{ item.status }}</td>
-        {% if page.q %}<td>{{ "Title" if item.matched_by == "title" else "Similar spelling" if item.matched_by == "spelling" else "Related by meaning" if item.matched_by == "meaning" else "—" }}</td>{% endif %}
+        {% if page.q %}<td>{{ "Title" if item.matched_by == "title" else "Similar spelling" if item.matched_by == "spelling" else "Related by meaning" if item.matched_by == "meaning" else "Interpreted title" if item.matched_by == "keyword" else "—" }}</td>{% endif %}
         <td><a href="/jd-bank/ui/role/{{ item.cluster_id }}">Open →</a></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  {# Spelled out as well as in the heading tooltips: a tooltip never shows on a touch
+     screen, and nobody hovers over a heading they did not already wonder about. #}
+  <p class="meta"><strong>Score:</strong> {{ score_tip }} <strong>Quality:</strong> {{ quality_tip }} <strong>Department:</strong> blank when no document states one.</p>
   <p class="meta">
     {% if pagination.prev_offset is not none %}
-    <a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.prev_offset }}&amp;limit={{ pagination.limit }}">← Prev</a>
+    <a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.prev_offset }}&amp;limit={{ pagination.limit }}{{ bq }}">← Prev</a>
     {% endif %}
     {% if pagination.next_offset is not none %}
-    <a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.next_offset }}&amp;limit={{ pagination.limit }}">Next →</a>
+    <a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;offset={{ pagination.next_offset }}&amp;limit={{ pagination.limit }}{{ bq }}">Next →</a>
     {% endif %}
   </p>
   {% else %}
@@ -78,8 +115,8 @@
      — rendered a sentence and nothing to click. A page that strands the reader is the
      same dead end as a 404, wearing a 200. #}
   <p class="meta">
-    {% if page.q %}<a href="/jd-bank/ui/library">← Show all roles</a> · {% endif %}
-    {% if not page.items and page.offset %}<a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;limit={{ page.limit }}">← Back to the first page</a> · {% endif %}
+    {% if page.q %}<a href="/jd-bank/ui/library?q={{ bq }}">← Show all roles</a> · {% endif %}
+    {% if not page.items and page.offset %}<a href="/jd-bank/ui/library?q={{ page.q | urlencode }}&amp;sort={{ page.sort }}&amp;dir={{ page.direction }}&amp;limit={{ page.limit }}{{ bq }}">← Back to the first page</a> · {% endif %}
     <a href="/jd-bank/ui/compose/new">🧱 Write a new job description</a> ·
     <a href="/jd-bank/ui/archive">🗂 Browse the source archive</a>
   </p>

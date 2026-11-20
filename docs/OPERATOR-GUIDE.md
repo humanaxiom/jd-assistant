@@ -22,6 +22,60 @@ nav link); `make guide-check` fails if it is stale. Do not hand-edit the HTML.
 
 ---
 
+## Testing JD Bank — start here
+
+**For HR colleagues trying JD Bank before it is in general use.** It takes about 30
+minutes. What we most need to hear is where something is **wrong, confusing, or
+missing**, not only what is broken.
+
+**Sign in** with your SFU computing ID at the address you were sent. You start as an
+**author**: you can search, read, draft and download. You cannot approve or publish
+anything.
+
+### Three things to try
+
+1. **Find a job description.** Open 🏦 **JD Bank** and search the way you normally
+   would, for example a title ("Program Assistant"), a short form ("AP clerk"), or a
+   misspelling. Open a role, then open one of its **source** job descriptions.
+   *Ask yourself:* is the role I expected there? Are the job descriptions readable? Can I
+   tell two roles with the same title apart?
+2. **Download the Compensation Requisition Form.** On a role, choose **📄 Download SFU's
+   Compensation Requisition Form**. Pick a request type and a position, check your
+   contact line, and download the form. Open it in Acrobat.
+   *Ask yourself:* is everything the JD Bank typed in correct? Is anything in the wrong
+   box?
+3. **Draft a job description in the Builder.** From a role, choose **Start a new JD from
+   this harmonized role**. Change it, **Check** it, and **Export .docx**.
+   *Ask yourself:* do the check's comments make sense? Does the Word file look like
+   SFU's template?
+
+### What is blank or rough on purpose
+
+- **No grade, job code, union or department code, Reg/Temp or hours** on any form. They
+  come from PeopleSoft, which is not connected yet. Grades shown on a role are what the
+  old files said, for reference only.
+- **Position numbers are read from the archive's file names.** For a handful of roles
+  the list may be incomplete, and the page says so when it is.
+- **The territorial acknowledgement** in exported Word files is spelled without its
+  special characters. This is an open decision with HR. Please do not circulate exports
+  as final.
+- **Search "related by meaning"** ranks closest-first and can include unrelated roles
+  when nothing matches your words. The page says when that happens.
+
+### Before you press Submit in the Builder
+
+**Submit** saves your draft into the JD Bank, where other testers can see it. It is
+labelled as written in the Builder, and it cannot be deleted. Export and Check save
+nothing, so use those freely. Submit only a draft you would really propose.
+
+### Telling us what you found
+
+Use **Report a problem with this page** at the bottom of any page. It opens an email
+with the page address already filled in. Say what you expected and what you saw; a
+screenshot helps.
+
+---
+
 ## 1. What JD Bank is
 
 JD Bank turns SFU's sprawling job-description archive into a clean, governed source of
@@ -139,12 +193,15 @@ before the Builder in this guide too.
 
 | Task | How | Notes |
 |---|---|---|
-| Browse/search harmonized roles | Open **🏦 JD Bank**, optionally type a title into **Search roles by title** | Lists every **harmonized role** the Bank has distilled from the source archive — each a draft awaiting HR review, or a published JD. The counts are on 📈 Funnel (§5). |
-| Sort the list | Click a column heading (**Role · Sources · Score · Quality · Status**) | Toggles ascending/descending; sorting resets to the first page. |
+| Browse/search harmonized roles | Open **🏦 JD Bank**, optionally type a title into **Search roles by title** | Lists every **harmonized role** the Bank has distilled from the source archive — each a draft awaiting HR review, or a published JD. The counts are on 📈 Funnel (§5). Each row shows the role's **Department** so same-titled roles can be told apart: the role's own department, or else one its source documents state (a role whose sources sit in several departments shows only one of them), blank when none states one. Drafts written in the Builder are left out until HR publishes them; the page says how many it is not showing, with a link to show them. A search that matched no title, only meaning, says so above the results — *"No titles match your words…"* — because the nearest-by-meaning list is never empty, however unrelated the words. |
+| See drafts people wrote in the Builder | Tick **Include drafts written in the Builder** and search | Left out by default: they are authors' drafts, not roles distilled from the archive. Each is labelled **Written in the Builder (by …)**, and its page says so instead of listing source JDs. Your own are always in 📝 My drafts. |
+| Let a model read your search (optional, **off** unless ITS/HR switch it on) | Type the search as usual | When `search.yaml`'s `query_understanding_enabled` is on, a self-hosted model reads what you typed first — expanding "AP clerk" to *accounts payable clerk* — and the page shows **🧠 Read as: …** with the extra title keywords it added (each a link), anything it wanted that was ignored, and a **search the words as typed instead** link. It can only add results, never filter them: an employee group counts only if *you* typed it, a unit is only a suggestion. If the model is slow or down you get the plain search. The same applies to the Builder's **🔎 Search to clone**. |
+| Sort the list | Click a column heading (**Role · Sources · Score · Quality · Status**) | Toggles ascending/descending; sorting resets to the first page. **Score** and **Quality** are the automatic wording check (higher score, A grade = closer to SFU's JD writing standards) — not the job's level or pay grade; hover a heading for the same note. |
 | Read a role | Click a role's title or **Open →** — `/jd-bank/ui/role/{cluster_id}` | Shows the harmonized JD text plus every source JD it was distilled from, each opening to its full text. |
 | Read a single source JD | **Read →** next to a source file | Renders that one archive document as text — `/jd-bank/ui/jd/{source_document_id}`. |
 | Browse the flat archive | **source archive** link on the library page → `/jd-bank/ui/archive` | Every ingested file, one at a time, searchable — no clustering, no harmonization. |
 | Start a new JD from a role | **🧱 Start a new JD from this harmonized role →** on a role page | Clones the **harmonized role's** content into the Builder — not a raw archive parse — because a reviewed role is a better starting point than an un-vetted archive member. |
+| Get SFU's Compensation Requisition Form for a role | **📄 Download SFU's Compensation Requisition Form, prefilled from this role →** on a role page | Opens a short page of choices, then downloads **HR's own PDF form** (the September 2024 AcroForm, still editable) with the Position Title, Department and Employee Group typed in — from the role, or from its source files where the role is silent and every file agrees — plus the request-type box you picked (A–E) ticked, the **one position you pick** written (as *Position #* for B–E, as the *based on* position for A, with that section's *based off of an existing position? Yes* ticked), and the contact name, title and email you type on the page (prefilled from your sign-in) unless you untick it. When you pick a position for a request, its Department comes from that position's own files where they agree. A role with a single position has it picked for you; *Leave blank* leaves the box blank. Each value is shown with where it came from, marked *confirm*. The source files' grades are shown for reference only and never typed onto the form. You pick the **request type** (sections A–E; or leave it for the form) and **which one position** the form is for — a role is distilled from several positions and the Bank never picks for you; a list that may be missing a position says so. Nothing else is filled: no names, no grade, no supervisor, no signatures, and nothing is stored. CUPE roles get no Employee Group (the dropdown offers APSA and APEX only), and a CUPE re-evaluation uses HR's separate Position Re-evaluation Request Form. |
 
 ---
 
@@ -225,6 +282,7 @@ default). **Admin required:** no.
 | See roles SFU already has | The **"Roles SFU already has"** panel, once enough of the draft is written | Existing harmonized roles that look like the one being written, each with **Start from this role →**, plus how many roles carry **exactly this title** and across how many **departments**. Advisory only — it never blocks submission and does not change the compliance verdict. |
 | Improve the summary with AI | **✨ Improve summary (assist)** | A self-hosted LLM suggests a better Position Summary; you review and edit it (nothing auto-applies). |
 | Download the official document | **Export .docx ↓** | Renders the SFU `.docx` on the draft's own form: the APSA/APEX/Poly template — laid out as HR's 2024 template, with the Position Title / Position # / Employee Group table in the page header (plus the supervisor's title and position # when given), the About SFU block, each duty's "how and why" sub-bullets, the criminal record check sentence when ticked, and the territorial acknowledgement and Employment Equity footer (the About SFU and acknowledgement wording is printed from the rulebook as it stands; HR is still to confirm it — HR-104/105) — or — for a CUPE draft — HR's CUPE "WJQ Custom — Part 1: Job Description" form, with no APSA footer. On the CUPE form the checkboxes are left unticked, the contact / effort / working-conditions duration and frequency cells are left blank, and the Approval and Review lines and HR's own box are always blank, for the people who sign them. Rendering only — nothing is validated or published. |
+| Get the Compensation Requisition Form | **📄 Download SFU's Compensation Requisition Form…** under *Export*, on a draft started from a role | Links to that role's form page (§4) — the PDF HR asks for alongside the Word JD when a position is new or re-evaluated. A from-scratch draft has no role and no positions to offer, so it shows no link. |
 | Send for approval | **Submit for review →** | Persists a **draft** into the review queue, attributed to **you** (the signed-in user). It publishes nothing (guardrail #1). You land on **📝 My drafts** with a confirmation. |
 | See what happened to what you sent | **📝 My drafts** → `/jd-bank/ui/my-drafts` | Every JD **you** have submitted, newest first, and where each one stands: *Waiting for HR review*, *Approved and published*, or *Closed*. Read any of them; you see only your own. |
 
@@ -474,6 +532,7 @@ the numbers they printed:
 | `CAS_SERVICE_BASE_URL` | The **fallback** origin, used when the origin a browser arrived on is not on the list above. |
 | `BOOTSTRAP_ADMINS` | Comma-separated CAS ids granted `admin` on login (first-admin bootstrap). |
 | `SESSION_COOKIE_SECURE` / `_SAMESITE` | `true` / `strict` in production (HTTPS). |
+| `FEEDBACK_EMAIL` | Address for the **✉ Report a problem with this page** link in every page's footer (a mailto prefilled with the page, its address and the signed-in user); empty = no link. |
 
 > **Reaching the app by more than one address** **[operator]** 🖥️. CAS is told a single
 > "service" URL per sign-in, so a deployment reachable both on the box (`localhost:25800`)

@@ -17,14 +17,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Collection, Sequence
+from collections.abc import Callable, Collection, Sequence
 from typing import Any, Literal
 from uuid import UUID
 
 from neo4j import AsyncDriver
-from sqlalchemy import Float, Select, func, or_, select
+from sqlalchemy import Float, Select, and_, func, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.jd_bank.composer import search as composer_search
+from src.jd_bank.composer.persist import COMPOSED_ORIGIN
 from src.jd_bank.composer.search import (
     DOC_TITLE,
     ROLE_TITLE,
@@ -35,6 +37,7 @@ from src.jd_bank.composer.search import (
 )
 from src.jd_bank.db.models import (
     CanonicalJD,
+    CanonicalStatus,
     Cluster,
     ParsedJDRow,
     SourceDocument,
@@ -50,6 +53,7 @@ from src.jd_bank.library.models import (
     SourceListItem,
     SourcePage,
 )
+from src.jd_bank.query_plan import QueryUnderstanding
 from src.jd_core.bank.render import render_sfu_jd_text
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.parser import PARSER_VERSION
@@ -72,6 +76,35 @@ _ROLE_SORTS = {
     "score": CanonicalJD.change_log["validator"]["score"].astext.cast(Float),
     "grade": CanonicalJD.change_log["validator"]["grade"].astext,
 }
+
+
+#: The clusters the Builder minted for an author's submitted draft — the composer's own
+#: marker (:data:`~src.jd_bank.composer.persist.COMPOSED_ORIGIN`, the same predicate
+#: "My drafts" lists by), not a heuristic such as "has no members".
+_IS_COMPOSED = Cluster.constraint_metadata["origin"].astext == COMPOSED_ORIGIN
+_COMPOSED_CLUSTERS = select(Cluster.id).where(_IS_COMPOSED)
+
+
+def _author_of(meta: dict[str, Any]) -> str | None:
+    """The author the Builder recorded on a composed cluster, or ``None``."""
+    author = str(meta.get("author") or "").strip()
+    return author or None
+
+
+async def _composed_authors(
+    session: AsyncSession, cluster_ids: Sequence[UUID]
+) -> dict[UUID, str | None]:
+    """``{cluster_id: author}`` for the Builder-written roles among ``cluster_ids``."""
+    if not cluster_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(Cluster.id, Cluster.constraint_metadata).where(
+                Cluster.id.in_(list(cluster_ids)), _IS_COMPOSED
+            )
+        )
+    ).all()
+    return {cluster_id: _author_of(meta or {}) for cluster_id, meta in rows}
 
 
 def _clamp_limit(limit: int | None) -> int:
@@ -236,7 +269,11 @@ async def get_role(session: AsyncSession, cluster_id: UUID) -> RoleView | None:
     jd = SFUJobDescription.model_validate(canonical.content)
     members = await _member_views(session, cluster, canonical)
     validator = (canonical.change_log or {}).get("validator") or {}
+    meta = (cluster.constraint_metadata if cluster is not None else None) or {}
+    composed = meta.get("origin") == COMPOSED_ORIGIN
     return RoleView(
+        composed=composed,
+        composed_by=_author_of(meta) if composed else None,
         canonical_id=canonical.id,
         cluster_id=cluster_id,
         title=jd.title,
@@ -256,11 +293,17 @@ async def get_role(session: AsyncSession, cluster_id: UUID) -> RoleView | None:
 
 def _role_list_item(
     canonical: CanonicalJD,
-    matched_by: Literal["title", "spelling", "meaning"] | None = None,
+    matched_by: Literal["title", "spelling", "meaning", "keyword"] | None = None,
+    *,
+    composed: dict[UUID, str | None],
+    departments: dict[UUID, str],
 ) -> RoleListItem:
     content = canonical.content or {}
     validator = (canonical.change_log or {}).get("validator") or {}
     return RoleListItem(
+        composed=canonical.cluster_id in composed,
+        composed_by=composed.get(canonical.cluster_id),
+        department=departments.get(canonical.cluster_id),
         canonical_id=canonical.id,
         cluster_id=canonical.cluster_id,
         title=content.get("title") or "(untitled)",
@@ -315,6 +358,15 @@ async def _meaning_candidates(
     return [cluster_id for cluster_id, _title, _group in near]
 
 
+def _keyword_rank(keyword: str) -> Callable[[Any], tuple[int, str, str]]:
+    """Sort key for one keyword's title rows: closest title first, then stable."""
+
+    def key(row: Any) -> tuple[int, str, str]:
+        return (title_rank(row[1] or "", keyword), (row[1] or "").lower(), str(row[0]))
+
+    return key
+
+
 async def _search_roles(
     session: AsyncSession,
     base: Select[Any],
@@ -327,10 +379,13 @@ async def _search_roles(
     embed_client: EmbedClient | None,
     neo4j_driver: AsyncDriver | None,
     rules: Rules | None,
+    plan: QueryUnderstanding | None = None,
+    include_composed: bool = False,
 ) -> RolePage:
     """Title tiers first (exact, prefix, contains), then roles found by meaning, each
     role once. ``base`` is already scoped to the current version per cluster (and to
-    any collection)."""
+    any collection, and away from Builder-written roles unless ``include_composed``)
+    — every pass, the typo and meaning ones included, is filtered through it."""
     title_rows = list(
         (
             await session.execute(
@@ -344,6 +399,25 @@ async def _search_roles(
         key=lambda r: (title_rank(r[1] or "", query), (r[1] or "").lower(), str(r[0]))
     )
     title_ids = [row[0] for row in title_rows]
+    by_raw_title = set(title_ids)
+    # The keywords the query-understanding step ADDED (Track I3), each its own
+    # title scan, after every match on the words as typed. They can only add.
+    by_keyword: set[UUID] = set()
+    for keyword in plan.extra_keywords if plan is not None else ():
+        extra = list(
+            (
+                await session.execute(
+                    base.with_only_columns(CanonicalJD.cluster_id, ROLE_TITLE).where(
+                        ROLE_TITLE.ilike(_like_pattern(keyword), escape="\\")
+                    )
+                )
+            ).all()
+        )
+        extra.sort(key=_keyword_rank(keyword))
+        for cluster_id, _title in extra:
+            if cluster_id not in by_raw_title and cluster_id not in by_keyword:
+                title_ids.append(cluster_id)
+                by_keyword.add(cluster_id)
     # The TYPO fallback (Track I2, HR-241), the same one the Builder runs: only when no
     # role title CONTAINS the query. Ranked closest-spelling first; never a score.
     spelled: list[UUID] = []
@@ -364,7 +438,10 @@ async def _search_roles(
     meaning: list[UUID] = []
     if embed_client is not None and neo4j_driver is not None:
         found = await _meaning_candidates(
-            query, embed_client=embed_client, neo4j_driver=neo4j_driver, rules=rules
+            plan.semantic_query if plan is not None else query,
+            embed_client=embed_client,
+            neo4j_driver=neo4j_driver,
+            rules=rules,
         )
         if found is None:
             banner = SEMANTIC_UNAVAILABLE_BANNER
@@ -422,13 +499,27 @@ async def _search_roles(
             )
     by_spelling = set(spelled)
 
-    def why(cluster_id: UUID) -> Literal["title", "spelling", "meaning"]:
+    def why(cluster_id: UUID) -> Literal["title", "spelling", "meaning", "keyword"]:
         if cluster_id in by_spelling:
             return "spelling"
+        if cluster_id in by_keyword:
+            return "keyword"
         return "title" if cluster_id in titled else "meaning"
 
+    page_ids = [r.cluster_id for r in rows]
+    composed = await _composed_authors(session, page_ids)
+    departments = await composer_search._role_departments(session, page_ids)
     return RolePage(
-        items=tuple(_role_list_item(r, why(r.cluster_id)) for r in rows),
+        items=tuple(
+            _role_list_item(
+                r, why(r.cluster_id), composed=composed, departments=departments
+            )
+            for r in rows
+        ),
+        include_composed=include_composed,
+        # Over the WHOLE result, not this page: page 3 of a search with title hits on
+        # page 1 is not a meaning-only search.
+        meaning_only=bool(ordered) and titled.isdisjoint(ordered),
         total=len(ordered),
         limit=limit,
         offset=offset,
@@ -436,6 +527,7 @@ async def _search_roles(
         sort="relevance" if relevance else sort,
         direction="desc" if (descending and not relevance) else "asc",
         banner=banner,
+        interpretation=plan,
     )
 
 
@@ -451,6 +543,8 @@ async def list_roles(
     embed_client: EmbedClient | None = None,
     neo4j_driver: AsyncDriver | None = None,
     rules: Rules | None = None,
+    plan: QueryUnderstanding | None = None,
+    include_composed: bool = False,
 ) -> RolePage:
     """A page of harmonized roles (one per cluster, the current version), optionally
     searched and sorted by a clickable column (``sort`` in :data:`_ROLE_SORTS`,
@@ -473,6 +567,10 @@ async def list_roles(
     EMPTY collection returns an empty page, never the whole library: the difference
     matters, because the wrong direction here shows a stakeholder the entire archive
     under their own unit's name.
+
+    **Roles written in the Builder are left out unless ``include_composed``** — an
+    author's submitted draft is its own cluster (``origin="composed"``) and is not a
+    role distilled from the archive. It still lists in the author's "My drafts".
     """
     limit = _clamp_limit(limit)
     offset = max(0, offset)
@@ -489,6 +587,23 @@ async def list_roles(
     base = select(CanonicalJD).join(latest_ids, CanonicalJD.id == latest_ids.c.id)
     if cluster_ids is not None:
         base = base.where(CanonicalJD.cluster_id.in_(list(cluster_ids)))
+    hidden_drafts = 0
+    rulebook = rules if rules is not None else get_rules()
+    if not include_composed and rulebook.search.hide_unpublished_builder_drafts:
+        # HR-332: an UNPUBLISHED Builder draft is left out; one HR published stays.
+        # Counted, so the page can say how many it hides and still reconcile with
+        # the Funnel (which counts every current role).
+        hidden = and_(
+            CanonicalJD.cluster_id.in_(_COMPOSED_CLUSTERS),
+            CanonicalJD.status != CanonicalStatus.PUBLISHED,
+        )
+        hidden_drafts = int(
+            await session.scalar(
+                select(func.count()).select_from(base.where(hidden).subquery())
+            )
+            or 0
+        )
+        base = base.where(not_(hidden))
     if query:
         return await _search_roles(
             session,
@@ -501,6 +616,8 @@ async def list_roles(
             embed_client=embed_client,
             neo4j_driver=neo4j_driver,
             rules=rules,
+            plan=plan,
+            include_composed=include_composed,
         )
     total = await session.scalar(select(func.count()).select_from(base.subquery())) or 0
     column = _ROLE_SORTS[sort_key]
@@ -517,8 +634,16 @@ async def list_roles(
             .offset(offset)
         )
     ).all()
+    page_ids = [row.cluster_id for row in rows]
+    composed = await _composed_authors(session, page_ids)
+    departments = await composer_search._role_departments(session, page_ids)
     return RolePage(
-        items=tuple(_role_list_item(row) for row in rows),
+        items=tuple(
+            _role_list_item(row, composed=composed, departments=departments)
+            for row in rows
+        ),
+        include_composed=include_composed,
+        hidden_builder_drafts=hidden_drafts,
         total=int(total),
         limit=limit,
         offset=offset,

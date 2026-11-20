@@ -191,6 +191,28 @@ async def test_search_without_clients_is_title_only_and_unbannered(
 
 
 @pytest.mark.asyncio
+async def test_a_page_of_meaning_hits_alone_is_flagged_for_the_reader(
+    session_maker: async_sessionmaker[AsyncSession],  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """UAT: `q=zzzqqq` answered "Showing 1–50 of 100 · best matches first", every row
+    "Related by meaning". The vector index always returns its k nearest, however
+    unrelated, so a page with NO title or spelling hit must say so. No threshold and
+    no number: the page is flagged, never filtered."""
+    async with session_maker() as session:
+        ids = await _seed_titles(session, "Accounts Payable Clerk", "Library Clerk")
+        _neighbours(monkeypatch, [ids["Library Clerk"], ids["Accounts Payable Clerk"]])
+        nonsense = await list_roles(session, q="zzzqqq", **_clients())
+        titled = await list_roles(session, q="library", **_clients())
+        no_meaning = await list_roles(session, q="library")
+
+    assert nonsense.total == 2, "flagged, not filtered"
+    assert nonsense.meaning_only is True
+    assert titled.meaning_only is False, "a title hit on the page clears the flag"
+    assert no_meaning.meaning_only is False
+
+
+@pytest.mark.asyncio
 async def test_a_blank_query_never_embeds(
     session_maker: async_sessionmaker[AsyncSession],  # noqa: F811
 ) -> None:

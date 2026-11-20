@@ -83,6 +83,8 @@ x-app-env: &app_env
   CAS_DEV_DEFAULT_ROLE: ${CAS_DEV_DEFAULT_ROLE:-author}
   SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
   SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-lax}
+  # The footer's "Report a problem with this page" mailto; empty = no link.
+  FEEDBACK_EMAIL: ${FEEDBACK_EMAIL:-}
 
 services:
   # ─── Data Tier ───────────────────────────────────────────────────────────

@@ -367,6 +367,12 @@ class Settings(BaseSettings):
     # ./docs:/docs:ro bind. Env OPERATOR_GUIDE_PATH; tests aim it at a fixture.
     operator_guide_path: str = "/docs/operator-guide.html"
 
+    # Where "Report a problem with this page" (the footer of every page) sends its
+    # mailto. DEPLOYMENT config, not an HR rule — it changes no JD — so it lives here
+    # and not in the register. Empty (the default) renders no link at all: a report
+    # addressed to nobody is worse than no offer. Env FEEDBACK_EMAIL.
+    feedback_email: str = ""
+
     # The dedup (Tier 1/2/3) + cluster read-only dashboards (Phase 4.6c slices 2+3) read
     # the SAME committed artifacts `make dedup` / `make near-dup` / `make dedup-role` /
     # `make cluster` write, mounted at `/docs/...` by the compose api service's

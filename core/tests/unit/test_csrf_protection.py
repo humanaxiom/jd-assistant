@@ -141,8 +141,10 @@ from src.api.routes import auth as auth_routes
 from src.api.routes import compose as compose_routes
 from src.api.routes import compose_ui, ui
 from src.api.routes import jd_bank as jd_bank_routes
+from src.api.routes import library as library_routes
 from src.jd_bank.composer import ComposerAnswers, assemble_jd, assess_draft
 from src.jd_bank.composer.assist import SummarySuggestion
+from src.jd_export.comp_requisition import CompReqPrefill
 from tests.unit import test_authorization_matrix as authz
 from tests.unit.auth_fakes import (
     cas_on,
@@ -303,6 +305,14 @@ def _export_effect(monkeypatch: pytest.MonkeyPatch) -> Any:
     return mock
 
 
+def _crf_effect(monkeypatch: pytest.MonkeyPatch) -> Any:
+    """The CRF download (K3) persists nothing, but it READS the Bank and hands a
+    person SFU's own form to circulate — the Bank read is the effect to guard."""
+    mock = AsyncMock(return_value=CompReqPrefill(position_title="Analyst"))
+    monkeypatch.setattr(library_routes, "prefill_from_role", mock)
+    return mock
+
+
 # ── The non-browser surfaces (the eight JSON routes + the two harness ones) ──────────
 
 
@@ -398,6 +408,9 @@ STATE_CHANGES: dict[tuple[str, str], StateChange] = {
     ),
     ("POST", "/jd-bank/ui/compose/export"): StateChange(
         _export_effect, form={"answers_json": ANSWERS_JSON}
+    ),
+    ("POST", "/jd-bank/ui/role/{cluster_id}/comp-requisition"): StateChange(
+        _crf_effect, form={"request_type": "editorial"}
     ),
     ("POST", "/jd-bank/ui/admin/users/{user_id}/roles"): StateChange(
         _admin_effect("set_roles"), form={"roles": "reviewer"}
@@ -1134,6 +1147,7 @@ def test_the_form_scanner_finds_the_forms_it_claims_to() -> None:
         "admin_users.html": 2,  # roles, status
         "review_detail.html": 4,  # approve x2, reject, edit
         "compose_new.html": 3,  # export, submit, check
+        "comp_requisition.html": 1,  # the CRF download (K3)
     }, f"the form scan no longer sees the forms this feature covers: {found}"
 
 

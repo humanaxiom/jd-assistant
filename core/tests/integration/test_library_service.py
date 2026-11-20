@@ -25,11 +25,15 @@ from collections.abc import AsyncIterator, Iterator
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import text
+from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from testcontainers.postgres import PostgresContainer
 
-from src.jd_bank.composer import cluster_id_for_source, load_role_clone_answers
+from src.jd_bank.composer import (
+    cluster_id_for_source,
+    load_role_clone_answers,
+    submit_composed_draft,
+)
 from src.jd_bank.db.models import (
     CanonicalJD,
     CanonicalStatus,
@@ -50,6 +54,7 @@ from src.jd_core.models.parsed_jd import (
     SFUJobDescription,
 )
 from src.jd_core.parser import PARSER_VERSION
+from src.jd_core.rules import get_rules
 from tests.integration.test_dedup_tier1 import ALEMBIC_INI
 
 
@@ -347,6 +352,173 @@ async def test_list_roles_sorts_by_column(
         fallback = await list_roles(session, sort="bogus", direction="sideways")
         assert fallback.sort == "title" and fallback.direction == "asc"
         assert [i.title for i in fallback.items] == ["Alpha Role", "Beta Role"]
+
+
+@pytest.mark.asyncio
+async def test_list_roles_carries_the_department_that_tells_twins_apart(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """UAT: same-titled roles were indistinguishable. The role's own department
+    first; where it is blank, the first one its source documents state (the Builder's
+    rule); otherwise ``None`` — never invented."""
+    title = "Manager, Academic and Administrative Services"
+    async with session_maker() as session:
+        stated, _ = await _seed_role(
+            session, content=_jd(title, department="Faculty of Science"), members=[]
+        )
+        src = await _seed_source(
+            session, filename="m.docx", jd=_jd(title, department="Library")
+        )
+        from_source, _ = await _seed_role(
+            session,
+            content=_jd(title),
+            members=[{"source_id": str(src), "filename": "m.docx"}],
+        )
+        unknown, _ = await _seed_role(session, content=_jd(title), members=[])
+        await session.commit()
+
+        browse = await list_roles(session)
+        search = await list_roles(session, q="academic and administrative")
+
+    for page in (browse, search):
+        departments = {i.cluster_id: i.department for i in page.items}
+        assert departments == {
+            stated: "Faculty of Science",
+            from_source: "Library",
+            unknown: None,
+        }
+
+
+# --- Builder-written roles are labelled, and kept out of the default library ----------
+#
+# UAT finding: a JD an author submits from the Builder becomes its own cluster
+# (`origin="composed"`, no members), and the library listed it beside the archive roles
+# as "distilled from 0 source JDs in the archive". It is seeded here through the REAL
+# write path, so the test reads the code's own notion of "composed", not a copy of it.
+
+
+async def _seed_composed(session: AsyncSession, title: str, author: str) -> uuid.UUID:
+    canonical = await submit_composed_draft(session, _jd(title), author_id=author)
+    await session.commit()
+    return canonical.cluster_id
+
+
+@pytest.mark.asyncio
+async def test_builder_roles_are_left_out_of_the_default_library(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        await _seed_role(session, content=_jd("Finance Analyst"), members=[])
+        await session.commit()
+        composed = await _seed_composed(
+            session, "Finance Administrative Coordinator", "author1"
+        )
+
+        browse = await list_roles(session)
+        search = await list_roles(session, q="finance")
+        typo = await list_roles(session, q="adminstrative cordinator")
+        typo_all = await list_roles(
+            session, q="adminstrative cordinator", include_composed=True
+        )
+
+    assert [i.title for i in browse.items] == ["Finance Analyst"]
+    assert browse.total == 1 and browse.include_composed is False
+    assert browse.hidden_builder_drafts == 1  # said on the page: reconciles the total
+    assert [i.title for i in search.items] == ["Finance Analyst"]
+    assert composed not in {i.cluster_id for i in typo.items}
+    assert composed in {i.cluster_id for i in typo_all.items}, "the typo path is live"
+
+
+@pytest.mark.asyncio
+async def test_a_published_builder_role_stays_in_the_default_library(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """Judge review 2026-11-19: live's one HR-PUBLISHED Builder JD ("PeopleSoft
+    Developer") vanished from the default library. HR-332 hides only UNPUBLISHED
+    Builder drafts."""
+    async with session_maker() as session:
+        await _seed_role(session, content=_jd("Finance Analyst"), members=[])
+        await session.commit()
+        published = await _seed_composed(session, "Finance Systems Developer", "a1")
+        await session.execute(
+            update(CanonicalJD)
+            .where(CanonicalJD.cluster_id == published)
+            .values(status=CanonicalStatus.PUBLISHED)
+        )
+        await session.commit()
+        await _seed_composed(session, "Finance Draft Writer", "a2")
+
+        browse = await list_roles(session)
+        search = await list_roles(session, q="finance")
+
+    assert {i.title for i in browse.items} == {
+        "Finance Analyst",
+        "Finance Systems Developer",
+    }
+    assert browse.hidden_builder_drafts == 1
+    assert published in {i.cluster_id for i in search.items}
+    row = next(i for i in browse.items if i.cluster_id == published)
+    assert row.composed  # still labelled "Written in the Builder"
+
+
+@pytest.mark.asyncio
+async def test_with_hr_332_off_every_builder_role_is_listed(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    rules = get_rules()
+    off = rules.model_copy(
+        update={
+            "search": rules.search.model_copy(
+                update={"hide_unpublished_builder_drafts": False}
+            )
+        }
+    )
+    async with session_maker() as session:
+        await _seed_role(session, content=_jd("Finance Analyst"), members=[])
+        await session.commit()
+        await _seed_composed(session, "Finance Draft Writer", "a2")
+        browse = await list_roles(session, rules=off)
+
+    assert browse.total == 2 and browse.hidden_builder_drafts == 0
+
+
+@pytest.mark.asyncio
+async def test_builder_roles_are_listed_and_labelled_when_asked_for(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        await _seed_role(session, content=_jd("Finance Analyst"), members=[])
+        await session.commit()
+        composed = await _seed_composed(session, "Finance Writer", "author1")
+
+        browse = await list_roles(session, include_composed=True)
+        search = await list_roles(session, q="finance", include_composed=True)
+
+    assert browse.total == 2 and browse.include_composed is True
+    rows = {i.cluster_id: i for i in search.items}
+    assert rows[composed].composed and rows[composed].composed_by == "author1"
+    archive = next(i for i in search.items if i.cluster_id != composed)
+    assert not archive.composed and archive.composed_by is None
+
+
+@pytest.mark.asyncio
+async def test_a_builder_role_page_says_where_it_came_from(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        archive_id, _ = await _seed_role(
+            session, content=_jd("Archive Role"), members=[]
+        )
+        await session.commit()
+        composed = await _seed_composed(session, "Written Role", "author1")
+
+        written = await get_role(session, composed)
+        distilled = await get_role(session, archive_id)
+
+    assert written is not None and written.composed
+    assert written.composed_by == "author1"
+    assert distilled is not None and not distilled.composed
+    assert distilled.composed_by is None
 
 
 # --- acceptance #4: the flat source archive -------------------------------------------

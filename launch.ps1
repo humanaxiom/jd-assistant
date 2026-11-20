@@ -163,7 +163,30 @@ Write-Step 'Starting services'
 Write-Info "Starting: $($Services -join ', ')"
 # --wait blocks until every service with a healthcheck reports healthy, so the migration
 # step below cannot race a Postgres that is still starting up.
-Invoke-Compose up -d --wait
+Invoke-Compose up --detach --wait
+# The api/worker containers bind-mount ./core and run uvicorn --reload, but a Windows
+# bind mount delivers NO file-change events into the container: on 2026-10-28 the API
+# served two-hour-old code after a build + launch, because compose saw an unchanged
+# image and kept the container, and WatchFiles never fired. A launch must deliver the
+# code on disk, so the two code-bearing services are always recreated (the data stores
+# are not touched). Cheap: a few seconds, no data involved.
+# EXCEPT a worker that is mid-job: recreating it SIGTERMs the job (arq run_pipeline
+# has a 1 h timeout). arq marks a running job with an `arq:in-progress:<id>` key in
+# Redis, so a launch that finds one leaves the worker alone and says so.
+$recreate = @('api', 'worker')
+$inProgress = @()
+try {
+    $inProgress = @(Invoke-Compose exec -T redis redis-cli --scan --pattern 'arq:in-progress:*' 2>$null |
+        Where-Object { $_ -match '\S' })
+}
+catch {
+    $inProgress = @()
+}
+if ($inProgress.Count -gt 0) {
+    $recreate = @('api')
+    Write-Warn "worker is running $($inProgress.Count) job(s); NOT recreated, so it may serve older code. Re-run launch when it is idle."
+}
+Invoke-Compose up --detach --no-deps --force-recreate --wait @recreate
 Write-Ok 'All services report healthy'
 
 # ── API readiness ───────────────────────────────────────────────────────────
