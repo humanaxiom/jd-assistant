@@ -487,6 +487,35 @@ async def test_dead_embed_host_keeps_title_hits_and_banner(library, session) -> 
     assert "Search by meaning is unavailable" in resp.text
 
 
+_MEANING_ONLY = "No titles match your words."
+
+
+async def test_a_nonsense_search_is_flagged_and_a_title_search_is_not(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    """UAT: `q=zzzqqq` answered "Showing 1–50 of 100 · best matches first". On the
+    live Bank and the live embed host, both boxes now say no title matched; an exact
+    title search does not. Rank only — no threshold, no number."""
+    resp, ids = await _search_ids(library, "zzzqqq", limit=50)
+    assert ids, "the live meaning pass returned nothing (is the embed host up?)"
+    assert _MEANING_ONLY in resp.text
+    builder, _ = await _builder(library, "zzzqqq")
+    assert _MEANING_ONLY in builder.text
+
+    title = (
+        await session.execute(
+            text(
+                f"SELECT content->>'title' FROM ({_CURRENT}) cur "
+                f"WHERE {_NOT_COMPOSED} AND length(coalesce(content->>'title','')) > 8 "
+                "ORDER BY md5(cluster_id::text) LIMIT 1"
+            ),
+            {"composed": COMPOSED_ORIGIN},
+        )
+    ).scalar_one()
+    resp, _ = await _search_ids(library, title, limit=50)
+    assert _MEANING_ONLY not in resp.text
+
+
 async def test_builder_drafts_are_out_of_the_default_library_and_labelled(  # type: ignore[no-untyped-def]
     library, session
 ) -> None:

@@ -508,6 +508,9 @@ async def _search_roles(
             _role_list_item(r, why(r.cluster_id), composed=composed) for r in rows
         ),
         include_composed=include_composed,
+        # Over the WHOLE result, not this page: page 3 of a search with title hits on
+        # page 1 is not a meaning-only search.
+        meaning_only=bool(ordered) and titled.isdisjoint(ordered),
         total=len(ordered),
         limit=limit,
         offset=offset,

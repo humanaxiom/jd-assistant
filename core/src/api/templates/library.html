@@ -31,6 +31,12 @@
 
 <div class="panel">
   <h2>Roles{% if page.q %} matching “{{ page.q }}”{% endif %}</h2>
+  {# Nothing matched by title or spelling: every row is the vector index's nearest,
+     which it returns however unrelated the words were. Said in words, never as a
+     score — no similarity threshold separates related from unrelated here. #}
+  {% if page.meaning_only %}
+  <p class="banner" role="status">No titles match your words. These are the closest by meaning and may be unrelated.</p>
+  {% endif %}
   {% if page.banner %}
   <p class="banner" role="status"><strong>Heads up:</strong> {{ page.banner }}</p>
   {% endif %}

@@ -146,6 +146,12 @@ class RolePage(_Frozen):
     #: authors' drafts, not roles distilled from the archive, and listing them beside
     #: the archive roles made them read as archive roles.
     include_composed: bool = False
+    #: A search whose every result was found by MEANING alone — no title, spelling or
+    #: interpreted-title hit. The vector index always returns its nearest roles, however
+    #: unrelated (`q=zzzqqq` returned 100), so the page must say so in words. It is a
+    #: flag, never a filter: no similarity threshold exists that separates related from
+    #: unrelated here, and none is applied.
+    meaning_only: bool = False
 
 
 class SourceListItem(_Frozen):
