@@ -478,6 +478,7 @@ the numbers they printed:
 | `CAS_SERVICE_BASE_URL` | The **fallback** origin, used when the origin a browser arrived on is not on the list above. |
 | `BOOTSTRAP_ADMINS` | Comma-separated CAS ids granted `admin` on login (first-admin bootstrap). |
 | `SESSION_COOKIE_SECURE` / `_SAMESITE` | `true` / `strict` in production (HTTPS). |
+| `FEEDBACK_EMAIL` | Address for the **✉ Report a problem with this page** link in every page's footer (a mailto prefilled with the page, its address and the signed-in user); empty = no link. |
 
 > **Reaching the app by more than one address** **[operator]** 🖥️. CAS is told a single
 > "service" URL per sign-in, so a deployment reachable both on the box (`localhost:25800`)
