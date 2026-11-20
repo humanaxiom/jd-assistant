@@ -22,6 +22,60 @@ nav link); `make guide-check` fails if it is stale. Do not hand-edit the HTML.
 
 ---
 
+## Testing JD Bank — start here
+
+**For HR colleagues trying JD Bank before it is in general use.** It takes about 30
+minutes. What we most need to hear is where something is **wrong, confusing, or
+missing**, not only what is broken.
+
+**Sign in** with your SFU computing ID at the address you were sent. You start as an
+**author**: you can search, read, draft and download. You cannot approve or publish
+anything.
+
+### Three things to try
+
+1. **Find a job description.** Open 🏦 **JD Bank** and search the way you normally
+   would, for example a title ("Program Assistant"), a short form ("AP clerk"), or a
+   misspelling. Open a role, then open one of its **source** job descriptions.
+   *Ask yourself:* is the role I expected there? Are the job descriptions readable? Can I
+   tell two roles with the same title apart?
+2. **Download the Compensation Requisition Form.** On a role, choose **📄 Download SFU's
+   Compensation Requisition Form**. Pick a request type and a position, check your
+   contact line, and download the form. Open it in Acrobat.
+   *Ask yourself:* is everything the JD Bank typed in correct? Is anything in the wrong
+   box?
+3. **Draft a job description in the Builder.** From a role, choose **Start a new JD from
+   this harmonized role**. Change it, **Check** it, and **Export .docx**.
+   *Ask yourself:* do the check's comments make sense? Does the Word file look like
+   SFU's template?
+
+### What is blank or rough on purpose
+
+- **No grade, job code, union or department code, Reg/Temp or hours** on any form. They
+  come from PeopleSoft, which is not connected yet. Grades shown on a role are what the
+  old files said, for reference only.
+- **Position numbers are read from the archive's file names.** For a handful of roles
+  the list may be incomplete, and the page says so when it is.
+- **The territorial acknowledgement** in exported Word files is spelled without its
+  special characters. This is an open decision with HR. Please do not circulate exports
+  as final.
+- **Search "related by meaning"** ranks closest-first and can include unrelated roles
+  when nothing matches your words. The page says when that happens.
+
+### Before you press Submit in the Builder
+
+**Submit** saves your draft into the JD Bank, where other testers can see it. It is
+labelled as written in the Builder, and it cannot be deleted. Export and Check save
+nothing, so use those freely. Submit only a draft you would really propose.
+
+### Telling us what you found
+
+Use **Report a problem with this page** at the bottom of any page. It opens an email
+with the page address already filled in. Say what you expected and what you saw; a
+screenshot helps.
+
+---
+
 ## 1. What JD Bank is
 
 JD Bank turns SFU's sprawling job-description archive into a clean, governed source of

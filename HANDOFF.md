@@ -6,7 +6,54 @@ check it. This page is state and traps, **forward-looking only**; the build reco
 funnel before trusting it — a handoff that records intent as outcome is worse than one
 merely out of date.
 
-## ▶ START HERE — state at 2026-10-28 (the newest section; everything below is older)
+## ▶ START HERE — state at 2026-11-19 (UAT readiness review; supersedes §4 step 4 below)
+
+Full review for handing the system to HR testers: four Opus reviewers (tester
+walkthrough on live, code review of #219, filename-metadata design, ops/Bank readiness),
+findings verified against the Bank before acting. The write-up is
+[`docs/audit/2026-11-19-uat-readiness/`](docs/audit/2026-11-19-uat-readiness/).
+
+**Corrections to the 2026-10-28 section below — measured in the Bank 2026-11-19:**
+- 🔴 **The v9 full pass did NOT stop at 1625.** The log ends there because the
+  `docker compose run` *client* lost its connection (`unexpected EOF`, 2026-11-05); the
+  container ran on and finished all 2,258 clusters at 17:42Z. Current v9 versions:
+  **1,616 DRAFT with rewritten prose, 641 DRAFT `rewrite_failed`, 1 PUBLISHED** (`rewrite_failed`
+  too). The failures sit 14:00–17:42Z on 11-05 (7 / 175 / 250 / 182 per hour) — every
+  cluster in that window failed, which looks like the inference host going away; the
+  runner swallows the reason (`_run_llm_passes`, `except Exception`).
+- 🔴 **`--refreshed-since 2026-11-02T21:58:49Z` would now do NOTHING**: every v9 row's
+  `updated_at` is ≥ T0 (min 21:58:54Z), so it skips all 2,258 and exits green. To retry
+  the 641, use `CANONICAL_ARGS="--resume"` (correct HERE: the Bank was rebuilt
+  `--no-llm` on 11-02, so no prose predates T0 and `--resume` retries exactly the rows
+  without prose; `draft_has_rewritten_prose` is the predicate) or a `--cluster-ids-file`
+  of the 641. ≈ 641 × 143 s ≈ 25–26 h on `aria-gb10-2` — not during UAT sessions.
+- 🔴 **The published v9 role was approved by `dev-anonymous`** (`review.approved`,
+  2026-11-09 03:17:59Z) — v9 ran CAS off on `0.0.0.0:26800`. Its text is
+  deterministic-only. Owner decision what to do with it.
+
+**Security incident closed 2026-11-19:** live `.env` had `CAS_ENABLED=false` since
+2026-11-08 with `CAS_DEV_DEFAULT_ROLE=admin`, published on `0.0.0.0` with the Wi-Fi on
+the Public firewall profile — anyone on the LAN or tailnet was admin with no sign-in
+(verified from 192.168.1.73 and 100.75.144.77). Owner chose "turn CAS on now": `.env`
+backed up to `.env.bak.20261119-cas-off`, `CAS_ENABLED=true`, `launch.ps1`; queue now
+303 → login from both addresses. The v9 API container was **stopped**
+(`docker stop jd-bank-v9-api-1`; db/worker untouched) — `docker start` re-exposes it
+CAS-off, so bind it to loopback first. ⚠ `ALLOWED_SERVICE_ORIGINS` still lists the
+box's OLD LAN IP `192.168.1.80`; it is now `.73`.
+
+**Backup before UAT (owner: testers on live, author role only):**
+`C:\repos\jd-bank-backups\harness-20261119-pre-uat.dump` (+ `.sha256`,
+`.fingerprint.txt`), full `-Fc`. **Restore drill done** into an empty
+`harness_restored`: 2,504 canonical / 15 user_roles / 16,087 chained rows, fingerprint
+`46578330…be2e6` identical; scratch db dropped.
+
+**UAT work on branches (none merged; Directive #0 applies):** CRF fixes on
+`fix/k3-review-uat`, Library fixes on `fix/library-uat`, filename position reader
+(HR-325–331) on `feat/filename-positions` — all off `feat/k3-crf-download` (#219), to be
+folded into #219. HR ids: 325–331 filename positions, 332–336 Library lane, 337 CRF
+department-follows-position. **Next free id: HR-338** — check.
+
+## ▶ state at 2026-10-28 (older; corrected above)
 
 ⚠ **The September material further down was written before any of this.** Re-derive a row
 there before you work it (lesson 3 under *WHAT IS OPEN*). Check this section against
