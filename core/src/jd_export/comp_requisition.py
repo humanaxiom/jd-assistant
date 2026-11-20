@@ -137,6 +137,9 @@ class CompReqPrefill(BaseModel):
     #: Every position the Bank can name for the role, for the caller's picker. NEVER
     #: written to the PDF.
     candidate_positions: tuple[str, ...] = Field(default=())
+    #: The one position a single-position role holds, for the picker to PRE-SELECT.
+    #: NEVER written: only ``position_number`` (the requester's pick) is.
+    suggested_position: str | None = None
     #: True when some member file names no position the pattern can read (e.g. an
     #: unpadded id), so ``candidate_positions`` may be a partial list. NEVER written.
     positions_incomplete: bool = False

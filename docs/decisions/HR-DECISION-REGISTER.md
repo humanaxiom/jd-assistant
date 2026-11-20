@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **268 decisions** (266 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 371 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **269 decisions** (267 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 372 parameters on the decision surface, all accounted for.
 
-**Of those 268, 88 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 178 are recorded for the same build check but are not yours to sign: 78 shape what a reviewer sees without deciding whether a job description passes, and 100 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 269, 88 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 179 are recorded for the same build check but are not yours to sign: 79 shape what a reviewer sees without deciding whether a job description passes, and 100 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -956,6 +956,7 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-313](#hr-313) | May the Bank type the signed-in requester's name and email into "Contact Name & Position Title" / its Email box, when they leave that choice ticked? | `true` | we chose it |
 | [HR-314](#hr-314) | Should the choices page SHOW the grades the role's source files carry, as reference, while never writing a grade to the form? | `true` | we chose it |
 | [HR-315](#hr-315) | Should a self-hosted chat model read what a person types into the Library and Builder search boxes before the title and vector passes run? | `false` | we chose it |
+| [HR-337](#hr-337) | When the requester picks one position on the form's choices page, should the Department box show where THAT position sits (as its own job description files say), rather than the department of the whole family of similar roles? | `true` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -1372,7 +1373,7 @@ The two bands now say two different, true things. The merged band said one false
 - **We ship:** `true`
 - **Configured in:** `comp_requisition.yaml` → `comp_requisition.contact_from_requester`
 - **Where the default came from:** we chose it
-- **Why it matters:** The contact is the person downloading the form, whose identity the CAS session already carries — never an incumbent (the Bank holds no incumbent names, and the prefill model has no field for one). The requester can untick it on the choices page, and the email stays blank when the session carries none.
+- **Why it matters:** The contact is the person downloading the form — never an incumbent (the Bank holds no incumbent names, and the prefill model has no field for one). Sign-in gives the Bank only a computing ID (no name, no email: true of every live user on 2026-11-19), so the choices page offers the name-and-title and email boxes prefilled from the session for the requester to complete, and types what they leave there. They can untick it to leave both boxes blank. Nothing typed is stored.
 - **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` leaves both contact boxes blank regardless of the page's choice.
 
 ##### HR-314 — Should the choices page SHOW the grades the role's source files carry, as reference, while never writing a grade to the form?
@@ -1390,6 +1391,14 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** we chose it
 - **Why it matters:** MEASURED 2026-10-19 on 22 live queries: guarded, the model lifted the Library from hit@5 20/22 (P@10 0.67) to 21/22 (0.84) and the Builder from 0.72 to 0.87 — it expands "AP clerk", "coop coord", "IT sysadmin". UNGUARDED it invented an employee-group filter on 75–85% of queries and emptied pages, so the guard is code (group only when typed, unit only from the rulebook and only as a suggestion, the words as typed always searched) and the model can only ADD results. Ships OFF: the model choice is HR/ITS's (plan Q8), it adds 3.3 s p50 / 6.1 s p95 to a search, and enabling it makes the live smoke depend on the inference host. With it off no client is built and no call is made.
 - **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. On: every non-blank search makes one plan call (bounded by HR-321), the page shows the model's reading, and `make smoke` must make a real plan call before anything ships (Directive #0).
+
+##### HR-337 — When the requester picks one position on the form's choices page, should the Department box show where THAT position sits (as its own job description files say), rather than the department of the whole family of similar roles?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.department_follows_chosen_position`
+- **Where the default came from:** we chose it
+- **Why it matters:** A role in the JD Bank is a family of similar job descriptions, and the family can span departments. Found in the 2026-11-19 walkthrough: for one 58-position role the source files sit in Lifelong Learning, Continuing Studies, Physics, Chemistry and others, yet the form typed "Lifelong Learning" whichever position was picked. The picked position's own files are read only when every one of them that states a department agrees; otherwise the family's department stands, marked "confirm".
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` types the family's department (or the source files' agreed one, HR-309) for every position.
 
 #### An earlier version of this tool chose it — also unratified
 

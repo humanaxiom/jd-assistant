@@ -2159,6 +2159,9 @@ class CompRequisition(_RuleFile):
     contact_from_requester: bool
     #: Show the sources' grades on the choices page (never written to the form).
     show_source_grades_for_reference: bool
+    #: With a position picked, read the department from that position's own source
+    #: files (when they agree) rather than the role's (HR-337).
+    department_follows_chosen_position: bool
 
 
 class Search(_RuleFile):

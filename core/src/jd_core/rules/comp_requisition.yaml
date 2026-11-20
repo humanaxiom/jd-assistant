@@ -52,3 +52,11 @@ contact_from_requester: true
 # Show the grades the source files carry on the choices page, as reference only.
 # They are NEVER written to the form (Anticipated grade is the evaluator's).
 show_source_grades_for_reference: true
+
+# When the requester picks a position, type the department that position's OWN source
+# files state (when they all agree), instead of the harmonized role's. A role spans
+# positions in several departments — the UAT walkthrough (2026-11-19) found a
+# 58-position role whose sources sit in Lifelong Learning, Continuing Studies, Physics,
+# Chemistry and more, while the form typed "Lifelong Learning" whichever was picked.
+# Off, the role's department (or the sources' agreed one, HR-309) is typed.
+department_follows_chosen_position: true

@@ -242,6 +242,7 @@ def test_the_model_fields_are_the_mapped_fields_plus_the_declared_unwritten_ones
     assert set(fmap.unwritten_fields) == {
         "candidate_positions",
         "positions_incomplete",
+        "suggested_position",
         "reference_grades",
         "filled_from_sources",
     }
@@ -253,6 +254,7 @@ def test_candidate_positions_and_the_incomplete_flag_never_reach_the_pdf() -> No
     pre = CompReqPrefill(
         candidate_positions=("00000001", "00000002"),
         positions_incomplete=True,
+        suggested_position="00000001",
         reference_grades=("07", "08"),
         filled_from_sources=("department",),
     )
@@ -346,3 +348,17 @@ def test_the_filler_refuses_to_write_a_signature_even_if_the_map_were_edited() -
     )
     with pytest.raises(ValueError, match="signature"):
         crf.validate_field_map(bad)
+
+
+def test_a_majority_tie_is_decided_by_name_never_by_row_order() -> None:
+    """With ``sources_must_agree`` off, a 2-2 tie must not go to whichever rows the
+    database returned first (lane-B review, 2026-11-19)."""
+    from src.jd_bank.forms.comp_requisition import _agreed
+
+    one = _agreed(
+        ["Science", "Engineering", "Science", "Engineering"], must_agree=False
+    )
+    two = _agreed(
+        ["Engineering", "Science", "Engineering", "Science"], must_agree=False
+    )
+    assert one == two == "Engineering"

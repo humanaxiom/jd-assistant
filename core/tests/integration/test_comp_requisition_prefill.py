@@ -126,7 +126,9 @@ async def test_reevaluation_of_a_single_position_role_fills_section_b_and_positi
             ],
         )
         await session.commit()
-        prefill = await prefill_from_role(session, rid, request_type="reevaluation")
+        prefill = await prefill_from_role(
+            session, rid, request_type="reevaluation", position_number="00001234"
+        )
 
     assert prefill.position_number == "00001234"
     assert prefill.position_title == "Research Coordinator"
@@ -136,6 +138,31 @@ async def test_reevaluation_of_a_single_position_role_fills_section_b_and_positi
     assert prefill.based_on_positions_a == ()  # Section A is a different request
     assert prefill.candidate_positions == ("00001234",)
     assert prefill.positions_incomplete is False
+    assert prefill.suggested_position == "00001234"
+
+
+@pytest.mark.asyncio
+async def test_leave_blank_stays_blank_even_for_a_single_position_role(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """UAT review 2026-11-19: the page offered "Leave blank — I'll type it on the
+    form", but a single-position role still got its one position written. A JD is
+    reused across positions, so that position may not be the one being re-evaluated.
+    The single position is only SUGGESTED (the page pre-selects it); what is written
+    is exactly what the requester picked."""
+    async with session_maker() as session:
+        rid = await _role(
+            session,
+            content={"title": "Research Coordinator"},
+            filenames=["20200601_00001234_JDFN_APSA_20211117.docx"],
+        )
+        await session.commit()
+        prefill = await prefill_from_role(session, rid, request_type="reevaluation")
+
+    assert prefill.suggested_position == "00001234"
+    assert prefill.position_number is None
+    assert prefill.based_on_positions_b == ()
+    assert prefill.based_on_existing_b is False
 
 
 @pytest.mark.asyncio
@@ -159,9 +186,11 @@ async def test_with_no_request_type_no_position_or_list_is_chosen(
 
 
 @pytest.mark.asyncio
-async def test_a_new_position_based_on_existing_fills_section_a_not_the_position(
+async def test_a_new_position_with_no_pick_lists_nothing_as_based_on(
     session_maker: async_sessionmaker[AsyncSession],
 ) -> None:
+    """Section A asks which existing position the NEW one is based on. The Bank does
+    not know; without a pick it lists nothing and asserts no "Yes"."""
     async with session_maker() as session:
         rid = await _role(
             session,
@@ -174,14 +203,19 @@ async def test_a_new_position_based_on_existing_fills_section_a_not_the_position
         )
 
     assert prefill.position_number is None  # the form says N/A if new
-    assert prefill.based_on_positions_a == ("00001234",)
+    assert prefill.based_on_positions_a == ()
+    assert prefill.based_on_existing_a is False
     assert prefill.based_on_positions_b == ()
 
 
 @pytest.mark.asyncio
-async def test_a_multi_position_role_lists_them_all_and_does_not_pick_one(
+async def test_a_multi_position_role_lists_only_the_picked_position(
     session_maker: async_sessionmaker[AsyncSession],
 ) -> None:
+    """UAT review 2026-11-19: a 58-position role wrote all 58 ids as "based on", and
+    the overflow spilled into the requester's own Reason box. A role is a family of
+    similar JDs, not a statement about which position this request concerns: only
+    the requester's pick is written."""
     async with session_maker() as session:
         rid = await _role(
             session,
@@ -192,11 +226,18 @@ async def test_a_multi_position_role_lists_them_all_and_does_not_pick_one(
             ],
         )
         await session.commit()
-        prefill = await prefill_from_role(session, rid, request_type="reevaluation")
+        unpicked = await prefill_from_role(session, rid, request_type="reevaluation")
+        picked = await prefill_from_role(
+            session, rid, request_type="reevaluation", position_number="00005555"
+        )
 
-    assert prefill.position_number is None  # a role spans positions: the picker is K3's
-    assert prefill.based_on_positions_b == ("00001111", "00005555", "00009999")
-    assert prefill.candidate_positions == ("00001111", "00005555", "00009999")
+    assert unpicked.position_number is None
+    assert unpicked.based_on_positions_b == ()
+    assert unpicked.suggested_position is None  # several: nothing pre-selected
+    assert unpicked.candidate_positions == ("00001111", "00005555", "00009999")
+    assert picked.position_number == "00005555"
+    assert picked.based_on_positions_b == ("00005555",)
+    assert picked.based_on_existing_b is True
 
 
 @pytest.mark.asyncio
@@ -220,7 +261,65 @@ async def test_an_unpadded_member_file_blocks_the_single_position_claim(
 
     assert prefill.positions_incomplete is True
     assert prefill.position_number is None
+    assert prefill.suggested_position is None
     assert prefill.candidate_positions == ("00001234",)
+
+
+@pytest.mark.asyncio
+async def test_the_department_follows_the_picked_position_s_own_file(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """UAT review 2026-11-19: a role spanning Lifelong Learning, Physics, Chemistry…
+    typed the ROLE's department whichever position was picked. The picked position's
+    own source file says where THAT position sits (HR-337)."""
+    async with session_maker() as session:
+        rid = await _role(
+            session,
+            content={"title": "Analyst", "department": "Lifelong Learning"},
+            filenames=[
+                "20200601_00005555_Analyst.docx",
+                "20210601_00005555_JDFN_APSA_20210601.docx",
+                "20200601_00001111_Analyst.docx",
+            ],
+            parsed=[
+                {"department": "Physics"},
+                {"department": "physics"},
+                {"department": "Lifelong Learning"},
+            ],
+        )
+        await session.commit()
+        picked = await prefill_from_role(
+            session, rid, request_type="reevaluation", position_number="00005555"
+        )
+        unpicked = await prefill_from_role(session, rid, request_type="reevaluation")
+
+    assert picked.department == "Physics"
+    assert "department_from_position" in picked.filled_from_sources
+    assert unpicked.department == "Lifelong Learning"
+    assert "department_from_position" not in unpicked.filled_from_sources
+
+
+@pytest.mark.asyncio
+async def test_a_picked_position_whose_files_disagree_keeps_the_role_department(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        rid = await _role(
+            session,
+            content={"title": "Analyst", "department": "Lifelong Learning"},
+            filenames=[
+                "20200601_00005555_Analyst.docx",
+                "20210601_00005555_JDFN_APSA_20210601.docx",
+            ],
+            parsed=[{"department": "Physics"}, {"department": "Chemistry"}],
+        )
+        await session.commit()
+        picked = await prefill_from_role(
+            session, rid, request_type="reevaluation", position_number="00005555"
+        )
+
+    assert picked.department == "Lifelong Learning"
+    assert "department_from_position" not in picked.filled_from_sources
 
 
 @pytest.mark.asyncio
@@ -460,8 +559,15 @@ async def test_the_request_type_and_based_on_yes_are_asserted_only_when_written(
         )
         await session.commit()
         none = await prefill_from_role(session, rid)
-        a = await prefill_from_role(session, rid, request_type="new_based_on_existing")
-        b = await prefill_from_role(session, rid, request_type="reevaluation")
+        a = await prefill_from_role(
+            session,
+            rid,
+            request_type="new_based_on_existing",
+            position_number="00000001",
+        )
+        b = await prefill_from_role(
+            session, rid, request_type="reevaluation", position_number="00000001"
+        )
         c = await prefill_from_role(session, rid, request_type="editorial")
 
     assert none.request_type is None

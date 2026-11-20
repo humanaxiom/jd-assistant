@@ -61,6 +61,7 @@ employee_group_options:
 unwritten_fields:
   - candidate_positions
   - positions_incomplete
+  - suggested_position    # the one position a single-position role holds, pre-selected on the page only
   - reference_grades      # the sources' grades, shown on the page only (HR-314)
   - filled_from_sources   # which facts came from the source files, for the page
 

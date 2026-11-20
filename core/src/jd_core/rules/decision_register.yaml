@@ -8298,10 +8298,13 @@ decisions:
     provenance: our_invention
     tier: hr_informed
     why_it_matters: >-
-      The contact is the person downloading the form, whose identity the CAS session
-      already carries — never an incumbent (the Bank holds no incumbent names, and the
-      prefill model has no field for one). The requester can untick it on the choices
-      page, and the email stays blank when the session carries none.
+      The contact is the person downloading the form — never an incumbent (the Bank
+      holds no incumbent names, and the prefill model has no field for one). Sign-in
+      gives the Bank only a computing ID (no name, no email: true of every live user on
+      2026-11-19), so the choices page offers the name-and-title and email boxes
+      prefilled from the session for the requester to complete, and types what they
+      leave there. They can untick it to leave both boxes blank. Nothing typed is
+      stored.
     impact_if_changed: >-
       Does NOT move `rules_version` or `PARSER_VERSION`. `false` leaves both contact
       boxes blank regardless of the page's choice.
@@ -8324,6 +8327,28 @@ decisions:
     impact_if_changed: >-
       Does NOT move `rules_version` or `PARSER_VERSION`. Affects the choices page only;
       the PDF is identical either way.
+    status: open
+  - id: HR-337
+    question: >-
+      When the requester picks one position on the form's choices page, should the
+      Department box show where THAT position sits (as its own job description files
+      say), rather than the department of the whole family of similar roles?
+    config:
+      file: comp_requisition.yaml
+      path: comp_requisition.department_follows_chosen_position
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A role in the JD Bank is a family of similar job descriptions, and the family can
+      span departments. Found in the 2026-11-19 walkthrough: for one 58-position role
+      the source files sit in Lifelong Learning, Continuing Studies, Physics, Chemistry
+      and others, yet the form typed "Lifelong Learning" whichever position was picked.
+      The picked position's own files are read only when every one of them that states
+      a department agrees; otherwise the family's department stands, marked "confirm".
+    impact_if_changed: >-
+      Does NOT move `rules_version` or `PARSER_VERSION`. `false` types the family's
+      department (or the source files' agreed one, HR-309) for every position.
     status: open
   - id: HR-315
     question: >-

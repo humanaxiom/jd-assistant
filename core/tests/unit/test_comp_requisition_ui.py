@@ -89,10 +89,13 @@ def _mock_prefill(
         if position_number and position_number not in prefill.candidate_positions:
             raise ValueError(f"position {position_number} is not one this role holds")
         update: dict[str, object] = {"jd_in_word_attached": jd_in_word_attached}
+        picked = (position_number,) if position_number else ()
         if request_type == "new_based_on_existing":
-            update["based_on_positions_a"] = prefill.candidate_positions
+            update["based_on_positions_a"] = picked
         elif request_type is not None:
             update["position_number"] = position_number
+            if request_type == "reevaluation":
+                update["based_on_positions_b"] = picked
         return prefill.model_copy(update=update)
 
     fake.calls = []  # type: ignore[attr-defined]
@@ -151,7 +154,8 @@ def test_a_role_outside_apsa_apex_says_the_dropdown_has_no_option(
 ) -> None:
     _mock_prefill(monkeypatch, _prefill(employee_group=None))
     html = _client().get(PAGE).text
-    assert "not an option on this form" in html
+    assert "offers only APSA and APEX" in html
+    assert "left blank" in html
 
 
 def test_an_unknown_role_is_a_404_page(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -262,39 +266,129 @@ def test_a_download_for_an_unknown_role_is_a_404_page(
 # ── the requester as contact, and what the page says about provenance ───────────
 
 
-def test_the_contact_is_the_signed_in_user_when_the_box_is_ticked(
+def test_the_contact_is_what_the_requester_typed_when_the_box_is_ticked(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The name comes off the session, never off the form body."""
+    """UAT review 2026-11-19: CAS gives the Bank only a computing ID — no name, no
+    email (all 8 live users) — so "Contact Name & Position Title" came out as a bare
+    ID. The page now offers the boxes, prefilled from the session, for the requester
+    to complete. It is their own form: nothing is stored or attributed from it."""
     mock = _mock_prefill(monkeypatch, _prefill())
     _client().post(
         PAGE,
         data={
             "request_type": "editorial",
             "contact_me": "on",
-            "contact_name": "Mallory Forged",
+            "contact_name": "  Ada Lovelace, HR Advisor ",
+            "contact_email": "ada@sfu.ca",
         },
     )
     [call] = mock.contact_calls
-    assert call["contact_name"]  # the dev user's display name
-    assert call["contact_name"] != "Mallory Forged"
+    assert call == {
+        "contact_name": "Ada Lovelace, HR Advisor",
+        "contact_email": "ada@sfu.ca",
+    }
+
+
+def test_a_typed_contact_is_capped_in_length(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock = _mock_prefill(monkeypatch, _prefill())
+    _client().post(
+        PAGE,
+        data={"contact_me": "on", "contact_name": "x" * 5000, "contact_email": "y"},
+    )
+    [call] = mock.contact_calls
+    assert len(str(call["contact_name"])) <= 200
 
 
 def test_the_contact_is_blank_when_the_box_is_unticked(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     mock = _mock_prefill(monkeypatch, _prefill())
-    _client().post(PAGE, data={"request_type": "editorial"})
+    _client().post(
+        PAGE,
+        data={"request_type": "editorial", "contact_name": "Typed But Unticked"},
+    )
     [call] = mock.contact_calls
     assert call == {"contact_name": None, "contact_email": None}
 
 
-def test_the_page_offers_the_contact_choice_ticked_by_default(
+def test_the_page_offers_the_contact_boxes_prefilled_from_the_session(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _mock_prefill(monkeypatch, _prefill())
     html = _client().get(PAGE).text
     assert 'name="contact_me" checked' in html
+    assert 'name="contact_name"' in html
+    assert 'name="contact_email"' in html
+
+
+def _policy(monkeypatch: pytest.MonkeyPatch, **knobs: object) -> None:
+    rules = library_routes.get_rules()
+    tuned = rules.model_copy(
+        update={"comp_requisition": rules.comp_requisition.model_copy(update=knobs)}
+    )
+    monkeypatch.setattr(library_routes, "get_rules", lambda: tuned)
+
+
+def test_with_the_contact_knob_off_the_page_offers_no_contact(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HR-313 off: the PDF writes no contact, so the page must not promise one."""
+    _mock_prefill(monkeypatch, _prefill())
+    _policy(monkeypatch, contact_from_requester=False)
+    html = _client().get(PAGE).text
+    assert 'name="contact_name"' not in html
+    assert 'name="contact_me"' not in html
+
+
+def test_with_the_tick_knob_off_the_page_does_not_promise_a_tick(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HR-311 off: the request-type box is left for the requester to tick."""
+    _mock_prefill(monkeypatch, _prefill())
+    _policy(monkeypatch, tick_request_type=False)
+    html = _client().get(PAGE).text
+    assert "the box you pick is ticked" not in html
+    assert "the Bank ticks that box" not in html
+
+
+# ── the single-position suggestion, and "leave blank" ─────────────────────────────
+
+
+def test_a_single_position_role_pre_selects_its_position(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _mock_prefill(
+        monkeypatch,
+        _prefill(candidate_positions=("00001234",), suggested_position="00001234"),
+    )
+    html = _client().get(PAGE).text
+    assert 'name="position_number" value="00001234" checked' in html
+    assert 'name="position_number" value="" checked' not in html
+
+
+def test_an_explicit_blank_is_kept_on_a_re_rendered_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The requester chose blank; an error re-render must not flip it back to the
+    suggestion."""
+    _mock_prefill(
+        monkeypatch,
+        _prefill(candidate_positions=("00001234",), suggested_position="00001234"),
+    )
+    html = _client().post(PAGE, data={"request_type": "bogus"}).text
+    assert 'name="position_number" value="" checked' in html
+
+
+def test_leave_blank_passes_no_position_to_the_bank_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mock = _mock_prefill(
+        monkeypatch,
+        _prefill(candidate_positions=("00001234",), suggested_position="00001234"),
+    )
+    _client().post(PAGE, data={"request_type": "reevaluation", "position_number": ""})
+    assert mock.await_args.kwargs["position_number"] is None
 
 
 def test_the_page_says_which_facts_came_from_the_source_files(

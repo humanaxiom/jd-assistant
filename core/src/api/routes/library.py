@@ -72,6 +72,7 @@ from src.jd_bank.library.service import SEMANTIC_UNAVAILABLE_BANNER
 from src.jd_bank.library.units import resolve_unit, unit_for
 from src.jd_bank.llm.client import ChatClient
 from src.jd_bank.query_plan import try_understand_query
+from src.jd_core.rules import get_rules
 from src.jd_export.comp_requisition import (
     CompReqPrefill,
     fill_compensation_requisition,
@@ -218,9 +219,18 @@ def _render_crf(
             "request_types": list(REQUEST_TYPE_LABELS.items()),
             "selected": selected,
             "requester": getattr(request.state, "user", None),
+            "policy": get_rules().comp_requisition,
             "error": error,
         },
     )
+
+
+#: A typed contact is a line on a PDF, not a document: cap it.
+_CONTACT_MAX_CHARS = 200
+
+
+def _typed(pairs: list[tuple[str, str]], key: str) -> str | None:
+    return (first_value(pairs, key).strip()[:_CONTACT_MAX_CHARS]) or None
 
 
 def _crf_not_found(request: Request, cluster_id: UUID) -> HTMLResponse:
@@ -267,18 +277,24 @@ async def comp_requisition_download(
     position = first_value(pairs, "position_number") or None
     attached = first_value(pairs, "jd_in_word_attached") != ""
     contact_me = first_value(pairs, "contact_me") != ""
+    typed_name = _typed(pairs, "contact_name")
+    typed_email = _typed(pairs, "contact_email")
     selected: dict[str, object] = {
         "request_type": request_type or "",
         "position_number": position or "",
         "jd_in_word_attached": attached,
         "contact_me": contact_me,
+        "contact_name": typed_name or "",
+        "contact_email": typed_email or "",
     }
-    # The requester: the signed-in person, from the session — never a request
-    # parameter, so the contact can only ever be whoever is downloading.
-    user = getattr(request.state, "user", None)
+    # The requester's own contact line, as they typed it on the page (prefilled from
+    # the session). CAS carries only a computing ID — no name, no email — so the
+    # session alone typed a bare ID into "Contact Name & Position Title" (UAT review
+    # 2026-11-19). It is the requester's own form: nothing here is stored or
+    # attributed, and HR-313 off still writes no contact at all.
     contact: dict[str, str | None] = {
-        "contact_name": getattr(user, "display_name", None) if contact_me else None,
-        "contact_email": getattr(user, "email", None) if contact_me else None,
+        "contact_name": typed_name if contact_me else None,
+        "contact_email": typed_email if contact_me else None,
     }
     if request_type is not None and request_type not in REQUEST_TYPE_LABELS:
         try:

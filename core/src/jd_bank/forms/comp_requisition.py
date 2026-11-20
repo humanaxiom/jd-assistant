@@ -20,26 +20,29 @@ Read-only. Reads what the Bank holds for the role's CURRENT canonical version:
 * *Request type.* The Bank does not know which of the form's sections the requester is
   filling, so ``request_type=None`` (the default) fills NO position number and NO
   "based on" list; every position the role holds is offered on
-  ``candidate_positions`` (never written to the PDF) for K3's picker. Given a type:
-  ``new_based_on_existing`` fills Section A's list only and leaves ``Position #`` empty
-  (the form says N/A if new); ``reevaluation`` fills Section B's list and
-  ``Position #``;
-  ``editorial`` / ``additional_duties`` / ``other_changes`` fill ``Position #`` only.
-  The chosen type's box is ticked (HR-311), and a written list ticks that section's
+  ``candidate_positions`` (never written to the PDF) for K3's picker. Given a type and
+  a pick: ``new_based_on_existing`` lists the pick in Section A only and leaves
+  ``Position #`` empty (the form says N/A if new); ``reevaluation`` writes the pick to
+  Section B's list and ``Position #``; ``editorial`` / ``additional_duties`` /
+  ``other_changes`` write ``Position #`` only. **Only the pick is ever listed** — never
+  every position the role spans (UAT review 2026-11-19: one role wrote 58 ids). The
+  chosen type's box is ticked (HR-311), and a written list ticks that section's
   "based off of an existing position? Yes" (HR-312).
 * *A single position.* A role spans several positions (2.4 on average, up to 73).
-  ``position_number`` is set only when the role maps to exactly one position AND every
-  member file names a position the pattern can read. The pattern reads only the PADDED
-  ``0NNNNNNN`` form: **508 archive files lead with an UNPADDED id** (e.g.
-  ``61,_30785,_208,_975_JDFN_APSA_20211117.docx``) and 993 carry none. A role with such
-  a member may hold a position we cannot see, so it is flagged
-  ``positions_incomplete=True`` and gets no ``position_number`` — it is never presented
-  as a single-position role.
+  ``suggested_position`` names the one position when the role maps to exactly one AND
+  every member file names a position the pattern can read — the page pre-selects it,
+  and **nothing is written unless the requester leaves it picked**: "leave blank"
+  means blank. The pattern reads only the PADDED ``0NNNNNNN`` form: **508
+  archive files lead with an UNPADDED id** (e.g.
+  ``61,_30785,_208,_975_JDFN_APSA_20211117.docx``)
+  and 993 carry none. A role with such a member may hold a position we cannot see, so
+  it is flagged ``positions_incomplete=True`` and nothing is suggested.
 * *The caller's pick (K3).* ``position_number=`` names the ONE position the form is
   for. It must be one of ``candidate_positions`` (``ValueError`` otherwise — the
-  picker only offers those, so anything else is a tampered form), it is written
-  only for the position-bearing request types (B–E), and for Section A it is
-  ignored: the form says *N/A if new*.
+  picker only offers those, so anything else is a tampered form), it is written to
+  ``Position #`` only for the position-bearing request types (B–E), and for Section A
+  it is the "based on" position: the form says *N/A if new*. With a pick, the
+  department is read from that position's own source files when they agree (HR-337).
 * *The contact.* ``contact_name`` / ``contact_email`` are the REQUESTER — the signed-in
   person — passed in by the caller and written only while
   ``contact_from_requester`` is on (HR-313). Never an incumbent.
@@ -94,7 +97,8 @@ def _agreed(values: list[str], *, must_agree: bool) -> str | None:
     by_key = Counter(v.casefold() for v in values)
     if must_agree and len(by_key) > 1:
         return None
-    key = by_key.most_common(1)[0][0]
+    # A tie on frequency goes to the alphabetically-first key, never to row order.
+    key = min(by_key, key=lambda k: (-by_key[k], k))
     spellings = [v for v in values if v.casefold() == key]
     # Deterministic whatever order the rows came back in: the most frequent exact
     # spelling, then the one with the most capitals (a title-cased name over a
@@ -139,7 +143,7 @@ async def prefill_from_role(
         if isinstance(entry, dict) and entry.get("source_id")
     }
     names: dict[UUID, str | None] = {}
-    parsed: list[dict[str, Any]] = []
+    parsed_by_doc: dict[UUID, dict[str, Any]] = {}
     if member_ids:
         names = {
             doc_id: name
@@ -151,20 +155,22 @@ async def prefill_from_role(
                 )
             ).all()
         }
-        parsed = [
-            row or {}
-            for row in (
+        parsed_by_doc = {
+            doc_id: row or {}
+            for doc_id, row in (
                 await session.execute(
-                    select(ParsedJDRow.parsed).where(
+                    select(ParsedJDRow.source_document_id, ParsedJDRow.parsed).where(
                         ParsedJDRow.source_document_id.in_(member_ids),
                         ParsedJDRow.parser_version == PARSER_VERSION,
                     )
                 )
-            ).scalars()
-        ]
+            ).all()
+        }
+    parsed = list(parsed_by_doc.values())
 
     pattern = get_rules().segmentation.position_id_pattern
     found: set[str] = set()
+    holders: dict[str, set[UUID]] = {}  # position -> the member files that name it
     incomplete = False
     for member in member_ids:
         ids = pattern.findall(names.get(member) or "")
@@ -173,14 +179,20 @@ async def prefill_from_role(
                 True  # unpadded, absent, or no filename: a position we can't see
             )
         found.update(ids)
+        for pid in ids:
+            holders.setdefault(pid, set()).add(member)
     positions = tuple(sorted(found))
     if position_number is not None and position_number not in positions:
         raise ValueError(
             f"position {position_number} is not one this role holds "
             f"({', '.join(positions) or 'none readable'})"
         )
-    single = positions[0] if len(positions) == 1 and not incomplete else None
-    chosen = position_number or single
+    # The ONE position a single-position role holds is only SUGGESTED (the page
+    # pre-selects it). What is written is exactly the requester's pick: "leave
+    # blank" means blank, because a JD is reused across positions and the one the
+    # archive names may not be the one this request concerns (UAT review 2026-11-19).
+    suggested = positions[0] if len(positions) == 1 and not incomplete else None
+    chosen = position_number
 
     # The text facts: the role first; the sources only where the role is silent and
     # the rulebook allows it (HR-309 / HR-310).
@@ -198,6 +210,24 @@ async def prefill_from_role(
             facts[fact] = agreed
             from_sources.append(fact)
 
+    # The picked position's own files say where THAT position sits; a role spans
+    # positions in several departments (HR-337). Unanimous among those files, or the
+    # role's department stands.
+    if chosen is not None and policy.department_follows_chosen_position:
+        stated = [
+            v
+            for v in (
+                _clean(parsed_by_doc.get(doc, {}).get("department"))
+                for doc in holders.get(chosen, set())
+            )
+            if v is not None
+        ]
+        own = _agreed(stated, must_agree=True)
+        if own is not None:
+            facts["department"] = own
+            from_sources = [f for f in from_sources if f != "department"]
+            from_sources.append("department_from_position")
+
     group_code = (facts["employee_group"] or "").lower()
     group = load_field_map().employee_group_options.get(group_code)
 
@@ -207,8 +237,12 @@ async def prefill_from_role(
         own = _clean(content.get("grade"))
         grades = tuple(sorted(set(seen) | ({own} if own else set())))
 
-    list_a = positions if request_type == "new_based_on_existing" else ()
-    list_b = positions if request_type == "reevaluation" else ()
+    # Only the requester's pick is "based on": a role is a family of similar JDs, not
+    # a statement about which positions this request concerns. Listing every one
+    # wrote 58 ids for one role and spilled the overflow into the Reason box.
+    picked: tuple[str, ...] = (chosen,) if chosen is not None else ()
+    list_a = picked if request_type == "new_based_on_existing" else ()
+    list_b = picked if request_type == "reevaluation" else ()
     contact_on = policy.contact_from_requester
     return CompReqPrefill(
         position_number=chosen if request_type in _POSITION_BEARING else None,
@@ -224,6 +258,7 @@ async def prefill_from_role(
         based_on_existing_a=policy.tick_based_on_existing and bool(list_a),
         based_on_existing_b=policy.tick_based_on_existing and bool(list_b),
         candidate_positions=positions,
+        suggested_position=suggested,
         positions_incomplete=incomplete,
         reference_grades=grades,
         filled_from_sources=tuple(from_sources),
