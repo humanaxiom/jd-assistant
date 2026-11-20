@@ -177,6 +177,11 @@ admin). Roles are assigned in the **User management** screen (§8, admin-only).
 - **Dev / CI mode** **[operator]** 🖥️: when `CAS_ENABLED=false` (the default off-SFU),
   every request runs as a synthetic **admin** user with no login — so the app is usable
   and testable without reaching CAS. Turn this **off in production** (`CAS_ENABLED=true`).
+  🔴 **Never leave it off on a box other people can reach.** The app port is published on
+  every network interface, so CAS off makes **everyone on the network an administrator** —
+  this happened on 2026-11-19. After any change to `.env`, open a protected page from
+  another machine (or `curl` the box's network address's `/jd-bank/ui/queue`) and confirm
+  it sends you to sign in.
 - **First-admin bootstrap** **[operator]** 🖥️: set `BOOTSTRAP_ADMINS=<your-cas-id>` (comma-
   separated) before first login; those users are granted **admin** automatically on every
   login. This is how the very first administrator is created — after that, admins manage
@@ -195,7 +200,7 @@ before the Builder in this guide too.
 
 | Task | How | Notes |
 |---|---|---|
-| Browse/search harmonized roles | Open **🏦 JD Bank**, optionally type a title into **Search roles by title** | Lists every **harmonized role** the Bank has distilled from the source archive — each a draft awaiting HR review, or a published JD. The counts are on 📈 Funnel (§5). Each row shows the role's **Department** so same-titled roles can be told apart: the role's own department, or else one its source documents state (a role whose sources sit in several departments shows only one of them), blank when none states one. Drafts written in the Builder are left out until HR publishes them; the page says how many it is not showing, with a link to show them. A search that matched no title, only meaning, says so above the results — *"No titles match your words…"* — because the nearest-by-meaning list is never empty, however unrelated the words. |
+| Browse/search harmonized roles | Open **🏦 JD Bank**, optionally type into **Search roles by title or by what the job does** — a title, a description of the work ("someone who processes invoices"), a short form or a misspelling | Matches titles first (tolerating typos), then roles **related by meaning**. Lists every **harmonized role** the Bank has distilled from the source archive — each a draft awaiting HR review, or a published JD. The counts are on 📈 Funnel (§5). Each row shows the role's **Department** so same-titled roles can be told apart: the role's own department, or else one its source documents state (a role whose sources sit in several departments shows only one of them), blank when none states one. Drafts written in the Builder are left out until HR publishes them; the page says how many it is not showing, with a link to show them. A search that matched no title, only meaning, says so above the results — *"No titles match your words…"* — because the nearest-by-meaning list is never empty, however unrelated the words. |
 | Look up a PeopleSoft position number | Type only the number into the **🏦 JD Bank** search or the Builder's **🔎 Search to clone** — `61`, `00000061`, `#61` or `Pos 61` | Lists every archive file whose **file name** carries that position (newest first, by the date the file name starts with), each with the role it went into — or *not part of a role* — and lists those roles below. In the Builder each file offers *Start from its role* or *Start from this file*. A number no file name carries says so and searches the words instead. The pattern is `search.yaml`'s `position_query_pattern` (HR-339); it needs `search` among `segmentation.filename_positions.consumers` (HR-331). |
 | See drafts people wrote in the Builder | Tick **Include drafts written in the Builder** and search | Left out by default: they are authors' drafts, not roles distilled from the archive. Each is labelled **Written in the Builder (by …)**, and its page says so instead of listing source JDs. Your own are always in 📝 My drafts. |
 | Let a model read your search (optional, **off** unless ITS/HR switch it on) | Type the search as usual | When `search.yaml`'s `query_understanding_enabled` is on, a self-hosted model reads what you typed first — expanding "AP clerk" to *accounts payable clerk* — and the page shows **🧠 Read as: …** with the extra title keywords it added (each a link), anything it wanted that was ignored, and a **search the words as typed instead** link. It can only add results, never filter them: an employee group counts only if *you* typed it, a unit is only a suggestion. If the model is slow or down you get the plain search. The same applies to the Builder's **🔎 Search to clone**. |
@@ -248,6 +253,16 @@ explained.
 **Scope it** with the scope parameter to see the same funnel for one unit or cohort
 rather than the whole archive.
 
+### Collections and units — the funnel's footer links
+
+Below the funnel are links to named subsets of the Bank, each read from the database at
+request time like the funnel itself. **Read-only, any signed-in user.**
+
+| Page | What it is | Notes |
+|---|---|---|
+| **The IT collection** — `/jd-bank/ui/collection/it` | Roles in SFU's IT job family: the family's own classification, plus the roles a reviewer has added or removed | The page states what the membership rule **cannot see** — roles none of its signals can judge — beside what it matched, so a small list cannot pass for a complete one. `?queue=1` shows a separate ranked list of **candidates**: roles that might belong, for a person to rule on. A candidate is a question, never a member. |
+| **Units** — VPFA, Facilities, ITS, Finance, Safety & Risk, Campus Services — `/jd-bank/ui/unit/<name>` | One part of SFU's organisation, rolled up from the departments the roles state | Every unit page carries **three** numbers: roles in the unit, roles not in it, and roles whose **department is unrecorded**, which no unit can claim. Membership is an exact list of department names set by the owner, never a pattern. Departments not yet assigned to any unit are listed as candidates. **ITS the department and the IT collection differ on purpose**: the collection includes IT roles in faculties and schools, and the ITS page explains the difference. |
+
 ### ⚠ Funnel vs Dashboards — they are not the same kind of thing
 
 Both are read-only and both are in the nav, and confusing them has already cost a day:
@@ -280,11 +295,11 @@ default). **Admin required:** no.
 
 | Task | How | Notes |
 |---|---|---|
-| Start from an existing JD | **🔎 Search to clone** → pick a match → *Start from this* | Finds **harmonized roles and source documents**. ⚠ **JDFN scope only** — a CUPE author gets no CUPE results here yet (Phase F1). An exact or near **title** ranks above semantic matches — see the note below. |
+| Start from an existing JD | **🔎 Search to clone** → pick a match → *Start from this* | Finds **harmonized roles and source documents** on **the form you chose at the top of the page**: an APSA / APEX / Poly author sees APSA / APEX / Poly results, a CUPE (WJQ) author sees CUPE ones, so cloning never switches you to the other form (HR-225). An exact or near **title** ranks above matches by meaning — see the note below. Typing only a **position number** lists the archive files filed under it instead, each with *Start from its role* or *Start from this file* (§4). |
 | Author from scratch | Fill the guided questions, then **Check compliance** | Live panel shows the score, grade, blocking gates, and "Still to write" — each finding links straight to the section that needs it. Remaining findings are headed **"Fix these"** when a gate still blocks the draft; once the gates already **permit** it, the same findings are headed **"Suggested improvements"** with an amber **Suggestion** badge, and a note that they do not block review. |
 | See roles SFU already has | The **"Roles SFU already has"** panel, once enough of the draft is written | Existing harmonized roles that look like the one being written, each with **Start from this role →**, plus how many roles carry **exactly this title** and across how many **departments**. Advisory only — it never blocks submission and does not change the compliance verdict. |
 | Improve the summary with AI | **✨ Improve summary (assist)** | A self-hosted LLM suggests a better Position Summary; you review and edit it (nothing auto-applies). |
-| Download the official document | **Export .docx ↓** | Renders the SFU `.docx` on the draft's own form: the APSA/APEX/Poly template — laid out as HR's 2024 template, with the Position Title / Position # / Employee Group table in the page header (plus the supervisor's title and position # when given), the About SFU block, each duty's "how and why" sub-bullets, the criminal record check sentence when ticked, and the territorial acknowledgement and Employment Equity footer (the About SFU and acknowledgement wording is printed from the rulebook as it stands; HR is still to confirm it — HR-104/105) — or — for a CUPE draft — HR's CUPE "WJQ Custom — Part 1: Job Description" form, with no APSA footer. On the CUPE form the checkboxes are left unticked, the contact / effort / working-conditions duration and frequency cells are left blank, and the Approval and Review lines and HR's own box are always blank, for the people who sign them. Rendering only — nothing is validated or published. |
+| Download the official document | **Export .docx ↓** | Renders the SFU `.docx` on the draft's own form: the APSA/APEX/Poly template — laid out as HR's 2024 template, with the Position Title / Position # / Employee Group table in the page header (plus the supervisor's title and position # when given), the About SFU block, each duty's "how and why" sub-bullets, the criminal record check sentence when ticked, and the territorial acknowledgement and Employment Equity footer (the About SFU and acknowledgement wording is printed from the rulebook as it stands; HR is still to confirm it — HR-104/105) — or — for a CUPE draft — HR's CUPE "WJQ Custom — Part 1: Job Description" form, with its fourteen sections in HR's order and no APSA footer. A CUPE draft **written in the Builder** prints what its author entered: the major and minor functions, the ticked level in each checkbox section, the duration / frequency / hours tables, and section 13's certification, years, equivalency, **Occupational Skills** and Occupational Requirement(s). A CUPE role **distilled from the archive** prints every checkbox unticked and the tables blank, because a tick there would be a guess. Either way the Approval and Review lines and HR's own box are always blank, for the people who sign them, and no grade is printed. Rendering only — nothing is validated or published. |
 | Get the Compensation Requisition Form | **📄 Download SFU's Compensation Requisition Form…** under *Export*, on a draft started from a role | Links to that role's form page (§4) — the PDF HR asks for alongside the Word JD when a position is new or re-evaluated. A from-scratch draft has no role and no positions to offer, so it shows no link. |
 | Send for approval | **Submit for review →** | Persists a **draft** into the review queue, attributed to **you** (the signed-in user). It publishes nothing (guardrail #1). You land on **📝 My drafts** with a confirmation. |
 | See what happened to what you sent | **📝 My drafts** → `/jd-bank/ui/my-drafts` | Every JD **you** have submitted, newest first, and where each one stands: *Waiting for HR review*, *Approved and published*, or *Closed*. Read any of them; you see only your own. |
@@ -316,9 +331,9 @@ default). **Admin required:** no.
 
 > ### The Builder authors BOTH SFU forms (new — CUPE Phases B–E, 2026-08)
 >
-> The page opens with a **Form** picker:
+> The page opens on a **Form** line, with a *switch to …* link for the other one:
 >
-> * **JDFN (APSA / APEX / POLY)** — SFU's job-description form, what the Toolkit, the
+> * **APSA / APEX / Poly** — SFU's job-description form, what the Toolkit, the
 >   validator and the approval gates were written against.
 > * **CUPE (WJQ)** — the CUPE 3338 Weighted Job Questionnaire, a **14-section
 >   point-factor instrument**. A different *form*, not a variant: it has no Problem
@@ -335,13 +350,12 @@ default). **Admin required:** no.
 > **Switching form starts a fresh draft.** The two forms do not ask the same questions,
 > so carrying answers across would silently drop whatever the other form does not have.
 >
-> ⚠ **Known gap:** *Search to clone* is still **JDFN-only** in both directions — an
-> author in CUPE mode gets no CUPE results, and starting from a JDFN result switches
-> them to the JDFN Builder. Scoped as **Phase F1**
-> (`docs/tasks/phase-f-form-scoping-backlog.md`); not yet built.
+> *Search to clone* follows the form you are on (HR-225), so starting from a result
+> keeps you on the same form.
 >
-> **What HR has and has not ruled.** All **207** register entries are still `open`,
-> including every value in the WJQ profile. The bar CUPE drafts are measured against was
+> **What HR has and has not ruled.** Almost every register entry is still `open` —
+> the register's own header gives the count, and only the two approval gates
+> (HR-042, HR-052) are ratified — including every value in the WJQ profile. The bar CUPE drafts are measured against was
 > built the way APSA's was — measured over the corpus, every value registered, nothing
 > auto-publishing — and HR may change any of it. **HR-194** (may the Bank *author* CUPE?)
 > and **HR-201** (do SFU's boilerplate requirements apply to a form that has no such
@@ -419,9 +433,13 @@ exception is Ollama, which runs on `aria-gb10-2`.
 ### Bring-up & schema
 | Task | Command | Notes |
 |---|---|---|
-| Start the stack | `make up` | Postgres, Neo4j, Redis, api, worker. Ollama must be reachable. |
-| Apply DB migrations | `make migrate` | **Run before ingest.** Postgres (alembic): the auth tables (users/roles/sessions) and the audit hash-chain. Also runs the Neo4j cypher migrations, including **`003`**, which creates the `jd_role_embeddings` vector index — `make embed-roles` cannot run before it. |
+| Build the images | `.\build.ps1` | Builds and proves they are deployable. `-NoCache` after a `requirements*.txt` or Dockerfile change; `-Bundle` also cuts the offline bundle. |
+| Start (or redeploy) the stack | `.\launch.ps1` | Start → wait for healthy → migrate → verify → status. It **recreates** api and worker, because the dev API does not reliably reload on a Windows bind mount, and it **fails loudly** if any service is not running. `-NoCas` skips sign-in (dev only — never on a box others can reach). `make up` still works, but does none of the verifying. |
+| Stop | `.\teardown.ps1` | Data is kept. `-Orphans` clears leftover one-shot containers; `-Volumes` discards the Bank (asks first). |
+| Apply DB migrations | `make migrate` | `launch.ps1` runs it for you. **Run before ingest.** Postgres (alembic): the auth tables (users/roles/sessions), the audit hash-chain, and the title search indexes. Also runs the Neo4j cypher migrations, including **`003`**, which creates the `jd_role_embeddings` vector index — `make embed-roles` cannot run before it. |
+| Which Bank does this checkout act on? | `make bank-target` | Prints the compose project, image tag and ports. A second, isolated Bank can run beside the live one — see `deploy/README.md` § *Running a second Bank*. |
 | Open a shell in the app | `make shell` | |
+| Install on a fresh box with no internet | `.\deploy\install.ps1 -BundleDir <bundle>` | From a bundle cut on a connected box (`make bundle` or `.\build.ps1 -Bundle`). Re-cut the bundle whenever `requirements*.txt`, the Dockerfile or a migration changes. Runbook: `deploy/README.md`. |
 
 ### Deploying for real — the production file  **[operator]** 🖥️
 
@@ -466,7 +484,7 @@ docker compose -f docker-compose.prod.yml up -d
 | Near-duplicate dedup | `make near-dup` | Tier-2. |
 | Role-equivalence dedup | `make dedup-role` | Tier-3 (needs ingest + embed). |
 | Cluster roles | `make cluster` | Phase-3.5 clustering report. |
-| Produce draft canonicals | `make canonical-drafts` | Phase-4.4a: one DRAFT per JDFN cluster into the review queue. Add the LLM rewrite/audit pass when Ollama is free; `--no-llm` for a deterministic run. |
+| Produce draft canonicals | `make canonical-drafts CANONICAL_ARGS="…"` | One DRAFT per cluster, for both forms, into the review queue, with the model rewrite and audit when Ollama is free. A full pass takes days and holds the inference host, so **scope it**: `--only-template jdfn\|wjq`, `--only-undrafted` (clusters with no draft), `--limit N`. `--no-llm` is deterministic and **refuses to overwrite model prose** unless `--allow-downgrade`. Reviewer-touched drafts are never overwritten. **Resuming an interrupted pass:** `--refreshed-since <start time>` when the Bank already held prose before the pass began; `--resume` only when it did not — `--resume` skips every draft that already has prose. It is a one-shot job: nothing restarts it after a reboot. Afterwards run `make embed-roles`, `make bank-audit` and `make smoke`. |
 | Archive baseline (measurement) | `make baseline JD_ARCHIVE_PATH=<SFU JDs>` | Scores the whole archive; writes `docs/baseline/`. |
 | Identification fields vs the archive | `make field-audit JD_ARCHIVE_PATH=<SFU JDs>` | **P3b.** What the parser stored against what the SOURCE FILES say, per field per bargaining unit — five columns, never one percentage. `FIELD_AUDIT_ARGS="--sample 1200 --evidence 20"` prints the gap file by file. Needs the archive AND Postgres; writes no Bank row. Reports what it cannot see (`classification` is unevaluated). See `docs/field-audit/`. |
 | One-of-a-kind jobs (measurement) | `make singletons` | How many SFU jobs exist exactly ONCE — the population `comparison.singleton_role_policy` drops today (HR-223). **Read-only, Postgres only**, safe at any time. Four buckets plus a control, never one total; writes `docs/singletons/`. Re-run it after any re-parse rather than quoting the last numbers — every bucket is title-based. |
@@ -483,24 +501,35 @@ docker compose -f docker-compose.prod.yml up -d
 > **user-facing pages are unaffected** either way — they read the most recent parse
 > regardless of version.
 >
-> Current version: **`jd_segmenter_v5`** (2026-08-22). It exists because the reader could
-> not see a section heading that the old CUPE forms print *beside* the next column, or
-> with its own words stretched apart by the layout — so the section never opened. **719
-> of 4,440 CUPE job descriptions (16.2%) came through with no duties at all**, and duties
-> are the part of a job description that matters most. Worse in both directions: where a
-> heading went unseen, the form's own checkbox text (*"Little or no opportunity for
-> independent work"*) could be read as if it were a duty someone had written.
+> **Which version is in force:** read the constant, not this guide —
+> `grep '^PARSER_VERSION' core/src/jd_core/parser/segmenter.py`. When this guide was last
+> revised (2026-11-20) the live Bank ran **`jd_segmenter_v8`**, and **v10** existed only on
+> the separate v9 Bank (`bank/v9`), not yet shipped.
 >
-> The previous version, **`jd_segmenter_v4`** (2026-08-14), exists because
-> `additional_context` had inherited `position_summary`'s 4,000-character ceiling, which
-> silently truncated **81.4% of CUPE job descriptions** — that field holds the whole WJQ
-> point-factor block. After v4, **0%** are truncated and `continuing_education` is present
-> in **85.8%** of CUPE JDs, up from **17.0%**. The cap is now HR-200.
+> Why the recent versions exist, each found by checking a field against the **source
+> files** rather than the database:
+>
+> * **v8** — the department label most old CUPE forms actually print, `Department
+>   Name/Section`, was not recognised; about six hundred departments came back.
+> * **v7** — on the old CUPE form a label and its value sit in one cell, and the parser
+>   read the next cell: about half of CUPE descriptions had no title. 805 came back.
+> * **v6** — a job was called CUPE because it *mentioned* CUPE (an APSA manager who
+>   supervises CUPE staff). The employee group is now read, not guessed (HR-226).
+> * **v5** — a section heading printed beside the next column went unseen, so **16.2%
+>   of CUPE descriptions had no duties at all**, and checkbox text could be read as a
+>   duty.
+> * **v4** — a 4,000-character cap silently truncated **81.4%** of CUPE descriptions'
+>   point-factor block. The cap is now HR-200.
+>
+> The fuller account, with the measurements, is in `DEVELOPER_GUIDE_1.md` §9a and
+> `docs/FINDINGS.md`.
 
 ### Governance & health
 | Task | Command / where | Notes |
 |---|---|---|
-| Run the full test/gate suite | `make gates` | Static + unit + integration + coverage. What CI runs. |
+| Run the full test/gate suite | `make gates` | Static + unit + integration + coverage. What CI runs — on fixtures, so it says nothing about the live Bank. |
+| **Check the live system end to end** | `make smoke` | Runs against **this checkout's live Bank**: every document accounted for and findable, the vector indexes current, and the pages and forms testers use. **Nothing merges or deploys while it is red** (Directive #0, `CLAUDE.md`). Run it again after any producer pass or reindex. |
+| Check what drafts actually contain | `make bank-audit` | Read-only, seconds, no inference host. Per form and per section: how many roles' sources state it against how many drafts keep it. **Above 100% means the draft invented content**; below means it dropped some. Exits 2 while anything is off 100% — the check firing, not a crash. |
 | Regenerate the HR decision register | `make register` (check: `make register-check`) | Any non-trivial rule/metric must be YAML-configurable and registered. |
 | Re-render this guide | `make guide` (check: `make guide-check`) | Renders `docs/OPERATOR-GUIDE.md` → `docs/operator-guide.html`, the page served at 📖 Guide. `guide-check` byte-diffs the render against the committed HTML and fails if it is stale — run it, and commit both files together, after every edit to the Markdown. Never hand-edit the HTML. |
 | Verify the audit chain | `verify_audit_chain()` in `src.api.services.audit` | Recomputes the hash chain; detects any altered/deleted `audit_log` row. |
@@ -585,7 +614,9 @@ the numbers they printed:
 ⚠ **Counts belong on 📈 Funnel, not in this guide.** If you find a figure here describing
 the archive's current state, treat it as a bug and check the Funnel instead.
 
-*Related docs:* `HANDOFF.md` (current state), `docs/FINDINGS.md` (everything measured
+*Related docs:* `HANDOFF.md` (current state), `docs/ORAL-HISTORY.md` (how the system came
+to be the way it is), `deploy/README.md` (offline install and a second Bank),
+`docs/NETWORK-SETUP.md` (for network administrators), `docs/FINDINGS.md` (everything measured
 about the archive, with its working), `docs/adr/ADR-008-auth-cas-rbac.md` (auth/RBAC
 design), `docs/baseline/README.md` (the archive baseline),
 `docs/decisions/HR-DECISION-MATRIX.md` (what SFU HR must decide), `CLAUDE.md`
