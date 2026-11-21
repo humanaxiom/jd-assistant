@@ -43,9 +43,10 @@ they can be told apart.)
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Sequence
-from typing import Final, TypeVar
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from typing import Any, Final, TypeVar
 
+import httpx
 from openai import AsyncOpenAI, BadRequestError, Omit, omit
 from openai.types import ReasoningEffort
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
@@ -141,6 +142,15 @@ def describe_validation_error(exc: ValidationError) -> tuple[str, ...]:
     return tuple(problems)
 
 
+def _stopped_on_length(response: ChatCompletion) -> bool:
+    """Whether the intended choice (index 0) stopped on ``length``. Read defensively:
+    a server that omits ``finish_reason`` is treated as not having said so."""
+    for choice in getattr(response, "choices", ()):
+        if getattr(choice, "index", None) == 0:
+            return getattr(choice, "finish_reason", None) == "length"
+    return False
+
+
 def _repair_nudge(problems: Sequence[str]) -> str:
     """The terse nudge plus WHAT failed. Before P6 it said only "not valid JSON
     matching the required schema", so a model that filed a 67-character sentence in a
@@ -165,6 +175,67 @@ class LLMOutputInvalidError(RuntimeError):
         self.problems: tuple[str, ...] = tuple(problems)
 
 
+class ContextWindowTooSmallError(RuntimeError):
+    """The inference host serves the chat model with too small a window (HR-341).
+
+    ``window_tokens`` is the ``context_length`` Ollama reports for the LOADED model
+    (``/api/ps``), or ``None`` when it could not be read — then a cut cannot be ruled
+    out, and assuming a big window is exactly what failed on 2026-11-21 (4,096, every
+    longer prompt cut with no error)."""
+
+    def __init__(
+        self, *, model: str, window_tokens: int | None, required_tokens: int
+    ) -> None:
+        self.model = model
+        self.window_tokens = window_tokens
+        self.required_tokens = required_tokens
+        if window_tokens is None:
+            what = (
+                f"reported no context length for {model}, so a cut cannot be ruled out"
+            )
+        else:
+            what = (
+                f"serves {model} with a {window_tokens}-token context: it would "
+                f"truncate prompts"
+            )
+        super().__init__(
+            f"the inference host {what}. A rewrite needs a {required_tokens}-token "
+            f"window (rewrite.min_context_tokens, HR-341). Raise the model's context "
+            f"on the host (Ollama: OLLAMA_CONTEXT_LENGTH) and re-run. Nothing was "
+            f"written after the last checkpoint."
+        )
+
+
+#: What a loaded-model listing is: Ollama's ``/api/ps`` ``models`` array.
+LoadedModels = Callable[[], Awaitable[Sequence[Mapping[str, Any]]]]
+
+#: Bound on the metadata read. ``/api/ps`` answers from memory; it does not queue
+#: behind inference, so a slow answer is a dead host, not a busy one.
+_PS_TIMEOUT_SECONDS: Final[float] = 30.0
+
+
+def _ollama_root(base_url: str) -> str:
+    """``http://host:11434/v1`` -> ``http://host:11434`` (the native API's root)."""
+    root = base_url.rstrip("/")
+    return root[: -len("/v1")] if root.endswith("/v1") else root
+
+
+async def _ollama_loaded_models() -> Sequence[Mapping[str, Any]]:
+    """Ollama's own list of loaded models — ``GET /api/ps`` — with each one's
+    ``context_length``. Egress-checked like every inference call (NN #5)."""
+    settings = get_settings()
+    assert_inference_host_allowed(
+        settings.ollama_base_url, allowed_hosts=settings.allowed_inference_hosts
+    )
+    url = f"{_ollama_root(settings.ollama_base_url)}/api/ps"
+    async with httpx.AsyncClient(timeout=_PS_TIMEOUT_SECONDS) as http:
+        response = await http.get(url)
+        response.raise_for_status()
+        body = response.json()
+    models = body.get("models") if isinstance(body, dict) else None
+    return models if isinstance(models, list) else []
+
+
 class ChatClient:
     """Thin wrapper: JSON-mode completion, retry transient errors (never a 400), and
     validate the reply into a pydantic model with a bounded repair retry."""
@@ -177,8 +248,12 @@ class ChatClient:
         model: str | None = None,
         temperature: float | None = None,
         reasoning_effort: ReasoningEffort | None = None,
+        loaded_models: LoadedModels | None = None,
     ) -> None:
         settings = get_settings()
+        self._loaded_models: LoadedModels = (
+            loaded_models if loaded_models is not None else _ollama_loaded_models
+        )
         if client is None:
             # NN #5 (build-enforced): never construct a content client against a
             # cloud/third-party host. Runs BEFORE the AsyncOpenAI client exists, so no
@@ -218,6 +293,45 @@ class ChatClient:
 
     async def close(self) -> None:
         await self._client.close()
+
+    @property
+    def model(self) -> str:
+        """The model id this client sends — what a window check is a check OF."""
+        return self._model
+
+    async def _window_of_loaded_model(self) -> int | None:
+        for entry in await self._loaded_models():
+            if self._model in (entry.get("name"), entry.get("model")):
+                window = entry.get("context_length")
+                return window if isinstance(window, int) else None
+        return None
+
+    async def assert_context_window(self, minimum_tokens: int) -> int:
+        """Prove the host serves this model with at least ``minimum_tokens`` of context
+        (HR-341), and return the window.
+
+        Reads ``context_length`` for the LOADED model from Ollama's ``/api/ps`` — a
+        metadata call, not inference. If the model is not loaded, one ONE-token request
+        loads it first (a server only reports the window of a running model). Raises
+        :class:`ContextWindowTooSmallError` when the window is smaller, or cannot be
+        read at all.
+
+        It is deliberately not a full-window test prompt. That was the first design,
+        and on 2026-11-21 a ~33k-token probe did not finish in 15 minutes on the shared
+        host, which processes prompts slowly. Repeated at every checkpoint, it would
+        have cost the pass, and everyone else on the host, far more than it protected.
+        """
+        window = await self._window_of_loaded_model()
+        if window is None:
+            await self._create(
+                [{"role": "user", "content": "Reply with {}."}], 1, _JSON_OBJECT
+            )
+            window = await self._window_of_loaded_model()
+        if window is None or window < minimum_tokens:
+            raise ContextWindowTooSmallError(
+                model=self._model, window_tokens=window, required_tokens=minimum_tokens
+            )
+        return window
 
     async def _create(
         self,
@@ -309,8 +423,10 @@ class ChatClient:
         convo: list[ChatCompletionMessageParam] = list(messages)
         last_error: Exception | None = None
         problems: tuple[str, ...] = ()
+        stopped_on_length = False
         for attempt in range(max_retries + 1):
             response = await self._create(convo, max_tokens, response_format)
+            stopped_on_length = _stopped_on_length(response)
             content = self._content_of(response)
             try:
                 return model_cls.model_validate_json(content)
@@ -324,8 +440,16 @@ class ChatClient:
                     {"role": "assistant", "content": content},
                     {"role": "user", "content": _repair_nudge(problems)},
                 ]
+        # A reply cut by max_tokens / the window fails validation like any bad JSON; the
+        # reason must say so, or a full window reads as a model mistake (P6, HR-341).
+        stop = (
+            f" — the last reply stopped on length (max_tokens {max_tokens}, or the "
+            f"host's context window)"
+            if stopped_on_length
+            else ""
+        )
         raise LLMOutputInvalidError(
             f"the model did not return valid JSON for {model_cls.__name__} after "
-            f"{max_retries + 1} attempt(s): {'; '.join(problems)}",
+            f"{max_retries + 1} attempt(s){stop}: {'; '.join(problems)}",
             problems=problems,
         ) from last_error

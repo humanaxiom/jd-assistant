@@ -1654,3 +1654,22 @@ async def test_a_failed_rewrite_records_its_reason(session) -> None:  # type: ig
         ok_with_reason == 0
     ), f"{ok_with_reason} drafts carry a rewrite_error although the rewrite landed"
     print(f"P6: {written} drafts written since P6 carry the reason fields")
+
+
+async def test_the_inference_host_holds_a_full_rewrite_window() -> None:
+    """HR-341. The Bank's prose is only as good as the window it was written in: on
+    2026-11-21 the host served the rewrite model at 4,096 tokens and cut every longer
+    prompt with no error. This is the same check the producer runs before a pass (the
+    loaded model's ``context_length`` from Ollama's ``/api/ps``), made against the REAL
+    host through the REAL client (egress guard included), so smoke is red while the
+    host would truncate a rewrite."""
+    from src.jd_bank.llm.client import ChatClient
+    from src.jd_core.rules import get_rules
+
+    rules = get_rules()
+    client = ChatClient(rules=rules)
+    try:
+        window = await client.assert_context_window(rules.rewrite.min_context_tokens)
+    finally:
+        await client.close()
+    print(f"\n  {client.model}: served with a {window}-token context window")

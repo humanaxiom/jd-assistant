@@ -1649,6 +1649,10 @@ class Rewrite(_RuleFile):
     reasoning_effort: ReasoningEffortLevel | None = None
     #: Token budget for one rewrite completion (HR-178).
     max_tokens: int = Field(gt=0)
+    #: The smallest context window the inference host must give the chat model before a
+    #: producer pass runs (HR-341). Checked by a probe, never assumed: on 2026-11-21 the
+    #: host silently cut every prompt at 4,096.
+    min_context_tokens: int = Field(gt=0)
     #: How many times an INVALID-JSON / schema-mismatch response is re-requested with a
     #: terse repair nudge before :class:`LLMOutputInvalidError` (HR-179). Transient
     #: network/5xx retries are separate and fixed in the client.

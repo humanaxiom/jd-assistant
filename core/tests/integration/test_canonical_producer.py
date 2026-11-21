@@ -1318,6 +1318,44 @@ async def test_committed_clusters_survive_a_crash_mid_run(
 
 
 @pytest.mark.asyncio
+async def test_a_failed_checkpoint_check_stops_the_run_after_its_commit(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """HR-341: a ~44-hour pass re-checks the inference host's window at every
+    checkpoint, so a host reconfigured mid-pass STOPS the run instead of quietly
+    rewriting the rest from truncated prompts. The check runs AFTER the checkpoint
+    commit, so the work already done is durable and nothing is half-written: with
+    ``commit_every=1`` and the first check failing, exactly ONE cluster survives."""
+    from src.jd_bank.llm.client import ContextWindowTooSmallError
+
+    async with session_maker() as session:
+        await _seed_n_clusters(session, 3)
+        await session.commit()
+
+    checks = 0
+
+    async def _host_shrank() -> None:
+        nonlocal checks
+        checks += 1
+        raise ContextWindowTooSmallError(
+            model="gpt-oss:120b", window_tokens=4096, required_tokens=32768
+        )
+
+    async with session_maker() as session:
+        with pytest.raises(ContextWindowTooSmallError):
+            await run_canonical_producer(
+                session,
+                rewrite_client=None,
+                commit_every=1,
+                checkpoint_check=_host_shrank,
+            )
+    assert checks == 1
+
+    async with session_maker() as session:
+        assert await session.scalar(select(func.count()).select_from(CanonicalJD)) == 1
+
+
+@pytest.mark.asyncio
 async def test_progress_is_logged_to_stderr_at_the_cadence(
     session_maker: async_sessionmaker[AsyncSession],
     capsys: pytest.CaptureFixture[str],

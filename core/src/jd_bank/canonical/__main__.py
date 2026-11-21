@@ -48,7 +48,7 @@ from src.jd_bank.canonical.runner import (
     UnknownClusterIdsError,
     run_canonical_producer,
 )
-from src.jd_bank.llm.client import ChatClient
+from src.jd_bank.llm.client import ChatClient, ContextWindowTooSmallError
 from src.jd_core.rules import Rules, get_rules
 from src.settings import get_settings
 
@@ -315,12 +315,42 @@ def _build_clients(
     return rewrite_client, audit_client
 
 
+async def _check_context_windows(
+    rewrite_client: ChatClient | None,
+    audit_client: ChatClient | None,
+    rules: Rules,
+) -> None:
+    """Prove the host holds ``rewrite.min_context_tokens`` for every model this pass
+    calls (HR-341) — once per distinct model, since one loaded model has one window.
+    ``--no-llm`` (no clients) checks nothing. Raises
+    :class:`~src.jd_bank.llm.client.ContextWindowTooSmallError`."""
+    checked: set[str] = set()
+    for client in (rewrite_client, audit_client):
+        if client is None or client.model in checked:
+            continue
+        await client.assert_context_window(rules.rewrite.min_context_tokens)
+        checked.add(client.model)
+
+
 async def _run(args: argparse.Namespace) -> CanonicalProducerResult:
     settings = get_settings()
     rules = get_rules()
+    rewrite_client, audit_client = _build_clients(rules, no_llm=args.no_llm)
+
+    async def _checkpoint_check() -> None:
+        await _check_context_windows(rewrite_client, audit_client, rules)
+
+    try:
+        # BEFORE any database work: a host that truncates prompts refuses the pass
+        # outright rather than spending ~44 GPU hours on drafts that look normal.
+        await _checkpoint_check()
+    except BaseException:
+        for client in (rewrite_client, audit_client):
+            if client is not None:
+                await client.close()
+        raise
     engine = create_async_engine(settings.database_url)
     session_maker = async_sessionmaker(engine, expire_on_commit=False)
-    rewrite_client, audit_client = _build_clients(rules, no_llm=args.no_llm)
     # 0 (or a negative) disables incremental commit -> a single final commit only.
     commit_every = (
         args.commit_every if args.commit_every and args.commit_every > 0 else None
@@ -341,6 +371,9 @@ async def _run(args: argparse.Namespace) -> CanonicalProducerResult:
                 only_template=args.only_template,
                 only_undrafted=args.only_undrafted,
                 only_cluster_ids=args.cluster_ids,
+                checkpoint_check=(
+                    _checkpoint_check if rewrite_client is not None else None
+                ),
             )
             # The producer may checkpoint-commit between clusters (``--commit-every``);
             # this final commit is the backstop for the remainder after the last one.
@@ -410,6 +443,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     try:
         result = asyncio.run(_run(args))
+    except ContextWindowTooSmallError as exc:
+        print(f"❌ {exc}", file=sys.stderr)
+        return 2
     except UnknownClusterIdsError as exc:
         listed = "\n".join(f"  {cid}" for cid in exc.unknown)
         print(

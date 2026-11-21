@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **303 decisions** (301 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 404 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **304 decisions** (302 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 405 parameters on the decision surface, all accounted for.
 
-**Of those 303, 93 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 208 are recorded for the same build check but are not yours to sign: 103 shape what a reviewer sees without deciding whether a job description passes, and 105 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 304, 93 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 209 are recorded for the same build check but are not yours to sign: 103 shape what a reviewer sees without deciding whether a job description passes, and 106 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -1980,6 +1980,7 @@ Model names, dimensions, timeouts, retries, text-matching patterns and search in
 | [HR-302](#hr-302) | How much of a rewritten qualification line must a source line share before the line takes that source line's kind? | `0.5` | we chose it |
 | [HR-303](#hr-303) | On a form where a qualification's kind is a reading of its words (the APSA form), which opening words name that kind (Knowledge…, Skills…, Ability…), so that the rewrite does not relabel the line to another kind? | `jdfn` → {'knowledge': ['knowledge'], 'skill': ['skill', 'skills', 'skilled'], 'ability': ['ability', 'able']} | we chose it |
 | [HR-304](#hr-304) | How similar must two rewritten duties be before the rewrite merges them to fit the form's duty limit, rather than listing the surplus duty for the reviewer? | `0.2` | we chose it |
+| [HR-341](#hr-341) | What is the smallest context window (prompt plus reasoning plus reply, in tokens) the inference host must give the chat model before a rewrite pass runs? | `32768` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -2615,6 +2616,14 @@ We picked these because the system needed *a* value. There is no SFU precedent b
 - **Where the default came from:** we chose it
 - **Why it matters:** HR-290 merged the closest pair whatever its similarity, and preferred any pair that fitted the clause cap to a more similar one (review of 6000ba6). Now the most similar pair is merged only if its token Jaccard reaches this; below it the model's LAST duty is listed whole (`over_form_limit`) and fold-back still puts back any source sentence it carried. Held at HR-184's 0.2, the guard's own "same duty" overlap. A merge keeps a frequency both duties agree on and records one they dispute (`merged_duty_frequency_conflicts`); a flagged duty merged away is flagged by the duty it went under. Replay: the one over-limit draft (0cd5db26) has its closest pair below 0.2 ("work summaries and create detailed work orders" / "name‑change requests and update displays…"), so its 13th duty is listed, not merged; no other draft has more duties than its form holds.
 - **If it changes:** Does NOT move `rules_version`. 0 merges any pair; higher lists more model duties instead of merging them. Pinned by `test_rewrite_postpass_v9.py`.
+
+##### HR-341 — What is the smallest context window (prompt plus reasoning plus reply, in tokens) the inference host must give the chat model before a rewrite pass runs?
+
+- **We ship:** `32768`
+- **Configured in:** `rewrite.yaml` → `rewrite.min_context_tokens`
+- **Where the default came from:** we chose it
+- **Why it matters:** MEASURED 2026-11-21: the host served gpt-oss:120b at a 4,096-token context (the model's own is 131,072). A ~6k-token probe came back `prompt_tokens: 4096` — cut, with no error. A rewrite needs the prompt (~1k system plus the parse: median ~2.6k, p99 ~7–8k tokens) AND up to `max_tokens` (HR-178, 8,192; reasoning alone peaked ~5,900) in ONE window, ~16.5k at p99; 32,768 is that with headroom, as the power of two `OLLAMA_CONTEXT_LENGTH` is set to. Drafts record no token usage, so a rewrite of a truncated prompt looks normal in the Bank. Nothing checked it before: the v11 full pass sat 61 minutes on its first cluster and was stopped. Whether earlier passes ran at 4,096 is not known.
+- **If it changes:** Does NOT move `rules_version`; decides no JD's content or score, only whether a pass may start. The producer reads the loaded model's `context_length` from Ollama's `/api/ps` (loading the model with a one-token request if it is not running) before any database work and again after every checkpoint commit; a smaller window, or none readable, refuses the pass (exit 2) with the work so far committed. A full-window test prompt was tried first and dropped: on the shared host a ~33k-token probe did not finish in 15 minutes. Too high refuses a host that would have been fine; too low lets truncation through. Pinned by `test_context_window_guard.py` and the live smoke `test_the_inference_host_holds_a_full_rewrite_window`.
 
 #### An earlier version of this tool chose it — also unratified
 
