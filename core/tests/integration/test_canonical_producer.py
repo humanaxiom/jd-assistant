@@ -519,6 +519,7 @@ async def test_a_valid_rewrite_lands_the_rewritten_content_and_anti_fab_record(
 @pytest.mark.asyncio
 async def test_a_rewrite_failure_falls_back_to_the_merge_draft_and_is_counted(
     session_maker: async_sessionmaker[AsyncSession],
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     async with session_maker() as session:
         await _seed_pair(session)
@@ -545,6 +546,24 @@ async def test_a_rewrite_failure_falls_back_to_the_merge_draft_and_is_counted(
         assert canonical.content == expected  # fell back to the deterministic draft
         assert canonical.change_log["pipeline"]["rewrite_failed"] is True
         assert canonical.change_log["pipeline"]["rewrite_ran"] is False
+        # P6 (FINDINGS §13b): the full reason is recorded on the draft; the append-only
+        # audit row (flags only) carries the exception TYPE, never its message.
+        assert (
+            canonical.change_log["pipeline"]["rewrite_error"]
+            == "RuntimeError: simulated rewrite failure"
+        )
+        produced = await session.scalar(
+            select(AuditLog).where(AuditLog.event_type == "canonical_draft.persisted")
+        )
+        assert produced is not None
+        assert produced.payload["rewrite_error_type"] == "RuntimeError"
+        assert "simulated" not in str(produced.payload)
+
+    # The progress stream stays counts-only (NN #6): the cluster and the exception TYPE,
+    # never the message — a validation message can quote JD text.
+    err = capsys.readouterr().err
+    assert f"rewrite failed: cluster {canonical.cluster_id} (RuntimeError)" in err
+    assert "simulated rewrite failure" not in err
 
 
 @pytest.mark.asyncio
@@ -571,6 +590,11 @@ async def test_an_audit_failure_omits_the_advisory_audit_but_persists_the_draft(
         assert canonical.change_log["pipeline"]["audit_failed"] is True
         assert canonical.change_log["pipeline"]["audit_ran"] is False
         assert canonical.change_log["quality_audit"] is None
+        assert (
+            canonical.change_log["pipeline"]["audit_error"]
+            == "RuntimeError: simulated audit failure"
+        )
+        assert canonical.change_log["pipeline"]["rewrite_error"] is None
 
 
 @pytest.mark.asyncio

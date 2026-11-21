@@ -11,6 +11,7 @@ positional read is a writable bug).
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -255,6 +256,70 @@ async def test_invalid_json_then_valid_json_succeeds_on_the_repair_retry() -> No
     # the repair nudge was actually appended to the second call's conversation
     second_messages = create.call_args_list[1].kwargs["messages"]
     assert any(m["role"] == "assistant" for m in second_messages)
+
+
+#: A reply that IS valid JSON but breaks the schema the way FINDINGS §13 class A did:
+#: the mandated equivalency sentence filed as a qualification's ``modifier`` (≤ 20).
+_EQUIVALENCY = "or an equivalent combination of education, training and experience"
+_MODIFIER_TOO_LONG = json.dumps(
+    {
+        "title": "Financial Analyst",
+        "qualifications": [
+            {"text": "Bachelor's degree", "kind": "education", "modifier": _EQUIVALENCY}
+        ],
+    }
+)
+
+
+@pytest.mark.asyncio
+async def test_the_repair_nudge_names_the_field_that_failed_validation() -> None:
+    """P6 (FINDINGS §13c): the nudge used to say only "not valid JSON matching the
+    required schema", so a model that put 67 characters in a 20-character field was
+    never told which field — and missed twice, identically. The re-ask must name it."""
+    create = AsyncMock(
+        side_effect=[
+            _response([(0, _MODIFIER_TOO_LONG)]),
+            _response([(0, _VALID_JSON)]),
+        ]
+    )
+    client = ChatClient(client=_fake_openai(create), rules=get_rules())
+
+    await client.chat_json(
+        [{"role": "user", "content": "go"}],
+        SFUJobDescription,
+        max_tokens=256,
+        max_retries=1,
+    )
+
+    nudge = create.call_args_list[1].kwargs["messages"][-1]
+    assert nudge["role"] == "user"
+    assert "qualifications.0.modifier" in nudge["content"]
+    assert "at most 20 characters" in nudge["content"]
+
+
+@pytest.mark.asyncio
+async def test_the_invalid_output_error_says_what_was_wrong_without_the_text() -> None:
+    """The raised error is what the producer records as the failure reason, so it must
+    name the field and the rule — and must NOT carry the offending value, which is JD
+    text (pydantic's own message would print it as ``input_value``)."""
+    create = AsyncMock(return_value=_response([(0, _MODIFIER_TOO_LONG)]))
+    client = ChatClient(client=_fake_openai(create), rules=get_rules())
+
+    with pytest.raises(LLMOutputInvalidError) as caught:
+        await client.chat_json(
+            [{"role": "user", "content": "go"}],
+            SFUJobDescription,
+            max_tokens=256,
+            max_retries=0,
+        )
+
+    message = str(caught.value)
+    assert "qualifications.0.modifier" in message
+    assert "at most 20 characters" in message
+    assert _EQUIVALENCY not in message
+    assert caught.value.problems == (
+        "qualifications.0.modifier: String should have at most 20 characters",
+    )
 
 
 @pytest.mark.asyncio

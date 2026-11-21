@@ -80,7 +80,12 @@ max_retries: 1
 # limit and never drop a duty area; the section rules say to reword only what THAT section
 # states. The input is the merge draft minus the form's own instructions and SFU
 # boilerplate (`form_instructions`, `grounding_boilerplate_threshold`). v3 stays on disk.
-prompt_version: jd_harmonize_v4
+# v5 (FINDINGS §13e fix 3, owner ruling 2026-11-20): the schema block says where the
+# "equivalent combination" sentence goes (a qualification's `text`) and that `modifier`
+# is one level word and `kind` one of the six — v4 ordered the sentence and left
+# `modifier: string|null`, so the model filed it there, failed the 20-character ceiling
+# and the rewrite was discarded. No new variables, so v4 still loads. v4 stays on disk.
+prompt_version: jd_harmonize_v5
 
 # --- anti-fabrication guard (the heart of 4.2a) ------------------------------------
 # Whether the guard runs at all. `true` scrubs ungrounded qualifications and flags

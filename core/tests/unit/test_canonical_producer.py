@@ -136,9 +136,65 @@ def test_the_change_log_packet_round_trips_to_the_reviewer_artifacts() -> None:
         "llm_enabled": False,
         "rewrite_ran": False,
         "rewrite_failed": False,
+        "rewrite_error": None,
         "audit_ran": False,
         "audit_failed": False,
+        "audit_error": None,
     }
+
+
+# --- P6: a failure records WHY (FINDINGS §13b) ---------------------------------------
+
+
+def test_a_failure_reason_names_the_exception_type_and_message() -> None:
+    reason = canon_runner.failure_reason(RuntimeError("the host went away"))
+    assert reason == "RuntimeError: the host went away"
+
+
+def test_a_failure_reason_names_its_cause() -> None:
+    """``LLMOutputInvalidError`` and the SDK's wrappers raise ``from`` the real error;
+    the outer type alone would hide whether it was a timeout or a refused connection."""
+    try:
+        try:
+            raise TimeoutError("read timed out")
+        except TimeoutError as inner:
+            raise RuntimeError("rewrite failed") from inner
+    except RuntimeError as outer:
+        reason = canon_runner.failure_reason(outer)
+    assert (
+        reason
+        == "RuntimeError: rewrite failed (caused by TimeoutError: read timed out)"
+    )
+
+
+def test_a_failure_reason_is_bounded() -> None:
+    reason = canon_runner.failure_reason(ValueError("x" * 10_000))
+    assert reason.startswith("ValueError: xxx")
+    assert len(reason) == canon_runner.FAILURE_REASON_MAX_CHARS
+    assert reason.endswith("…")
+
+
+def test_the_packet_carries_the_failure_reasons() -> None:
+    packet = build_change_log_packet(
+        merged=_merged(),
+        diff=HarmonizationDiff(rendered_draft="Data Analyst\n..."),
+        rewritten=None,
+        quality_audit=None,
+        issues=[],
+        score=41.0,
+        grade="F",
+        gate_decision=_blocked_decision(),
+        rules_version="jd_rules_sfu_v4+abc",
+        llm_enabled=True,
+        rewrite_failed=True,
+        audit_failed=True,
+        rewrite_error="APIConnectionError: Connection error.",
+        audit_error="TimeoutError: read timed out",
+    )
+    assert (
+        packet["pipeline"]["rewrite_error"] == "APIConnectionError: Connection error."
+    )
+    assert packet["pipeline"]["audit_error"] == "TimeoutError: read timed out"
 
 
 # --- the WJQ proxy is REUSED, never forked -------------------------------------------
