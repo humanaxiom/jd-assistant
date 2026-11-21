@@ -850,6 +850,11 @@ class Segmentation(_RuleFile):
     #: Parser v9 review (HR-268): how many Decision Making / Problem Solving items the
     #: parser keeps per section — the code constant 20 (``_MAX_BULLETS``) until v9.
     bullet_max_count: int = Field(gt=0)
+    #: Parser v11 (HR-340): how many characters of ONE Decision Making / Problem
+    #: Solving item or contact the parser keeps, in both readers — the code constant
+    #: ``_MAX_BULLET`` (400, unregistered) until v11; ``null`` keeps every item whole
+    #: (owner ruling 2026-11-20). The model declares no per-item ceiling, on purpose.
+    bullet_max_chars: int | None = Field(default=None, gt=0)
     #: Parser v10 wrap guard (HR-298, HR-299). antiword hard-wraps a legacy ``.doc``, so
     #: a sentence's last word can sit alone on a line — and "duties" / "relationships"
     #: / "education and experience" alone on a line ``fullmatch`` a heading. When the

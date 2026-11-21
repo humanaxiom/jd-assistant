@@ -294,6 +294,20 @@ duty_how_why_max_chars: 1200
 # re-read whole (the v9 Bank smoke found 50-item drafts re-reading as 40).
 bullet_max_count: 60
 
+# --- One Decision Making / Problem Solving item or contact: character cap (parser v11,
+# HR-340) ------------------------------------------------------------------------------
+# Was the code constant `_MAX_BULLET` 400, unregistered, in BOTH readers (JDFN decision /
+# problem items and connections; the WJQ contacts table). Found by the v9 Bank smoke: a
+# CUPE role's contact, exported and read back, came back cut at 400. MEASURED on the v9
+# Bank (parser v10, 2026-11-20): 4,668 documents held 5,716 items at EXACTLY 400
+# characters (160 at 390–399) — Decision Making 4,226 items, internal contacts 1,106,
+# external 304, Problem Solving 80.
+# Owner ruling 2026-11-20: "remove the 400 cap" — the same ruling as HR-308 / HR-324.
+# `null` keeps every item whole; a number cuts at that length (the rewrite's fidelity
+# table and the export round-trip follow it). Changing it changes what a parsed JD
+# CONTAINS: bump PARSER_VERSION and re-parse.
+bullet_max_chars: null
+
 # --- A wrapped content line is not a heading (parser v10, HR-298 / HR-299) ------------
 # antiword hard-wraps legacy .doc files, so "… make in carrying out / duties" puts the
 # word "duties" alone on a line, and it fullmatched the DUTIES heading. MEASURED over all

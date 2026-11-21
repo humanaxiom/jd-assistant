@@ -169,7 +169,10 @@ class WJQRow(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    item: str = Field(min_length=1, max_length=400)
+    #: A FORM input ceiling, not a parser cap: a contact row is seeded from a cloned
+    #: role's relationships, which the parser no longer cuts (HR-340, v11). It was 400,
+    #: the old parser cut. The other tables' rows are bounded by their own answers.
+    item: str = Field(min_length=1, max_length=20_000)
     duration: str | None = Field(default=None, max_length=40)
     frequency: str | None = Field(default=None, max_length=40)
     hours: str | None = Field(default=None, max_length=40)

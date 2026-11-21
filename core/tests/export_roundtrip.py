@@ -64,8 +64,10 @@ _WORD = re.compile(r"[a-z0-9]+")
 #: legitimately cut on re-read. Rulebook data since parser v9 (HR-261); it was the
 #: code constant ``segmenter._MAX_DUTY_STMT = 400``.
 _MAX_DUTY_STMT = get_rules().segmentation.duty_statement_max_chars
-#: The parser's ceiling for a decision / problem item (``segmenter._MAX_BULLET``).
-_MAX_LIST_ITEM = 400
+#: The parser's ceiling for a decision / problem item or a contact
+#: (``segmentation.bullet_max_chars``, HR-340; the code constant ``_MAX_BULLET`` 400
+#: until parser v11). Ships ``null`` = never cut: no ceiling tolerance applies.
+_MAX_LIST_ITEM = get_rules().segmentation.bullet_max_chars or sys.maxsize
 #: … and for a qualification (``segmentation.qualification_max_chars``, HR-308) and
 #: the supervisory text (``segmentation.supervisory_max_chars``, HR-324). Both ship
 #: ``null`` = never cut, so no ceiling tolerance applies: every word must come back.

@@ -216,7 +216,10 @@ class ContactAnswer(_Row):
         Column("frequency", "Frequency", "table_frequencies", "0 0 8rem"),
     )
 
-    contact: str = Field(min_length=1, max_length=400)
+    #: The form's input ceiling, not the parser's cap: a CUPE role cloned from the Bank
+    #: seeds these rows from its relationships, which the parser no longer cuts (HR-340,
+    #: parser v11). At 400 — the old cut — a longer contact refused to load.
+    contact: str = Field(min_length=1, max_length=QUAL_INPUT_CEILING)
     scope: Literal["internal", "external"] = "internal"
     duration: str | None = Field(default=None, max_length=40)
     frequency: str | None = Field(default=None, max_length=40)

@@ -854,6 +854,42 @@ those 4,644 documents carry fewer, longer items, and the K→S→A gate reads on
 paragraph rather than per sentence. If HR wants a per-sentence item reading without a
 cut, that is a separate rule to register, not a cap.
 
+## 20. The list-item cap (owner ruling 2026-11-20 "remove the 400 cap"; `PARSER_VERSION` → `jd_segmenter_v11`)
+
+**Found by the v9 Bank smoke (2026-11-20).** `test_every_live_apsa_role_exports_and_rereads_its_duties`
+failed on one role: a contact, exported and read back, came back cut at 400. The cut is
+not the exporter's. Both readers cut every Decision Making / Problem Solving item and
+every contact at `segmenter._MAX_BULLET = 400`, a code constant that was never
+registered and was missed when HR-308 and HR-324 were lifted (§19).
+
+MEASURED on the v9 Bank (parser v10, all 14,522 current parses):
+
+| field | items | at exactly 400 | at 390–399 |
+|---|---:|---:|---:|
+| Decision Making | 51,299 | 4,226 (3,468 documents) | 71 |
+| internal contacts | 66,588 | 1,106 | 43 |
+| external contacts | 10,073 | 304 | 34 |
+| Problem Solving | 10,252 | 80 | 12 |
+| **total** | 138,212 | **5,716 (4,668 documents)** | 160 |
+
+A pile-up at exactly 400 against 160 items spread over the ten characters below it is a
+cut, not a length people write.
+
+Applied as `segmentation.bullet_max_chars: null` (**HR-340**, new): both readers keep
+every item whole (`segmenter.cut_to`). A number cuts at that length again; the rewrite's
+fidelity table (`field_cap`) and the export round-trip oracle follow the knob. The model
+declares no per-item ceiling for these lists. The CUPE Builder's contact row
+(`ContactAnswer.contact`) and the form table row (`WJQRow.item`) were bounded at 400 —
+the old cut — and are widened to the 20,000-character form ceiling, so a CUPE role cloned
+from the Bank with a long contact still loads. Pinned by
+`test_parser_v11_list_items_uncapped.py`; both readers' knob reads were broken once and
+the suite went red.
+
+**What this costs the v9 Bank:** what a parse contains changes, so the version moves to
+v11 and the v9 Bank is rebuilt from the archive (§10), then a full LLM pass. That pass
+replaces the planned retry of the 641 failed rewrites — every draft is rewritten again.
+Re-measure the parse delta with `core/scripts/measure_parse_delta.py` on the rebuild.
+
 ## 11. Containers (all removed at the end)
 
 - **This round:** `p9measure-dump`, `p9measure-pg` (127.0.0.1:25999, network `p9measure-net`), `p9measure-ingest-flat`, `p9measure-ingest-grouped`, `p9measure-mA` / `-mB` / `-mD`, `p9measure-losscause`, `p9measure-smoke`, `p9measure-intro`, and the network `p9measure-net`.

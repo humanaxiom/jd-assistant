@@ -854,6 +854,44 @@ async def test_no_current_parse_is_cut_at_the_old_400_char_cap(session) -> None:
     )
 
 
+async def test_no_current_list_item_is_cut_at_the_old_400_char_cap(session) -> None:  # type: ignore[no-untyped-def]
+    """Parser v11 (HR-340). At v10, 5,716 of 138,212 Decision Making / Problem Solving
+    items and contacts (4.1%) sat at EXACTLY 400 characters, against 160 spread over
+    390–399 — the unregistered ``_MAX_BULLET`` cut. Same 1% bound as the duty check: a
+    share above it means the Bank still holds the cut parse; an item over a configured
+    cap means a reader ignored the knob."""
+    from src.jd_core.parser import PARSER_VERSION
+    from src.jd_core.rules import get_rules
+
+    cap = get_rules().segmentation.bullet_max_chars
+    at_400, over_cap, total = (
+        await session.execute(
+            text(
+                "WITH p AS (SELECT parsed FROM parsed_jds WHERE parser_version = :v), "
+                "i AS ("
+                " SELECT x FROM p, jsonb_array_elements_text("
+                "  coalesce(p.parsed->'decision_making', '[]')) x"
+                " UNION ALL SELECT x FROM p, jsonb_array_elements_text("
+                "  coalesce(p.parsed->'problem_solving', '[]')) x"
+                " UNION ALL SELECT x FROM p, jsonb_array_elements_text("
+                "  coalesce(p.parsed->'relationships'->'internal', '[]')) x"
+                " UNION ALL SELECT x FROM p, jsonb_array_elements_text("
+                "  coalesce(p.parsed->'relationships'->'external', '[]')) x) "
+                "SELECT count(*) FILTER (WHERE length(x) = 400), "
+                "count(*) FILTER (WHERE :cap > 0 AND length(x) > :cap), count(*) FROM i"
+            ),
+            {"v": PARSER_VERSION, "cap": cap or 0},
+        )
+    ).one()
+    print(f"\n  list items at {PARSER_VERSION}: {total}; at exactly 400: {at_400}")
+    assert total > 0, "no list items at the current parser version"
+    assert over_cap == 0, f"{over_cap} items exceed the configured cap {cap}"
+    assert at_400 / total < 0.01, (
+        f"{at_400} of {total} list items sit at exactly 400 characters — "
+        "the Bank still holds the pre-v11 truncated parse"
+    )
+
+
 async def test_every_live_apsa_role_exports_and_rereads_its_duties(session) -> None:  # type: ignore[no-untyped-def]
     """EVERY current non-CUPE role, not a sample: exported and re-read, each comes back
     with the same number of duties — and with nothing else lost either — unless the

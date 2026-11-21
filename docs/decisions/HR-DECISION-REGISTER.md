@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **302 decisions** (300 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 403 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **303 decisions** (301 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 404 parameters on the decision surface, all accounted for.
 
-**Of those 302, 93 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 207 are recorded for the same build check but are not yours to sign: 102 shape what a reviewer sees without deciding whether a job description passes, and 105 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 303, 93 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 208 are recorded for the same build check but are not yours to sign: 103 shape what a reviewer sees without deciding whether a job description passes, and 105 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -1025,6 +1025,7 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-307](#hr-307) | The old position description prints questions for whoever fills it in — under its qualifications heading ("What combination of experience, training and/or formal education do you believe is the minimum required to perform the duties of this position?") and over its Decision Making answers ("Decisions the incumbent is expected to make in carrying out duties"). Should the parser keep those questions out of the job description and record that it did? | *a text pattern — see below* | we chose it |
 | [HR-308](#hr-308) | How many characters of one qualification does the parser keep from an archive job description? | `null` | we chose it |
 | [HR-324](#hr-324) | How many characters of the supervisory text ("Supervision Exercised" and the relationships it describes) does the parser keep from an archive job description? | `null` | we chose it |
+| [HR-340](#hr-340) | How many characters of one Decision Making or Problem Solving item, or of one internal or external contact, does the parser keep from an archive job description? | `null` | we chose it |
 
 #### We chose it — nobody has ratified these
 
@@ -1651,6 +1652,14 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** we chose it
 - **Why it matters:** It was the code constant `_MAX_SUPERVISORY` 600, unregistered, and HR-301 (the old form's "I. Organizational Relationships" now read as relationships) made it matter. MEASURED by the parser-v10 review over all 14,522 extracted archive files (docs/audit/2026-10-29-parser-v10-review.md §4): 5,772 documents (58.8%) were over 600 and 2.48 M characters were cut — in 3,421 of them because the form's printed E/F questions use the budget first; prompt-stripped p50 552 · p75 742 · p90 1,016 · p95 1,291 · p99 2,711, max 5,185. ✅ Owner ruling 2026-10-29: "remove the cap" — applied as `null` (the whole text is kept) and RECORDED here rather than ratified, since it is the project owner's call, not an HR signature. The form's printed E/F/I questions are still inside the kept text (the review's recommended prompt strip for the Relationships section is not built).
 - **If it changes:** Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`; changes what a parsed JD contains, so it needs a re-parse. A number cuts the text at that many characters; the rewrite's fidelity table (HR-287) and the model follow it — the model declares no ceiling, so no value here can fail a parse. Pinned by `test_parser_v10_supervisory_uncapped.py`.
+
+##### HR-340 — How many characters of one Decision Making or Problem Solving item, or of one internal or external contact, does the parser keep from an archive job description?
+
+- **We ship:** `null`
+- **Configured in:** `segmentation.yaml` → `segmentation.bullet_max_chars`
+- **Where the default came from:** we chose it
+- **Why it matters:** It was the code constant `_MAX_BULLET` 400, unregistered, in BOTH readers (the APSA/APEX/POLY decision, problem and connection items; the CUPE contacts table) — the third cap of the HR-308 / HR-324 family, missed when those two were lifted. Found by the v9 Bank smoke on 2026-11-20: a CUPE role's contact, exported and read back, came back cut at 400. MEASURED on the v9 Bank (parser v10, all current parses, 14,522): 4,668 documents held 5,716 items at EXACTLY 400 characters, against 160 items at 390–399 — a cut, not a length people write. Items at 400: Decision Making 4,226 (in 3,468 documents), internal contacts 1,106, external contacts 304, Problem Solving 80. ✅ Owner ruling 2026-11-20: "remove the 400 cap" — applied as `null` (every item is kept whole) and RECORDED here rather than ratified, since it is the project owner's call, not an HR signature.
+- **If it changes:** Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`; changes what a parsed JD contains, so it needs PARSER_VERSION bumped and a re-parse (v11 is that bump). A number cuts each item at that many characters in both readers; the rewrite's fidelity table (HR-287) and the export round-trip oracle follow it. The model declares no per-item ceiling and the CUPE Builder's contact row is bounded by a form input ceiling, so no value here can fail a parse or a clone. Pinned by `test_parser_v11_list_items_uncapped.py`.
 
 #### An earlier version of this tool chose it — also unratified
 

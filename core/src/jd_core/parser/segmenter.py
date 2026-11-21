@@ -117,7 +117,12 @@ if TYPE_CHECKING:  # the rules package imports the models; keep this module cycl
 #: OLD output, and `parsed_jds` is idempotent per `(source_document_id, parser_version)`
 #: — kept at v9, a re-ingest that skipped the wipe would keep the wrapped parses and
 #: every reader and smoke check would call them current. Plan §18.
-PARSER_VERSION = "jd_segmenter_v10"
+#: v11 = one Decision Making / Problem Solving item or contact is no longer cut (HR-340,
+#: owner ruling 2026-11-20). Both readers cut it at the unregistered code constant
+#: `_MAX_BULLET` 400; MEASURED on the v9 Bank (v10), 4,668 documents held 5,716 items
+#: at exactly 400 characters, and the v9 Bank smoke found a CUPE contact re-read cut.
+#: `segmentation.bullet_max_chars` ships null. Same family as HR-308 / HR-324 (v10).
+PARSER_VERSION = "jd_segmenter_v11"
 
 #: Which SFU document template ``parse_jd`` read: the APSA/APEX/POLY "JDFN" form (the
 #: original segmenter), the CUPE/WJQ questionnaire, or neither recognisably.
@@ -140,7 +145,9 @@ _MAX_VERB = 60
 #: chars` (HR-308), both readers; it was the code constant `_MAX_QUAL` 400.
 #: A set-aside block is a RECORD, not content: held only to the model's own ceiling.
 _MAX_SET_ASIDE = 20000
-_MAX_BULLET = 400
+#: v11: one Decision Making / Problem Solving item or contact is cut at rulebook data
+#: — `segmentation.bullet_max_chars` (HR-340), null = whole; it was the code constant
+#: `_MAX_BULLET` 400 in both readers, unregistered.
 #: v10: the supervisory text's cap is rulebook data — `segmentation.supervisory_
 #: max_chars` (HR-324), null = whole text; it was the code constant
 #: `_MAX_SUPERVISORY` 600, which the 2026-10-29 review measured cutting 58.8% of
@@ -207,6 +214,12 @@ def _collapse_spaces(text: str) -> str:
     """Collapse runs of spaces/tabs to one space, preserving line breaks — so a
     double-spaced legacy heading still matches its single-spaced signal."""
     return re.sub(r"[ \t]+", " ", text)
+
+
+def cut_to(text: str, cap: int | None) -> str:
+    """``text`` cut at a rulebook character cap; ``None`` (an uncapped knob) keeps it
+    whole. Shared by both readers so a cap means the same thing in each."""
+    return text[:cap] if cap else text
 
 
 def _clean(value: str) -> str:
@@ -576,20 +589,24 @@ def _structure_quals(
     return quals
 
 
-def _structure_bullets(block: str, max_count: int) -> list[str]:
+def _structure_bullets(
+    block: str, max_count: int, max_chars: int | None = None
+) -> list[str]:
     """Decision-making / problem-solving → ``list[str]``.
 
     v9 (review H1): the ``… related to:`` lead-in is KEPT, minus its colon. Before v9
     it was dropped — harmless while Word lists fused it into a run-on that v8 kept, but
     once list items are read apart, dropping it lost words in 4,784 Decision Making and
     2,231 Problem Solving sections (measured vs v8). ``max_count`` is
-    ``segmentation.bullet_max_count`` (HR-268; it was the code constant 20)."""
+    ``segmentation.bullet_max_count`` (HR-268; it was the code constant 20).
+    ``max_chars`` is ``segmentation.bullet_max_chars`` (HR-340; the code constant
+    ``_MAX_BULLET`` 400 until v11): ``None``, the shipped value, keeps items whole."""
     items: list[str] = []
     for item in _logical_lines(block):
         text = _clean(item).strip(" -–—•◦*").rstrip(" :")
         if not text:
             continue
-        items.append(text[:_MAX_BULLET])
+        items.append(cut_to(text, max_chars))
         if len(items) >= max_count:
             break
     return items
@@ -601,8 +618,10 @@ def _after_colon(line: str) -> str:
 
 
 def _structure_relationships(
-    block: str, supervisory_cap: int | None = None
+    block: str, supervisory_cap: int | None = None, item_cap: int | None = None
 ) -> SFURelationships | None:
+    """``supervisory_cap`` is HR-324, ``item_cap`` HR-340 (one connection); ``None``
+    keeps the text whole."""
     supervisory: str | None = None
     internal: list[str] = []
     external: list[str] = []
@@ -619,16 +638,16 @@ def _structure_relationships(
             current = internal
             value = _after_colon(line)
             if value:
-                internal.append(value[:_MAX_BULLET])
+                internal.append(cut_to(value, item_cap))
         elif low.startswith("external connection"):
             current = external
             value = _after_colon(line)
             if value:
-                external.append(value[:_MAX_BULLET])
+                external.append(cut_to(value, item_cap))
         elif current is not None and not _REL_LABEL_RE.match(line):
             value = _clean(line)
             if value:
-                current.append(value[:_MAX_BULLET])
+                current.append(cut_to(value, item_cap))
         else:
             current = None
             piece = _clean(line)
@@ -817,6 +836,7 @@ def parse_jd(text: str) -> ParseResult:
         sections.get(SectionKey.DUTIES, ""), get_rules().segmentation
     )
     bullet_cap = get_rules().segmentation.bullet_max_count
+    item_chars = get_rules().segmentation.bullet_max_chars
     prompt_rx = get_rules().segmentation.form_prompt_pattern
 
     def without_prompts(key: SectionKey) -> str:
@@ -834,14 +854,15 @@ def parse_jd(text: str) -> ParseResult:
         return block
 
     decision_making = _structure_bullets(
-        without_prompts(SectionKey.DECISION_MAKING), bullet_cap
+        without_prompts(SectionKey.DECISION_MAKING), bullet_cap, item_chars
     )
     problem_solving = _structure_bullets(
-        sections.get(SectionKey.PROBLEM_SOLVING, ""), bullet_cap
+        sections.get(SectionKey.PROBLEM_SOLVING, ""), bullet_cap, item_chars
     )
     relationships = _structure_relationships(
         sections.get(SectionKey.RELATIONSHIPS, ""),
         get_rules().segmentation.supervisory_max_chars,
+        item_chars,
     )
     qualifications = _structure_quals(
         without_prompts(SectionKey.QUALIFICATIONS),
