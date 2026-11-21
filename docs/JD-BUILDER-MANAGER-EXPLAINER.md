@@ -51,8 +51,12 @@ flowchart TD
      your exact title and in how many departments. If one fits, clone it instead of creating
      a duplicate. The panel is advisory only. It never blocks you, and it deliberately shows
      no similarity percentage.
-   - ⚠ *Search to clone currently finds APSA/APEX/Poly roles only.* A CUPE author won't
-     see CUPE results yet.
+   - *Search to clone* searches **the form you picked**: APSA/APEX/Poly results on that
+     form, CUPE results on the CUPE form, so starting from one never switches you to the
+     other form.
+   - If you know the **PeopleSoft position number**, type just the number (`61`, or
+     `00000061`). You get every archive file filed under that position, and the role each
+     one went into, ready to start from.
 4. **Answer the guided questions.** Each one has a hint that explains what SFU expects.
 5. **Click *Check compliance*** as often as you like. The panel shows:
    - a **score** out of 100 and a **grade** from A to F,

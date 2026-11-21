@@ -1,8 +1,12 @@
 # Developer Guide — JD Bank (on Agent Harness v2)
 
-> From `git clone` to your first agent-built feature merged to `main`. Self-hosted Python
+> From `git clone` to your first feature merged to `main`. Self-hosted Python
 > stack (FastAPI · **Neo4j** · Postgres · Redis · arq), built with
 > Claude Code. **Everything runs in Docker — there is no host Python.**
+>
+> **Revised 2026-11-20.** New to the project? Read [`docs/ORAL-HISTORY.md`](docs/ORAL-HISTORY.md)
+> first for why things are the way they are, then [`CURRENT.md`](CURRENT.md) for where each
+> fact lives. The working loop is §5.
 >
 > **Two corrections to what this guide used to say, both verified against the running
 > stack:** there is **no Flask** (the service, dependency and package went in `3e32103`;
@@ -23,13 +27,14 @@ and **ADR-006** (Docker-only execution). This guide operationalizes them.
 1. [Prerequisites](#1-prerequisites)
 2. [Clone and bootstrap](#2-clone-and-bootstrap)
 3. [First-run verification](#3-first-run-verification)
-4. [Pick your AI harness](#4-pick-your-ai-harness)
-5. [Your first feature — end-to-end walkthrough](#5-your-first-feature--end-to-end-walkthrough)
-6. [The subagent pipeline in practice](#6-the-subagent-pipeline-in-practice)
+4. [Claude Code](#4-claude-code)
+5. [Your first feature — the working loop](#5-your-first-feature--the-working-loop)
+6. [The subagent pipeline (inherited, not installed)](#6-the-subagent-pipeline-inherited-not-installed)
 7. [The gate suite — what actually blocks you](#7-the-gate-suite--what-actually-blocks-you)
 8. [Working with graph memory](#8-working-with-graph-memory)
 9. [Async jobs (arq)](#9-async-jobs-arq)
 9a. [The JD data layer — parser versions and the two templates](#9a-the-jd-data-layer--parser-versions-and-the-two-templates)
+9b. [Adding a rule — or a whole rules file](#9b-adding-a-rule--or-a-whole-rules-file)
 10. [Extending the harness](#10-extending-the-harness)
 11. [Troubleshooting](#11-troubleshooting)
 12. [Team conventions](#12-team-conventions)
@@ -49,22 +54,19 @@ Install on the host (metal):
 |---|---|---|
 | Git | ≥ 2.40 | Branch workflow |
 | Docker + Compose | Docker 24+, Compose v2 | Runs **everything** (app, tests, gates, tooling) |
-| **Ollama** | latest | Inference — the ONLY non-Docker runtime; must run on host for GPU/Metal (ADR-003) |
+| PowerShell | Windows PowerShell or `pwsh` | `build.ps1` / `launch.ps1` / `teardown.ps1` and the deploy scripts |
 | Node (optional) | 20+ | Only if you install the Claude Code CLI |
 | `make` (optional) | any | Convenience task-runner that *invokes* Docker; commands also work raw |
 
 `make` is not a code runtime — it just shells out to `docker compose`. If it's not installed
 (common on Windows), use the raw `docker compose …` commands shown alongside each target.
 
-Pull models once (on the host, into Ollama):
-
-```bash
-ollama pull qwen2.5-coder:14b     # AGENT_MODEL — the coding model in settings
-ollama pull nomic-embed-text      # 768-dim embeddings matching the Neo4j vector index
-OLLAMA_HOST=0.0.0.0 ollama serve &   # bind all interfaces so containers can reach it
-```
-
-Verify: `curl -s http://localhost:11434/v1/models | jq '.data[].id'` should list both.
+**Inference is not on this box.** Ollama runs on metal on **`aria-gb10-2`**, a trusted
+internal host (ADR-003), and the stack reaches it at `http://aria-gb10-2:11434/v1`. It must
+serve `nomic-embed-text` (768-dim, matching the Neo4j vector indexes) and the chat model the
+rewrite uses. You do **not** start Ollama here. The app, the dashboards and `make gates` all
+run without it; only `make embed`, `make embed-roles`, `make canonical-drafts`, the Builder's
+assist button and meaning search need it.
 
 Neo4j Browser is at `http://localhost:25474` once the stack is up (creds `neo4j` / `harnesspass`).
 
@@ -80,22 +82,29 @@ containers, so host edits take effect with no rebuild.
 git clone <your-repo-url> JD-Assistant
 cd JD-Assistant
 
-cp .env.example .env               # edit only to override defaults
+cp .env.example .env               # edit only to override defaults — and never commit it
 
-docker compose up -d               # build + start the stack (Ollama must be running on host)
-make migrate                       # or: see the migrate recipe in the Makefile
+.\build.ps1                        # build the images and prove they are deployable
+.\launch.ps1                       # start → healthy → migrate → verify → status
 make hook-install                  # Docker-only git pre-commit hook (branch gate + gates-fast)
 ```
 
-`docker compose up -d` starts: `postgres`, `neo4j`, `redis`, `api` (FastAPI :8000),
-`worker` (arq). The review UI is server-rendered inside `api` under `/jd-bank/ui` (there is no
-separate frontend service). Containers reach Ollama on the host via
-`host.docker.internal:11434` — preconfigured with `extra_hosts: host-gateway` so it works on
-Linux too, not just Docker Desktop.
+`launch.ps1` starts `postgres`, `neo4j`, `redis`, `api` (FastAPI :8000, published on
+25800) and `worker` (arq), applies the migrations, and reports row counts per parser
+version, whether CAS is on (read from the running container), and whether the inference
+host answers. It fails loudly if any service is not running. The UI is server-rendered
+inside `api` under `/jd-bank/ui`; there is no separate frontend service. A fresh clone comes
+up with **CAS off** (every request is a synthetic admin) — fine on your own box, never on
+one other people can reach. `.\launch.ps1 -NoCas` makes that explicit.
 
-> **Legacy `.doc` note (JD Bank):** the SFU archive includes ~4,600 binary Word `.doc` files
-> that python-docx cannot read. The ingestion image must include **antiword** (or a LibreOffice
-> headless converter). This is a Phase-1 Dockerfile addition — see `docs/plan.md` §1.3.
+> **A second Bank beside the live one.** A checkout with its own `.env` naming a different
+> compose project, image tag and ports runs a fully isolated Bank — that is how the v9 Bank
+> (`C:\repos\JD-Assistant-v9`, ports 26xxx) runs next to the live one. `make bank-target`
+> prints which Bank the current checkout acts on. Runbook: `deploy/README.md` § *Running a
+> second Bank*.
+
+> **Legacy `.doc` files** (thousands in the SFU archive) are read with **antiword**, which is
+> in the image (`core/Dockerfile`). python-docx reads only `.docx`.
 
 ---
 
@@ -181,73 +190,88 @@ security, docs) plus `.claude/settings.json` (blocks commits to `main`; auto-run
 
 ---
 
-## 5. Your first feature — end-to-end walkthrough
+## 5. Your first feature — the working loop
 
-Goal: **port the `ParsedJD` pydantic model (Phase 1.1)** — the contract every pipeline stage
-speaks. It's the natural first slice: pure, well-specified, and a near-verbatim EXTRACT of
-hris's `SFUJobDescription` (reuse map #1). Real JD Bank work, small enough for one sitting.
+This is the loop every change since September has followed (#219–#224 are worked examples:
+read one PR body end to end before your first change).
 
-### 5.1 Create the agent branch
+### 5.1 Branch
 
 ```bash
 git checkout main && git pull
-git checkout -b agent/T-p1-parsedjd-schema
+git checkout -b feat/<slug>          # or fix/<slug>, chore/<slug>
 ```
 
-Branch must match `(agent|feat|fix|chore)/<slug>` — the pre-commit hook (installed in §2)
-rejects anything else.
+The branch must match `(agent|feat|fix|chore)/<slug>`; the pre-commit hook and CI reject
+anything else. What may skip the branch (most docs) is listed in `CLAUDE.md` § *Change
+workflow*.
 
-### 5.2 Write a spec
+### 5.2 Measure before you design
 
-```
-Port hris `SFUJobDescription` (see docs/audit/hris-reuse-map.md #1) into
-core/src/jd_core/models/parsed_jd.py as pydantic v2 models. 10 sections in order:
-identification, position_summary, duties[SFUDuty(action_verb, statement, how_why)],
-decision_making, problem_solving, relationships(supervisory/internal/external),
-qualifications[SFUQualification(kind ∈ education|experience|knowledge|skill|ability|security,
-modifier)], plus presence-booleans about_sfu / territorial_ack / employment_equity.
-- Coerce JSON null → [] for list fields (LLM robustness), mirroring hris.
-- Full type hints; mypy --strict clean.
-- Unit tests: round-trip serialization + null-coercion + section ordering.
-```
+If the change involves a score, a threshold, a count or a verdict, **measure it over the
+whole archive first**, in a container against the live Bank
+(`docker exec -i jd-bank-api-1 python -I -`, or `make shell`). Twice an obvious design
+proved undeliverable once measured. A sample of the newest files is not a sample of the
+corpus. Every claim about the archive is checked against the archive.
 
-### 5.3 Run the pipeline (Claude Code)
+### 5.3 Failing test first — and break the guard once
 
-```
-Use the planner subagent to plan this task, then execute the full pipeline through docs.
-```
+Write the test, watch it fail, make it pass, then **break the code it guards and watch it
+go red again**. A test you have never seen fail is decoration. LLM-touching code asserts the
+validator's verdict, never the model's words.
 
-Claude Code delegates `planner → tester → coder (inside the ReviewLoop) → reviewer + security
-→ docs`. The pipeline halts if the reviewer rejects or security fails. (See §6.)
+A new threshold or word list goes in a rules YAML and gets a register entry **in the same
+change — the checklist is §9b. If a default looks wrong, register it `open` rather than
+quietly changing it.
 
-### 5.4 Verify before opening a PR — all in Docker
+### 5.4 Gates, then smoke — both yourself
 
 ```bash
-make gates          # must be entirely green (runs in the api container)
-git log --oneline   # expect: red: ... → green: ... → docs: ...
+make gates            # ruff · black · mypy --strict · unit · integration · coverage ≥ 80%
+make register-check   # if you touched a rules YAML or the register (CI runs it; `make gates` does not)
+make guide-check      # if you touched docs/OPERATOR-GUIDE.md (re-render with `make guide`)
+make smoke            # 🔴 the live Bank, end to end — and it must COVER your change
 ```
 
-### 5.5 Open the PR
+`make gates` runs on fixtures, and a fixture cannot be stale. **Add a live check for what you
+changed** to `core/tests/live/test_smoke_live_bank.py`, and run it against the real Bank.
+**Directive #0: nothing merges while smoke is red**, even when you are sure your change did
+not cause it. Read the output, not an exit status; background-task notifications have
+reported exit 0 on red runs.
+
+Format with **black** (the gate), never `ruff format`, which rewrites unrelated files.
+
+### 5.5 Open the PR, and let the owner merge
 
 ```bash
-git push -u origin agent/T-p1-parsedjd-schema
-gh pr create --fill
+git push -u origin feat/<slug>
+gh pr create
 ```
 
-CI re-runs every gate (same in-container commands). Green → merge to `main`. That's the loop.
+The PR body carries the evidence: the commands you ran and their real output, what smoke
+covers, and the register ids you took (the next free one is in `HANDOFF.md`; re-check it).
+**The project owner merges.** Every feature PR appends to the same smoke file, so after
+another PR merges, rebase, keep both tests, and re-run gates **and** smoke before pushing.
+
+### 5.6 Deploy and look
+
+Merged code reaches users only through `.\launch.ps1`. Afterwards, confirm the running API
+restarted after your change (`docker logs -t jd-bank-api-1 | grep "Started server"`), run
+`make smoke` again, and open the page. Ask: *could the owner deploy and see this tomorrow,
+without me?* If not, the task has one more step (Directive #1).
 
 ---
 
-## 6. The subagent pipeline in practice
+## 6. The subagent pipeline (inherited, not installed)
 
-⚠ **Aspirational as of 2026-08-29 — the definitions are inert (see the activation note in
-§5), so no session runs this today.** It is kept because the DISCIPLINE is the point and it
+⚠ **Aspirational — the definitions are inert (see the activation note in §4), so no
+session runs this today.** It is kept because the DISCIPLINE is the point and it
 still binds when one model does every role: write the failing test first, break the guard to
 prove it can go red, re-run the gates yourself, read the diff. The `run_pipeline` pipeline in
 `core/src/agents/` is a DIFFERENT thing and IS live — see CLAUDE.md § *Two different things
 are called "agents" here*.
 
-This is the harness's core capability — use it for every non-trivial task.
+What the harness designed, for the record; the loop in §5 is what is actually used.
 
 ```mermaid
 sequenceDiagram
@@ -407,7 +431,7 @@ live.
 
 **Two document templates, one model.** The archive is not one form:
 
-| Template | Groups | Parser | Share of archive |
+| Template | Groups | Parser | Share of archive (measured 2026-08; check the funnel today) |
 |---|---|---|---|
 | **JDFN** | `apsa` · `apex` · `poly` | `parser/segmenter.py` | 5,416 (37.3%) |
 | **WJQ** (CUPE 3338) | `cupe` | `parser/wjq.py` — a 14-section point-factor questionnaire | 4,440 (30.6%) |
@@ -439,7 +463,8 @@ asking the author (`wjq_assemble`), and the LLM rewrite **restores** it from the
 merge draft (`_REWRITABLE_FIELDS`), after the model was found nulling it on ~95% of CUPE
 drafts and silently moving them to the JDFN bar.
 
-**Scope is still HR's**: all 207 register entries are `open`, including HR-194 (may the
+**Scope is still HR's**: almost every register entry is `open` (the register's own header
+is the count; only HR-042 and HR-052 are ratified), including HR-194 (may the
 Bank *author* CUPE?) and HR-201 (do SFU's boilerplate rules apply to a form that has no
 such block?). The WJQ bar was built the way APSA's was — measured, registered, nothing
 auto-publishing. Evidence: `docs/decisions/cupe-scope-measured-2026-08-14.md`,
@@ -473,7 +498,16 @@ Two things that make this less alarming than it sounds, both worth knowing:
 `PARSER_VERSION` changes what the *running* service reports immediately — before you have
 re-parsed anything. Expect that window and close it.
 
-**Current version: `jd_segmenter_v8`** — the department label the archive actually uses.
+**Read the version off the constant, not off this page:**
+`grep '^PARSER_VERSION' core/src/jd_core/parser/segmenter.py`. At this revision (2026-11-20)
+`main` and the live Bank are at v8. **v10** exists on `bank/v9` and the separate v9 Bank
+only: it adds a wrapped-heading guard, maps the legacy lettered headings, sets aside (never
+drops) working conditions and approvals, removes the qualification and supervisory caps
+(HR-308, HR-324), and needs migration 0008. Its design is
+`docs/plans/PARSER-V9-LISTS-AND-CAPS.md` **on that branch**. Shipping it to `main` owes the
+live Bank a re-parse and a producer pass (`docs/plan.md` § NOW, V4).
+
+**`jd_segmenter_v8`** — the department label the archive actually uses.
 `id_labels.department` held ONE spelling, `Department Name`, while **654 CUPE documents
 say `Department Name/Section`**. Measured in the PARSER'S OWN scope, unreadable department
 labels went **680 -> 16** and the Bank gained **+607 departments** (8,837 -> 9,444). The 16
@@ -534,6 +568,44 @@ choice rather than an incident.
 
 ---
 
+## 9b. Adding a rule — or a whole rules file
+
+**A new knob in an existing YAML:**
+
+1. Add the value to the YAML and its typed field in `core/src/jd_core/rules/loader.py`.
+2. Add an entry to `core/src/jd_core/rules/decision_register.yaml`. Take the next free id
+   (`HANDOFF.md` says where to check, on `main` **and** `origin/bank/v9`). Record what HR
+   is asked, what ships meanwhile, and where the value came from. A set's
+   `current_default` is listed in **sorted** order.
+3. `make register`, then commit the regenerated `docs/decisions/HR-DECISION-REGISTER.md` in
+   the same commit. CI's drift gate checks it; `make gates` does not.
+4. 🔴 **A regex key must end in `_pattern`**, and its flags go **inline** (`(?i)`) with
+   `ignore_case: false`. The `_pattern` suffix is how the HR-facing table knows to print
+   *"a text pattern — see below"* instead of raw regex
+   (`test_no_raw_regex_reaches_the_summary_table`).
+5. The layering guard fails on the literal text `src.jd_bank` anywhere under
+   `src/jd_core/rules/`, **comments included**.
+
+**A whole new rules file** additionally needs:
+
+- `version: jd_rules_sfu_v4` and a provenance header in the YAML;
+- in `loader.py`: a `_RuleFile` subclass, a `<NAME>_FILE` constant, a `Rules` field, and
+  entries in `_FILE_MODELS`, `_FLAT_SURFACE_FILES` and, if unhashed, `_UNHASHED_FILES`;
+- `rules/__init__.py`: the import **and** `__all__`, in isort order.
+
+**Hashed or not:** a file is hashed if and only if a validator reads it and can move a JD's
+score. A parser input no validator reads is unhashed, but it moves `PARSER_VERSION` and
+owes an archive re-parse, which is the heavier obligation. Say so in `impact_if_changed`.
+
+**Closed-world guards that fail until you update them** (that is their job):
+`test_decision_register.py::test_the_decision_surface_walks_every_rule_file`,
+`::test_the_unhashed_files_are_the_ones_that_cannot_change_a_jds_score`,
+`test_rewrite_rules.py::test_rewrite_is_an_unhashed_file` and
+`test_dedup_rules.py::test_dedup_is_the_fourth_unhashed_file`.
+`grep -rn -A1 '"apsa_form.yaml",' core/tests` finds every such list.
+
+---
+
 ## 10. Extending the harness
 
 **Add a subagent** (e.g. a JD Bank `RulebookAgent` that checks rulebook-as-data invariants):
@@ -561,9 +633,23 @@ client → Ollama). Re-run the full suite against a new model before defaulting 
 **"python: command not found" / trying to `pip install` on the host** — that's the Docker-only
 rule working as intended (ADR-006). Run tooling via `docker compose exec -T api …` or `make shell`.
 
-**Ollama unreachable from containers** — `docker compose exec api curl http://host.docker.internal:11434/v1/models`
-fails. Ensure `OLLAMA_HOST=0.0.0.0 ollama serve` and Docker 24+ (`host-gateway`). macOS/Windows
-Docker Desktop Just Works.
+**Ollama unreachable from containers** — `docker compose exec api curl -s "$OLLAMA_BASE_URL/models"`
+fails. Inference is on `aria-gb10-2`, not this box: check that host is up and on the
+network, and that `ALLOWED_INFERENCE_HOSTS` lists it. The egress guard refuses any host not
+on that list, deliberately. Do not add a host to it "to test"; a new inference host is an
+ADR-003 decision.
+
+**A change you merged does not show in the browser** — the dev API does not reliably
+hot-reload on a Windows bind mount, and in-process smoke cannot tell. Run `.\launch.ps1`
+(it recreates api and worker), then check
+`docker logs -t jd-bank-api-1 | grep "Started server"` is newer than the change.
+
+**`curl` against a page returns 303** — CAS is on, and every UI route sends you to sign
+in. Verify through the suite, or probe inside the container
+(`docker exec -i jd-bank-api-1 python -I -`).
+
+**A junk `core/C:/` directory appeared** — Git Bash rewrote a container path. Delete it, and
+prefix such commands with `MSYS_NO_PATHCONV=1`.
 
 **Neo4j vector index missing** — `similar_artifacts` errors "no such index". Re-run `make migrate`.
 
@@ -573,29 +659,32 @@ override (§7). Check the socket path for your OS. Confirm `docker ps` works as 
 **Gates green locally but red in CI** — usually the branch-name gate (CI checks
 `GITHUB_HEAD_REF`) or integration networking. Read the CI logs before assuming code is wrong.
 
-**Legacy `.doc` won't parse** — python-docx only reads `.docx`. Binary `.doc` needs antiword /
-LibreOffice in the ingestion image (Phase 1.3). See the census, `docs/audit/archive-census.md`.
-
-**Subagent emits wrong file-block format** — agents parse ```` ```python path=src/foo.py ````.
-Use `qwen2.5-coder:14b` (tested) or adjust the agent's `_extract_*` regex.
+**Legacy `.doc` won't parse** — python-docx only reads `.docx`; binary `.doc` goes through
+antiword, which is in the image. A file antiword cannot read is counted as an extraction
+failure on the funnel, never dropped silently. See `docs/audit/archive-census.md`.
 
 ---
 
 ## 12. Team conventions
 
-**Branch naming** (enforced): `agent/<task-id>-<slug>` for AI work; `feat|fix|chore/<slug>` for
-human work; never commit to `main`.
+**Branch naming** (enforced): `feat|fix|chore/<slug>` (or `agent/<task-id>-<slug>`).
+What needs a branch and what may go straight to `main` is `CLAUDE.md` § *Change workflow*:
+`core/`, `HANDOFF.md`, `docs/plan.md`, `docs/decisions/**` and build files always need a PR.
 
-**Commit messages** (convention): `red:` → `green:` → `refactor:` → `docs:`.
+**Commit messages:** conventional (`feat(search): …`, `fix(review): …`, `docs: …`), saying
+*what changed for whom*. End with the attribution line your tooling requires.
 
-**PR checklist** (paste into the PR):
+**PR checklist** (the evidence goes in the body, as pasted commands and their output):
 ```
-- [ ] All gates green in Docker (`make gates`)
-- [ ] Coverage ≥ 80% maintained
-- [ ] Reviewer subagent approved
-- [ ] Security subagent passed (or N/A with justification)
-- [ ] ADR added if architecture changed; Mermaid diagrams updated
+- [ ] Failing test written first; the guard broken once to prove it can go red
+- [ ] make gates green (full suite if Postgres/Neo4j behaviour is involved)
+- [ ] make register-check / make guide-check, if a rules YAML or the guide changed
+- [ ] make smoke GREEN — and it covers this change (a live check added to the smoke file)
+- [ ] Reachable from the UI; ships through build.ps1 / launch.ps1 with no assistant
+- [ ] New HR register ids named, and checked free on main and bank/v9
+- [ ] ADR added if architecture changed
 ```
+The project owner merges.
 
 **JD Bank invariants** (from root `CLAUDE.md` — do not violate):
 - **Human approval:** canonical JDs are drafts until an HR reviewer approves. Nothing auto-publishes.
@@ -629,8 +718,10 @@ For a new project:
    template); keep the vendored `harness-claude-code/CLAUDE.md` as the base rules.
 4. **Write ADRs early** — repo placement, extract-vs-rewrite (if spinning off code), storage,
    Docker-only. Number project ADRs from 004+ (002/003 are inherited).
-5. **Drive every feature through the subagent pipeline** and keep gates green. The gate suite
-   *is* the definition of "done."
+5. **Keep gates green, and add a live smoke check from the first feature.** The gate suite
+   is the floor, not the definition of done. This project learned that a green suite on
+   fixtures says nothing about the live system (see `docs/ORAL-HISTORY.md` §6 and
+   `docs/HARNESS-LESSONS-DELIVERY-BLINDNESS.md`).
 
 Deltas from upstream this project introduced (candidates to upstream): Docker-only `Makefile`
 gates, Docker-delegating editor hook, `hook-install` git pre-commit, ADR-006. Keep them listed
@@ -642,7 +733,11 @@ so the golden standard converges.
 
 | Task | Command (Docker-only) |
 |---|---|
-| Start stack | `docker compose up -d` (or `make up`) |
+| Build / start / stop | `.\build.ps1` · `.\launch.ps1` · `.\teardown.ps1` |
+| Which Bank am I on? | `make bank-target` |
+| **Live end-to-end check (gates shipping)** | `make smoke` |
+| What drafts actually contain | `make bank-audit` (exits 2 while anything is off 100%) |
+| HR register / guide | `make register` + `make register-check` · `make guide` + `make guide-check` |
 | Full gates (incl. integration) | `make gates` → `docker compose run --rm gates …` |
 | Fast gates (static + unit) | `make gates-fast` |
 | Integration only | `make gates-integration` |
@@ -658,5 +753,4 @@ so the golden standard converges.
 | Rebuild vectors | `make embed` + `make embed-roles` — see `docs/runbooks/reindex.md` |
 | Backup / restore | `docs/runbooks/backup-and-restore.md` (⚠ never `--data-only`) |
 
-First PR: run the ParsedJD-schema task from §5 through the pipeline, merge it. Second PR:
-Tier-1 exact-dup detection (Phase 3.1) — an early, quantified win over the archive.
+First change: pick the top open item in `HANDOFF.md`, and work it through the loop in §5.

@@ -20,6 +20,31 @@ lives and how to check it** · [`HANDOFF.md`](HANDOFF.md) (state + traps) ·
 🥇 **Live counts are at `/jd-bank/ui/funnel`**, computed from the database at request time.
 No document here restates them — that is how five wrong numbers once agreed with each other.
 
+New here? [`docs/ORAL-HISTORY.md`](docs/ORAL-HISTORY.md) tells how the project got to where
+it is, and why its rules exist.
+
+---
+
+## What it does
+
+SFU's archive of job descriptions — two different forms (APSA/APEX/Poly and the CUPE
+Weighted Job Questionnaire), two decades, thousands of near-copies — is parsed,
+de-duplicated, clustered into roles, and harmonized into **one draft per role**, each
+scored against SFU's published standards by a deterministic validator. A self-hosted model
+may reword a draft; it may not invent content. **Nothing publishes without an HR
+reviewer.**
+
+What people use, all in the browser behind SFU CAS sign-in (the 📖 Guide in the app,
+[`docs/OPERATOR-GUIDE.md`](docs/OPERATOR-GUIDE.md), covers each one):
+
+| | |
+|---|---|
+| 🏦 **JD Bank** (Library) | Search roles by title, by what the job does, or by PeopleSoft position number; read a role and every archive file it came from |
+| 🧱 **Builder** | Write a JD on either form with live compliance feedback; start from an existing role; export SFU's Word template or HR's CUPE form |
+| 📄 **Compensation Requisition Form** | SFU's own PDF, filled from a role: title, department, group, request type and position |
+| 📋 **Review queue** | Reviewers approve, reject or edit drafts; every action goes to a hash-chained audit log |
+| 📈 **Funnel** · collections · units | Where the archive stands, from the database at request time; the IT collection and the VPFA / Facilities rollups |
+
 ---
 
 ## System architecture
@@ -66,10 +91,13 @@ Redis = arq queue.
 
 ---
 
-## Subagent pipeline
+## Subagent pipeline (inherited from the harness)
 
 **planner → tester → coder(loop) → reviewer + security → docs**, implemented in
-`core/src/agents/` and driven by Claude Code (`harness-claude-code/.claude/agents/`).
+`core/src/agents/` as the `run_pipeline` arq job. ⚠ The matching Claude Code definitions in
+`harness-claude-code/.claude/agents/` are vendored and **not installed**, so no Claude Code
+session dispatches them. Day-to-day work follows the same discipline by hand (see *Git
+workflow*).
 
 | Subagent | Python class | Claude Code def |
 |---|---|---|
@@ -134,19 +162,28 @@ A single red gate = the work is not done. Never weaken a test, add an unjustifie
 
 ## Git workflow
 
-- Agents work on `agent/*` branches; `main` is protected (PR + green CI + human approval).
-- Commit story: `red:` → `green:` → `refactor:` → `docs:`.
+- Code, tests and rules YAML go on a `feat/…`, `fix/…` or `chore/…` branch and a PR; so do
+  `HANDOFF.md`, `docs/plan.md`, `docs/decisions/**` and anything that changes how the
+  project is built. Most other documentation commits straight to `main`. The exact list is
+  [`CLAUDE.md`](CLAUDE.md) § *Change workflow*.
+- **A failing test comes first**, and the guard is broken once to prove it can go red.
+- 🔴 **Directive #0: nothing merges or deploys until `make smoke` is green** against the live
+  Bank — not "green except", not "red for a known reason". `make gates` and CI run on
+  fixtures and cannot see the live system.
+- A rulebook change ships with its register entry and the regenerated register
+  (`make register`); a guide change with its re-render (`make guide`).
+- **The project owner merges.**
 - Human approval is invariant: canonical JDs are drafts until an HR reviewer approves.
 
 ```mermaid
 gitGraph
-    commit id: "baseline"
-    branch agent/p1-foundation
-    commit id: "red: failing tests"
-    commit id: "green: implementation"
-    commit id: "docs: ADR + diagrams"
+    commit id: "main"
+    branch feat/a-change
+    commit id: "test: failing first"
+    commit id: "feat: make it pass"
+    commit id: "test(smoke): live check"
     checkout main
-    merge agent/p1-foundation tag: "CI green"
+    merge feat/a-change tag: "gates + smoke green; owner merges"
 ```
 
 ---
@@ -155,19 +192,22 @@ gitGraph
 
 ```
 JD-Assistant/
-├── core/                          # THE shared application (Python)
+├── core/                          # THE application (Python)
 │   ├── src/
-│   │   ├── jd_core/               # (Phase 1+) parse, validate, bias, titles, KSA, scrub
-│   │   ├── jd_bank/               # (Phase 1+) ingest, dedup, cluster, harmonize, review, composer
-│   │   ├── api/  agents/  memory/  models/  worker/  gates/   # harness core
-│   │   │                          # review UI is server-rendered under api/ (/jd-bank/ui)
-│   ├── db/migrations/             # Alembic (Postgres) + Cypher (Neo4j)
-│   └── tests/{unit,integration}/
-├── harness-claude-code/           # CLAUDE.md base rules + .claude/ (subagents, settings)
-├── docs/{adr,audit,rulebook}/  docs/plan.md
-├── fixtures/{golden,labels}/      # SFU JD golden sample + dedup label set
-├── CLAUDE.md  HANDOFF.md  DEVELOPER_GUIDE_1.md
-├── docker-compose.yml  Makefile  .pre-commit-config.yaml
+│   │   ├── jd_core/               # parse, validate, rules (YAML rulebook + HR register), models
+│   │   ├── jd_bank/               # ingest, dedup, cluster, harmonize, canonical, review,
+│   │   │                          #   composer (Builder), library, forms, positions, audits
+│   │   ├── jd_export/             # Word (APSA template, HR's CUPE form) + the CRF PDF
+│   │   ├── api/                   # FastAPI + the server-rendered UI under /jd-bank/ui
+│   │   ├── agents/  memory/  models/  worker/  gates/   # harness core
+│   ├── alembic/  db/migrations/   # Postgres (alembic) + Neo4j (cypher)
+│   └── tests/{unit,integration,live}/   # live = `make smoke`, against the real Bank
+├── deploy/                        # offline bundle + install; second-Bank isolation
+├── harness-claude-code/           # vendored harness base rules + agent definitions (not installed)
+├── docs/                          # plan, findings, oral history, guide, ADRs, decisions, audits
+├── fixtures/{golden,labels,hr}/   # golden sample, dedup labels, HR's own forms and guidance
+├── CURRENT.md  CLAUDE.md  HANDOFF.md  DEVELOPER_GUIDE_1.md
+├── build.ps1  launch.ps1  teardown.ps1  docker-compose.yml  Makefile
 ```
 
 ---
@@ -236,7 +276,11 @@ Full workflow, first-feature walkthrough, and troubleshooting: [`DEVELOPER_GUIDE
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434/v1` | Local inference |
+| `OLLAMA_BASE_URL` | `http://aria-gb10-2:11434/v1` | Self-hosted inference on the internal host (ADR-003) |
+| `JD_API_PORT` | `25800` | Host port for the app |
+| `CAS_ENABLED` | `false` | SFU sign-in. **Set `true` in `.env` on any box others can reach** — off makes every visitor an admin |
+| `ALLOWED_SERVICE_ORIGINS` | — | Every address users reach the app on (scheme, host, port), for CAS — see `docs/NETWORK-SETUP.md` |
+| `FEEDBACK_EMAIL` | — | Where "Report a problem with this page" sends; empty hides the link |
 | `AGENT_MODEL` | `qwen2.5-coder:14b` | Coding model |
 | `EMBED_MODEL` | `nomic-embed-text` | Embeddings for Neo4j vectors |
 | `DATABASE_URL` | `postgresql+asyncpg://app:app@postgres:5432/harness` | Postgres |
