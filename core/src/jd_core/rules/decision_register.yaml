@@ -10009,6 +10009,36 @@ decisions:
       `test_parser_v11_list_items_uncapped.py`.
     status: open
 
+  - id: HR-341
+    question: >-
+      What is the smallest context window (prompt plus reasoning plus reply, in tokens)
+      the inference host must give the chat model before a rewrite pass runs?
+    config:
+      file: rewrite.yaml
+      path: rewrite.min_context_tokens
+    current_default: 32768
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      MEASURED 2026-11-21: the host served gpt-oss:120b at a 4,096-token context (the
+      model's own is 131,072). A ~6k-token probe came back `prompt_tokens: 4096` — cut,
+      with no error. A rewrite needs the prompt (~1k system plus the parse: median ~2.6k,
+      p99 ~7–8k tokens) AND up to `max_tokens` (HR-178, 8,192; reasoning alone peaked
+      ~5,900) in ONE window, ~16.5k at p99; 32,768 is that with headroom, as the power of
+      two `OLLAMA_CONTEXT_LENGTH` is set to. Drafts record no token usage, so a rewrite of
+      a truncated prompt looks normal in the Bank. Nothing checked it before: the v11
+      full pass sat 61 minutes on its first cluster and was stopped. Whether earlier
+      passes ran at 4,096 is not known.
+    impact_if_changed: >-
+      Does NOT move `rules_version`; decides no JD's content or score, only whether a
+      pass may start. The producer sends one probe of at least this many tokens (asking
+      for one token back) before any database work and again after every checkpoint
+      commit; a host that keeps fewer, or reports no usage, refuses the pass (exit 2)
+      with the work so far committed. Too high refuses a host that would have been fine;
+      too low lets truncation through. Pinned by `test_context_window_guard.py` and the
+      live smoke `test_the_inference_host_holds_a_full_rewrite_window`.
+    status: open
+
 trivial:
   # ── The APSA export form (Track J4): HR's own wording, pinned by HR-258. ──
   - config: {file: apsa_form.yaml, path: apsa_form.banner}

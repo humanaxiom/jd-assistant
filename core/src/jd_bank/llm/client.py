@@ -141,6 +141,15 @@ def describe_validation_error(exc: ValidationError) -> tuple[str, ...]:
     return tuple(problems)
 
 
+def _stopped_on_length(response: ChatCompletion) -> bool:
+    """Whether the intended choice (index 0) stopped on ``length``. Read defensively:
+    a server that omits ``finish_reason`` is treated as not having said so."""
+    for choice in getattr(response, "choices", ()):
+        if getattr(choice, "index", None) == 0:
+            return getattr(choice, "finish_reason", None) == "length"
+    return False
+
+
 def _repair_nudge(problems: Sequence[str]) -> str:
     """The terse nudge plus WHAT failed. Before P6 it said only "not valid JSON
     matching the required schema", so a model that filed a 67-character sentence in a
@@ -163,6 +172,38 @@ class LLMOutputInvalidError(RuntimeError):
     def __init__(self, message: str, *, problems: Sequence[str] = ()) -> None:
         super().__init__(message)
         self.problems: tuple[str, ...] = tuple(problems)
+
+
+class ContextWindowTooSmallError(RuntimeError):
+    """The inference host would not hold a ``required_tokens`` prompt (HR-341).
+
+    ``kept_tokens`` is the server's own ``usage.prompt_tokens`` for a probe of at least
+    ``required_tokens`` tokens, or ``None`` when it reported no usage — then the
+    cut cannot be ruled out, and assuming a big window is exactly what failed on
+    2026-11-21 (4,096, cut silently)."""
+
+    def __init__(self, *, kept_tokens: int | None, required_tokens: int) -> None:
+        self.kept_tokens = kept_tokens
+        self.required_tokens = required_tokens
+        if kept_tokens is None:
+            what = "reported no token usage for the probe, so a cut cannot be ruled out"
+        else:
+            what = (
+                f"kept only {kept_tokens} tokens of a probe of at least "
+                f"{required_tokens}: it truncates prompts"
+            )
+        super().__init__(
+            f"the inference host {what}. A rewrite needs a {required_tokens}-token "
+            f"window (rewrite.min_context_tokens, HR-341). Raise the model's context "
+            f"on the host (Ollama: OLLAMA_CONTEXT_LENGTH) and re-run. Nothing was "
+            f"written after the last checkpoint."
+        )
+
+
+#: One probe "word" unit. Space-separated words are each at least one token under any
+#: BPE tokenizer (the pre-tokenizer splits on spaces), so N words is >= N tokens.
+_PROBE_UNIT: Final[str] = "alpha beta gamma delta "
+_PROBE_UNIT_WORDS: Final[int] = 4
 
 
 class ChatClient:
@@ -218,6 +259,37 @@ class ChatClient:
 
     async def close(self) -> None:
         await self._client.close()
+
+    @property
+    def model(self) -> str:
+        """The model id this client sends — what a window check is a check OF."""
+        return self._model
+
+    async def assert_context_window(self, minimum_tokens: int) -> int:
+        """Prove the host holds a ``minimum_tokens`` prompt for this model (HR-341).
+
+        Sends ONE prompt of at least ``minimum_tokens`` words (so at least that many
+        tokens), asks for one token back, and reads the server's own
+        ``usage.prompt_tokens``. Returns it when it is at least the minimum; raises
+        :class:`ContextWindowTooSmallError` when it is smaller (the host cut it) or
+        absent (a cut cannot be ruled out). The cost is prompt processing only.
+        """
+        units = -(-minimum_tokens // _PROBE_UNIT_WORDS)  # ceil
+        probe = _PROBE_UNIT * units + "Reply with {}."
+        response = await self._create(
+            [{"role": "user", "content": probe}], 1, _JSON_OBJECT
+        )
+        usage = getattr(response, "usage", None)
+        kept = getattr(usage, "prompt_tokens", None)
+        if not isinstance(kept, int):
+            raise ContextWindowTooSmallError(
+                kept_tokens=None, required_tokens=minimum_tokens
+            )
+        if kept < minimum_tokens:
+            raise ContextWindowTooSmallError(
+                kept_tokens=kept, required_tokens=minimum_tokens
+            )
+        return kept
 
     async def _create(
         self,
@@ -309,8 +381,10 @@ class ChatClient:
         convo: list[ChatCompletionMessageParam] = list(messages)
         last_error: Exception | None = None
         problems: tuple[str, ...] = ()
+        stopped_on_length = False
         for attempt in range(max_retries + 1):
             response = await self._create(convo, max_tokens, response_format)
+            stopped_on_length = _stopped_on_length(response)
             content = self._content_of(response)
             try:
                 return model_cls.model_validate_json(content)
@@ -324,8 +398,16 @@ class ChatClient:
                     {"role": "assistant", "content": content},
                     {"role": "user", "content": _repair_nudge(problems)},
                 ]
+        # A reply cut by max_tokens / the window fails validation like any bad JSON; the
+        # reason must say so, or a full window reads as a model mistake (P6, HR-341).
+        stop = (
+            f" — the last reply stopped on length (max_tokens {max_tokens}, or the "
+            f"host's context window)"
+            if stopped_on_length
+            else ""
+        )
         raise LLMOutputInvalidError(
             f"the model did not return valid JSON for {model_cls.__name__} after "
-            f"{max_retries + 1} attempt(s): {'; '.join(problems)}",
+            f"{max_retries + 1} attempt(s){stop}: {'; '.join(problems)}",
             problems=problems,
         ) from last_error

@@ -60,6 +60,18 @@ reasoning_effort: null
 # call: peak reasoning ~5,900 tokens (72% of the budget), peak content 3,742 (46%).
 max_tokens: 8192
 
+# The SMALLEST context window (prompt + reasoning + reply, in tokens) the inference host
+# must give the chat model before a producer pass runs. HR-341.
+# MEASURED 2026-11-21: aria-gb10-2 served gpt-oss:120b at 4,096 (the model's own is
+# 131,072). A ~6k-token probe came back `prompt_tokens: 4096` — CUT, with no error — and
+# drafts record no token usage, so a rewrite of a truncated prompt looks normal in the
+# Bank. A rewrite needs the prompt (~1k system + the parse: median ~2.6k, p99 ~7–8k
+# tokens) AND up to max_tokens (8,192; reasoning alone peaked ~5,900) in ONE window:
+# ~16.5k at p99, so 32,768 is that with headroom, as the power of two
+# OLLAMA_CONTEXT_LENGTH is set to. Checked by a one-token probe at the start of a pass
+# and at every checkpoint commit; a smaller window refuses the pass.
+min_context_tokens: 32768
+
 # How many times an INVALID-JSON / schema-mismatch response is re-requested with a terse
 # repair nudge before raising LLMOutputInvalidError. Transient network/5xx retries are
 # SEPARATE (fixed in the client, never a 400). HR-179.

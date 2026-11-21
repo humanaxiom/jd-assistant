@@ -62,7 +62,7 @@ import datetime as dt
 import sys
 import time
 from collections import Counter, defaultdict
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Final
 from uuid import UUID
@@ -938,6 +938,7 @@ async def run_canonical_producer(
     only_template: str | None = None,
     only_undrafted: bool = False,
     only_cluster_ids: Collection[UUID] | None = None,
+    checkpoint_check: Callable[[], Awaitable[None]] | None = None,
 ) -> CanonicalProducerResult:
     """Produce persisted DRAFT ``canonical_jds`` over the real role clusters.
 
@@ -1204,6 +1205,11 @@ async def run_canonical_producer(
         processed += 1
         if commit_every is not None and processed % commit_every == 0:
             await session.commit()
+            # AFTER the commit, so a failing check (HR-341: the host's window shrank
+            # mid-pass) stops the run with everything so far durable and nothing
+            # half-written. It raises; the caller reports it.
+            if checkpoint_check is not None:
+                await checkpoint_check()
         if progress_every is not None and processed % progress_every == 0:
             _log_progress(
                 processed=processed,

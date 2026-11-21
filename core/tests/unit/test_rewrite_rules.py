@@ -33,6 +33,7 @@ _KNOBS = (
     "temperature",
     "max_tokens",
     "max_retries",
+    "min_context_tokens",
     "prompt_version",
     "anti_fabrication_enabled",
     "skill_grounding_policy",
