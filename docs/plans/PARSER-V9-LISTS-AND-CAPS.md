@@ -254,7 +254,11 @@ make ingest JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs
 make embed
 
 # 4. Dedup + clustering. Tier-1 EXACT is synthesised at cluster time from sha256.
-make near-dup
+#    near-dup READS THE ARCHIVE (it shingles raw_clean text off the read-only mount), so
+#    it needs the same JD_ARCHIVE_PATH as ingest. Without it the mount is the empty
+#    ./archive and it exits 0 having signed nothing: "12593 unreadable, 0 signed, 0.0%
+#    coverage", 0 edges (2026-11-20 v11 rebuild). Expect ~14.8k edges, coverage ~0.996.
+make near-dup JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs
 make dedup-role
 make cluster
 
