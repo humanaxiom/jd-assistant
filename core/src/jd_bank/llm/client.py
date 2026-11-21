@@ -43,9 +43,10 @@ they can be told apart.)
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Sequence
-from typing import Final, TypeVar
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from typing import Any, Final, TypeVar
 
+import httpx
 from openai import AsyncOpenAI, BadRequestError, Omit, omit
 from openai.types import ReasoningEffort
 from openai.types.chat import ChatCompletion, ChatCompletionMessageParam
@@ -175,22 +176,27 @@ class LLMOutputInvalidError(RuntimeError):
 
 
 class ContextWindowTooSmallError(RuntimeError):
-    """The inference host would not hold a ``required_tokens`` prompt (HR-341).
+    """The inference host serves the chat model with too small a window (HR-341).
 
-    ``kept_tokens`` is the server's own ``usage.prompt_tokens`` for a probe of at least
-    ``required_tokens`` tokens, or ``None`` when it reported no usage — then the
-    cut cannot be ruled out, and assuming a big window is exactly what failed on
-    2026-11-21 (4,096, cut silently)."""
+    ``window_tokens`` is the ``context_length`` Ollama reports for the LOADED model
+    (``/api/ps``), or ``None`` when it could not be read — then a cut cannot be ruled
+    out, and assuming a big window is exactly what failed on 2026-11-21 (4,096, every
+    longer prompt cut with no error)."""
 
-    def __init__(self, *, kept_tokens: int | None, required_tokens: int) -> None:
-        self.kept_tokens = kept_tokens
+    def __init__(
+        self, *, model: str, window_tokens: int | None, required_tokens: int
+    ) -> None:
+        self.model = model
+        self.window_tokens = window_tokens
         self.required_tokens = required_tokens
-        if kept_tokens is None:
-            what = "reported no token usage for the probe, so a cut cannot be ruled out"
+        if window_tokens is None:
+            what = (
+                f"reported no context length for {model}, so a cut cannot be ruled out"
+            )
         else:
             what = (
-                f"kept only {kept_tokens} tokens of a probe of at least "
-                f"{required_tokens}: it truncates prompts"
+                f"serves {model} with a {window_tokens}-token context: it would "
+                f"truncate prompts"
             )
         super().__init__(
             f"the inference host {what}. A rewrite needs a {required_tokens}-token "
@@ -200,10 +206,34 @@ class ContextWindowTooSmallError(RuntimeError):
         )
 
 
-#: One probe "word" unit. Space-separated words are each at least one token under any
-#: BPE tokenizer (the pre-tokenizer splits on spaces), so N words is >= N tokens.
-_PROBE_UNIT: Final[str] = "alpha beta gamma delta "
-_PROBE_UNIT_WORDS: Final[int] = 4
+#: What a loaded-model listing is: Ollama's ``/api/ps`` ``models`` array.
+LoadedModels = Callable[[], Awaitable[Sequence[Mapping[str, Any]]]]
+
+#: Bound on the metadata read. ``/api/ps`` answers from memory; it does not queue
+#: behind inference, so a slow answer is a dead host, not a busy one.
+_PS_TIMEOUT_SECONDS: Final[float] = 30.0
+
+
+def _ollama_root(base_url: str) -> str:
+    """``http://host:11434/v1`` -> ``http://host:11434`` (the native API's root)."""
+    root = base_url.rstrip("/")
+    return root[: -len("/v1")] if root.endswith("/v1") else root
+
+
+async def _ollama_loaded_models() -> Sequence[Mapping[str, Any]]:
+    """Ollama's own list of loaded models — ``GET /api/ps`` — with each one's
+    ``context_length``. Egress-checked like every inference call (NN #5)."""
+    settings = get_settings()
+    assert_inference_host_allowed(
+        settings.ollama_base_url, allowed_hosts=settings.allowed_inference_hosts
+    )
+    url = f"{_ollama_root(settings.ollama_base_url)}/api/ps"
+    async with httpx.AsyncClient(timeout=_PS_TIMEOUT_SECONDS) as http:
+        response = await http.get(url)
+        response.raise_for_status()
+        body = response.json()
+    models = body.get("models") if isinstance(body, dict) else None
+    return models if isinstance(models, list) else []
 
 
 class ChatClient:
@@ -218,8 +248,12 @@ class ChatClient:
         model: str | None = None,
         temperature: float | None = None,
         reasoning_effort: ReasoningEffort | None = None,
+        loaded_models: LoadedModels | None = None,
     ) -> None:
         settings = get_settings()
+        self._loaded_models: LoadedModels = (
+            loaded_models if loaded_models is not None else _ollama_loaded_models
+        )
         if client is None:
             # NN #5 (build-enforced): never construct a content client against a
             # cloud/third-party host. Runs BEFORE the AsyncOpenAI client exists, so no
@@ -265,31 +299,39 @@ class ChatClient:
         """The model id this client sends — what a window check is a check OF."""
         return self._model
 
-    async def assert_context_window(self, minimum_tokens: int) -> int:
-        """Prove the host holds a ``minimum_tokens`` prompt for this model (HR-341).
+    async def _window_of_loaded_model(self) -> int | None:
+        for entry in await self._loaded_models():
+            if self._model in (entry.get("name"), entry.get("model")):
+                window = entry.get("context_length")
+                return window if isinstance(window, int) else None
+        return None
 
-        Sends ONE prompt of at least ``minimum_tokens`` words (so at least that many
-        tokens), asks for one token back, and reads the server's own
-        ``usage.prompt_tokens``. Returns it when it is at least the minimum; raises
-        :class:`ContextWindowTooSmallError` when it is smaller (the host cut it) or
-        absent (a cut cannot be ruled out). The cost is prompt processing only.
+    async def assert_context_window(self, minimum_tokens: int) -> int:
+        """Prove the host serves this model with at least ``minimum_tokens`` of context
+        (HR-341), and return the window.
+
+        Reads ``context_length`` for the LOADED model from Ollama's ``/api/ps`` — a
+        metadata call, not inference. If the model is not loaded, one ONE-token request
+        loads it first (a server only reports the window of a running model). Raises
+        :class:`ContextWindowTooSmallError` when the window is smaller, or cannot be
+        read at all.
+
+        It is deliberately not a full-window test prompt. That was the first design,
+        and on 2026-11-21 a ~33k-token probe did not finish in 15 minutes on the shared
+        host, which processes prompts slowly. Repeated at every checkpoint, it would
+        have cost the pass, and everyone else on the host, far more than it protected.
         """
-        units = -(-minimum_tokens // _PROBE_UNIT_WORDS)  # ceil
-        probe = _PROBE_UNIT * units + "Reply with {}."
-        response = await self._create(
-            [{"role": "user", "content": probe}], 1, _JSON_OBJECT
-        )
-        usage = getattr(response, "usage", None)
-        kept = getattr(usage, "prompt_tokens", None)
-        if not isinstance(kept, int):
-            raise ContextWindowTooSmallError(
-                kept_tokens=None, required_tokens=minimum_tokens
+        window = await self._window_of_loaded_model()
+        if window is None:
+            await self._create(
+                [{"role": "user", "content": "Reply with {}."}], 1, _JSON_OBJECT
             )
-        if kept < minimum_tokens:
+            window = await self._window_of_loaded_model()
+        if window is None or window < minimum_tokens:
             raise ContextWindowTooSmallError(
-                kept_tokens=kept, required_tokens=minimum_tokens
+                model=self._model, window_tokens=window, required_tokens=minimum_tokens
             )
-        return kept
+        return window
 
     async def _create(
         self,

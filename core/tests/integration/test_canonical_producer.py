@@ -1337,7 +1337,9 @@ async def test_a_failed_checkpoint_check_stops_the_run_after_its_commit(
     async def _host_shrank() -> None:
         nonlocal checks
         checks += 1
-        raise ContextWindowTooSmallError(kept_tokens=4096, required_tokens=32768)
+        raise ContextWindowTooSmallError(
+            model="gpt-oss:120b", window_tokens=4096, required_tokens=32768
+        )
 
     async with session_maker() as session:
         with pytest.raises(ContextWindowTooSmallError):

@@ -8,16 +8,17 @@ not record token usage, so a rewrite of a truncated prompt is indistinguishable 
 Bank from a good one. The v11 full pass sat 61 minutes on its first cluster before it
 was stopped.
 
-The guard: before a pass (and at every checkpoint) the client sends ONE probe prompt of
-at least ``min_context_tokens`` words, asks for one token back, and reads the server's
-own ``usage.prompt_tokens``. A host that cut it — or reports no usage at all, so the cut
-cannot be ruled out — refuses the pass.
+The guard reads ``context_length`` for the LOADED model from Ollama's ``/api/ps`` (a
+metadata call), loading the model with a one-token request first if it is not running.
+A smaller window, or none readable, refuses the pass. A full-window test prompt was the
+first design; on the shared host a ~33k-token probe did not finish in 15 minutes.
 
-The ``AsyncOpenAI`` is a plain fake (ADR-003): no live endpoint.
+The ``AsyncOpenAI`` and the ``/api/ps`` reader are plain fakes (ADR-003).
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
@@ -29,9 +30,12 @@ from src.jd_bank.llm.client import (
     ChatClient,
     ContextWindowTooSmallError,
     LLMOutputInvalidError,
+    _ollama_root,
 )
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.rules import Rules, get_rules
+
+_MODEL = "gpt-oss:120b"
 
 
 def _fake_openai(create: AsyncMock) -> SimpleNamespace:
@@ -42,14 +46,8 @@ def _fake_openai(create: AsyncMock) -> SimpleNamespace:
 
 
 def _response(
-    content: str | None = "{}",
-    *,
-    prompt_tokens: int | None,
-    finish_reason: str = "stop",
+    content: str | None = "{}", *, finish_reason: str = "stop"
 ) -> SimpleNamespace:
-    usage = (
-        None if prompt_tokens is None else SimpleNamespace(prompt_tokens=prompt_tokens)
-    )
     return SimpleNamespace(
         choices=[
             SimpleNamespace(
@@ -58,13 +56,26 @@ def _response(
                 finish_reason=finish_reason,
             )
         ],
-        usage=usage,
+        usage=None,
     )
 
 
-def _sent_prompt(create: AsyncMock) -> str:
-    messages: list[dict[str, Any]] = create.await_args.kwargs["messages"]
-    return "".join(str(m["content"]) for m in messages)
+def _ps(*listings: Sequence[Mapping[str, Any]]) -> AsyncMock:
+    """A fake ``/api/ps``: successive calls return successive listings."""
+    return AsyncMock(side_effect=list(listings))
+
+
+def _client(
+    ps: AsyncMock, create: AsyncMock | None = None, *, model: str = _MODEL
+) -> tuple[ChatClient, AsyncMock]:
+    create = create or AsyncMock(return_value=_response())
+    client = ChatClient(
+        client=_fake_openai(create),
+        rules=get_rules(),
+        model=model,
+        loaded_models=ps,
+    )
+    return client, create
 
 
 # --- the knob ----------------------------------------------------------------------
@@ -77,86 +88,114 @@ def test_the_minimum_window_is_rulebook_data_and_ships_32768() -> None:
     assert get_rules().rewrite.min_context_tokens == 32768
 
 
-# --- the probe ---------------------------------------------------------------------
+# --- the check ---------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_a_host_that_keeps_the_whole_probe_passes() -> None:
-    create = AsyncMock(return_value=_response(prompt_tokens=36_100))
-    client = ChatClient(client=_fake_openai(create), rules=get_rules())
+async def test_a_loaded_model_with_a_big_enough_window_passes_without_inference() -> (
+    None
+):
+    ps = _ps(
+        [
+            {"name": "gemma4:26b", "context_length": 4096},
+            {"name": _MODEL, "context_length": 32768},
+        ]
+    )
+    client, create = _client(ps)
 
-    kept = await client.assert_context_window(32_768)
-
-    assert kept == 36_100
-    kwargs = create.await_args.kwargs
-    assert kwargs["max_tokens"] == 1  # the probe costs prompt processing, not output
-    # A tokenizer gives every space-separated word AT LEAST one token, so a probe of
-    # >= minimum words is >= minimum tokens: a kept count below it can only be a cut.
-    assert len(_sent_prompt(create).split()) >= 32_768
+    assert await client.assert_context_window(32768) == 32768
+    assert create.await_count == 0  # metadata only: the shared host does no work
 
 
 @pytest.mark.asyncio
-async def test_a_host_that_cut_the_probe_refuses_the_pass() -> None:
-    """THE 2026-11-21 shape: the server answered, no error, ``prompt_tokens`` 4096."""
-    create = AsyncMock(return_value=_response(prompt_tokens=4096))
-    client = ChatClient(client=_fake_openai(create), rules=get_rules())
+async def test_a_host_serving_a_4096_window_refuses_the_pass() -> None:
+    """THE 2026-11-21 shape."""
+    client, _ = _client(_ps([{"name": _MODEL, "context_length": 4096}]))
 
     with pytest.raises(ContextWindowTooSmallError) as caught:
-        await client.assert_context_window(32_768)
+        await client.assert_context_window(32768)
 
     message = str(caught.value)
-    assert "4096" in message and "32768" in message
+    assert "4096" in message and "32768" in message and _MODEL in message
     assert "OLLAMA_CONTEXT_LENGTH" in message  # says what to change, not just "no"
-    assert caught.value.kept_tokens == 4096
-    assert caught.value.required_tokens == 32_768
+    assert caught.value.window_tokens == 4096
 
 
 @pytest.mark.asyncio
-async def test_a_host_that_reports_no_usage_refuses_the_pass() -> None:
-    """No ``usage`` means the cut cannot be ruled out. Refusing is the only honest
-    answer — assuming a big window is exactly the assumption that failed."""
-    create = AsyncMock(return_value=_response(prompt_tokens=None))
-    client = ChatClient(client=_fake_openai(create), rules=get_rules())
+async def test_another_models_window_does_not_vouch_for_ours() -> None:
+    """A big window on a DIFFERENT loaded model says nothing about ours: ours is not
+    loaded, so it is loaded with one token and read again."""
+    ps = _ps(
+        [{"name": "gemma4:26b", "context_length": 131072}],
+        [
+            {"name": "gemma4:26b", "context_length": 131072},
+            {"name": _MODEL, "context_length": 4096},
+        ],
+    )
+    client, create = _client(ps)
 
-    with pytest.raises(ContextWindowTooSmallError, match="no token usage"):
-        await client.assert_context_window(32_768)
-
-
-# --- before a pass: which clients are probed ---------------------------------------
-
-
-def _client_with(create: AsyncMock, rules: Rules, *, model: str) -> ChatClient:
-    return ChatClient(client=_fake_openai(create), rules=rules, model=model)
+    with pytest.raises(ContextWindowTooSmallError):
+        await client.assert_context_window(32768)
+    assert create.await_count == 1
+    assert create.await_args.kwargs["max_tokens"] == 1  # the load costs one token
 
 
 @pytest.mark.asyncio
-async def test_a_pass_probes_the_rewrite_model_once_when_the_audit_shares_it() -> None:
+async def test_a_model_that_is_not_loaded_is_loaded_then_read() -> None:
+    ps = _ps([], [{"name": _MODEL, "context_length": 32768}])
+    client, create = _client(ps)
+
+    assert await client.assert_context_window(32768) == 32768
+    assert create.await_count == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "listing",
+    [[], [{"name": _MODEL}], [{"name": _MODEL, "context_length": "32768"}]],
+    ids=["never-loads", "no-context-length", "not-a-number"],
+)
+async def test_a_window_that_cannot_be_read_refuses_the_pass(
+    listing: list[dict[str, Any]],
+) -> None:
+    """Assuming a big window is exactly the assumption that failed."""
+    client, _ = _client(_ps(listing, listing))
+
+    with pytest.raises(ContextWindowTooSmallError, match="no context length"):
+        await client.assert_context_window(32768)
+
+
+def test_the_native_api_root_is_the_openai_base_without_v1() -> None:
+    assert _ollama_root("http://aria-gb10-2:11434/v1") == "http://aria-gb10-2:11434"
+    assert _ollama_root("http://aria-gb10-2:11434/v1/") == "http://aria-gb10-2:11434"
+    assert _ollama_root("http://localhost:11434") == "http://localhost:11434"
+
+
+# --- before a pass: which clients are checked --------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_a_pass_checks_the_rewrite_model_once_when_the_audit_shares_it() -> None:
     rules = get_rules()
-    rewrite_create = AsyncMock(return_value=_response(prompt_tokens=40_000))
-    audit_create = AsyncMock(return_value=_response(prompt_tokens=40_000))
-    rewrite = _client_with(rewrite_create, rules, model="gpt-oss:120b")
-    audit = _client_with(audit_create, rules, model="gpt-oss:120b")
+    rewrite_ps = _ps([{"name": _MODEL, "context_length": 32768}])
+    audit_ps = _ps([{"name": _MODEL, "context_length": 32768}])
+    rewrite, _ = _client(rewrite_ps)
+    audit, _ = _client(audit_ps)
 
     await _check_context_windows(rewrite, audit, rules)
 
-    assert rewrite_create.await_count == 1
-    assert audit_create.await_count == 0  # same model, same loaded runner
+    assert rewrite_ps.await_count == 1
+    assert audit_ps.await_count == 0  # same model, same loaded runner
 
 
 @pytest.mark.asyncio
-async def test_a_pass_probes_a_different_audit_model_too() -> None:
+async def test_a_pass_checks_a_different_audit_model_too() -> None:
     """A separately-loaded model has its own window: the audit's small window must
     not hide behind the rewrite's big one."""
-    rules = get_rules()
-    rewrite = _client_with(
-        AsyncMock(return_value=_response(prompt_tokens=40_000)),
-        rules,
-        model="gpt-oss:120b",
-    )
-    audit = _client_with(
-        AsyncMock(return_value=_response(prompt_tokens=4096)),
-        rules,
-        model="gpt-oss:20b",
+    rules: Rules = get_rules()
+    rewrite, _ = _client(_ps([{"name": _MODEL, "context_length": 32768}]))
+    audit, _ = _client(
+        _ps([{"name": "gpt-oss:20b", "context_length": 4096}]), model="gpt-oss:20b"
     )
 
     with pytest.raises(ContextWindowTooSmallError):
@@ -164,7 +203,7 @@ async def test_a_pass_probes_a_different_audit_model_too() -> None:
 
 
 @pytest.mark.asyncio
-async def test_a_no_llm_pass_probes_nothing() -> None:
+async def test_a_no_llm_pass_checks_nothing() -> None:
     await _check_context_windows(None, None, get_rules())  # no client, no call
 
 
@@ -176,10 +215,8 @@ async def test_a_rewrite_that_stopped_on_length_says_so_in_its_failure() -> None
     """P6 records WHY a rewrite failed. A reply cut by ``max_tokens`` / the window
     fails validation like any bad JSON; the reason must name the stop, or a full
     window reads as a model mistake."""
-    create = AsyncMock(
-        return_value=_response("", prompt_tokens=3000, finish_reason="length")
-    )
-    client = ChatClient(client=_fake_openai(create), rules=get_rules())
+    create = AsyncMock(return_value=_response("", finish_reason="length"))
+    client, _ = _client(_ps(), create)
 
     with pytest.raises(LLMOutputInvalidError, match="stopped on length"):
         await client.chat_json(

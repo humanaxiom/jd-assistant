@@ -240,8 +240,8 @@ docker compose config | grep -m1 '^name:'      # must NOT print "name: jd-bank"
 #    aria-gb10-2 must be free (no other producer pass); the v9 Bank is shared with nobody yet
 #    ...and must give the model a big enough window (HR-341, rewrite.min_context_tokens,
 #    32,768). On 2026-11-21 it served gpt-oss:120b at 4,096 and cut every longer prompt
-#    with no error. `make canonical-drafts` now probes this itself and exits 2 if not;
-#    `make smoke` runs the same probe. To look by hand (needs the model loaded):
+#    with no error. `make canonical-drafts` now checks this itself and exits 2 if not;
+#    `make smoke` runs the same check. To look by hand (needs the model loaded):
 #      curl -s http://aria-gb10-2:11434/api/ps   # "context_length" must be >= 32768
 #    Fix on the host: OLLAMA_CONTEXT_LENGTH=32768, then restart Ollama.
 

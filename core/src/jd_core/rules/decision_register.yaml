@@ -10031,10 +10031,12 @@ decisions:
       passes ran at 4,096 is not known.
     impact_if_changed: >-
       Does NOT move `rules_version`; decides no JD's content or score, only whether a
-      pass may start. The producer sends one probe of at least this many tokens (asking
-      for one token back) before any database work and again after every checkpoint
-      commit; a host that keeps fewer, or reports no usage, refuses the pass (exit 2)
-      with the work so far committed. Too high refuses a host that would have been fine;
+      pass may start. The producer reads the loaded model's `context_length` from
+      Ollama's `/api/ps` (loading the model with a one-token request if it is not
+      running) before any database work and again after every checkpoint commit; a
+      smaller window, or none readable, refuses the pass (exit 2) with the work so far
+      committed. A full-window test prompt was tried first and dropped: on the shared
+      host a ~33k-token probe did not finish in 15 minutes. Too high refuses a host that would have been fine;
       too low lets truncation through. Pinned by `test_context_window_guard.py` and the
       live smoke `test_the_inference_host_holds_a_full_rewrite_window`.
     status: open
