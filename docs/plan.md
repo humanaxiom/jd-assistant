@@ -49,7 +49,7 @@ tomorrow, without me?* Full statement in [`CLAUDE.md`](../CLAUDE.md); runbook in
 ---
 ---
 
-# ▶ NOW — 2026-11-20: HR testers on the live Bank
+# ▶ NOW — 2026-11-24: HR testers on the live Bank, v9 redrafting, VPFA spinoff planned
 
 **This section comes first. Everything below it is earlier ordering, annotated with what has
 since happened.** State, traps and evidence are in [`HANDOFF.md`](../HANDOFF.md) under
@@ -64,14 +64,20 @@ Form. **External access is deferred by the owner (2026-11-20).**
 | # | what | gate to start | why here |
 |---|---|---|---|
 | **U1** | **Support the testers**: triage what arrives through "Report a problem", fix through ordinary PRs, each with its own live smoke check | nothing — ongoing | This is the phase. A defect a tester hits outranks anything below |
-| **V2′** | **Parser v11** — `_MAX_BULLET = 400` removed (HR-340, owner ruling 2026-11-20 "remove the 400 cap"; it cut 5,716 items in 4,668 v9 parses) | PR #227 into `bank/v9`, gates green; the owner merges | v11 changes what a parse contains: the v9 Bank is rebuilt, and smoke goes green only on a v11 Bank |
-| **V3′** | **Rebuild and redraft v9**: merge #226 (P6 + prompt v5) and #227, rebuild from the archive (§10 runbook), run the full LLM pass (~44 h — **replaces** the 641 retry), then `embed-roles`, `bank-audit` and `smoke` on v9 | both PRs merged; the `dev-anonymous` role decided (a wipe deletes it); `aria-gb10-2` checked free (it is shared — 76 s for "ok" on 2026-11-20); **not during tester sessions** | A failure now records its reason (P6). The client's 600 s SDK timeout × 3 is unregistered, so a stalled host costs ~1 h per cluster |
+| ~~**V2′**~~ | ✅ **Parser v11** merged into `bank/v9` (#227, HR-340) | done 2026-11-20 | — |
+| **V3′** | **Redraft v9.** ✅ #226, #227 and #228 (HR-341 context-window guard) merged; ✅ rebuilt to clustering at v11; ✅ the `dev-anonymous` role let go. ▶ **The full pass is running** (`--resume` since 2026-11-22, after a dev-box reboot). Then `embed-roles`, `bank-audit` and `smoke` on v9 | the pass finishing; HANDOFF item 3 has the restart and verification steps | The host was cutting prompts at 4,096 tokens and then ran on CPU. Both are fixed on the host, and both fail silently, so **check `/api/ps` before any pass** |
+| **V3a** | **Register the rewrite client's request timeout; drop the SDK's hidden retries** | nothing; core PR into `bank/v9`, next id HR-342 | The SDK's 600 s default and up to nine attempts are why a CPU-bound host gave 80 minutes of nothing with no error |
+| **S1** | **VPFA spinoff**: a separate app for the VPFA portfolio (Bank, Builder, funnel, CRF) that imports snapshots of this Bank. [`plans/VPFA-SPINOFF-PLAN.md`](plans/VPFA-SPINOFF-PLAN.md) | owner decisions D1–D7; a named technical custodian | The only work in **this** repo is `make bank-snapshot` (plan §5.1), a core PR. Everything else is built in the new repo |
 | **V4** | **Ship v9 to `main`**: parser v10, rewrite fidelity, migration 0008 | v9 smoke green; `main` merged into `bank/v9` with the register de-duplicated; the owner's ruling on the `dev-anonymous` publication | Ordinary PRs. Migration 0008 locks the live `parsed_jds` for about 10 s, and the live Bank then needs its own re-parse and producer pass, scheduled deliberately outside tester hours |
 | **R1** | **Re-cut the offline bundle** (`.\build.ps1 -Bundle`) | nothing | The owner reported it done on 2026-11-20, but `dist/jd-bank-bundle` still dated from 2026-08-28 when checked. Confirm the new bundle's location; one that predates #213/#215 is stale |
 | **J3 · J5** | CUPE Part II questionnaire · re-evaluation package | J5 also needs Q5 | Re-evaluations are half of HR's guidance and nothing serves them yet |
 | **K1** | PeopleSoft position import | ⏸ owner Q3: export TBD | The filename position (HR-325–331, HR-339) is now the join key it will use |
 | **G · H · F** | Upload a JD into the Builder · combine roles into a new JD · JD currency after publishing | designs in [`plans/`](plans/) | Tester feedback should decide which comes first; F stays last (it acts on PUBLISHED JDs) |
 | **BGL** | External access and TLS (BGL-1/2 below) | ⏸ **owner, 2026-11-20** | Deferred by instruction; do not start it unprompted |
+
+✅ **Done since the 2026-11-20 ordering:** #226, #227 and #228 merged into `bank/v9`; v9
+rebuilt at parser v11; the inference host's window raised to 32,768 and its GPU setup
+fixed (both by the owner, 2026-11-21).
 
 ✅ **Done since the 2026-10-28 ordering:**
 - **V1** merged into `bank/v9` on 2026-10-29;

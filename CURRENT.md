@@ -30,6 +30,7 @@ leave the pointer.
 | Is sign-in actually on? | the box-local `.env`, never the compose default (which is off) | `grep -c '^CAS_ENABLED=true' .env`, then `curl` the LAN address's `/jd-bank/ui/queue`: you must get a 303 to login |
 | What is the next free HR register id? | the register YAML on **`main` and `origin/bank/v9`** | `grep -oE '^  - id: HR-[0-9]+' core/src/jd_core/rules/decision_register.yaml \| sort -t- -k2 -n \| tail -1`, on both |
 | **Does the system actually WORK end to end?** | 🔴 the LIVE smoke — fixtures cannot be stale, so only this counts | `make smoke` — **run it; do not read its status off this page.** ⚠ This row said "currently RED on two known gaps" for three days after smoke went GREEN (2026-09-12), which is exactly the bug the header of this file forbids: a STATUS written here instead of a pointer |
+| **Is the inference host fit for a model pass?** Two silent failures: prompts cut at a small window, and the model running on CPU | the host's own status, never a document | `curl -s http://aria-gb10-2:11434/api/ps`: `context_length` ≥ `rewrite.min_context_tokens` (HR-341) **and** `size_vram` = `size`. Never probe it with large prompts |
 | Is the archive itself as claimed? | **the source files** — `C:\repos\hris\fixtures\SFU_JDs` (read-only) | `make field-audit` · `make singletons` |
 | What we do next | [`docs/plan.md`](docs/plan.md) | — |
 | What is half-finished right now | [`HANDOFF.md`](HANDOFF.md) | verify against `gh pr list` before trusting it |
@@ -108,6 +109,7 @@ argument disagree, **you have two hypotheses and have tested one.**
 | [`docs/adr/`](docs/adr/) | 🟢 **live** | architecture decisions |
 | [`deploy/README.md`](deploy/README.md) | 🟢 **live** | the offline bundle + install, and running a second Bank beside the live one |
 | [`docs/plans/`](docs/plans/) | 🟢 **live designs** | one file per track; each says at its top what is built. Tracks I·J·K, G (upload), F (currency), H (combine roles) |
+| [`docs/plans/VPFA-SPINOFF-PLAN.md`](docs/plans/VPFA-SPINOFF-PLAN.md) | 🟢 **live proposal** | the engineering plan for a separate VPFA app (Bank, Builder, funnel, CRF) built on snapshots of this Bank; [`VPFA-SPINOFF-BRIEF.md`](docs/plans/VPFA-SPINOFF-BRIEF.md) is its policy/risk briefing |
 | [`docs/JD-BUILDER-MANAGER-EXPLAINER.md`](docs/JD-BUILDER-MANAGER-EXPLAINER.md) | 🟢 **live** | the Builder explained for a hiring manager |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | 🟠 **superseded** | the 2026-08-13 review, as a record |
 | [`docs/STATUS-2026-08-24.md`](docs/STATUS-2026-08-24.md) | 🟠 **diagnosis stands, prescription superseded** | why priorities were reset |
