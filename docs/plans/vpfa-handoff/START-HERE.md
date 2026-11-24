@@ -226,17 +226,15 @@ Only `verify done` should print.
 cd C:\vpfa
 git clone -b main handoff\parent\jd-assistant.bundle jd-assistant-parent    # -b main is required
 git -C jd-assistant-parent branch bank/v9 origin/bank/v9                    # the code that made the snapshot
-mkdir vpfa-jd-bank | Out-Null; cd vpfa-jd-bank; git init -b main
-@"
-# never commit Bank data or secrets
-snapshot/
-*.jsonl
-.env
-"@ | Set-Content .gitignore
+git clone https://github.com/sfu-aria/Vpfa-jda.git vpfa-jd-bank             # the new project, already seeded
+cd vpfa-jd-bank
 mkdir snapshot | Out-Null
 Copy-Item -Recurse (Get-ChildItem ..\handoff\snapshot -Directory)[0].FullName snapshot\
-git add .gitignore; git commit -m "chore: initial .gitignore (no Bank data, no secrets)"
+git status                                                                  # must say "nothing to commit": snapshot\ is ignored
 ```
+
+If `git status` lists anything under `snapshot\`, **stop**. The `.gitignore` is missing or
+damaged, and the data must not be committed.
 
 You now have:
 
@@ -244,8 +242,11 @@ You now have:
 C:\vpfa\
   handoff\               the bundle as received, kept unchanged
   jd-assistant-parent\   the parent project, a read-only reference (branches main and bank/v9)
-  vpfa-jd-bank\          the new project: one commit, plus snapshot\v9-<date>\ (git-ignored)
+  vpfa-jd-bank\          the new project: the seeded repo, plus snapshot\v9-<date>\ (git-ignored)
 ```
+
+The seeded repo already holds the design (`docs/design/`, copied from the parent), this
+file and its tools (`docs/handoff/`), a `README.md` and the `.gitignore`.
 
 **Port from `bank/v9`**, not `main`: it is the code that produced the snapshot's data (parser
 v11, prompt v5). Once the parent merges v9 into `main` (its plan item V4), the two are the
@@ -268,10 +269,10 @@ claude
 
 Paste this as the first message:
 
-> You are building **VPFA JD Bank**, a focused spinoff of SFU's JD Bank, in this empty
-> repo. Its design is fixed in `..\jd-assistant-parent\docs\plans\VPFA-SPINOFF-PLAN.md`:
-> read it in full first, then `..\jd-assistant-parent\docs\ORAL-HISTORY.md` and
-> `..\jd-assistant-parent\CLAUDE.md`. The parent is a **read-only reference**. Port from its
+> You are building **VPFA JD Bank**, a focused spinoff of SFU's JD Bank, in this repo. It
+> holds only documentation so far. Its design is fixed in `docs\design\VPFA-SPINOFF-PLAN.md`
+> (a copy; the parent's `docs\plans\` is the source of record): read it in full first, then
+> `docs\design\PARENT-ORAL-HISTORY.md` and `..\jd-assistant-parent\CLAUDE.md`. The parent is a **read-only reference**. Port from its
 > **`bank/v9`** branch, which produced our data; never edit the parent.
 >
 > **Owner rulings (plan §0):**
@@ -306,7 +307,7 @@ Paste this as the first message:
 > **Start with Phase 0 (plan §5.0), then Phase 1's spinoff side (§5.1):**
 > `make import-snapshot`, which verifies the hashes, imports in one transaction, is
 > idempotent, refuses a count mismatch, and never overwrites local drafts on a later
-> import. The export side is `..\handoff\tools\export_snapshot.py`; leave turning it into
+> import. The export side is `docs\handoff\tools\export_snapshot.py`; leave turning it into
 > the parent's `make bank-snapshot` for later.
 >
 > Before you write code, write the new `CLAUDE.md`, `CURRENT.md` and `HANDOFF.md` (plan
@@ -324,13 +325,9 @@ Paste this as the first message:
 | Confirm the **Campus Services neighbours**: Ancillary Services; Meeting, Event and Conference Services; Residence Life; Bookstore/Spirit Shop and Residences spellings; Parking | VPFA | plan §2 |
 | Ask the privacy office whether they want a **privacy impact assessment** before the pilot | owner | brief §5 |
 
-Once the repo is **private** and the Team account's GitHub user has access:
-
-```powershell
-cd C:\vpfa\vpfa-jd-bank
-git remote add origin https://github.com/sfu-aria/Vpfa-jda.git
-git push -u origin main
-```
+The repo was seeded on 2026-11-24 with documentation and tooling only. No Bank data, no
+parent source and no HR documents are in it: those travel in the bundle. **Make it private
+before the new session pushes any code.**
 
 ---
 
