@@ -54,22 +54,32 @@ been decided, so that unit currently shows none.
 
 | concern | how it is handled |
 |---|---|
-| **Who can publish a job description?** | Nobody, automatically. Every draft stays a draft until a named reviewer approves it. Approval re-checks SFU's standards at that moment, and the action is recorded permanently |
+| **Who can publish a job description?** | Nobody, automatically. Every draft stays a draft until a named VPFA reviewer approves it. Approval re-checks SFU's standards at that moment, and the action is recorded permanently |
 | **Where does the content go?** | Nowhere outside SFU-controlled systems. The AI models run on SFU hardware; no cloud AI service and no outside vendor sees any job description. If that ever had to change, it would be a new privacy decision, not a quiet change |
 | **Is personal information involved?** | Job descriptions describe roles, not people. Where an old description names the person in the job, that name is removed as a quality step |
 | **Who can get in?** | SFU sign-in (CAS) only, with three roles: author, reviewer, administrator. The new version will **refuse to start** without sign-in switched on, a lesson from the prototype, where a configuration slip once left it open on the local network for eleven days |
 | **Does the AI make things up?** | It is not allowed to. In the prototype, testing caught the model inventing duties; since then, the rule is that it may reword, never invent, and every result is re-checked by fixed rules. The VPFA version does not use AI to rewrite at all: it only suggests a summary, which the manager accepts or discards |
 | **What if the AI server is slow or down?** | Reading, the funnel, the form and approvals do not need it. Search falls back to titles. We have learned to check the AI server's settings before relying on it |
-| **Who decides the standards?** | HR. Every threshold and rule the software applies is listed in a decision register that HR can read and rule on; what has not been ruled on is marked open, not quietly decided by us |
+| **Who decides the standards?** | HR's standards apply as they stand today. For this application **VPFA acts as HR's proxy**: every threshold and rule is listed in a decision register, VPFA can rule on each one, and each ruling is recorded under the person's name. Anything not yet ruled on is marked open, not quietly decided by us, and anywhere VPFA departs from HR is shown as such |
+| **Who approves?** | Named VPFA reviewers: Denise (VPFA office), Galib (Safety & Risk Services, or a designate), and two more to be named. Each approval is recorded under the reviewer's SFU sign-in |
 | **What if the person who built it leaves?** | The project is documented for hand-over: a full engineering plan, a history of why each rule exists, and scripts that install it without the original developer |
 
 ## 5. What we need
 
-1. **Scope:** confirm the units, and whether Finance is in.
-2. **Membership:** a contact in each unit to confirm which departments belong to it,
-   starting with **Campus Services**.
-3. **Reviewers:** who approves VPFA job descriptions: HR Classification & Compensation, or a
-   named person per unit with HR sign-off?
+Settled on 2026-11-24:
+- **Scope:** every unit under VPFA, Finance included.
+- **Campus Services:** includes Residence and Housing, and the Bookstore.
+- **Reviewers:** Denise (VPFA office) and Galib (Safety & Risk Services, or a designate),
+  plus two more to be named.
+- **Standards:** VPFA acts for HR on the standards the application applies.
+
+Still open:
+1. **Two more reviewers**, covering IT Services, Facilities, Finance and Campus Services.
+2. **Membership:** confirm a few neighbouring departments for Campus Services: Ancillary
+   Services; Meeting, Event and Conference Services; Residence Life.
+3. **Standards:** confirm that HR is content for VPFA to act as its proxy for this
+   application. Any standard VPFA changes would differ from HR's, and the application will
+   show where it does.
 4. **Privacy:** whether the privacy office wants a privacy impact assessment before a
    pilot.
 5. **Hosting:** agreement for IT Services to provide a server, a web address and SFU

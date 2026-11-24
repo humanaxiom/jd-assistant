@@ -119,7 +119,15 @@ on `main` **and** on `origin/bank/v9`.
    - **Briefing for the owner's meeting** with the VPFA Senior Policy Advisor and the Chief
      Risk & Safety Officer:
      [`docs/plans/VPFA-SPINOFF-BRIEF.md`](docs/plans/VPFA-SPINOFF-BRIEF.md).
-   - **Waiting on:** owner decisions D1–D7 (plan §0) and a named technical custodian.
+   - **Ruled 2026-11-24** (plan §0):
+     - the whole Bank, VPFA by default;
+     - everything under VPFA, Finance included;
+     - Residence and Housing and Bookstore are Campus Services;
+     - minimal review, with reviewers Denise (VPFA office), Galib (Chief SRS or designate)
+       and two TBD;
+     - **VPFA proxies for HR.**
+   - **Waiting on:** D5 (hosting), D6 (repo), the Campus Services neighbours (plan §2), the
+     two other reviewers, and a named technical custodian.
    - **The only work it puts in THIS repo:** `make bank-snapshot` (plan §5.1), a core PR
      that writes a versioned, hashed export of the Bank.
 6. **Re-cut the offline bundle before any fresh-box install.** The owner reported it done
@@ -139,8 +147,8 @@ on `main` **and** on `origin/bank/v9`.
 
    Order and gates: [`docs/plan.md`](docs/plan.md).
 8. **Decisions that are not ours.** Don't work around them; keep them visible.
-   - the VPFA spinoff's D1–D7, including **which departments make up Campus Services**
-     (it has none today);
+   - the VPFA spinoff's D5 and D6, the two other reviewers, and the Campus Services
+     neighbours (plan §2);
    - **HR-105**, the territorial acknowledgement wording. Exports spell it without its
      special characters, and testers are told;
    - **Q8**, which model reads queries. Switching I3 on makes smoke place real model calls,

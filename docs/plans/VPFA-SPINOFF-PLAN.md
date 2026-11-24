@@ -1,6 +1,6 @@
 # VPFA JD Bank: software engineering plan for a focused spinoff
 
-**Status:** proposal, written 2026-11-24. Nothing in it is built yet.
+**Status:** proposal, written 2026-11-24, with the owner's rulings of the same day in §0. Nothing in it is built yet. The Campus Services departments go into the **spinoff's** copy of `org_units.yaml` (§5.2); the parent's rulebook is deliberately not changed.
 **Written for:** the engineer who will build and run the spinoff, a colleague or the owner's
 second account working with Claude Code on a Claude Team (Premium seat) account, and the
 Claude Code sessions they run. It assumes no access to this machine, to this machine's
@@ -25,8 +25,24 @@ assistant memory, or to the person who wrote it.
 
 ## 0. Decisions this plan needs from the owner
 
-Each one has a recommendation, and the plan below is written as if it were accepted. Change
-any of them and the sections it names change too.
+### ✅ Owner rulings, 2026-11-24
+
+| # | ruling |
+|---|---|
+| **D1** | **Accepted:** import the whole Bank and show VPFA by default |
+| **D2** | **Everything under VPFA is in scope**, so **Finance is included** |
+| **D3** | **Residence and Housing** and **Bookstore** belong to Campus Services. Other spellings and neighbouring departments are listed in §2 as still to confirm |
+| **D4** | **Accepted:** minimal review in the spinoff. **Reviewers:** Denise (VPFA office), Galib (Chief, Safety & Risk Services, or a designate), and two more for the other units, TBD |
+| **D7** | **VPFA acts as HR's proxy.** VPFA rules on the register entries the spinoff inherits, and VPFA reviewers approve its JDs (§5.6, §7.1) |
+| D5, D6 | Not yet ruled. The recommendations below stand |
+
+⚠ **What D7 changes.** The parent's register entries are HR's to ratify. In the spinoff,
+VPFA ratifies them as HR's proxy. Record each ratification in the spinoff's register with
+`decided_by` naming the VPFA person, and a `decision_note` saying they acted as HR's
+proxy. A value VPFA changes then **differs from the parent's** for the same HR id. Show
+that difference on the spinoff's register page, so nobody reads a VPFA ruling as HR's.
+
+The original recommendations follow, as the record of what was proposed.
 
 | # | decision | recommendation | why | changes |
 |---|---|---|---|---|
@@ -83,7 +99,7 @@ before quoting them.**
 | IT Services | 41 |
 | Finance | 22 |
 | Safety & Risk Services | 9 |
-| Campus Services | **0**: no departments assigned (D3) |
+| Campus Services | **0**: no departments assigned (D3). Owner-confirmed 2026-11-24: Residence and Housing (25), Bookstore (13) |
 | **No department recorded** (any unit) | **755 of 2,499** |
 
 What this means for the design:
@@ -95,6 +111,18 @@ What this means for the design:
 3. **Unit membership is people-work.** The parent has an exact list per unit, never a
    pattern, and six departments still unassigned. The spinoff inherits that list and that
    discipline.
+
+**Campus Services: still to confirm** (live Bank, 2026-11-24; role counts by department as
+written on the files):
+
+| department string | roles | question |
+|---|---|---|
+| `bookstore/spirit shop`, `bookstore and spirit shop` | 4, 1 | the same unit as Bookstore? |
+| `residences` | 2 | the same as Residence and Housing? |
+| `ancillary services`, `ancillary services, meetings, event, conferences services`, `ancillary office administration` | 6, 1, 1 | Campus Services? |
+| Meeting, Event and Conference Services (six spellings) | 6 | Campus Services? |
+| `residence life`, `avp students and international, residence life` | 3, 1 | Student Services rather than Campus Services? |
+| `parking services` | 1 | currently in **Facilities**; move? |
 
 ---
 
@@ -396,8 +424,9 @@ left out, but it is not worth rewriting.
 |---|---|---|
 | **Product owner** | the parent's owner | scope, D1–D7, accepts each phase, merges or delegates merging, runs the Friday-style briefings |
 | **Technical custodian** | the colleague, or the owner's second account | runs Claude Code, owns the repo, **reviews and merges** every PR, holds the `.env`, runs smoke before every merge. The single accountable engineer |
-| **HR policy owners** | HR Classification & Compensation | ratify register entries; own the JD Toolkit standards the gates encode; are the **reviewers** in D4, or name them |
-| **VPFA unit champions** | one each from the VPFA office, ITS, SRS, Facilities, Campus Services (+ Finance per D2) | supply and vet unit membership (D3); pilot users; first readers of the funnel |
+| **Policy owner, as HR's proxy** (D7) | VPFA | ratifies the register entries the spinoff inherits, recording each one as a proxy ruling; HR's own rulings in the parent still apply wherever VPFA has not ruled |
+| **Reviewers** (D4) | **Denise** (VPFA office); **Galib** (Chief, Safety & Risk Services, or a designate); **two more, TBD**, covering ITS, Facilities, Finance and Campus Services | approve or reject submitted drafts; every action is audited under their CAS identity. The four of them are the first `reviewer` accounts |
+| **VPFA unit champions** | one each from the VPFA office, ITS, SRS, Facilities, Finance and Campus Services (may be the reviewers) | supply and vet unit membership (D3); pilot users; first readers of the funnel |
 | **ITS infrastructure** | ITS | VM, DNS, TLS, CAS registration, firewall, backups, the inference host |
 | **Privacy and risk** | Chief Risk & Safety Officer's office; SFU privacy office | review the data flows (§10). A privacy impact assessment if the privacy office asks for one; the trigger to re-decide if inference moves |
 | **Inference host owner** | whoever runs `aria-gb10-2` | keeps the model on the GPU with a ≥32k context window; announces maintenance |
@@ -519,10 +548,11 @@ narrative is in [`../ORAL-HISTORY.md`](../ORAL-HISTORY.md), and the harness-leve
 
 ## 11. Open questions to bring to Friday
 
-1. D1–D3: is the VPFA scope right, Finance included, and who supplies the Campus Services
-   list?
-2. D4: who are the reviewers for VPFA roles: HR Classification & Compensation, or a named
-   person per unit with HR sign-off?
+1. ✅ Scope ruled (D1–D3): everything under VPFA, Finance included. Still open: the
+   Campus Services neighbours in §2.
+2. ✅ Reviewers named (D4): Denise and Galib, plus two TBD. **Who are the other two**, and
+   which units do they cover? And is SRS's sign-off on behalf of VPFA acceptable to HR, given
+   VPFA proxies for HR (D7)?
 3. Does the privacy office want a privacy impact assessment before the pilot, given the
    data is job descriptions (not personal records) and inference stays on SFU-controlled
    hardware?
