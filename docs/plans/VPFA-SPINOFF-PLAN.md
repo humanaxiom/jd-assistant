@@ -462,6 +462,11 @@ and hooks in `<repo>/.claude/settings.json` (no-commit-to-main, black on save).
 | the parent's live Bank | runs on the owner's desk box | snapshots (§5.1) |
 | inference access | network-level | ITS firewall rule (§6.2) |
 
+**The handoff kit:** [`vpfa-handoff/`](vpfa-handoff/). `START-HERE.md` there is the
+single instruction set: export the v9 snapshot, package it with the parent source, move it
+to the new machine, and start Claude Code with a kickoff prompt. The bundle itself, with
+data, never goes in git.
+
 ### 8.2 Day 1 for the custodian
 1. Read this plan, [`VPFA-SPINOFF-BRIEF.md`](VPFA-SPINOFF-BRIEF.md), the parent's
    [`ORAL-HISTORY.md`](../ORAL-HISTORY.md) and its `CLAUDE.md`.
