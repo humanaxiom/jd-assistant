@@ -185,7 +185,11 @@ Install:
 - **Docker Desktop** (Windows or macOS) or Docker Engine with compose (Linux);
 - **Claude Code**, signed in with the **Team** account.
 
-`gh`, the GitHub CLI, is optional until the repo goes on GitHub.
+`gh`, the GitHub CLI, is optional.
+
+The repo `sfu-aria/Vpfa-jda` will be **private**, so this machine needs a GitHub account
+with access to it. Git for Windows asks you to sign in in the browser on the first clone.
+With `gh`, run `gh auth login` once beforehand.
 
 If this machine has never committed with git:
 
