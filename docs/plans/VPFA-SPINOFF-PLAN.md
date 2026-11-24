@@ -34,7 +34,8 @@ assistant memory, or to the person who wrote it.
 | **D3** | **Residence and Housing** and **Bookstore** belong to Campus Services. Other spellings and neighbouring departments are listed in §2 as still to confirm |
 | **D4** | **Accepted:** minimal review in the spinoff. **Reviewers:** Denise (VPFA office), Galib (Chief, Safety & Risk Services, or a designate), and two more for the other units, TBD |
 | **D7** | **VPFA acts as HR's proxy.** VPFA rules on the register entries the spinoff inherits, and VPFA reviewers approve its JDs (§5.6, §7.1) |
-| D5, D6 | Not yet ruled. The recommendations below stand |
+| **D6** | **`https://github.com/sfu-aria/Vpfa-jda`** (owner, 2026-11-24). ⚠ It was created **public**; it must be made **private** before anything is pushed |
+| D5 | Not yet ruled. The recommendation below stands |
 
 ⚠ **What D7 changes.** The parent's register entries are HR's to ratify. In the spinoff,
 VPFA ratifies them as HR's proxy. Record each ratification in the spinoff's register with

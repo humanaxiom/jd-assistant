@@ -281,8 +281,10 @@ Paste this as the first message:
 > - a minimal review step, with VPFA reviewers;
 > - VPFA acts as HR's proxy for the rulebook register.
 >
-> **Still open, so ask me:** hosting (D5), the GitHub repo's name and home (D6), the
-> remaining Campus Services departments (plan §2), and two of the four reviewers.
+> **The repo (D6):** `https://github.com/sfu-aria/Vpfa-jda`, which must stay **private**.
+>
+> **Still open, so ask me:** hosting (D5), the remaining Campus Services departments
+> (plan §2), and two of the four reviewers.
 >
 > **The data:** `snapshot\v9-<date>\` is a snapshot of the parent's v9 Bank. Its format is
 > the parent's own tables as JSONL: `clusters`, `canonical_jds` (every version; `status`
@@ -308,25 +310,25 @@ Paste this as the first message:
 > the parent's `make bank-snapshot` for later.
 >
 > Before you write code, write the new `CLAUDE.md`, `CURRENT.md` and `HANDOFF.md` (plan
-> §8.3), and ADR-001 to ADR-007 (plan §3.2). Show me the list of D5/D6 questions before
-> Phase 0's CI work.
+> §8.3), and ADR-001 to ADR-007 (plan §3.2). Show me the list of D5 questions before
+> Phase 0's CI work. Push to `origin` only after I confirm the repo is private.
 
 ### B6. Owner tasks in parallel (start in week 1; these are the long poles)
 
 | task | who | why it is early |
 |---|---|---|
 | Decide **D5 hosting**: an SFU VM with Docker, TLS, CAS on | owner + ITS | ITS lead time |
-| Decide **D6**: repo name and GitHub home; give the Team account's user admin on it | owner | CI needs it |
+| ✅ **D6**: `https://github.com/sfu-aria/Vpfa-jda`. **Make it private** (`gh repo edit sfu-aria/Vpfa-jda --visibility private --accept-visibility-change-consequences`) and give the Team account's GitHub user admin on it | owner | it was created **public** on 2026-11-24 |
 | ITS tickets: VM, DNS name, TLS certificate, **CAS service registration** for the new address, firewall (inbound 443 campus-only; outbound to `aria-gb10-2:11434` and CAS only) | ITS | plan §6.2 |
 | Name the **two other reviewers**, covering ITS, Facilities, Finance and Campus Services | owner | they become the first `reviewer` accounts |
 | Confirm the **Campus Services neighbours**: Ancillary Services; Meeting, Event and Conference Services; Residence Life; Bookstore/Spirit Shop and Residences spellings; Parking | VPFA | plan §2 |
 | Ask the privacy office whether they want a **privacy impact assessment** before the pilot | owner | brief §5 |
 
-When the repo exists on GitHub:
+Once the repo is **private** and the Team account's GitHub user has access:
 
 ```powershell
 cd C:\vpfa\vpfa-jd-bank
-git remote add origin <url>
+git remote add origin https://github.com/sfu-aria/Vpfa-jda.git
 git push -u origin main
 ```
 
