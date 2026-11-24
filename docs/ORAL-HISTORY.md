@@ -8,7 +8,8 @@ decision. None of them is today's figure. For today's figures go to `/jd-bank/ui
 [`../HANDOFF.md`](../HANDOFF.md).
 
 Written 2026-11-20 from the repo's own records: the build record, three generations of
-handoff, the findings log, the decision register and the git history. Where it says "we",
+handoff, the findings log, the decision register and the git history. §8b was added on
+2026-11-24 from that session's own measurements. Where it says "we",
 it means the owner and the assistant sessions that built this together.
 
 ---
@@ -260,6 +261,57 @@ The review's other findings became #219–#224, merged on 2026-11-20:
 Every one shipped with `make smoke` green on its own merged head. The owner then ran
 `launch.ps1`, and smoke went green again on the deployed `main`.
 
+## 8b. The v9 redraft, and two silent failures on the inference host (2026-11-20 → 11-24)
+
+With testers on the live Bank, attention went back to v9. The owner ruled on 2026-11-20 to
+**remove the last cap** too, the 400-character limit on list items (HR-340, parser v11),
+and to fix the rewrite prompt (v5). Both merged into `bank/v9` the same day, with P6, which
+makes a failed rewrite record **why** it failed. Parser v11 changes what a parse contains,
+so the v9 Bank was wiped and rebuilt rather than patched. The role published there by
+`dev-anonymous` during the CAS-off incident was **let go** with the wipe, by the owner's
+choice; the pre-wipe dump keeps the record.
+
+The rebuild itself turned up one more silent zero. **`make near-dup` without
+`JD_ARCHIVE_PATH` signed 0 documents, wrote 0 edges and exited 0.** Re-run with the path,
+it produced the expected near-duplicate edges. The runbook and the operator guide now say so.
+
+Then the drafting pass made no progress, and the reason was not in this repo at all:
+- **The inference host was serving the model with a 4,096-token window.** The model's own
+  limit is 131,072. Prompts longer than 4,096 tokens were cut off with no error. That may
+  also explain why earlier passes were fast; it is not known whether they ran this way. The
+  owner raised the window to 32,768.
+- PR #228 made the producer refuse to run when the host would cut prompts
+  (`rewrite.min_context_tokens`, HR-341). It checks before the first database write and
+  again at every checkpoint. **Its first design checked by sending a full-size test
+  prompt, and that probe never came back.** The probes then kept running on the shared host
+  after they were abandoned, slowing everyone. The guard now reads the window from the
+  host's own status endpoint, which costs nothing.
+- **The host was also running the model on CPU, not GPU**, while still answering, just
+  slowly. Every rewrite call ran into the client library's 600-second timeout, retried, and
+  timed out again. After 80 minutes there were still zero drafts. The give-away was in the
+  host's timer: requests "finished" exactly 600 seconds apart, which real work never does.
+  A reboot did not fix it; the owner fixed the host's GPU setup, and the same small
+  request went from ~1 token/s on a cold start to ~44.
+
+The pass then ran at roughly two and a half minutes per cluster. On 2026-11-22 the **dev
+box** rebooted itself mid-pass, killing the pass at 375 of 2,260 clusters. `--resume`
+picked it up: the 375 were skipped in seconds, not redone, which is the correct flag here
+because the Bank held no older prose.
+
+Three habits came out of these four days:
+- **Before any model pass, ask the host two questions:** is the window at least 32,768
+  tokens, and is the whole model in GPU memory? Both failures were silent and both answers
+  are on `/api/ps`.
+- **Never test a shared inference host with large prompts.** Read its status instead.
+- **A regular rhythm in a failure is a clue.** Exactly 600 seconds, three times running,
+  was a timeout, not slow work.
+
+On 2026-11-24 the owner asked for a **focused spinoff for the VPFA portfolio**, to be built
+by a colleague or a second account: Bank, Builder, funnel and Compensation Requisition
+Form, importing snapshots of this Bank rather than re-running the pipeline. The plan is in
+[`plans/VPFA-SPINOFF-PLAN.md`](plans/VPFA-SPINOFF-PLAN.md). Its lessons section is this
+document's §9, turned into design rules.
+
 ## 9. What the project learned, in the words it kept using
 
 These recur because they were each paid for more than once. The full set with its evidence
@@ -299,6 +351,9 @@ is in the archived handoffs and [`HARNESS_LESSONS.md`](HARNESS_LESSONS.md).
 | 2026-10-29 | Remove the supervisory and qualification caps (HR-324, HR-308) |
 | 2026-11-19 | CAS on now; testers use the **live** Bank with the **author** role, after a backup |
 | 2026-11-20 | Remove the list-item cap too (HR-340, parser v11, #227) and fix the rewrite prompt (v5, #226); v9 is rebuilt and fully redrafted instead of retrying the 641 |
+| 2026-11-20 | Let the v9 role published by `dev-anonymous` go with the rebuild; the pre-wipe dump keeps the record |
+| 2026-11-21 | Raise the inference host's context window to 32,768, and refuse a pass below it (HR-341, #228); fix the host's GPU setup before redrafting |
+| 2026-11-24 | Plan a focused VPFA spinoff (Bank, Builder, funnel, CRF) for hand-over to a colleague or a second account |
 | standing | Deliverables live in the repo and are never published elsewhere. The owner merges; the assistant does not |
 
 ## 11. Where the rest is written down
