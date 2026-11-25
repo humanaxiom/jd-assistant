@@ -2,6 +2,11 @@
 
 **The single instruction set for the VPFA spinoff.** Prepared 2026-11-24.
 
+> ⚠ **SUPERSEDED IN PART, 2026-11-25: being revised for ruling D8** ("bring everything in
+> as is; only the dashboards are removed"). Do **not** follow A4 (snapshot export), A5 or
+> B3's snapshot copy yet. The new data path is the parent's own offline bundle
+> (`deploy/bundle.ps1` → `deploy/install.ps1`) plus the archive. See the plan, §5.0 and §6.1.
+
 | part | where | who | when |
 |---|---|---|---|
 | **A** | **this box**, the parent JD Bank's dev box | the owner | when the v9 redraft finishes (expected around **2026-11-25 20:00 UTC**) |

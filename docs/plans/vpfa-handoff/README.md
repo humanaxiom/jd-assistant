@@ -1,5 +1,8 @@
 # VPFA spinoff handoff kit
 
+> ⚠ Revision 1 tooling. `export_snapshot.py` and the JSONL snapshot are superseded by ruling D8
+> (plan §5.0); `START-HERE.md` is being revised.
+
 The source of the handoff bundle for the VPFA spinoff
 ([`../VPFA-SPINOFF-PLAN.md`](../VPFA-SPINOFF-PLAN.md)). **No Bank data is in git.** The
 snapshot is SFU job-description content and travels only in the bundle (USB or a temporary

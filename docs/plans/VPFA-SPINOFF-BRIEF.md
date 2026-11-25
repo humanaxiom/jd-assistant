@@ -1,7 +1,8 @@
 # A job description bank for the VPFA portfolio: briefing
 
 **For:** the VPFA Senior Policy Advisor and the Chief Risk & Safety Officer. **Date:**
-prepared 2026-11-24.
+prepared 2026-11-24, revised 2026-11-25 (the VPFA version is a full copy, not a smaller
+application).
 **What we are asking for:** agreement on scope, named reviewers and unit contacts, and a
 view on privacy review. Details are in §5.
 
@@ -35,9 +36,12 @@ SFU's structure). It would have four parts:
 | **The funnel** | see, honestly, how much of the archive could be turned into roles, and what could not, for VPFA units |
 | **The Compensation Requisition Form** | download the form pre-filled from a role or a new draft |
 
-It would be a **separate, smaller application** that reads a periodic copy of the main
-bank. It does not re-process the archive or rewrite content. Estimated **6–9 weeks** to a
-pilot, then a **2-week pilot** with a few named users per unit.
+It would be a **full copy of the working prototype**, set up for VPFA: the same engine
+that reads the archive, groups the copies and drafts each role comes across unchanged, and
+only the internal statistics dashboards are left out. It starts with today's complete
+bank, opens on the VPFA units, and can still show all of SFU when a manager wants to
+compare. Estimated **3–5 weeks** to a pilot, then a **2-week pilot** with a few named
+users per unit.
 
 ## 3. What it would show today
 
@@ -58,7 +62,7 @@ been decided, so that unit currently shows none.
 | **Where does the content go?** | Nowhere outside SFU-controlled systems. The AI models run on SFU hardware; no cloud AI service and no outside vendor sees any job description. If that ever had to change, it would be a new privacy decision, not a quiet change |
 | **Is personal information involved?** | Job descriptions describe roles, not people. Where an old description names the person in the job, that name is removed as a quality step |
 | **Who can get in?** | SFU sign-in (CAS) only, with three roles: author, reviewer, administrator. The new version will **refuse to start** without sign-in switched on, a lesson from the prototype, where a configuration slip once left it open on the local network for eleven days |
-| **Does the AI make things up?** | It is not allowed to. In the prototype, testing caught the model inventing duties; since then, the rule is that it may reword, never invent, and every result is re-checked by fixed rules. The VPFA version does not use AI to rewrite at all: it only suggests a summary, which the manager accepts or discards |
+| **Does the AI make things up?** | It is not allowed to. In the prototype, testing caught the model inventing duties; since then, the rule is that it may reword, never invent, and every result is re-checked by fixed rules. The VPFA version carries those same checks. Every AI-drafted description is still a draft until a named reviewer approves it |
 | **What if the AI server is slow or down?** | Reading, the funnel, the form and approvals do not need it. Search falls back to titles. We have learned to check the AI server's settings before relying on it |
 | **Who decides the standards?** | HR's standards apply as they stand today. For this application **VPFA acts as HR's proxy**: every threshold and rule is listed in a decision register, VPFA can rule on each one, and each ruling is recorded under the person's name. Anything not yet ruled on is marked open, not quietly decided by us, and anywhere VPFA departs from HR is shown as such |
 | **Who approves?** | Named VPFA reviewers: Denise (VPFA office), Galib (Safety & Risk Services, or a designate), and two more to be named. Each approval is recorded under the reviewer's SFU sign-in |
@@ -82,6 +86,10 @@ Still open:
    show where it does.
 4. **Privacy:** whether the privacy office wants a privacy impact assessment before a
    pilot.
-5. **Hosting:** agreement for IT Services to provide a server, a web address and SFU
+5. **Who keeps it up to date:** once VPFA reviewers start approving descriptions, the VPFA
+   version should maintain its own bank and take improvements from the main project as
+   software updates, not as a fresh copy of its data. A fresh copy would overwrite VPFA's
+   own approvals.
+6. **Hosting:** agreement for IT Services to provide a server, a web address and SFU
    sign-in registration.
-6. **Pilot users:** one or two people per unit for a two-week pilot.
+7. **Pilot users:** one or two people per unit for a two-week pilot.
