@@ -1,0 +1,1371 @@
+# HANDOFF — archived copy, as it stood on 2026-11-20
+
+🔵 **History, not instructions.** This is `HANDOFF.md` verbatim as of `6b332a4` (2026-11-20),
+moved here when the live handoff was rewritten for a fresh session. Its sections span
+2026-08-29 → 2026-11-19 and several were already corrected by later ones inside it. For
+what is true now, start at [`../../CURRENT.md`](../../CURRENT.md); for the story of how it
+got this way, [`../ORAL-HISTORY.md`](../ORAL-HISTORY.md).
+
+---
+
+# JD Bank — Session Handoff
+
+🥇 **Read [`CURRENT.md`](../../CURRENT.md) first** — it says where every fact lives and how to
+check it. This page is state and traps, **forward-looking only**; the build record lives in
+[`docs/archive/`](../archive/). ⚠ Verify anything here against `gh pr list` and the
+funnel before trusting it — a handoff that records intent as outcome is worse than one
+merely out of date.
+
+## ▶ START HERE — state at 2026-11-19 (UAT readiness review; supersedes §4 step 4 below)
+
+Full review for handing the system to HR testers: four Opus reviewers (tester
+walkthrough on live, code review of #219, filename-metadata design, ops/Bank readiness),
+findings verified against the Bank before acting. The write-up is
+[`docs/audit/2026-11-19-uat-readiness/`](../audit/2026-11-19-uat-readiness/).
+
+**Corrections to the 2026-10-28 section below — measured in the Bank 2026-11-19:**
+- 🔴 **The v9 full pass did NOT stop at 1625.** The log ends there because the
+  `docker compose run` *client* lost its connection (`unexpected EOF`, 2026-11-05); the
+  container ran on and finished all 2,258 clusters at 17:42Z. Current v9 versions:
+  **1,616 DRAFT with rewritten prose, 641 DRAFT `rewrite_failed`, 1 PUBLISHED** (`rewrite_failed`
+  too). The failures sit 14:00–17:42Z on 11-05 (7 / 175 / 250 / 182 per hour) — every
+  cluster in that window failed, which looks like the inference host going away; the
+  runner swallows the reason (`_run_llm_passes`, `except Exception`).
+- 🔴 **`--refreshed-since 2026-11-02T21:58:49Z` would now do NOTHING**: every v9 row's
+  `updated_at` is ≥ T0 (min 21:58:54Z), so it skips all 2,258 and exits green. To retry
+  the 641, use `CANONICAL_ARGS="--resume"` (correct HERE: the Bank was rebuilt
+  `--no-llm` on 11-02, so no prose predates T0 and `--resume` retries exactly the rows
+  without prose; `draft_has_rewritten_prose` is the predicate) or a `--cluster-ids-file`
+  of the 641. ≈ 641 × 143 s ≈ 25–26 h on `aria-gb10-2` — not during UAT sessions.
+- 🔴 **The published v9 role was approved by `dev-anonymous`** (`review.approved`,
+  2026-11-09 03:17:59Z) — v9 ran CAS off on `0.0.0.0:26800`. Its text is
+  deterministic-only. Owner decision what to do with it.
+
+**Security incident closed 2026-11-19:** live `.env` had `CAS_ENABLED=false` since
+2026-11-08 with `CAS_DEV_DEFAULT_ROLE=admin`, published on `0.0.0.0` with the Wi-Fi on
+the Public firewall profile — anyone on the LAN or tailnet was admin with no sign-in
+(verified from 192.168.1.73 and 100.75.144.77). Owner chose "turn CAS on now": `.env`
+backed up to `.env.bak.20261119-cas-off`, `CAS_ENABLED=true`, `launch.ps1`; queue now
+303 → login from both addresses. The v9 API container was **stopped**
+(`docker stop jd-bank-v9-api-1`; db/worker untouched) — `docker start` re-exposes it
+CAS-off, so bind it to loopback first. ⚠ `ALLOWED_SERVICE_ORIGINS` still lists the
+box's OLD LAN IP `192.168.1.80`; it is now `.73`.
+
+**Backup before UAT (owner: testers on live, author role only):**
+`C:\repos\jd-bank-backups\harness-20261119-pre-uat.dump` (+ `.sha256`,
+`.fingerprint.txt`), full `-Fc`. **Restore drill done** into an empty
+`harness_restored`: 2,504 canonical / 15 user_roles / 16,087 chained rows, fingerprint
+`46578330…be2e6` identical; scratch db dropped.
+
+**UAT work MERGED 2026-11-20:** the CRF fixes, Library fixes and filename position
+reader (HR-325–331) were folded into #219, which the owner squash-merged as `824a9f9`
+(tree identical to `fa6d547`, which live runs). **#220** (`fix/source-page-filename-facts`,
+open) makes the source JD page show the file name's position(s) beside the document's
+own, and the file name's title when the text has none (HR-331 `source_page`, HR-338).
+HR ids: 325–331 filename positions, 332 Library Builder drafts (333–336 never used),
+337 CRF department-follows-position, 338 source-page title. **Next free id: HR-339** —
+check.
+
+## ▶ state at 2026-10-28 (older; corrected above)
+
+⚠ **The September material further down was written before any of this.** Re-derive a row
+there before you work it (lesson 3 under *WHAT IS OPEN*). Check this section against
+`git fetch && gh pr list` and the branch shas below. They are what had been pushed when
+this was written, not a promise that nothing has moved since.
+
+### 1. What shipped to `main` in October (Tracks I · J · K)
+
+The plan is in [`docs/plans/TRACKS-IJK-SEARCH-HR-FORMS-COMPREQ.md`](../plans/TRACKS-IJK-SEARCH-HR-FORMS-COMPREQ.md).
+
+| PR | what |
+|---|---|
+| #210 | the I/J/K plan, plus the gap analysis against HR's guidance ([`docs/audit/2026-10-19-search-hr-compreq/`](../audit/2026-10-19-search-hr-compreq/)) |
+| #212 | **J1**: CUPE drafts export on HR's CUPE form (`jd_export/cupe.py`, `cupe_form.yaml`) |
+| #213 | **I1**: hybrid title + meaning search in the Library. It also carried **K2**, the Compensation Requisition Form (CRF) filler (`jd_export/comp_requisition.py`, `pypdf`). #211 was closed as superseded |
+| #214 | **J4**: the APSA export follows HR's 2024 template and reads back |
+| #215 | **I2**: typo tolerance (`pg_trgm`, migration 0007), a title pass over the current parse only, and search survives a dead embed host |
+| #216 | **J2**: CUPE form structure (functions, frequencies, checkboxes, tables, and Occupational Skills per owner ruling Q9 = option C) |
+| #217 | **parallel Bank isolation**: a second Bank can run beside the live one (`deploy/BankTarget.ps1`, a per-checkout `.env`) |
+
+🔴 **The owner asked for these and they are NOT built yet. Do not report them as done:**
+
+- ~~**I3, the LLM query plan.**~~ **Built 2026-10-29 on PR #219, flag OFF.** `search.yaml`
+  (HR-315–323) + `jd_bank/query_plan.py`: a guarded, bounded chat-model read of the query
+  on BOTH boxes, shown on the page as "Read as: …" and removable per search. ⚠ It is
+  not "NLP-powered search" until someone flips `query_understanding_enabled` — that is
+  owner/HR Q8 (the model), and switching it on makes `make smoke` place a real plan
+  call, so shipping then needs the GPU free (Directive #0). To try it: set the flag,
+  `launch.ps1`, search "AP clerk" in the Library.
+- ~~**K3, the CRF download button.**~~ **Built 2026-10-28/29 on PR #219** (role page and
+  Builder → choices page → SFU's filled PDF; rules file `comp_requisition.yaml`,
+  HR-309–314). The owner's first download came out nearly blank: the role lacked a
+  department/group its sources carried, and nothing ticked the request type — both
+  fixed on the same PR. ⚠ Still blank by construction: grade, job code, union code,
+  department code, Reg/Temp, hours — PeopleSoft facts. K1 (the HRIS position import)
+  is on hold, because owner Q3 left the PeopleSoft export TBD.
+- **J3** (the CUPE Part II questionnaire) and **J5** (the re-evaluation package) have not
+  been started.
+
+### 2. The v9 Bank: a SEPARATE Bank, built beside the live one
+
+**Owner ruling 2026-10-20:** *"a new bank for v9. Leave the existing database alone. A
+complete new set of images for this build."* Nothing in this section touches the live Bank
+(`jd-bank`, `C:\repos\JD-Assistant`, ports 25xxx).
+
+| | |
+|---|---|
+| checkout | `C:\repos\JD-Assistant-v9`. **Branch of record: `bank/v9`** (pushed) |
+| stack | compose project `jd-bank-v9`, images `jd-bank-<svc>:v9`, its own volumes |
+| ports | API **26800** · Postgres 26432 · Neo4j 26474/26687 · Redis 26379 · CAS **off** (`launch.ps1 -NoCas`) |
+| what it is | parser v9 (lists and caps; migration 0008 adds a stored `parsed_jds.title`) plus the hardened rewrite (fidelity rules HR-267–289). Design: `docs/plans/PARSER-V9-LISTS-AND-CAPS.md`, **on `bank/v9`** |
+| first full pass | ran 2026-10-21T15:27Z → 2026-10-25 (about 89 h) over all clusters. Log and audit artefacts are on `bank/v9`: `docs/canonical/v9-fullpass-2026-10-21.log`, `bank-audit.json`, `summary.json`, `roles-summary.json`. **It ended RED:** `make bank-audit` failed and smoke had 2 failures (29 passed). The three branches below are the fix |
+
+🔴 **Directive #0 covers v9 as a whole.** Nothing on `bank/v9` reaches `main` until smoke
+is green **on v9**, and even then only through ordinary PRs. When migration 0008 lands on
+live, it locks `parsed_jds` for about 10 s.
+
+### 3. The three branches — MERGED into `bank/v9` on 2026-10-29
+
+**Merged in `C:\repos\JD-Assistant-v9` (branch verified `bank/v9` first): `08e46fc`
+(targeted-rerun) → `3939afc` (postpass-fixes; register conflict, both lanes' entries
+kept) → `ef647b9` (parser-wrap `9faf308`; register YAML merged clean, Markdown
+re-rendered).** Duplicate-id check printed nothing; `make register-check` in step;
+`make gates-fast` on the merged head: GREEN (ruff, black, mypy --strict, 3,295 unit tests, 2026-10-29); pushed to origin. The table below is now history.
+
+| branch | head | what | review |
+|---|---|---|---|
+| `feat/v9-targeted-rerun` | `0020671` | `--cluster-ids` / `--cluster-ids-file` on `canonical-drafts`; the WJQ approvability study (`docs/audit/2026-10-27-wjq-approvability.md`, on the branch); HR-296/297 | ✅ approved by the Opus reviewer |
+| `feat/v9-postpass-fixes` | `9d7b175` | form limits (merge floor 0.2), page headers, referral markers, K→S→A order, kind taken from the source (WJQ only), lead word (JDFN only), summary conditions grounded in the source; HR-290–295 and HR-302–304; replay lists in `docs/canonical/v9-postpass-rerun*` | ✅ approved by the Opus reviewer (2 rounds) |
+| `feat/v9-parser-wrap` | `e547a74` | **parser v10** (`jd_segmenter_v10`). It adds a wrapped-heading guard (HR-298/299). It maps the legacy lettered headings: H → qualifications (HR-300) and I → relationships (HR-301). G (working conditions), J (approvals) and form prompts are **set aside, not dropped** (HR-305–307), via a new `SFUJobDescription.set_aside` field and a source-JD panel. The qualification cap becomes 400 (HR-308). It already contains `feat/v9-postpass-fixes` | ✅ **Reviewed 2026-10-29 — APPROVE WITH CHANGES** (`docs/audit/2026-10-29-parser-v10-review.md`, on `bank/v9`). The one blocking change (D1: 16 files whose qualifications sank into the G block) is **fixed and pushed as `7b99314`** on this branch, with the design-doc correction (D2). Then the owner ruled "remove the cap" (2026-10-29): the 600-character supervisory cap is gone — `segmentation.supervisory_max_chars: null`, HR-324, pushed as `0318deb`. Then "remove the 400 cap": `qualification_max_chars: null`, HR-308 updated, pushed as `9faf308`. **Head is `9faf308`**, merged into `bank/v9` as `ef647b9` |
+
+The owner rulings behind them (2026-10-27):
+- After the fixes, run ONE full rebuild and ONE full pass, not tiers.
+- Fix the wrapped-heading defect.
+- Fix the legacy lettered headings before the rebuild.
+- Drop G. UNUSUAL WORKING CONDITIONS from the role text. It is recorded and set aside, not deleted.
+
+### 4. Next, in order
+
+1. ~~**Get the parser-v10 verdict.**~~ **Done 2026-10-29.** All five points covered (whole
+   archive: 14,565 files, 0 parse errors, 0 lost headings, all 38 wrap-guard demotions
+   correct; set-aside sample 0 misfiled; D1 fixed on the branch). 🔴 **Two owner/HR
+   decisions the review raised, to take BEFORE the rebuild** (it bakes them into every
+   draft): the **600-character supervisory cap** (unregistered code constant
+   `_MAX_SUPERVISORY`; cuts 58.8% of supervisory texts, 2.48 M characters — the review
+   recommends stripping the Relationships section's printed E/F/I questions first, then
+   1,200 in `segmentation.yaml` with a register entry) — ✅ **RULED 2026-10-29: "remove
+   the cap"**, applied as `supervisory_max_chars: null` (HR-324) on `feat/v9-parser-wrap`
+   `0318deb`; the form's printed E/F/I questions stay inside the kept text until a
+   Relationships prompt strip is built — and the **400-character qualification cap**
+   (HR-308; cuts 1,112 items, 308 of them the "or an equivalent combination…" clause —
+   recommends 600) — ✅ **RULED 2026-10-29: "remove the 400 cap"**, applied as
+   `qualification_max_chars: null` (HR-308 updated in place, not a new id) on
+   `feat/v9-parser-wrap` `9faf308`. With no cap there is no sentence split either: an
+   unbulleted paragraph of the old form is ONE qualification item. `SFUQualification.text`
+   has no ceiling; the Builder's qualification inputs are bounded by a 20,000-character
+   form ceiling (`QUAL_INPUT_CEILING`). ⚠ Every number the review quotes for both caps
+   was measured WITH the cuts in force — after the rebuild, expect fewer and longer
+   qualification items (4,644 documents) and longer supervisory texts than anything
+   measured so far.
+2. ~~**Merge the three branches into `bank/v9`.**~~ **Done 2026-10-29** — see §3 above
+   (`ef647b9`). Duplicate-ID check clean, `make register-check` in step.
+3. ~~**Wipe and rebuild the v9 Bank**~~ **Done 2026-11-02** (owner: "rebuild"). From
+   `C:\repos\JD-Assistant-v9` at `ef647b9`: `teardown.ps1 -Volumes -Force` → `build.ps1`
+   (fresh `:v9` images from the merged code — do not skip this, the old images were
+   8 days stale) → `launch.ps1 -NoCas` → the chain below, serial, stop-on-failure.
+   **Rebuild T0 = 2026-11-02T13:20:17Z; smoke green 14:39Z** (log in the session
+   scratchpad; artefacts committed on `bank/v9` as `b6a64a6`). **Measured in the Bank,
+   not the counters:** 14,565 files seen, 14,522 parsed at `jd_segmenter_v10`, 43
+   extraction failures (the known damaged/mis-typed files); max stored supervisory
+   5,185 chars and max qualification 3,179 chars — both caps are off in the DATA;
+   14,147 parses carry qualifications. Embed 14,412 docs + 42,463 sections. **Clusters
+   2,258 (was 2,454), coverage 0.840 (was 0.748), singletons 2,319 (was 3,658),
+   flagged 22 (was 6)** — parser v10 changed the text every dedup tier reads, so the
+   clustering moved. `canonical-drafts --no-llm`: 2,258 persisted, 0 failures.
+   `embed-roles`: 2,250 embedded, 8 empty. `make smoke`: **31 passed**.
+   ⚠ **Cluster ids were regenerated.** The replay lists `docs/canonical/v9-postpass-rerun*`
+   name the OLD ids and are now stale — a `--cluster-ids-file` run against them will
+   hit nothing. The next pass is the full one anyway.
+   The original step, kept for the record:
+   `teardown.ps1 -Volumes -Force` → `launch.ps1 -NoCas` → `make ingest`
+   (`JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs`) → `embed` → near-dup → `dedup-role` →
+   `cluster` → `canonical-drafts --no-llm` → `embed-roles` → **`make smoke`**.
+4. **One full rewrite pass — STARTED 2026-11-02 (owner: "start the pass"). T0 =
+   2026-11-02T21:58:49Z, head `b6a64a6`, GPU idle at launch.** Detached `make
+   canonical-drafts` (LLM on, all 2,258 clusters) from `C:\repos\JD-Assistant-v9`, log
+   `docs/canonical/v9-fullpass-2026-11-02.log` (on the box; commit it when the pass ends,
+   like the 2026-10-21 one). Expect ~89 h → about 2026-11-06. If it stops, resume with
+   `CANONICAL_ARGS="--refreshed-since 2026-11-02T21:58:49Z"`. It takes about 89 h, runs
+   detached and holds `aria-gb10-2`
+   throughout. **Record T0.** To resume an interrupted pass, use `--refreshed-since <T0>`,
+   **never `--resume`** (the September section below explains why). Afterwards run
+   `make embed-roles`, `make bank-audit` and `make smoke`.
+5. Only once v9 smoke is green: open PRs to `main`.
+
+**Open questions for HR and the owner that this work raised:**
+- HR-296/297: WJQ equivalency fails because the form does not fit, not because the rewrite is wrong.
+- ~~The qualification cap (HR-308, 400 → 600?)~~ Both caps are ruled by the owner (2026-10-29): removed — HR-324 null, HR-308 null. A per-sentence item reading without a cut would be a NEW rule to register, not a cap.
+- HR-046 and HR-284.
+- From the tracks plan: Q2, Q4–Q8 and Q10.
+
+⚠ The WJQ study found that HR-201's CUPE approvability figure is overstated, because the
+baseline scores raw text. Say so wherever that figure is quoted.
+
+**Smaller follow-ups, noted but not started:**
+- The Builder still shows an "N% similar" figure (memory: similarity has no threshold).
+- Fold-back readability.
+- A newly approved role is missing from the role-vector index until `make embed-roles` runs.
+- Trap (d) below.
+- The CRF choices page could also offer the Builder's current draft (today it is per
+  role); J5's package needs it.
+
+### 5. Traps from this stretch
+
+- **(a) Another agent shares the v9 checkout's git record.** Codex works in
+  `C:\repos\GH-Versions\JD-Assistant-v9`. That folder is a *copy* of ours, and its `.git`
+  still points at **our** worktree record, so when Codex switches branch,
+  `C:\repos\JD-Assistant-v9` switches too (it has been seen on `agent/codex-harness`).
+  Codex runs its own stack, `jd-bank-codex-dev`, on ports **27xxx**.
+  - **The owner's instruction: ignore all Codex changes and leave Codex to the owner.** Do
+    not touch its folder, branch or stack, and do not edit `.git/worktrees`.
+  - Before every v9 action, run `git -C C:/repos/JD-Assistant-v9 branch --show-current`.
+    If it is not `bank/v9`, switch it back.
+  - **Do not create a second v9 checkout.** The owner said "avoid proliferation".
+- **(b) Worktree subagents refuse a lowercase cwd.** If the session started in
+  `c:\repos\...`, run `cd C:/repos/JD-Assistant` before dispatching an
+  `isolation: worktree` agent. Once a worktree's branch is pushed, clean up its entry
+  under `.claude/worktrees/`.
+- **(c) Squash merges make an integrated branch conflict again, and git's auto-merge
+  silently DUPLICATES register entries when you merge `main` back in.** After any merge
+  that touches `decision_register.yaml`:
+  - `grep -oE "^  - id: HR-[0-9]+" core/src/jd_core/rules/decision_register.yaml | sort | uniq -d`
+    must print nothing;
+  - `make register-check` must pass.
+
+  Give each parallel lane its own HR-id range up front. The next free id comes after the
+  highest one on any pending branch. HR-323 is on `feat/k3-crf-download` (#219) and HR-324 on
+  `bank/v9` (via `feat/v9-parser-wrap`) as of 2026-10-29, so the next free id is **HR-325** —
+  check it rather than trust this line.
+- **(d) Under a fresh compose project, `make register` wrote the image-build log into
+  `HR-DECISION-REGISTER.md`.** Build the images first, then run it, then grep the file for
+  build output before you commit.
+- **(e) Auto mode blocks `gh pr merge`**, even after the owner has said "merge". The owner
+  merges on GitHub.
+- **(g) The dev API does not hot-reload, and `make smoke` cannot tell.** `api` bind-mounts
+  `./core` with `uvicorn --reload`, but a Windows bind mount fires no file events, and
+  compose keeps the container when the image is unchanged — so after `build.ps1` +
+  `launch.ps1` on 2026-10-28 the live API served two-hour-old code while gates and smoke
+  (in-process ASGI) were green. PR #219 makes `launch.ps1` force-recreate api/worker and
+  sets `WATCHFILES_FORCE_POLLING`. Before the owner clicks through a change, check
+  `docker logs -t jd-bank-api-1 | grep "Started server"` is newer than the edit.
+- **(f) Docker ran out of network address pools** with many worktree stacks up. Remove only
+  empty networks that *we* created, never another project's.
+
+---
+
+## 🔴 WHERE THE NUMBERS LIVE — read this before quoting any figure
+
+This project has shipped wrong numbers that were **consistent across several documents**,
+which is precisely why nobody caught them. Agreement between documents sharing one
+unchecked source is a *correlated* failure, not corroboration. So:
+
+| what | where |
+|---|---|
+| **Live counts** — documents, roles, approvable, published, the gap | 🥇 **`/jd-bank/ui/funnel`** — computed from the DB at request time |
+| **Measured findings** — what we know about the archive and why | [`docs/FINDINGS.md`](../FINDINGS.md) |
+| **What we do next** | [`docs/plan.md`](../plan.md) |
+
+**This file restates no counts.** If you find a number here or in `plan.md`, it is a bug —
+delete it and link instead.
+
+⚠ **Documents and roles are different units.** The funnel labels the unit on every row
+because a reader following 14,565 → 2,493 → 129 will take the last for documents. It is a
+count of *roles*.
+
+---
+
+## 🔴🔴 DIRECTIVE #0 — THE PRIME DIRECTIVE (owner, 2026-09-11)
+
+> **SHIP ONLY AFTER A FULL END-TO-END SMOKE TEST.**
+
+**"Ship" = merging to `main` or deploying.** `make smoke` must be **GREEN** first — not
+"green except", not "red for a known reason". Full statement in
+[`CLAUDE.md`](../../CLAUDE.md) § DIRECTIVE #0.
+
+🔴 **It exists because on 2026-09-11 this assistant merged EIGHT PRs with smoke RED**, each
+with `make gates` green, CI green, and the red quoted in the PR body as "pre-existing and
+unrelated". **That reasoning is void.** A red smoke means nobody has verified the live
+system; piling changes onto it is how the state stops being explainable.
+
+⚠ **If smoke is red and you cannot fix it, STOP SHIPPING AND SAY SO.** Finish the work,
+leave it on a branch with its evidence, hand over the reason. The branch keeps; an
+unverified `main` does not.
+
+🔴 **NO EXEMPTION, INCLUDING FOR THE DIRECTIVE ITSELF.** Its first draft exempted "recording
+this directive" — an assistant writing its own escape hatch into the prime directive, which
+is the shape of reasoning it exists to stop. **If it must change while smoke is red, a
+PERSON merges it.**
+
+✅ **AS OF 2026-09-12 00:50 UTC, `make smoke` IS GREEN (8 passed) AND SHIPPING IS OPEN.**
+It took three things, and the middle one was a real defect the directive found on its
+first day:
+
+1. `make embed-roles` — the role index now covers every role (and the HR-193 ladder
+   rescued one over-long role on its first live run).
+2. 🔴 **`make embed` alone could NOT clear the document gate** — skip-first was skipping
+   the **provenance** as well as the vector, so 11,787 nodes kept a `jd_segmenter_v2`
+   label while holding perfectly current vectors. The gate had been **unpassable by
+   construction since it was written on 2026-08-29.** Fixed in **#199**.
+3. `make embed` again — 0 model calls, 52,077 nodes relabelled.
+
+⚠ **Re-run `make smoke` after any producer pass**, not just before: a pass changes role
+text and the derived index is owed.
+
+## 🔴 DIRECTIVE #1 — TESTED, AND DEPLOYABLE WITHOUT THE ASSISTANT
+
+**Set by the project owner 2026-08-28. Subordinate to Directive #0 above; it applies to
+every task on this page.**
+
+> **Every step must leave the code TESTED and every feature DEPLOYABLE THROUGH THE
+> SCRIPTS, by a person, with no assistant in the loop.**
+
+| | done means |
+|---|---|
+| **tested** | `make gates` green · failing test written FIRST · the guard broken once to prove it can go red |
+| **deployable** | works via `build.ps1` / `launch.ps1` / `teardown.ps1` (dev) and `deploy/bundle.ps1` + `deploy/install.ps1` (fresh, offline box) |
+| **discoverable** | reachable from the UI — *a feature nothing links to has not been delivered* |
+| **smoke-tested** | 🔴 `make smoke` green **AND covering what you changed** — fixtures cannot be stale, so only a check against the LIVE system counts. ⚠ Smoke was database-only while calling itself "end to end"; it now checks the vector index too |
+| **enforced** | `make deploy-check`, run in CI as *"Gate: deployable offline"* |
+
+⚠ **Ask at the end of every task: "could the owner deploy and see this, tomorrow, without
+me?"** If not, the task has one more step. This is not hypothetical — the live funnel
+shipped 2026-08-27 with no nav entry, and for a day it read as "still the old dashboard".
+
+Full statement in [`CLAUDE.md`](../../CLAUDE.md) · runbook in [`deploy/README.md`](../../deploy/README.md).
+
+---
+
+## 🔴 THE ONE THING TO UNDERSTAND
+
+**Owner ruling, 2026-08-29 — this REPLACES the "published JDs" measure that stood here,
+and that measure is now wrong. Do not restore it.**
+
+> **Nothing is blocked on policy. Proceed with drafts. Publishing happens in the FINAL
+> DEPLOYMENT, not in pilot / dev / MVP.**
+
+**So the measure here is DRAFTS — their coverage and their fidelity.** Not published JDs.
+`published` sits at 4 and is *expected* to: publishing is a deployment-phase activity and
+the review queue is not the bottleneck this phase is judged on.
+
+⚠ **What this voids, explicitly**, because it had accumulated into three documents and
+several standing blocks:
+
+- **"Done is measured in published JDs"** — gone. It made every correct engineering task
+  look like a distraction, and it is what let three sessions run past the real work.
+- **"Before any task, ask: does this change the number of PUBLISHED JDs?"** — gone. Ask
+  instead: **does this give a role a draft, or make an existing draft truer to its
+  sources?**
+- **"B2/B3/B4 are the only work that matters"** — no. They are deployment-phase asks.
+  B3 is ratified, and the rest do not gate anything built here.
+- **⛔ "No further producer runs — zero published JDs each"** — the *reason* is void.
+  The cost (~44 hours for a full pass) is real and unchanged, so scope the run
+  (`--only-undrafted`, `--only-template`) rather than avoid it.
+- **HR-223 `drop`** still ships, but it is no longer "the ceiling cannot move until HR
+  rules". A one-of-a-kind job producing no draft is now an ENGINEERING gap (plan.md D1a).
+
+**What has NOT changed:** a draft is still a draft. Nothing auto-publishes, human approval
+still gates PUBLISHED, and the rulebook gates still say what they say. Ratifying B3 *as
+shipped* did not move any gate — see the register.
+
+---
+
+## ✅ THE JDFN RE-BASELINE LANDED — 2026-09-12 21:33 UTC, `ExitCode=0`
+
+**Resumed run `jd-canonical-jdfn-resume`: 2026-09-12 01:48:06 → 21:33:25 UTC (19h45m),
+exit 0.** Together with the 824 clusters the dead first attempt completed, **the whole
+1,872-cluster JDFN baseline has now been re-produced under the fixed code.**
+
+```
+clusters: 2453 recomputed -> 1828 seen [jdfn=1828] (1828 multi, 0 single)
+drafts:   0 persisted, 1001 refreshed, 3 skipped (reviewer-touched), 625 out of scope,
+          0 cluster failures
+LLM:      enabled=True, 29 rewrite failures, 1 audit failure
+jdfn:     1001 drafts scored, mean 75.6, 310 approvable
+```
+
+### What it achieved — `make bank-audit`, run 2026-09-15 after the pass
+
+🔴 **The success criterion on this page was `problem_solving` ≤ 100%. It was NOT met — but
+read the size of what moved before deciding what that means.**
+
+| JDFN carry-through | before the pass | **now** | |
+|---|---:|---:|---|
+| `problem_solving` | 233.1% | **101.7%** (486/478) | **8 drafts** fabricate it, down from ~710 |
+| `relationships` | 64.7% | **99.8%** (1816/1819) | 3 drafts drop what their sources state |
+| `decision_making` | 64.6% | **99.8%** (1809/1812) | 3 drafts, same |
+| mean score | 78.20 | **75.6** | the predicted FALL, and it arrived |
+
+**This is the outcome the pass was started for.** Fabricated `problem_solving` went from
+two-thirds of drafts to **eight**, and the two sections that were silently dropping source
+content are within three drafts of complete. The mean fell because withdrawn fabrication
+costs points — which this page predicted, and which is the correct direction.
+
+⚠ **`make bank-audit` exits non-zero (Error 2) while any carry-through is below 100%.**
+That is the gate firing as designed, not a crash — do not read the exit code as a failed
+measurement.
+
+### 🔴 What is still owed, and it is now small enough to name individually
+
+- **8 JDFN drafts fabricate `problem_solving`** with no source offering it.
+- **3 drafts drop `relationships`** and **3 drop `decision_making`** their sources state.
+- **29 rewrite failures + 1 audit failure** in the run — not investigated.
+- **3 clusters skipped as reviewer-touched** — correct behaviour; they keep the old prose.
+
+These are twelve-odd drafts, not a population. **Identify them individually before running
+anything** — a third full pass costs ~20 hours to repair a handful of rows, and a scoped
+re-run (`--only-template jdfn --refreshed-since …`, or by cluster) is the proportionate
+tool. ⚠ WJQ is untouched by all of this and still shows `duty frequency kept — rewritten
+28.5%` against a **100%** merge-only control: the rewrite destroys a field the merge
+preserves. That is a separate, larger defect and it is not what this pass was about.
+
+### 🔴 `--resume` IS THE WRONG FLAG FOR A RE-BASELINE, AND THIS PAGE SAID TO USE IT
+
+This page told the next session *"if it did not finish, `--resume` continues it safely
+(#126)"*. **That advice is wrong here and would have wasted the whole restart.**
+
+`--resume` sets `skip_llm_written`, which skips any cluster where
+`draft_has_rewritten_prose(change_log)` — i.e. `rewrite_ran AND NOT rewrite_failed`. That
+predicate means **"prose landed"**, *not* "this pass produced it". Every JDFN draft already
+held a successful rewrite from an earlier pass, so a re-baseline is exactly the case it
+cannot see. **Measured before starting:**
+
+| JDFN clusters | total | `--resume` SKIPS | `--resume` processes |
+|---|---:|---:|---:|
+| already done by the dead run | 824 | 799 | 25 |
+| **still owed the re-baseline** | **1,048** | **1,039** | **9** |
+| TOTAL | 1,872 | 1,838 | **34** |
+
+**`--resume` would have processed 9 of the 1,048 clusters that still need repairing**,
+exited green in about 40 minutes, and left 1,039 drafts fabricating — with the run's own
+summary reporting success.
+
+✅ **FIXED THE SAME SESSION — `--refreshed-since ISO8601` (P5).** Rather than pay ~16 h of
+rework, the flag was built: it skips clusters whose draft was last refreshed **at or after**
+a stated moment, and processes everything else. Use the time the current baseline began.
+
+⚠ **Why TIME and not a stamp.** The obvious fix — "skip clusters already refreshed under
+the current rulebook/prompt stamp" — **cannot work here.** This re-baseline was triggered by
+a **CODE** fix, so `rules_version` and `prompt_version` are *identical* either side of it.
+Nothing on the row distinguishes prose written before the fix from after. Time is the only
+honest discriminator, so the operator states it and a naive (timezone-less) value is
+refused rather than guessed.
+
+⚠ **One bounded exception, found in test and worth knowing:** when a refresh produces
+**byte-identical** content SQLAlchemy emits no UPDATE, so `onupdate` never fires and
+`updated_at` does not move — such a cluster is re-done by a resumed run rather than skipped.
+Benign (it is re-done, not corrupted) and invisible on a real re-baseline, where the content
+is what changes.
+
+### After it landed — what was re-checked, and the one thing still owed
+
+✅ **`make smoke` is GREEN — 8 passed, re-run 2026-09-15 after the pass** (Directive #0).
+Shipping is open.
+
+🔴 **`make embed-roles` has NOT been re-run since the pass, and it is owed.** 1,001 drafts
+changed their text; the role vector index does not follow on its own. Smoke passes because
+its role-index test checks **coverage** — every current role has a node — and coverage did
+not change. **Coverage is not freshness**: Builder search and the near-duplicate authoring
+guard are matching against pre-pass prose for those 1,001 roles until it runs. This is the
+same shape as the document-vector staleness #199 fixed: green on the property that was
+measured, stale on the one that matters.
+
+✅ The stack now has a `restart: unless-stopped` policy (2026-10-08) — but that covers the
+five long-running services only. A producer pass is a one-shot `docker compose run` and
+is **not** restarted; the trap that killed the first attempt at 825/2453 still bites a
+long run, and `--refreshed-since` is still how it resumes.
+
+## 🔴 HANDING OVER THE BOXES — the state that is NOT in git
+
+There are **TWO** machines and the system needs both.
+
+| | |
+|---|---|
+| **this box** | the repo, Docker stack, the archive, the backups |
+| **`aria-gb10-2`** | **Ollama.** Every embedding and every LLM pass calls it (ADR-003). No producer run, no `make embed`, no Builder assist without it. It is not in this repo and nothing here provisions it |
+
+**A fresh `git clone` will not run.** These are real and invisible in a diff:
+
+1. **`.env` is GITIGNORED and carries the auth posture.** Keys currently set:
+   `CAS_ENABLED` (**true**), `CAS_VERIFY_TLS`, **`BOOTSTRAP_ADMINS` — set to the owner's
+   SFU id, which is WHO GETS ADMIN on first sign-in** (a new owner must set it to their
+   own id or they cannot administer the app), plus the two origin settings below. The
+   committed compose defaults are all safe/off, so a clone comes up with CAS disabled and
+   no admin.
+
+   🔴 **`ALLOWED_SERVICE_ORIGINS` must list EVERY origin users reach the box on — scheme,
+   host AND port, each spelling its own entry.** Updated 2026-09-14 after sign-in broke
+   twice; it now reads:
+
+   ⚠ **Read the list off the box, never off this page** — a literal copy here went stale
+   four times in three weeks:
+
+   ```
+   grep ^ALLOWED_SERVICE_ORIGINS .env | tr ',' '\n'
+   ```
+
+   It carries every spelling the box has been reached on (localhost, LAN IP, short name,
+   Tailscale name and IP) plus the external forward on whichever port the gateway maps.
+   Entries for ports or schemes nothing serves yet are **prepared, not live**, listed so
+   a switch needs no restart. 🔴 **The external forward's internal target is host port
+   25800** — on 2026-10-08 it pointed at host port 8000, which is another project's
+   nginx, and the internet got `400 Bad Request` (NETWORK-SETUP §6).
+
+   An origin not on the list falls back to `CAS_SERVICE_BASE_URL`, **now
+   `http://aria-alien1.tail652d79.ts.net:25800`** — moved off `http://sfuai.ca:7000`
+   because the fallback was a host that could not answer, which turned every missing entry
+   into a bare `ERR_CONNECTION_TIMED_OUT` on a URL carrying a valid CAS ticket. Keep the
+   fallback pointed at something that responds. Full rationale, and what the data-centre
+   boxes need, in [`docs/NETWORK-SETUP.md`](../NETWORK-SETUP.md).
+2. **`JD_ARCHIVE_PATH` is UNSET in the shell.** The Makefile falls back to `./archive`,
+   which is empty, and the baseline runner then REFUSES rather than producing a confident
+   baseline of nothing. The real archive is `C:\repos\hris\fixtures\SFU_JDs` —
+   **external and read-only**, and not part of this repo. Pass it explicitly:
+   `make baseline JD_ARCHIVE_PATH=C:/repos/hris/fixtures/SFU_JDs`.
+3. **Backups live at `C:\Users\adam\jd-bank-backups\`**, outside the repo:
+   `harness-pre-full-llm-run.dump` (81 MB), `harness-pre-cupe-rerun-20260819.dump` (82 MB),
+   and `env.cas-enabled-20260909.bak`. ⚠ Back up **Postgres only** — Neo4j is a derived
+   index, rebuilt with `make embed` / `make embed-roles`. ⚠ And `pg_restore --data-only`
+   WIPES the Bank and exits 0; restore a full `-Fc` dump into an EMPTY database.
+4. **The published port varies.** `${JD_API_PORT:-25800}` — it was 25900 and 25800 on this
+   machine within a day. `docker port jd-bank-api-1` is the answer, not the docs.
+5. ✅ **The stack self-restarts as of 2026-10-08** — `restart: unless-stopped` on
+   postgres / neo4j / redis / api / worker in `docker-compose.yml`, verified with
+   `docker inspect` on the live containers. Until then it had **no** policy while every
+   other project on the box had one: a Docker Desktop restart on 2026-08-20 killed a
+   52-minute producer pass, the 2026-09-11 reboot killed the JDFN pass at 825/2453, and
+   **after every reboot the owner had to come back and ask for the stack to be started**.
+   Docker Desktop is in the user's `Run` key, so a reboot now brings JD Bank back by
+   itself. ⚠ One-shot `docker compose run` jobs (producer passes, `make embed`) are
+   still NOT restarted — a long pass still needs `--refreshed-since` to resume.
+6. **Other projects share this box.** Stray `postgres:16-alpine` / `neo4j:5-community`
+   containers are `recruiter-assistant`'s testcontainers, not ours.
+
+7. ⚠ **Git Bash mangles container paths.** A `docker compose run ... sh -c '... /committed/ ...'`
+   issued from Git Bash can have MSYS rewrite `/committed` to `C:/Program Files/Git/committed`,
+   which silently creates a junk `core/C:/` directory in the repo. Delete it (`rm -rf "core/C:"`)
+   and prefer PowerShell, or `MSYS_NO_PATHCONV=1`, for commands passing absolute container paths.
+8. ⚠ **The `./docs/canonical` bind mount lags on Windows.** A file the container has just
+   written may not appear to `ls` on the host for a few seconds — it is propagation delay,
+   not a failed write. Re-check before concluding the run did not produce its artifact.
+
+⚠ **With CAS ON you cannot `curl` a UI route to check it** — every one 303s to login.
+Verify through the suite, or `launch.ps1 -NoCas`.
+
+## ▶ WHAT IS OPEN, in the order I would take it
+
+1. ✅ **THE JDFN PASS LANDED 2026-09-12** (exit 0, 19h45m) and was measured 2026-09-15 —
+   see the section above. `problem_solving` fell **233.1% → 101.7%**: the ≤ 100% criterion
+   was missed, but by **8 drafts**, not a population. What is open from it is small and
+   specific:
+
+   1. ✅ **`make embed-roles` — DONE 2026-09-18, and proven fresh the Bank's way.** First
+      run: 2,501 roles seen, **997 re-embedded**, 1,495 unchanged, 9 empty skipped, 1 stale
+      node pruned; Neo4j holds 2,492 `(:JDRole)` = 2,501 − 9. Second run: **0 embedded,
+      2,492 unchanged** — the only freshness proof there is, since the nodes carry no
+      timestamp. `make smoke` green after it.
+   2. 🔴 **"Twelve-odd" was wrong — it is 21 drafts, and 19 of them CANNOT be reached by
+      any producer run.** [`FINDINGS.md`](../FINDINGS.md) §12, measured 2026-09-18.
+      The audit's "8 / 3 / 3" are *net* deltas (`kept − offered`); per draft it is
+      13 + 4 + 4 fabricating and 5 + 7 + 7 dropping, 21 distinct. **45 JDFN drafts sit
+      under cluster ids the clustering no longer produces** (43 stranded producer drafts
+      + 2 Builder-minted), proven per id against the recomputed list — and `--only-template
+      jdfn` walks the *recomputed* clusters, so the exact flag the pass ran can never touch
+      them. 22 of the 45 have a refreshed same-title twin (HR sees duplicate roles); 23 have
+      none. **This is an owner ruling — delete / re-attach / keep — with the P1 repair as
+      the precedent. Do not re-run the producer for it; it will not help.** Two defective
+      drafts the pass *did* see and did not change are §12c, unverified.
+   3. 🔴 **"29 rewrite failures" is ONE container's counter — the re-baseline owes 54.**
+      [`FINDINGS.md`](../FINDINGS.md) §13, measured 2026-09-18. The killed 09-11 run
+      wrote 824 drafts carrying 25 failures + 1 audit failure; `--refreshed-since` skipped
+      them, as designed, and their failures with them. **No failure reason was recorded
+      anywhere** — `runner.py:379` swallows the exception into a boolean — so the classes
+      below come from re-running the rewrite read-only today. Both reproduced classes are
+      the prompt contradicting the schema: the model files the *mandated* equivalency
+      sentence into `modifier` (capped at 20 chars) and the whole rewrite is discarded; or
+      invents a `kind`. Timeouts ruled out by batch timing.
+      **Proportionate next step: three small code changes (record the reason; put the
+      validation message in the repair nudge; give the phrase a home in the prompt), THEN
+      `make canonical-drafts CANONICAL_ARGS="--only-template jdfn --resume"` — measured
+      to reach 54 drafts (~65 min), not a 20-hour pass. Class A is deterministic: check
+      the Bank afterwards with the `rewrite_failed` predicate, not the summary line.**
+2. **✅ ALL OF 2026-09-11's WORK IS MERGED.** Nothing from that session is left open.
+
+   | PR | what |
+   |---|---|
+   | #186 | **P3f** — the grade matchers are rulebook data (HR-233 … HR-236), no value changed |
+   | #187 | **P3g** — an over-long role gets a SHORTER vector, not a gap |
+   | #191 | **P3c measured** — *do not build the detector*; diagnoses **P3h** (replaced #188) |
+   | #189 | **funnel** — a false "Reliable." + 29 double-encoded characters |
+
+   🔴 **TWO STACKED-PR TRAPS, BOTH HIT ON THE SAME DAY. Read this before stacking again.**
+
+   - **#186 merged as a MERGE COMMIT**, so its branch survived, so GitHub did **not**
+     retarget the PR stacked on it. #187 kept pointing at a branch already contained in
+     `main` — and reported `MERGEABLE` throughout. Caught only by checking the base.
+   - **#187 was then merged with `--delete-branch`, which CLOSED #188 outright.** GitHub
+     does not retarget a PR whose base branch is deleted; it closes it. And a closed PR
+     whose base is gone **cannot be reopened or retargeted** — both API calls refuse. The
+     work was recovered by rebasing the two commits onto `main` and opening **#191**.
+
+   ⚠ **So: retarget the child FIRST, then merge the parent.** Neither failure mode announces
+   itself, and one of them silently closes work that was finished and green.
+
+3. 🔴 **THE LESSON OF 2026-09-11, and it cost most of the session: THIS PAGE AND `plan.md`
+   WERE STALE IN THREE PLACES, AND EACH STALE ROW HID THE REAL DEFECT.**
+
+   - **P3g** said *"`embed-roles` is not resumable past a bad row"*. That was fixed in
+     `ba196b9` **two weeks earlier**. The live defect was one row further on: an over-long
+     role was isolated and **counted**, and still got **no vector** — counted is not
+     embedded. Fixed in #187 by porting the HR-193 ladder the document runner already had.
+   - **P2** said *"the next parse task"*. Its baseline half shipped **2026-08-29** (§7c says
+     so). The live defect was on the FUNNEL, whose Form facet called itself **"Reliable."**
+     while knowing the field for **48.0% of roles**. Fixed in #189.
+   - **P3c** said *"needs a measurement"*. The measurement (#188) says **do not build the
+     rule**: one case in 14,522, and every shape that catches it flags up to 1,429 correct
+     titles. It also **diagnosed P3h**.
+
+   **So: re-derive a row before working it.** Every one of these was answerable in minutes
+   against the live Bank, and each stale row had already misdirected somebody.
+
+4. **`P3h` — 53 titles are a PARAGRAPH, and it is BLOCKED until the pass lands.** The
+   residual of the v2→v3 `_fallback_title` defect (**not** new — the first draft of that row
+   said so and was wrong). Diagnosed in #188: **zero CUPE**, all 53 on the JDFN path, every
+   one also carrying `department = None`, so the identification block was not recovered at
+   all. 🔴 **It bumps `PARSER_VERSION`, whose contract requires the archive re-parse in the
+   SAME change — and a re-parse must not run while a producer pass is reading
+   `parsed_jds`.** Queue it behind the pass.
+
+5. **When the pass lands, `make embed` + `make embed-roles` are OWED** — that is what turns
+   `make smoke` green again, and it is the whole of P3g's remaining half. They need
+   `aria-gb10-2`, which the pass holds, so **do not start them concurrently**.
+6. **The six unassigned departments** — one-line edits to `org_units.yaml`, each already
+   rendered as a candidate on its unit page: **Human Resources (52)**, Financial Aid &
+   Awards (8), Procurement Services (7), Budget Office (4), Enterprise Risk & Resilience
+   (3), Campus Public Safety (2). None was named by the owner; none may be inferred.
+7. **`ITP/S` is legacy** — the IT collection (213) vs the ITS department (54) is with the
+   **CIO and VPFA**. Both surfaces ship deliberately and the ITS page explains why. Do not
+   "fix" one to match the other.
+8. **Duty-frequency matching** — 28.5% rewritten vs 100% merge-only. The one-line fix is
+   UNSAFE (the model reorders; argmax and positional agree 8–26%). Needs a design.
+9. 🔴 **677 roles (27.1%) carry no department — and it is NOT (only) a parse gap. MEASURED
+   2026-09-11 (§11).** The 27.1% reproduces exactly; the *cause* in this line did not.
+   **268 of the 677 (39.6%) have a member document whose parse DOES state a department** —
+   recoverable from data already in the Bank, with no re-parse and no GPU. Only 409 are
+   genuine parse gaps.
+
+   **Why they lost it:** `merge.py` takes any non-null department (`_modal_non_null` returns
+   `None` only when every member is null), so the merge cannot drop one it was shown. These
+   drafts were simply **never rebuilt after the v8 re-parse recovered their departments** —
+   268 of 268 were last refreshed before it, with **zero** of the 151 post-v8 drafts showing
+   the defect.
+
+   🔴 **THE SYSTEMIC VERSION: 94% of drafts (2,350 of 2,501) were last refreshed BEFORE the
+   current parse.** `PARSER_VERSION`'s contract — *a bump ships WITH its re-parse* — is
+   satisfied at the DOCUMENT layer and silently unsatisfied at the ROLE layer. Nothing
+   re-runs the drafts, so v8's departments, v7's **805 recovered titles** and v6's
+   employee-group fix are all invisible in most drafts. Same shape as P3g one layer up, and
+   it does not error either. ⚠ CUPE is 100% stale because its repair pass ran 2026-08-19,
+   eleven days before v8.
+
+   ✅ **The in-flight JDFN pass fixes ~169 of the 268 for free** (164 unrecorded + 4 apsa +
+   1 excluded) — it rebuilds from current parses. 🔴 **99 CUPE roles it does NOT touch** and
+   they need their own scoped run afterwards. Re-measure after the pass; do not assume the
+   split holds.
+
+10. **The data-centre boxes (`rcg-asalah-1` / `-2`) — triaged, BLOCKED ON HARDWARE.**
+    Recorded in [`deploy/rtx/README.md`](../../deploy/rtx/README.md) (merged 2026-09-18 from a
+    branch that had sat unfiled for a week). The plan is vLLM on the two SFU RCG RTX hosts
+    replacing Ollama-on-`aria-gb10-2`, and the full stack alongside. **Nothing is wired
+    into the app, on purpose.** The triage found: **no GPU is physically installed** in
+    either chassis (SMBIOS type 9 — both PCIe slots empty, and reported `Length: Short`,
+    which cannot seat an RTX 6000 Ada, so the riser package may be missing too); no NVIDIA
+    driver; `aria-gb10-2` unreachable from both; `rcg-asalah-1` was down on the last pass.
+    🔴 **Three rulings gate the wiring and none is a code change** — the hosts are on
+    PUBLIC IPs, which is an ADR-003 re-decision (the egress guard refuses them until
+    someone rules), vLLM ships no authentication, and the inference host allowlist is a
+    FIPPA question, not a config append. Do not add them to `ALLOWED_INFERENCE_HOSTS`
+    to "test".
+
+## ▶ CURRENT STATE — 2026-08-29
+
+🔴 **`make smoke` is RED, deliberately, and that is the honest state** — see *What smoke
+now checks* below. `make gates` (3,046 · 92%), `make deploy-check`, CI and the register
+gate are green, `main` is clean and nothing is half-finished in the tree.
+
+**Formerly:** `make gates` (3,040 · 92.18%), `make smoke`
+(6), `make deploy-check`, CI, no open PRs. Nothing is half-finished in the tree.
+
+**The measure is DRAFTS, and they moved:** every cluster now has one (the 24-gap closed by
+`--only-undrafted`), 2,483 of 2,500 hold rewritten prose, and **approvable rose 1,299 →
+1,327** off the v8 re-parse. Published stays at 4 — correct; that is deployment-phase.
+⚠ Live counts: `/jd-bank/ui/funnel`. Never this page.
+
+🔴 **THE DEV/TEST ITERATION IS CLOSED — the MVP run order is [`docs/plan.md`](../plan.md)
+§ THE MVP RUN ORDER.** Read that before picking anything up; the track tables below it are
+now slotted MVP-0 … MVP-4.
+
+**The first HR ratifications landed 2026-08-29: HR-042 and HR-052** (B3 — the two approval
+gates), ratified **AS SHIPPED** and logged by ITS. ⚠ **This did not unblock CUPE.** No
+value changed and `rules_version` is unchanged, so nothing re-validates and no count moved;
+what changed is that the bar is now signed, so a failing draft is non-compliant with a
+standard rather than blocked by an open question. The remedy became content work. ⚠ The
+two entries are **attribution-light by instruction** — they record THAT the ruling happened
+and not its substance; the register says so in each `decision_note`.
+
+**Track A (the demo) is COMPLETE.** Three live surfaces, all reading the DB at request time:
+
+| | |
+|---|---|
+| `/jd-bank/ui/funnel` | 🥇 archive → published, scope-parameterised, full gap accounting |
+| `/jd-bank/ui/collection/it` | the IT collection · `?queue=1` for the review queue |
+| `/jd-bank/ui/compose/new` | the Builder — search, clone, live compliance |
+
+`PARSER_VERSION` **`jd_segmenter_v8`** — bumped THREE times on 2026-08-29 (v6 = the
+employee group, HR-226; v7 = the WJQ title; v8 = `Department Name/Section`, unreadable
+department labels 680 -> 16, +607 in the Bank). **Each bump shipped WITH its re-parse**, as that
+constant's contract requires: a bump without one leaves every layer querying a version
+with no rows, i.e. an apparently empty Bank.
+
+
+
+### ▶ CAS IS ON — and it is a box-local `.env` value, not a repo setting
+
+**`CAS_ENABLED=true`** as of 2026-09-09, restored for the CIO AI task force demo. It
+lives in the repo-root **`.env`, which is gitignored**; the committed compose default is
+`false`, so this never shows in a diff and a fresh checkout does not inherit it.
+
+Verified end to end rather than by the flag: a protected page 303s to login, `/cas/login`
+302s to `https://cas.sfu.ca/cas/login?service=…`, and `cas.sfu.ca` answers 200. The
+service URL resolves to **the origin the request arrived on** — that is
+`ALLOWED_SERVICE_ORIGINS` (P0.3) doing its job, not a coincidence.
+
+🔴 **AND IT ONLY WORKS FOR ORIGINS ON THE LIST — 2026-09-14.** Sign-in broke twice in one
+session and neither failure looked like a config error: the user authenticated at CAS and
+landed on `ERR_CONNECTION_TIMED_OUT`, at a hostname they had not typed, with a valid
+`ticket=ST-…` in the URL bar. Both times the cause was an unlisted spelling.
+
+- `192.168.1.80:25800` (the LAN address) was not listed. A hosts-file entry did not rescue
+  it: **the port is part of the origin**, and the fallback carried `:7000`.
+- `aria-alien1:25800` (the short name) is a different origin from
+  `aria-alien1.tail652d79.ts.net:25800`. Adding one did not add the other.
+
+**Every new way anyone reaches this box needs its own entry.** The list and the fallback
+are in §HANDING OVER THE BOXES above; the reasoning is
+[`core/src/api/service_origin.py`](../../core/src/api/service_origin.py) and the admin-facing
+version is [`docs/NETWORK-SETUP.md`](../NETWORK-SETUP.md).
+
+✅ **`http://sfuai.ca:7000` — the NAT forward — IS DELIVERING AGAIN as of 2026-09-15.**
+The owner sorted it at the gateway. **Verified from both ends, which is the only way this
+can be verified:** `http://sfuai.ca:7000/health` answered **200 from three external nodes
+(NL, IR, VN)**, and the app logged those same three arriving (`GET /health 200 OK` ×3).
+An external probe alone is not evidence — one earlier "open" result came back in 64 ms
+from Ukraine, which is physically impossible for that path, and the app had logged
+nothing.
+
+⚠ **It had been dead for days while its rule sat visibly configured in the gateway UI**,
+DNS matching the live WAN IP the whole time. The gateway does not hairpin, so it cannot be
+tested from inside the LAN — only from a genuinely external network, and only by checking
+the app log.
+
+⚠ **This is plain HTTP over the public internet, carrying CAS session cookies in clear.**
+That is BGL-1 and it is unchanged by the forward working. `https://sfuai.ca` resolves
+nowhere: the certificate is at IONOS, which is authoritative DNS only — the A record points
+straight at the WAN IP, so nothing of theirs is in the traffic path and no TLS terminator
+exists anywhere in this chain. **Tailscale (`aria-alien1.tail652d79.ts.net:25800`) remains
+allowlisted and is the safer route.**
+
+⚠ **Port 443 at that WAN IP is the Telus gateway's own remote-admin interface**, exposed to
+the internet — it answers from outside while the app logs nothing. Not ours, but worth
+closing.
+
+⚠ **With CAS on you cannot `curl` a page to check it** — every UI route 303s. Verify
+through the suite, or `launch.ps1 -NoCas` / flip the one line. A copy of the CAS-enabled
+file is at `C:\Users\adam\jd-bank-backups\env.cas-enabled-20260909.bak`.
+
+⚠ **The published port varies by box** (`${JD_API_PORT:-25800}`). It has been 25900 and
+25800 on this machine within a day. `docker port jd-bank-api-1` is the answer; the guide's
+25800 is the committed default and is not wrong.
+
+### ▶ CONTENT CARRY-THROUGH — `make bank-audit`, measured 2026-09-09
+
+**The funnel counts DRAFTS; this counts CONTENT.** They answer different questions and
+the second one has caught every content-loss defect this project has had. For each
+section, per form: how many clusters' **sources offered** it vs how many **drafts keep
+it**. A producer summary cannot see any of this — `refreshed=649 failures=0` prints
+identically whether a run enriched every draft or gutted it.
+
+```bash
+make bank-audit                       # exits 2 on a verdict; run BEFORE and AFTER a pass
+make bank-audit AUDIT_ARGS="--json"   # two runs diff cleanly
+```
+
+Two readings worth knowing before you read the output:
+
+- **the merge-only CONTROL.** A rewrite *failure* falls back to the deterministic merge,
+  so those drafts are the same pipeline with the model removed — a controlled comparison
+  the Bank produces for free.
+- **carry-through ABOVE 100% is FABRICATION**, not an arithmetic bug. A draft can only
+  carry what its sources stated.
+
+**✅ CUPE IS REPAIRED — and this is the closed loop worth knowing about.** The WJQ parser
+recovered no duties from 16.2% of CUPE documents; the merge correctly produced nothing;
+and the rewrite filled the silence with **996 invented duties across 101 drafts**. Fixed
+end to end by the parser column-gap fix (#137) + HR-213 (`rewrite.duties_never_invented`)
++ the v8 re-parse + a producer pass. Measured today: **0 invented duties on CUPE**,
+`additional_context` and `relationships` both **100%**.
+
+🔴 **JDFN WAS NEVER RE-RUN, AND STILL CARRIES THE SAME DEFECT:**
+
+| JDFN, measured 2026-09-09 | |
+|---|---|
+| `problem_solving` | **232.8% — 635 drafts carry it with NO source** |
+| `relationships` / `decision_making` | **64.7% / 64.6%** — content the sources state, dropped |
+| invented duties | **51 drafts, 218 duties** (38 unclassified + 13 apsa) |
+
+A JDFN producer pass is what closes this, exactly as the CUPE one did. Until then **do not
+quote a JDFN content figure** from anywhere.
+
+⚠ **AND IT IS NOW DEMO-VISIBLE.** The Bank went in front of the CIO AI task force on
+2026-09-10, and the unit pages link straight through to roles. A JDFN role opened from
+VPFA or Facilities can show a Problem Solving section **no source document wrote**. The
+CUPE cohort is clean; JDFN is not, and the difference is invisible on the page. The pass
+takes roughly the 19 hours the CUPE one did (`--only-template jdfn`), so it is an
+overnight job, not a pre-meeting one — but it should not keep slipping now that a
+stakeholder audience can reach it.
+
+🔴 **THE DUTY-FREQUENCY DEFECT IS OPEN, AND THE NAIVE FIX IS UNSAFE.** WJQ duty frequency
+survives on **28.5% of rewritten duties against 100% of merge-only ones** — the rewrite
+destroys a field the merge preserves, and frequency is an input to the CUPE point-factor
+evaluation, so a dropped one is a missing evaluation signal and not just missing text.
+
+✅ **RE-DERIVED 2026-09-11 against the live Bank and it CONFIRMS — 2,071/7,266 = 28.5%
+rewritten, 24/24 = 100.0% merge-only.** Unlike the three rows this week that were stale,
+this one stands. (Frequency is also 0.0% on every non-CUPE form, as it should be: the
+markers are WJQ form furniture.)
+
+⚠ **But read the CONTROL's size before designing against it: 100% is 24 duties across TWO
+drafts.** It is small precisely *because the rewrite rarely fails* — good for the pipeline,
+weak as evidence. The 28.5% is solid (7,266 duties); the "100%" is directional. Do not
+treat the merge as a proven ceiling on the strength of two drafts.
+
+The restore exists but sits *inside* the well-grounded branch, so a heavily-reworded duty
+keeps nothing. **Do not simply move it out.** Measured over 120 real clusters: duty counts
+align 91.7% of the time, but argmax and positional matching agree only **8–26%** — the
+model reorders heavily — and **62.4%** of duties share under 0.2 Jaccard with any merge
+duty. Both obvious rules would attach a **wrong** frequency, which is worse than a missing
+one. This needs a matching design with evidence behind it.
+
+⚠ **`flagged_duties` has become a constant** — 97.0% of JDFN drafts and 97.6% of WJQ ones
+carry at least one. A finding on nearly every draft is not a signal; `duty_flag_threshold`
+(HR-184) wants re-measuring rather than quietly re-tuning.
+
+✅ **RE-MEASURED 2026-09-11 — and the draft rate was the WRONG UNIT (§10).** The draft
+figures reproduce exactly, but a draft with one flag counted the same as one where every
+duty was flagged. Per DUTY: **69.2% of all 15,530 duties in the Bank are flagged**, and
+**805 drafts (32%) have EVERY duty flagged** — inside those the flag distinguishes nothing.
+
+🔴 **AND IT IS ONE KNOB WEARING TWO HATS.** `duty_flag_threshold` also decides frequency
+carry-back: a duty below it is flagged **and** loses its frequency. So the duty-frequency
+item above and this one are **the same mechanism from two sides**, and they cannot be tuned
+independently — lowering it to rescue frequency floods the flag; raising it to sharpen the
+flag destroys more frequency. The CUPE arithmetic reconciles: 37.3% unflagged against 28.5%
+keeping a frequency, the 8.8-point gap being matched duties whose merge counterpart had no
+frequency of its own.
+
+✅ **THE SWEEP IS DONE (§10e).** ⚠ It was first written up as *"not possible from stored
+data"* — **wrong**: `merge_provenance.duty_coverage` holds the merge duty TEXTS, so every
+Jaccard recomputes in seconds. Validated by reproducing the pipeline's own answer exactly
+(4,570 CUPE duties flagged at 0.2, the number already in `change_log`).
+
+| CUPE flag rate | 0.05 | 0.10 | **0.20** | 0.30 | 0.50 |
+|---|---:|---:|---:|---:|---:|
+| | 2.7% | 20.6% | **62.7%** | 85.1% | 96.7% |
+
+🔴 **0.8% of CUPE duties have NO token overlap with any merge duty; 0.3% are identical.** The
+model rewords nearly everything and invents almost nothing — so 0.2 is not separating
+fabricated from grounded, it is separating lightly from heavily reworded, and the shipped
+value sits exactly where the curve is steepest.
+
+⚠ **DO NOT MOVE THE NUMBER ON THIS ALONE.** The sweep measures how many duties each threshold
+MATCHES, not whether the match is the RIGHT merge duty — and argmax/positional agree only
+8–26%. Because the same knob carries `frequency` back, a lower threshold attaches MORE
+frequencies from possibly-wrong matches, and a wrong frequency is worse than a missing one.
+**The open question is precision, not volume.** ✅ **And an upper bound on it is now measured
+WITHOUT labelling (§10f):** `_closest` is argmax with **no exclusivity**, so two rewritten
+duties can claim the same merge duty and both inherit its frequency. **12.6% of matched CUPE
+duties are in such a collision** (16.9% unrecorded, 13.3% apsa); 147 CUPE drafts contain one.
+Of three examples read by eye, **two are genuine mis-matches** — a different duty matched on
+shared vocabulary ("immigration", "leadership") — and one is a plausible 1→2 split, so 12.6%
+bounds the error rather than being it.
+
+🔴 **THAT RELOCATES THE FIX: the defect is in the MATCHER, not the threshold.** Collisions
+happen *above* the bar, so moving the bar cannot touch them. An **exclusive assignment**
+(each merge duty claimed at most once) is the "matching design with evidence behind it" this
+row has been asking for, and the evidence now exists. ❌ Still unmeasured: precision among
+NON-colliding matches — that one does need labelling.
+
+### ✅ MVP-2 (VPFA · Facilities) — SHIPPED 2026-09-09 (#183), live behind CAS
+
+The org tree came from the owner, so the build is done and merged. Six units, each a
+funnel collection like the IT one — **not** nav items, which was a correction: a unit is
+a named subset of the Bank, and two portfolios in the menu imply a tree that is complete
+when it is not.
+
+| unit | roles | |
+|---|---:|---|
+| **VPFA** `/unit/vpfa` | **160** | the portfolio; Facilities, Finance, ITS, Safety & Risk and Campus Services roll up into it |
+| **Facilities** `/unit/facilities` | 57 | incl. Campus Security — the boundary call Track E had open, settled by the owner |
+| ITS `/unit/its` · Finance `/unit/finance` · Safety & Risk `/unit/safety-risk` | 54 · 31 · 10 | |
+| Campus Services `/unit/campus-services` | **0** | named as a sub-unit; **no department string in the archive names it** |
+
+Linked from the **funnel footer** beside "The IT collection". `?scope=<slug>` also works
+on the funnel, but the footer deliberately links the LIST — the first cut led with the
+scope and landed every reader on more statistics.
+
+**Each page carries THREE numbers** — in the unit · not in it · **department unrecorded
+(677, 27.1%)**. `UnitRollup` has no single "other" field, so a template cannot collapse
+that distinction even by accident.
+
+🔴 **MEMBERSHIP IS AN EXACT LIST, NEVER A PATTERN** (`org_units.yaml`, HR-227…HR-232, all
+`open`). `Science - IT Services` is in the archive and may be a faculty's own IT; a phrase
+match on "IT Services" claims it either way. Deliberately excluded, with a test. The
+MECHANICAL half of aliasing IS automated (`&`/`and`, unicode dashes, case, whitespace);
+word ORDER is not, because deciding two orderings name one team is a judgement.
+
+⚠ **SIX DEPARTMENTS ARE DELIBERATELY UNASSIGNED**, each a one-line rulebook edit and each
+rendered on the page as a candidate: **Human Resources (52)**, Procurement Services (7),
+Financial Aid & Awards (8), Budget Office (4), Enterprise Risk & Resilience (3), Campus
+Public Safety (2). None was named by the owner. "Financial" in a name is not evidence of
+a reporting line — `Student Services - Student Accounts` is the counter-example in the
+same data. 655 departments are unassigned in total.
+
+⚠ **TWO SURFACES ANSWER "IT" ON PURPOSE.** ITS the department is **54**; the IT collection
+is **213** — a strict SUPERSET (all 54 in both, 159 IT roles in faculties and schools,
+none in the department but outside the family). Kept apart pending a **CIO / VPFA**
+conversation, because the **ITP/S classification is legacy**. The ITS page renders the
+comparison so nobody "fixes" one to match the other: rolling the portfolio up through the
+family would add 159 faculty IT staff to a vice-president's total.
+
+### 🔴 What `make smoke` now checks — and why it is RED
+
+**Owner ruling 2026-08-29: only claim completion after an end-to-end smoke test**
+(Directive #1 item 5). The rule exists because `make smoke: 6 passed` was quoted as
+end-to-end evidence for days while smoke was **database-only** — six Postgres
+reconciliation tests, no Neo4j, no HTTP, no search — under a docstring that called it
+"end to end".
+
+It now also checks the **derived index**, and fails on two real, open things:
+
+| red | why | fix |
+|---|---|---|
+| document vectors at `jd_segmenter_v2` | six parser bumps stale; the vector query has no version filter, so it silently ranks on text the parser no longer produces | `make embed` (long; needs Ollama) |
+| 1 embeddable role has no vector | the runner reports `2,500 seen = 8 empty + 2,491 unchanged` — which does not reconcile. A small accounting hole | plan.md **P3g** |
+
+⚠ **Leave it red until those are fixed.** A green smoke that does not cover the change is
+worse than a red one that does.
+
+**What was fixed getting here:** `make embed-roles` used to ABORT — one
+`EmbeddingBadRequestError` escaped the batch loop, stopping at 2,152 of 2,500 while the
+make target said only `Error 1`. Now isolated and counted, and role vectors went
+**1,797 → 2,491**. ⚠ The error named the symptom, not the cause: with isolation ZERO roles
+are rejected, so no single role is over-length — the **batch** exceeded the context in
+aggregate.
+
+### ⚠ Before you demo or test: two things `launch.ps1` does NOT do
+
+1. **The vector index is stale, and it is silent about it.** `(:JDDocument)` nodes carry
+   `parser_version = jd_segmenter_v2` — **six bumps ago**. Search still WORKS (the query
+   is `db.index.vector.queryNodes` with no version filter), so nothing errors; it is
+   ranking on text the parser no longer produces. Refresh with `make embed`
+   (skip-first; needs Ollama on `aria-gb10-2`).
+2. ✅ **FIXED** — `(:JDRole)` held 1,797 vectors against 2,500 roles — 703 roles were INVISIBLE to
+   Builder search**, with no error anywhere. Neo4j is a DERIVED index: nothing rebuilds it
+   when the Bank grows, and no gate notices. `make embed-roles` after any producer run —
+   The abort is fixed and it now reaches **2,491**; `make smoke` checks the coverage.
+
+⚠ **The port is not fixed at 25800.** `launch.ps1` defaults to it, but `JD_API_PORT` in the
+launching shell wins — this box has been running on **25900** for that reason.
+`docker compose port api 8000` prints the truth.
+
+### What changed on 2026-08-28/29, and what it left behind
+
+- **The parse was the root problem, and it is fixed (HR-226).** A job was being called
+  CUPE because it *mentioned* the word — APSA managers who supervise CUPE staff. Two more
+  defects fell out of the same investigation: the title family called an Executive
+  Assistant a VP (HR-224), and the Builder's CUPE form searched JDFN documents (HR-225).
+  All measured against the **raw archive files**, not the database. [`FINDINGS.md`](../FINDINGS.md) §7.
+- **The 24 drafts built from mislabelled documents were DELETED**, on the owner's ruling —
+  a cluster with no draft reads as *un-drafted*; one with a wrong draft reads as finished.
+  `core/db/repairs/001_drop_mislabelled_cupe_drafts.sql`. ⚠ **`audit_log` was deliberately
+  not written**: it is hash-chained (`audit_chain_tail`) and forging an entry the app never
+  made would corrupt it. **24 clusters now have no draft** and nothing regenerates them —
+  that is plan.md **P4**.
+- **The bargaining unit is now its own facet** with `(unrecorded)` named (P2). The
+  "By template" table was being read as an APSA-vs-CUPE split and is not one — its `jdfn`
+  bucket also held every document naming no unit. ⚠ Measured while fixing it: the
+  unrecorded are **the OLD archive** (88% old/transition, **not one current-era
+  document**), so counting them as JDFN blended thousands of modern APSA JDs with
+  thousands of pre-2019 ones. §7c-i.
+- **Half the CUPE archive had no title, and now does (P3a).** 47.6% of CUPE documents
+  carried the `Untitled Position` sentinel against **0.0% everywhere else** — antiword's
+  render puts the label and its value in ONE cell while the parser read the next one.
+  **805 titles recovered, 47.6% → 28.9%**, position numbers +593. §8.
+- **Offline deployment exists and was verified end to end** (bundle → install on separate
+  volumes/ports → row counts matched). See below.
+- **The operator scripts are now `build.ps1` → `launch.ps1` → `teardown.ps1`.**
+
+### The three things that actually need a person
+
+1. **B2 / B4 — the HR asks.** B3 is RATIFIED (see above). **B2, the pilot, is now the only
+   work that moves the published count** — pure lead time, and nothing should be sequenced
+   behind it. B4 is the remainder of the register; the count outstanding is in the
+   register's own header, which now separates still-outstanding from ratified.
+2. **A6 / A7 — the ITS director sessions.** Work the review queue and vet the department
+   alias list; their rulings land in HR-217/218.
+3. **D1 — rule on the one-of-a-kind job (HR-223).** The pipeline builds a role from a
+   GROUP of near-duplicates, so a unique job produces nothing. **The only open item that
+   raises the ceiling on what can ever be published.** The decision is now REGISTERED and
+   the population MEASURED by code anyone can re-run — `make singletons`, four buckets and
+   a control, [`docs/singletons/`](../singletons/). `drop` still ships, so nothing has
+   changed until HR rules. [`docs/FINDINGS.md`](../FINDINGS.md) §2a.
+
+### If you are picking up engineering, start here
+
+| | |
+|---|---|
+| ~~**P3b**~~ ✅ | **AUDITED 2026-08-29 — the third field checked, the third to produce a defect.** `make field-audit`. 🔴 **726 CUPE departments the archive states and the Bank does not.** ⚠ Re-probed in the PARSER'S scope (`--identification-only`) the diagnosis INVERTED: it is not a read failure but **one unregistered label, `Department Name/Section`, ~667 of 680** (§9g — and §9b/§9c record the wrong turn). **P3d is now a bounded fix**; **E1 VPFA waits on it** — a rollup on this column today would be confidently wrong. |
+| **P4** | **24 clusters have no draft** and nothing regenerates them. `src.jd_bank.canonical` has `--only-template` but no per-cluster filter, so re-drafting exactly those is not expressible; a full producer run is under a standing ⛔. Needs a ruling, not code. |
+| **P3c** | ⚠ **One recovered title contains an incumbent's name** (`Leigh McGregor. Departmental Assistant`). Needs a measurement and a registered rule — NOT a name-shaped regex invented on a sample of one (NN #5). |
+| ~~**D1**~~ | ✅ **Landed 2026-08-29 as HR-223** — the parked stash was recovered onto current `main` and its numbers RE-DERIVED before commit. ⚠ **They had not survived the week:** three of four buckets moved and the qualification comparison inverted outright (the draft called the pool qualification-poor at 1.46 vs 8.84; it measures 9.54 vs 8.89, with medians 0.0 and 1.0 that make both means meaningless). **The stale half was identified because the OTHER half reproduced exactly.** §2a. |
+| **D1a** | **Enact whichever policy HR rules for.** Not before D3 — `mint_role` over the whole pool would also mint a role for each of the 497 recall misses. plan.md D1a. |
+
+⚠ **The method is the finding.** Every defect this session came from reading the SOURCE
+FILES and running a CONTROL first — never from the database, and never from an aggregate.
+Three times the first answer was wrong: a probe whose scope did not match the parser's, a
+tokenizer that could not split `00001726Clerk`, and a facet of my own that blurred "could
+not evaluate" with "evaluated and found nothing". **Run the control before believing the
+result.** [`FINDINGS.md`](../FINDINGS.md) §8c.
+
+Everything else, including the rest of the archive gap, is in [`docs/plan.md`](../plan.md).
+
+**Queued next features** — slotted in [`docs/plan.md`](../plan.md) § THE MVP RUN ORDER,
+which is the order of record. It is **E → G → F**, and this page used to say E → F → G:
+
+1. ~~**MVP-2 · Track E — the next units**~~ ✅ **SHIPPED 2026-09-09 (#183).** Six units,
+   VPFA 160 · Facilities 57, as funnel collections. What is LEFT is not code: six named
+   departments still unassigned (Human Resources at 52 the significant one), each a
+   one-line edit to `org_units.yaml`, and each already rendered on the page as a
+   candidate. See the MVP-2 section above.
+2. **MVP-3 · Track G — upload a JD into the Builder**
+   ([`docs/plans/BUILDER-UPLOAD-AND-CHECK.md`](../plans/BUILDER-UPLOAD-AND-CHECK.md)):
+   upload a Word file or PDF → parse → compliance panel → optionally seed a draft, turning
+   the Builder into a JD assistant anyone with a document can use. Designed 2026-08-29
+   against the live code. **Mostly reuse** — a new front door onto the clone chain that
+   already runs. ⚠ **Three things bite first, all verified against the code 2026-08-29:**
+   `python-multipart` is *deliberately* absent and the CSRF check reads the body before the
+   handler — which means an upload does not fail to parse, it is **refused with a 403**
+   (`body.decode("utf-8")` raises on binary, the check catches it and finds no token); PDF
+   has no extraction backend at all; and both fixes move `requirements*.txt`, which is
+   exactly when the **offline bundle must be re-cut**. Does not move the published count —
+   it changes *who can use the Bank*.
+3. **MVP-4 · Track F — JD currency after publishing**
+   ([`docs/plans/JD-CURRENCY-ATTESTATION.md`](../plans/JD-CURRENCY-ATTESTATION.md)):
+   steward attestation on a cadence, REAFFIRM / REVISE / RETIRE, stale advisory on every
+   axis, nothing auto-unpublishes. Designed 2026-08-28 against the verified base —
+   `rules_version` is already stamped and publish dates derive from APPROVE rows, so
+   drift detection needs no new fields; the genuinely new pieces are the `attestations`
+   table, the RETIRE action (no retire path exists today), stewards, and `currency.yaml`.
+   **Last on purpose:** with four published JDs a currency loop is ceremony; B2's twenty
+   make it real.
+
+---
+## ▶ IF YOU ARE STARTING COLD
+
+```bash
+git fetch && git log --oneline origin/main -1
+gh pr list                                        # never trust a table for this
+docker ps --format '{{.Names}}' | grep jd-bank    # ⚠ the stack does NOT self-restart
+.\launch.ps1                                      # ...if that came up empty or short
+docker ps --filter "name=canonical"               # MUST be empty; do not start a run
+```
+
+**Three scripts, one job each — `build.ps1` → `launch.ps1` → `teardown.ps1`.**
+
+| | |
+|---|---|
+| `.\build.ps1` | build the images **and prove they are deployable** (`-NoCache`, `-Bundle`) |
+| `.\launch.ps1` | start → healthy → migrate → **verify** → status (`-NoCas`, `-Rebuild`) |
+| `.\teardown.ps1` | stop, data KEPT (`-Orphans`, `-Volumes`, `-ProjectName jd-bank-test`) |
+
+⚠ **`launch.ps1` now fails loudly if any service is not RUNNING.** `up --wait` only
+proves the services it started came up; it says nothing about one that started and then
+died. Editing `docker-compose.yml` makes the next `docker compose run` recreate
+dependencies, which drops the worker's Redis connection and arq exits — on 2026-08-28
+the worker sat `Exited (1)` for **nine hours** with the stack otherwise green and nobody
+noticed. Do not read the status table; read the verdict under it.
+
+⚠ **`teardown.ps1 -Orphans` clears what compose will not.** One-shot `docker run` jobs
+are not compose services, so `down` leaves them forever — three sat exited for a week,
+making every compose command print an orphan warning everyone had learned to ignore.
+That is how a real warning gets missed.
+
+`quickstart.ps1` still works; it forwards to `launch.ps1` with a deprecation notice.
+
+⚠ **The box runs other Docker projects.** Random `postgres:16-alpine` /
+`neo4j:5-community` containers are `recruiter-assistant`'s testcontainers, not ours.
+
+**Then open `/jd-bank/ui/funnel`.** It is the fastest way to see the state of the archive,
+and it is the only place those numbers are authoritative.
+
+**Then run `make smoke`.** The end-to-end check against the live Bank — parsing, dedup,
+categorize, filterable — fails if a single document is unaccounted for or unfindable.
+
+**Then run `make bank-audit`.** Read-only, seconds, no GPU. The funnel says how many
+drafts exist; this says what is IN them, per form — and it is the only view that shows
+content being lost or invented. See *Content carry-through* above for what is currently
+open.
+Trust it over any document, including this one.
+
+---
+
+## ▶ DEPLOYING TO A FRESH BOX, OFFLINE
+
+**Built and verified 2026-08-28.** The repo can be put on a box with Docker and **no
+internet** and come up as a working Bank with the archive already in it.
+
+```bash
+make bundle                                          # on a CONNECTED box -> dist/ (~1.4 GB)
+.\deploy\install.ps1 -BundleDir <bundle>             # on the TARGET — never touches the network
+make deploy-check                                    # cheap standing check; run after compose/Dockerfile edits
+```
+
+Full runbook: [`deploy/README.md`](../../deploy/README.md).
+
+- **A code change does NOT need a new bundle.** `api`/`worker` bind-mount `./core`, so
+  copying the repo is enough. Re-cut only when `requirements*.txt` or the `Dockerfile`
+  moves.
+- **`install.ps1` passes `--no-build --pull never`**, so a missing image fails loudly
+  instead of quietly pulling — an install that silently pulls has proved nothing about
+  the offline box.
+- **It refuses to restore over a populated database.** `pg_restore --data-only` into a
+  migrated DB silently destroys the Bank and exits 0; the bundle carries a full `-Fc`
+  dump and the target must be empty (or `-Force`).
+- **Verification is part of the install** — row counts are compared against the bundle's
+  manifest and the Neo4j vector nodes counted; it exits non-zero if anything disagrees.
+- ⚠ **Only the internet is optional.** Ollama on `aria-gb10-2` is still needed for
+  `make embed` and the LLM jobs; the app, funnel and dashboards do not touch it.
+
+Validated by rehearsing a full install beside the live stack under a second project name
+— all five row counts and both Neo4j labels matched, and the funnel rendered from the
+restored database.
+
+---
+
+## ▶ HOW WE WORK
+
+- **Docker-only (ADR-006).** No host Python/venv/pip. `make gates` runs the full suite
+  (incl. testcontainers integration) in the one-shot `gates` service — CI-identical.
+- **TDD.** Failing test first. Every rulebook gate has a failing- and a passing-fixture test.
+- **Rulebook as data.** Any non-trivial metric/rule is YAML-configurable **and registered
+  in the same PR**. The build refuses to load an unregistered knob — this is enforced, not
+  advisory. If a default looks wrong, register it `open`; never quietly patch it.
+- **Branches and PRs:** see `CLAUDE.md` § *Change workflow* — code always via PR; most
+  docs commit straight to `main`; **this file and `docs/plan.md` still go via PR.**
+- **Re-run `make gates` yourself before committing.** A subagent's claim of green is not
+  evidence of green; require the pasted command and its output.
+- ⚠ **`make gates` bind-mounts `./core`.** Editing files mid-run invalidates the run.
+
+## ▶ LESSONS THAT STILL BITE
+
+Distilled from six weeks; the full set is in the archive.
+
+- **Optimising a proxy can run forever.** Draft fidelity always has another defect at
+  14,522 documents. Tie work to the deliverable or the loop never exits. *(This is the
+  whole reason for the 2026-08-24 re-evaluation.)*
+- **A green suite proves nothing about a guard you have not tried to break.** Three
+  separate "correct fix pinned by nothing" defects. If a test's docstring explains *why*
+  a property holds, break that why and watch it go red.
+- **A wrong query returns 0 exactly as convincingly as a guard that never fired.** Before
+  believing a zero, prove the query can produce a non-zero.
+- **One sample cannot tell "working" from "stalled".** Take three. A single 38-second
+  reading was misread as progress when the transaction was parked.
+- **A flat metric is a question, not a verdict** — compare against a control (the
+  not-yet-processed population) before acting on it. That is what caught HR-214.
+- 🔴 **A measurement has a shelf life, and a parked one has already expired.** The HR-223
+  numbers were measured on 2026-08-28 and recovered from `git stash` on 2026-08-29. Three
+  of four buckets had moved (513 could-not-evaluate → 82) because v6→v7 recovered 805
+  titles and every bucket was title-based. **Recovering parked work means re-deriving its
+  numbers, not just replaying its diff.**
+- 🔴 **When two numbers disagree with their re-run, the one that REPRODUCES tells you
+  which is broken.** The draft claimed the no-twin pool averages 1.46 qualifications
+  against 8.84 in-role. The same probe returned 8.89 in-role — reproducing that half
+  almost exactly — and 9.54 for the pool, so the pool figure was the broken one, not the
+  probe. **A comparison is two measurements; check them separately before believing the
+  contrast.** (And the medians, 0.0 and 1.0, then showed neither mean meant anything.)
+- **Print the sample, and read it.** The unique-title count looked clean until the
+  verbatim list showed `#01246` and `.....Televis` sitting in it. One case was
+  definitional and fixed; the rest were published as an upper bound rather than
+  classified away on a sample of sixty.
+- 🔴 **A probe that disagrees with the parser IN THE PARSER'S FAVOUR is broken.** The
+  field audit reported "no label found" for 129 of 129 APSA documents while the parser
+  held a department for 52 of them — because identification labels have TWO provenances
+  (rulebook `id_labels` for the WJQ form, hardcoded regexes for the modern one) and the
+  probe knew only the first. Later, a `\b` fix made APSA `position_number` fall from
+  4,836 to 310 against a parser holding 4,753. **Both times the direction of the
+  disagreement was the tell**, long before the number was.
+- **Fixing a substring bug with `\b` can be worse than the bug.** `\b` asserts a
+  word/non-word *transition*, so `\bposition #\b` never matches `Position #:`. What was
+  actually meant is "not butted against a letter or digit" — lookarounds, not `\b`.
+- **Print the sample and READ it — the false positives are in the strings, not the
+  counts.** `grade` matching *upgrade*, and the TITLE label `Department Position Title`
+  being claimed as an unreadable DEPARTMENT 31 times, were both invisible in the totals
+  and obvious in the verbatim list.
+- ⚠ **`perl -0pi -e` turns `\b` in a replacement into a literal BACKSPACE byte.** It
+  silently made every word-boundary match fail. Use the Edit tool for regex bodies.
+- **A rising score is a question too.** Three separate defects this project made scores go
+  *up*: invented sections, compressed duty lists, dropped point-factor content.
+- 🔴 **A SAMPLE IS NOT EVIDENCE ABOUT A COHORT, AND THAT IS HOW A FIX GETS REPORTED AS
+  LANDED WHEN IT DID NOT.** HR-209 measured duty-frequency retention over the five largest
+  CUPE clusters and reported it rising 27.8% → 43.8%. Over all 649 it was **24.1% —
+  *below* its own stated "before"**. The sample was not wrong about those five clusters; it
+  was never evidence about the rest. `make bank-audit` exists to make the cohort answer
+  cheap enough that nobody reaches for a sample again. **Quote the cohort or say
+  "sampled".**
+- **Measure before patching, even when the patch is one line.** The frequency restore looks
+  like moving one call out of a branch. Measuring first showed the model reorders duties so
+  heavily that both obvious matching rules would attach a **wrong** frequency to a field
+  the point-factor evaluation reads — a worse outcome than the bug. Twice this session a
+  confident one-line fix was refuted before it shipped: that one, and a whitespace
+  hypothesis about WJQ headings that `_clean` already handled. **The near-miss is the
+  useful part; write it down where the next person will look.**
+- **Verify state against the remote before trusting any doc.** `gh pr list` costs seconds;
+  a handoff that records intent as outcome is worse than one merely out of date.
+- **A term list is a hypothesis, and it fails differently every time you rewrite it.**
+  Four failures now, same list: it missed the **engineers** (it encoded "IT = desktop
+  support"), then nearly missed the **analysts** (they write about processes, not
+  technologies), then missed the **leadership** entirely (a Senior Director's duties carry
+  no technology nouns at all), and separately it cannot see anyone whose JD simply does not
+  describe the work in those words. **Validate every functional definition against a
+  known-good seed, and let it fail.** Then assume the next rewrite fails somewhere new.
+- 🔴 **Internal consistency is not corroboration — it is what hides the error.** Five
+  numbers and names in the planning docs were wrong this session (8→20 ITP-titled roles,
+  368→469 documents, the unreproducible "1,420 → 166", "Practitioner"→"Professional",
+  214→79 as the real HR ask). Every one was consistent across two to four documents, and
+  that is precisely why none had been caught: they all derived from a single unchecked
+  source, so agreement between them was a **correlated** failure, not evidence. **Only the
+  archive is a second opinion.**
+- **Ask what the AUDIENCE will look for, not only what the system computes.** The IT
+  collection was correct and complete on its own terms, and would still have failed in
+  front of ITS directors: it lists roles SFU *classifies* as IT, while a director looks for
+  their own department — 45 of their staff were surfaced nowhere. No test could have caught
+  that, because nothing was broken. The question "what will they scan for first?" caught it.
+- **Match on word boundaries, never substrings.** `lan` as a substring matched 1,568 of
+  2,493 roles — *plan*, *planning*, *Langara* — and 63% is not obviously absurd when you
+  are expecting "bigger than you think". A wrong sweep looks exactly like a finding.
+- **A number derived from a wrong number can still be right — and that hides the error.**
+  The IT plan quoted 368 ITP documents; the truth is 469. The 45 roles and 32 approvable it
+  derived were correct, because they came from the right query and only the document count
+  was mis-transcribed. **Re-derive a headline number before saying it out loud**, and keep
+  the query next to it.
+- 🔴 **A filter must publish what it CANNOT SEE, or it is unfalsifiable.** The IT
+  collection defined membership by a code present on 35% of the archive and reported the
+  result as the whole function — 45 roles against a true ~211. Nothing on the page let a
+  reader tell a small set from a blind filter. **Report three numbers: matched, not
+  matched, and could-not-evaluate.** ⚠ And note the trap: validating against a seed drawn
+  from the same 35% scored 98% recall while missing two-thirds of the population.
+- 🔴 **A PLACEHOLDER is not a null, and a null check will not find it.** The parser writes
+  `Untitled Position` when it finds no title, so `title <> ''` reports **100% title
+  coverage** — while 2,050 of 14,522 documents (14%) have no real title, 1,395 of them
+  already inside drafts. That false all-clear was produced during the very investigation
+  that then found it. **Check for the sentinel the writer uses, not for emptiness.**
+- 🔴 **One aggregate can hide a real gap inside an expected one.** "3,653 de-duplicated"
+  is a plausible, comfortable sentence. Split into its buckets it is 1,900 genuine
+  near-duplicates, 549 duplicates of each other, and **1,204 documents with no duplicate
+  link at all that nobody has explained** — 8% of the archive, invisible for as long as it
+  was reported as one number. **Report the buckets, never the total, when the total is a
+  difference.**
+- **`make gates` is not the whole gate.** The HR-register drift check runs only in CI, so a
+  green local suite said nothing about it and `a65e224` failed on a stale generated file.
+  **Run `make register` whenever the register changes**; know which checks live only in CI.
+- **Use the project's own formatter, not a similar one.** `ruff format` reformatted 29
+  unrelated files in a style `black` — the actual gate — then rejected. And an
+  auto-rewrapper for long lines mangled docstrings into orphan fragments. Both had to be
+  reverted, and the second cost more than fixing 33 lines by hand would have.
+- 🔴 **A PROBE AND THE THING IT AUDITS MUST ANSWER THE SAME QUESTION — and the way to
+  check is to make the probe REPRODUCE the audited number.** The field audit read whole
+  documents; the parser reads only the identification block. So it kept finding the WJQ
+  cover page's readable `Department Name:`, which the parser never sees, and reported a
+  726-document READ FAILURE. Re-scoped, `readable` (2,956) lands on `parser_has` (2,958)
+  and the real defect is ONE unregistered label, `Department Name/Section`, on ~667.
+  **The wrong diagnosis survived three probe fixes and a full write-up** because every
+  number in it was internally consistent. `readable ≈ parser_has` was the check that
+  would have caught it on day one, and it costs one query. Third time this project has
+  been bitten by a probe scoped differently from the code it audits (P3a's first fix,
+  the employee-group token scan, this).
+- 🔴 **CHECK THE BANK, NOT THE COUNTER.** A run's counters report what the RUN DID; the
+  Bank holds what is TRUE. They are not the same reading and they drift apart silently.
+  The rewrite pass printed `refreshed=95`, and the Bank had gained prose on **84** — the
+  other 11 rewrites had failed, kept their deterministic draft, and were still counted as
+  refreshed. A progress line's `failures=` counted CLUSTER failures, not rewrite failures,
+  so "0 failures" was reported four times while 11 were accumulating. **The counter was
+  not lying; it was answering a different question.** Query the Bank with the code's own
+  predicate (`draft_has_rewritten_prose`) and compare before/after — that is the receipt
+  against the balance, and only the balance is money.
+- **A watcher must match the signal, not a substring of the output.** A completion check
+  looking for "passed" fired on ruff's *"All checks passed!"* and reported a test result
+  that had not happened yet. Same shape as believing a zero.
+- **In a REVIEW queue, over-inclusion is cheap and under-inclusion is not.** A wrong
+  candidate costs one "no" in the room; a missing one costs the reviewer's confidence in
+  the whole list. Bias a worklist wide — and only a worklist, never a membership rule.
+- 🔴 **A one-directional guard is decoration.** The template-routing check asked only "is
+  a CUPE document behind a non-CUPE draft?" and stayed green while the inverse — drafts
+  claiming CUPE over documents that are not — accumulated. **Agreement in the direction
+  you tested says nothing about the other.** Assert both ways, or do not claim the
+  property is pinned.
+- 🔴 **A field can have two provenances and admit to neither.** `employee_group` was READ
+  from the text for APSA/APEX/POLY and SET by routing for CUPE — one column, two meanings,
+  nothing recording which. That is what let a passing mention ("supervises CUPE staff")
+  become a bargaining unit. **When a value can arrive two ways, the difference is data,
+  not a footnote.**
+- **A CONTROL is what tells a finding from a broken probe.** A token scan "proved" 92% of
+  ungrouped documents name no group — and its control scored 49%, which should have read
+  as *the probe cannot see groups*. Splitting the control by group explained it exactly
+  (100% for the read-from-text groups, 2.5% for the routed one) and only then was the
+  finding trustworthy. **Run the control before believing the result.**
+- **Check the source, not the database, when the database is the thing in question.** Both
+  employee-group defects were invisible in `parsed_jds` and obvious in the archive files.
+- **EVERY CLAIM ABOUT THE ARCHIVE MUST BE CHECKED AGAINST THE ARCHIVE.** A sample of the
+  newest files is not a sample of the corpus. This rule has caught the Phase 0 census, two
+  coders, a reviewer *and* the orchestrator.
+
+---
+
+
+---
+
+## ▶ AUTHORITATIVE REFERENCES
+
+| what | where |
+|---|---|
+| 🥇 **Live counts — the system itself** | `/jd-bank/ui/funnel` |
+| **Everything we have measured** | [`docs/FINDINGS.md`](../FINDINGS.md) |
+| **What we do next** | [`docs/plan.md`](../plan.md) |
+| Project invariants | [`CLAUDE.md`](../../CLAUDE.md) |
+| Onboarding, traps, `PARSER_VERSION` | [`DEVELOPER_GUIDE_1.md`](../../DEVELOPER_GUIDE_1.md) |
+| Operating the system | [`docs/OPERATOR-GUIDE.md`](../OPERATOR-GUIDE.md) |
+| What HR must decide | [`docs/decisions/HR-DECISION-MATRIX.md`](../decisions/HR-DECISION-MATRIX.md) |
+| Every registered default (the file's own header is the count of record) | [`docs/decisions/HR-DECISION-REGISTER.md`](../decisions/HR-DECISION-REGISTER.md) |
+| Archive baseline | [`docs/baseline/README.md`](../baseline/README.md) |
+| Portable harness lessons | [`docs/HARNESS_LESSONS.md`](../HARNESS_LESSONS.md) |
+| The re-evaluation that reset priorities | [`docs/STATUS-2026-08-24.md`](../STATUS-2026-08-24.md) |
+| Build record + full working for each finding | [`docs/archive/`](../archive/) |

@@ -2,9 +2,9 @@
 
 > **Generated file — do not edit by hand.** Rendered from `core/src/jd_core/rules/decision_register.yaml` by `make register`. `make register-check` (and CI) fails the build if this file drifts from it.
 
-Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **304 decisions** (302 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 405 parameters on the decision surface, all accounted for.
+Rulebook version `jd_rules_sfu_v4+e59b1b5d62e3` · **330 decisions** (328 open · 2 ratified · 0 deferred) · 108 parameters explicitly exempted as trivial · 431 parameters on the decision surface, all accounted for.
 
-**Of those 304, 93 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 209 are recorded for the same build check but are not yours to sign: 103 shape what a reviewer sees without deciding whether a job description passes, and 106 are engineering settings. **Read *Your decisions* below and you have read the ask.**
+**Of those 330, 93 still need an HR ruling.** **2 of them are already ratified** and are shown as settled. The other 235 are recorded for the same build check but are not yours to sign: 116 shape what a reviewer sees without deciding whether a job description passes, and 119 are engineering settings. **Read *Your decisions* below and you have read the ask.**
 
 ## What this is
 
@@ -1024,7 +1024,20 @@ These change what a reviewer is *shown*, or what a draft *contains* before a hum
 | [HR-306](#hr-306) | Should the signature block at the end of an old position description ("J. Approvals": incumbent's, supervisor's and next level's signatures and dates) be kept out of the job description? | *a text pattern — see below* | we chose it |
 | [HR-307](#hr-307) | The old position description prints questions for whoever fills it in — under its qualifications heading ("What combination of experience, training and/or formal education do you believe is the minimum required to perform the duties of this position?") and over its Decision Making answers ("Decisions the incumbent is expected to make in carrying out duties"). Should the parser keep those questions out of the job description and record that it did? | *a text pattern — see below* | we chose it |
 | [HR-308](#hr-308) | How many characters of one qualification does the parser keep from an archive job description? | `null` | we chose it |
+| [HR-309](#hr-309) | When a harmonized role lacks a department or an employee group, may the Compensation Requisition Form take it from the role's source files instead? | `department`, `employee_group` | we chose it |
+| [HR-310](#hr-310) | When the source files disagree on a fact (two departments across one role), should the form stay blank, or take the majority? | `true` | we chose it |
+| [HR-311](#hr-311) | Should the Bank tick the "Type of request" box (A–E) the requester chose, or leave every box for them to tick on the form? | `true` | we chose it |
+| [HR-312](#hr-312) | When the Bank lists the positions a request is based on (Section A or B), should it also tick that section's "based off of an existing position? Yes" box? | `true` | we chose it |
+| [HR-313](#hr-313) | May the Bank type the signed-in requester's name and email into "Contact Name & Position Title" / its Email box, when they leave that choice ticked? | `true` | we chose it |
+| [HR-314](#hr-314) | Should the choices page SHOW the grades the role's source files carry, as reference, while never writing a grade to the form? | `true` | we chose it |
+| [HR-315](#hr-315) | Should a self-hosted chat model read what a person types into the Library and Builder search boxes before the title and vector passes run? | `false` | we chose it |
 | [HR-324](#hr-324) | How many characters of the supervisory text ("Supervision Exercised" and the relationships it describes) does the parser keep from an archive job description? | `null` | we chose it |
+| [HR-328](#hr-328) | When does a short or oddly padded number in a file name need confirming before it is treated as a position? | `unvouched_min_digits` → 3; `seven_digit_00_requires_corroboration` → True | we chose it |
+| [HR-331](#hr-331) | Which features use the full file-name position reading (HR-325 … HR-330) instead of only the zero-padded form? | `crf`, `search`, `source_page` | we chose it |
+| [HR-332](#hr-332) | Should job descriptions people have written in the Builder, and not yet had published, be left out of the Library's normal list and search (shown only when a reader ticks "Include drafts written in the Builder")? | `true` | we chose it |
+| [HR-337](#hr-337) | When the requester picks one position on the form's choices page, should the Department box show where THAT position sits (as its own job description files say), rather than the department of the whole family of similar roles? | `true` | we chose it |
+| [HR-338](#hr-338) | When the text of an archive job description has no title we can read, should its page show the title written in its file name instead of "Untitled Position"? | `true` | we chose it |
+| [HR-339](#hr-339) | When someone types only a position number into the Library or Builder search (`61`, `00000061`, `Pos 61`), should it list the archive files filed under that position and the roles built from them, rather than search the digits as words? | *a text pattern — see below* | we chose it |
 | [HR-340](#hr-340) | How many characters of one Decision Making or Problem Solving item, or of one internal or external contact, does the parser keep from an archive job description? | `null` | we chose it |
 
 #### We chose it — nobody has ratified these
@@ -1645,6 +1658,62 @@ The two bands now say two different, true things. The merged band said one false
 - **Why it matters:** It was the code constant `_MAX_QUAL`, unregistered, and with HR-300 it started to matter: the old form writes its requirements unbulleted, so they run together into one item. MEASURED (v10 segmentation, before any cut): 84,517 items, p50 88 · p99 1,332 · max 3,179 characters; 4,713 over 400 in 4,644 documents. Held at 400 (the `SFUQualification.text` contract, which the Builder's CUPE skill field also reads), and an item over it was SPLIT at its sentence breaks into items that fit, not cut. Items left at the cut: 1,225 (a single sentence over 400); 335 words the old parse kept were cut by it. The parser-v10 review (docs/audit/2026-10-29-parser-v10-review.md §4) re-measured the cut over all 14,522 files: 1,112 items, 308 of them the "or an equivalent combination of education and experience" clause, and recommended 600. ✅ Owner ruling 2026-10-29: "remove the 400 cap" — applied as `null` (every item kept whole; an unbulleted paragraph is ONE item and nothing is split) and RECORDED here rather than ratified, since it is the project owner's call, not an HR signature. Both readers (APSA and CUPE).
 - **If it changes:** Unhashed; changes what a parsed JD contains — re-parse. A number restores the split-at-sentences-then-cut reading at that length; the rewrite's fidelity table (HR-287) follows it. The model declares no ceiling, so no value here can fail a parse; the Builder's qualification inputs are bounded by their own form ceiling (`QUAL_INPUT_CEILING`, 20,000), not by this. Pinned by `test_parser_v10_qualification_uncapped.py`.
 
+##### HR-309 — When a harmonized role lacks a department or an employee group, may the Compensation Requisition Form take it from the role's source files instead?
+
+- **We ship:** `department`, `employee_group`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.fill_from_sources_when_role_lacks`
+- **Where the default came from:** we chose it
+- **Why it matters:** MEASURED 2026-10-28 over the 2,503 current roles: the harmonized content names a department for 1,746 and an APSA/APEX employee group for 1,077, while the member files' current parse raises those to 1,851 and 1,113. The first form the owner tested (AV Systems Analyst) was one of the gaps: its three source files all say "IT Services" and APSA, and the role said neither, so the PDF came out with only a title. The grade is deliberately NOT in this list: proposing one is the evaluator's job (ADR-007), so it is shown as reference only (HR-314).
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. Only facts the prefill knows how to read are allowed (`Literal`); removing one leaves that box blank for the requester.
+
+##### HR-310 — When the source files disagree on a fact (two departments across one role), should the form stay blank, or take the majority?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.sources_must_agree`
+- **Where the default came from:** we chose it
+- **Why it matters:** 27 of the 2,503 current roles have members in more than one department. A form sent to Compensation with the wrong department typed in is worse than one with the box empty, so a disagreement writes nothing. `false` would take the most frequent value.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. Affects only what a downloaded form has typed in; the requester edits it in Acrobat either way.
+
+##### HR-311 — Should the Bank tick the "Type of request" box (A–E) the requester chose, or leave every box for them to tick on the form?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.tick_request_type`
+- **Where the default came from:** we chose it
+- **Why it matters:** The requester picks the request type on the choices page and the Bank fills that section's position boxes accordingly; a form with the section filled but the type unticked reads as unfinished. The box map (A -> Check Box71, B -> 75, C -> 72, D -> 76, E -> 73) is dictated by the form and lives in the field map.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` leaves the five boxes untouched.
+
+##### HR-312 — When the Bank lists the positions a request is based on (Section A or B), should it also tick that section's "based off of an existing position? Yes" box?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.tick_based_on_existing`
+- **Where the default came from:** we chose it
+- **Why it matters:** Writing the list without ticking Yes leaves the form contradicting itself. Only the Yes box is ever ticked, and only when a list is written; No is never asserted (a new position based on nothing needs nothing from the Bank).
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` leaves Check Box66 (Section A) and Check Box55 (Section B) untouched.
+
+##### HR-313 — May the Bank type the signed-in requester's name and email into "Contact Name & Position Title" / its Email box, when they leave that choice ticked?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.contact_from_requester`
+- **Where the default came from:** we chose it
+- **Why it matters:** The contact is the person downloading the form — never an incumbent (the Bank holds no incumbent names, and the prefill model has no field for one). Sign-in gives the Bank only a computing ID (no name, no email: true of every live user on 2026-11-19), so the choices page offers the name-and-title and email boxes prefilled from the session for the requester to complete, and types what they leave there. They can untick it to leave both boxes blank. Nothing typed is stored.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` leaves both contact boxes blank regardless of the page's choice.
+
+##### HR-314 — Should the choices page SHOW the grades the role's source files carry, as reference, while never writing a grade to the form?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.show_source_grades_for_reference`
+- **Where the default came from:** we chose it
+- **Why it matters:** "Anticipated grade" is the evaluator's call (ADR-007: the Bank does not classify), so no grade is ever typed in. The sources' grades are still useful context for the requester, so they are shown beside the choices, labelled as reference and as coming from the source files.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. Affects the choices page only; the PDF is identical either way.
+
+##### HR-315 — Should a self-hosted chat model read what a person types into the Library and Builder search boxes before the title and vector passes run?
+
+- **We ship:** `false`
+- **Configured in:** `search.yaml` → `search.query_understanding_enabled`
+- **Where the default came from:** we chose it
+- **Why it matters:** MEASURED 2026-10-19 on 22 live queries: guarded, the model lifted the Library from hit@5 20/22 (P@10 0.67) to 21/22 (0.84) and the Builder from 0.72 to 0.87 — it expands "AP clerk", "coop coord", "IT sysadmin". UNGUARDED it invented an employee-group filter on 75–85% of queries and emptied pages, so the guard is code (group only when typed, unit only from the rulebook and only as a suggestion, the words as typed always searched) and the model can only ADD results. Ships OFF: the model choice is HR/ITS's (plan Q8), it adds 3.3 s p50 / 6.1 s p95 to a search, and enabling it makes the live smoke depend on the inference host. With it off no client is built and no call is made.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. On: every non-blank search makes one plan call (bounded by HR-321), the page shows the model's reading, and `make smoke` must make a real plan call before anything ships (Directive #0).
+
 ##### HR-324 — How many characters of the supervisory text ("Supervision Exercised" and the relationships it describes) does the parser keep from an archive job description?
 
 - **We ship:** `null`
@@ -1652,6 +1721,54 @@ The two bands now say two different, true things. The merged band said one false
 - **Where the default came from:** we chose it
 - **Why it matters:** It was the code constant `_MAX_SUPERVISORY` 600, unregistered, and HR-301 (the old form's "I. Organizational Relationships" now read as relationships) made it matter. MEASURED by the parser-v10 review over all 14,522 extracted archive files (docs/audit/2026-10-29-parser-v10-review.md §4): 5,772 documents (58.8%) were over 600 and 2.48 M characters were cut — in 3,421 of them because the form's printed E/F questions use the budget first; prompt-stripped p50 552 · p75 742 · p90 1,016 · p95 1,291 · p99 2,711, max 5,185. ✅ Owner ruling 2026-10-29: "remove the cap" — applied as `null` (the whole text is kept) and RECORDED here rather than ratified, since it is the project owner's call, not an HR signature. The form's printed E/F/I questions are still inside the kept text (the review's recommended prompt strip for the Relationships section is not built).
 - **If it changes:** Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`; changes what a parsed JD contains, so it needs a re-parse. A number cuts the text at that many characters; the rewrite's fidelity table (HR-287) and the model follow it — the model declares no ceiling, so no value here can fail a parse. Pinned by `test_parser_v10_supervisory_uncapped.py`.
+
+##### HR-328 — When does a short or oddly padded number in a file name need confirming before it is treated as a position?
+
+- **We ship:** `unvouched_min_digits` → 3; `seven_digit_00_requires_corroboration` → True
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.corroboration`
+- **Where the default came from:** we chose it
+- **Why it matters:** A one- or two-digit number (`20200101_14_-_Template_…`) or a seven-digit number starting `00` (`0011878`, one zero short of the usual form) is as likely to be a template number or a typo as a position. Such a number is kept only when the same position appears zero-padded in some file name in the Bank. MEASURED over the whole archive: this holds back 19 numbers in 19 files — the three template numbers (`14`, `14`, `15`) and sixteen seven-digit `00…` numbers no other file confirms.
+- **If it changes:** Turn it off and those 19 numbers are offered as positions on the Compensation Requisition Form, some of them wrongly. Make it stricter and real positions written without zeros stop being offered until another file confirms them.
+
+##### HR-331 — Which features use the full file-name position reading (HR-325 … HR-330) instead of only the zero-padded form?
+
+- **We ship:** `crf`, `search`, `source_page`
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.consumers`
+- **Where the default came from:** we chose it
+- **Why it matters:** Three features use it. The Compensation Requisition Form (`crf`) lists the positions a role covers: MEASURED on the live Bank's 2,498 roles, its "we cannot see every position this role covers" warning falls from 371 roles to 75. The source job description page (`source_page`) shows "Position # (from the file name)" beside the number typed in the document: MEASURED on 14,522 parsed files, 3,939 have no number in the document but one in the file name, and on 2,322 the document's number is a different position (often copied from the JD it was based on). Searching the Library or the Builder for a position number (`search`, HR-339) lists the files filed under it: MEASURED, 5,620 positions, up to 19 files each. The archive baseline and duplicate detection deliberately stay on the zero-padded reading (HR-114), so their registered numbers do not move; they are not valid values here.
+- **If it changes:** Remove `crf` and the form goes back to the padded reading (371 roles flagged). Remove `source_page` and that page shows only the number typed in the document. Remove `search` and a position number is searched as ordinary words. Other features can be added only once they are built to use it.
+
+##### HR-332 — Should job descriptions people have written in the Builder, and not yet had published, be left out of the Library's normal list and search (shown only when a reader ticks "Include drafts written in the Builder")?
+
+- **We ship:** `true`
+- **Configured in:** `search.yaml` → `search.hide_unpublished_builder_drafts`
+- **Where the default came from:** we chose it
+- **Why it matters:** A submitted Builder draft becomes a role of its own. Listed among the roles the Bank distilled from the archive, it read as one of them ("distilled from 0 source JDs"), and during testing every tester's submission would appear to everyone — found in the 2026-11-19 walkthrough, where live already held five, one titled with a whole paragraph. Once HR publishes one, it is listed like any other role. The Library states how many drafts it is hiding, so its total still reconciles with the Funnel; authors always see their own in My drafts.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` lists every role, Builder drafts included, labelled "Written in the Builder".
+
+##### HR-337 — When the requester picks one position on the form's choices page, should the Department box show where THAT position sits (as its own job description files say), rather than the department of the whole family of similar roles?
+
+- **We ship:** `true`
+- **Configured in:** `comp_requisition.yaml` → `comp_requisition.department_follows_chosen_position`
+- **Where the default came from:** we chose it
+- **Why it matters:** A role in the JD Bank is a family of similar job descriptions, and the family can span departments. Found in the 2026-11-19 walkthrough: for one 58-position role the source files sit in Lifelong Learning, Continuing Studies, Physics, Chemistry and others, yet the form typed "Lifelong Learning" whichever position was picked. The picked position's own files are read only when every one of them that states a department agrees, and only when a request type is chosen (so the position is actually written); otherwise the family's department stands, marked "confirm". This reads the picked position's files whether or not HR-309 lists the department as a fact to read from the sources: HR-309 fills a gap in the family, HR-337 describes one position.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` types the family's department (or the source files' agreed one, HR-309) for every position.
+
+##### HR-338 — When the text of an archive job description has no title we can read, should its page show the title written in its file name instead of "Untitled Position"?
+
+- **We ship:** `true`
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.title_when_untitled`
+- **Where the default came from:** we chose it
+- **Why it matters:** MEASURED on 14,522 parsed files: 1,245 read as "Untitled Position", mostly older `.doc` files; 1,138 of them name the job in the file name (`20180720_00001049_Clerk.doc` gives "Clerk"). The file-name title is shown as written — sometimes with a grade or a date in it ("Clerk Gr 7 CU 26Sep08") — and the page says it was taken from the file name. Only that page changes; search, counts and the roles built from these files are unaffected.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `false` shows "Untitled Position" for all 1,245.
+
+##### HR-339 — When someone types only a position number into the Library or Builder search (`61`, `00000061`, `Pos 61`), should it list the archive files filed under that position and the roles built from them, rather than search the digits as words?
+
+- **We ship:** `(?i)^\s*(?:pos(?:n|ition)?\.?\s*)?#?\s*(\d{1,8})\s*$`
+- **Configured in:** `search.yaml` → `search.position_query_pattern`
+- **Where the default came from:** we chose it
+- **Why it matters:** HR works from PeopleSoft position numbers, and the archive's file names carry them (`20200601_61,_30785,_208,_975_JDFN_APSA_20211117.docx`). MEASURED on the live Bank: 5,620 positions, up to 19 files each (median 2); 1,377 positions have files in no role, and 1,298 span more than one role — so the page lists the files themselves, each linked to its role when it has one. Searched as words, a number finds nothing useful. A number no file carries says so and searches the words. Needs `search` in HR-331.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. A narrower pattern (for example padded numbers only) misses the unpadded way most people write them.
 
 ##### HR-340 — How many characters of one Decision Making or Problem Solving item, or of one internal or external contact, does the parser keep from an archive job description?
 
@@ -1980,6 +2097,19 @@ Model names, dimensions, timeouts, retries, text-matching patterns and search in
 | [HR-302](#hr-302) | How much of a rewritten qualification line must a source line share before the line takes that source line's kind? | `0.5` | we chose it |
 | [HR-303](#hr-303) | On a form where a qualification's kind is a reading of its words (the APSA form), which opening words name that kind (Knowledge…, Skills…, Ability…), so that the rewrite does not relabel the line to another kind? | `jdfn` → {'knowledge': ['knowledge'], 'skill': ['skill', 'skills', 'skilled'], 'ability': ['ability', 'able']} | we chose it |
 | [HR-304](#hr-304) | How similar must two rewritten duties be before the rewrite merges them to fit the form's duty limit, rather than listing the surplus duty for the reviewer? | `0.2` | we chose it |
+| [HR-316](#hr-316) | Which self-hosted chat model should read search queries? | `gpt-oss:20b` | we chose it |
+| [HR-317](#hr-317) | At what sampling temperature should the search-query model run? | `0.0` | we chose it |
+| [HR-318](#hr-318) | How hard should the search-query model reason before answering? | `low` | we chose it |
+| [HR-319](#hr-319) | What reply budget, in tokens, does one search-query plan get? | `300` | we chose it |
+| [HR-320](#hr-320) | How many times is an invalid plan reply re-asked with a repair nudge? | `0` | we chose it |
+| [HR-321](#hr-321) | How long may the whole search-query plan call take before the page is rendered without it? | `6.0` | we chose it |
+| [HR-322](#hr-322) | Which versioned prompt pair does the search-query plan use? | `jd_search_plan_v1` | we chose it |
+| [HR-323](#hr-323) | How many title keywords may one search run, including the words as typed? | `4` | we chose it |
+| [HR-325](#hr-325) | How are the positions listed at the START of a job description's file name read? | *a text pattern — see below* | we chose it |
+| [HR-326](#hr-326) | How is a position LABELLED in a file name ("Pos. 1433", "Position #…") read? | *a text pattern — see below* | we chose it |
+| [HR-327](#hr-327) | What is the largest number that can be a position number? | `999999` | we chose it |
+| [HR-329](#hr-329) | Is a short number after a `^` in a file name a position, or a suffix? | `3` | we chose it |
+| [HR-330](#hr-330) | Should a bare number elsewhere in a file name (not at the start, not labelled) be read as a position? | `false` | we chose it |
 | [HR-341](#hr-341) | What is the smallest context window (prompt plus reasoning plus reply, in tokens) the inference host must give the chat model before a rewrite pass runs? | `32768` | we chose it |
 
 #### We chose it — nobody has ratified these
@@ -2616,6 +2746,110 @@ We picked these because the system needed *a* value. There is no SFU precedent b
 - **Where the default came from:** we chose it
 - **Why it matters:** HR-290 merged the closest pair whatever its similarity, and preferred any pair that fitted the clause cap to a more similar one (review of 6000ba6). Now the most similar pair is merged only if its token Jaccard reaches this; below it the model's LAST duty is listed whole (`over_form_limit`) and fold-back still puts back any source sentence it carried. Held at HR-184's 0.2, the guard's own "same duty" overlap. A merge keeps a frequency both duties agree on and records one they dispute (`merged_duty_frequency_conflicts`); a flagged duty merged away is flagged by the duty it went under. Replay: the one over-limit draft (0cd5db26) has its closest pair below 0.2 ("work summaries and create detailed work orders" / "name‑change requests and update displays…"), so its 13th duty is listed, not merged; no other draft has more duties than its form holds.
 - **If it changes:** Does NOT move `rules_version`. 0 merges any pair; higher lists more model duties instead of merging them. Pinned by `test_rewrite_postpass_v9.py`.
+
+##### HR-316 — Which self-hosted chat model should read search queries?
+
+- **We ship:** `gpt-oss:20b`
+- **Configured in:** `search.yaml` → `search.query_model`
+- **Where the default came from:** we chose it
+- **Why it matters:** MEASURED 2026-10-19: gpt-oss:20b matched 120b on guarded quality (Builder P@10 0.868 vs 0.859, Library 0.836 vs 0.827), answered about 1.4 s faster warm and cold-loaded 2.5x faster — and a search is interactive, so latency is the cost that matters. A rulebook decision, never `settings.agent_model`, and separate from the rewrite's model (HR-176).
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. The model must exist on the inference host; a missing one is "no plan" on every search (the page still renders), visible in the API log.
+
+##### HR-317 — At what sampling temperature should the search-query model run?
+
+- **We ship:** `0.0`
+- **Configured in:** `search.yaml` → `search.query_temperature`
+- **Where the default came from:** we chose it
+- **Why it matters:** 0 makes the same search read the same way every time, which is what a person re-running a search expects. Same per-pass knob shape as HR-177.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`.
+
+##### HR-318 — How hard should the search-query model reason before answering?
+
+- **We ship:** `low`
+- **Configured in:** `search.yaml` → `search.query_reasoning_effort`
+- **Where the default came from:** we chose it
+- **Why it matters:** The plan is four small fields and every second is a second the person waits; `low` is the measured spike setting. Same per-pass knob shape as HR-191.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. `null` sends nothing (the model's own default); higher effort costs latency against HR-321's budget.
+
+##### HR-319 — What reply budget, in tokens, does one search-query plan get?
+
+- **We ship:** `300`
+- **Configured in:** `search.yaml` → `search.query_max_tokens`
+- **Where the default came from:** we chose it
+- **Why it matters:** The plan is a tiny JSON object; 300 is roomy and bounds a runaway reply.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. Too small truncates the JSON, which reads as "no plan".
+
+##### HR-320 — How many times is an invalid plan reply re-asked with a repair nudge?
+
+- **We ship:** `0`
+- **Configured in:** `search.yaml` → `search.query_max_retries`
+- **Where the default came from:** we chose it
+- **Why it matters:** Interactive: a bad reply means "no plan" and the page renders from the words as typed, rather than the person waiting for a second attempt. The reply is schema-constrained, which the spike found never failed in 44 calls.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. Each retry spends part of HR-321's budget.
+
+##### HR-321 — How long may the whole search-query plan call take before the page is rendered without it?
+
+- **We ship:** `6.0`
+- **Configured in:** `search.yaml` → `search.query_timeout_seconds`
+- **Where the default came from:** we chose it
+- **Why it matters:** MEASURED warm p95 6.1 s on gpt-oss:20b (7.4 s on 120b); cold load about 10 s. Past the budget the plain search is shown — never a blank page, never a 500.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. The worst-case wait a person sees on a search with the feature on.
+
+##### HR-322 — Which versioned prompt pair does the search-query plan use?
+
+- **We ship:** `jd_search_plan_v1`
+- **Configured in:** `search.yaml` → `search.query_prompt_version`
+- **Where the default came from:** we chose it
+- **Why it matters:** The prompt tells the model to expand abbreviations, never guess a group, and name a unit only from the rulebook list it is handed. The `_v1` suffix is the version stamped onto every reading shown on the page.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. A new prompt is a new `jd_search_plan_vN` pair under jd_bank/llm/templates/.
+
+##### HR-323 — How many title keywords may one search run, including the words as typed?
+
+- **We ship:** `4`
+- **Configured in:** `search.yaml` → `search.query_max_title_keywords`
+- **Where the default came from:** we chose it
+- **Why it matters:** Each keyword is one more title scan over roles and documents (and, in the Builder, both). 4 bounds the cost at the three expansions the spike found useful; the words as typed are always the first and are never dropped.
+- **If it changes:** Does NOT move `rules_version` or `PARSER_VERSION`. 1 means "no added keywords" (the plan still rewrites the vector query).
+
+##### HR-325 — How are the positions listed at the START of a job description's file name read?
+
+- **We ship:** `^(?:19|20)\d{6}_+((?:\d+\^?\d*(?:(?:,_*|_+|\^|,| )+|(?=[A-Za-z(.]|$)))+)`
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.leading_list_pattern`
+- **Where the default came from:** we chose it
+- **Why it matters:** Archive file names start with the PeopleSoft as-of date and then, very often, the positions the description covers, frequently without the leading zeros (`20200601_61,_30785,_208,_975_JDFN_APSA_20211117.docx` covers positions 00000061, 00030785, 00000208 and 00000975). The zero-padded reading used by the archive baseline (HR-114) misses all of these. This pattern reads the run of numbers right after the date, joined by commas, underscores, `^` or spaces, and stops at the first letter, so a grade or a year later in the name is never read. A second 8-digit date straight after the first (`20110525_20070810_01038_…`) is treated as a date. MEASURED over all 14,565 archive file names: together with HR-326 it raises the number of files with a readable position from 13,572 to 14,379, and 1,284 of the 1,322 new file-to-position links (counted before HR-328's check) come from this list.
+- **If it changes:** Used only by the features named in HR-331 (today the Compensation Requisition Form); the baseline and duplicate detection keep the padded reading, so no baseline number moves. Loosen it and numbers that are not positions can be offered on the form; tighten it and more roles fall back to "we cannot see every position". Does NOT move `rules_version` or `PARSER_VERSION`; nothing is stored, so no re-run is owed.
+
+##### HR-326 — How is a position LABELLED in a file name ("Pos. 1433", "Position #…") read?
+
+- **We ship:** `(?i)(?<![a-z])Pos(?:n|ition)?\.?[_#\s]*((?:\d+(?:(?:,_*|_+)(?=\d))?)+)`
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.labelled_position_pattern`
+- **Where the default came from:** we chose it
+- **Why it matters:** Older file names sometimes put the position after a label instead of at the start: `20090601_Secretary,_gr_6,_Pos.__1433.doc` is position 00001433 (and the `6` is a grade, which is never read). MEASURED: 38 file-to-position links over the whole archive come only from a label; 30 of them name a position that also appears zero-padded in another file name.
+- **If it changes:** Same reach as HR-325 (only the features in HR-331). Dropping it loses those 38 links; widening it beyond a `Pos`-style label risks reading other numbers.
+
+##### HR-327 — What is the largest number that can be a position number?
+
+- **We ship:** `999999`
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.max_position_id`
+- **Where the default came from:** we chose it
+- **Why it matters:** A number above this in a file name is not read as a position. MEASURED: the largest zero-padded position in the archive is 00138592, so 999999 leaves room for growth while refusing tokens such as `001354781` (a mistyped or run-together number).
+- **If it changes:** Lower it below the real range and genuine positions stop being offered; raise it and long stray numbers can be read as positions. Zero-padded 8-digit ids are always read whatever this is set to, exactly as the archive baseline reads them.
+
+##### HR-329 — Is a short number after a `^` in a file name a position, or a suffix?
+
+- **We ship:** `3`
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.caret_tail_min_digits`
+- **Where the default came from:** we chose it
+- **Why it matters:** Some names join positions with `^` (`20260624_00126035^00138583_JDFN_APSA_20260624.docx` covers both), but a short number after `^` is a suffix: in `…_11083^1_JDFN_CUPE_…` the `1` is not position 00000001. MEASURED: two such suffixes in the archive; both are refused at 3 digits.
+- **If it changes:** Lower it to 1 and those suffixes can be read as positions such as 00000001.
+
+##### HR-330 — Should a bare number elsewhere in a file name (not at the start, not labelled) be read as a position?
+
+- **We ship:** `false`
+- **Configured in:** `segmentation.yaml` → `segmentation.filename_positions.bare_trailing_ids`
+- **Where the default came from:** we chose it
+- **Why it matters:** Names such as `20060612_Clerk,_gr_7,_64368,_Res___Housing.doc` hold a number that may be a position, but the same place holds grades, years and other numbers. This reading was measured as a report only and is NOT built: the rulebook refuses to load if it is switched on, so the setting can never claim a behaviour the system lacks.
+- **If it changes:** None today: `true` is refused at load. Building it is a separate change that would have to be measured and registered on its own.
 
 ##### HR-341 — What is the smallest context window (prompt plus reasoning plus reply, in tokens) the inference host must give the chat model before a rewrite pass runs?
 

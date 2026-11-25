@@ -177,7 +177,7 @@ _WJQ_SECTIONS: tuple[SFUSection, ...] = (
 FORMS: Mapping[JDTemplate, FormSpec] = {
     DEFAULT_TEMPLATE: FormSpec(
         template=DEFAULT_TEMPLATE,
-        label="JDFN (APSA / APEX / POLY)",
+        label="APSA / APEX / Poly",
         description=(
             "SFU's job-description form for APSA, APEX and Polyparty roles — the "
             "template the Toolkit, the validator and the approval gates were written "

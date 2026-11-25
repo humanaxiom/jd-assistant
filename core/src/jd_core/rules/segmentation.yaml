@@ -102,6 +102,63 @@ employee_group_pattern:
   pattern: 'JDFN_([A-Z]+)'
   ignore_case: false
 
+# --- the FULL filename position reader (HR-325 … HR-331) ----------------------
+# A SECOND, separate reader — `position_id_pattern` above is NOT changed. That pattern
+# is the archive baseline's join key (HR-114) and near-dedup's "same position" test;
+# widening it would move registered numbers. This reader is a SUPERSET of it (every
+# padded id is still read) for the surfaces named in `consumers` only, computed on read
+# from `source_documents.filename` — nothing stored, no re-parse, no PARSER_VERSION.
+#
+# The user file name often LEADS with a list of positions SFU never padded:
+#   20200601_61,_30785,_208,_975_JDFN_APSA_20211117.docx  -> 00000061 00030785 00000208 00000975
+# and older names sometimes LABEL one:  20090601_Secretary,_gr_6,_Pos.__1433.doc -> 00001433
+#
+# MEASURED over all 14,565 archive filenames (2026-11): the padded pattern reads a
+# position from 13,572 files; with this reader 14,379 (807 more). Distinct positions
+# 5,541 -> 5,620. 19 tokens are dropped by the corroboration gate (HR-328), e.g. the
+# `14` in `20200101_14_-_Template_…` and `0011878` in `20171005_0011878_…`. On the live
+# Bank's 2,498 roles the Compensation Requisition Form's "we cannot see every
+# position" flag falls from 371 roles to 75.
+filename_positions:
+  # The run of numbers right after the leading date, joined by `,` `,_` `_` `__` `^`
+  # or a space, stopping at the first letter, `(`, `.` or the end. Group 1 is the run.
+  # An 8-digit token in it that reads as a date (`20110525_20070810_01038_…`) is a
+  # date, never a position. (HR-325)
+  leading_list_pattern:
+    pattern: '^(?:19|20)\d{6}_+((?:\d+\^?\d*(?:(?:,_*|_+|\^|,| )+|(?=[A-Za-z(.]|$)))+)'
+    ignore_case: false
+  # A labelled id anywhere in the name: `Pos.__1433`, `Pos106294`, `pos_0436`,
+  # `Position_#…`. Case-insensitive inline, and never in the middle of a word. (HR-326)
+  labelled_position_pattern:
+    pattern: '(?i)(?<![a-z])Pos(?:n|ition)?\.?[_#\s]*((?:\d+(?:(?:,_*|_+)(?=\d))?)+)'
+    ignore_case: false
+  # The largest number that can be a position. MEASURED: the largest padded id in the
+  # archive is 00138592. Above this a token is not an id (`001354781`). (HR-327)
+  max_position_id: 999999
+  # A token with fewer than `unvouched_min_digits` significant digits (`14`, `61`), or a
+  # 7-digit token starting `00` (`0011878` — one zero short of the padded form), counts
+  # only if the same id appears ZERO-PADDED in some filename in the Bank. (HR-328)
+  corroboration:
+    unvouched_min_digits: 3
+    seven_digit_00_requires_corroboration: true
+  # A number after `^` shorter than this is a suffix, not a position: the `1` in
+  # `…_11083^1_JDFN_CUPE_…`. (HR-329)
+  caret_tail_min_digits: 3
+  # Bare numbers elsewhere in the name (`Clerk,_gr_7,_64368,_Res…`). Measured, report
+  # only; NOT implemented, and refused if switched on. (HR-330)
+  bare_trailing_ids: false
+  # Which surfaces use this reader: `crf` = the Compensation Requisition Form's
+  # position list; `source_page` = the source JD page's "Position # (from the file
+  # name)" row, shown BESIDE the number typed in the document. `search` = a search for a
+  # position number in the Library or the Builder (HR-339). The baseline and
+  # near-dedup stay on `position_id_pattern` by design. (HR-331)
+  consumers: [crf, search, source_page]
+  # When a source JD's text yields no title ("Untitled Position" — 1,245 live files),
+  # its page shows the title the FILE NAME gives (`20180720_00001049_Clerk.doc` ->
+  # "Clerk"), with a note saying so. MEASURED: 1,138 of the 1,245 name one; the rest
+  # stay "Untitled Position". The page only — counts and search are unchanged. (HR-338)
+  title_when_untitled: true
+
 # --- which groups a BARE MENTION may not establish ----------------------------
 # The parser reads the bargaining unit three ways, strongest first: an explicit
 # "Employee Group:" LABEL, then a bare token in the identification block, then a bare

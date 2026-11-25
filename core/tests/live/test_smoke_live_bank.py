@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import os
 import re
+import uuid
 
 import pytest
 
@@ -56,10 +57,12 @@ from fastapi import Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from src.jd_bank.composer.persist import COMPOSED_ORIGIN
 from src.jd_bank.library import (
     build_funnel,
     build_gap,
     family_for,
+    list_roles,
     list_source_jds,
     membership_coverage,
     resolve_members,
@@ -158,6 +161,66 @@ async def test_collection_membership_is_a_true_union_of_its_signals(session) -> 
     assert (
         coverage.total_roles == coverage.members + coverage.unmatched
     ), "member + unmatched must equal the Bank — the blind spot is reported, not lost"
+
+
+#: Wall-time budget for the IT collection page through the route. MEASURED 2026-11-20:
+#: 24–26 s before the one-pass coverage rewrite, ~0.7 s of queries after it.
+COLLECTION_PAGE_BUDGET_S = 5.0
+
+
+async def test_collection_coverage_matches_signal_by_signal_sql_and_is_fast(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    """The one-pass coverage must say exactly what evaluating each signal on its own
+    says — checked here with the ORIGINAL per-signal SQL (a ``NOT IN`` anti-join for the
+    blind spot) as the oracle, over the whole live Bank — and the page must load
+    within budget."""
+    import time
+
+    from src.jd_bank.library.families import _signals
+
+    family = family_for("it")
+    assert family is not None
+    signals, params = _signals(family)
+    doc_cte = f"""
+        WITH cur AS ({_CURRENT}),
+        doc AS (
+          SELECT c.cluster_id, d.filename,
+                 c.content->>'title' AS title, c.content->>'department' AS department
+          FROM cur c
+          LEFT JOIN LATERAL jsonb_array_elements(c.source_document_ids) s ON TRUE
+          LEFT JOIN source_documents d ON d.id = (s.value->>'source_id')::uuid
+        )
+    """
+    coverage = await membership_coverage(session, family)
+    assert [s.label for s in coverage.signals] == [s.label for s in signals]
+    for signal, reported in zip(signals, coverage.signals, strict=True):
+        used = {k: v for k, v in params.items() if f":{k}" in signal.predicate}
+        matched = (
+            await session.execute(
+                text(
+                    f"{doc_cte} SELECT count(DISTINCT cluster_id) FROM doc "
+                    f"WHERE {signal.predicate}"
+                ),
+                used,
+            )
+        ).scalar()
+        blind = (
+            await session.execute(
+                text(
+                    f"{doc_cte} SELECT count(DISTINCT cluster_id) FROM doc WHERE "
+                    f"cluster_id NOT IN (SELECT cluster_id FROM doc "
+                    f"WHERE NOT ({signal.blind}))"
+                )
+            )
+        ).scalar()
+        assert (reported.roles, reported.unevaluable) == (matched, blind), signal.label
+
+    started = time.perf_counter()
+    resp = await library.get("/jd-bank/ui/collection/it")
+    elapsed = time.perf_counter() - started
+    assert resp.status_code == 200
+    assert elapsed <= COLLECTION_PAGE_BUDGET_S, f"/collection/it took {elapsed:.1f} s"
 
 
 async def test_random_documents_are_findable_in_the_archive_browser(session) -> None:  # type: ignore[no-untyped-def]
@@ -349,6 +412,13 @@ async def test_the_document_vector_index_is_at_the_current_parser_version(  # ty
 # closed port on purpose.
 
 _ROLE_LINK = re.compile(r'href="/jd-bank/ui/role/([0-9a-f-]{36})"')
+#: Listed in the DEFAULT library: not an UNPUBLISHED role an author wrote in the Builder
+#: (the composer's own marker, bound as `:composed`; HR-332 keeps a published one
+#: listed). A findability sample of the default library must use the same rule.
+_NOT_COMPOSED = (
+    "NOT (status <> 'PUBLISHED' AND cluster_id IN (SELECT id FROM clusters "
+    "WHERE constraint_metadata->>'origin' = :composed))"
+)
 #: Deterministic sample size for exact-title findability.
 TITLE_SAMPLE = 50
 
@@ -402,8 +472,10 @@ async def test_sampled_live_roles_are_found_by_exact_title(library, session) -> 
             text(
                 f"SELECT cluster_id, content->>'title' FROM ({_CURRENT}) cur "
                 "WHERE coalesce(content->>'title','') <> '' "
+                f"AND {_NOT_COMPOSED} "
                 f"ORDER BY md5(cluster_id::text) LIMIT {TITLE_SAMPLE}"
-            )
+            ),
+            {"composed": COMPOSED_ORIGIN},
         )
     ).all()
     assert len(rows) == TITLE_SAMPLE, "the live Bank has too few titled roles to sample"
@@ -477,6 +549,106 @@ async def test_dead_embed_host_keeps_title_hits_and_banner(library, session) -> 
     assert "Search by meaning is unavailable" in resp.text
 
 
+_MEANING_ONLY = "No titles match your words."
+
+
+async def test_a_nonsense_search_is_flagged_and_a_title_search_is_not(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    """UAT: `q=zzzqqq` answered "Showing 1–50 of 100 · best matches first". On the
+    live Bank and the live embed host, both boxes now say no title matched; an exact
+    title search does not. Rank only — no threshold, no number."""
+    resp, ids = await _search_ids(library, "zzzqqq", limit=50)
+    assert ids, "the live meaning pass returned nothing (is the embed host up?)"
+    assert _MEANING_ONLY in resp.text
+    builder, _ = await _builder(library, "zzzqqq")
+    assert _MEANING_ONLY in builder.text
+
+    title = (
+        await session.execute(
+            text(
+                f"SELECT content->>'title' FROM ({_CURRENT}) cur "
+                f"WHERE {_NOT_COMPOSED} AND length(coalesce(content->>'title','')) > 8 "
+                "ORDER BY md5(cluster_id::text) LIMIT 1"
+            ),
+            {"composed": COMPOSED_ORIGIN},
+        )
+    ).scalar_one()
+    resp, _ = await _search_ids(library, title, limit=50)
+    assert _MEANING_ONLY not in resp.text
+
+
+async def test_same_titled_live_roles_show_their_departments(library, session) -> None:  # type: ignore[no-untyped-def]
+    """UAT: twelve identical title rows, told apart only by Sources/Score/Quality. A
+    live title shared by roles in different departments must show each department."""
+    from markupsafe import escape
+
+    row = (
+        await session.execute(
+            text(
+                f"SELECT content->>'title', array_agg(DISTINCT content->>'department') "
+                f"FROM ({_CURRENT}) cur WHERE {_NOT_COMPOSED} "
+                "AND coalesce(content->>'department','') <> '' "
+                "GROUP BY content->>'title' "
+                "HAVING count(DISTINCT content->>'department') >= 2 "
+                "ORDER BY md5(content->>'title') LIMIT 1"
+            ),
+            {"composed": COMPOSED_ORIGIN},
+        )
+    ).one_or_none()
+    assert row is not None, "the live Bank has no same-titled roles in two departments"
+    title, departments = row
+    resp, _ = await _search_ids(library, title, limit=200)
+    assert "<th>Department</th>" in resp.text
+    missing = [d for d in departments if f"<td>{escape(d)}</td>" not in resp.text]
+    assert not missing, f"{title!r}: departments not shown: {missing}"
+
+
+async def test_builder_drafts_are_out_of_the_default_library_and_labelled(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    """UAT: a draft an author submits from the Builder became its own role and read as
+    an archive role ("distilled from 0 source JDs"). On the LIVE Bank: the default
+    library leaves out exactly the composed roles, `?builder=1` brings them back
+    labelled, and a composed role's page says where it came from."""
+    composed = (
+        await session.execute(
+            text(
+                f"SELECT cluster_id, content->>'title' FROM ({_CURRENT}) cur "
+                f"WHERE NOT ({_NOT_COMPOSED}) "
+                "ORDER BY md5(cluster_id::text)"
+            ),
+            {"composed": COMPOSED_ORIGIN},
+        )
+    ).all()
+    default = await list_roles(session, limit=1)
+    everything = await list_roles(session, limit=1, include_composed=True)
+    assert everything.total - default.total == len(
+        composed
+    ), "the default library must leave out exactly the unpublished Builder drafts"
+    assert default.hidden_builder_drafts == len(composed), "the page must say so"
+    titled = [(cid, title) for cid, title in composed if (title or "").strip()]
+    if not titled:
+        pytest.skip("the live Bank holds no titled Builder-written role to look at")
+
+    cluster_id, title = titled[0]
+    # By title, so the exclusion is checked on the search path, not just the browse.
+    query = title[:120]
+    _, hidden = await _search_ids(library, query, limit=200)
+    assert str(cluster_id) not in hidden, "a Builder draft leaked into default search"
+    resp = await library.get(
+        "/jd-bank/ui/library", params={"q": query, "limit": 200, "builder": 1}
+    )
+    assert resp.status_code == 200
+    assert str(cluster_id) in _ROLE_LINK.findall(resp.text)
+    assert "Written in the Builder" in resp.text
+
+    page = await library.get(f"/jd-bank/ui/role/{cluster_id}")
+    assert page.status_code == 200
+    assert "written in the builder" in page.text.lower()
+    assert "Distilled from" not in page.text
+
+
 async def test_archive_finds_documents_by_current_parsed_title(session) -> None:  # type: ignore[no-untyped-def]
     """The archive tab used to search filenames only. Titles few documents share, so
     the document is on the first page; deterministic sample."""
@@ -523,6 +695,36 @@ _CRF_ROLES = f"""
 """
 
 
+async def _expected_department(session, cluster_id, pid, role_department):  # type: ignore[no-untyped-def]
+    """HR-337, re-derived by raw SQL: the picked position's own member files (current
+    parse) when every one that states a department agrees, else the role's."""
+    from src.jd_core.parser import PARSER_VERSION
+
+    stated = (
+        (
+            await session.execute(
+                text(f"""
+                WITH cur AS ({_CURRENT})
+                SELECT DISTINCT lower(trim(p.parsed->>'department'))
+                FROM cur c
+                CROSS JOIN LATERAL jsonb_array_elements(c.source_document_ids) e
+                JOIN source_documents s ON s.id::text = e->>'source_id'
+                JOIN parsed_jds p ON p.source_document_id = s.id
+                                 AND p.parser_version = :v
+                WHERE c.cluster_id = :cid AND s.filename LIKE '%' || :pid || '%'
+                  AND nullif(trim(p.parsed->>'department'), '') IS NOT NULL
+                """),
+                {"cid": cluster_id, "pid": pid, "v": PARSER_VERSION},
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if len(stated) == 1:
+        return stated[0]
+    return (role_department or "").strip().lower()
+
+
 async def _crf_fill(session, cluster_id, **kwargs):  # type: ignore[no-untyped-def]
     import io
 
@@ -535,6 +737,106 @@ async def _crf_fill(session, cluster_id, **kwargs):  # type: ignore[no-untyped-d
     pdf = fill_compensation_requisition(prefill)
     fields = PdfReader(io.BytesIO(pdf)).get_fields() or {}
     return prefill, {name: f.get("/V") for name, f in fields.items()}
+
+
+# ── K3: the CRF reaches a person — through the routes, against the live Bank ──────
+#
+# K2 passed its two smoke tests above for a week while NO route or button reached it
+# (Directive #1: a feature nothing links to has not been delivered). These drive the
+# REAL app (the `library` fixture: httpx ASGI transport, live session, CAS overridden)
+# the way a person would: role page -> the form's page -> the download. The expected
+# values are re-derived by raw SQL (`_CRF_ROLES`), never by calling the builder.
+# READ-ONLY: neither route writes.
+
+
+async def test_crf_download_reaches_a_person_through_the_live_role_page(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    import io
+    import re
+
+    from pypdf import PdfReader
+
+    from src.jd_core.rules import get_rules
+    from src.jd_export.comp_requisition import load_field_map
+
+    pattern = get_rules().segmentation.position_id_pattern.pattern
+    row = (
+        await session.execute(
+            text(_CRF_ROLES + """
+                SELECT c.cluster_id, c.content->>'title', c.content->>'department',
+                       upper(c.content->>'employee_group'), p.pids
+                FROM cur c JOIN pos p USING (cluster_id)
+                WHERE cardinality(p.pids) > 1
+                  AND c.cluster_id NOT IN (SELECT cluster_id FROM bad)
+                  AND nullif(trim(c.content->>'title'), '') IS NOT NULL
+                  AND nullif(trim(c.content->>'department'), '') IS NOT NULL
+                  AND c.content->>'employee_group' IN ('apsa', 'apex')
+                ORDER BY c.cluster_id
+                LIMIT 1
+                """),
+            {"pat": pattern},
+        )
+    ).first()
+    assert row is not None, "no live multi-position role has title + dept + group"
+    cluster_id, title, department, group, pids = row
+    page = f"/jd-bank/ui/role/{cluster_id}/comp-requisition"
+
+    # 1. Discoverable: the role page links to the form's page.
+    role_page = await library.get(f"/jd-bank/ui/role/{cluster_id}")
+    assert role_page.status_code == 200
+    assert f'href="{page}"' in role_page.text, "role page has no CRF link"
+
+    # 2. The page offers EVERY position the role holds (the Bank never picks one).
+    form_page = await library.get(page)
+    assert form_page.status_code == 200, form_page.text[:500]
+    offered = set(
+        re.findall(r'name="position_number" value="([0-9]+)"', form_page.text)
+    )
+    assert offered == set(pids), f"picker offers {offered}, Bank holds {set(pids)}"
+    # The contact box arrives prefilled from the session; a browser posts it back.
+    prefilled = re.search(r'name="contact_name" value="([^"]*)"', form_page.text)
+    assert prefilled and prefilled.group(1), "the contact box is not prefilled"
+
+    # 3. The download is SFU's own PDF carrying the chosen position + the Bank's facts.
+    chosen = sorted(pids)[-1]
+    resp = await library.post(
+        page,
+        data={
+            "request_type": "reevaluation",
+            "position_number": chosen,
+            "jd_in_word_attached": "on",
+            "contact_me": "on",
+            "contact_name": prefilled.group(1),
+        },
+    )
+    assert resp.status_code == 200, resp.text[:500]
+    assert resp.headers["content-type"] == "application/pdf"
+    assert "attachment" in resp.headers["content-disposition"]
+    fields = PdfReader(io.BytesIO(resp.content)).get_fields() or {}
+    got = {name: f.get("/V") for name, f in fields.items()}
+    fmap = load_field_map()
+    pf = fmap.prefill_fields
+    assert got[pf["position_number"]] == chosen
+    assert got[pf["position_title"]] == title.strip()
+    want = await _expected_department(session, cluster_id, chosen, department)
+    assert str(got[pf["department"]]).strip().lower() == want
+    assert got[pf["employee_group"]] == group
+    assert got[pf["jd_in_word_attached"]] == fmap.checkbox_on_value
+    # Only the pick is listed — never every position the role spans.
+    assert got[pf["based_on_positions_b"]] == chosen
+    # The boxes the rulebook asserts (HR-311 / HR-312): B ticked, Section B's Yes
+    # ticked, Section A's Yes and every No box untouched.
+    assert got[fmap.request_type_boxes["reevaluation"]] == fmap.checkbox_on_value
+    yes = fmap.based_on_existing_yes_boxes
+    assert got[yes["based_on_positions_b"]] == fmap.checkbox_on_value
+    assert got.get(yes["based_on_positions_a"]) in (None, "/Off")
+    for no_box in ("Check Box67", "Check Box56"):
+        assert got.get(no_box) in (None, "/Off"), no_box
+    # The requester's contact line, as the page prefilled and posted it (HR-313).
+    assert got[pf["contact_name"]] == prefilled.group(1)
+    for name in fmap.signature_fields:
+        assert not got.get(name), f"signature field {name} was written"
 
 
 async def test_crf_fills_from_a_live_single_position_role(session) -> None:  # type: ignore[no-untyped-def]
@@ -569,15 +871,26 @@ async def test_crf_fills_from_a_live_single_position_role(session) -> None:  # t
     assert row is not None, "no live role has one position + title + dept + group"
     cluster_id, title, department, group, pids = row
 
-    _, got = await _crf_fill(
-        session, cluster_id, request_type="reevaluation", jd_in_word_attached=True
-    )
-
+    # The one position is SUGGESTED, and written only when the requester picks it;
+    # "leave blank" leaves it blank (UAT review 2026-11-19).
+    blank, unpicked = await _crf_fill(session, cluster_id, request_type="reevaluation")
+    assert blank.suggested_position == pids[0]
     fmap = load_field_map()
     pf = fmap.prefill_fields
+    assert unpicked[pf["position_number"]] in (None, "")
+    assert unpicked[pf["based_on_positions_b"]] in (None, "")
+
+    _, got = await _crf_fill(
+        session,
+        cluster_id,
+        request_type="reevaluation",
+        jd_in_word_attached=True,
+        position_number=pids[0],
+    )
     assert got[pf["position_number"]] == pids[0]
     assert got[pf["position_title"]] == title.strip()
-    assert got[pf["department"]] == department.strip()
+    want = await _expected_department(session, cluster_id, pids[0], department)
+    assert str(got[pf["department"]]).strip().lower() == want
     assert got[pf["employee_group"]] == group
     assert got[pf["based_on_positions_b"]] == pids[0]
     assert got[pf["based_on_positions_a"]] in (None, "")  # not a Section A request
@@ -586,12 +899,11 @@ async def test_crf_fills_from_a_live_single_position_role(session) -> None:  # t
         assert got[name] in (None, ""), f"{name} must stay empty"
 
 
-async def test_crf_caps_a_live_many_position_role(session) -> None:  # type: ignore[no-untyped-def]
-    """K2 — a live role with MORE positions than the single-line field holds.
-
-    The Section A box is ~2 ids wide; the full list must land in the Reason field and
-    the box carries the cap + a `+K more` marker, never an overflowing line.
-    """
+async def test_crf_never_lists_a_live_many_position_role_wholesale(session) -> None:  # type: ignore[no-untyped-def]
+    """UAT review 2026-11-19: Section A used to list EVERY position of a many-position
+    role (58 ids for one) and spill the overflow into the requester's own Reason box.
+    On the live role with the most positions: no pick lists nothing and writes no
+    Reason; a pick lists exactly that one; the picker still offers every position."""
     from src.jd_core.rules import get_rules
     from src.jd_export.comp_requisition import load_field_map
 
@@ -613,47 +925,192 @@ async def test_crf_caps_a_live_many_position_role(session) -> None:  # type: ign
     ).first()
     assert row is not None, "no live role has more positions than the box holds"
     cluster_id, pids = row
+    pf = fmap.prefill_fields
 
-    prefill, got = await _crf_fill(
+    prefill, unpicked = await _crf_fill(
         session, cluster_id, request_type="new_based_on_existing"
     )
+    assert unpicked[pf["based_on_positions_a"]] in (None, "")
+    assert unpicked.get(ov.details_field) in (None, "")  # the Reason box is theirs
+    assert unpicked[pf["position_number"]] in (None, "")  # N/A if new
+    assert set(pids) <= set(prefill.candidate_positions)
 
-    pf = fmap.prefill_fields
-    expected = ", ".join(pids[: ov.max_ids]) + f" +{len(pids) - ov.max_ids} more"
-    assert got[pf["based_on_positions_a"]] == expected
-    assert got[pf["position_number"]] in (None, "")  # N/A if new
-    reason = str(got[ov.details_field])
-    assert all(pid in reason for pid in pids)
-    assert str(len(pids)) in reason
-    assert list(prefill.candidate_positions) == list(pids)
+    _, picked = await _crf_fill(
+        session,
+        cluster_id,
+        request_type="new_based_on_existing",
+        position_number=pids[-1],
+    )
+    assert picked[pf["based_on_positions_a"]] == pids[-1]
+    assert picked.get(ov.details_field) in (None, "")
+    assert picked[pf["position_number"]] in (None, "")
 
 
-async def test_crf_never_claims_one_position_for_an_unpadded_role(session) -> None:  # type: ignore[no-untyped-def]
-    """The measured trap: a role with ONE padded id whose other member files carry only
-    unpadded ids (the pattern cannot read 508 archive files) is not a single-position
-    role. Every such live role must come back flagged with no position number."""
-    from src.jd_bank.forms import prefill_from_role
+# ── The FULL filename position reader (HR-325 … HR-331), against the live Bank ────
+#
+# The CRF reads a role's positions with `jd_bank/positions` (a superset of the padded
+# `position_id_pattern`). Fixtures cannot tell us how much of the REAL archive it
+# reads, so these measure it on the live Bank and print what they measured. The
+# floors leave headroom under the architect's measurement (14,379 files; 75 roles).
+
+#: Files the reader must find a position in (of ~14,565).
+FILENAME_POSITIONS_MIN_FILES = 14_300
+#: Current roles the CRF may still flag "we cannot see every position".
+CRF_INCOMPLETE_MAX_ROLES = 100
+
+
+async def test_the_filename_position_reader_covers_the_live_bank(  # type: ignore[no-untyped-def]
+    session, capsys
+) -> None:
+    from src.jd_bank.positions import PositionIndex, load_position_index
     from src.jd_core.rules import get_rules
 
-    pattern = get_rules().segmentation.position_id_pattern.pattern
+    seg = get_rules().segmentation
     rows = (
+        await session.execute(text("SELECT id, filename FROM source_documents"))
+    ).all()
+    index = PositionIndex.build(((r[0], r[1]) for r in rows), seg)
+    padded = 0
+    for doc_id, name in rows:
+        ids = seg.position_id_pattern.findall(name or "")
+        padded += bool(ids)
+        # A SUPERSET of the padded pattern: no file loses a position it had.
+        assert set(ids) <= set(index.positions_of(doc_id)), name
+    covered = index.files_with_positions
+    with capsys.disabled():
+        print(
+            f"\n[filename positions] {covered:,} of {len(rows):,} Bank filenames carry "
+            f"a readable position (padded pattern alone: {padded:,}); "
+            f"{len(index.by_position):,} distinct positions"
+        )
+    assert covered >= FILENAME_POSITIONS_MIN_FILES, covered
+    # The process-cached loader serves the same index the raw rows build.
+    cached = await load_position_index(session)
+    assert cached.files_with_positions == covered
+
+
+#: Of the live files whose text yields no title, how many must get one from their name.
+#: MEASURED 2026-11-20: 1,138 of 1,245.
+UNTITLED_WITH_FILENAME_TITLE_MIN = 1_100
+
+_LATEST_PARSE = """
+    SELECT DISTINCT ON (p.source_document_id) p.source_document_id AS id, d.filename,
+           p.parsed->>'title' AS title, p.parsed->>'position_number' AS pn
+    FROM parsed_jds p JOIN source_documents d ON d.id = p.source_document_id
+    ORDER BY p.source_document_id, p.created_at DESC
+"""
+
+
+async def test_live_source_pages_show_the_file_name_s_position_and_title(  # type: ignore[no-untyped-def]
+    library, session, capsys
+) -> None:
+    """HR-331 `source_page` + HR-338, through the real route on the live Bank: a file
+    whose text has no position shows the one its NAME gives, and a file whose text has
+    no title shows the name's title, flagged."""
+    from markupsafe import escape
+
+    from src.jd_bank.positions import read_filename
+    from src.jd_core.parser import FALLBACK_TITLE
+    from src.jd_core.rules import get_rules
+
+    seg = get_rules().segmentation
+    rows = (await session.execute(text(_LATEST_PARSE))).all()
+
+    # The Bank, not a sample: every untitled file the name can title.
+    untitled = [r for r in rows if (r.title or "").strip() in ("", FALLBACK_TITLE)]
+    titled = [
+        r
+        for r in untitled
+        if r.filename and read_filename(r.filename, seg, frozenset()).title_slug
+    ]
+    with capsys.disabled():
+        print(
+            f"\n[source page] {len(titled):,} of {len(untitled):,} untitled files "
+            "take a title from their file name"
+        )
+    assert len(titled) >= UNTITLED_WITH_FILENAME_TITLE_MIN, len(titled)
+
+    # A file with no position in its text, a padded one in its name.
+    no_pn = sorted(
+        (r for r in rows if not (r.pn or "").strip() and r.filename),
+        key=lambda r: r.filename,
+    )
+    sample = next(r for r in no_pn if seg.position_id_pattern.search(r.filename))
+    padded = seg.position_id_pattern.findall(sample.filename)[0]
+    resp = await library.get(f"/jd-bank/ui/jd/{sample.id}")
+    assert resp.status_code == 200, sample.filename
+    assert "Position # (from the file name)" in resp.text
+    assert padded in resp.text, sample.filename
+
+    # An untitled file whose name gives a title.
+    pick = min(titled, key=lambda r: r.filename)
+    slug = read_filename(pick.filename, seg, frozenset()).title_slug
+    resp = await library.get(f"/jd-bank/ui/jd/{pick.id}")
+    assert resp.status_code == 200, pick.filename
+    assert str(escape(slug)) in resp.text, pick.filename
+    assert "title above is taken from the file name" in resp.text
+
+
+async def test_crf_positions_reconcile_with_the_filename_reader_for_every_role(  # type: ignore[no-untyped-def]
+    session, capsys
+) -> None:
+    """Every current role, through the builder, against an expectation derived from
+    raw SQL membership + the reader over raw rows (not the builder's cached index).
+
+    Replaces the K2 padded-only trap test: a role with ANY member whose filename names
+    no readable position (or whose file is missing) is ``positions_incomplete`` and is
+    never given a single position number — the same invariant, on the wider reader.
+    """
+    from src.jd_bank.forms import prefill_from_role
+    from src.jd_bank.positions import PositionIndex
+    from src.jd_core.rules import get_rules
+
+    seg = get_rules().segmentation
+    files = (
+        await session.execute(text("SELECT id, filename FROM source_documents"))
+    ).all()
+    index = PositionIndex.build(((r[0], r[1]) for r in files), seg)
+    names = {str(doc_id): name for doc_id, name in files}
+    roles = (
         await session.execute(
-            text(_CRF_ROLES + """
-                SELECT c.cluster_id
-                FROM cur c JOIN pos p USING (cluster_id)
-                WHERE cardinality(p.pids) = 1
-                  AND c.cluster_id IN (SELECT cluster_id FROM bad)
-                ORDER BY c.cluster_id
-                """),
-            {"pat": pattern},
+            text(
+                f"WITH cur AS ({_CURRENT}) "
+                "SELECT c.cluster_id, array_agg(e->>'source_id') "
+                "FROM cur c CROSS JOIN LATERAL "
+                "jsonb_array_elements(c.source_document_ids) e "
+                "WHERE coalesce(e->>'source_id', '') <> '' "
+                "GROUP BY c.cluster_id ORDER BY c.cluster_id"
+            )
         )
     ).all()
-    for (cluster_id,) in rows:
+    assert roles, "no current roles in the live Bank"
+    incomplete = padded_incomplete = 0
+    for cluster_id, members in roles:
+        found: set[str] = set()
+        unreadable = padded_unreadable = False
+        for member in members:
+            ids = index.positions_of(uuid.UUID(member)) if member in names else ()
+            unreadable |= not ids
+            padded_unreadable |= not seg.position_id_pattern.search(
+                names.get(member) or ""
+            )
+            found.update(ids)
         prefill = await prefill_from_role(
             session, cluster_id, request_type="reevaluation"
         )
-        assert prefill.positions_incomplete is True, cluster_id
-        assert prefill.position_number is None, cluster_id
+        assert prefill.candidate_positions == tuple(sorted(found)), cluster_id
+        assert prefill.positions_incomplete is unreadable, cluster_id
+        if unreadable:
+            assert prefill.position_number is None, cluster_id
+        incomplete += unreadable
+        padded_incomplete += padded_unreadable
+    with capsys.disabled():
+        print(
+            f"\n[filename positions] CRF positions_incomplete: {incomplete:,} of "
+            f"{len(roles):,} current roles "
+            f"(padded pattern alone: {padded_incomplete:,})"
+        )
+    assert incomplete <= CRF_INCOMPLETE_MAX_ROLES, incomplete
 
 
 # ── 9-11. EXPORT — a live role, rendered and read back by the Bank's own parser ────
@@ -1673,3 +2130,211 @@ async def test_the_inference_host_holds_a_full_rewrite_window() -> None:
     finally:
         await client.close()
     print(f"\n  {client.model}: served with a {window}-token context window")
+
+
+# ── QUERY UNDERSTANDING (Track I3) — the LLM read of a search, through the routes ──
+#
+# Ships OFF (HR-315). Off, the property that matters is NEGATIVE — no chat client is
+# ever built by either search page — and a negative is exactly what a fixture suite
+# cannot prove about the live app, so it is pinned here through the real routes. On,
+# the property is a REAL plan call on fixed queries, within the rulebook budget, with
+# the guard holding (no group the person did not type). Enabling it therefore ties
+# shipping to the inference host being up (Directive #0), which is why it is off.
+
+
+async def test_search_pages_build_no_chat_client_while_understanding_is_off(  # type: ignore[no-untyped-def]
+    library,
+) -> None:
+    from src.api.main import app
+    from src.api.routes.compose import get_chat_client_factory
+    from src.jd_core.rules import get_rules
+
+    if get_rules().search.query_understanding_enabled:
+        pytest.skip("query understanding is ON: the live plan test below covers it")
+    built: list[int] = []
+
+    def forbidden() -> None:
+        built.append(1)
+        raise AssertionError("a chat client was built while query understanding is OFF")
+
+    app.dependency_overrides[get_chat_client_factory] = lambda: forbidden
+    try:
+        for url in ("/jd-bank/ui/library", "/jd-bank/ui/compose/search"):
+            resp = await library.get(url, params={"q": "financial analyst"})
+            assert resp.status_code == 200, f"{url} -> {resp.status_code}"
+            assert (
+                "Read as:" not in resp.text
+            ), f"{url} showed a model reading while OFF"
+    finally:
+        app.dependency_overrides.pop(get_chat_client_factory, None)
+    assert built == []
+
+
+async def test_live_query_plan_is_guarded_and_within_budget(library) -> None:  # type: ignore[no-untyped-def]
+    import time
+
+    from src.jd_bank.query_plan import rulebook_chat_client, try_understand_query
+    from src.jd_core.rules import get_rules
+
+    rules = get_rules()
+    if not rules.search.query_understanding_enabled:
+        pytest.skip(
+            "query understanding is OFF (HR-315); switch it on to make this real"
+        )
+    budget = rules.search.query_timeout_seconds
+    for q in ("AP clerk", "coop coord", "IT sysadmin"):
+        started = time.monotonic()
+        plan = await try_understand_query(q, client_factory=rulebook_chat_client)
+        elapsed = time.monotonic() - started
+        assert plan is not None, f"no plan for {q!r} within {budget}s"
+        assert elapsed <= budget + 0.5, f"{q!r} took {elapsed:.1f}s"
+        assert plan.title_keywords[0] == q, "the words as typed must be searched first"
+        assert plan.employee_group is None, "no group was typed, none may be applied"
+        assert (
+            plan.extra_keywords
+        ), f"{q!r}: the model added no keyword — nothing gained"
+    resp = await library.get("/jd-bank/ui/library", params={"q": "AP clerk"})
+    assert resp.status_code == 200
+    assert "Read as:" in resp.text
+
+
+#: Internal vocabulary that must not reach the visible text of a page HR testers use
+#: (UAT review 2026-11-19). The detail dashboards are labelled technical reports and
+#: are exempt; their index, the funnel and every authoring/reading page are not.
+_JARGON = re.compile(
+    r"HR-\d{3}|\bdocs/|\b\w+\.(?:md|ya?ml|py|json)\b|\bparser\b|\brulebook\b"
+    r"|\bJDFN\b|[Pp]arse confidence|\bTier 1/2/3\b|\bsingletons?\b|\bcosine\b"
+)
+
+
+def _visible_text(page: str) -> str:
+    from html import unescape
+
+    page = re.sub(r"(?is)<(script|style|title)\b.*?</\1>", " ", page)
+    page = re.sub(r"(?s)<!--.*?-->", " ", page)
+    return unescape(re.sub(r"\s+", " ", re.sub(r"(?s)<[^>]+>", " ", page)))
+
+
+async def test_tester_facing_pages_speak_plain_language(library, session) -> None:  # type: ignore[no-untyped-def]
+    """No internal ids, repo paths or pipeline vocabulary on the pages an HR tester
+    reads — rendered from the live Bank, visible text only."""
+    role = (
+        await session.execute(
+            text(
+                f"SELECT cluster_id FROM ({_CURRENT}) cur "
+                "WHERE jsonb_array_length(source_document_ids) > 3 "
+                "ORDER BY cluster_id LIMIT 1"
+            )
+        )
+    ).scalar()
+    doc = (
+        await session.execute(
+            text("SELECT source_document_id FROM parsed_jds ORDER BY 1 LIMIT 1")
+        )
+    ).scalar()
+    pages = [
+        "/jd-bank/ui/library",
+        "/jd-bank/ui/library?q=analyst",
+        "/jd-bank/ui/library?q=61",
+        "/jd-bank/ui/compose/search?q=Pos+61",
+        f"/jd-bank/ui/role/{role}",
+        f"/jd-bank/ui/role/{role}/comp-requisition",
+        f"/jd-bank/ui/jd/{doc}",
+        "/jd-bank/ui/archive",
+        "/jd-bank/ui/collection/it",
+        "/jd-bank/ui/funnel",
+        "/jd-bank/ui/compose/new",
+        "/jd-bank/ui/compose/new?form=wjq",
+        "/jd-bank/ui/my-drafts",
+        "/jd-bank/ui/queue",
+        "/jd-bank/ui/dashboard",
+    ]
+    found: dict[str, list[str]] = {}
+    for path in pages:
+        resp = await library.get(path)
+        assert resp.status_code == 200, path
+        text_ = _visible_text(resp.text)
+        hits = sorted({m.group(0) for m in _JARGON.finditer(text_)})
+        if hits:
+            found[path] = hits
+    assert not found, f"internal vocabulary on tester pages: {found}"
+
+
+async def test_a_position_number_search_reaches_its_files_on_the_live_bank(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    """HR-339 through the real routes. Position 61 (the owner's PeopleSoft sample,
+    "1 of 6") is filed under 8 archive files; the Library and the Builder must list
+    them, and a sample of positions must reconcile with the reader over RAW rows."""
+    from src.jd_bank.library.positions import find_position
+    from src.jd_bank.positions import PositionIndex
+    from src.jd_core.rules import get_rules
+
+    seg = get_rules().segmentation
+    rows = (
+        await session.execute(text("SELECT id, filename FROM source_documents"))
+    ).all()
+    raw = PositionIndex.build(((r[0], r[1]) for r in rows), seg)
+    role_rows = (
+        await session.execute(
+            text(
+                f"SELECT cluster_id, s.value->>'source_id' FROM ({_CURRENT}) cur "
+                "CROSS JOIN LATERAL jsonb_array_elements(cur.source_document_ids) s"
+            )
+        )
+    ).all()
+    roles_of: dict[str, set[uuid.UUID]] = {}
+    for cluster_id, source_id in role_rows:
+        roles_of.setdefault(source_id, set()).add(cluster_id)
+
+    sample = sorted(raw.by_position)[:: max(1, len(raw.by_position) // 50)]
+    for position in sample:
+        lookup = await find_position(session, position)
+        assert {f.source_document_id for f in lookup.files} == set(
+            raw.docs_for(position)
+        ), position
+        for f in lookup.files:
+            expected = roles_of.get(str(f.source_document_id), set())
+            assert (f.role.cluster_id if f.role else None) in (expected or {None})
+
+    sixty_one = raw.docs_for("00000061")
+    assert len(sixty_one) >= 8
+    resp = await library.get("/jd-bank/ui/library", params={"q": "61"})
+    assert resp.status_code == 200
+    assert f"Position 00000061 — {len(sixty_one)} files in the archive" in resp.text
+    for doc_id in sixty_one:
+        assert f"/jd-bank/ui/jd/{doc_id}" in resp.text
+    resp = await library.get("/jd-bank/ui/compose/search", params={"q": "Pos 61"})
+    assert resp.status_code == 200
+    assert f"Position 00000061 — {len(sixty_one)} files in the archive" in resp.text
+    assert "/jd-bank/ui/compose/clone" in resp.text
+
+
+async def test_the_review_queue_pages_and_counts_every_live_draft(  # type: ignore[no-untyped-def]
+    library, session
+) -> None:
+    """UAT review 2026-11-19: the queue was one 1.36 MB page of 2,499 rows with raw
+    cluster ids and six-decimal scores. Through the real route: one page, a total that
+    matches the Bank's own count of drafts, and no cluster id on the page."""
+    from src.api.routes.ui import QUEUE_PAGE_SIZE
+
+    drafts = (
+        await session.execute(
+            text("SELECT count(*) FROM canonical_jds WHERE status = 'DRAFT'")
+        )
+    ).scalar()
+    resp = await library.get("/jd-bank/ui/queue")
+    assert resp.status_code == 200
+    shown = min(QUEUE_PAGE_SIZE, drafts)
+    assert f"Showing {1 if drafts else 0}–{shown} of {drafts}" in resp.text
+    assert resp.text.count("Review →") == shown
+    assert len(resp.content) < 250_000, f"{len(resp.content):,} bytes"
+    cluster = (
+        await session.execute(
+            text(
+                "SELECT cluster_id::text FROM canonical_jds WHERE status = 'DRAFT' "
+                "ORDER BY created_at, id LIMIT 1"
+            )
+        )
+    ).scalar()
+    assert cluster is None or cluster not in resp.text

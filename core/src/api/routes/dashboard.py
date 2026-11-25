@@ -206,24 +206,21 @@ def _dashboard_context(summary: BaselineSummary) -> dict[str, Any]:
 DASHBOARD_PAGES: list[dict[str, str]] = [
     {
         "href": "/jd-bank/ui/dashboard/baseline",
-        "title": "Archive baseline",
-        "blurb": "The Phase-2.5 quality baseline over all 14,565 archived JDs — "
-        "scores, grades, approval rates and provenance, straight from "
-        "docs/baseline/summary.json.",
+        "title": "How the archive scores today",
+        "blurb": "How every archived job description scores against today's "
+        "automated checks — by era, form and bargaining unit. A technical report.",
     },
     {
         "href": "/jd-bank/ui/dashboard/dedup",
-        "title": "Deduplication (Tier 1/2/3)",
-        "blurb": "Exact, near-duplicate and role-equivalence findings over the "
-        "archive — redundancy, edges, thresholds and provenance, from "
-        "docs/dedup/{summary,near-dup-summary,role-equiv-summary}.json.",
+        "title": "Duplicates in the archive",
+        "blurb": "Which archived files are exact copies, near copies, or describe "
+        "the same role, and how those were found. A technical report.",
     },
     {
         "href": "/jd-bank/ui/dashboard/clusters",
-        "title": "Role clusters",
-        "blurb": "The Phase-3.5 role-clustering report — cluster count, coverage, "
-        "size distribution, tier contribution and cross-department reach, from "
-        "docs/cluster/cluster-summary.json.",
+        "title": "How files were grouped into roles",
+        "blurb": "How the archive's files were grouped into roles: how many groups, "
+        "how big, and what was left ungrouped. A technical report.",
     },
 ]
 

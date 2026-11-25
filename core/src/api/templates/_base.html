@@ -92,5 +92,22 @@
   </nav>
   {% endblock %}
   {% block content %}{% endblock %}
+  {#
+    "Report a problem with this page" (UAT). A mailto to FEEDBACK_EMAIL, stashed by
+    resolve_user beside the user; absent (unset, or a page nobody resolved) renders
+    nothing. Prefilled with the page title, the page's path + query and the signed-in
+    username so a report says where and who without the tester typing it. Writes
+    nothing anywhere. Built with `urlencode` (spaces as %20, as a mailto needs).
+  #}
+  {% set fb_email = request.state.feedback_email %}
+  {% if fb_email %}
+  {% set fb_user = request.state.user %}
+  {% set fb_page = request.url.path ~ ("?" ~ request.url.query if request.url.query else "") %}
+  {% set fb_subject = "JD Bank problem: " ~ (self.title() | striptags | trim) %}
+  {% set fb_body = "Page: " ~ fb_page ~ "\r\nSigned in as: " ~ (fb_user.cas_username if fb_user else "(not signed in)") ~ "\r\n\r\nWhat went wrong:\r\n" %}
+  <footer class="meta" style="max-width:900px;margin-top:1.5rem">
+    <a href="mailto:{{ fb_email }}?subject={{ fb_subject | urlencode }}&amp;body={{ fb_body | urlencode }}">✉ Report a problem with this page</a>
+  </footer>
+  {% endif %}
 </body>
 </html>

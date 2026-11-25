@@ -3,6 +3,13 @@
 {% block content %}
 <div class="panel">
   <h2>Review queue</h2>
+  <form method="get" action="/jd-bank/ui/queue" class="meta">
+    <label for="q">Find a draft by title</label>
+    <input id="q" name="q" value="{{ q }}" placeholder="e.g. analyst">
+    {% if sort != "triage" %}<input type="hidden" name="sort" value="{{ sort }}"><input type="hidden" name="dir" value="{{ direction }}">{% endif %}
+    <button type="submit">Search</button>
+    {% if q %}· <a href="/jd-bank/ui/queue">clear</a>{% endif %}
+  </form>
   {% if items %}
   {#
     The FORM column and the "on its own bar" wording are not decoration (CUPE Phase D).
@@ -14,9 +21,10 @@
   #}
   <p class="meta">
     Two SFU forms are listed here. <strong>Each draft is scored against its own
-    form's bar</strong> — a CUPE score and a JDFN score are not comparable numbers.
-    Click a column heading to sort; <strong>Score and Grade sort within each form</strong>,
-    so a CUPE draft is never ranked against a JDFN one.
+    form's bar</strong> — a CUPE score and an APSA / APEX / Poly score are
+    not comparable numbers. Click a column heading to sort;
+    <strong>Score and Grade sort within each form</strong>, so a CUPE draft is
+    never ranked against an APSA / APEX / Poly one.
     {% if sort != "triage" %}
     {# The reset link takes NO conditional in its PATH: `test_template_links` reduces a
        link to the path before `?`, so a `{% if %}` there renders as an unroutable
@@ -30,15 +38,19 @@
   {% macro sorth(key, label, note="") -%}
     {%- set active = (sort == key) -%}
     {%- set next_dir = 'desc' if (active and direction == 'asc') else 'asc' -%}
-    <th><a href="/jd-bank/ui/queue?sort={{ key }}&amp;dir={{ next_dir }}{% if limit %}&amp;limit={{ limit }}{% endif %}"
+    <th><a href="/jd-bank/ui/queue?sort={{ key }}&amp;dir={{ next_dir }}{% if q %}&amp;q={{ q | urlencode }}{% endif %}{% if limit %}&amp;limit={{ limit }}{% endif %}"
       {% if note %}title="{{ note }}"{% endif %}>{{ label }}{% if active %} {{ '▲' if direction == 'asc' else '▼' }}{% endif %}</a></th>
   {%- endmacro %}
+  {% set keep = ("&sort=" ~ sort ~ "&dir=" ~ direction if sort != "triage" else "") ~ ("&q=" ~ (q | urlencode) if q else "") ~ ("&limit=" ~ limit if limit else "") %}
+  <p class="meta">Showing {{ shown_from }}–{{ shown_to }} of {{ total }}{% if q %} matching “{{ q }}”{% endif %}
+    {% if prev_offset is not none %} · <a href="/jd-bank/ui/queue?offset={{ prev_offset }}{{ keep }}">← Prev</a>{% endif %}
+    {% if next_offset is not none %} · <a href="/jd-bank/ui/queue?offset={{ next_offset }}{{ keep }}">Next →</a>{% endif %}</p>
   <table>
     <thead>
       <tr>
         {{ sorth('title', 'Title') }}
         {{ sorth('form', 'Form') }}
-        <th>Cluster / version</th>
+        <th>From</th>
         {{ sorth('status', 'Status') }}
         {{ sorth('score', 'Score', 'Sorts within each form — the two bars are not comparable') }}
         {{ sorth('grade', 'Grade', 'Sorts within each form — the two bars are not comparable') }}
@@ -62,12 +74,13 @@
           {% if item.template == "wjq" %}
           <span class="badge" title="CUPE 3338 Weighted Job Questionnaire">CUPE (WJQ)</span>
           {% else %}
-          <span class="badge" title="The APSA / APEX / POLY job-description form">JDFN</span>
+          <span class="badge" title="SFU's APSA / APEX / Poly job-description form">APSA / APEX / Poly</span>
           {% endif %}
         </td>
-        <td>{{ item.cluster_id }} / v{{ item.version }}</td>
+        <td>{% if item.source_count %}{{ item.source_count }} archive file{{ "s" if item.source_count != 1 else "" }}{% else %}written in the Builder{% endif %}
+          <span class="meta">· v{{ item.version }}</span></td>
         <td>{{ item.status.value }}</td>
-        <td>{{ item.stored_score if item.stored_score is not none else "—" }}</td>
+        <td>{{ "%.1f" | format(item.stored_score) if item.stored_score is not none else "—" }}</td>
         <td>{{ item.stored_grade if item.stored_grade is not none else "—" }}</td>
         <td>
           {% if item.stored_blocking_gate_count %}
@@ -82,7 +95,7 @@
     </tbody>
   </table>
   {% else %}
-  <p class="empty">No drafts awaiting review.</p>
+  <p class="empty">{% if q %}No drafts match “{{ q }}”.{% else %}No drafts awaiting review.{% endif %}</p>
   {% endif %}
   {# Outside the "has items" branch — an empty queue must still lead somewhere. #}
   <p class="meta">

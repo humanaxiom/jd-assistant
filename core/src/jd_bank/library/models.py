@@ -12,11 +12,13 @@ nothing in this package mutates a row.
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.jd_bank.query_plan import QueryUnderstanding
 from src.jd_core.models.parsed_jd import JobClassification, SetAsideSection
 
 
@@ -31,6 +33,15 @@ class RoleRef(_Frozen):
     canonical_id: UUID
     title: str
     status: str
+
+
+class FilenamePosition(_Frozen):
+    """One position a source file's NAME gives it (HR-331 `source_page`)."""
+
+    #: The PeopleSoft id, zero-padded to 8 digits.
+    id8: str
+    #: The token as written in the file name (`61`, `00030785`).
+    written: str
 
 
 class SourceJDView(_Frozen):
@@ -58,6 +69,15 @@ class SourceJDView(_Frozen):
     #: form's working conditions (owner ruling 2026-10-27, HR-305), its signature block
     #: (HR-306) and its printed questions (HR-307). Shown so a drop is never silent.
     set_aside: tuple[SetAsideSection, ...] = ()
+    #: Whether this page reads its file name for positions at all (HR-331
+    #: `source_page`). Off: one "Position #" row, the document's own value.
+    reads_filename_positions: bool = False
+    #: The positions the file NAME gives, in the order written. The file name is how
+    #: PeopleSoft attached the JD (`<as-of date>_<user file name>`); the number typed
+    #: in the document is shown beside it, never replaced by it.
+    filename_positions: tuple[FilenamePosition, ...] = ()
+    #: True when the parse found no title and :attr:`title` is the file name's (HR-338).
+    title_from_filename: bool = False
 
 
 class MemberJD(_Frozen):
@@ -90,6 +110,12 @@ class RoleView(_Frozen):
     rendered_text: str
     members: tuple[MemberJD, ...]
     source_count: int
+    #: Written by an author in the Builder (its cluster carries
+    #: ``origin="composed"``), NOT distilled from the archive — the page must say so
+    #: rather than report "distilled from 0 source JDs". ``composed_by`` is the author
+    #: the Builder recorded, when it recorded one.
+    composed: bool = False
+    composed_by: str | None = None
 
 
 class RoleListItem(_Frozen):
@@ -112,7 +138,45 @@ class RoleListItem(_Frozen):
     #: There is deliberately NO similarity field: a role's cosine is not a usable
     #: number (an unrelated role can outscore a true twin), so the reader is told the
     #: reason, never a percentage.
-    matched_by: Literal["title", "spelling", "meaning"] | None = None
+    #: ``keyword``: found by a title keyword the query-understanding step ADDED
+    #: (Track I3) — shown as the interpreted word, never as a score.
+    #: ``position``: built from a file filed under the position number searched for
+    #: (HR-339).
+    matched_by: (
+        Literal["title", "spelling", "meaning", "keyword", "position"] | None
+    ) = None
+    #: Written in the Builder rather than distilled from the archive (see
+    #: :attr:`RoleView.composed`). Left out of the library unless the reader asks.
+    composed: bool = False
+    composed_by: str | None = None
+    #: What tells same-titled roles apart (UAT: twelve identical "Manager, Academic and
+    #: Administrative Services" rows). The role's own department, else the first one
+    #: its source documents state — the Builder's rule, shared. ``None`` when nothing
+    #: states one; never invented.
+    department: str | None = None
+
+
+class PositionFile(_Frozen):
+    """One archive file whose NAME carries the position searched for (HR-339)."""
+
+    source_document_id: UUID
+    filename: str | None
+    #: The date the file name starts with — PeopleSoft's as-of date for that
+    #: attachment (confirmed on one sample). ``None`` when the name has none.
+    file_date: dt.date | None
+    #: The role the file was distilled into, if any — 1,377 live positions have files
+    #: in no role.
+    role: RoleRef | None
+
+
+class PositionLookup(_Frozen):
+    """A search for a position number, answered from the archive file names."""
+
+    #: The PeopleSoft id, zero-padded to 8 digits.
+    position: str
+    #: Newest first. Empty when no file name carries the position — the page then says
+    #: so and searches the words instead.
+    files: tuple[PositionFile, ...]
 
 
 class RolePage(_Frozen):
@@ -130,6 +194,25 @@ class RolePage(_Frozen):
     #: A visible notice for the page (e.g. search-by-meaning is unavailable so only
     #: title matches are shown). ``None`` when nothing is degraded.
     banner: str | None = None
+    #: How the query-understanding step read the search (Track I3), for the page to
+    #: show and the person to switch off. ``None`` when it did not run.
+    interpretation: QueryUnderstanding | None = None
+    #: Whether roles written in the Builder are included. Off by default: they are
+    #: authors' drafts, not roles distilled from the archive, and listing them beside
+    #: the archive roles made them read as archive roles.
+    include_composed: bool = False
+    #: How many unpublished Builder drafts the plain listing left out (HR-332), so the
+    #: page can say so and its total still reconciles with the Funnel. 0 for a search.
+    hidden_builder_drafts: int = 0
+    #: A search whose every result was found by MEANING alone — no title, spelling or
+    #: interpreted-title hit. The vector index always returns its nearest roles, however
+    #: unrelated (`q=zzzqqq` returned 100), so the page must say so in words. It is a
+    #: flag, never a filter: no similarity threshold exists that separates related from
+    #: unrelated here, and none is applied.
+    meaning_only: bool = False
+    #: The search read as a position number (HR-339), with the files filed under it.
+    #: ``None`` when the query is not a position number or the lookup is switched off.
+    position: PositionLookup | None = None
 
 
 class SourceListItem(_Frozen):

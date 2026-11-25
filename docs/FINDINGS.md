@@ -1238,6 +1238,20 @@ prompt's job.
   Successful outputs taper smoothly to ~6,048 chars with no pile-up at the HR-178
   `max_tokens` ceiling, so there is no truncation *signature*, but it was not observed.
 
+## Measured after §13 — where those records live
+
+This log stopped gaining sections after 2026-09-18. Later measurements were written up
+beside the work that needed them, as dated records. Read each for its method; **re-measure
+rather than quote its numbers.**
+
+| date | what was measured | record |
+|---|---|---|
+| 2026-10-19 | HR's guidance and forms against the Bank: search, HR form conformance, the Compensation Requisition Form | [`audit/2026-10-19-search-hr-compreq/`](audit/2026-10-19-search-hr-compreq/) |
+| 2026-10-27 | WJQ approvability under the hardened rewrite: equivalency fails because the form does not fit, not because the rewrite is wrong (HR-296/297) | `docs/audit/2026-10-27-wjq-approvability.md`, **on `bank/v9`** |
+| 2026-10-29 | Parser v10 over all 14,565 files: no parse errors, no lost headings, wrap-guard demotions checked one by one | `docs/audit/2026-10-29-parser-v10-review.md`, **on `bank/v9`** |
+| 2026-11-19 | Readiness for HR testers. **The archive's file names carry PeopleSoft's As-Of date and position list**, read over every file name: positions found on 14,379 files against 13,572 by the old reader | [`audit/2026-11-19-uat-readiness/`](audit/2026-11-19-uat-readiness/) |
+| 2026-11-20 | The IT collection page: one pass instead of one query per signal, 25.6 s → 0.7 s, with every number identical (pinned by a live smoke check) | PR #221 |
+
 ## Full working
 
 The original per-topic documents are in **`docs/archive/plans/`** — kept for the reasoning

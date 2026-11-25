@@ -34,6 +34,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any, get_args
 from uuid import UUID
@@ -51,6 +52,7 @@ from src.api.routes._forms import read_form_pairs
 from src.api.routes.auth import require_ui_user
 from src.api.routes.compose import (
     get_chat_client,
+    get_chat_client_factory,
     get_embed_client,
     get_neo4j_driver,
     get_optional_embed_client,
@@ -83,7 +85,9 @@ from src.jd_bank.composer.forms import (
 )
 from src.jd_bank.composer.wjq_answers import WJQ_LEVEL_TARGETS, Column, WJQAnswers
 from src.jd_bank.embeddings.client import EmbedClient
+from src.jd_bank.library.positions import find_position, read_position_query
 from src.jd_bank.llm.client import ChatClient
+from src.jd_bank.query_plan import try_understand_query
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.models.quality import (
     DEFAULT_TEMPLATE,
@@ -1091,9 +1095,11 @@ async def search_page(
     request: Request,
     q: str = "",
     form: str | None = None,
+    plain: int = 0,
     embed_client: EmbedClient = Depends(get_embed_client),
     neo4j_driver: AsyncDriver = Depends(get_neo4j_driver),
     session: AsyncSession = Depends(get_session),
+    chat_factory: Callable[[], ChatClient] = Depends(get_chat_client_factory),
 ) -> HTMLResponse:
     """Semantic search over the embedded archive for a JD to start from (5.4). Renders
     the hits, each linking to :func:`clone_draft`. An empty query just shows the search
@@ -1106,7 +1112,15 @@ async def search_page(
     query = q.strip()
     hits: list[SearchHit] = []
     notice: str | None = None
-    if query:
+    interpretation = None
+    # Only a position number (HR-339): answered from the archive file names. A number
+    # no file carries falls through to the ordinary search, and the page says so.
+    position = read_position_query(query) if query else None
+    lookup = await find_position(session, position) if position else None
+    if lookup is not None and lookup.files:
+        await embed_client.close()
+        await neo4j_driver.close()
+    elif query:
         # The wait on the inference host is bounded INSIDE the search (HR-198): this
         # route holds a checked-out AsyncSession out of a small pool for the whole call,
         # so an embedding host that ACCEPTS and stalls would take the Builder down after
@@ -1115,6 +1129,13 @@ async def search_page(
         # a 500, and a stall threw away the title matches already found (measured
         # 2026-10-19, Track I2). The search now keeps its title hits and says why the
         # rest is missing.
+        # The optional LLM read of the query (Track I3): off by default, bounded,
+        # and switched off for one search by `?plain=1`.
+        plan = (
+            None
+            if plain
+            else await try_understand_query(query, client_factory=chat_factory)
+        )
         try:
             outcome = await search_jds(
                 query,
@@ -1122,11 +1143,13 @@ async def search_page(
                 neo4j_driver=neo4j_driver,
                 session=session,
                 form=spec.template,
+                plan=plan,
             )
         finally:
             await embed_client.close()
             await neo4j_driver.close()
         hits, notice = outcome.hits, outcome.notice
+        interpretation = outcome.interpretation
     # Prefer cloning the HARMONIZED role: map each hit's source doc to its cluster (if
     # any) so the template links "Start from this" to the reviewed canonical, not the
     # raw archive JD. A singleton (no cluster) keeps the raw-source clone as its option.
@@ -1148,6 +1171,8 @@ async def search_page(
             "hits": hits,
             "role_clusters": role_clusters,
             "notice": notice,
+            "interpretation": interpretation,
+            "position_lookup": lookup,
             # Carried so a second search from this page keeps the instrument, and so
             # the page can say which one it is scoped to.
             "form_spec": spec,

@@ -26,7 +26,11 @@ leave the pointer.
 | How many decisions are open / ratified, and what HR still owes | the generated register's **own header** | `sed -n '5,7p' docs/decisions/HR-DECISION-REGISTER.md` |
 | Is the tree clean? Is anything unmerged? | git and GitHub, never a document | `git status && git fetch && gh pr list` |
 | Is the stack up? On which ports? | Docker, never a document | `docker ps` · `docker compose port api 8000` |
+| **Which Bank does this checkout act on?** There are two: live (`jd-bank`, 25xxx) and v9 (`jd-bank-v9`, 26xxx) | the checkout's own `.env` and compose project | `make bank-target` · `git -C C:/repos/JD-Assistant-v9 branch --show-current` (must say `bank/v9`) |
+| Is sign-in actually on? | the box-local `.env`, never the compose default (which is off) | `grep -c '^CAS_ENABLED=true' .env`, then `curl` the LAN address's `/jd-bank/ui/queue`: you must get a 303 to login |
+| What is the next free HR register id? | the register YAML on **`main` and `origin/bank/v9`** | `grep -oE '^  - id: HR-[0-9]+' core/src/jd_core/rules/decision_register.yaml \| sort -t- -k2 -n \| tail -1`, on both |
 | **Does the system actually WORK end to end?** | 🔴 the LIVE smoke — fixtures cannot be stale, so only this counts | `make smoke` — **run it; do not read its status off this page.** ⚠ This row said "currently RED on two known gaps" for three days after smoke went GREEN (2026-09-12), which is exactly the bug the header of this file forbids: a STATUS written here instead of a pointer |
+| **Is the inference host fit for a model pass?** Two silent failures: prompts cut at a small window, and the model running on CPU | the host's own status, never a document | `curl -s http://aria-gb10-2:11434/api/ps`: `context_length` ≥ `rewrite.min_context_tokens` (HR-341) **and** `size_vram` = `size`. Never probe it with large prompts |
 | Is the archive itself as claimed? | **the source files** — `C:\repos\hris\fixtures\SFU_JDs` (read-only) | `make field-audit` · `make singletons` |
 | What we do next | [`docs/plan.md`](docs/plan.md) | — |
 | What is half-finished right now | [`HANDOFF.md`](HANDOFF.md) | verify against `gh pr list` before trusting it |
@@ -95,6 +99,7 @@ argument disagree, **you have two hypotheses and have tested one.**
 | [`CURRENT.md`](CURRENT.md) | 🟢 **live** | this index — read first |
 | [`HANDOFF.md`](HANDOFF.md) | 🟢 **live** | state and traps at the start of a session |
 | [`docs/plan.md`](docs/plan.md) | 🟢 **live** | what we do next, in order |
+| [`docs/ORAL-HISTORY.md`](docs/ORAL-HISTORY.md) | 🔵 **narrative** | how the project got here and why the rules exist; numbers in it are dated history |
 | [`CLAUDE.md`](CLAUDE.md) | 🟢 **live** | invariants and the change workflow |
 | [`docs/FINDINGS.md`](docs/FINDINGS.md) | 🟢 **live** | everything measured, with its working |
 | [`docs/OPERATOR-GUIDE.md`](docs/OPERATOR-GUIDE.md) | 🟢 **live** | using and running the system (served in-app at 📖 Guide) |
@@ -102,19 +107,27 @@ argument disagree, **you have two hypotheses and have tested one.**
 | [`docs/NETWORK-SETUP.md`](docs/NETWORK-SETUP.md) | 🟢 **live** | network-admin guide: ports, egress, DNS/TLS, proxy headers — and the CAS **origin allowlist**, which a network design can silently violate |
 | [`docs/decisions/`](docs/decisions/) | 🟢 **live** | the register (generated) + what HR must decide |
 | [`docs/adr/`](docs/adr/) | 🟢 **live** | architecture decisions |
+| [`deploy/README.md`](deploy/README.md) | 🟢 **live** | the offline bundle + install, and running a second Bank beside the live one |
+| [`docs/plans/`](docs/plans/) | 🟢 **live designs** | one file per track; each says at its top what is built. Tracks I·J·K, G (upload), F (currency), H (combine roles) |
+| [`docs/plans/VPFA-SPINOFF-PLAN.md`](docs/plans/VPFA-SPINOFF-PLAN.md) | 🟢 **live proposal** | the engineering plan for a separate VPFA app (Bank, Builder, funnel, CRF) built on snapshots of this Bank; [`VPFA-SPINOFF-BRIEF.md`](docs/plans/VPFA-SPINOFF-BRIEF.md) is its policy/risk briefing |
+| [`docs/JD-BUILDER-MANAGER-EXPLAINER.md`](docs/JD-BUILDER-MANAGER-EXPLAINER.md) | 🟢 **live** | the Builder explained for a hiring manager |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | 🟠 **superseded** | the 2026-08-13 review, as a record |
 | [`docs/STATUS-2026-08-24.md`](docs/STATUS-2026-08-24.md) | 🟠 **diagnosis stands, prescription superseded** | why priorities were reset |
 | [`CodeX/`](CodeX/) | 🟠 **superseded in its numbers** | the 2026-08-07 design critique |
 | [`docs/baseline/`](docs/baseline/), [`docs/audit/`](docs/audit/) | 🔵 **dated records** | measurements at the version each names |
-| [`docs/archive/`](docs/archive/) | 🔵 **history** | the build record |
+| [`docs/archive/`](docs/archive/) | 🔵 **history** | the build record, and earlier handoffs verbatim |
 
 **🔵 dated records are not stale — they are evidence.** Each is stamped with the version it
 measured. Do not "refresh" one; take a new measurement and add it.
 
 ---
 
-## Two rulings that override older wording anywhere you find it
+## Three rulings that override older wording anywhere you find it
 
+0. **Directive #0, 2026-09-11 — ship only after a full end-to-end smoke test.** Merging to
+   `main` or deploying needs `make smoke` GREEN, even when you are sure your change did not
+   cause the red. "Pre-existing and unrelated" is not a reason to ship. See
+   [`CLAUDE.md`](CLAUDE.md).
 1. **Owner ruling, 2026-08-29 — the measure is DRAFTS.** Nothing is blocked on policy, and
    publishing happens in the **final deployment**, not in pilot/dev/MVP. Any document
    asking *"does this change the number of PUBLISHED JDs?"* is out of date. Ask instead:

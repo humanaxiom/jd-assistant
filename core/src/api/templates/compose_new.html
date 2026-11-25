@@ -39,7 +39,7 @@
        correctly opened a JDFN draft and the Builder appeared to "reset to APSA".
        HR-225. #}
     <input type="hidden" name="form" value="{{ form_spec.template }}">
-    <input name="q" placeholder="search the archive — e.g. financial analyst">
+    <input name="q" placeholder="search the archive — e.g. financial analyst, or a position number">
     <button type="submit">🔎 Search to clone</button>
   </form>
 </div>
@@ -240,6 +240,11 @@
     <input type="hidden" name="form" value="{{ form_spec.template }}">
     <button type="submit">Export .docx ↓</button>
   </form>
+  {% if cloned_from_cluster_id %}
+  <p class="meta">
+    Sending this to Compensation? <a href="/jd-bank/ui/role/{{ cloned_from_cluster_id }}/comp-requisition">📄 Download SFU's Compensation Requisition Form, prefilled from the role this draft started from →</a>
+  </p>
+  {% endif %}
 
   <h3>Submit for review</h3>
   <p class="meta">

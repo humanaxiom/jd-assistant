@@ -153,6 +153,9 @@ class ReviewQueueItem(BaseModel):
     #: number from two different bars in one sorted column invites precisely the
     #: comparison this phase spent its whole length removing.
     template: JDTemplate = DEFAULT_TEMPLATE
+    #: How many archive files the draft was distilled from. 0 for a draft written in
+    #: the Builder, which has no archive sources — the queue says so in words.
+    source_count: int = 0
     #: Display roll-up from ``change_log`` — for triage/ordering only, not the
     # authority.
     stored_score: float | None = None

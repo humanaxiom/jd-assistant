@@ -545,6 +545,58 @@ async def test_coverage_reports_where_each_signal_is_blind(
     assert no_dept is not None
 
 
+async def test_one_usable_filename_is_enough_to_judge_a_role(
+    session_maker: async_sessionmaker[AsyncSession], it_family: FunctionalFamily
+) -> None:
+    """A role is blind to the filename signal only when NONE of its documents has a
+    filename. One dangling source id (no `source_documents` row, so a NULL filename)
+    beside a real file must not make the role "cannot judge"."""
+    async with session_maker() as session:
+        mixed = await _seed_role(session, jd=_jd("Gardener"), filenames=["1_CUPE.doc"])
+        await session.execute(
+            text(
+                "UPDATE canonical_jds SET source_document_ids = source_document_ids"
+                " || jsonb_build_array("
+                "jsonb_build_object('source_id', CAST(:sid AS text)))"
+                " WHERE cluster_id = :cid"
+            ),
+            {"sid": str(uuid.uuid4()), "cid": mixed},
+        )
+        dangling = await _seed_role(session, jd=_jd("Gardener"), filenames=[])
+        await session.execute(
+            text(
+                "UPDATE canonical_jds SET source_document_ids = "
+                "jsonb_build_array(jsonb_build_object('source_id', CAST(:sid AS text)))"
+                " WHERE cluster_id = :cid"
+            ),
+            {"sid": str(uuid.uuid4()), "cid": dangling},
+        )
+        await session.commit()
+        coverage = await membership_coverage(session, it_family)
+
+    code = next(s for s in coverage.signals if "filename" in s.label)
+    assert code.unevaluable == 1, "only the role with no usable filename is blind"
+    assert coverage.total_roles == 2
+
+
+async def test_a_family_without_codes_labels_each_signal_by_what_it_reads(
+    session_maker: async_sessionmaker[AsyncSession], it_family: FunctionalFamily
+) -> None:
+    """Signals were paired with labels BY POSITION: drop the classification codes and
+    the title count was reported as "classification code in the filename". Only the IT
+    family exists today, so it never showed — but the rulebook allows an empty list."""
+    no_codes = it_family.model_copy(update={"classification_families": ()})
+    async with session_maker() as session:
+        await _seed_role(
+            session, jd=_jd("Network Administrator"), filenames=["1_ITP_CUPE.doc"]
+        )
+        await session.commit()
+        coverage = await membership_coverage(session, no_codes)
+
+    assert [s.label for s in coverage.signals] == ["the role's title", "the department"]
+    assert coverage.signals[0].roles == 1
+
+
 async def test_a_placeholder_title_makes_the_title_signal_blind(
     session_maker: async_sessionmaker[AsyncSession], it_family: FunctionalFamily
 ) -> None:

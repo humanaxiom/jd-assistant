@@ -17,14 +17,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Collection, Sequence
+from collections.abc import Callable, Collection, Sequence
 from typing import Any, Literal
 from uuid import UUID
 
 from neo4j import AsyncDriver
-from sqlalchemy import Float, Select, func, or_, select
+from sqlalchemy import Float, Select, and_, func, not_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.jd_bank.composer import search as composer_search
+from src.jd_bank.composer.persist import COMPOSED_ORIGIN
 from src.jd_bank.composer.search import (
     DOC_TITLE,
     ROLE_TITLE,
@@ -35,13 +37,16 @@ from src.jd_bank.composer.search import (
 )
 from src.jd_bank.db.models import (
     CanonicalJD,
+    CanonicalStatus,
     Cluster,
     ParsedJDRow,
     SourceDocument,
 )
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.library.models import (
+    FilenamePosition,
     MemberJD,
+    PositionLookup,
     RoleListItem,
     RolePage,
     RoleRef,
@@ -50,9 +55,16 @@ from src.jd_bank.library.models import (
     SourceListItem,
     SourcePage,
 )
+from src.jd_bank.library.positions import (
+    find_position,
+    read_position_query,
+    role_ids,
+)
+from src.jd_bank.positions import load_position_index, read_filename
+from src.jd_bank.query_plan import QueryUnderstanding
 from src.jd_core.bank.render import render_sfu_jd_text
 from src.jd_core.models.parsed_jd import SFUJobDescription
-from src.jd_core.parser import PARSER_VERSION
+from src.jd_core.parser import FALLBACK_TITLE, PARSER_VERSION
 from src.jd_core.rules import Rules, get_rules
 
 logger = logging.getLogger(__name__)
@@ -72,6 +84,35 @@ _ROLE_SORTS = {
     "score": CanonicalJD.change_log["validator"]["score"].astext.cast(Float),
     "grade": CanonicalJD.change_log["validator"]["grade"].astext,
 }
+
+
+#: The clusters the Builder minted for an author's submitted draft — the composer's own
+#: marker (:data:`~src.jd_bank.composer.persist.COMPOSED_ORIGIN`, the same predicate
+#: "My drafts" lists by), not a heuristic such as "has no members".
+_IS_COMPOSED = Cluster.constraint_metadata["origin"].astext == COMPOSED_ORIGIN
+_COMPOSED_CLUSTERS = select(Cluster.id).where(_IS_COMPOSED)
+
+
+def _author_of(meta: dict[str, Any]) -> str | None:
+    """The author the Builder recorded on a composed cluster, or ``None``."""
+    author = str(meta.get("author") or "").strip()
+    return author or None
+
+
+async def _composed_authors(
+    session: AsyncSession, cluster_ids: Sequence[UUID]
+) -> dict[UUID, str | None]:
+    """``{cluster_id: author}`` for the Builder-written roles among ``cluster_ids``."""
+    if not cluster_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(Cluster.id, Cluster.constraint_metadata).where(
+                Cluster.id.in_(list(cluster_ids)), _IS_COMPOSED
+            )
+        )
+    ).all()
+    return {cluster_id: _author_of(meta or {}) for cluster_id, meta in rows}
 
 
 def _clamp_limit(limit: int | None) -> int:
@@ -171,10 +212,28 @@ async def get_source_jd(
             .limit(1)
         )
     ).first()
+    seg = get_rules().segmentation
+    reader = seg.filename_positions
+    reads_positions = "source_page" in reader.consumers
+    positions: tuple[FilenamePosition, ...] = ()
+    if reads_positions:
+        # The WHOLE Bank's index, not this name alone: a short unpadded id counts only
+        # when some other filename writes it zero-padded (HR-328).
+        facets = (await load_position_index(session)).by_doc.get(source_document_id)
+        if facets is not None:
+            positions = tuple(
+                FilenamePosition(id8=p.id8, written=p.raw) for p in facets.positions
+            )
+    title, title_from_filename = jd.title, False
+    if reader.title_when_untitled and doc.filename and _untitled(jd.title):
+        # The slug never depends on the corroboration set, so no index is needed.
+        slug = read_filename(doc.filename, seg, frozenset()).title_slug
+        if slug:
+            title, title_from_filename = slug, True
     return SourceJDView(
         source_document_id=source_document_id,
         filename=doc.filename,
-        title=jd.title,
+        title=title,
         employee_group=jd.employee_group,
         department=jd.department,
         grade=jd.grade,
@@ -184,7 +243,15 @@ async def get_source_jd(
         rendered_text=render_sfu_jd_text(jd),
         role=role,
         set_aside=tuple(jd.set_aside),
+        reads_filename_positions=reads_positions,
+        filename_positions=positions,
+        title_from_filename=title_from_filename,
     )
+
+
+def _untitled(title: str | None) -> bool:
+    """The parser's own "no title found" (``FALLBACK_TITLE``), or nothing at all."""
+    return not (title or "").strip() or title == FALLBACK_TITLE
 
 
 # --- the role (roles → sources) -------------------------------------------------------
@@ -237,7 +304,11 @@ async def get_role(session: AsyncSession, cluster_id: UUID) -> RoleView | None:
     jd = SFUJobDescription.model_validate(canonical.content)
     members = await _member_views(session, cluster, canonical)
     validator = (canonical.change_log or {}).get("validator") or {}
+    meta = (cluster.constraint_metadata if cluster is not None else None) or {}
+    composed = meta.get("origin") == COMPOSED_ORIGIN
     return RoleView(
+        composed=composed,
+        composed_by=_author_of(meta) if composed else None,
         canonical_id=canonical.id,
         cluster_id=cluster_id,
         title=jd.title,
@@ -257,11 +328,19 @@ async def get_role(session: AsyncSession, cluster_id: UUID) -> RoleView | None:
 
 def _role_list_item(
     canonical: CanonicalJD,
-    matched_by: Literal["title", "spelling", "meaning"] | None = None,
+    matched_by: (
+        Literal["title", "spelling", "meaning", "keyword", "position"] | None
+    ) = None,
+    *,
+    composed: dict[UUID, str | None],
+    departments: dict[UUID, str],
 ) -> RoleListItem:
     content = canonical.content or {}
     validator = (canonical.change_log or {}).get("validator") or {}
     return RoleListItem(
+        composed=canonical.cluster_id in composed,
+        composed_by=composed.get(canonical.cluster_id),
+        department=departments.get(canonical.cluster_id),
         canonical_id=canonical.id,
         cluster_id=canonical.cluster_id,
         title=content.get("title") or "(untitled)",
@@ -270,6 +349,52 @@ def _role_list_item(
         score=validator.get("score"),
         grade=validator.get("grade"),
         matched_by=matched_by,
+    )
+
+
+async def _position_page(
+    session: AsyncSession,
+    base: Select[Any],
+    lookup: PositionLookup,
+    *,
+    query: str,
+    limit: int,
+    offset: int,
+    include_composed: bool,
+) -> RolePage:
+    """The roles a position's files were distilled into (HR-339), title order, each
+    marked ``position``. ``base`` keeps the current-version and Builder-draft scoping;
+    the files themselves ride on ``position`` for the page to list."""
+    ids = role_ids(lookup)
+    scoped = base.where(CanonicalJD.cluster_id.in_(ids))
+    total = (
+        await session.scalar(select(func.count()).select_from(scoped.subquery())) or 0
+    )
+    rows = (
+        await session.scalars(
+            scoped.order_by(
+                CanonicalJD.content["title"].astext.asc(), CanonicalJD.id.asc()
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+    ).all()
+    page_ids = [row.cluster_id for row in rows]
+    composed = await _composed_authors(session, page_ids)
+    departments = await composer_search._role_departments(session, page_ids)
+    return RolePage(
+        items=tuple(
+            _role_list_item(row, "position", composed=composed, departments=departments)
+            for row in rows
+        ),
+        include_composed=include_composed,
+        total=int(total),
+        limit=limit,
+        offset=offset,
+        q=query,
+        sort="relevance",
+        direction="asc",
+        position=lookup,
     )
 
 
@@ -316,6 +441,15 @@ async def _meaning_candidates(
     return [cluster_id for cluster_id, _title, _group in near]
 
 
+def _keyword_rank(keyword: str) -> Callable[[Any], tuple[int, str, str]]:
+    """Sort key for one keyword's title rows: closest title first, then stable."""
+
+    def key(row: Any) -> tuple[int, str, str]:
+        return (title_rank(row[1] or "", keyword), (row[1] or "").lower(), str(row[0]))
+
+    return key
+
+
 async def _search_roles(
     session: AsyncSession,
     base: Select[Any],
@@ -328,10 +462,13 @@ async def _search_roles(
     embed_client: EmbedClient | None,
     neo4j_driver: AsyncDriver | None,
     rules: Rules | None,
+    plan: QueryUnderstanding | None = None,
+    include_composed: bool = False,
 ) -> RolePage:
     """Title tiers first (exact, prefix, contains), then roles found by meaning, each
     role once. ``base`` is already scoped to the current version per cluster (and to
-    any collection)."""
+    any collection, and away from Builder-written roles unless ``include_composed``)
+    — every pass, the typo and meaning ones included, is filtered through it."""
     title_rows = list(
         (
             await session.execute(
@@ -345,6 +482,25 @@ async def _search_roles(
         key=lambda r: (title_rank(r[1] or "", query), (r[1] or "").lower(), str(r[0]))
     )
     title_ids = [row[0] for row in title_rows]
+    by_raw_title = set(title_ids)
+    # The keywords the query-understanding step ADDED (Track I3), each its own
+    # title scan, after every match on the words as typed. They can only add.
+    by_keyword: set[UUID] = set()
+    for keyword in plan.extra_keywords if plan is not None else ():
+        extra = list(
+            (
+                await session.execute(
+                    base.with_only_columns(CanonicalJD.cluster_id, ROLE_TITLE).where(
+                        ROLE_TITLE.ilike(_like_pattern(keyword), escape="\\")
+                    )
+                )
+            ).all()
+        )
+        extra.sort(key=_keyword_rank(keyword))
+        for cluster_id, _title in extra:
+            if cluster_id not in by_raw_title and cluster_id not in by_keyword:
+                title_ids.append(cluster_id)
+                by_keyword.add(cluster_id)
     # The TYPO fallback (Track I2, HR-241), the same one the Builder runs: only when no
     # role title CONTAINS the query. Ranked closest-spelling first; never a score.
     spelled: list[UUID] = []
@@ -365,7 +521,10 @@ async def _search_roles(
     meaning: list[UUID] = []
     if embed_client is not None and neo4j_driver is not None:
         found = await _meaning_candidates(
-            query, embed_client=embed_client, neo4j_driver=neo4j_driver, rules=rules
+            plan.semantic_query if plan is not None else query,
+            embed_client=embed_client,
+            neo4j_driver=neo4j_driver,
+            rules=rules,
         )
         if found is None:
             banner = SEMANTIC_UNAVAILABLE_BANNER
@@ -423,13 +582,27 @@ async def _search_roles(
             )
     by_spelling = set(spelled)
 
-    def why(cluster_id: UUID) -> Literal["title", "spelling", "meaning"]:
+    def why(cluster_id: UUID) -> Literal["title", "spelling", "meaning", "keyword"]:
         if cluster_id in by_spelling:
             return "spelling"
+        if cluster_id in by_keyword:
+            return "keyword"
         return "title" if cluster_id in titled else "meaning"
 
+    page_ids = [r.cluster_id for r in rows]
+    composed = await _composed_authors(session, page_ids)
+    departments = await composer_search._role_departments(session, page_ids)
     return RolePage(
-        items=tuple(_role_list_item(r, why(r.cluster_id)) for r in rows),
+        items=tuple(
+            _role_list_item(
+                r, why(r.cluster_id), composed=composed, departments=departments
+            )
+            for r in rows
+        ),
+        include_composed=include_composed,
+        # Over the WHOLE result, not this page: page 3 of a search with title hits on
+        # page 1 is not a meaning-only search.
+        meaning_only=bool(ordered) and titled.isdisjoint(ordered),
         total=len(ordered),
         limit=limit,
         offset=offset,
@@ -437,6 +610,7 @@ async def _search_roles(
         sort="relevance" if relevance else sort,
         direction="desc" if (descending and not relevance) else "asc",
         banner=banner,
+        interpretation=plan,
     )
 
 
@@ -452,6 +626,8 @@ async def list_roles(
     embed_client: EmbedClient | None = None,
     neo4j_driver: AsyncDriver | None = None,
     rules: Rules | None = None,
+    plan: QueryUnderstanding | None = None,
+    include_composed: bool = False,
 ) -> RolePage:
     """A page of harmonized roles (one per cluster, the current version), optionally
     searched and sorted by a clickable column (``sort`` in :data:`_ROLE_SORTS`,
@@ -474,6 +650,10 @@ async def list_roles(
     EMPTY collection returns an empty page, never the whole library: the difference
     matters, because the wrong direction here shows a stakeholder the entire archive
     under their own unit's name.
+
+    **Roles written in the Builder are left out unless ``include_composed``** — an
+    author's submitted draft is its own cluster (``origin="composed"``) and is not a
+    role distilled from the archive. It still lists in the author's "My drafts".
     """
     limit = _clamp_limit(limit)
     offset = max(0, offset)
@@ -490,8 +670,37 @@ async def list_roles(
     base = select(CanonicalJD).join(latest_ids, CanonicalJD.id == latest_ids.c.id)
     if cluster_ids is not None:
         base = base.where(CanonicalJD.cluster_id.in_(list(cluster_ids)))
+    hidden_drafts = 0
+    rulebook = rules if rules is not None else get_rules()
+    if not include_composed and rulebook.search.hide_unpublished_builder_drafts:
+        # HR-332: an UNPUBLISHED Builder draft is left out; one HR published stays.
+        # Counted, so the page can say how many it hides and still reconcile with
+        # the Funnel (which counts every current role).
+        hidden = and_(
+            CanonicalJD.cluster_id.in_(_COMPOSED_CLUSTERS),
+            CanonicalJD.status != CanonicalStatus.PUBLISHED,
+        )
+        hidden_drafts = int(
+            await session.scalar(
+                select(func.count()).select_from(base.where(hidden).subquery())
+            )
+            or 0
+        )
+        base = base.where(not_(hidden))
     if query:
-        return await _search_roles(
+        position = read_position_query(query, rulebook)
+        lookup = await find_position(session, position) if position else None
+        if lookup is not None and lookup.files:
+            return await _position_page(
+                session,
+                base,
+                lookup,
+                query=query,
+                limit=limit,
+                offset=offset,
+                include_composed=include_composed,
+            )
+        page = await _search_roles(
             session,
             base,
             query=query,
@@ -502,7 +711,11 @@ async def list_roles(
             embed_client=embed_client,
             neo4j_driver=neo4j_driver,
             rules=rules,
+            plan=plan,
+            include_composed=include_composed,
         )
+        # A number no file carries: say so (the page), then the words' results.
+        return page if lookup is None else page.model_copy(update={"position": lookup})
     total = await session.scalar(select(func.count()).select_from(base.subquery())) or 0
     column = _ROLE_SORTS[sort_key]
     ordering = (column.desc() if descending else column.asc()).nulls_last()
@@ -518,8 +731,16 @@ async def list_roles(
             .offset(offset)
         )
     ).all()
+    page_ids = [row.cluster_id for row in rows]
+    composed = await _composed_authors(session, page_ids)
+    departments = await composer_search._role_departments(session, page_ids)
     return RolePage(
-        items=tuple(_role_list_item(row) for row in rows),
+        items=tuple(
+            _role_list_item(row, composed=composed, departments=departments)
+            for row in rows
+        ),
+        include_composed=include_composed,
+        hidden_builder_drafts=hidden_drafts,
         total=int(total),
         limit=limit,
         offset=offset,

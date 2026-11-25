@@ -25,6 +25,7 @@ from src.jd_bank.library import (
     Facet,
     FacetBucket,
     FamilyCandidate,
+    FilenamePosition,
     Funnel,
     FunnelStage,
     MemberJD,
@@ -160,6 +161,77 @@ def test_source_jd_shows_grade_with_provenance(monkeypatch: pytest.MonkeyPatch) 
     body = make_client().get(f"/jd-bank/ui/jd/{view.source_document_id}").text
 
     assert "8" in body and "cupe" in body and "parsed" in body  # value/scheme/source
+
+
+def test_source_jd_shows_file_name_positions_beside_the_document_s(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HR-331 `source_page`: two labelled rows, the unpadded spelling shown, and the
+    document's own (here different) number kept."""
+    view = _source_view(
+        position_number="00012345",
+        reads_filename_positions=True,
+        filename_positions=(
+            FilenamePosition(id8="00000061", written="61"),
+            FilenamePosition(id8="00030785", written="00030785"),
+        ),
+    )
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=view))
+
+    body = make_client().get(f"/jd-bank/ui/jd/{view.source_document_id}").text
+
+    assert "Position # (from the file name)" in body
+    assert "00000061" in body and "written “61”" in body
+    assert "00030785" in body and "written “00030785”" not in body
+    assert "Position # (typed in the document)" in body and "00012345" in body
+
+
+def test_source_jd_with_no_file_name_position_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    view = _source_view(reads_filename_positions=True, filename_positions=())
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=view))
+
+    body = make_client().get(f"/jd-bank/ui/jd/{view.source_document_id}").text
+
+    assert "Position # (from the file name)" in body
+    assert "none in the file name" in body
+
+
+def test_source_jd_without_the_reader_keeps_one_position_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    view = _source_view()
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=view))
+
+    body = make_client().get(f"/jd-bank/ui/jd/{view.source_document_id}").text
+
+    assert "<th>Position #</th>" in body and "P123" in body
+    assert "from the file name" not in body
+
+
+def test_source_jd_flags_a_title_taken_from_the_file_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HR-338: never let a filename slug pass for a title the document states."""
+    view = _source_view(title="Secretary", title_from_filename=True)
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=view))
+
+    body = make_client().get(f"/jd-bank/ui/jd/{view.source_document_id}").text
+
+    assert "Secretary" in body
+    assert "title above is taken from the file name" in body
+
+
+def test_source_jd_with_its_own_title_has_no_file_name_note(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    view = _source_view()
+    monkeypatch.setattr(library_route, "get_source_jd", AsyncMock(return_value=view))
+
+    body = make_client().get(f"/jd-bank/ui/jd/{view.source_document_id}").text
+
+    assert "taken from the file name" not in body
 
 
 def test_source_jd_unknown_returns_404(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -356,6 +428,108 @@ def test_archive_lists_source_files(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "finance-analyst.docx" in body
     assert f"/jd-bank/ui/jd/{sid}" in body
     assert mock.await_args.kwargs["q"] == "finance"
+
+
+def test_same_titled_roles_are_told_apart_by_department(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """UAT: twelve identical "Manager, Academic and Administrative Services" rows.
+    The department tells them apart; an unknown one is blank, never invented."""
+    title = "Manager, Academic and Administrative Services"
+    items = (
+        _role_item(title).model_copy(update={"department": "Faculty of Science"}),
+        _role_item(title).model_copy(update={"department": None}),
+    )
+    mock = AsyncMock(return_value=_role_page(items=items, total=2))
+    monkeypatch.setattr(library_route, "list_roles", mock)
+    client = make_client()
+
+    body = client.get("/jd-bank/ui/library").text
+
+    assert "<th>Department</th>" in body
+    assert "<td>Faculty of Science</td>" in body
+    assert "<td></td>" in body
+
+
+def test_score_and_quality_headings_explain_themselves(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    mock = AsyncMock(return_value=_role_page(items=(_role_item("Analyst"),), total=1))
+    monkeypatch.setattr(library_route, "list_roles", mock)
+    client = make_client()
+
+    body = client.get("/jd-bank/ui/library").text
+
+    score = body[body.index("sort=score") :]
+    quality = body[body.index("sort=grade") :]
+    assert 'title="' in score[: score.index("</th>")]
+    assert 'title="' in quality[: quality.index("</th>")]
+    assert "not a pay grade" in body.lower()
+
+
+def test_library_labels_a_builder_role_and_offers_the_toggle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A role written in the Builder is not dressed as an archive role, and the page
+    offers the switch that includes them (they are left out by default)."""
+    written = _role_item("Policy Writer").model_copy(
+        update={"composed": True, "composed_by": "author1", "source_count": 0}
+    )
+    mock = AsyncMock(return_value=_role_page(items=(written,), total=1))
+    monkeypatch.setattr(library_route, "list_roles", mock)
+    client = make_client()
+
+    body = client.get("/jd-bank/ui/library").text
+
+    assert "Written in the Builder by author1" in body
+    assert "Include drafts written in the Builder" in body
+    assert mock.await_args.kwargs["include_composed"] is False
+
+
+def test_library_builder_toggle_passes_through_and_is_kept_on_links(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    items = tuple(_role_item(f"Role {i}") for i in range(2))
+    mock = AsyncMock(
+        return_value=_role_page(items=items, total=5, limit=2, include_composed=True)
+    )
+    monkeypatch.setattr(library_route, "list_roles", mock)
+    client = make_client()
+
+    body = client.get("/jd-bank/ui/library", params={"builder": 1, "limit": 2}).text
+
+    assert mock.await_args.kwargs["include_composed"] is True
+    # Sorting or paging must not silently drop the reader's choice.
+    assert "sort=sources&amp;dir=asc&amp;limit=2&amp;builder=1" in body
+    assert "offset=2&amp;limit=2&amp;builder=1" in body
+
+
+def test_a_builder_role_page_does_not_claim_archive_sources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cluster_id = uuid.uuid4()
+    role = RoleView(
+        canonical_id=uuid.uuid4(),
+        cluster_id=cluster_id,
+        title="Policy Writer",
+        status="draft",
+        version=1,
+        score=None,
+        grade=None,
+        rendered_text="Writes policy.",
+        members=(),
+        source_count=0,
+        composed=True,
+        composed_by="author1",
+    )
+    monkeypatch.setattr(library_route, "get_role", AsyncMock(return_value=role))
+    client = make_client()
+
+    body = client.get(f"/jd-bank/ui/role/{cluster_id}").text
+
+    assert "written in the builder" in body.lower() and "author1" in body
+    assert "distilled from" not in body.lower()
+    assert "No source members recorded" not in body
 
 
 def test_nav_exposes_jd_bank(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -644,3 +818,63 @@ def test_unknown_scope_is_a_404_not_the_whole_bank(
     monkeypatch.setattr(library_route, "scope_for", AsyncMock(return_value=None))
     response = make_client().get("/jd-bank/ui/funnel?scope=nope")
     assert response.status_code == 404
+
+
+# --- searching by position number (HR-339) --------------------------------------------
+
+
+def test_library_position_search_lists_files_and_marks_roles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import datetime as dt
+
+    from src.jd_bank.library import PositionFile, PositionLookup
+
+    role = _role_item("Academic Advisor").model_copy(update={"matched_by": "position"})
+    loose = uuid.uuid4()
+    lookup = PositionLookup(
+        position="00000061",
+        files=(
+            PositionFile(
+                source_document_id=uuid.uuid4(),
+                filename="20200601_61,_30785_JDFN_APSA_20211117.docx",
+                file_date=dt.date(2020, 6, 1),
+                role=RoleRef(
+                    cluster_id=role.cluster_id,
+                    canonical_id=role.canonical_id,
+                    title="Academic Advisor",
+                    status="draft",
+                ),
+            ),
+            PositionFile(
+                source_document_id=loose,
+                filename="20120101_00000061_Clerk.doc",
+                file_date=None,
+                role=None,
+            ),
+        ),
+    )
+    page = _role_page(items=(role,), total=1, q="61", sort="relevance", position=lookup)
+    monkeypatch.setattr(library_route, "list_roles", AsyncMock(return_value=page))
+
+    body = make_client().get("/jd-bank/ui/library", params={"q": "61"}).text
+
+    assert "Position 00000061 — 2 files in the archive" in body
+    assert "2020-06-01" in body
+    assert f"/jd-bank/ui/jd/{loose}" in body
+    assert "not part of a role" in body
+    assert "Filed under this position" in body
+    assert "/compose/clone" not in body  # start-from links are the Builder's
+
+
+def test_library_says_when_no_file_carries_the_position(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.jd_bank.library import PositionLookup
+
+    page = _role_page(q="4242", position=PositionLookup(position="00004242", files=()))
+    monkeypatch.setattr(library_route, "list_roles", AsyncMock(return_value=page))
+
+    body = make_client().get("/jd-bank/ui/library", params={"q": "4242"}).text
+
+    assert "No archive file name carries position 00004242" in body

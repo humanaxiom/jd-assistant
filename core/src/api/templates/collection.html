@@ -14,7 +14,7 @@
     <strong>{{ stats.roles }}</strong> roles{% if stats.roles %} — about
     {{ (stats.source_documents / stats.roles) | round(1) }} documents per role{% endif %}.
     <strong>{{ stats.approvable }}</strong> of those
-    pass every rulebook gate today and could go to a reviewer now.
+    pass every automated check today and could go to a reviewer now.
   </p>
   <p class="meta">
     Every role below opens to its harmonized text and the source JDs behind it, so the
@@ -59,8 +59,8 @@
     </tbody>
   </table>
   <p class="meta">
-    “Cannot judge at all” means the field that signal reads is missing or is a parser
-    placeholder — <strong>not</strong> that it looked and found nothing. A department
+    “Cannot judge at all” means the field that signal reads is missing, or is a placeholder because
+    the file could not be read — <strong>not</strong> that it looked and found nothing. A department
     signal says nothing whatever about a role with no department recorded, and reporting
     those two as one number is how a filter stops being checkable.
     {% if coverage.included_by_hand or coverage.excluded_by_hand %}
@@ -84,7 +84,7 @@
   <p>
     Roles that are <strong>not</strong> in this collection but use its vocabulary. These
     are <strong>questions, not members</strong>: a person confirms or rejects each one,
-    and the decision is recorded in the rulebook.
+    and the decision is recorded in the JD Bank's rules.
   </p>
   <p class="meta">
     Ordered by how many distinct family terms each role's text contains, and a role in one

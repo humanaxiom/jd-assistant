@@ -25,11 +25,15 @@ from collections.abc import AsyncIterator, Iterator
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import text
+from sqlalchemy import text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from testcontainers.postgres import PostgresContainer
 
-from src.jd_bank.composer import cluster_id_for_source, load_role_clone_answers
+from src.jd_bank.composer import (
+    cluster_id_for_source,
+    load_role_clone_answers,
+    submit_composed_draft,
+)
 from src.jd_bank.db.models import (
     CanonicalJD,
     CanonicalStatus,
@@ -50,6 +54,7 @@ from src.jd_core.models.parsed_jd import (
     SFUJobDescription,
 )
 from src.jd_core.parser import PARSER_VERSION
+from src.jd_core.rules import get_rules
 from tests.integration.test_dedup_tier1 import ALEMBIC_INI
 
 
@@ -192,6 +197,155 @@ async def test_get_source_jd_back_links_to_its_role(
     assert view.role.cluster_id == cluster_id
     assert view.role.canonical_id == canonical_id
     assert view.role.title == "Academic Advisor"
+
+
+# --- the source page reads its file name (HR-331 `source_page`, HR-338) ---------------
+
+#: The owner's PeopleSoft sample (position 00000061): an unpadded leading list.
+_BUNDLE = "20200601_61,_30785,_208,_975_JDFN_APSA_20211117.docx"
+
+
+def _retuned(monkeypatch: pytest.MonkeyPatch, **fp_update: object) -> None:
+    """Point the library service at a rulebook with ``filename_positions`` changed."""
+    from src.jd_bank.library import service
+
+    rules = get_rules()
+    seg = rules.segmentation
+    off = seg.model_copy(
+        update={
+            "filename_positions": seg.filename_positions.model_copy(update=fp_update)
+        }
+    )
+    retuned = rules.model_copy(update={"segmentation": off})
+    monkeypatch.setattr(service, "get_rules", lambda: retuned)
+
+
+@pytest.mark.asyncio
+async def test_the_source_page_shows_the_positions_its_file_name_names(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """UAT review 2026-11-19: 3,939 live source pages said "Position # —" while the
+    file name named the position; on 2,322 more the number typed in the document is a
+    different id. The file name is how PeopleSoft attached the JD, so the page shows it
+    — beside what the document says, never in place of it."""
+    async with session_maker() as session:
+        # A padded witness elsewhere vouches for the short `61` (HR-328).
+        await _seed_source(
+            session, filename="20190101_00000061_Clerk.docx", jd=_jd("Clerk")
+        )
+        sid = await _seed_source(
+            session, filename=_BUNDLE, jd=_jd("Advisor", position_number="00012345")
+        )
+        await session.commit()
+
+        view = await get_source_jd(session, sid)
+
+    assert view is not None
+    assert view.reads_filename_positions is True
+    assert [(p.id8, p.written) for p in view.filename_positions] == [
+        ("00000061", "61"),
+        ("00030785", "30785"),
+        ("00000208", "208"),
+        ("00000975", "975"),
+    ]
+    assert view.position_number == "00012345"  # the document's own value is kept
+
+
+@pytest.mark.asyncio
+async def test_without_source_page_in_consumers_the_page_reads_no_file_name(
+    session_maker: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HR-331 is read, not hardcoded: take ``source_page`` out and the page goes back
+    to the single "Position #" row from the document."""
+    _retuned(monkeypatch, consumers=frozenset({"crf"}))
+    async with session_maker() as session:
+        sid = await _seed_source(
+            session, filename="20190101_00000061_Clerk.docx", jd=_jd("Clerk")
+        )
+        await session.commit()
+
+        view = await get_source_jd(session, sid)
+
+    assert view is not None
+    assert view.reads_filename_positions is False
+    assert view.filename_positions == ()
+
+
+@pytest.mark.asyncio
+async def test_an_untitled_parse_takes_its_title_from_the_file_name(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """1,245 live files parse as "Untitled Position"; 1,138 of them name the job in
+    the file name (`20180720_00001049_Clerk.doc`). Show that, flagged (HR-338)."""
+    async with session_maker() as session:
+        sid = await _seed_source(
+            session,
+            filename="20180720_00001049_Clerk_gr6_Campus_Security.doc",
+            jd=_jd("Untitled Position"),
+        )
+        await session.commit()
+
+        view = await get_source_jd(session, sid)
+
+    assert view is not None
+    assert view.title == "Clerk gr6 Campus Security"
+    assert view.title_from_filename is True
+
+
+@pytest.mark.asyncio
+async def test_a_parsed_title_is_never_replaced_by_the_file_name(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        sid = await _seed_source(
+            session,
+            filename="20180720_00001049_Clerk.doc",
+            jd=_jd("Records Assistant"),
+        )
+        await session.commit()
+
+        view = await get_source_jd(session, sid)
+
+    assert view is not None
+    assert view.title == "Records Assistant"
+    assert view.title_from_filename is False
+
+
+@pytest.mark.asyncio
+async def test_an_untitled_parse_with_no_name_in_its_file_stays_untitled(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """`61,_30785,…_JDFN_APSA_….docx` names no job: nothing is invented."""
+    async with session_maker() as session:
+        sid = await _seed_source(session, filename=_BUNDLE, jd=_jd("Untitled Position"))
+        await session.commit()
+
+        view = await get_source_jd(session, sid)
+
+    assert view is not None
+    assert view.title == "Untitled Position"
+    assert view.title_from_filename is False
+
+
+@pytest.mark.asyncio
+async def test_with_the_title_fallback_off_an_untitled_parse_stays_untitled(
+    session_maker: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HR-338 is read, not hardcoded."""
+    _retuned(monkeypatch, title_when_untitled=False)
+    async with session_maker() as session:
+        sid = await _seed_source(
+            session, filename="20180720_00001049_Clerk.doc", jd=_jd("Untitled Position")
+        )
+        await session.commit()
+
+        view = await get_source_jd(session, sid)
+
+    assert view is not None
+    assert view.title == "Untitled Position"
+    assert view.title_from_filename is False
 
 
 @pytest.mark.asyncio
@@ -349,6 +503,173 @@ async def test_list_roles_sorts_by_column(
         assert [i.title for i in fallback.items] == ["Alpha Role", "Beta Role"]
 
 
+@pytest.mark.asyncio
+async def test_list_roles_carries_the_department_that_tells_twins_apart(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """UAT: same-titled roles were indistinguishable. The role's own department
+    first; where it is blank, the first one its source documents state (the Builder's
+    rule); otherwise ``None`` — never invented."""
+    title = "Manager, Academic and Administrative Services"
+    async with session_maker() as session:
+        stated, _ = await _seed_role(
+            session, content=_jd(title, department="Faculty of Science"), members=[]
+        )
+        src = await _seed_source(
+            session, filename="m.docx", jd=_jd(title, department="Library")
+        )
+        from_source, _ = await _seed_role(
+            session,
+            content=_jd(title),
+            members=[{"source_id": str(src), "filename": "m.docx"}],
+        )
+        unknown, _ = await _seed_role(session, content=_jd(title), members=[])
+        await session.commit()
+
+        browse = await list_roles(session)
+        search = await list_roles(session, q="academic and administrative")
+
+    for page in (browse, search):
+        departments = {i.cluster_id: i.department for i in page.items}
+        assert departments == {
+            stated: "Faculty of Science",
+            from_source: "Library",
+            unknown: None,
+        }
+
+
+# --- Builder-written roles are labelled, and kept out of the default library ----------
+#
+# UAT finding: a JD an author submits from the Builder becomes its own cluster
+# (`origin="composed"`, no members), and the library listed it beside the archive roles
+# as "distilled from 0 source JDs in the archive". It is seeded here through the REAL
+# write path, so the test reads the code's own notion of "composed", not a copy of it.
+
+
+async def _seed_composed(session: AsyncSession, title: str, author: str) -> uuid.UUID:
+    canonical = await submit_composed_draft(session, _jd(title), author_id=author)
+    await session.commit()
+    return canonical.cluster_id
+
+
+@pytest.mark.asyncio
+async def test_builder_roles_are_left_out_of_the_default_library(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        await _seed_role(session, content=_jd("Finance Analyst"), members=[])
+        await session.commit()
+        composed = await _seed_composed(
+            session, "Finance Administrative Coordinator", "author1"
+        )
+
+        browse = await list_roles(session)
+        search = await list_roles(session, q="finance")
+        typo = await list_roles(session, q="adminstrative cordinator")
+        typo_all = await list_roles(
+            session, q="adminstrative cordinator", include_composed=True
+        )
+
+    assert [i.title for i in browse.items] == ["Finance Analyst"]
+    assert browse.total == 1 and browse.include_composed is False
+    assert browse.hidden_builder_drafts == 1  # said on the page: reconciles the total
+    assert [i.title for i in search.items] == ["Finance Analyst"]
+    assert composed not in {i.cluster_id for i in typo.items}
+    assert composed in {i.cluster_id for i in typo_all.items}, "the typo path is live"
+
+
+@pytest.mark.asyncio
+async def test_a_published_builder_role_stays_in_the_default_library(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """Judge review 2026-11-19: live's one HR-PUBLISHED Builder JD ("PeopleSoft
+    Developer") vanished from the default library. HR-332 hides only UNPUBLISHED
+    Builder drafts."""
+    async with session_maker() as session:
+        await _seed_role(session, content=_jd("Finance Analyst"), members=[])
+        await session.commit()
+        published = await _seed_composed(session, "Finance Systems Developer", "a1")
+        await session.execute(
+            update(CanonicalJD)
+            .where(CanonicalJD.cluster_id == published)
+            .values(status=CanonicalStatus.PUBLISHED)
+        )
+        await session.commit()
+        await _seed_composed(session, "Finance Draft Writer", "a2")
+
+        browse = await list_roles(session)
+        search = await list_roles(session, q="finance")
+
+    assert {i.title for i in browse.items} == {
+        "Finance Analyst",
+        "Finance Systems Developer",
+    }
+    assert browse.hidden_builder_drafts == 1
+    assert published in {i.cluster_id for i in search.items}
+    row = next(i for i in browse.items if i.cluster_id == published)
+    assert row.composed  # still labelled "Written in the Builder"
+
+
+@pytest.mark.asyncio
+async def test_with_hr_332_off_every_builder_role_is_listed(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    rules = get_rules()
+    off = rules.model_copy(
+        update={
+            "search": rules.search.model_copy(
+                update={"hide_unpublished_builder_drafts": False}
+            )
+        }
+    )
+    async with session_maker() as session:
+        await _seed_role(session, content=_jd("Finance Analyst"), members=[])
+        await session.commit()
+        await _seed_composed(session, "Finance Draft Writer", "a2")
+        browse = await list_roles(session, rules=off)
+
+    assert browse.total == 2 and browse.hidden_builder_drafts == 0
+
+
+@pytest.mark.asyncio
+async def test_builder_roles_are_listed_and_labelled_when_asked_for(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        await _seed_role(session, content=_jd("Finance Analyst"), members=[])
+        await session.commit()
+        composed = await _seed_composed(session, "Finance Writer", "author1")
+
+        browse = await list_roles(session, include_composed=True)
+        search = await list_roles(session, q="finance", include_composed=True)
+
+    assert browse.total == 2 and browse.include_composed is True
+    rows = {i.cluster_id: i for i in search.items}
+    assert rows[composed].composed and rows[composed].composed_by == "author1"
+    archive = next(i for i in search.items if i.cluster_id != composed)
+    assert not archive.composed and archive.composed_by is None
+
+
+@pytest.mark.asyncio
+async def test_a_builder_role_page_says_where_it_came_from(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        archive_id, _ = await _seed_role(
+            session, content=_jd("Archive Role"), members=[]
+        )
+        await session.commit()
+        composed = await _seed_composed(session, "Written Role", "author1")
+
+        written = await get_role(session, composed)
+        distilled = await get_role(session, archive_id)
+
+    assert written is not None and written.composed
+    assert written.composed_by == "author1"
+    assert distilled is not None and not distilled.composed
+    assert distilled.composed_by is None
+
+
 # --- acceptance #4: the flat source archive -------------------------------------------
 
 
@@ -454,3 +775,120 @@ async def test_cluster_id_for_source_resolves_membership(
 
         assert await cluster_id_for_source(session, member) == cluster_id
         assert await cluster_id_for_source(session, singleton) is None
+
+
+# --- searching by position number (HR-339, HR-331 `search`) --------------------------
+
+
+async def _position_bank(session: AsyncSession) -> dict[str, uuid.UUID]:
+    """Position 61 in three files: the bundle (role A), a padded file (role B), and a
+    file in no role. Plus a role whose TITLE holds the digits, which a position search
+    must not return as a position hit."""
+    bundle = await _seed_source(session, filename=_BUNDLE, jd=_jd("Advisor"))
+    padded = await _seed_source(
+        session, filename="20190101_00000061_Clerk.docx", jd=_jd("Clerk")
+    )
+    loose = await _seed_source(
+        session, filename="20120101_00000061_Clerk.doc", jd=_jd("Clerk")
+    )
+    other = await _seed_source(
+        session, filename="20120101_00009999_Clerk.doc", jd=_jd("Clerk")
+    )
+    role_a, _ = await _seed_role(
+        session,
+        content=_jd("Academic Advisor"),
+        members=[{"source_id": str(bundle), "filename": _BUNDLE}],
+    )
+    role_b, _ = await _seed_role(
+        session,
+        content=_jd("Records Clerk"),
+        members=[{"source_id": str(padded)}, {"source_id": str(other)}],
+    )
+    role_c, _ = await _seed_role(
+        session, content=_jd("Room 61 Coordinator"), members=[]
+    )
+    return {
+        "bundle": bundle,
+        "padded": padded,
+        "loose": loose,
+        "role_a": role_a,
+        "role_b": role_b,
+        "role_c": role_c,
+    }
+
+
+@pytest.mark.asyncio
+async def test_a_position_number_finds_its_files_and_their_roles(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    """Measured on the live Bank: 5,620 positions, up to 19 files each; 1,377 have
+    files in NO role and 1,298 span several — so the files are listed, not only the
+    roles."""
+    async with session_maker() as session:
+        ids = await _position_bank(session)
+        await session.commit()
+        page = await list_roles(session, q="61")
+
+    assert page.position is not None
+    assert page.position.position == "00000061"
+    files = {f.source_document_id: f for f in page.position.files}
+    assert set(files) == {ids["bundle"], ids["padded"], ids["loose"]}
+    assert files[ids["loose"]].role is None
+    assert files[ids["bundle"]].role is not None
+    assert files[ids["bundle"]].role.cluster_id == ids["role_a"]
+    # Newest file first, by the date its name starts with.
+    assert [
+        f.file_date.isoformat() if f.file_date else None for f in page.position.files
+    ] == [
+        "2020-06-01",
+        "2019-01-01",
+        "2012-01-01",
+    ]
+    assert {i.cluster_id for i in page.items} == {ids["role_a"], ids["role_b"]}
+    assert {i.matched_by for i in page.items} == {"position"}
+    assert page.total == 2
+
+
+@pytest.mark.asyncio
+async def test_a_number_no_file_carries_falls_back_to_the_words(
+    session_maker: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_maker() as session:
+        await _position_bank(session)
+        await session.commit()
+        page = await list_roles(session, q="4242")
+
+    assert page.position is not None
+    assert page.position.position == "00004242"
+    assert page.position.files == ()
+    assert all(i.matched_by != "position" for i in page.items)
+
+
+@pytest.mark.asyncio
+async def test_without_search_in_consumers_a_number_is_only_words(
+    session_maker: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from src.jd_bank.library import positions
+
+    rules = get_rules()
+    seg = rules.segmentation
+    off = rules.model_copy(
+        update={
+            "segmentation": seg.model_copy(
+                update={
+                    "filename_positions": seg.filename_positions.model_copy(
+                        update={"consumers": frozenset({"crf"})}
+                    )
+                }
+            )
+        }
+    )
+    monkeypatch.setattr(positions, "get_rules", lambda: off)
+    async with session_maker() as session:
+        ids = await _position_bank(session)
+        await session.commit()
+        page = await list_roles(session, q="61", rules=off)
+
+    assert page.position is None
+    assert ids["role_c"] in {i.cluster_id for i in page.items}  # its title has "61"

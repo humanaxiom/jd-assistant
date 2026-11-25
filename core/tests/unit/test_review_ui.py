@@ -81,6 +81,8 @@ def _queue_item(
     title: str = "Software Developer",
     stored_blocking_gate_count: int = 0,
     template: str = "jdfn",
+    stored_score: float | None = 72.5,
+    source_count: int = 3,
 ) -> ReviewQueueItem:
     return ReviewQueueItem(
         canonical_id=uuid.uuid4(),
@@ -89,7 +91,8 @@ def _queue_item(
         status=CanonicalStatus.DRAFT,
         title=title,
         template=template,  # type: ignore[arg-type]
-        stored_score=72.5,
+        source_count=source_count,
+        stored_score=stored_score,
         stored_grade="B",
         stored_approvable=stored_blocking_gate_count == 0,
         stored_blocking_gate_count=stored_blocking_gate_count,
@@ -208,21 +211,27 @@ def test_the_queue_says_which_form_each_draft_is(
     body = client.get("/jd-bank/ui/queue").text
 
     assert "CUPE (WJQ)" in body
-    assert "JDFN" in body
+    assert "APSA / APEX / Poly" in body
+    assert ">JDFN<" not in body  # an internal code, not a form name HR uses
     # ...and the warning, which is the part that stops the comparison being made.
     assert "not comparable numbers" in body
 
 
-def test_queue_limit_passthrough(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_queue_limit_is_the_page_size(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`limit` is a PAGE size now: the whole ordered queue is read, then paged, so
+    the "of TOTAL" line and next/prev links are true."""
     session = FakeSession()
     client = make_client(session)
-    mock = AsyncMock(return_value=())
+    items = tuple(_queue_item(title=f"Role {n:03d}") for n in range(12))
+    mock = AsyncMock(return_value=items)
     monkeypatch.setattr(ui.service, "list_review_queue", mock)
 
-    resp = client.get("/jd-bank/ui/queue", params={"limit": 5})
+    body = client.get("/jd-bank/ui/queue", params={"limit": 5}).text
 
-    assert resp.status_code == 200
-    mock.assert_awaited_once_with(session, limit=5, sort="triage", direction="asc")
+    mock.assert_awaited_once_with(session, limit=None, sort="triage", direction="asc")
+    assert "Showing 1–5 of 12" in body
+    assert "Role 004" in body and "Role 005" not in body
+    assert "offset=5" in body
 
 
 def test_queue_empty_state_is_not_a_crash(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1940,3 +1949,61 @@ def test_restored_and_removed_text_reach_the_page_escaped(
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in body
     assert "<b>recognition</b>" not in body
     assert "&lt;b&gt;recognition&lt;/b&gt;" in body
+
+
+# --- the queue is usable at 2,499 drafts (UAT review 2026-11-19) ----------------------
+
+
+def test_the_queue_pages_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Measured live: one 1.36 MB page of 2,499 rows. The queue now pages."""
+    session = FakeSession()
+    client = make_client(session)
+    items = tuple(_queue_item(title=f"Role {n:04d}") for n in range(250))
+    monkeypatch.setattr(ui.service, "list_review_queue", AsyncMock(return_value=items))
+
+    first = client.get("/jd-bank/ui/queue").text
+    later = client.get("/jd-bank/ui/queue", params={"offset": 200}).text
+
+    assert f"Showing 1–{ui.QUEUE_PAGE_SIZE} of 250" in first
+    assert "Role 0000" in first and f"Role {ui.QUEUE_PAGE_SIZE:04d}" not in first
+    assert "Showing 201–250 of 250" in later
+    assert "Role 0249" in later and "Role 0199" not in later
+
+
+def test_the_queue_filters_by_title_and_keeps_the_filter_in_its_links(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = FakeSession()
+    client = make_client(session)
+    items = (
+        _queue_item(title="Financial Analyst"),
+        _queue_item(title="Program Assistant"),
+        _queue_item(title="Senior financial officer"),
+    )
+    monkeypatch.setattr(ui.service, "list_review_queue", AsyncMock(return_value=items))
+
+    body = client.get("/jd-bank/ui/queue", params={"q": "FINANCIAL"}).text
+
+    assert "Financial Analyst" in body and "Senior financial officer" in body
+    assert "Program Assistant" not in body
+    assert "Showing 1–2 of 2" in body
+    assert "sort=title&amp;dir=asc&amp;q=FINANCIAL" in body
+
+
+def test_the_queue_shows_people_not_ids_or_six_decimals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = FakeSession()
+    client = make_client(session)
+    archive = _queue_item(title="Analyst", stored_score=57.3345, source_count=6)
+    builder = _queue_item(title="Coordinator", stored_score=None, source_count=0)
+    monkeypatch.setattr(
+        ui.service, "list_review_queue", AsyncMock(return_value=(archive, builder))
+    )
+
+    body = client.get("/jd-bank/ui/queue").text
+
+    assert str(archive.cluster_id) not in body
+    assert "57.3" in body and "57.3345" not in body
+    assert "6 archive files" in body
+    assert "written in the Builder" in body

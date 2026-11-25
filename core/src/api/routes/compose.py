@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -44,6 +45,7 @@ from src.jd_bank.composer import (
 from src.jd_bank.composer.answers import AnswerContract
 from src.jd_bank.embeddings.client import EmbedClient
 from src.jd_bank.llm.client import ChatClient
+from src.jd_bank.query_plan import rulebook_chat_client
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.rules import get_rules
 from src.jd_core.wjq_form_check import CupeFormError, check_cupe_form
@@ -84,6 +86,14 @@ def get_neo4j_driver() -> AsyncDriver:
     return AsyncGraphDatabase.driver(
         settings.neo4j_uri, auth=(settings.neo4j_user, settings.neo4j_password)
     )
+
+
+def get_chat_client_factory() -> Callable[[], ChatClient]:
+    """How a search page builds its query-understanding client (Track I3) — a
+    FACTORY, not a client: with the feature off nothing is ever constructed, and a
+    test overrides this to hand in a fake (or a factory that must never be called).
+    The real one is built with search.yaml's model/temperature/effort."""
+    return rulebook_chat_client
 
 
 def get_optional_embed_client() -> EmbedClient | None:
