@@ -46,8 +46,8 @@ questions:
     section: identification
     prompt: What is the employee group?
     hint: >-
-      APSA, APEX or POLY (Hay-graded). This Builder targets the JDFN template; CUPE/WJQ
-      roles use a different instrument.
+      APSA, APEX or POLY (Hay-graded). This form is for those groups; CUPE roles use
+      the CUPE (WJQ) form — switch at the top of the page.
     target: employee_group
     required: false
   - id: supervisor_title
@@ -69,8 +69,7 @@ questions:
     prompt: What is the pay grade / classification? (if known)
     hint: >-
       The grade on the employee group's scale (e.g. an APSA salary grade). Often assigned
-      after authoring — leave blank if not yet graded. Advisory only; see the grade-scale
-      decision (docs/decisions/grade-scales.md).
+      after authoring — leave blank if not yet graded. Advisory only.
     target: grade
     required: false
 

@@ -64,7 +64,11 @@ async def resolve_user(request: Request, settings: Settings) -> User:
     guard that trusts ``request.state`` reads an empty state as "no session" and turns
     a skip into a bypass whenever it happens to run first. This stash is for RENDERING
     only, which is a different direction of trust.
+
+    Also stashed for rendering: the ``FEEDBACK_EMAIL`` the footer's "Report a problem
+    with this page" link addresses (empty renders no link).
     """
+    request.state.feedback_email = settings.feedback_email
     if not settings.cas_enabled:
         dev = transient_dev_user(settings)
         request.state.user = dev

@@ -1,0 +1,32 @@
+{# The files a position-number search found (HR-339), shared by the Library and the
+   Builder search. `lookup` is a PositionLookup; `builder` adds "start from" links.
+   The FILES are listed, not only roles: 1,377 live positions have files in no role. #}
+{% if lookup %}
+<div class="panel" id="position-files">
+  {% if lookup.files %}
+  <h3>Position {{ lookup.position }} — {{ lookup.files | length }} file{{ "s" if lookup.files | length != 1 else "" }} in the archive</h3>
+  <p class="meta">Archive files whose name carries this position number, newest first.
+    The date is the one the file name starts with.</p>
+  <table>
+    <thead><tr><th>Date</th><th>File</th><th>Role it went into</th><th></th></tr></thead>
+    <tbody>
+      {% for f in lookup.files %}
+      <tr>
+        <td>{{ f.file_date.isoformat() if f.file_date else "—" }}</td>
+        <td>{{ f.filename or "—" }}</td>
+        <td>{% if f.role %}<a href="/jd-bank/ui/role/{{ f.role.cluster_id }}">{{ f.role.title }}</a> <span class="meta">({{ f.role.status }})</span>{% else %}<span class="empty">not part of a role</span>{% endif %}</td>
+        <td>
+          <a href="/jd-bank/ui/jd/{{ f.source_document_id }}">Read →</a>
+          {% if builder %}
+          · {% if f.role %}<a href="/jd-bank/ui/compose/clone-role/{{ f.role.cluster_id }}">Start from its role →</a>{% else %}<a href="/jd-bank/ui/compose/clone/{{ f.source_document_id }}">Start from this file →</a>{% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="banner" role="status">No archive file name carries position {{ lookup.position }}. Showing matches for the words instead.</p>
+  {% endif %}
+</div>
+{% endif %}
