@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-11-02T14:34:02.776521+00:00",
+  "generated_at": "2026-11-25T20:44:25.671151+00:00",
   "result": {
     "audit_failures": 0,
     "cluster_failures": 0,
     "clusters_by_template": {
-      "jdfn": 1616,
+      "jdfn": 1618,
       "wjq": 642
     },
     "clusters_fully_wjq_excluded": 0,
@@ -12,58 +12,57 @@
     "clusters_no_authorable_template": 0,
     "clusters_no_members_loaded": 0,
     "clusters_out_of_scope": 0,
-    "clusters_recomputed": 2258,
-    "clusters_seen": 2258,
+    "clusters_recomputed": 2260,
+    "clusters_seen": 2260,
     "documents_seen": 14522,
     "documents_signed": 14522,
     "documents_unsignable": 0,
-    "drafts_persisted": 2258,
+    "drafts_persisted": 1885,
     "drafts_refreshed": 0,
     "evaluation_by_template": {
       "jdfn": {
-        "approvable": 190,
-        "clusters": 1616,
-        "drafts_scored": 1616,
+        "approvable": 1172,
+        "clusters": 1618,
+        "drafts_scored": 1357,
         "grades": {
-          "A": 5,
-          "B": 393,
-          "C": 1033,
-          "D": 170,
-          "F": 15
+          "A": 7,
+          "B": 887,
+          "C": 429,
+          "D": 31,
+          "F": 3
         },
-        "mean_score": 68.33
+        "mean_score": 75.74
       },
       "wjq": {
-        "approvable": 3,
+        "approvable": 8,
         "clusters": 642,
-        "drafts_scored": 642,
+        "drafts_scored": 528,
         "grades": {
-          "B": 385,
-          "C": 229,
-          "D": 24,
-          "F": 4
+          "B": 275,
+          "C": 246,
+          "D": 7
         },
-        "mean_score": 75.53
+        "mean_score": 76.38
       }
     },
-    "llm_enabled": false,
+    "llm_enabled": true,
     "member_rows_dropped_unvalidatable": 0,
-    "multi_member_clusters": 2257,
+    "multi_member_clusters": 2259,
     "quality_model": "gpt-oss:120b",
     "quality_prompt_version": "jd_quality_v1",
     "rewrite_failures": 0,
     "rewrite_model": "gpt-oss:120b",
-    "rewrite_prompt_version": "jd_harmonize_v4",
+    "rewrite_prompt_version": "jd_harmonize_v5",
     "rules_version": "jd_rules_sfu_v4+e59b1b5d62e3",
     "single_member_clusters": 1,
-    "skipped_already_llm_written": 0,
+    "skipped_already_llm_written": 375,
     "skipped_recently_refreshed": 0,
     "skipped_reviewer_touched": 0,
     "skipped_would_downgrade": 0,
-    "wjq_members_authored": 3550,
+    "wjq_members_authored": 2764,
     "wjq_members_excluded": 3,
     "wjq_members_frequency_confirmed": 3211,
-    "wjq_members_unwritten": 0
+    "wjq_members_unwritten": 786
   },
   "source": "parsed_jds + dedup_edges (recomputed clusters; forms per harmonization.templates_harmonized \u2014 HR-206)"
 }
