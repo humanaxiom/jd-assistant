@@ -1,5 +1,7 @@
 # VPFA spinoff handoff kit
 
+> ⚠ **WITHDRAWN 2026-11-25.** The instruction set now lives in the spinoff repo, `sfu-aria/Vpfa-jda`, at `docs/handoff/START-HERE.md` (revision 2: a full copy installed with `deploy/install.ps1`). What follows is revision 1, kept as the record.
+>
 > ⚠ Revision 1 tooling. `export_snapshot.py` and the JSONL snapshot are superseded by ruling D8
 > (plan §5.0); `START-HERE.md` is being revised.
 
