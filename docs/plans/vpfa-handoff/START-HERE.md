@@ -2,6 +2,8 @@
 
 **The single instruction set for the VPFA spinoff.** Prepared 2026-11-24.
 
+> ⚠ **WITHDRAWN 2026-11-25.** The instruction set now lives in the spinoff repo, `sfu-aria/Vpfa-jda`, at `docs/handoff/START-HERE.md` (revision 2: a full copy installed with `deploy/install.ps1`). What follows is revision 1, kept as the record.
+>
 > ⚠ **SUPERSEDED IN PART, 2026-11-25: being revised for ruling D8** ("bring everything in
 > as is; only the dashboards are removed"). Do **not** follow A4 (snapshot export), A5 or
 > B3's snapshot copy yet. The new data path is the parent's own offline bundle
