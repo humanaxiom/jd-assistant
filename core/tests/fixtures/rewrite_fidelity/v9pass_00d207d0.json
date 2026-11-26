@@ -1,0 +1,1116 @@
+{
+ "source": "v9 Bank cluster 00d207d0-444a-550a-96eb-ae2e24d9a0d2 (full pass 2026-10-21..25); merge rebuilt in-process from its v9 parses; model = stored final draft minus the guard's own restores",
+ "merged": {
+  "draft": {
+   "title": "Untitled Position",
+   "position_number": null,
+   "department": "SFU International Services for Students Services for Students, Student Services",
+   "grade": "______________________________",
+   "classification": null,
+   "employee_group": "cupe",
+   "supervisor_title": null,
+   "supervisor_position_number": null,
+   "about_sfu_present": false,
+   "position_summary": "Acts as the first primary contact for SFU International. Responds to inquiries from domestic and international students, faculty, staff, parents, international visitors and general public regarding admissions to, studying at and programs offered through SFU International. Provides clerical and secretarial support to the Director, SFU International, Administrative Assistant, Mobility Co- ordinators, International Student Advisors, English Bridge Coordinator and other SFU International staff. Maintains confidential student records. Receives and processes a variety of fees and deposits. Schedules and co- ordinates meetings, appointments, and other events.",
+   "duties": [
+    {
+     "action_verb": "Arranges",
+     "statement": "Arranges both internal and external meetings and appointments for SFU INTERNATIONAL Recruitment and Retention Staff by liaising with on and off campus personnel, visiting delegations and appropriate on campus departments/offices to fulfill the special requirements of the concerned parties",
+     "how_why": [],
+     "frequency": "daily"
+    },
+    {
+     "action_verb": "Assists",
+     "statement": "Assists in preparation of brochures, newsletters and written information by drafting/editing as required Assists in general travel, special arrangements and accommodation for visitors, members of SFU International and international students by liaising with travel agents, and relevant on and off campus personnel to successfully conclude each arrangement",
+     "how_why": [],
+     "frequency": "monthly"
+    },
+    {
+     "action_verb": "Assists",
+     "statement": "Assists with scheduling events, workshops, information sessions and various orientations by booking rooms, confirming student participation and other related clerical arrangements to ensure the coordination of each occasion",
+     "how_why": [],
+     "frequency": "weekly"
+    },
+    {
+     "action_verb": "Schedules",
+     "statement": "Schedules student appointments by identifying the reasons for the appointment, checking Corporate Time, calendars and appointment books of the appropriate qualified staff member to ensure that each student receives prompt instructive attention",
+     "how_why": [],
+     "frequency": "daily"
+    },
+    {
+     "action_verb": "Types",
+     "statement": "Types correspondence, reports, contracts and other material by using word processing, desktop publishing applications to prepare materials for approval, duplication and/or circulation",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "Performs",
+     "statement": "Performs routine clerical duties by distributing mail within the office, arranging for courier pickup and delivery, collecting curriculum relating to international activities, to facilitate the smooth operation of SFU International Services for Students",
+     "how_why": [],
+     "frequency": "daily"
+    },
+    {
+     "action_verb": "Assists",
+     "statement": "Assists in the preparation of brochures, newsletters and written information by drafting/editing as required",
+     "how_why": [],
+     "frequency": "monthly"
+    },
+    {
+     "action_verb": "Maintains",
+     "statement": "Maintains international student recruitment and retention publications by checking availability, and photocopying/ordering as required to ensure ready access for visitors to SFU International",
+     "how_why": [],
+     "frequency": "weekly"
+    },
+    {
+     "action_verb": "Prepares",
+     "statement": "Prepares and disseminates information packages and brochures to international students and domestic students by updating the written material as required, using desktop publishing application",
+     "how_why": [],
+     "frequency": "monthly"
+    },
+    {
+     "action_verb": "W",
+     "statement": "W) Maintains general office filing support and supplies by filing correspondence, checking and ordering supplies as required to provide ready access by office personnel",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "Weekly",
+     "statement": "Weekly; Monthly; and Semester)",
+     "how_why": [],
+     "frequency": "monthly"
+    },
+    {
+     "action_verb": "Assigns",
+     "statement": "Assigns and checks the work of temporary staff",
+     "how_why": [],
+     "frequency": "daily"
+    }
+   ],
+   "decision_making": [],
+   "problem_solving": [],
+   "relationships": {
+    "supervisory": null,
+    "internal": [
+     "Director",
+     "< 1 hr",
+     "Occasional",
+     "Study Abroad Advisor",
+     "< 1 hr",
+     "Occasional",
+     "Administrative Assistant",
+     "< 1 hr",
+     "Occasional",
+     "International Student Advisors",
+     "< 1 hr",
+     "Occasional",
+     "Students",
+     "< 1 hr",
+     "Frequent",
+     "Coordinators, International Mobility",
+     "< 1 hr",
+     "Occasional",
+     "Program Assistants, International Mobility",
+     "< 1 hr",
+     "Occasional",
+     "< 1 hr",
+     "Occasional",
+     "On campus student/parent enquiries",
+     "< 1 hr",
+     "Frequent",
+     "< 1 hr",
+     "Frequent",
+     "Faculty, staff and international visitors",
+     "< 1 hr"
+    ],
+    "external": [
+     "List internal and external contacts (i.e., specific positions within own department, other departments, students, faculty, on/off campus vendors, etc.), the duration of each contact (i.e. less than 1 hour at a time, 1-2 hours at a time, more than 2 hours at a time), and the frequency of each contact (i.e. occasional, frequent, or continuous).",
+     "Off campus vendors",
+     "Off campus student/parent enquiries"
+    ]
+   },
+   "qualifications": [
+    {
+     "text": "High school graduation and general courses or training of moderate duration",
+     "kind": "education",
+     "modifier": null
+    },
+    {
+     "text": "3 years of related experience",
+     "kind": "experience",
+     "modifier": null
+    },
+    {
+     "text": "60 wpm keyboarding skill with high degree of accuracy",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to assign/check the work of other positions",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to exercise mature judgment and initiative",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to maintain records with a high degree of accuracy",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use web publishing application (e.g. Marqui) and html at a",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use word processing, database and spreadsheet, (e.g., MSWord,",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use word processing, database and spreadsheet, (e.g., MSWord, FileMaker, Excel, Corporate Time) in a PC environment and at an intermediate level",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Ability to use word processing, database, spreadsheet and scheduling",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use word processing, database, spreadsheet, and email applications (e.g., MSWord, FileMaker, Excel, SFU Connect) at an intermediate level",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Ability to work independently",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Basic knowledge of Web publishing (Marqui)",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Demonstrates tact, discretion and confidentiality",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excel, and Aldus Pagemaker) in a Macintosh environment and at an",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent intercultural communications skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent interpersonal skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent listening skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent oral and written communication and interpersonal skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent organizational skill",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent organizational skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "FileMaker, Excel, Corporate Time) in a PC environment and at an",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Functional fluency in a language other than English",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Good knowledge of university programs, policies, and procedures",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Good problem solving skill",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Good problem solving skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Good problem solving skills Functional fluency in a language",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Macintosh or PC environment and at an intermediate level",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "applications (e.g., MSWord, FileMaker Pro, Excel, Corporate Time) in a",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "basic level",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "desktop publishing applications (e.g., MSWord, FileMaker Pro, Excel,",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "intermediate level",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "other than English",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "work of the position",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Is there additional information significant to the position which has not",
+     "kind": "ability",
+     "modifier": null
+    },
+    {
+     "text": "Occasional need to work evenings and/or weekends",
+     "kind": "ability",
+     "modifier": null
+    },
+    {
+     "text": "Position Number(s) 30218 Continued",
+     "kind": "ability",
+     "modifier": null
+    },
+    {
+     "text": "ability to lift, move, or carry equipment or materials over 10 kg; etc",
+     "kind": "ability",
+     "modifier": null
+    },
+    {
+     "text": "equipment or materials over 10 kg; etc",
+     "kind": "ability",
+     "modifier": null
+    },
+    {
+     "text": "mainland; have a valid driver's license; ability to lift, move, or carry",
+     "kind": "ability",
+     "modifier": null
+    }
+   ],
+   "territorial_acknowledgement_present": false,
+   "employment_equity_present": false,
+   "additional_context": "LEVEL OF INDEPENDENCE\nINDEPENDENCE independence that can be exercised within the position by a fully trained employee. (a) Work is provided with (c) Work is self-directed by the specific instructions employee. The employee describing how and when it determines what work needs should be completed. to be completed and when it should be completed to meet deadlines. (b) X Work is provided with (d) Work is assigned on a general instructions. The project by project basis in employee makes choices about the form of broad how the work will be objectives. The employee completed within deadlines evaluated what work needs to be completed within general time frames. Provide examples of project work:\n\nTRAINING EXERCISED\ndescription that applies. (a) Not required to provide (d) Provides one-on-one training training to other to individuals in other individuals. positions. Must have a good understanding of the work of the other positions. Positions at this level may be designated as group leaders or work leaders. (b) X Explains how work is (e) Conducts training seminars performed in his/her own for groups Training seminars position to individuals in are normally scheduled and other positions performing follow a prescribed format. the same similar work May also develop or assist (includes training in the development of replacement employees). training seminars. (c) Provides one-on-one specialized training to other individuals. Considered a specialist in a particular area or field of study. Positions at this level may be designated as the resident department expert. 7. DIRECTION Check each description that applies. EXERCISED (a) Not required to provide (d) In addition to C, direction to other establishes work priorities individuals. for a unit. (b) X Assigns and/or checks work (e) In addition to C and D, of other individuals. guides project teams. (c) Schedules, assigns and checks work of other individuals. 8. INTERNAL AND EXTERNAL CONTACTS List internal and external contacts (i.e., specific positions within own department, other departments; students; faculty; on/off campus vendors; etc.), the duration of each contact (i.e., less than 1 hour at a time; 1-2 hours at a time; more than 2 hours at a time), and the frequency of each contact (i.e., occasional; frequent; continuous). Type of Contact Duration Frequency Director < 1 hr Occasional Study Abroad Advisor < 1 hr Occasional Administrative Assistant <1 hr Occasional Student Advisors (3) < 1 hr Occasional Students < 1 hr Frequent Coordinators, International Mobility <1 hr Occasional Program Assistants, International Mobility < 1 hr Occasional Off campus vendors < 1 hr Occasional On campus student/parent enquiries <1 hr Frequent Off campus student/parent enquiries < 1 hr Frequent Faculty, staff and international visitors < 1 hr Frequent\n\nIMPACT OF ERRORS\nCommon Errors: Provide a few examples of the most common errors which normally occur in the performance of the work: • Misdirected mail/telephone • Not obtaining sufficient information from client to provide adequate information for redirection Uncommon Errors: Provide a few examples of the most uncommon errors which infrequently occur in the performance of the work: • Turn away student/visitor unnecessarily due to lack of understanding or language barrier\n\nEFFORT\n(hearing/listening); visual attention (seeing); perceptual attention (understanding/comprehending) and physical dexterity (finger/hand movements, eye/hand coordination, lifting, carrying, pushing, pulling, reaching, etc.). For each example of effort, indicate the concentrated duration (i.e., less than 1 hour at a time; 1-2 hours at a time; more than 2 hours at a time) and frequency (i.e., occasional, frequent, continuous). Type of Effort Duration Frequency Responding to telephone calls < 1 hr Frequent Communicating with persons whose first < 1 hr Frequent language is not English Ability to read hand written and manual < 1 hr Occasional instructions Non-confined sitting < 1 hr Frequent Working on video display terminal < 1 hr frequent Carrying & Reaching (office supplies) <1 hr Occasional e-mail communication < 1 hr Frequent Lifting courier packages (average 20 – 35 <1 hr lbs.) Occasional\n\nWORKING CONDITIONS\n(a). Describe the place(s) in which work is performed such as office environment; laboratory; outside work site; etc. Also identify the number of hours (of the total hours worked per week) spent in the place(s). Location Hours spent as a total of hours worked per week Front desk station 35 hours (b). Describe any uncomfortable and/or distracting conditions in the work place(s) which an incumbent is exposed to on a regular basis and the frequency of the exposure. (e.g. interruptions, distracting noise, unpleasant odors, dust, drafts, inks, dyes, cleaning agents, toner for printers, temperature extremes, heavy dust conditions, wetness, fumes, vibrations, etc.) Uncomfortable conditions Frequency of exposure – occasional, frequent or continuous Interruptions frequent Noise occasional (c). Describe any potential health or safety hazards, etc., and the frequency of exposure of each hazard. (e.g. dealing with complaints and/or verbal/physical abuse, noise levels that interfere with normal speech/hearing, toxic gases or materials, dangerous chemicals, combustibles, radioactive material, repetitive arm, finger, wrist movements or other activities that may result in a physical injury, high speed, pressurized equipment, high voltage, heights above five feet, and bio-hazardous wastes, body fluids, etc.) Potential health or safety hazards Frequency of exposure – occasional, frequent or continuous Dealing with complaints occasional High volume interruptions frequent Exposure to Allergens (perfume, occasional etc.)\n\nCONTINUING EDUCATION\n(a) Does not require any (d) In addition to B and C, continuing education. requires registration in formal seminars, training sessions, workshops, conferences, etc. (b) Requires learning new (e) In addition to B, C and D, university/ department requires registration in related procedures and/or post-secondary courses one methods. semester/equivalent). (c) X Requires learning new procedures and/or methods acquired through reading non-university/department publications."
+  },
+  "provenance": {
+   "member_count": 9,
+   "skill_frequency": [
+    [
+     "and",
+     9
+    ],
+    [
+     "communication",
+     9
+    ],
+    [
+     "communications",
+     9
+    ],
+    [
+     "database",
+     9
+    ],
+    [
+     "english",
+     9
+    ],
+    [
+     "excel",
+     9
+    ],
+    [
+     "exercise",
+     9
+    ],
+    [
+     "filemaker",
+     9
+    ],
+    [
+     "fluency",
+     9
+    ],
+    [
+     "functional",
+     9
+    ],
+    [
+     "initiative",
+     9
+    ],
+    [
+     "intercultural",
+     9
+    ],
+    [
+     "intermediate",
+     9
+    ],
+    [
+     "interpersonal",
+     9
+    ],
+    [
+     "judgment",
+     9
+    ],
+    [
+     "keyboarding",
+     9
+    ],
+    [
+     "language",
+     9
+    ],
+    [
+     "maintain",
+     9
+    ],
+    [
+     "mature",
+     9
+    ],
+    [
+     "msword",
+     9
+    ],
+    [
+     "oral",
+     9
+    ],
+    [
+     "organizational",
+     9
+    ],
+    [
+     "other",
+     9
+    ],
+    [
+     "policies",
+     9
+    ],
+    [
+     "problem",
+     9
+    ],
+    [
+     "procedures",
+     9
+    ],
+    [
+     "processing",
+     9
+    ],
+    [
+     "programs",
+     9
+    ],
+    [
+     "records",
+     9
+    ],
+    [
+     "skill",
+     9
+    ],
+    [
+     "solving",
+     9
+    ],
+    [
+     "spreadsheet",
+     9
+    ],
+    [
+     "than",
+     9
+    ],
+    [
+     "the",
+     9
+    ],
+    [
+     "university",
+     9
+    ],
+    [
+     "use",
+     9
+    ],
+    [
+     "wpm",
+     9
+    ],
+    [
+     "written",
+     9
+    ],
+    [
+     "carry",
+     8
+    ],
+    [
+     "environment",
+     8
+    ],
+    [
+     "equipment",
+     8
+    ],
+    [
+     "lift",
+     8
+    ],
+    [
+     "materials",
+     8
+    ],
+    [
+     "move",
+     8
+    ],
+    [
+     "publishing",
+     8
+    ],
+    [
+     "call",
+     7
+    ],
+    [
+     "driver",
+     7
+    ],
+    [
+     "etc",
+     7
+    ],
+    [
+     "have",
+     7
+    ],
+    [
+     "license",
+     7
+    ],
+    [
+     "lower",
+     7
+    ],
+    [
+     "mainland",
+     7
+    ],
+    [
+     "outside",
+     7
+    ],
+    [
+     "over",
+     7
+    ],
+    [
+     "periodically",
+     7
+    ],
+    [
+     "position",
+     7
+    ],
+    [
+     "positions",
+     7
+    ],
+    [
+     "shifts",
+     7
+    ],
+    [
+     "travel",
+     7
+    ],
+    [
+     "valid",
+     7
+    ],
+    [
+     "basic",
+     6
+    ],
+    [
+     "corporate",
+     6
+    ],
+    [
+     "marqui",
+     6
+    ],
+    [
+     "time",
+     6
+    ],
+    [
+     "web",
+     6
+    ],
+    [
+     "confidentiality",
+     5
+    ],
+    [
+     "demonstrates",
+     5
+    ],
+    [
+     "direct",
+     5
+    ],
+    [
+     "discretion",
+     5
+    ],
+    [
+     "evenings",
+     5
+    ],
+    [
+     "independently",
+     5
+    ],
+    [
+     "listening",
+     5
+    ],
+    [
+     "need",
+     5
+    ],
+    [
+     "occasional",
+     5
+    ],
+    [
+     "such",
+     5
+    ],
+    [
+     "tact",
+     5
+    ],
+    [
+     "weekends",
+     5
+    ],
+    [
+     "macintosh",
+     4
+    ],
+    [
+     "pro",
+     4
+    ],
+    [
+     "additional",
+     2
+    ],
+    [
+     "aldus",
+     2
+    ],
+    [
+     "application",
+     2
+    ],
+    [
+     "assign",
+     2
+    ],
+    [
+     "check",
+     2
+    ],
+    [
+     "desktop",
+     2
+    ],
+    [
+     "has",
+     2
+    ],
+    [
+     "html",
+     2
+    ],
+    [
+     "information",
+     2
+    ],
+    [
+     "not",
+     2
+    ],
+    [
+     "pagemaker",
+     2
+    ],
+    [
+     "scheduling",
+     2
+    ],
+    [
+     "significant",
+     2
+    ],
+    [
+     "there",
+     2
+    ],
+    [
+     "which",
+     2
+    ],
+    [
+     "30218",
+     1
+    ],
+    [
+     "connect",
+     1
+    ],
+    [
+     "continued",
+     1
+    ],
+    [
+     "email",
+     1
+    ],
+    [
+     "number",
+     1
+    ],
+    [
+     "sfu",
+     1
+    ]
+   ],
+   "duty_coverage": [
+    [
+     "Arranges both internal and external meetings and appointments for SFU INTERNATIONAL Recruitment and Retention Staff by liaising with on and off campus personnel, visiting delegations and appropriate on campus departments/offices to fulfill the special requirements of the concerned parties",
+     8
+    ],
+    [
+     "Assists in preparation of brochures, newsletters and written information by drafting/editing as required Assists in general travel, special arrangements and accommodation for visitors, members of SFU International and international students by liaising with travel agents, and relevant on and off campus personnel to successfully conclude each arrangement",
+     8
+    ],
+    [
+     "Assists with scheduling events, workshops, information sessions and various orientations by booking rooms, confirming student participation and other related clerical arrangements to ensure the coordination of each occasion",
+     8
+    ],
+    [
+     "Schedules student appointments by identifying the reasons for the appointment, checking Corporate Time, calendars and appointment books of the appropriate qualified staff member to ensure that each student receives prompt instructive attention",
+     8
+    ],
+    [
+     "Types correspondence, reports, contracts and other material by using word processing, desktop publishing applications to prepare materials for approval, duplication and/or circulation",
+     8
+    ],
+    [
+     "Performs routine clerical duties by distributing mail within the office, arranging for courier pickup and delivery, collecting curriculum relating to international activities, to facilitate the smooth operation of SFU International Services for Students",
+     7
+    ],
+    [
+     "Assists in the preparation of brochures, newsletters and written information by drafting/editing as required",
+     6
+    ],
+    [
+     "Maintains international student recruitment and retention publications by checking availability, and photocopying/ordering as required to ensure ready access for visitors to SFU International",
+     6
+    ],
+    [
+     "Prepares and disseminates information packages and brochures to international students and domestic students by updating the written material as required, using desktop publishing application",
+     6
+    ],
+    [
+     "W) Maintains general office filing support and supplies by filing correspondence, checking and ordering supplies as required to provide ready access by office personnel",
+     6
+    ],
+    [
+     "Weekly; Monthly; and Semester)",
+     6
+    ],
+    [
+     "Assigns and checks the work of temporary staff",
+     5
+    ]
+   ],
+   "section_contributors": [
+    [
+     "additional_context",
+     [
+      3
+     ]
+    ],
+    [
+     "department",
+     [
+      1,
+      2
+     ]
+    ],
+    [
+     "employee_group",
+     [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+     ]
+    ],
+    [
+     "grade",
+     [
+      0
+     ]
+    ],
+    [
+     "position_summary",
+     [
+      3
+     ]
+    ],
+    [
+     "relationships",
+     [
+      1
+     ]
+    ],
+    [
+     "title",
+     [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+     ]
+    ]
+   ],
+   "flags": [
+    "duties_over_max",
+    "sections_not_merged"
+   ],
+   "seniority_bars": [
+    {
+     "kind": "education",
+     "policy": "max",
+     "chosen": 0,
+     "member_bars": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "kind": "experience",
+     "policy": "max",
+     "chosen": 3,
+     "member_bars": [
+      3,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      3
+     ]
+    }
+   ]
+  }
+ },
+ "model": {
+  "title": "International Services Coordinator",
+  "position_number": null,
+  "department": "SFU International Services for Students Services for Students, Student Services",
+  "grade": "______________________________",
+  "classification": null,
+  "employee_group": "cupe",
+  "supervisor_title": null,
+  "supervisor_position_number": null,
+  "about_sfu_present": false,
+  "position_summary": "The International Services Coordinator serves as the primary point of contact for domestic and international students, faculty, staff, parents, visitors and the public, providing accurate information on admissions, programs and services offered through SFU International. The role maintains confidential student records, processes fees, and supports the Director and other staff with clerical, scheduling, publishing and communication tasks. By coordinating meetings, events and travel, preparing promotional materials, supervising temporary staff and ensuring compliance with university policies, the Coordinator contributes to the effective recruitment, retention and support of international students while exercising sound judgment, intercultural communication and problem‑solving skills.",
+  "duties": [
+   {
+    "action_verb": "Serve",
+    "statement": "as primary contact, responding to inquiries from diverse stakeholders regarding international programs and admissions",
+    "how_why": [],
+    "frequency": null
+   },
+   {
+    "action_verb": "Maintain",
+    "statement": "confidential student records, fees, and deposits with high accuracy",
+    "how_why": [],
+    "frequency": null
+   },
+   {
+    "action_verb": "Schedule",
+    "statement": "and coordinate meetings, appointments, events, workshops, orientations, and travel arrangements for staff, visitors, and students",
+    "how_why": [
+     "liaise with on‑ and off‑campus personnel",
+     "book rooms and confirm participation"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Prepare",
+    "statement": "and publish brochures, newsletters, information packages, and other written materials using desktop publishing and word processing applications",
+    "how_why": [],
+    "frequency": "monthly"
+   },
+   {
+    "action_verb": "Perform",
+    "statement": "routine clerical duties including mail distribution, courier services, and collection of curriculum materials to support office operations",
+    "how_why": [
+     "arrange courier pickup and delivery"
+    ],
+    "frequency": "daily"
+   },
+   {
+    "action_verb": "Manage",
+    "statement": "office filing systems and supply inventory, ordering supplies as needed to ensure readiness",
+    "how_why": [],
+    "frequency": null
+   },
+   {
+    "action_verb": "Assign",
+    "statement": "and supervise temporary staff, checking their work and providing guidance and training",
+    "how_why": [],
+    "frequency": null
+   },
+   {
+    "action_verb": "Utilize",
+    "statement": "database, spreadsheet, and scheduling software (FileMaker, Excel, Corporate Time) to track records, appointments, and program information",
+    "how_why": [],
+    "frequency": null
+   },
+   {
+    "action_verb": "Apply",
+    "statement": "intercultural communication skills and functional fluency in a language other than English when interacting with international stakeholders",
+    "how_why": [
+     "ensure accurate translation of information"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Exercise",
+    "statement": "mature judgment, initiative, and problem‑solving in handling inquiries, errors, and confidential matters",
+    "how_why": [],
+    "frequency": null
+   },
+   {
+    "action_verb": "Operate",
+    "statement": "office equipment and perform physical tasks such as lifting and moving materials up to 10 kg as needed",
+    "how_why": [],
+    "frequency": null
+   },
+   {
+    "action_verb": "Adhere",
+    "statement": "to university policies, procedures, and confidentiality standards in all activities",
+    "how_why": [],
+    "frequency": null
+   }
+  ],
+  "decision_making": [],
+  "problem_solving": [],
+  "relationships": {
+   "supervisory": "Director",
+   "internal": [
+    "Study Abroad Advisor – <1 hr – occasional",
+    "Administrative Assistant – <1 hr – occasional",
+    "International Student Advisors – <1 hr – occasional",
+    "Students – <1 hr – frequent",
+    "Coordinators, International Mobility – <1 hr – occasional",
+    "Program Assistants, International Mobility – <1 hr – occasional",
+    "On‑campus student/parent enquiries – <1 hr – frequent",
+    "Faculty, staff and international visitors – <1 hr – frequent"
+   ],
+   "external": [
+    "Off‑campus vendors – <1 hr – occasional",
+    "Off‑campus student/parent enquiries – <1 hr – frequent"
+   ]
+  },
+  "qualifications": [
+   {
+    "text": "60 wpm keyboarding skill with high degree of accuracy",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to assign and check the work of other positions",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to exercise mature judgment and initiative",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to maintain records with a high degree of accuracy",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use web publishing applications (e.g., Marqui) and HTML",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use word processing, database and spreadsheet applications (e.g., MS Word, FileMaker, Excel, Corporate Time) in a PC environment at an intermediate level",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use scheduling and email applications (e.g., SFU Connect) at an intermediate level",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to work independently",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Basic knowledge of web publishing (Marqui)",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Demonstrates tact, discretion and confidentiality",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Experience with Aldus Pagemaker in a Macintosh environment at a basic level",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Excellent intercultural communication skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Excellent interpersonal, listening, oral and written communication skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Excellent organizational skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Functional fluency in a language other than English",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Good knowledge of university programs, policies and procedures",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Good problem‑solving skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to lift, move or carry equipment or materials over 10 kg",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Valid driver’s license",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Willingness to work occasional evenings and/or weekends",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "High school graduation and general courses or training of moderate duration",
+    "kind": "education",
+    "modifier": null
+   },
+   {
+    "text": "3 years of related experience",
+    "kind": "experience",
+    "modifier": null
+   }
+  ],
+  "territorial_acknowledgement_present": false,
+  "employment_equity_present": false,
+  "additional_context": "LEVEL OF INDEPENDENCE\nINDEPENDENCE independence that can be exercised within the position by a fully trained employee. (a) Work is provided with (c) Work is self-directed by the specific instructions employee. The employee describing how and when it determines what work needs should be completed. to be completed and when it should be completed to meet deadlines. (b) X Work is provided with (d) Work is assigned on a general instructions. The project by project basis in employee makes choices about the form of broad how the work will be objectives. The employee completed within deadlines evaluated what work needs to be completed within general time frames. Provide examples of project work:\n\nTRAINING EXERCISED\ndescription that applies. (a) Not required to provide (d) Provides one-on-one training training to other to individuals in other individuals. positions. Must have a good understanding of the work of the other positions. Positions at this level may be designated as group leaders or work leaders. (b) X Explains how work is (e) Conducts training seminars performed in his/her own for groups Training seminars position to individuals in are normally scheduled and other positions performing follow a prescribed format. the same similar work May also develop or assist (includes training in the development of replacement employees). training seminars. (c) Provides one-on-one specialized training to other individuals. Considered a specialist in a particular area or field of study. Positions at this level may be designated as the resident department expert. 7. DIRECTION Check each description that applies. EXERCISED (a) Not required to provide (d) In addition to C, direction to other establishes work priorities individuals. for a unit. (b) X Assigns and/or checks work (e) In addition to C and D, of other individuals. guides project teams. (c) Schedules, assigns and checks work of other individuals. 8. INTERNAL AND EXTERNAL CONTACTS List internal and external contacts (i.e., specific positions within own department, other departments; students; faculty; on/off campus vendors; etc.), the duration of each contact (i.e., less than 1 hour at a time; 1-2 hours at a time; more than 2 hours at a time), and the frequency of each contact (i.e., occasional; frequent; continuous). Type of Contact Duration Frequency Director < 1 hr Occasional Study Abroad Advisor < 1 hr Occasional Administrative Assistant <1 hr Occasional Student Advisors (3) < 1 hr Occasional Students < 1 hr Frequent Coordinators, International Mobility <1 hr Occasional Program Assistants, International Mobility < 1 hr Occasional Off campus vendors < 1 hr Occasional On campus student/parent enquiries <1 hr Frequent Off campus student/parent enquiries < 1 hr Frequent Faculty, staff and international visitors < 1 hr Frequent\n\nIMPACT OF ERRORS\nCommon Errors: Provide a few examples of the most common errors which normally occur in the performance of the work: • Misdirected mail/telephone • Not obtaining sufficient information from client to provide adequate information for redirection Uncommon Errors: Provide a few examples of the most uncommon errors which infrequently occur in the performance of the work: • Turn away student/visitor unnecessarily due to lack of understanding or language barrier\n\nEFFORT\n(hearing/listening); visual attention (seeing); perceptual attention (understanding/comprehending) and physical dexterity (finger/hand movements, eye/hand coordination, lifting, carrying, pushing, pulling, reaching, etc.). For each example of effort, indicate the concentrated duration (i.e., less than 1 hour at a time; 1-2 hours at a time; more than 2 hours at a time) and frequency (i.e., occasional, frequent, continuous). Type of Effort Duration Frequency Responding to telephone calls < 1 hr Frequent Communicating with persons whose first < 1 hr Frequent language is not English Ability to read hand written and manual < 1 hr Occasional instructions Non-confined sitting < 1 hr Frequent Working on video display terminal < 1 hr frequent Carrying & Reaching (office supplies) <1 hr Occasional e-mail communication < 1 hr Frequent Lifting courier packages (average 20 – 35 <1 hr lbs.) Occasional\n\nWORKING CONDITIONS\n(a). Describe the place(s) in which work is performed such as office environment; laboratory; outside work site; etc. Also identify the number of hours (of the total hours worked per week) spent in the place(s). Location Hours spent as a total of hours worked per week Front desk station 35 hours (b). Describe any uncomfortable and/or distracting conditions in the work place(s) which an incumbent is exposed to on a regular basis and the frequency of the exposure. (e.g. interruptions, distracting noise, unpleasant odors, dust, drafts, inks, dyes, cleaning agents, toner for printers, temperature extremes, heavy dust conditions, wetness, fumes, vibrations, etc.) Uncomfortable conditions Frequency of exposure – occasional, frequent or continuous Interruptions frequent Noise occasional (c). Describe any potential health or safety hazards, etc., and the frequency of exposure of each hazard. (e.g. dealing with complaints and/or verbal/physical abuse, noise levels that interfere with normal speech/hearing, toxic gases or materials, dangerous chemicals, combustibles, radioactive material, repetitive arm, finger, wrist movements or other activities that may result in a physical injury, high speed, pressurized equipment, high voltage, heights above five feet, and bio-hazardous wastes, body fluids, etc.) Potential health or safety hazards Frequency of exposure – occasional, frequent or continuous Dealing with complaints occasional High volume interruptions frequent Exposure to Allergens (perfume, occasional etc.)\n\nCONTINUING EDUCATION\n(a) Does not require any (d) In addition to B and C, continuing education. requires registration in formal seminars, training sessions, workshops, conferences, etc. (b) Requires learning new (e) In addition to B, C and D, university/ department requires registration in related procedures and/or post-secondary courses one methods. semester/equivalent). (c) X Requires learning new procedures and/or methods acquired through reading non-university/department publications."
+ }
+}

@@ -117,11 +117,49 @@ def test_v2_states_the_duty_count_and_summary_band_it_is_given() -> None:
     assert "3–5 major duties" not in wjq
 
 
-def test_v2_is_the_shipped_prompt() -> None:
-    """The rulebook points at v2 (HR-180). v1 stays on disk unedited — every draft in
-    the archive carries its stamp, and a stamp that cannot be read back is not
-    provenance — but nothing should be *loading* it."""
-    assert get_rules().rewrite.prompt_version == "jd_harmonize_v2"
+def test_v5_is_the_shipped_prompt() -> None:
+    """The rulebook points at v5 (HR-180; FINDINGS §13e fix 3). v1–v4 stay on
+    disk unedited — every draft in the archive carries its stamp, and a stamp that
+    cannot be read back is not provenance — but nothing should be *loading* them."""
+    assert get_rules().rewrite.prompt_version == "jd_harmonize_v5"
+
+
+def test_v4_tells_the_model_to_merge_duties_not_drop_areas() -> None:
+    """The pilot's model met the JDFN five-duty cap by dropping whole duty areas. v4
+    says to merge related duties and keep every area; v3's wording is untouched. The
+    guard (HR-271) is what actually holds it — this only pins that the ask is made."""
+    values: dict[str, object] = {
+        "member_count": 2,
+        "skill_frequency": "- accounting: 2",
+        "member_jds": "- Manages proposals by\n    - tracking deadlines",
+        "duties_min": 5,
+        "duties_max": 5,
+        "summary_min_words": 100,
+        "summary_max_words": 150,
+    }
+    v4 = load_prompt("jd_harmonize_v4", **values).messages[0]["content"]
+    v3 = load_prompt("jd_harmonize_v3", **values).messages[0]["content"]
+    assert "MERGE related duties" in v4 and "NEVER drop a" in v4
+    assert "same section" in v4
+    assert "MERGE related duties" not in v3
+
+
+def test_v3_tells_the_model_to_keep_each_duty_s_how_why() -> None:
+    """Parser v9 fills how/why (owner ruling 2026-10-20). v3 names the input shape and
+    asks the model to keep it; v2's wording is untouched on disk."""
+    values: dict[str, object] = {
+        "member_count": 2,
+        "skill_frequency": "- accounting: 2",
+        "member_jds": "- Manages proposals by\n    - tracking deadlines",
+        "duties_min": 3,
+        "duties_max": 5,
+        "summary_min_words": 100,
+        "summary_max_words": 150,
+    }
+    v3 = load_prompt("jd_harmonize_v3", **values).messages[0]["content"]
+    v2 = load_prompt("jd_harmonize_v2", **values).messages[0]["content"]
+    assert "how_why" in v3 and "do not drop them" in v3
+    assert "do not drop them" not in v2
 
 
 def test_v2_still_raises_on_a_missing_number_rather_than_guessing_one() -> None:
@@ -137,3 +175,27 @@ def test_v2_still_raises_on_a_missing_number_rather_than_guessing_one() -> None:
             summary_min_words=100,
             summary_max_words=150,
         )
+
+
+def test_v5_gives_the_equivalency_sentence_a_legal_home() -> None:
+    """FINDINGS §13c class A: rule 5 ORDERS the "equivalent combination" sentence and
+    v4's schema block says only ``"modifier": string|null``, so the model filed the
+    sentence as a modifier, failed ``SFUQualification.modifier``'s 20-character ceiling
+    and the whole rewrite was discarded (2/2 attempts, identically). v5 says the
+    sentence is TEXT and a modifier is one level word; v4 is untouched on disk."""
+    values: dict[str, object] = {
+        "member_count": 2,
+        "skill_frequency": "- accounting: 2",
+        "member_jds": "- Manages proposals",
+        "duties_min": 5,
+        "duties_max": 5,
+        "summary_min_words": 100,
+        "summary_max_words": 150,
+    }
+    v5 = load_prompt("jd_harmonize_v5", **values).messages[0]["content"]
+    v4 = load_prompt("jd_harmonize_v4", **values).messages[0]["content"]
+    assert 'never as its "modifier"' in v5
+    assert "ONE level word" in v5 and "never a phrase or a sentence" in v5
+    assert '"kind" is exactly one of the six words' in v5
+    for line in ('never as its "modifier"', "ONE level word", "exactly one of the six"):
+        assert line not in v4

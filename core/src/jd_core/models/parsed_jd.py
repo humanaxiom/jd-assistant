@@ -84,8 +84,15 @@ class SFUDuty(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     action_verb: str = Field(default="", max_length=60)
-    statement: str = Field(min_length=1, max_length=400)
-    how_why: list[str] = Field(default_factory=list, max_length=12)
+    #: The CONTRACT ceiling. It was 400 and the parser cut to it — MEASURED at parser
+    #: v8, 25,095 of 96,784 stored duty statements sat at exactly 400 characters. The
+    #: OPERATIVE cap is rulebook data (`segmentation.duty_statement_max_chars`, HR-261)
+    #: and must stay under this, or a long duty becomes a parse FAILURE, not a trim.
+    statement: str = Field(min_length=1, max_length=4000)
+    #: The template's "how and why" points under a "… by:" headline. Filled by the
+    #: parser since v9 (owner ruling 2026-10-20); CONTRACT ceiling 100 (was 12) — the
+    #: operative caps are `segmentation.duty_how_why_max_count/_max_chars` (HR-265/266).
+    how_why: list[str] = Field(default_factory=list, max_length=100)
     #: WJQ frequency of performance (``daily`` / ``weekly`` / ``monthly`` /
     #: ``semester``), or ``None`` for a JDFN duty. Additive; see the class docstring.
     frequency: str | None = Field(default=None, max_length=20)
@@ -99,7 +106,9 @@ class SFUQualification(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    text: str = Field(min_length=1, max_length=400)
+    #: No ceiling, on purpose: the parser's cap is rulebook data
+    #: (``segmentation.qualification_max_chars``, HR-308) and ships as ``null``.
+    text: str = Field(min_length=1)
     kind: QualificationKind = "ability"
     modifier: str | None = Field(default=None, max_length=20)
 
@@ -110,11 +119,39 @@ class SFURelationships(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    supervisory: str | None = Field(default=None, max_length=600)
+    #: No ceiling, on purpose: the parser's cap is rulebook data
+    #: (``segmentation.supervisory_max_chars``, HR-324) and ships as ``null``.
+    supervisory: str | None = None
     internal: list[str] = Field(default_factory=list, max_length=30)
     external: list[str] = Field(default_factory=list, max_length=30)
 
     _rel_null = field_validator("internal", "external", mode="before")(_null_to_empty)
+
+
+#: What a set-aside block of a legacy form WAS (parser v10).
+#: ``legacy_working_conditions`` = the old APSA form's "G. Unusual Working Conditions"
+#: (owner ruling 2026-10-27: the 2024 template has no slot for it, so it is not JD
+#: content — HR-305); ``form_approvals`` = its "J. Approvals" signature block, form
+#: scaffolding (HR-306); ``form_prompt`` = a question the form prints for whoever fills
+#: it in ("What combination of experience, training and/or formal education …?",
+#: "Decisions the incumbent is expected to make in carrying out duties", HR-307).
+SetAsideKind = Literal["legacy_working_conditions", "form_approvals", "form_prompt"]
+
+
+class SetAsideSection(BaseModel):
+    """Source text the parser read but deliberately did NOT put in the job description.
+
+    Recorded on the PARSE so a drop is never silent: a reviewer reading the source can
+    see what was set aside and under which heading. Never content — the merge builds a
+    draft from the JD's own sections and does not carry this field."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    kind: SetAsideKind
+    heading: str = Field(min_length=1, max_length=200)
+    #: The only bound: a record, not content, so it has no operative cap of its own.
+    #: MEASURED: the longest set-aside block in the archive is under 6,000 characters.
+    text: str = Field(default="", max_length=20000)
 
 
 #: Who filled in Part 1 of a CUPE form ("Part 1 is being completed by: ☐ Employee
@@ -132,7 +169,10 @@ class WJQRow(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
-    item: str = Field(min_length=1, max_length=400)
+    #: A FORM input ceiling, not a parser cap: a contact row is seeded from a cloned
+    #: role's relationships, which the parser no longer cuts (HR-340, v11). It was 400,
+    #: the old parser cut. The other tables' rows are bounded by their own answers.
+    item: str = Field(min_length=1, max_length=20_000)
     duration: str | None = Field(default=None, max_length=40)
     frequency: str | None = Field(default=None, max_length=40)
     hours: str | None = Field(default=None, max_length=40)
@@ -190,7 +230,11 @@ class WJQForm(BaseModel):
     #: acceptable because:" (``equivalency_rationale``); ``None`` = not answered.
     equivalency_acceptable: bool | None = None
     equivalency_rationale: str | None = Field(default=None, max_length=1000)
-    occupational_requirements: list[str] = Field(default_factory=list, max_length=20)
+    #: 40 — the same as ``SFUJobDescription.qualifications``, since a draft's ability
+    #: lines land here (HR-251). It was 20, narrower than the draft it is built from:
+    #: deterministic CUPE drafts on the v9 Bank carry up to 30 ability lines, and two
+    #: refused to reassemble.
+    occupational_requirements: list[str] = Field(default_factory=list, max_length=40)
 
     _lists_null = field_validator(
         "minor_functions",
@@ -238,11 +282,17 @@ class SFUJobDescription(BaseModel):
     # 3. Position Summary (template: 100-150 words)
     position_summary: str | None = Field(default=None, max_length=4000)
     # 4. Duties & Responsibilities (template: 3-5 major)
-    duties: list[SFUDuty] = Field(default_factory=list, max_length=12)
+    #
+    # CONTRACT ceiling (was 12 — the WJQ form's major-function slots, applied to both
+    # templates). The OPERATIVE caps are rulebook data — `segmentation.duty_max_count`
+    # (JDFN, HR-262) and `wjq_duty_max_count` (WJQ, HR-263) — and stay under this.
+    # A canonical DRAFT is still held to 12 by the merge (`harmonization.max_duties`,
+    # HR-172); this bound is what a PARSED source document may carry.
+    duties: list[SFUDuty] = Field(default_factory=list, max_length=150)
     # 5. Impact of Decision Making (-> Hay Accountability)
-    decision_making: list[str] = Field(default_factory=list, max_length=20)
+    decision_making: list[str] = Field(default_factory=list, max_length=60)
     # 6. Problem Solving & Level of Supervision (-> Hay Problem-Solving)
-    problem_solving: list[str] = Field(default_factory=list, max_length=20)
+    problem_solving: list[str] = Field(default_factory=list, max_length=60)
     # 7. Relationships
     relationships: SFURelationships | None = None
     # 8. Qualifications
@@ -267,6 +317,10 @@ class SFUJobDescription(BaseModel):
     # every JDFN JD, every parsed document and every draft written before J2 (missing
     # key -> default), so existing ``content`` JSONB deserializes unchanged.
     wjq_form: WJQForm | None = None
+    #: Legacy-form text the parser set aside rather than read as content (parser v10;
+    #: HR-305 / HR-306). Parse-level provenance only: empty for every modern document
+    #: and every draft, and then left OUT of a dump (see the serializer below).
+    set_aside: list[SetAsideSection] = Field(default_factory=list, max_length=10)
 
     @model_serializer(mode="wrap")
     def _omit_absent_wjq_form(self, handler: SerializerFunctionWrapHandler) -> Any:
@@ -279,6 +333,9 @@ class SFUJobDescription(BaseModel):
         data = handler(self)
         if isinstance(data, dict) and data.get("wjq_form") is None:
             data.pop("wjq_form", None)
+        # Parser v10: the same for `set_aside` — only a legacy-form parse carries it.
+        if isinstance(data, dict) and not data.get("set_aside"):
+            data.pop("set_aside", None)
         return data
 
     _lists_null = field_validator(

@@ -185,13 +185,17 @@ def test_the_duty_count_survives_the_round_trip(rules: Rules) -> None:
 def test_how_why_clauses_stay_with_their_duty(rules: Rules) -> None:
     """The template's "ACTION VERB… WHAT by / How and why" shape: the clauses print as
     sub-bullets under their duty and re-read as PART of that duty, never as duties of
-    their own."""
+    their own. Since parser v9 they re-read as that duty's ``how_why`` (nested Word list
+    paragraphs — owner ruling 2026-10-20), not fused into its statement."""
     jd = _rich_jd(rules)
     _, back = _reread(render_sfu_docx(jd))
-    first = back.duties[0].statement
-    assert "Representing the department on relevant committees" in first
-    assert "Developing work plans" in first
-    assert "Advising faculty on calendar changes" in back.duties[2].statement
+    assert len(back.duties) == len(jd.duties)
+    for original, reread in zip(jd.duties, back.duties, strict=True):
+        assert reread.how_why == [c.strip() for c in original.how_why if c.strip()]
+    assert "Representing the department on relevant committees" in " ".join(
+        back.duties[0].how_why
+    )
+    assert "Advising faculty on calendar changes" in " ".join(back.duties[2].how_why)
 
 
 def test_a_minimal_jd_still_round_trips(rules: Rules) -> None:

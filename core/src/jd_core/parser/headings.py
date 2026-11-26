@@ -168,8 +168,13 @@ _COMPILED: list[tuple[SectionKey, HeadingEra, re.Pattern[str]]] = [
     for era, pat in HEADING_PATTERNS[section]
 ]
 
-# Leading enumeration prefix on a heading line: ``A.`` / ``B)`` / ``1.`` etc.
-_LETTER_PREFIX = re.compile(r"^\s*(?:[A-Za-z]|\d{1,2})[.)]\s+")
+# Leading enumeration prefix on a heading line: ``A.`` / ``B)`` / ``1.`` etc. — and a
+# bare letter set off by a tab or two+ spaces (``H         ENTRANCE QUALIFICATIONS``):
+# 32 archive files carry the old form's G/H/I/J letters with no period after them
+# (2026-10-29 review). A single space is NOT enough — ``A very …`` is content.
+_LETTER_PREFIX = re.compile(
+    r"^\s*(?:(?:[A-Za-z]|\d{1,2})[.)]\s+|[A-J](?:\t|[ ]{2,})(?=[A-Z]))"
+)
 _LETTERED_HEADING = re.compile(r"^\s*[A-J][.)]\s+[A-Z]")
 
 
@@ -286,7 +291,12 @@ EMPLOYEE_GROUP_LABEL_RX = re.compile(r"(?im)^[ \t]*employee group[ \t]*:[ \t]*(.
 NEXT_LABEL_RX = re.compile(
     r"\b(?:incumbent|name of employee|employee name|date|position\s*(?:#|no\.?|number)"
     r"|department|employee group|effective date|last revised|revised date"
-    r"|supervisor'?s? title|grade)\b\s*:?",
+    # `(?!\w)`, not `\b`: a trailing `\b` cannot match after "#" (two non-word
+    # characters), so "Position #:" never cut a value — 80 archive titles read as
+    # "… Position #:" (parser v9, found by the v9 Bank's smoke). After "#" anything may
+    # follow: "Position #110611" touches its id, and `(?!\w)` alone stopped cutting it
+    # (5 archive titles gained "Position #<id>", review round 3).
+    r"|supervisor'?s? title|grade)(?:(?<=#)|(?!\w))\s*:?",
     re.IGNORECASE,
 )
 

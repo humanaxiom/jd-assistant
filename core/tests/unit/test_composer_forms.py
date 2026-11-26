@@ -145,7 +145,7 @@ def test_the_derived_render_kinds_match_the_shipped_jdfn_builder_exactly() -> No
         "title": "text",
         "department": "text",
         "grade": "text",
-        "supervisory": "text",  # 600 chars — a text input, as before
+        "supervisory": "textarea",  # uncapped since HR-324 (20,000-char input)
         "employee_group": "select",
         "include_sfu_boilerplate": "checkbox",
         "position_summary": "textarea",

@@ -64,10 +64,6 @@ from src.jd_core.parser.classification import extract_classification
 from src.jd_core.parser.headings import SectionKey
 from src.jd_core.parser.segmenter import (
     _FALLBACK_TITLE,
-    _MAX_BULLET,
-    _MAX_DUTIES,
-    _MAX_DUTY_STMT,
-    _MAX_QUAL,
     _MAX_QUALS,
     _MAX_SUMMARY,
     _MAX_TITLE,
@@ -77,6 +73,7 @@ from src.jd_core.parser.segmenter import (
     _detect_era,
     _detect_modifier,
     _leading_verb,
+    cut_to,
 )
 from src.jd_core.rules import Wjq, WjqSection, get_rules
 
@@ -123,7 +120,10 @@ def is_wjq(text: str, wjq: Wjq) -> bool:
     ``LOCAL 3338`` no longer routes — a JDFN JD that merely CITES CUPE in a duty (HR,
     labour-relations, compensation roles) stays on the JDFN path (MEASURED: 69 such
     files misrouted, 11 of them in the HR-ratified ``new``-era cohort)."""
-    haystack = (text or "").lower()
+    # Whitespace-collapsed: antiword stretches a heading's words apart
+    # ("Weighted   Job   Questionnaire"), and a plain substring test then missed the
+    # CUPE form entirely (parser v9, found by the v9 Bank's smoke).
+    haystack = re.sub(r"\s+", " ", text or "").lower()
     if any(term.lower() in haystack for term in wjq.marker_primary):
         return True
     hits = sum(1 for term in wjq.marker_corroborating if term.lower() in haystack)
@@ -210,6 +210,13 @@ def _match_heading(line: str, wjq: Wjq) -> WjqSection | None:
                 if rx.match(peeled) or rx.match(upper):
                     return section
     return None
+
+
+def is_wjq_heading(line: str, wjq: Wjq) -> bool:
+    """Public form of :func:`_match_heading` for the docx extractor, which must not
+    put a list marker in front of a WJQ heading (an outline-numbered ``3. MAJOR
+    FUNCTIONS`` is a Word list paragraph, and a marker would hide it — parser v9)."""
+    return _match_heading(line, wjq) is not None
 
 
 def _segment(text: str, wjq: Wjq) -> dict[WjqSection, str]:
@@ -458,6 +465,13 @@ def _strip_frequency(statement: str, wjq: Wjq) -> tuple[str, str | None]:
 
 
 def _structure_duties(major: str, minor: str, wjq: Wjq) -> list[SFUDuty]:
+    """Major then minor functions, each a duty. Both caps are rulebook data (parser v9):
+    ``segmentation.wjq_duty_max_count`` (HR-263) — it was a hardcoded 12, so the minor
+    functions of a full questionnaire (12 major + 12 minor slots) were dropped — and
+    ``segmentation.duty_statement_max_chars`` (HR-261), shared with the JDFN path."""
+    seg = get_rules().segmentation
+    max_count = seg.wjq_duty_max_count
+    max_chars = seg.duty_statement_max_chars
     duties: list[SFUDuty] = []
     for block in (major, minor):
         for statement, group_freq in _duty_items(block, wjq):
@@ -468,11 +482,11 @@ def _structure_duties(major: str, minor: str, wjq: Wjq) -> list[SFUDuty]:
             duties.append(
                 SFUDuty(
                     action_verb=_leading_verb(stmt),
-                    statement=stmt[:_MAX_DUTY_STMT],
+                    statement=stmt[:max_chars],
                     frequency=inline_freq or group_freq,
                 )
             )
-            if len(duties) >= _MAX_DUTIES:
+            if len(duties) >= max_count:
                 return duties
     return duties
 
@@ -504,9 +518,10 @@ def _structure_quals(text: str, wjq: Wjq) -> list[SFUQualification]:
             continue
         if line.endswith(":"):
             continue
+        qual_cap = get_rules().segmentation.qualification_max_chars
         quals.append(
             SFUQualification(
-                text=line[:_MAX_QUAL],
+                text=line[:qual_cap] if qual_cap else line,
                 kind=current_kind,
                 modifier=_detect_modifier(line, current_kind),
             )
@@ -534,6 +549,7 @@ def _structure_relationships(text: str, wjq: Wjq) -> SFURelationships | None:
     form does not label rows internal vs external, so this classifies by keyword and
     invents NO supervisory signal (the JDFN template's supervisory scope has no WJQ
     equivalent)."""
+    item_cap = get_rules().segmentation.bullet_max_chars  # HR-340; null = whole
     internal: list[str] = []
     external: list[str] = []
     for raw in text.splitlines():
@@ -546,7 +562,7 @@ def _structure_relationships(text: str, wjq: Wjq) -> SFURelationships | None:
             continue
         target = external if any(cue in low for cue in _EXTERNAL_CUES) else internal
         if len(target) < 30:
-            target.append(contact[:_MAX_BULLET])
+            target.append(cut_to(contact, item_cap))
     if not internal and not external:
         return None
     return SFURelationships(supervisory=None, internal=internal, external=external)

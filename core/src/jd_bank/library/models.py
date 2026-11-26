@@ -19,7 +19,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.jd_bank.query_plan import QueryUnderstanding
-from src.jd_core.models.parsed_jd import JobClassification
+from src.jd_core.models.parsed_jd import JobClassification, SetAsideSection
 
 
 class _Frozen(BaseModel):
@@ -65,6 +65,10 @@ class SourceJDView(_Frozen):
     #: back-link that makes "this file → that role" navigable. ``None`` for a singleton
     #: or an as-yet-unclustered document.
     role: RoleRef | None = None
+    #: What the parser read but kept OUT of the job description (parser v10): the old
+    #: form's working conditions (owner ruling 2026-10-27, HR-305), its signature block
+    #: (HR-306) and its printed questions (HR-307). Shown so a drop is never silent.
+    set_aside: tuple[SetAsideSection, ...] = ()
     #: Whether this page reads its file name for positions at all (HR-331
     #: `source_page`). Off: one "Position #" row, the document's own value.
     reads_filename_positions: bool = False

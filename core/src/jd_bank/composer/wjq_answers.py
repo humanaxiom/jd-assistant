@@ -40,8 +40,9 @@ from typing import Any, ClassVar, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from src.jd_bank.composer.answers import AnswerContract
+from src.jd_bank.composer.answers import QUAL_INPUT_CEILING, AnswerContract
 from src.jd_core.models.parsed_jd import (
+    SFUDuty,
     SFUJobDescription,
     SFUQualification,
     WJQCompletedBy,
@@ -98,11 +99,16 @@ WJQ_LEVEL_TARGETS: Mapping[WjqSection, str] = {
     "continuing_education": "continuing_education_levels",
 }
 
-#: A qualification line's ceiling, read off the model rather than restated.
-_QUAL_MAX: int = next(
-    int(meta.max_length)
-    for meta in SFUQualification.model_fields["text"].metadata
-    if getattr(meta, "max_length", None) is not None
+#: A qualification line's ceiling, read off the model rather than restated — and
+#: ``None`` since the model stopped declaring one (HR-308 ruled null, 2026-10-29): the
+#: form then bounds its input at ``QUAL_INPUT_CEILING`` and no phrase can fail to fit.
+_QUAL_MAX: int | None = next(
+    (
+        int(meta.max_length)
+        for meta in SFUQualification.model_fields["text"].metadata
+        if getattr(meta, "max_length", None) is not None
+    ),
+    None,
 )
 
 #: A point-factor section's text ceiling: the model's own ``additional_context``
@@ -122,6 +128,15 @@ _SECTION_MAX: int = next(
 #: that any over-limit answer reaches that check's message, bounded so a crafted body
 #: cannot post an unbounded list.
 _LIST_GUARD = 120
+
+#: A function's statement ceiling — ``SFUDuty.statement``'s own, read off the model.
+#: It was a constant 400 (the pre-v9 parser's cut); a v9 duty can run to HR-261's
+#: 1,200, and on the v9 Bank 378 of 635 CUPE roles then refused to clone.
+_STATEMENT_MAX: int = next(
+    int(meta.max_length)
+    for meta in SFUDuty.model_fields["statement"].metadata
+    if getattr(meta, "max_length", None) is not None
+)
 
 #: A level of a checkbox section, by the letter HR's form uses for it (A = the first
 #: option printed). The rulebook decides how many each section has; five is the most.
@@ -168,7 +183,7 @@ class FunctionAnswer(_Row):
     )
 
     action_verb: str = Field(default="", max_length=60)
-    statement: str = Field(min_length=1, max_length=400)
+    statement: str = Field(min_length=1, max_length=_STATEMENT_MAX)
     #: A ``cupe_form.function_frequencies`` meaning (``daily`` …), or ``None``.
     frequency: str | None = Field(default=None, max_length=20)
     allocation: int | None = Field(default=None, ge=0, le=100)
@@ -185,7 +200,7 @@ class MinorFunctionAnswer(_Row):
     )
 
     action_verb: str = Field(default="", max_length=60)
-    statement: str = Field(min_length=1, max_length=400)
+    statement: str = Field(min_length=1, max_length=_STATEMENT_MAX)
     allocation: int | None = Field(default=None, ge=0, le=100)
 
 
@@ -201,7 +216,10 @@ class ContactAnswer(_Row):
         Column("frequency", "Frequency", "table_frequencies", "0 0 8rem"),
     )
 
-    contact: str = Field(min_length=1, max_length=400)
+    #: The form's input ceiling, not the parser's cap: a CUPE role cloned from the Bank
+    #: seeds these rows from its relationships, which the parser no longer cuts (HR-340,
+    #: parser v11). At 400 — the old cut — a longer contact refused to load.
+    contact: str = Field(min_length=1, max_length=QUAL_INPUT_CEILING)
     scope: Literal["internal", "external"] = "internal"
     duration: str | None = Field(default=None, max_length=40)
     frequency: str | None = Field(default=None, max_length=40)
@@ -257,9 +275,10 @@ class SkillAnswer(_Row):
         Column("helper", "Starts with", "occupational_skills_helpers", "0 0 10rem"),
     )
 
-    #: The qualification line's own ceiling (``SFUQualification.text``); the assembler
-    #: refuses — with a message — a phrase + text that would not fit in it.
-    text: str = Field(min_length=1, max_length=_QUAL_MAX)
+    #: The qualification line's own ceiling (``SFUQualification.text``) when it has one;
+    #: the form's input ceiling otherwise. The assembler refuses — with a message — a
+    #: phrase + text that would not fit in it.
+    text: str = Field(min_length=1, max_length=_QUAL_MAX or QUAL_INPUT_CEILING)
     helper: str | None = Field(default=None, max_length=20)
 
 
@@ -273,7 +292,7 @@ def _modified_text(text: str, modifier: str | None) -> str:
     if (
         mod
         and mod.lower() not in text.lower()
-        and len(mod) + 1 + len(text) <= _QUAL_MAX
+        and (_QUAL_MAX is None or len(mod) + 1 + len(text) <= _QUAL_MAX)
     ):
         return f"{mod} {text}"
     return text
@@ -321,7 +340,7 @@ def fold_legacy_quals(
             phrase is not None
             and not (modifier or "").strip()
             and not full_phrase.search(text)
-            and len(phrase) + 1 + len(text) <= _QUAL_MAX
+            and (_QUAL_MAX is None or len(phrase) + 1 + len(text) <= _QUAL_MAX)
         ):
             out.append(SkillAnswer(helper=phrase, text=text))
         else:
@@ -401,7 +420,8 @@ class WJQAnswers(AnswerContract):
     equivalency: Literal["acceptable", "not_acceptable"] | None = None
     equivalency_rationale: str | None = Field(default=None, max_length=1000)
     #: Request-size guards only. The draft holds at most forty qualification lines and
-    #: twenty requirements; the assembler checks those with a message (review L2), so a
+    #: forty requirements (twenty before parser v9); the assembler checks those with a
+    #: message (review L2), so a
     #: pre-J2 answer set that FOLDS into more lines than a draft holds still loads and
     #: is told, never crashed. (MEASURED 2026-10-19: 34 of the 627 live CUPE roles carry
     #: more than 20 knowledge / skill / ability lines; one carries 38.)

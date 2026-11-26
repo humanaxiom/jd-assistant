@@ -5674,13 +5674,31 @@ decisions:
     config:
       file: rewrite.yaml
       path: rewrite.max_tokens
-    current_default: 2048
+    current_default: 8192
     provenance: our_invention
     tier: technical
     why_it_matters: >-
+      Raised again to 8192 on 2026-10-21. MEASURED on the second rewrite pilot (20
+      size-stratified clusters on the rebuilt v9 Bank, prompt v4, at 4096): 4 of 20 first
+      calls stopped on `length` with an EMPTY reply, every one in the REASONING phase
+      (22.7k–25.1k reasoning characters, no content yet); three were saved by the repair
+      retry and one (d2c41bc7) failed both attempts and kept its deterministic draft.
+      Re-run at 8192, all four stopped on the first call; peak reasoning ~5,900 tokens
+      (72% of the budget), peak content 3,742 (46%). Still `open` — four re-runs.
+      Earlier history follows.
       The whole SFUJobDescription JSON must fit in one completion; too small truncates the
-      JSON (which then fails to parse and burns a retry). 2048 mirrors the earlier build's harmonize call.
-      PROVISIONAL — size it against real cluster outputs at the 4.5 pilot.
+      JSON (which then fails to parse and burns a retry). Was 2048, the earlier build's
+      harmonize value. MEASURED 2026-10-20 on the rewrite pilot (22 size-stratified
+      clusters on the v9 Bank, gpt-oss:120b on aria-gb10-2): Ollama caps the reasoning
+      stream and the content SEPARATELY at this number, and at 2048 four of 22 first
+      calls stopped on `length` with an EMPTY reply — every one a WJQ or larger-than-p90
+      draft — saved only by the single repair retry (HR-179); one success used 1,912 of
+      2,048 content tokens. At 4096 all six re-run clusters (the four that truncated and
+      the two largest) finished on the first call; the largest reply used 2,025 content
+      tokens (~49%). Raised to 4096 on that evidence, still `open`: six clusters is a
+      pilot, not a calibration, and the v4 prompt (HR-180) asks for longer duties (merged
+      areas fold into how/why). Watch `rewrite_failed` and the `length` rate in the
+      producer pass.
     impact_if_changed: >-
       Does NOT move `rules_version`. Operational headroom, not a policy lever on the output
       content. Pinned by mutation in the rewrite consumer test (the value the consumer reads
@@ -5715,7 +5733,7 @@ decisions:
     config:
       file: rewrite.yaml
       path: rewrite.prompt_version
-    current_default: jd_harmonize_v2
+    current_default: jd_harmonize_v5
     provenance: our_invention
     tier: technical
     why_it_matters: >-
@@ -5738,6 +5756,25 @@ decisions:
       bar while missing seven duties its sources stated. v2 takes both numbers as
       variables resolved from `thresholds_for(template_of(draft))` — one rulebook fact,
       one home — and adds the instruction not to write a section the input does not have.
+      v3 (parser v9, owner ruling 2026-10-20) exists because duties now CARRY how/why
+      clauses: the input shows each duty with its clauses indented under it
+      (`jd_text.outline_jd`) and rule 3 tells the model to keep that shape, and the
+      rewrite restores a matched duty's clauses if the model returns it without them.
+      v4 (rewrite fidelity, 2026-10-20) exists because the pilot's model met the JDFN
+      five-duty cap by DROPPING whole duty areas: rule 3 now says to MERGE related
+      duties and keep every area, rule 5 to keep every distinct qualification, rule 8 to
+      reword Decision Making / Problem Solving / Relationships only from that same
+      section, rule 9 not to introduce names or expansions. Its input is the merge draft
+      minus the questionnaire's instructions and SFU boilerplate (HR-273…HR-276). The
+      guard (HR-269…HR-272) is what holds each of these; the prompt only asks.
+      v5 (FINDINGS §13e fix 3, owner ruling 2026-11-20) exists because v4 ORDERED the
+      "or an equivalent combination…" sentence (rule 5) while its schema block said only
+      `"modifier": string|null`: the model filed the sentence as a modifier, failed
+      `SFUQualification.modifier`'s 20-character ceiling and the whole rewrite was
+      discarded (FINDINGS §13c class A, reproduced 2/2). v5 says the sentence is a
+      qualification's `text`, a modifier is one level word, and `kind` is one of the six
+      literals (class B, "certification"). Wording only — no new template variable, so
+      reverting to v4 still loads. Drafts already written keep their v4 stamp.
     impact_if_changed: >-
       Does NOT move `rules_version`. Pinned by mutation in the prompt-loader test (the
       loaded prompt's `.version` is stamped onto `RewrittenDraft.prompt_version`; a missing
@@ -5903,14 +5940,18 @@ decisions:
     config:
       file: quality.yaml
       path: quality.max_tokens
-    current_default: 1024
+    current_default: 2048
     provenance: our_invention
     tier: technical
     why_it_matters: >-
       The nuanced findings list must fit in one completion; too small truncates the JSON
-      (which then fails to parse and burns a retry). 1024 mirrors the earlier build's value for THIS pass
-      (the findings list is far smaller than a full SFUJobDescription rewrite, which gets
-      2048). PROVISIONAL — size it against real audit outputs at the 4.5 pilot.
+      (which then fails to parse and burns a retry). Was 1024, the earlier build's value
+      for this pass. MEASURED 2026-10-20 on the rewrite pilot (22 v9 clusters): 2 of 22
+      audit calls stopped on `length` at 1024 and were saved only by the repair retry
+      (HR-188), whose replies then used 1,003 and 965 of the 1,024 — no headroom. Ollama
+      caps reasoning and content separately at this number (the rewrite's HR-178
+      finding), so a larger budget costs nothing on a call that finishes early. Raised to
+      2048 on that evidence; still `open` — 22 calls is a pilot, not a calibration.
     impact_if_changed: >-
       Does NOT move `rules_version`. Operational headroom, not a policy lever on the findings
       content. Pinned by mutation in the audit consumer test (the value the consumer reads
@@ -6425,9 +6466,11 @@ decisions:
       charge 3,436 existing job descriptions with.
     impact_if_changed: >-
       Moves `rules_version` (thresholds.yaml is hashed). Lowering it toward the JDFN's 5
-      re-applies the finding to ~82% of the CUPE cohort; raising it above 12 has no
-      effect, because the parsed model cannot represent a thirteenth duty. Advisory
-      either way — `SFU-STRUCT-DUTIES-TOO-MANY` is in no blocking set
+      re-applies the finding to ~82% of the CUPE cohort. ⚠ Until parser v9, raising it
+      above 12 had no effect because the parser kept at most twelve functions; since
+      v9 (HR-263) a CUPE source keeps all its functions (measured p50 24, max 92), so
+      this value now DOES bite on re-parsed sources — though not on drafts, which the
+      merge holds to 12 (HR-172). Advisory either way — `SFU-STRUCT-DUTIES-TOO-MANY` is in no blocking set
       (`gates.yaml` omission (d)), so this costs score, never approval.
     status: open
 
@@ -6923,7 +6966,10 @@ decisions:
       it, even when much shorter than the harmonized version — the same role compressed
       twenty internal contacts to three on a later attempt. Whether that is acceptable
       editing or unacceptable loss is a real question and a separate one, and it is put
-      to HR rather than answered quietly by a number chosen here.
+      to HR rather than answered quietly by a number chosen here. (Update 2026-10-20:
+      that separate question now has a shipped DEFAULT — HR-269 and HR-270 treat a
+      dropped point as loss and put it back — registered `open` so HR can overrule it.
+      This entry still governs only the whole-section case.)
     impact_if_changed: >-
       Does NOT move `rules_version` (rewrite.yaml is unhashed) — it decides what a draft
       may CONTAIN, never how one is scored. `false` restores the pre-2026-08-23
@@ -7843,17 +7889,17 @@ decisions:
       replaces the cut with a VISIBLE limit: over it, the author is told the count, the
       limit and this entry, and nothing is removed. The numbers are ours — HR's current
       template (S13, rev. 2026-05-12) has no numbered slots at all (two blank paragraphs
-      under section 3, eleven under section 4); twelve majors is the model's own ceiling
-      and the WJQ's historical slot count (HR-202). ⚠ PARSER LIMIT, not settled here:
-      the Bank's WJQ parser reads at most TWELVE functions back from any form, majors
-      first (`segmenter._MAX_DUTIES`), so an export with more re-ingests short. Raising
-      that is a parser change (PARSER_VERSION + re-parse of the archive), deliberately
-      out of J2's scope.
+      under section 3, eleven under section 4); twelve majors is the WJQ's historical
+      slot count (HR-202). The parser limit J2 recorded here — the WJQ parser read at
+      most TWELVE functions back, so an export with more re-ingested short — was lifted
+      by parser v9 (`segmentation.wjq_duty_max_count`, HR-263, 120): HR's 14-function
+      sample now round-trips whole.
     impact_if_changed: >-
       Does NOT move `rules_version` or `PARSER_VERSION` (cupe_form.yaml is unhashed). A
       lower limit refuses, with this id, a draft that already holds more — it never
-      trims it. The major limit may not exceed the model's twelve and the minor limit
-      not its twenty (refused at load, `CupeForm._builder_structure_is_sound`). Pinned
+      trims it. The major limit may not exceed the model's duty ceiling (150 since
+      parser v9; it was 12) and the minor limit not its twenty (refused at load,
+      `CupeForm._builder_structure_is_sound`). Pinned
       by `test_over_the_limit_the_author_is_told_and_nothing_is_cut` and the UI twin
       `test_over_the_limit_the_author_is_told_and_every_row_is_kept`.
     status: open
@@ -8742,6 +8788,1794 @@ decisions:
     impact_if_changed: >-
       Does NOT move `rules_version` or `PARSER_VERSION`. A narrower pattern (for
       example padded numbers only) misses the unpadded way most people write them.
+    status: open
+
+  # ── Parser v9: the duty caps (Track P-next) ──────────────────────────────────
+  - id: HR-261
+    question: >-
+      How many characters of ONE duty statement does the parser keep when it reads an
+      archive job description? Anything longer is cut off.
+    config:
+      file: segmentation.yaml
+      path: segmentation.duty_statement_max_chars
+    current_default: 1200
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      It was 400, a code constant nobody registered, inherited with the data model.
+      MEASURED at parser v8 over all 14,522 parsed documents: 25,095 of 96,784 duty
+      statements (26%) sat at EXACTLY 400 characters — APSA 47%, APEX 50%, CUPE 15%,
+      ungrouped 29% — and every one of the 4,068 one-duty non-CUPE parses was at the cap.
+      Most of that was a second defect (Word list items fused into one run-on, fixed in
+      the same parser bump); with lists read as items, MEASURED on a copy of the Bank
+      re-parsed at v9 with the cap lifted to 4,000, real duty statements run p50 130 ·
+      p90 245 · p99 618 characters on the APSA/APEX form and p50 179 · p90 400 · p99 754
+      on the CUPE form. 1,200 is about 1.6x the CUPE p99. ABOVE it the population is a
+      different thing — roughly one statement per document, a whole duty section with no
+      bullets that the parser cannot split (the older questionnaire's instruction text
+      plus every duty, in one paragraph). At 1,200, 4,504 statements (as shipped, grouped; 4,498 in 3,381 documents read flat)
+      are still cut: that is the residual run-on defect, recorded in
+      docs/plans/PARSER-V9-LISTS-AND-CAPS.md, and no cap value fixes it — a bigger cap
+      only stores a longer run-on. Filed `hr_informed`: this is fidelity, not policy, but
+      HR should know a quarter of stored duty text was being cut.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (segmentation.yaml is unhashed) but moves
+      `Segmentation.stamp`, and changes what a parsed JD CONTAINS — so it requires a
+      `PARSER_VERSION` bump and a full archive re-parse shipped together (#101
+      precedent), then `make embed` (the document/duty vectors change) and a producer
+      pass for the drafts whose sources changed. Must stay at or below
+      `SFUDuty.statement`'s `max_length` (4,000) — the loader refuses a larger value,
+      because over the ceiling a long duty is a parse FAILURE, not a trim. Shared by the
+      APSA/APEX/POLY and CUPE readers. Pinned by `test_parser_v9_lists_and_caps.py`.
+    status: open
+
+  - id: HR-262
+    question: >-
+      How many duties does the parser keep from one APSA/APEX/POLY (or unrecognised)
+      archive job description? Duties past this number are dropped.
+    config:
+      file: segmentation.yaml
+      path: segmentation.duty_max_count
+    current_default: 120
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      It was 12, a code constant shared with the CUPE reader. Once Word list items are
+      read as items (parser v9), MEASURED on a v9 re-parse of a copy of the Bank with the
+      cap lifted to 150: read FLAT (every sub-bullet a duty), APSA/APEX/POLY documents
+      carry p50 20 · p90 34 · p99 46 duties, max 82 (ungrouped documents max 93), and at
+      12 9,813 documents would have been cut. As SHIPPED, the "… by:" headline groups its
+      sub-bullets into `how_why` (HR-264, owner ruling 2026-10-20), so the counts are
+      lower — p50 / p99 APSA 4 / 25, APEX 3 / 11, POLY 5 / 82, ungrouped 5 / 49 — but a
+      list with no headline above it still yields one duty per item, and 1,471
+      non-CUPE documents still carry 13 or more (docs/plans/PARSER-V9-LISTS-AND-CAPS.md
+      §4.1). 120 is ~30% over the flat corpus maximum (93), the same headroom rule
+      HR-200 uses, and cuts NO document today. This is what a PARSED SOURCE may carry,
+      not what a draft may: a canonical draft is still held to `harmonization.max_duties`
+      (HR-172), and the validator still marks a JDFN JD down above
+      `thresholds.duties_max` (HR-022) — neither is changed here.
+    impact_if_changed: >-
+      Same as HR-261: unhashed, moves `Segmentation.stamp`, needs a `PARSER_VERSION`
+      bump + full re-parse + `make embed`. Must stay at or below
+      `SFUJobDescription.duties`' `max_length` (150; loader-enforced). Lowering it below
+      the corpus maximum silently drops the TAIL of long duty lists — the defect this
+      entry exists to stop.
+    status: open
+
+  - id: HR-263
+    question: >-
+      How many functions does the parser keep from one CUPE questionnaire (major
+      functions first, then minor)? Functions past this number are dropped.
+    config:
+      file: segmentation.yaml
+      path: segmentation.wjq_duty_max_count
+    current_default: 120
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      It was 12, majors first — so every minor function of a full questionnaire was
+      lost, and the "77.4% of CUPE JDs carry exactly twelve duties" that HR-202 cites
+      was this cap, not the documents. HR's own Dec-2024 CUPE sample carries 14
+      functions, and the Builder now writes up to 24 (12 major + 12 minor, HR-246).
+      MEASURED on a v9 re-parse of a copy of the Bank with the cap lifted to 150: CUPE
+      documents carry p50 24 · p90 42 · p99 63 functions, max 92 (continuation pages of
+      the form; read and confirmed on the 103-function maximum of an earlier run). 120 is
+      ~30% over the measured maximum and cuts no document today.
+    impact_if_changed: >-
+      Same as HR-261/262. Read by the WJQ parser only — the CUPE Builder keeps majors and
+      minors apart under its own visible limits (`cupe_form.function_limits`, HR-246, J2),
+      which must stay at or under this so an export re-reads whole. ⚠ Interacts with HR-202: `thresholds.wjq.duties_max` is 12 (advisory,
+      not blocking), so a re-parsed CUPE source with more than 12 functions now draws
+      `SFU-STRUCT-DUTIES-TOO-MANY` where at v8 the cap made that impossible (HR-202's
+      impact text is updated to say so).
+    status: open
+
+  - id: HR-264
+    question: >-
+      Which line in a job description's duties is a DUTY HEADLINE — the template's
+      "ACTION VERB … WHAT by:" — so that the bullet points under it are read as that
+      duty's "how and why", not as duties of their own?
+    config:
+      file: segmentation.yaml
+      path: segmentation.duty_headline_pattern
+    current_default: '(?i)\bby\s*:\s*$'
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Owner ruling 2026-10-20: a "… by:" headline IS the duty and its sub-bullets are
+      its how/why. Until parser v9 every duty line ending in ":" was DROPPED — MEASURED
+      over the archive, 18,583 such lines in 5,365 APSA/APEX/POLY documents, 17,209
+      (92.6%) of them ending "by:" — and once Word lists were read (v9) each sub-bullet
+      became a duty of its own, so a document following the template drew
+      `SFU-STRUCT-DUTIES-TOO-MANY`. Only "by:" is matched, deliberately: the other 7%
+      are mostly intro lines ("Duties include:", and 200 copies of the old
+      questionnaire's instruction "Starting with those you consider…"), and grouping
+      every duty under one of those would collapse a whole section into one duty (such
+      an intro is now KEPT as a line of its own instead of dropped, so no words are lost). A
+      list with no headline above it stays as separate duties. Measured effect on a
+      copy of the Bank: docs/plans/PARSER-V9-LISTS-AND-CAPS.md §4.
+    impact_if_changed: >-
+      Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version` —
+      but changes what a parsed JD contains: bump `PARSER_VERSION` and re-parse. A
+      broader pattern (any ":") groups whole sections under intro lines; a narrower one
+      returns the headline-dropping behaviour. CUPE questionnaires are not affected
+      (their reader does not group). Pinned by `test_parser_v9_lists_and_caps.py`.
+    status: open
+
+  - id: HR-265
+    question: >-
+      How many "how and why" points does the parser keep under one duty?
+    config:
+      file: segmentation.yaml
+      path: segmentation.duty_how_why_max_count
+    current_default: 60
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A fidelity bound, not a policy. MEASURED on a v9 re-parse of a copy of the Bank:
+      18,245 duties carry how/why (in 5,127 documents), p50 5 · p90 11 · p99 19 · max 36
+      points per duty (the cap-lifted run of an earlier build peaked at 45). 60 is over both and
+      cuts no duty today. The model's own ceiling is 100 (loader-enforced).
+    impact_if_changed: >-
+      As HR-264. Lowering it below the corpus maximum silently drops the tail of a
+      duty's how/why.
+    status: open
+
+  - id: HR-266
+    question: >-
+      How many characters of ONE "how and why" point does the parser keep?
+    config:
+      file: segmentation.yaml
+      path: segmentation.duty_how_why_max_chars
+    current_default: 1200
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Held at the duty statement's value (HR-261) — a how/why point is the same kind of
+      text. MEASURED with the cap lifted to 4,000: ~106k points, p50 136 · p90 246 ·
+      p99 410 characters (final build at 1,200: 111,858 points, 120 cut) — the same whole-paragraph run-on
+      shape HR-261 records (a headline followed by an unbulleted paragraph), which no cap
+      repairs.
+    impact_if_changed: >-
+      As HR-264. Must stay at or below the statement ceiling (4,000; loader-enforced).
+    status: open
+
+  - id: HR-267
+    question: >-
+      When the rewrite rewords a duty's "how and why" points, how much of each point must
+      come from the source duty for it to be kept?
+    config:
+      file: rewrite.yaml
+      path: rewrite.how_why_grounding_threshold
+    current_default: 0.5
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Parser v9 fills how/why with the template's sub-bullets, and prompt v3 tells the
+      model to reword them without inventing any. Until this check, the guard matched
+      only the WHOLE duty (HR-184's Jaccard ≥ 0.2), so a reworded duty could carry a
+      clause no source states (review M2). Now each clause needs at least this fraction
+      of its content tokens in ONE source duty's headline plus ONE of that duty's
+      clauses (not the union of all: on a real 14-clause archive duty, invented clauses
+      stitched from words scattered over many clauses passed the union). Below it the
+      clause is DROPPED and recorded (`scrubbed_how_why`). Since 2026-10-20 (rewrite
+      fidelity) that unit may come from ANY source duty, not just the one the rewritten
+      duty matched: the model merges duties to reach the form's cap, and grounding a
+      merged duty's clauses against one source scrubbed 8 faithful clauses on the
+      pilot's 1d68c603 and all 15 on 22994d3a (a flagged duty's clauses are now judged
+      the same way, not all dropped). The same rule is asked from the other end, one
+      SENTENCE at a time: every source duty sentence must be covered by ONE rewritten
+      duty (statement + kept clauses), or it is folded back as a clause (HR-271) — this
+      replaces v9 review round 2's "the source's clauses replace the model's", which
+      asked only of the matched duty and misfired once duties were merged. ⚠ No
+      stemming: "grants" does not ground "grant", so a loose paraphrase also falls back
+      to the source wording — conservative (loses the rewording, never content), and
+      the pilot's `scrubbed_how_why` rate is the number to read. Held at the qualification bar's value (HR-183, the same
+      token-overlap rule) — not calibrated; the 4.5 pilot should.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (rewrite.yaml is unhashed); moves the rewrite's
+      behaviour on the next producer pass. Higher keeps fewer reworded clauses (more
+      source restores); lower lets more paraphrase — and more invention — through.
+      Pinned by `test_v9_how_why_consumers.py`.
+    status: open
+
+  - id: HR-268
+    question: >-
+      How many Impact of Decision Making / Problem Solving points does the parser keep
+      from one archive job description section?
+    config:
+      file: segmentation.yaml
+      path: segmentation.bullet_max_count
+    current_default: 60
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      It was the code constant 20 (`_MAX_BULLETS`), unregistered. Once parser v9 read
+      Word list items apart (and kept their "… related to:" lead-ins, review H1), 11
+      archive sections had more than 20 points and lost the tail. MEASURED over all
+      14,522 parses with the cap at the model ceiling: p50 2 · p99 15 · max 25 (Decision
+      Making), p99 8 · max 14 (Problem Solving). It is held AT the model ceiling (60), not
+      below it: a draft's list is a union the merge cuts at that ceiling, and its export
+      must re-read whole — at 40, the v9 Bank smoke found 50-item drafts re-reading as 40.
+    impact_if_changed: >-
+      Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`;
+      changes what a parsed JD contains, so it needs a `PARSER_VERSION` bump and a
+      re-parse. Must stay at or below `SFUJobDescription.decision_making` /
+      `problem_solving`'s ceiling (60; loader-enforced).
+    status: open
+
+  # ── Rewrite fidelity (owner ruling 2026-10-20, "fix the rewrite first"): HR-269…276. ──
+  # Measured on the 22-cluster rewrite pilot over the v9 Bank, its recorded replies
+  # replayed offline through the guard (docs/plans/PARSER-V9-LISTS-AND-CAPS.md §15).
+  - id: HR-269
+    question: >-
+      When the LLM rewords Impact of Decision Making, Problem Solving or Relationships,
+      how much of each point must come from the SAME section of the source draft for the
+      point to be kept — and how much of a source point must survive for it to count as
+      kept rather than lost?
+    config:
+      file: rewrite.yaml
+      path: rewrite.section_item_grounding_threshold
+    current_default: 0.5
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      🔴 THIS CHANGES WHAT HR SEES, AND IT ANSWERS A QUESTION HR-214 EXPLICITLY LEFT TO
+      HR: whether a rewrite that returns a section SHORTER than the source draft's (twenty
+      contacts compressed to three) is rewording or loss. HR-214 declined to settle it
+      "by a number chosen here"; this entry and HR-270 now settle it by default — as
+      loss, per point, at the number below — on the pilot's evidence, and both stay
+      `open` for HR to overrule. Drafts produced after 2026-10-20 read part-reworded,
+      part-original in these sections. Until 2026-10-20 a section the merge draft HAD was
+      "left entirely to the rewrite":
+      only a section created from nothing (CUPE Phase D) or emptied (HR-214) was ever
+      checked. MEASURED on the rewrite pilot, that let through Decision Making points no
+      source states ("Approves acquisition, deaccession and loan decisions",
+      "Allocates budgetary resources and approves funding proposals" on 1d68c603), a
+      Problem Solving point ("Navigates funding constraints while maintaining program
+      quality"), and a WJQ draft whose Biomedical Physiology and Kinesiology contacts —
+      with their duration and frequency cells — were REPLACED by "Engineering Science"
+      contacts the Relationships section never names (0a75edf1). Now each rewritten
+      point needs at least this fraction of its content tokens in ONE point of the merge
+      draft's same section (not the whole document — a contact named in the duties is
+      not a contact the Relationships section lists); below it the point is DROPPED and
+      recorded (`scrubbed_items`). Read the other way, a source sentence with less than
+      this fraction of its tokens in the kept points is LOST (`uncovered_items`; put
+      back per HR-270). One number, both directions, the HR-183 / HR-267 rule family.
+      ⚠ No stemming: "loans" does not ground "loan", so a loose paraphrase is dropped
+      and the source's own wording comes back — conservative (it loses the rewording,
+      never the content).
+    impact_if_changed: >-
+      Does NOT move `rules_version` (rewrite.yaml is unhashed); changes the rewrite's
+      output on the next producer pass. Higher drops more paraphrase (more of the
+      source's own wording comes back); lower lets more paraphrase — and more invention —
+      through. Pinned by `test_rewrite_fidelity.py`.
+    status: open
+
+  - id: HR-270
+    question: >-
+      When the LLM rewrite drops a point the source draft stated (a decision, a problem,
+      a contact, a qualification), should the point be put back into the draft, or only
+      listed for the reviewer?
+    config:
+      file: rewrite.yaml
+      path: rewrite.restore_uncovered_items_in
+    current_default: [decision_making, problem_solving, relationships, qualifications]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      "Reword this draft" licenses no loss. MEASURED on the rewrite pilot: 1d68c603's
+      Decision Making went 13 points -> 5; a WJQ draft's qualifications went 40 -> 15,
+      and while most of that was honest de-duplication, "circuit fabrication/assembly",
+      "web publishing software" and "instruct others on safe work environments" were
+      simply gone and NOTHING recorded it. Every source sentence no kept point covers
+      (HR-269 / HR-183) is now recorded in `uncovered_items` and shown on the review
+      page; a section listed here gets those sentences put back, verbatim, after the
+      model's own points (`restored_items`) — the same "loses nothing" principle as the
+      how/why restore. A section not listed keeps the model's points as returned and the
+      loss is visible but not repaired. ⚠ A restored point is the source's wording, so
+      a section can read as part-rewritten, part-original; that is the honest form of
+      "the model dropped this".
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Removing a section stops restoring it (losses are
+      still recorded and shown). Pinned by `test_rewrite_fidelity.py`.
+    status: open
+
+  - id: HR-271
+    question: >-
+      When the LLM rewrite merges a job description's duties down to the form's limit
+      and some duty content is no longer in any rewritten duty, should that content be
+      folded back into the closest duty, or only listed for the reviewer?
+    config:
+      file: rewrite.yaml
+      path: rewrite.duty_coverage_policy
+    current_default: fold_back
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      The APSA/APEX/Poly form holds five duties (HR policy, `thresholds.duties_max` —
+      NOT changed here), so a twelve-duty merge must be merged to fit. MEASURED on the
+      rewrite pilot, the model met the limit by DROPPING whole duty areas instead: on
+      1d68c603 "Community Liaison & Committee Representation" and "Research & Museum
+      Career Skills Training" were recorded in `removed_duties` and gone from the draft.
+      Every SENTENCE of every source duty must now be covered (HR-267's fraction of its
+      tokens) by ONE rewritten duty. `fold_back`: an uncovered sentence is appended,
+      verbatim, as a how/why point of the rewritten duty that covers the rest of its
+      source duty best — content kept, limit kept (`folded_duty_content`). `record_only`:
+      the draft stays as the model returned it and each uncovered sentence is listed
+      for the reviewer as dropped from the merge (`dropped_duty_content`). Shipped
+      `fold_back` because a reviewer reading a five-duty draft cannot see what is not on
+      the page; either way nothing is silent. Prompt v4 (HR-180) also asks the model to
+      merge, not drop — the guard is what holds it.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. `record_only` keeps the model's duties exactly as
+      returned and shows the loss on the review page instead. Pinned by
+      `test_rewrite_fidelity.py`.
+    status: open
+
+  - id: HR-272
+    question: >-
+      Must every name or acronym the LLM rewrite writes — "ICOM", "Engineering Science" —
+      appear in the source draft itself, even when the rest of the line is grounded?
+    config:
+      file: rewrite.yaml
+      path: rewrite.named_terms_must_be_grounded
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A token-overlap bar (HR-183/267/269) counts words, so a new NAME rides on grounded
+      ones. MEASURED on the rewrite pilot: "Familiarity with international museum
+      standards and conventions (e.g., ICOM Code of Ethics, CITES)" kept at 5 of 9 tokens
+      where the source says only "International Council on Museums" (1d68c603), and a
+      contact "Engineering Science Faculty (lab course instructors)" kept at 4 of 6 on a
+      section about Biomedical Physiology and Kinesiology (0a75edf1). A NAMED term — a
+      word with two or more capitals, or a capitalized word that does not start a
+      sentence — must now itself be in the text the line is grounded in (the whole
+      source for a qualification, the source duties for a how/why point, the same
+      section for HR-269's points), or the line is dropped and recorded. Since review
+      round 1 a duty STATEMENT is read too ("…program under FIPPA" passed with no flag);
+      a statement is FLAGGED for the reviewer, never dropped (HR-184). ⚠ It also drops
+      a FAITHFUL expansion ("Truth and Reconciliation Commission" for "TRC"); the
+      source's own wording then comes back through HR-270, so nothing is lost but the
+      rewording. Since 2026-10-21 (round 3) the rule is also read the OTHER way, in
+      fold-back's coverage test (HR-284): a rewritten duty covers a source sentence only
+      if it also states that sentence's names — "opportunities in Cooperative Education"
+      had been "covered" by a duty that never says Cooperative (cb73e45c), and was in no
+      record. In a Title Case heading ("Compliance with International, National, &
+      Provincial Heritage Legislation") a capital names nothing, so there only acronyms
+      and numbers count.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. `false` restores the pre-2026-10-20 behaviour (token
+      overlap alone, both ways). Pinned by `test_rewrite_fidelity.py` and
+      `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-273
+    question: >-
+      How closely must a sentence match SFU's boilerplate (About SFU, the territorial
+      acknowledgement, the Employment Equity statement) for the rewrite to treat it as
+      boilerplate — words that may not support any claim about the role?
+    config:
+      file: rewrite.yaml
+      path: rewrite.grounding_boilerplate_threshold
+    current_default: 0.8
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The parser reads the EE statement and the territorial acknowledgement into the
+      QUALIFICATIONS of many archive documents, so they reach the merge draft as
+      qualification lines. MEASURED on the rewrite pilot (1d68c603): the model fused the
+      two into "Commitment to employment equity and respect for Indigenous territories
+      and cultures", and the boilerplate's own words grounded it. A source sentence at
+      least this fraction of whose content tokens belong to ONE boilerplate passage is
+      now left out of the rewrite's input, out of what can ground anything, and out of
+      what HR-270 restores (recorded in `stripped_source_text`). Fuzzy on purpose: the
+      archive spells the nations in their own orthography ("xʷməθkʷəy̓əm") where
+      `boilerplate.yaml` folds to ASCII, so a verbatim match misses it. Measured
+      exposure, distinct v9 drafts: the EE sentence as a qualification 482, the
+      acknowledgement 212, the Coast Salish wording (HR-274) 377.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Lower treats more ordinary sentences as boilerplate
+      (they then cannot ground and are not restored); higher lets variant wordings of the
+      boilerplate ground claims again. Pinned by `test_rewrite_fidelity.py`.
+    status: open
+
+  - id: HR-274
+    question: >-
+      Which other wordings of SFU's boilerplate, beyond the ones the validator checks,
+      should the rewrite treat as boilerplate?
+    config:
+      file: rewrite.yaml
+      path: rewrite.grounding_extra_boilerplate
+    current_default:
+      - >-
+        We acknowledge the traditional territories of the Coast Salish peoples, on whose
+        lands the SFU campuses reside.
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      An older territorial acknowledgement, carried as a qualification line by 377 of
+      the 2,446 v9 merge drafts (measured 2026-10-20). It is kept HERE and not in
+      `boilerplate.yaml` because that file is hashed — the validator reads it to decide
+      whether a JD carries the acknowledgement (HR-105) — and which wording counts there
+      is HR's call, not a rewrite setting. This list only decides what may not ground a
+      rewritten claim.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Adding a wording keeps its words from grounding a
+      claim and keeps it out of what is restored. Pinned by `test_rewrite_fidelity.py`.
+    status: open
+
+  - id: HR-275
+    question: >-
+      Which of the old job-description questionnaire's own instructions to the person
+      filling it in should the rewrite remove from what it reads?
+    config:
+      file: rewrite.yaml
+      path: rewrite.form_instructions
+    current_default:
+      - Starting with those you consider the most important, list and describe the main duties and responsibilities of the position.
+      - For each item start with an action verb and briefly describe WHAT is done, HOW it is done and WHY it is done.
+      - Indicate in the right hand column the percentage of time spent on each particular task.
+      - Give some typical examples of the most important decisions the incumbent is expected to make in carrying out the duties and responsibilities of the position.
+      - Decisions the incumbent is expected to make in carrying out duties.
+      - To what extent can the incumbent rely on established policies or advice from others in making these decisions?
+      - Give some examples of the types of decisions the incumbent would refer to his/her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to her/his supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to his or her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to the supervisor.
+      - Give some typical examples of the types of decisions the incumbent would refer to his/her supervisor.
+      - Give some typical examples of the most important decisions the incumbent would refer to his/her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to this/her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to his I her supervisor.
+      - Examples of the types of decisions the incumbent would refer to his/her supervisor.
+      - Examples of the types of decisions the incumbent would refer to her/his supervisor.
+      - Examples of decisions the incumbent would refer to his/her supervisor.
+      - Examples of the types of decisions referred to the supervisor.
+      - Examples of decisions the incumbent is expected to refer.
+      - Examples of decisions referred to supervisor.
+      - Types of decisions the incumbent would refer to his/her supervisor.
+      - Decisions the incumbent would refer to the Associate Director, Clinical Services.
+      - Decisions the incumbent would refer to the Director.
+      - Decisions the incumbent would refer to his/her supervisor.
+      - Briefly describe the primary function and purpose of the position in one or two sentences.
+      - Explain the nature of guidance received and how often work is checked or reviewed.
+      - Describe the extent to which the supervisor determines the day to day work load of the position and assists in the completion of duties.
+      - Describe the extent to which the supervisor determines the day-to-day workload of the position and assists in the completion of duties.
+      - Indicate the number of continuing employees for whom the position is responsible.
+      - Indicate the number of employees for whom the position is responsible.
+      - List internal and external contacts (i.e., specific positions within own department, other departments, students, faculty, on/off campus vendors, etc.), the duration of each contact (i.e. less than 1 hour at a time, 1-2 hours at a time, more than 2 hours at a time), and the frequency of each contact (i.e. occasional, frequent, or continuous).
+      - List internal and external contacts (i.e. specific positions within own department, other departments; students; faculty; on/off campus vendors; etc.), the duration of each contact (i.e. less than 1 hour at a time; 1-2 hours at a time; more than 2 hours at a time) and the frequency of each contact (occasional; frequent; continuous).
+      - Type of Contact Duration Frequency
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The parser reads the old questionnaire's instructions into duties, Decision
+      Making, the summary and Relationships, so they reach the merge draft. MEASURED over
+      the 2,446 v9 drafts (distinct drafts carrying each): 745 / 732 / 731 for the three
+      Decision Making questions, 537 (guidance received), 534 (the summary
+      instruction), 484 / 475 / 397 (the three duty instructions), 279 (the contact
+      instruction), 173 + 139 (supervision). On the pilot's 22994d3a they sat at the
+      head of every source duty, and the guard scrubbed all 15 of the model's clauses.
+      The rewrite now removes them from its input, matched on the word sequence so a
+      punctuation variant matches too: the model never sees them, they cannot ground
+      anything, and no restore puts them back (`stripped_source_text`). ⚠ The
+      deterministic draft — kept when the rewrite fails, or with `--no-llm` — still
+      carries them: removing them at the PARSER is the real fix, and it moves
+      `PARSER_VERSION` and changes the placeholder gate (HR-047 reads "action verb" /
+      "how and why", which the duty instruction contains). That is a separate decision.
+      2026-10-27 (the v9 full pass): fourteen more wordings of the refer question — its
+      other editions and typos — are listed, each also a referral marker (HR-282, which
+      gives the archive counts). And the older edition's MAKE prompt, "Decisions the
+      incumbent is expected to make in carrying out duties": parser v9 cut it at the
+      wrapped "duties" line (21 parses, stripped here as a fragment of the long make
+      prompt); parser v10 joins the wrap, so 27 v10 parses (21 from that fix, 6 already;
+      measured on feat/v9-parser-wrap @ e05fe61)
+      carry it whole as a Decision Making item. ⚠ The deterministic draft keeps it (6 v9
+      merge drafts carry the phrase): the merge strips no instruction. It belongs with
+      the parser's own instruction handling, in the same v10 change.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Adding an instruction removes it from the rewrite's
+      input. Pinned by `test_rewrite_fidelity.py`.
+    status: open
+
+  - id: HR-276
+    question: >-
+      When a converter has wrapped a long questionnaire instruction over several list
+      lines, how many of its words must one line hold before the rewrite treats that
+      run of lines as the instruction?
+    config:
+      file: rewrite.yaml
+      path: rewrite.form_instruction_fragment_min_tokens
+    current_default: 6
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The .doc converter hard-wraps the WJQ's contact instruction ("List internal and
+      external contacts (i.e., specific positions within own department…") and the
+      parser makes each line a Relationships item — "(i.e. specific positions within
+      own department, other departments;", …, "continuous).". A run of consecutive items
+      each a piece of an instruction's word sequence is dropped when ONE of them holds
+      at least this many of its words; a short tail goes with it. The run rule exists
+      because the instruction's own words are also real WJQ table cells — "1 hour",
+      "Occasional", "Frequent", "Faculty" — which must never be taken for it.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Lower risks dropping a run of real duration /
+      frequency cells; higher leaves wrapped instruction lines in the rewrite's input
+      (and restorable). Pinned by `test_rewrite_fidelity.py`.
+    status: open
+
+  # ── Rewrite fidelity, review round 1 (2026-10-20): HR-277…278. ──
+  - id: HR-277
+    question: >-
+      Which everyday words ("the", "and", "for", "such" …) should NOT count as evidence
+      when the rewrite checks that a reworded point comes from the source, or that a
+      source point is still in the draft?
+    config:
+      file: rewrite.yaml
+      path: rewrite.grounding_stopwords
+    current_default:
+      - all
+      - also
+      - and
+      - any
+      - are
+      - been
+      - being
+      - both
+      - can
+      - each
+      - either
+      - etc
+      - for
+      - from
+      - had
+      - has
+      - have
+      - her
+      - his
+      - how
+      - include
+      - includes
+      - including
+      - into
+      - its
+      - may
+      - onto
+      - other
+      - others
+      - our
+      - such
+      - than
+      - that
+      - the
+      - their
+      - them
+      - then
+      - these
+      - they
+      - this
+      - those
+      - upon
+      - via
+      - was
+      - well
+      - were
+      - what
+      - when
+      - where
+      - which
+      - who
+      - whom
+      - why
+      - will
+      - within
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      Every "at least half of its words" bar the rewrite uses (HR-183, HR-267, HR-269,
+      and the coverage checks of HR-270/271) counted words with the skill-comparison
+      filter (HR-150), a 20-word noise list that removes "management" and "training" but
+      keeps "and", "the", "for" and "such" as if they were content. So those words
+      counted as evidence in BOTH directions. MEASURED in review (replaying the 22 pilot
+      replies, and adversarial cases): an invented Decision Making point "Terminates the
+      employment of the staff and the volunteers for the orientation." was kept at 4 of
+      8 words against a source point about session order, and on b13e6321 the source
+      duty sentence "Marketing services on the Web and in print media, with posters and
+      brochures, …" was counted as still present at exactly 10 of 20 words by a duty
+      that never mentions marketing — it left the draft and no record listed it. These
+      words are now ignored by the rewrite's checks only; the skill-comparison list is
+      unchanged. Negations ("not", "no", "never", "without") are deliberately NOT listed,
+      because they are the words a reversed claim changes.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (rewrite.yaml is unhashed). Removing words makes the
+      checks more lenient again in both directions (more paraphrase and invention kept,
+      more loss counted as covered); adding content words would make faithful
+      rewording fail more often (its source wording then comes back through HR-270/271).
+      Pinned by `test_rewrite_fidelity_review.py`.
+    status: open
+
+  - id: HR-278
+    question: >-
+      Must every number the LLM rewrite writes — a staff count, an amount, a duration —
+      appear in the source text the line comes from?
+    config:
+      file: rewrite.yaml
+      path: rewrite.numbers_must_be_grounded
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A changed number is a changed claim about the job, and until review round 1 the
+      rewrite's checks could not see one: a number of one or two digits was shorter than
+      the minimum word length, so "Decides daily work assignments for 2 staff" reworded
+      to "…for 12 staff" was kept and nothing recorded it. Numbers are now counted as
+      words whatever their length, and with this on, a line whose number the source
+      does not state is treated like a line with an invented name (HR-272): a point,
+      clause or qualification is dropped and recorded (its source wording comes back
+      through HR-270/271), and a duty statement is flagged for the reviewer. ⚠ It also
+      drops a faithful rewording that writes "two" for "2" or the reverse; nothing is
+      lost but the rewording.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. `false` stops requiring numbers to be grounded
+      (they still count as words in the half-of-its-words bars). Pinned by
+      `test_rewrite_fidelity_review.py`.
+    status: open
+
+  - id: HR-279
+    question: >-
+      When the LLM rewrite loses part of a source duty and it is put back (HR-271), how
+      closely must the rewritten duty it is filed under match that source duty — and
+      what happens when no duty matches that closely?
+    config:
+      file: rewrite.yaml
+      path: rewrite.fold_back_relevance_min
+    current_default: 0.11
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Fold-back (HR-271) put lost duty content under the rewritten duty that best
+      matched it, with no minimum. Two defects, MEASURED by replaying the 28 recorded
+      pilot replies (22 clusters) offline. (1) It read each duty's text as it grew, so
+      the first duty to take a fold attracted the next: on 1d68c603 one duty took 30 of
+      37 folds, and 89 of 314 folds went under a duty that was not the best match. That
+      is fixed outright (placement reads only what the model wrote): 0 of 323. (2) With
+      no minimum, a source duty that matches NOTHING still lands somewhere — "approves
+      leaves of absence" and "Performs other duties as assigned" under an unrelated
+      duty at 0% shared words, "Research & Museum Career Skills Training" under "Acquire
+      and develop museum assets" at 8–10%, "Provides support to visiting scholars"
+      under "budgetary and financial administration" at 10%. Every measured fold at
+      10% or less was unrelated; the next source duties up (11.5%+) were related to
+      their target as DUTIES (financial-support content under a financial duty) — but
+      the cut is not clean sentence by sentence: in the 11–13% band a list of library
+      associations and a staff-supervision point both went under "the annual budget
+      process and year-end financial reporting" (review of 528f694, by eye over the
+      ten folds either side). 0.11 is the lowest floor that removes the clearly
+      unrelated folds, not a line above which every fold reads right. Below 0.11 the content now
+      comes back as its own duty, verbatim, when the form has room
+      (`thresholds.duties_max`, HR policy, unchanged), and is otherwise listed on the
+      review page as not in the draft. On the pilot: 15 sentences from 8 source duties
+      (the two 1d68c603 replies counted separately), all on full five- or twelve-duty
+      drafts, so all 15 are listed rather than folded — among them the whole "Research
+      & Museum Career Skills Training" area, which is the trade HR is asked to rule on.
+    impact_if_changed: >-
+      Only drafts produced after the change. Does NOT move `rules_version`. 0.0 folds
+      every lost sentence under the best match whatever it is (the 2026-10-20
+      behaviour, minus the snowball). Higher lists more content instead of folding it;
+      at 0.2 about a quarter of the pilot's folds would be listed. Pinned by
+      `test_rewrite_provenance.py`.
+    status: open
+
+  - id: HR-280
+    question: >-
+      Should one rewritten duty be limited in how many restored source points it can
+      take, so that restored content is spread across the duties?
+    config:
+      file: rewrite.yaml
+      path: rewrite.fold_back_max_per_duty
+    current_default: 0
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      After the HR-279 fix, one rewritten duty can still take many restored points: on
+      the pilot's 57db4a16 one duty took 27, because those source duties are about the
+      same work as that duty. MEASURED on the 28 recorded pilot replies, a limit of 10
+      per duty did not improve placement: it moved 22 points to a duty that matches them
+      less well and pushed 19 more points out of the draft into the "not in the draft"
+      list (36 listed instead of 17). So no limit is shipped (0). The knob is kept so HR
+      can ask for one if a long duty reads worse than a spread-out one.
+    impact_if_changed: >-
+      Only drafts produced after the change. Does NOT move `rules_version`. A value N
+      passes the (N+1)th point to the next-best duty above the HR-279 floor, or lists
+      it. Pinned by `test_rewrite_provenance.py`.
+    status: open
+
+  - id: HR-281
+    question: >-
+      When text in a job description matches SFU's standard wording (the territorial
+      acknowledgement, About SFU, the employment-equity statement) and is set aside
+      before the rewrite, in which sections should the reviewer be asked to check it is
+      not actually part of the role?
+    config:
+      file: rewrite.yaml
+      path: rewrite.boilerplate_review_sections
+    current_default: [duties, decision_making, problem_solving, relationships]
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The rewrite sets aside any sentence that reproduces SFU's standard wording
+      (HR-273/274), wherever it appears, and until now the review page called every
+      such sentence "form text". That is wrong for a duty: a duty of an Indigenous
+      programs role about organizing events that acknowledge the Coast Salish
+      territories matches the acknowledgement and is set aside, and "form text" told the
+      reviewer there was nothing to check. In the sections listed here the page now
+      says it "matched SFU's standard wording and was set aside — check it is not part
+      of the role"; elsewhere it says it is standard wording the form supplies. The
+      text set aside is the same either way. Qualifications are not listed: MEASURED
+      over the 22 pilot merge drafts, all 23 such sentences were in Qualifications, in 9
+      drafts, and every one was the real employment-equity statement or acknowledgement
+      that the parser reads in as a qualification line — a "check this" there would be
+      a false alarm on 41% of drafts. No pilot draft had one in a duty.
+    impact_if_changed: >-
+      Display only; only drafts produced after the change (an older record does not say
+      which section a piece came from and keeps a combined reason). Does NOT move
+      `rules_version`. Adding `qualifications` asks the reviewer to check the
+      employment-equity lines too. Pinned by `test_rewrite_provenance.py`.
+    status: open
+
+  # ── Rewrite fidelity round 3 (second pilot, 2026-10-21): HR-282…288. Measured by
+  # replaying the round-2 pilot's recorded replies offline through the guard
+  # (docs/plans/PARSER-V9-LISTS-AND-CAPS.md §16).
+  - id: HR-282
+    question: >-
+      Which lines of a job description's Decision Making say that the decisions after
+      them are REFERRED to the supervisor rather than made by the incumbent?
+    config:
+      file: harmonization.yaml
+      path: harmonization.referred_decision_markers
+    current_default:
+      - Give some examples of the types of decisions the incumbent would refer to his/her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to her/his supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to his or her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to the supervisor.
+      - Give some typical examples of the types of decisions the incumbent would refer to his/her supervisor.
+      - Give some typical examples of the most important decisions the incumbent would refer to his/her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to this/her supervisor.
+      - Give some examples of the types of decisions the incumbent would refer to his I her supervisor.
+      - Examples of the types of decisions the incumbent would refer to his/her supervisor.
+      - Examples of the types of decisions the incumbent would refer to her/his supervisor.
+      - Examples of decisions the incumbent would refer to his/her supervisor.
+      - Examples of the types of decisions referred to the supervisor.
+      - Examples of decisions the incumbent is expected to refer.
+      - Examples of decisions referred to supervisor.
+      - Types of decisions the incumbent would refer to his/her supervisor.
+      - Decisions the incumbent would refer to the Associate Director, Clinical Services.
+      - Decisions the incumbent would refer to the Director.
+      - Decisions the incumbent would refer to his/her supervisor.
+      - Refers decisions regarding
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The old APSA questionnaire asks two Decision Making questions — the decisions the
+      incumbent MAKES, then "…the types of decisions the incumbent would refer to his/her
+      supervisor" — and each answer follows its question. MEASURED over the whole archive
+      (14,522 in-process parses): 4,115 documents carry the refer question; its answer is
+      fused into the question's own item in 2,928, and 5,721 referred decisions follow it
+      as items of their own. The merge pools and SORTS this section (HR-210), so the
+      question no longer stands before its answers, and the rewrite strips the question
+      as form text (HR-275). On the second rewrite pilot (cb73e45c) "Decisions regarding
+      the expenditure of University funds" — a decision the source says is REFERRED —
+      came out as one the incumbent makes. The merge now labels each referred decision
+      (HR-283) per member, before pooling, while the order still says which they are: a
+      line matching one of these starts a referred run, which ends at the next
+      questionnaire prompt (HR-275) or template lead-in (HR-289). Matched on the word
+      sequence; "Refers decisions regarding" is the newer template's own lead-in.
+      Review of c873b13 (the same 4,115 documents): the prompt's "her/his", "his or
+      her" and "the supervisor" spellings are markers too (each is also stripped by
+      HR-275); text fused BEFORE the prompt (the answer to the MAKE question) is not
+      referred; and a marker that is not the questionnaire prompt starts a run only as
+      a lead-in ("Refers decisions regarding:") — "Refers decisions regarding X to the
+      Director." is a complete referral and labels nothing after it (it had labelled
+      47 made decisions in the archive, "Makes decisions regarding…" among them).
+      2026-10-27 (the v9 full pass): fourteen more wordings of the refer question — the
+      questionnaire's other editions and typos ("Examples of the types of decisions the
+      incumbent would refer to his/her supervisor", "…to this/her supervisor", "Decisions
+      the incumbent would refer to his/her supervisor:", …) — are markers and prompts
+      (HR-275). On 82e5c2d0 the missed wording let "Staff terminations" read as a
+      decision the incumbent makes. MEASURED over the 14,522 v9 parses: 154 documents'
+      Decision Making labelling changes, 457 more decisions labelled referred, in the
+      merge drafts of 34 clusters (read by eye, 12 sampled clusters: every new label is
+      on a referral answer — "Budget requests", "Space allocations", "Requests for
+      unbudgeted funds"; one, 1255208a, labels an item the parser had already fused
+      with the next prompt). A prompt followed only by another marker ("…supervisor Refers
+      decisions regarding") or by one lower-case word ("…supervisor are") adds no item.
+      Still unlabelled (≤ 6 documents each): typos "referto", "his/lier", "supen'is";
+      lead-ins naming the title ("The Project Manager, Advanced Research Computing
+      would refer decisions involving", "The Systems & Web Developer would refer their
+      supervisor for").
+    impact_if_changed: >-
+      Does NOT move `rules_version` (harmonization.yaml is unhashed), but changes the
+      merge draft — the deterministic draft too — of every cluster whose members carry a
+      marker; drafts are rebuilt by the next producer pass. Removing a marker returns
+      that question's answers to an unlabelled pool. Pinned by
+      `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-283
+    question: >-
+      What should the merged job description put in front of a decision the incumbent
+      refers to the supervisor, so that it is not read as a decision the incumbent makes?
+    config:
+      file: harmonization.yaml
+      path: harmonization.referred_decision_label
+    current_default: "Refers to the supervisor:"
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      The label is written in front of each referred decision (HR-282) unless it already
+      starts "Refer…" ("Refers decisions that have broader implications…"), and it is
+      what the rewrite's guard holds a rewritten decision to: a Decision Making point
+      grounded only in a referred decision must keep the referral — share a word with
+      this label — or it is dropped and the source's own line comes back (HR-269/270).
+      MEASURED (second pilot): the model wrote "Makes decisions regarding the expenditure
+      of University funds" from a decision its source refers. Neutral by design: it
+      states what the questionnaire asked, not who the supervisor is. ⚠ The guard cannot
+      catch the same inversion in a DUTY ("Oversee budgetary decisions…" on cb73e45c):
+      duties are flagged, never dropped (HR-184), and that duty IS flagged.
+      Tier `hr_policy` (review of c873b13): these words are printed into the Impact of
+      Decision Making section of every merged job description that has a referred
+      decision — HR's wording on HR's form, not a technical setting. Since that review
+      a rewritten decision keeps the referral only if it carries EVERY word of the
+      label ("refers" and "supervisor"); one shared word let "Approves …, informing
+      the supervisor" through.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Changes the wording of every referred decision in
+      the merge draft. An empty label switches the labelling off. Pinned by
+      `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-284
+    question: >-
+      When the LLM has reworded a sentence of a duty, how much of the sentence must one
+      piece of its wording keep for the sentence to count as already in the draft (so
+      it is not put back a second time)?
+    config:
+      file: rewrite.yaml
+      path: rewrite.reworded_unit_min_share
+    current_default: 0.4
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Fold-back (HR-271) puts back every source duty sentence the rewritten duties do not
+      cover. On the second pilot it also put back sentences the model HAD reworded:
+      "Monitors possible copyright infringement." beside the model's "…, monitor
+      copyright issues, …", the museum's revenue-stream sentence beside "Manage revenue
+      streams from cash donations, grant funding and sale of image use rights while
+      protecting SFU copyright" — the same content twice. A source sentence now also
+      counts as covered when ONE piece of the model's text (a statement or clause cut at
+      ";" and sentence ends, or a comma part of one) has at least HR-267's fraction of
+      its own words in that sentence and keeps at least this share of the sentence's
+      words (stemmed, HR-285). For a how/why clause the words it shares with its own
+      headline do not count. The same round tightened the other side: the whole-duty
+      test now needs the sentence's named terms (HR-272) and restored text covers only
+      as ONE restored sentence, never pooled — on cb73e45c "careers as they relate to
+      academic programs" and "opportunities in Cooperative Education" had been counted
+      covered and were in no record. MEASURED (round-2 replay, 912 source duty
+      sentences): 16 sentences are now covered that were folded back beside their
+      rewording — by hand-check 12 genuine, 3 PARTIAL (e.g. 44% of a sentence whose
+      "budgetary and HR aspects" the model dropped), 1 borderline — and 20 counted
+      covered before are now folded or listed. At 0.25 a false cover appeared; at 0.5 a
+      genuine rewording kept at 48% came back as a duplicate. ⚠ Below the share, a model
+      piece that kept little is not a rewording: "liaise with Risk Management for
+      insurance" keeps 3 of 12 words of a sentence whose "$1 M" threshold it dropped, and
+      that sentence still comes back. Coverage only — nothing here can ground a claim.
+      Review of c873b13: the RESTORED-sentence test now needs the sentence's named
+      terms and numbers too ("opportunities in Cooperative Education" was covered by a
+      restored sentence sharing only "opportunities"). ⚠ OPEN, measured: the PIECE
+      test does NOT, so a reworded sentence can lose an audience or a unit silently —
+      "…guidance on financial policy issues to the Dean, Associate Deans, Chairs,
+      Directors…" is covered by "Offer strategic advice … on financial policy
+      issues". Requiring names there listed 98 more sentences on the round-2 replay
+      (folding them duplicated the rewording), most a member's own unit name the
+      harmonized role rightly generalises ("AAE's website" / "the School's website"
+      -> "website"). Of 20 piece-only covers at a share of 0.40-0.55 graded by hand,
+      about 11 were genuine rewordings and 7 partial (an audience, a unit list or a
+      second clause gone).
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Lower: more sentences counted as reworded, fewer
+      duplicates, and more compression accepted silently. Higher: more source sentences
+      come back beside their rewording. Pinned by `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-285
+    question: >-
+      Should "monitors" and "monitor", "manages" and "manage" count as the same word
+      when deciding whether the LLM kept a source sentence?
+    config:
+      file: rewrite.yaml
+      path: rewrite.coverage_stem_suffixes
+    current_default: [ies, ing, ed, es, s]
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      Every token test here compares exact words, so a sentence the model kept in another
+      inflection read as LOST and was folded back beside its rewording (second pilot:
+      "Monitors possible copyright infringement." under "monitor copyright issues"). For
+      fold-back's PIECE and RESTORED-sentence coverage tests (HR-284), a light stemmer
+      strips the first listed suffix that leaves at least four letters ("s" never after
+      "s"; "ies" -> "y"), then a final "e". NOT the whole-duty test: MEASURED on the
+      round-2 replay, stemming a whole merged duty let its generic words "cover" about 8
+      of 30 sentences that were in fact lost ("allocating centrally managed classrooms
+      and other academic spaces" by "Determine records needs, priorities…"). The
+      GROUNDING tests (rewrite -> source: may this claim stay?) are not stemmed, so
+      nothing new can ground a claim. An empty list switches stemming off.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. A longer list merges more word forms (fewer
+      duplicates, and a little more risk of a different word reading as the same).
+      Pinned by `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-286
+    question: >-
+      After which abbreviations should the rewrite NOT treat a full stop as the end of a
+      sentence?
+    config:
+      file: rewrite.yaml
+      path: rewrite.sentence_abbreviations
+    current_default: [e.g., i.e., vs., approx., incl., dept., no., dr., mr., mrs., ms., st., ph.d.]
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The guard works sentence by sentence: what is covered, what is folded back, what
+      is listed. On the second pilot "Collaborates with V. P. Advancement on fundraising
+      initiatives." was cut at "V." and "Collaborates with V." went back into the draft
+      as a duty point of its own. A full stop after a listed abbreviation, after a single
+      letter ("V."), or in a dotted acronym ("B.C.", "e.g.") no longer ends a sentence.
+      "etc." is deliberately not listed: it ends a sentence as often as not.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. A missing abbreviation splits a sentence in two (a
+      fragment can be restored on its own); an extra one joins two sentences (coverage
+      is then judged on both). Pinned by `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-287
+    question: >-
+      Which pieces of source text are FRAGMENTS — lead-ins like "Makes decisions
+      regarding", or continuation lines like "(e.g. lab power supplies, …," — that must
+      never be put back into a draft on their own?
+    config:
+      file: rewrite.yaml
+      path: rewrite.fragment_pattern
+    current_default: '(?i)(?:^\s*[\(\[,;])|(?:(?:[,:(]|\b(?:and|or|by|to|of|for|with|the|a|an|regarding|concerning|including|related to|responsible for|such as|involves|following))\s*$)'
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      Restores put text back verbatim, and on the second pilot some of that text was not
+      a whole statement: the template lead-in "Makes decisions regarding" restored as a
+      decision, "Collaborates with V." (see HR-286), and "(e.g. lab power supplies,
+      analog and digital multimeters, …, curve tracers," as a qualification. A source
+      item or sentence that starts with a bracket or comma, or ends on a comma, colon or
+      lead-in word, is now never put back on its own: it is listed for the reviewer
+      (fold-back's `dropped_duty_content`; sections' and qualifications' lost-and-not-
+      restored list) — unless a duty headline ending "by" comes back as the HEADING of
+      its own duty. Separately (no knob: the parser's own limits), an item exactly at the
+      parser's character cap for its field was cut by the parser, so its unterminated
+      last sentence ("…Partners with a wide circle of contacts and involves", a
+      400-character contacts item) is listed, and the item returns up to it. Section
+      items are restored WHOLE, never sentence by sentence. A lowercase start is NOT a
+      fragment: contact labels and the parser's split clause pieces are real content.
+      MEASURED (round-2 replay, 23 replies): restored items that were a lead-in, cut-off
+      or continuation line 32 -> 0; 18 duty pieces newly listed instead of folded, each a
+      headline ending "by" / "such as" or a table cut-off. Review of c873b13: an item
+      2026-10-27 (the v9 full pass, 82e5c2d0): an item the parser cut that is a ";"
+      LIST loses only its last entry — "Makes annual budget recommendations…; …; hires
+      continuing and temporary staff, t" returns its five whole decisions and lists the
+      cut one, where the whole list used to be listed and none restored (43 rewritten
+      drafts carry such a list-and-not-restored item). Review of c873b13: an item
+      ending ";" is NOT a fragment — ";" ends a list item ("Hiring of staff;",
+      "Signing authority up to $5,000;") far more often than it wraps one.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. A broader pattern lists more source text instead of
+      restoring it (visible, not lost); a narrower one restores more partial text.
+      Pinned by `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-288
+    question: >-
+      When the LLM writes a contact together with its duration and frequency ("Graduate
+      Students – < 1 hour, Frequent"), how many neighbouring source lines may that one
+      contact be checked against?
+    config:
+      file: rewrite.yaml
+      path: rewrite.relationships_row_window
+    current_default: 3
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The WJQ contact table reaches the merge one CELL per item — "Graduate Students",
+      "< 1 hour", "Frequent" — and prompt v4 asks the model to keep each contact's
+      duration and frequency WITH it. Grounded one source item at a time (HR-269), no
+      single cell holds half of such a line. MEASURED (second-pilot replay): of 30
+      contacts scrubbed, 7 were WJQ contacts written with their own duration and
+      frequency; 11 were the 0a75edf1 "Engineering Science" contacts a different member
+      states (correctly scrubbed); 8 would be grounded in the duties and 2 only in the
+      summary — those stay scrubbed, since Relationships keeps same-section grounding
+      (a duty-derived "contact" on that list was "First Nations territories on which SFU
+      campuses are situated"). A contact is now grounded in ONE window of up to this many
+      consecutive items of the same list; its names must still be in the section
+      (HR-272), so the Engineering Science contacts stay out. Scrubbed contacts in the
+      replay: 30 -> 19.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. 1 restores the item-only rule; larger windows let a
+      contact draw on more neighbouring lines (more stitching possible). Pinned by
+      `test_rewrite_fidelity_r3.py`.
+    status: open
+
+  - id: HR-289
+    question: >-
+      In a job description's Decision Making, which lines end a run of decisions referred
+      to the supervisor — so that the decisions after them are read as the incumbent's
+      own again?
+    config:
+      file: harmonization.yaml
+      path: harmonization.referred_decision_run_end_pattern
+    current_default: '(?:\:|\b(?:regarding|concerning|related to|responsible for|such as|following))\s*$'
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A referred run (HR-282) labels every decision after the refer prompt until the
+      next questionnaire prompt or a template LEAD-IN line ("Makes decisions
+      regarding:"), matched case-insensitively by this pattern: a line ending on a colon
+      or on "regarding", "concerning", "related to", "responsible for", "such as" or
+      "following". MEASURED in review of c873b13, over the 4,115 archive documents that
+      carry the refer prompt: the run used to end at anything the rewrite's FRAGMENT
+      rule (HR-287) matches — which includes any list item ending "," or ";" — so in 136
+      documents the referred decisions after an item like "Major equipment purchases;"
+      were left unlabelled (621 items), reading in the merged job description as
+      decisions the incumbent MAKES: the very ambiguity HR-282/283 exist to remove.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (harmonization.yaml is unhashed) but changes the
+      merge draft of every cluster whose members carry a referred run. Broader ends runs
+      earlier (referred decisions read as made); narrower runs longer (a made decision
+      after an unrecognised lead-in reads as referred). Pinned by
+      `test_rewrite_fidelity_r3_review.py`.
+    status: open
+
+  # ── Do two JDFN qualification gates apply to a CUPE/WJQ JD? (WJQ approvability) ──
+  - id: HR-296
+    question: >-
+      Must a CUPE (WJQ) job description pass the "equivalent combination" approval gate
+      the way a JDFN one must — or is the WJQ's own section-13 choice ("an equivalent
+      combination … is acceptable" / "… is not acceptable because:") the CUPE
+      equivalent of that requirement?
+    config:
+      file: rule_catalog.yaml
+      path: rule_catalog.SFU-QUAL-EQUIVALENT.applies_to
+    current_default: [jdfn, wjq]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      HR-042 ratified the PHRASE ("equivalent combination"); its recorded measurement
+      (Phase 2.5, 2026-07-12) predates the WJQ parser and CUPE Phase B, and which FORMS
+      the rule judges was set by engineering in CUPE Phase B and never put to HR. On the WJQ it cannot do what it does on the JDFN form.
+      MEASURED 2026-10-27 over the 3,563 CUPE documents behind the 636 CUPE drafts
+      (`docs/audit/2026-10-27-wjq-approvability.md`): the phrase is in the SOURCE FILE of
+      3,556 (99.8%) — because the WJQ prints BOTH options of a "check one" box, the
+      "acceptable" one and the "not acceptable because" one — and the parser drops those
+      option lines as form instructions (`wjq.instruction_markers`, HR-144), so it
+      survives in only 235 parses. The gate therefore blocks 610 of 636 CUPE drafts
+      (95.9%), before and after the rewrite alike, on a property of the form, not the job.
+      Simply keeping the option lines would be no better: both options contain the
+      phrase, so every CUPE JD would pass — including one whose author ticked "not
+      acceptable". The information is WHICH box is ticked, and the Builder already
+      records it as a structured field (HR-252); archive drafts do not carry it.
+      ⚠ THIS CONTRADICTS THE ARCHIVE BASELINE, AND BOTH ARE RIGHT: the baseline
+      (`docs/baseline/summary.json`) has this gate blocking 9 of 4,300 WJQ documents, and
+      HR-201's 59.0% CUPE approvability rests on that. The baseline scores each file
+      against its RAW text, which still holds both options, so the gate passes
+      vacuously; the Bank scores a draft against its own parse, which drops them. Read
+      the archive's CUPE approvability as overstated by this gate until the tick is read.
+    impact_if_changed: >-
+      Withholding the rule from the WJQ (`[jdfn]`) moves `rules_version`
+      (rule_catalog.yaml is hashed) and removes this gate from 610 CUPE drafts; on its
+      own it unblocks 11 of them, because 591 of the 610 are also blocked by the K/S/A
+      order gate (HR-297) — see the write-up's blocking-set table. The alternative that
+      keeps the requirement is engineering, not a YAML edit: read the ticked option into
+      the structured field and judge THAT on the WJQ form. Either way the ratified
+      phrase (HR-042) is unchanged for JDFN.
+    status: open
+
+  - id: HR-297
+    question: >-
+      Must the qualifications of a CUPE (WJQ) job description run Knowledge -> Skills ->
+      Abilities to be approvable, as a JDFN one must?
+    config:
+      file: rule_catalog.yaml
+      path: rule_catalog.SFU-GATE-KSA-ORDER.applies_to
+    current_default: [jdfn, wjq]
+    provenance: our_invention
+    tier: hr_policy
+    why_it_matters: >-
+      HR-052 ratified the ORDER; which FORMS the order binds was set by engineering in
+      CUPE Phase B and never put to HR. The WJQ's section 13 is not written in K/S/A at
+      all — it asks for education, certification, years, "occupational skills" and
+      "occupational requirements" — so the knowledge/skill/ability label on a CUPE line is
+      inferred by the parser or the rewrite, not chosen by the author. MEASURED
+      2026-10-27 (`docs/audit/2026-10-27-wjq-approvability.md`): the deterministic merge
+      draft passes this gate on all 636 CUPE drafts; the rewritten drafts fail it on 612
+      (96.2%). That jump is a defect in the rewrite (it relabels lines and does not keep
+      the order), which engineering should fix whatever HR rules here — this entry is the
+      separate question of whether the order is a CUPE requirement at all.
+    impact_if_changed: >-
+      `[jdfn]` moves `rules_version` (rule_catalog.yaml is hashed) and removes this gate
+      from the CUPE cohort; HR-052's ranks are unchanged for JDFN. Keeping `[jdfn, wjq]`
+      is coherent only once the rewrite preserves the order; until then the gate blocks
+      CUPE drafts for an ordering the rewrite introduced.
+  # ── Post-pass fixes (the v9 Bank's full rewrite pass, 2026-10-27): HR-290…295 and HR-302…304.
+  # Measured on the v9 Bank read-only and on the 2,446 merge drafts rebuilt in-process
+  # (every one of the pass's 50 fallback drafts reproduced byte for byte).
+  - id: HR-290
+    question: >-
+      When the LLM rewrite returns more duties than the job description's form holds,
+      should the draft be brought back within the form by merging the closest duties
+      together, or left over the limit?
+    config:
+      file: rewrite.yaml
+      path: rewrite.duties_over_form_limit
+    current_default: merge
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The CUPE form takes at most twelve major functions (HR-246) and the WJQ parser
+      reads at most twelve back from an export; the APSA form holds five duties
+      (`thresholds.duties_max`). The prompt states the form's number, but nothing held
+      the model's reply to it. MEASURED (the v9 full pass, 2,446 drafts): one CUPE draft
+      (0cd5db26) came back with 13 major functions, so the Builder refused to clone it
+      ("the form takes at most 12"); every JDFN rewrite stayed within five. `merge`
+      brings the draft within the form one duty at a time. If the two most similar
+      duties reach HR-304's similarity (token Jaccard 0.2) they are MERGED — the
+      second's statement and clauses become clauses of the first (a frequency both
+      agree on is kept, a dispute recorded) — and each merge is recorded
+      (`merged_duties`). Below 0.2 nothing is merged: the model's LAST duty is LISTED
+      for the reviewer (`over_form_limit`), not kept. That is the usual case, not the
+      exception: measured in round-2 review, 395 of the 587 CUPE drafts with 12 or more
+      model duties have their closest pair below 0.2 (0cd5db26's is). Either way
+      fold-back (HR-271) puts back any SOURCE sentence the draft no longer covers, so
+      the source content is protected; only the model's own wording of a listed duty
+      leaves the draft. A clause the how/why cap cannot hold is listed the same way, and
+      a model duty with more how/why clauses than the parser reads back
+      (`segmentation.duty_how_why_max_count`, HR-265) is cut to it. Which duty is
+      listed — the last, the model's own order — is an open choice (listing the least
+      similar one instead was considered and not shipped). `keep` leaves the draft over
+      the limit, as before.
+    impact_if_changed: >-
+      Does NOT move `rules_version` (rewrite.yaml is unhashed). `keep` lets a rewritten
+      CUPE draft exceed its form again, and the Builder then refuses to clone it.
+      Pinned by `test_rewrite_postpass_v9.py`.
+    status: open
+
+  - id: HR-291
+    question: >-
+      Which text in a source job description is the document's own page header or
+      footer (its position number, page number, "Continued"), to be set aside before
+      the LLM rewrite rather than treated as part of the role?
+    config:
+      file: rewrite.yaml
+      path: rewrite.page_header_pattern
+    current_default: '(?:(?:Continued\s+)?Administrative/Professional\s+Position\s*#\s*:?\s*(?:(?:\d+(?![\d%])|_+|\[contact redacted\])[\d_.]*\s*,?\s*#?\s*)*(?:,?\s*[Pp]age\s*\d+(?:\s*of\s*\d+)?(?![\d%]))?)|(?:Position\s*#\s*\d+\s*,?\s*[Pp]age\s*\d+(?![\d%]))|(?:(?:Continued\s+)?Position\s+(?:[Nn]umbers?\)?(?:\(s\)|\^)?|[Nn]o\.?)\s*[:#]?\s*#?[^A-Za-z]{0,80}?(?:\[contact redacted\][^A-Za-z]{0,20})?(?:-?NEW|New_*|\(FT\)|N\d[A-Z]\d?[A-Z]?|i\s*\d+)?[^A-Za-z]{0,30}?\(?(?i:continued)\)?(?:\s*Page\s*\d+)?(?:\s*(?:[A-J]\.\s+)?[A-Z][A-Z &]{3,}\s*\(?(?i:continued)\)?)?)|(?:(?:Continued\s+)?Position\s*(?:#|Numbers?(?:\(s\))?)\s*:\s*(?:\d+(?:\s*(?:,|&|and)\s*\d+)*)?(?:\s+\d{1,2}(?![\d%]))?(?=\s|$))|(?:Position\s+Number\s+\d+(?=\s*$))'
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      The parser reads a page break's header or footer into the text around it — "…and
+      donor recognition events). Position Number 31160 (Continued) C. DUTIES AND
+      RESPONSIBILITIES (continued) Participates as a member of…". MEASURED (the v9 full
+      pass): fold-back (HR-271) restored four such pieces as how/why clauses of their
+      own, the export printed each at the start of a line, and the parser re-read it as
+      the role's position number — 4 of 1,810 JDFN roles failed the export round trip
+      (23a58c9c's line also split a duty in two). Over the 2,446 merge drafts, 198
+      "Position Number / # / No" occurrences sit in role-content text in 120 drafts; this
+      pattern takes the page-header shapes ("Administrative/Professional Position #
+      ______ Page 2", "Position Number(s): 30218 Continued", "Position #: 00117368 2")
+      and never a reference to another position ("the Tech Clerk (position # 79167)",
+      lower case, in brackets). Set aside like a questionnaire instruction (HR-275): the
+      model does not see it, nothing restores it, and the review page lists it as a page
+      header. Review of 6000ba6 (summaries too): a lower-case "Position number(s):
+      __01110___Continued" (5e1fe119) and a trailing "Position Number 07514" (43409115)
+      are headers as well. The deterministic draft (rewrite failed) is untouched — the real fix is
+      in the parser and moves `PARSER_VERSION`.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Broader sets aside more text (a reference to a
+      position number in a duty could go); narrower lets headers back into restored
+      text and into the export. Pinned by `test_rewrite_postpass_v9.py`.
+    status: open
+
+  - id: HR-292
+    question: >-
+      When the LLM rewords a CUPE major function so heavily that it no longer matches
+      any source function, may it still carry how often the function is done (daily,
+      weekly, …) from the source function it clearly rewords?
+    config:
+      file: rewrite.yaml
+      path: rewrite.flagged_duty_frequency_min_coverage
+    current_default: 1.0
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      A rewritten duty carries its source duty's frequency only when the two match
+      (HR-184's 0.2 token overlap); a FLAGGED duty carried none. MEASURED (the v9 full
+      pass, each CUPE draft against its OWN merge): 4,339 frequencies where the merges
+      carried 4,596 (59.3% vs 63.1%). No unflagged duty that matches a source duty with
+      a frequency lacks one; the loss is on flagged duties. A flagged duty that, by
+      itself, covers this share of ONE source duty's sentences (the fold-back's own
+      coverage test, HR-267/284) is that duty reworded — "Assign and supervise temporary
+      staff, checking their work…" for "Assigns and checks the work of temporary staff"
+      — and carries its frequency, only when every source duty it so covers agrees on
+      one. At 1.0 (every sentence) this recovers few of them by design — on the stored
+      v9 drafts, 19 frequencies in 18 CUPE drafts: most flagged
+      duties cover no single source duty, and a frequency guessed from a weak match
+      would state a fact the source does not. ⚠ The audit's own "the rewrite is
+      destroying a field" flag compares rewritten drafts with the 50 FAILED ones (59.3%
+      vs 59.5%, z = 0.03) — different clusters, so it is noise; the paired number above
+      is the measurement.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Lower carries frequencies on weaker evidence; 0
+      restores the old rule (a flagged duty has none). Pinned by
+      `test_rewrite_postpass_v9.py`.
+    status: open
+
+  - id: HR-293
+    question: >-
+      After the LLM rewrite, in what order should a job description's qualifications
+      stand — the form's own (education and experience, then knowledge, skills,
+      abilities) or the order the model wrote them in?
+    config:
+      file: rewrite.yaml
+      path: rewrite.qualification_order
+    current_default: form
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      SFU-GATE-KSA-ORDER is BLOCKING (K → S → A, HR-052). MEASURED (the v9 full pass):
+      every CUPE merge draft passes it and 612 of 636 rewritten CUPE drafts fail it —
+      the reassembly kept the MODEL's order, appended restored lines, then put the
+      education/experience bars last, and nothing re-applied the rank. `form` puts the
+      bars where the merge has them and sorts the competencies by
+      `qualifications.ksa_rank` (stable, so lines of one kind keep the model's order).
+      Whether K → S → A binds a CUPE job description at all is a separate question for
+      HR (raised on the branch feat/v9-targeted-rerun, which registers it as an `applies_to`
+      entry for SFU-GATE-KSA-ORDER); this only stops the rewrite producing an inversion
+      its source does not have.
+      REPLAYED offline over the 2,396 rewritten v9 drafts (each reply reconstructed as
+      the stored draft minus the guard's own restores; with this branch's rules off the
+      replay reproduces the stored blocking set on 2,390 of them): K → S → A blocks
+      612 → 0 CUPE drafts and 359 → 0 JDFN drafts — every JDFN failure had the same
+      cause. With HR-290…295 together, approvable 0 → 7 CUPE and 452 → 742 JDFN.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. `model` restores the order that failed the gate.
+      Pinned by `test_rewrite_postpass_v9.py`.
+    status: open
+
+  - id: HR-294
+    question: >-
+      On which forms should a rewritten qualification line keep the kind (knowledge,
+      skill, ability) of the source line it rewords, rather than the kind the LLM gave
+      it?
+    config:
+      file: rewrite.yaml
+      path: rewrite.qualification_kind_from_source
+    current_default: [wjq]
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The kind decides where a line is printed and which ORDER rule it is judged by.
+      MEASURED (the v9 full pass): CUPE merge drafts carry `skill` and `ability` lines
+      only (the WJQ parser never writes `knowledge`), yet 568 of the 612 rewritten CUPE
+      drafts failing K → S → A carry a `knowledge` line. On the CUPE form the kind IS
+      the form section — `skill` is printed under Occupational Skills, `ability` under
+      Occupational Requirements — so a CUPE line takes the kind of the source line it
+      rewords, and the change is recorded (`relabelled_qualifications`). On the APSA
+      form the kind is only a READING of the words, and the source's reading can be
+      wrong: review of 6000ba6 found 93 lines in 79 JDFN drafts forced to a kind their
+      own wording contradicts ("Ability to build consensus…" -> skill, from "Excellent
+      interpersonal skills with the ability to…"; "Excellent project management skills"
+      -> knowledge), 407 more with no kind word relabelled arbitrarily, and approvable
+      moved on only 6 JDFN drafts. So it is OFF for JDFN. Wherever it is on, the
+      relabel needs HR-302's overlap and never contradicts a line's own lead word
+      (HR-303). The order rule (HR-293) holds the gate by itself; this decides the
+      LABEL — on CUPE, the form section.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Adding `jdfn` relabels APSA lines from their source
+      lines' (often parser-inferred) kinds; `[]` lets the model relabel CUPE lines,
+      moving them between the form's two sections. Pinned by
+      `test_rewrite_postpass_v9.py`.
+    status: open
+
+  - id: HR-295
+    question: >-
+      May the LLM rewrite add working conditions (evenings and weekends, on-call, shift
+      work) to a Position Summary whose source summary does not mention them?
+    config:
+      file: rewrite.yaml
+      path: rewrite.summary_conditions_must_be_grounded
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      SFU's toolkit keeps working conditions out of the Position Summary
+      (SFU-AUTH-SUMMARY-CONDITIONS, a blocking gate). MEASURED (the v9 full pass): 35
+      CUPE drafts newly fail it after the rewrite, ~30 because the model moved the WJQ's
+      working-conditions block into the summary ("…flexible hours, including evenings
+      and weekends", "on-call or shift schedules"); the merge summaries do not say this.
+      `true`: a rewritten summary sentence naming a condition marker
+      (`markers.working_conditions`, HR-046, unchanged) that the SOURCE summary does not
+      name is dropped and recorded as an ungrounded item — the HR-269 rule for this
+      section. A summary left empty comes back as the source's. ⚠ The markers also match
+      nouns ("Parking Services Office", "student housing"); those false positives are
+      HR-046's question and are not changed here — this rule can drop such a sentence
+      when the source summary does not name it. REPLAYED (as HR-293): a summary
+      sentence is dropped in 61 drafts; the gate blocks 49 → 13 CUPE and 50 → 30 JDFN
+      drafts (the rest are conditions the SOURCE summary states, or noun matches it
+      also states). Of the 64 sentences dropped, 44 name a condition ("evenings and
+      weekends" 20, "on call"/"on-call" 5 plus 16 that match only through the gate's
+      text fold, shift work 2, holidays 1) and 20 match a noun ("housing" 8, "parking"
+      6, "relocation" 6) — summary text the gate would block anyway, lost from the
+      summary (not checked here whether a duty states it too). A dropped sentence is cut
+      out in place, so the summary keeps its paragraph breaks (review of 6000ba6).
+    impact_if_changed: >-
+      Does NOT move `rules_version`. `false` lets the rewrite import conditions into the
+      summary again. Pinned by `test_rewrite_postpass_v9.py`.
+    status: open
+
+  # ── Wrapped heading words (the v9 full pass, 2026-10-27): HR-298 / HR-299. ──
+  # Measured over every extracted archive file (docs/plans/PARSER-V9-LISTS-AND-CAPS.md §18).
+  - id: HR-298
+    question: >-
+      When a sentence in an old Word (.doc) job description wraps so that its last word
+      ("duties", "relationships", "education and experience") sits alone on a line,
+      should the parser keep reading it as part of that sentence rather than as the start
+      of a new section?
+    config:
+      file: segmentation.yaml
+      path: segmentation.wrapped_heading_guard
+    current_default: true
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The parser finds sections by matching a whole line against the heading names, and
+      antiword (the .doc reader) breaks lines at a fixed width. In the old APSA form the
+      Decision Making prompt "Decisions the incumbent is expected to make in carrying
+      out" wraps onto "duties", which opened a DUTIES section: every decision under it,
+      made and referred, was read as a duty, and Decision Making kept the prompt alone.
+      MEASURED over all 14,522 extracted archive files (2026-10-27): 38 heading matches
+      in the APSA/APEX/POLY/legacy reader are all lower case, all 38 read by eye as
+      wraps, in 36 files — 21 the Decision Making prompt, 12 "relationships" and 5
+      "education and experience" halfway through a qualification (each moved the rest
+      of the qualifications into Relationships or a second Qualifications). None of
+      that reader's real headings is lower case. Parsed before/after over the whole
+      archive: 27 documents change; in 21, Decision Making goes from the prompt alone to
+      its decisions (62 → 364 items, 3,208 words in from Duties). ⚠ In 4 documents the
+      wrapped "education and experience" was the ONLY thing opening their Qualifications
+      (their real heading, "H. Entrance Qualifications", matches no pattern — as in
+      4,666 other legacy documents), so those 4 now lose 762 qualification words to the
+      Relationships section's 600-character cut, like their siblings. `true` demotes a heading match that is
+      all lower case, carries no "1." / "c)" numbering, and sits directly (no blank
+      line) under a line that does not end in a closer (HR-299). Numbered lower-case
+      headings ("1. position identification", "12. additional information") and every
+      upper/mixed-case heading are never demoted. The CUPE questionnaire reader is not
+      affected (its headings are numbered).
+    impact_if_changed: >-
+      Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`;
+      changes what a parsed JD contains, so it needs a re-parse. `false` restores the
+      wrapped headings. Pinned by `test_parser_v9_wrapped_headings.py`.
+    status: open
+
+  - id: HR-299
+    question: >-
+      Which characters at the end of a line mean the sentence has finished, so that a
+      lower-case heading word on the next line is a real heading and not a wrapped word?
+    config:
+      file: segmentation.yaml
+      path: segmentation.wrapped_heading_line_closers
+    current_default: ".:;?!"
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      The second half of HR-298's test. MEASURED (2026-10-27): every one of the 38
+      archive wraps sits under a line ending in a letter ("carrying out", "collegial",
+      "combination of"), so any closer set that excludes letters separates them; this set
+      is the sentence- and label-ending marks. A closer here can only KEEP a heading — a
+      wider set demotes less. ")" and "]" are left out on purpose: no wrap in the
+      archive follows one, and a line ending "(print and electronic)" is not a finished
+      sentence.
+    impact_if_changed: >-
+      Unhashed (segmentation.yaml); changes what a parsed JD contains — re-parse.
+      Must not be empty (loader-enforced). Pinned by `test_parser_v9_wrapped_headings.py`.
+    status: open
+
+  # ── The old APSA form's lettered tail (owner rulings 2026-10-27): HR-300, 301, 305…308.
+  # Measured over every extracted archive file (docs/plans/PARSER-V9-LISTS-AND-CAPS.md §19).
+  - id: HR-300
+    question: >-
+      In the old (pre-2024) APSA position description, should the parser read the
+      section headed "H. Entrance Qualifications" as the job's Qualifications?
+    config:
+      file: segmentation.yaml
+      path: segmentation.legacy_qualifications_heading_pattern
+    current_default: '(?i)(?:entrance\s+(?:[qo]ualif[a-z]*|qttatjftcattons)(?:\s+to\s+be\s+reviewed)?|qualifications\s+required)\.?'
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Owner ruling 2026-10-27: fix it before the one full rebuild. The old form's
+      qualifications heading matched no pattern (only "MINIMUM ENTRANCE QUALIFICATIONS"
+      did), so everything after "F. Supervision Received" ran into Relationships and was
+      cut at its 600-character supervisory ceiling — on the LIVE v8 Bank 4,951 of 10,222
+      non-CUPE parses (48%) have no qualifications. MEASURED over all 14,522 extracted
+      archive files (2026-10-27): the heading in 4,666 lettered files + 87 unlettered
+      (11 with a full stop; misspellings "QUALIFICATIONIONS" 4, OCR "QTTATJFTCATTONS" 3).
+      Whole-archive before/after: 4,730 documents gain qualifications (documents with
+      any: 9,397 → 14,127), +604,599 qualification words; supervisory texts naming
+      "Entrance Qualifications" 436 → 17 (the 17 put the heading on the same line as
+      its text). The approve gates newly fire SFU-APPROVE-KSA-ORDER on documents that
+      now HAVE qualifications (plan §19). Widened 2026-10-29: the review's whole-archive
+      check (docs/audit/2026-10-29-parser-v10-review.md) found 16 files whose heading
+      the pattern missed — "QUALIFICATIONS REQUIRED" 6, OCR "OUALIFICATIONS" 3,
+      "QUALIFIACTIONS" 2, "…TO BE REVIEWED" 1, and 4 with the letter but no period —
+      so their qualifications were set aside as working conditions and they parsed
+      with none. The bare JDFN heading is deliberately not claimed.
+    impact_if_changed: >-
+      Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`;
+      changes what a parsed JD contains, so it needs a re-parse. Pinned by
+      `test_parser_v10_legacy_tail_headings.py`.
+    status: open
+
+  - id: HR-301
+    question: >-
+      In the old APSA position description, should the parser read "I. Organizational
+      Relationships" (the reporting chart) as part of the job's Relationships?
+    config:
+      file: segmentation.yaml
+      path: segmentation.legacy_relationships_heading_pattern
+    current_default: '(?i)organi[sz]ation(?:al)?\s*-?\s*relation(?:ships?|sips)\.?'
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Owner ruling 2026-10-27. The section holds the reporting chart — the form's
+      instruction ("Indicate in the appropriate blocks the title of the position to which
+      this position reports …") then the supervisor's and direct reports' titles, or
+      "See attached". "E. Supervision Exercised" and "F. Supervision Received" already
+      open Relationships; this joins them. MEASURED: 3,254 lettered files + 311
+      unlettered (ORGANISATIONAL 16 + 4; "RELATIONSIPS" 11; "ORGANIZATION
+      RELATIONSHIPS" 4; run together 4; "-RELATIONSHIPS" 3). ⚠ It lands in the
+      supervisory text, still held to its 600-character contract ceiling, which the
+      E/F form questions already spend: supervisory texts at the cut 6,793 → 5,778
+      (the qualifications no longer fill it), and 194 words the old parse kept are cut
+      by it now (plan §19).
+    impact_if_changed: >-
+      Unhashed; changes what a parsed JD contains — re-parse. Pinned by
+      `test_parser_v10_legacy_tail_headings.py`.
+    status: open
+
+  - id: HR-305
+    question: >-
+      The old APSA position description has a "G. Unusual Working Conditions" section
+      the 2024 template has no place for. Should the parser leave it out of the job
+      description and record that it did?
+    config:
+      file: segmentation.yaml
+      path: segmentation.legacy_working_conditions_heading_pattern
+    current_default: '(?i)unusu?al\s+working\s+cond(?:itions|tttons)\.?(?:\s*\(?continued\)?\.*)?'
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Owner ruling 2026-10-27: drop it from the JD — legacy-form content the 2024
+      template has no slot for — but RECORD the drop. It is kept on the parse as
+      `set_aside` (kind `legacy_working_conditions`, under its own heading), shown on the
+      source document's page ("Set aside from the source form"), and never carried into
+      a draft. Chosen over `additional_context`, which IS JD content and is exported.
+      MEASURED: 4,569 lettered files + 141 unlettered ("(CONTINUED)" 13; "UNUSAL" 3; OCR
+      "CONDTTTONS" 3). Set aside in 4,725 documents, 239,939 words, the longest 4,749
+      characters (the record is held only to its 20,000 contract ceiling). Before this,
+      that text sat in the supervisory text or was cut with it.
+    impact_if_changed: >-
+      Unhashed; changes what a parsed JD contains — re-parse. Pinned by
+      `test_parser_v10_legacy_tail_headings.py`.
+    status: open
+
+  - id: HR-306
+    question: >-
+      Should the signature block at the end of an old position description ("J.
+      Approvals": incumbent's, supervisor's and next level's signatures and dates) be
+      kept out of the job description?
+    config:
+      file: segmentation.yaml
+      path: segmentation.form_approvals_heading_pattern
+    current_default: '(?i)approvals?\.?'
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Form scaffolding, never content: signature and date lines and "SHOULD YOU REQUIRE
+      FURTHER ASSISTANCE IN COMPLETING THIS POSITION DESCRIPTION …". Without a heading it
+      became Relationships text (or, after HR-300, the tail of the qualifications). Set
+      aside like HR-305 (kind `form_approvals`). MEASURED: 2,791 lettered files + 341
+      unlettered + "APPROVAL" 19. Set aside in 3,155 documents, 85,079 words, the longest
+      3,555 characters. A lower-case "approval." that wraps out of a sentence is not
+      read as the heading (HR-298's guard).
+    impact_if_changed: >-
+      Unhashed; changes what a parsed JD contains — re-parse. Pinned by
+      `test_parser_v10_legacy_tail_headings.py`.
+    status: open
+
+  - id: HR-307
+    question: >-
+      The old position description prints questions for whoever fills it in — under its
+      qualifications heading ("What combination of experience, training and/or formal
+      education do you believe is the minimum required to perform the duties of this
+      position?") and over its Decision Making answers ("Decisions the incumbent is
+      expected to make in carrying out duties"). Should the parser keep those questions
+      out of the job description and record that it did?
+    config:
+      file: segmentation.yaml
+      path: segmentation.form_prompt_pattern
+    current_default: '(?im)what\s+combinations?\s+o[fn]\s+experience[^?]{0,200}?perform\s+the\s+duties\s+(?:of|in)\s+\w+\s+position\s*\?|what\s+are\s+the\s+minimum\s+formal\s+educational\s+qualifications[^?]{0,200}?perform\s+the\s+work\s+of\s+this\s+position\s*\?|^[ \t]*(?:\(?[ivx]{1,4}[.)][ \t]*)?decisions\s+the\s+incumbent\s+is\s+expected\s+to\s+make(?:\s+in\s+carrying\s+out(?:\s+(?:the\s+)?duties(?:\s+and\s+responsibilities(?:\s+of\s+the\s+position)?)?)?)?[ \t]*[.:]?[ \t]*$'
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      Questions to the person filling in the form are not content. Once HR-300 opened
+      the qualifications, the qualifications question led 3,131 of them, and an
+      unbulleted answer fused onto it as one item cut at 400 characters (2,329 of the
+      4,957 over-long items started with it). The Decision Making question "Decisions the
+      incumbent is expected to make in carrying out duties" (27 parses, 3 more "… the
+      duties and responsibilities") reached 6 v9 deterministic drafts, which strip no
+      instruction. Removed here and recorded as `set_aside` kind `form_prompt` — 3,298
+      documents, 75,613 words. The Decision Making question is matched as a WHOLE LINE:
+      the longer "Give some typical examples of the most important decisions the
+      incumbent is expected to make …" contains it and stays the rewrite's to strip
+      (HR-275), never cut in half here.
+    impact_if_changed: >-
+      Unhashed; changes what a parsed JD contains — re-parse. Pinned by
+      `test_parser_v10_legacy_tail_headings.py`.
+    status: open
+
+  - id: HR-308
+    question: >-
+      How many characters of one qualification does the parser keep from an archive job
+      description?
+    config:
+      file: segmentation.yaml
+      path: segmentation.qualification_max_chars
+    current_default: null
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      It was the code constant `_MAX_QUAL`, unregistered, and with HR-300 it started to
+      matter: the old form writes its requirements unbulleted, so they run together into
+      one item. MEASURED (v10 segmentation, before any cut): 84,517 items, p50 88 · p99
+      1,332 · max 3,179 characters; 4,713 over 400 in 4,644 documents. Held at 400 (the
+      `SFUQualification.text` contract, which the Builder's CUPE skill field also reads),
+      and an item over it was SPLIT at its sentence breaks into items that fit, not
+      cut. Items left at the cut: 1,225 (a single sentence over 400); 335 words the old
+      parse kept were cut by it. The parser-v10 review
+      (docs/audit/2026-10-29-parser-v10-review.md §4) re-measured the cut over all
+      14,522 files: 1,112 items, 308 of them the "or an equivalent combination of
+      education and experience" clause, and recommended 600. ✅ Owner ruling
+      2026-10-29: "remove the 400 cap" — applied as `null` (every item kept whole; an
+      unbulleted paragraph is ONE item and nothing is split) and RECORDED here rather
+      than ratified, since it is the project owner's call, not an HR signature. Both
+      readers (APSA and CUPE).
+    impact_if_changed: >-
+      Unhashed; changes what a parsed JD contains — re-parse. A number restores the
+      split-at-sentences-then-cut reading at that length; the rewrite's fidelity table
+      (HR-287) follows it. The model declares no ceiling, so no value here can fail a
+      parse; the Builder's qualification inputs are bounded by their own form ceiling
+      (`QUAL_INPUT_CEILING`, 20,000), not by this. Pinned by
+      `test_parser_v10_qualification_uncapped.py`.
+    status: open
+
+  # ── Review of 6000ba6 (2026-10-27): the bounds HR-294 and HR-290 lacked.
+  - id: HR-302
+    question: >-
+      How much of a rewritten qualification line must a source line share before the
+      line takes that source line's kind?
+    config:
+      file: rewrite.yaml
+      path: rewrite.qualification_kind_min_overlap
+    current_default: 0.5
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      HR-294 took the kind of whichever source line shared the most words, however few.
+      Review of 6000ba6 (measured over the replay): 42 relabels shared less than a third
+      of their words with the line they took a kind from — "Project Management
+      Professional (PMP) certification" became `knowledge` from a project-management
+      knowledge line. Held at the qualification grounding bar (HR-183, 0.5): below it
+      the model's kind stands. Replay after the fix (and the reviewer's replay): 6,546 CUPE
+      relabels, none sharing less than half its words with the line it took a kind
+      from; 0 JDFN (HR-294 is off there).
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Lower relabels on weaker evidence; higher leaves
+      more CUPE lines in the section the model chose. Pinned by
+      `test_rewrite_postpass_v9.py`.
+    status: open
+
+  - id: HR-303
+    question: >-
+      On a form where a qualification's kind is a reading of its words (the APSA form),
+      which opening words name that kind (Knowledge…, Skills…, Ability…), so that the
+      rewrite does not relabel the line to another kind?
+    config:
+      file: rewrite.yaml
+      path: rewrite.qualification_kind_lead_words
+    current_default:
+      jdfn:
+        knowledge: [knowledge]
+        skill: [skill, skills, skilled]
+        ability: [ability, able]
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      A line that OPENS by naming its kind ("Ability to process a high volume of
+      information") was relabelled from a source line that does not ("Diploma in
+      Business Administration…", review of 6000ba6). On the APSA form such a line keeps
+      its kind — unless the source line opens with the same word. Only the first word is
+      read; a line with no kind word in its lead is bound by HR-302 alone. PER FORM
+      since the round-2 review: on the WJQ the kind is the FORM SECTION (skill =
+      Occupational Skills, ability = Occupational Requirements), so a lead word there is
+      only a reading of a choice the form already made, and the guard kept the model's
+      `ability` on 65 lines in 45 CUPE drafts whose source line is a `skill` line
+      ("Ability to comprehend foreign languages" from "Skill in comprehension of
+      foreign languages") — exporting them under Requirements, the defect HR-294 fixes.
+      The WJQ is therefore not listed. HR-294 is off for JDFN as shipped, so this guard
+      binds only if that is turned on. REPLAY (2,396 drafts, before → after making it
+      per form): the 65 CUPE "Ability to…" lines now take their source's `skill`
+      (65 → 0 kept as `ability`); 109 CUPE "Knowledge of…" lines, which the guard had
+      also kept as `knowledge`, a kind no CUPE merge carries, take their source's kind
+      too (CUPE drafts with a `knowledge` line 84 → 32). 93 CUPE drafts change, all in
+      qualification kind/order only; no blocking set and no approvable count moves
+      (CUPE 7, JDFN 742); JDFN relabels stay 0.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. Listing `wjq` moves CUPE lines out of the form
+      section their source was printed in; removing a word lets APSA lines opening with
+      it be relabelled. Pinned by `test_rewrite_postpass_v9.py`.
+    status: open
+
+  - id: HR-304
+    question: >-
+      How similar must two rewritten duties be before the rewrite merges them to fit the
+      form's duty limit, rather than listing the surplus duty for the reviewer?
+    config:
+      file: rewrite.yaml
+      path: rewrite.duty_merge_min_similarity
+    current_default: 0.2
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      HR-290 merged the closest pair whatever its similarity, and preferred any pair
+      that fitted the clause cap to a more similar one (review of 6000ba6). Now the
+      most similar pair is merged only if its token Jaccard reaches this; below it the
+      model's LAST duty is listed whole (`over_form_limit`) and fold-back still puts
+      back any source sentence it carried. Held at HR-184's 0.2, the guard's own "same
+      duty" overlap. A merge keeps a frequency both duties agree on and records one they
+      dispute (`merged_duty_frequency_conflicts`); a flagged duty merged away is flagged
+      by the duty it went under. Replay: the one over-limit draft (0cd5db26) has its
+      closest pair below 0.2 ("work summaries and create detailed work orders" /
+      "name‑change requests and update displays…"), so its 13th duty is listed, not
+      merged; no other draft has more duties than its form holds.
+    impact_if_changed: >-
+      Does NOT move `rules_version`. 0 merges any pair; higher lists more model duties
+      instead of merging them. Pinned by `test_rewrite_postpass_v9.py`.
+    status: open
+  - id: HR-324
+    question: >-
+      How many characters of the supervisory text ("Supervision Exercised" and the
+      relationships it describes) does the parser keep from an archive job description?
+    config:
+      file: segmentation.yaml
+      path: segmentation.supervisory_max_chars
+    current_default: null
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      It was the code constant `_MAX_SUPERVISORY` 600, unregistered, and HR-301 (the
+      old form's "I. Organizational Relationships" now read as relationships) made it
+      matter. MEASURED by the parser-v10 review over all 14,522 extracted archive files
+      (docs/audit/2026-10-29-parser-v10-review.md §4): 5,772 documents (58.8%) were
+      over 600 and 2.48 M characters were cut — in 3,421 of them because the form's
+      printed E/F questions use the budget first; prompt-stripped p50 552 · p75 742 ·
+      p90 1,016 · p95 1,291 · p99 2,711, max 5,185. ✅ Owner ruling 2026-10-29: "remove
+      the cap" — applied as `null` (the whole text is kept) and RECORDED here rather
+      than ratified, since it is the project owner's call, not an HR signature. The
+      form's printed E/F/I questions are still inside the kept text (the review's
+      recommended prompt strip for the Relationships section is not built).
+    impact_if_changed: >-
+      Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`;
+      changes what a parsed JD contains, so it needs a re-parse. A number cuts the text
+      at that many characters; the rewrite's fidelity table (HR-287) and the model
+      follow it — the model declares no ceiling, so no value here can fail a parse.
+      Pinned by `test_parser_v10_supervisory_uncapped.py`.
+    status: open
+
+  - id: HR-340
+    question: >-
+      How many characters of one Decision Making or Problem Solving item, or of one
+      internal or external contact, does the parser keep from an archive job description?
+    config:
+      file: segmentation.yaml
+      path: segmentation.bullet_max_chars
+    current_default: null
+    provenance: our_invention
+    tier: hr_informed
+    why_it_matters: >-
+      It was the code constant `_MAX_BULLET` 400, unregistered, in BOTH readers (the
+      APSA/APEX/POLY decision, problem and connection items; the CUPE contacts table) —
+      the third cap of the HR-308 / HR-324 family, missed when those two were lifted.
+      Found by the v9 Bank smoke on 2026-11-20: a CUPE role's contact, exported and read
+      back, came back cut at 400. MEASURED on the v9 Bank (parser v10, all current
+      parses, 14,522): 4,668 documents held 5,716 items at EXACTLY 400 characters,
+      against 160 items at 390–399 — a cut, not a length people write. Items at 400:
+      Decision Making 4,226 (in 3,468 documents), internal contacts 1,106, external
+      contacts 304, Problem Solving 80. ✅ Owner ruling 2026-11-20: "remove the 400 cap" — applied as `null`
+      (every item is kept whole) and RECORDED here rather than ratified, since it is the
+      project owner's call, not an HR signature.
+    impact_if_changed: >-
+      Unhashed (segmentation.yaml) — moves `Segmentation.stamp`, not `rules_version`;
+      changes what a parsed JD contains, so it needs PARSER_VERSION bumped and a re-parse
+      (v11 is that bump). A number cuts each item at that many characters in both readers;
+      the rewrite's fidelity table (HR-287) and the export round-trip oracle follow it. The
+      model declares no per-item ceiling and the CUPE Builder's contact row is bounded by a
+      form input ceiling, so no value here can fail a parse or a clone. Pinned by
+      `test_parser_v11_list_items_uncapped.py`.
+    status: open
+
+  - id: HR-341
+    question: >-
+      What is the smallest context window (prompt plus reasoning plus reply, in tokens)
+      the inference host must give the chat model before a rewrite pass runs?
+    config:
+      file: rewrite.yaml
+      path: rewrite.min_context_tokens
+    current_default: 32768
+    provenance: our_invention
+    tier: technical
+    why_it_matters: >-
+      MEASURED 2026-11-21: the host served gpt-oss:120b at a 4,096-token context (the
+      model's own is 131,072). A ~6k-token probe came back `prompt_tokens: 4096` — cut,
+      with no error. A rewrite needs the prompt (~1k system plus the parse: median ~2.6k,
+      p99 ~7–8k tokens) AND up to `max_tokens` (HR-178, 8,192; reasoning alone peaked
+      ~5,900) in ONE window, ~16.5k at p99; 32,768 is that with headroom, as the power of
+      two `OLLAMA_CONTEXT_LENGTH` is set to. Drafts record no token usage, so a rewrite of
+      a truncated prompt looks normal in the Bank. Nothing checked it before: the v11
+      full pass sat 61 minutes on its first cluster and was stopped. Whether earlier
+      passes ran at 4,096 is not known.
+    impact_if_changed: >-
+      Does NOT move `rules_version`; decides no JD's content or score, only whether a
+      pass may start. The producer reads the loaded model's `context_length` from
+      Ollama's `/api/ps` (loading the model with a one-token request if it is not
+      running) before any database work and again after every checkpoint commit; a
+      smaller window, or none readable, refuses the pass (exit 2) with the work so far
+      committed. A full-window test prompt was tried first and dropped: on the shared
+      host a ~33k-token probe did not finish in 15 minutes. Too high refuses a host that would have been fine;
+      too low lets truncation through. Pinned by `test_context_window_guard.py` and the
+      live smoke `test_the_inference_host_holds_a_full_rewrite_window`.
     status: open
 
 trivial:

@@ -73,8 +73,10 @@ from src.jd_core.models.bank import (
 )
 from src.jd_core.models.parsed_jd import (
     QualificationKind,
+    SFUDuty,
     SFUEmployeeGroup,
     SFUJobDescription,
+    SFUQualification,
     WJQForm,
 )
 from src.jd_core.models.quality import (
@@ -345,7 +347,10 @@ def _freeze(mapping: Mapping[_K, _V]) -> Mapping[_K, _V]:
 
 
 def _compile_regex(value: Any) -> re.Pattern[str]:
-    """Compile a ``{pattern, ignore_case}`` YAML mapping into a regex, once."""
+    """Compile a ``{pattern, ignore_case}`` YAML mapping into a regex, once. An already
+    compiled pattern (a loaded rule file re-validated from its own dump) passes."""
+    if isinstance(value, re.Pattern):
+        return value
     if not isinstance(value, Mapping):
         raise ValueError("expected a mapping with keys 'pattern' and 'ignore_case'")
     unknown = set(value) - {"pattern", "ignore_case"}
@@ -713,6 +718,25 @@ class TextNorm(_RuleFile):
     collapse_across_paragraph_break: bool
 
 
+def _field_max_length(model: type[BaseModel], field_name: str) -> int:
+    """The ``max_length`` a pydantic field declares — read off the model, never
+    restated, so a rulebook cap and the contract it must fit cannot drift apart."""
+    for meta in model.model_fields[field_name].metadata:
+        limit = getattr(meta, "max_length", None)
+        if limit is not None:
+            return int(limit)
+    raise LookupError(f"{model.__name__}.{field_name} declares no max_length")
+
+
+def _optional_field_max_length(model: type[BaseModel], field_name: str) -> int | None:
+    """:func:`_field_max_length` for a field the contract leaves UNBOUNDED on purpose
+    (``SFUQualification.text`` since HR-308 was ruled null): ``None`` then."""
+    try:
+        return _field_max_length(model, field_name)
+    except LookupError:
+        return None
+
+
 #: Which surfaces read a position off a filename with the FULL filename reader
 #: (``jd_bank/positions``, HR-331) rather than the padded pattern alone. A closed set of
 #: the surfaces actually wired: a name here that nothing reads would be a switch that
@@ -902,6 +926,113 @@ class Segmentation(_RuleFile):
     #: a document over the cap would raise a ValidationError instead of being trimmed
     #: (pinned by ``test_wjq_context_not_truncated.py``).
     additional_context_max_chars: int = Field(gt=0)
+
+    #: Parser v9 (HR-261 … HR-263). How many characters of ONE duty statement the parser
+    #: keeps — was the code constant 400, unregistered, and 25,095 of 96,784 stored
+    #: statements sat exactly at it — and how many duties it keeps per document, per
+    #: template (was 12 for both: the WJQ form's 12 major + 12 minor slots lost every
+    #: minor function past the twelfth). Not presentation: each decides how much of a
+    #: source document the Bank retains. Each must stay ``<=`` the model's own ceiling
+    #: (checked below), or an over-cap document becomes a parse FAILURE, not a trim.
+    duty_statement_max_chars: int = Field(gt=0)
+    duty_max_count: int = Field(gt=0)
+    wjq_duty_max_count: int = Field(gt=0)
+
+    #: Parser v9, owner ruling 2026-10-20 (Q1, HR-264 … HR-266). The line shape that is
+    #: a DUTY HEADLINE — SFU's "ACTION VERB … WHAT by:" — whose following items become
+    #: its ``how_why``; and how many how/why clauses per duty, and characters per
+    #: clause, the parser keeps (APSA/APEX/POLY reader only).
+    duty_headline_pattern: Regex
+    duty_how_why_max_count: int = Field(gt=0)
+    duty_how_why_max_chars: int = Field(gt=0)
+    #: Parser v9 review (HR-268): how many Decision Making / Problem Solving items the
+    #: parser keeps per section — the code constant 20 (``_MAX_BULLETS``) until v9.
+    bullet_max_count: int = Field(gt=0)
+    #: Parser v11 (HR-340): how many characters of ONE Decision Making / Problem
+    #: Solving item or contact the parser keeps, in both readers — the code constant
+    #: ``_MAX_BULLET`` (400, unregistered) until v11; ``null`` keeps every item whole
+    #: (owner ruling 2026-11-20). The model declares no per-item ceiling, on purpose.
+    bullet_max_chars: int | None = Field(default=None, gt=0)
+    #: Parser v10 wrap guard (HR-298, HR-299). antiword hard-wraps a legacy ``.doc``, so
+    #: a sentence's last word can sit alone on a line — and "duties" / "relationships"
+    #: / "education and experience" alone on a line ``fullmatch`` a heading. When the
+    #: guard is on, a heading match that is ALL LOWER CASE, carries no ``1.`` / ``c)``
+    #: enumeration, and directly follows (no blank line) a line that does not end in
+    #: one of ``wrapped_heading_line_closers`` is read as content of the section above
+    #: (JDFN/legacy reader only; the WJQ reader numbers its headings).
+    wrapped_heading_guard: bool
+    wrapped_heading_line_closers: str = Field(min_length=1)
+    #: Parser v10, owner ruling 2026-10-27 (HR-300, 301, 305 … 307). The old APSA
+    #: form's lettered tail — ``G. Unusual Working Conditions`` / ``H. Entrance
+    #: Qualifications`` / ``I. Organizational Relationships`` / ``J. Approvals`` —
+    #: matched no heading, so everything after ``F. Supervision Received`` ran into
+    #: Relationships
+    #: and was cut at 600 characters. Each is ``fullmatch``-ed against the normalised
+    #: heading line (letter prefix and trailing colon gone), JDFN/legacy reader only.
+    #: H opens Qualifications and I opens Relationships; G and J are SET ASIDE —
+    #: recorded on the parse (``SFUJobDescription.set_aside``), never JD content.
+    legacy_qualifications_heading_pattern: Regex
+    legacy_relationships_heading_pattern: Regex
+    legacy_working_conditions_heading_pattern: Regex
+    form_approvals_heading_pattern: Regex
+    #: HR-307: the form's printed question at the head of "H. Entrance Qualifications"
+    #: — searched in that section's text (whitespace, line breaks included), removed,
+    #: and recorded as a ``form_prompt`` set-aside block.
+    form_prompt_pattern: Regex
+    #: HR-308: how many characters of ONE qualification the parser keeps — the code
+    #: constant ``_MAX_QUAL`` (400, unregistered) until v10; ``null`` keeps every item
+    #: whole (owner ruling 2026-10-29). The model declares no ceiling, on purpose.
+    qualification_max_chars: int | None = Field(default=None, gt=0)
+    #: The supervisory text's cap (HR-324); ``null`` keeps the whole text (owner
+    #: ruling 2026-10-29). The model declares no ceiling for it, on purpose.
+    supervisory_max_chars: int | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def _the_duty_caps_fit_the_model(self) -> Segmentation:
+        """A cap above the contract ceiling turns a lossy parse into a ValidationError
+        — every long document would fail to parse at all. Refuse at load instead."""
+        stmt_ceiling = _field_max_length(SFUDuty, "statement")
+        count_ceiling = _field_max_length(SFUJobDescription, "duties")
+        how_why_ceiling = _field_max_length(SFUDuty, "how_why")
+        if self.duty_statement_max_chars > stmt_ceiling:
+            raise ValueError(
+                f"duty_statement_max_chars ({self.duty_statement_max_chars}) exceeds "
+                f"SFUDuty.statement's max_length ({stmt_ceiling})"
+            )
+        if self.duty_how_why_max_count > how_why_ceiling:
+            raise ValueError(
+                f"duty_how_why_max_count ({self.duty_how_why_max_count}) exceeds "
+                f"SFUDuty.how_why's max_length ({how_why_ceiling})"
+            )
+        if self.duty_how_why_max_chars > stmt_ceiling:
+            raise ValueError(
+                f"duty_how_why_max_chars ({self.duty_how_why_max_chars}) exceeds the "
+                f"statement ceiling ({stmt_ceiling}) a clause is held to"
+            )
+        for name in ("duty_max_count", "wjq_duty_max_count"):
+            if getattr(self, name) > count_ceiling:
+                raise ValueError(
+                    f"{name} ({getattr(self, name)}) exceeds "
+                    f"SFUJobDescription.duties' max_length ({count_ceiling})"
+                )
+        for field_name in ("decision_making", "problem_solving"):
+            ceiling = _field_max_length(SFUJobDescription, field_name)
+            if self.bullet_max_count > ceiling:
+                raise ValueError(
+                    f"bullet_max_count ({self.bullet_max_count}) exceeds "
+                    f"SFUJobDescription.{field_name}'s max_length ({ceiling})"
+                )
+        qual_ceiling = _optional_field_max_length(SFUQualification, "text")
+        if (
+            self.qualification_max_chars is not None
+            and qual_ceiling is not None
+            and self.qualification_max_chars > qual_ceiling
+        ):
+            raise ValueError(
+                f"qualification_max_chars ({self.qualification_max_chars}) exceeds "
+                f"SFUQualification.text's max_length ({qual_ceiling})"
+            )
+        return self
 
     @model_validator(mode="after")
     def _the_era_bands_are_ordered(self) -> Segmentation:
@@ -1524,6 +1655,15 @@ class Harmonization(_RuleFile):
     #: interesting one at 44.9% source presence: a cluster where half the members
     #: carry the section is a real question about what the harmonized role should say.
     problem_solving_policy: SectionMergePolicy
+    #: Items that start a run of decisions REFERRED to the supervisor in a member's
+    #: Decision Making (HR-282), matched on the word sequence; the run's decisions are
+    #: prefixed with :attr:`referred_decision_label` (HR-283) before pooling.
+    referred_decision_markers: tuple[str, ...] = ()
+    referred_decision_label: str = Field(default="", max_length=60)
+    #: A Decision Making item matching this is a template LEAD-IN ("Makes decisions
+    #: regarding:") and ends a referred run (HR-289). ``None``: only a questionnaire
+    #: prompt ends one.
+    referred_decision_run_end_pattern: Regex | None = None
     #: How the RELATIONSHIPS object is merged across members (HR-212). 97.4% source
     #: presence. Structured rather than a statement list, so its ``union`` still takes
     #: ``supervisory`` from ONE member verbatim.
@@ -1607,6 +1747,10 @@ class Rewrite(_RuleFile):
     reasoning_effort: ReasoningEffortLevel | None = None
     #: Token budget for one rewrite completion (HR-178).
     max_tokens: int = Field(gt=0)
+    #: The smallest context window the inference host must give the chat model before a
+    #: producer pass runs (HR-341). Checked by a probe, never assumed: on 2026-11-21 the
+    #: host silently cut every prompt at 4,096.
+    min_context_tokens: int = Field(gt=0)
     #: How many times an INVALID-JSON / schema-mismatch response is re-requested with a
     #: terse repair nudge before :class:`LLMOutputInvalidError` (HR-179). Transient
     #: network/5xx retries are separate and fixed in the client.
@@ -1626,6 +1770,10 @@ class Rewrite(_RuleFile):
     #: the merge draft's vocabulary for it to be kept (HR-183). Below it the
     #: qualification is SCRUBBED (dropped) and recorded. Inert under ``all_grounded``.
     skill_grounding_threshold: float = Field(ge=0.0, le=1.0)
+    #: Parser v9 review M2 (HR-267): the fraction of a rewritten how/why clause's
+    #: content tokens that must appear in its SOURCE duty's text (statement + how/why)
+    #: for the clause to be kept. Below it the clause is dropped and recorded.
+    how_why_grounding_threshold: float = Field(gt=0.0, le=1.0)
     #: The minimum token-Jaccard a rewritten DUTY must share with a draft duty (HR-184).
     #: Below it the duty is FLAGGED (recorded, never dropped — a duty may legitimately
     #: rephrase, so a low-overlap duty is an HR eyeball, not a scrub). Read in the other
@@ -1662,6 +1810,137 @@ class Rewrite(_RuleFile):
     #: up and returning the author's page. NOT the batch rewrite budget, which may
     #: legitimately take far longer. HR-199.
     interactive_timeout_seconds: float = Field(gt=0.0)
+    # --- rewrite fidelity (owner ruling 2026-10-20; HR-269…HR-276) -----------------
+    #: What happens to source duty content no rewritten duty covers (HR-271):
+    #: ``fold_back`` appends each uncovered sentence verbatim as a how/why clause of the
+    #: closest rewritten duty; ``record_only`` leaves the draft as
+    #: returned and lists it.
+    duty_coverage_policy: Literal["fold_back", "record_only"] = "fold_back"
+    #: The least share of a source duty's content tokens the rewritten duty it is
+    #: folded under must already hold (HR-279). Below it the source duty's lost content
+    #: is not filed under an unrelated duty: it comes back as its own duty when the form
+    #: has room (``thresholds.duties_max``), and is otherwise listed for the reviewer.
+    #: ``0.0`` folds under the best match whatever it is (the 2026-10-20 behaviour).
+    fold_back_relevance_min: float = Field(default=0.0, ge=0.0, le=1.0)
+    #: The most source sentences folded under ONE rewritten duty (HR-280). A duty that
+    #: has taken this many passes the next one to the next-best duty above the
+    #: HR-279 floor. ``0`` means no limit beyond the how/why cap.
+    fold_back_max_per_duty: int = Field(default=0, ge=0)
+    #: The sections where a sentence matching SFU boilerplate (HR-273/274) is shown to
+    #: the reviewer as "check it is not part of the role" rather than as standard
+    #: wording set aside (HR-281). Display only: the strip itself is unchanged.
+    boilerplate_review_sections: tuple[
+        Literal[
+            "position_summary",
+            "duties",
+            "decision_making",
+            "problem_solving",
+            "relationships",
+            "qualifications",
+            "additional_context",
+        ],
+        ...,
+    ] = ()
+    #: Per-item grounding of Decision Making / Problem Solving / Relationships against
+    #: ONE item of the merge's SAME section, and — read the other way — what counts as a
+    #: source item the rewrite lost (HR-269).
+    section_item_grounding_threshold: float = Field(gt=0.0, le=1.0)
+    #: The sections whose uncovered source items are put back verbatim (HR-270). A
+    #: section not listed still has its losses recorded.
+    restore_uncovered_items_in: tuple[
+        Literal[
+            "decision_making", "problem_solving", "relationships", "qualifications"
+        ],
+        ...,
+    ] = ()
+    #: Whether an acronym / mid-sentence capitalized word in a rewritten item must
+    #: itself appear in the source it is grounded in (HR-272).
+    named_terms_must_be_grounded: bool = True
+    #: Whether every NUMBER in a rewritten item must appear in the text it is grounded
+    #: in (HR-278; review round 1).
+    numbers_must_be_grounded: bool = True
+    #: Words added to ``comparison.skill_stopwords`` for every rewrite-grounding test
+    #: only (HR-277; review round 1). Lowercase single words.
+    grounding_stopwords: frozenset[str] = Field(default_factory=frozenset)
+    #: A source sentence is boilerplate (and cannot ground anything) when at least this
+    #: fraction of its content tokens belongs to ONE boilerplate passage (HR-273).
+    grounding_boilerplate_threshold: float = Field(gt=0.0, le=1.0)
+    #: Boilerplate wordings beyond ``boilerplate.yaml`` (which is hashed) (HR-274).
+    grounding_extra_boilerplate: tuple[str, ...] = ()
+    #: The old questionnaire's own instructions, removed from the rewrite's input
+    #: (HR-275). Matched on the word sequence.
+    form_instructions: tuple[str, ...] = ()
+    #: A run of list items each a piece of one instruction is that instruction when it
+    #: holds at least this many words (HR-276).
+    form_instruction_fragment_min_tokens: int = Field(ge=1)
+    # --- round 3 (pilot round 2, 2026-10-21; HR-284…HR-288) -----------------------
+    #: A model piece that holds at least this share of a source duty sentence's words
+    #: (and has HR-267's fraction of its own words in it) REWORDED that sentence, so
+    #: fold-back does not put it back (HR-284).
+    reworded_unit_min_share: float = Field(default=0.25, gt=0.0, le=1.0)
+    #: Suffixes the coverage tests' light stemmer strips (HR-285). Coverage only.
+    coverage_stem_suffixes: tuple[str, ...] = ()
+    #: Abbreviations after which the sentence splitter does not end a sentence (HR-286).
+    sentence_abbreviations: tuple[str, ...] = ()
+    #: A source item or sentence matching this is a fragment, never restored on its own
+    #: (HR-287).
+    fragment_pattern: Regex
+    #: How many consecutive contact items one model contact is grounded in (HR-288).
+    relationships_row_window: int = Field(default=1, ge=1)
+    # --- post-pass fixes (the v9 Bank's full pass, 2026-10-27; HR-290…295, 302…304) -
+    #: What happens when the model returns more duties than the draft's FORM holds
+    #: (HR-290): ``merge`` folds the closest pair together until it fits (nothing is
+    #: dropped; what cannot fit is listed), ``keep`` leaves the draft over its limit.
+    duties_over_form_limit: Literal["merge", "keep"] = "merge"
+    #: A source document's own page header or footer — its position number, page number
+    #: and "(Continued)" — that the parser read into role text (HR-291). Removed from
+    #: the rewrite's input like a questionnaire instruction; ``None`` strips nothing.
+    page_header_pattern: Regex | None = None
+    #: The share of ONE source duty's sentences a FLAGGED rewritten duty must cover by
+    #: itself for it to carry that source duty's frequency (HR-292). ``0`` never carries
+    #: a frequency to a flagged duty (the behaviour before 2026-10-27).
+    flagged_duty_frequency_min_coverage: float = Field(default=0.0, ge=0.0, le=1.0)
+    #: The order of the rewritten qualifications (HR-293): ``form`` — the bars where
+    #: the merge has them, then the competencies by ``qualifications.ksa_rank``;
+    #: ``model`` — the model's order, restored lines and bars appended (before
+    #: 2026-10-27).
+    qualification_order: Literal["form", "model"] = "model"
+    #: The FORMS on which a kept rewritten competency takes the kind of the source line
+    #: it rewords (HR-294) rather than the kind the model gave it. Empty: none.
+    qualification_kind_from_source: tuple[JDTemplate, ...] = ()
+    #: The least share of a rewritten line's words the source line must hold for its
+    #: kind to be taken (HR-302).
+    qualification_kind_min_overlap: float = Field(default=0.0, ge=0.0, le=1.0)
+    #: Per FORM, the lead words that NAME a kind (HR-303): a line opening with one
+    #: keeps that kind unless the source line it rewords opens with the same word. A
+    #: form not listed (the WJQ, where the kind is the form section) has no such guard.
+    qualification_kind_lead_words: Annotated[
+        Mapping[JDTemplate, Mapping[QualificationKind, tuple[str, ...]]],
+        AfterValidator(_freeze),
+    ] = Field(default_factory=dict)
+    #: The least token-Jaccard two rewritten duties need to be MERGED to fit the form
+    #: (HR-304); below it the surplus duty is listed instead.
+    duty_merge_min_similarity: float = Field(default=0.0, ge=0.0, le=1.0)
+    #: Whether a rewritten Position Summary may name a working condition its source
+    #: summary does not (HR-295): ``True`` drops such a sentence.
+    summary_conditions_must_be_grounded: bool = False
+
+    @field_validator("grounding_stopwords")
+    @classmethod
+    def _stopwords_are_words(cls, tokens: frozenset[str]) -> frozenset[str]:
+        for token in sorted(tokens):
+            if not token.isalnum() or token != token.lower():
+                raise ValueError(
+                    f"grounding stopword {token!r} must be one lowercase word"
+                )
+        return tokens
+
+    @field_validator("form_instructions", "grounding_extra_boilerplate")
+    @classmethod
+    def _no_blank_text(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        if any(not re.search(r"[A-Za-z0-9]", text) for text in value):
+            raise ValueError("an entry has no words to match")
+        return value
 
 
 class QualityAuditRules(_RuleFile):

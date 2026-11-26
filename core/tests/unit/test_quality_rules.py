@@ -68,7 +68,7 @@ def test_the_provisional_defaults_are_what_the_yaml_ships(rules: Rules) -> None:
     q = rules.quality
     assert q.model == "gpt-oss:120b"
     assert q.temperature == 0.0
-    assert q.max_tokens == 1024
+    assert q.max_tokens == 2048  # HR-187, measured on the 2026-10-20 rewrite pilot
     assert q.max_retries == 1
     assert q.prompt_version == "jd_quality_v1"
     assert q.anti_fabrication_enabled is True

@@ -309,7 +309,13 @@ def test_builder_fields_reach_the_exported_docx() -> None:
     back = parse_jd(body).jd
     assert back.position_number == "00012345"
     assert len(back.duties) == 2
-    assert "Representing the department" in back.duties[0].statement
+    # Parser v9 reads the export's "List Bullet 2" sub-bullets back AS how/why (before
+    # v9 they fused into the statement): the J4 shape round-trips structurally.
+    assert back.duties[0].statement == "Manages the delivery of programs by"
+    assert back.duties[0].how_why == [
+        "Representing the department.",
+        "Developing work plans.",
+    ]
     assert "Director, Academic Operations" in body
     assert "00054321" in body
     assert _SENTENCE in body

@@ -1,0 +1,730 @@
+{
+ "source": "v9 Bank cluster 3af59608-6ffc-5c60-9d16-5a1b0294da98 (full pass 2026-10-21..25); merge rebuilt in-process from its v9 parses; model = stored final draft minus the guard's own restores",
+ "merged": {
+  "draft": {
+   "title": "Technician",
+   "position_number": null,
+   "department": "IT Client Services – AV Services",
+   "grade": null,
+   "classification": null,
+   "employee_group": "cupe",
+   "supervisor_title": null,
+   "supervisor_position_number": null,
+   "about_sfu_present": false,
+   "position_summary": "Provides technical assistance to IT Client Services technical staff with maintaining and upgrading the distributed Audio/Video (AV) systems on campus (e.g., instructional classrooms, lecture theatres and meeting spaces) in preparation for the next semester. Aids in the cleaning and maintenance of AV equipment (e.g., projectors, AV racks, audio equipment) for the Burnaby Campus and Fraser International College. Aids in upgrading and reimaging computing hardware and software within AV systems. Ensures that all facilities, equipment, software, documentation, and signage are maintained in proper order.",
+   "duties": [
+    {
+     "action_verb": "Ensures",
+     "statement": "Ensures that all facilities, equipment, software, documentation, and signage are maintained in proper order. Detects existing or potential problems and failures and reports them to senior technicians. Performs data entry by entering details of errors/problems into the departmental trouble reporting database (i.e., Confluence). Removes equipment for repair and records items into the inventory system (i.e., Confluence)",
+     "how_why": [],
+     "frequency": "daily"
+    },
+    {
+     "action_verb": "Inspects",
+     "statement": "Inspects and tests AV Services computing equipment using diagnostic software and electronic test equipment (i.e., digital multimeters); analyzes information provided by the manufacturer and/or procedure manual; and identifies system faults or maintenance required (i.e., component replacement or repair). Analyzes and corrects computing equipment malfunctions by ensuring that standardized configuration is maintained on all lab computers as required",
+     "how_why": [],
+     "frequency": "daily"
+    },
+    {
+     "action_verb": "Keeps",
+     "statement": "Keeps work areas clean and tidy by storing equipment, materials, and supplies in their assigned areas, and by using various cleaning tools and products to ensure an organized and clean working environment",
+     "how_why": [],
+     "frequency": "daily"
+    },
+    {
+     "action_verb": "Maintains",
+     "statement": "Maintains AV equipment (i.e., data projectors, overhead projectors, etc.) by replacing lamps, cleaning filters and upgrading settings. Replaces defective system components with upgraded AV equipment (i.e., projector lamps and filters, wireless microphone components, batteries, etc.) using basic hand tools (i.e., screwdrivers, pliers)",
+     "how_why": [],
+     "frequency": "daily"
+    },
+    {
+     "action_verb": "Performs",
+     "statement": "Performs maintenance and cleaning of computing hardware and accessories by replacing defective mice, keyboards, and monitors and cleaning computer monitors, keyboards, mice, etc., using standard cleaning tools",
+     "how_why": [],
+     "frequency": "daily"
+    },
+    {
+     "action_verb": "Performs",
+     "statement": "Performs other duties and responsibilities consistent with the job description and classification on request",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "Resolves",
+     "statement": "Resolves minor hardware and software problems (i.e., broken lavalier cords or filters, damaged projector components, updating & reimaging computers, etc.) ﻿by referring to the appropriate resources (i.e., service desk knowledge database). Refers complex problems to senior technicians",
+     "how_why": [],
+     "frequency": "daily"
+    }
+   ],
+   "decision_making": [],
+   "problem_solving": [],
+   "relationships": {
+    "supervisory": null,
+    "internal": [
+     "Students",
+     "< 1 hour",
+     "Frequent",
+     "IT Services technical staff",
+     "< 1 hour",
+     "Frequent",
+     "University staff",
+     "< 1 hour",
+     "Frequent",
+     "Faculty",
+     "< 1 hour",
+     "Occasional",
+     "Information Technology Professional III, IT Services",
+     "< 1 hour",
+     "Occasional"
+    ],
+    "external": [
+     "List internal and external contacts (i.e., specific positions within own department, other departments, students, faculty, on/off campus vendors, etc.), the duration of each contact (i.e. less than 1 hour at a time, 1-2 hours at a time, more than 2 hours at a time), and the frequency of each contact (i.e. occasional, frequent, or continuous)."
+    ]
+   },
+   "qualifications": [
+    {
+     "text": "High school graduation and general courses or training of moderate duration (one semester equivalent) in computing technology or a related field",
+     "kind": "education",
+     "modifier": null
+    },
+    {
+     "text": "Ability to exercise mature judgment and to work independently",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to follow oral and written instructions accurately",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to perform minor repairs and maintenance on audio visual equipment (i.e., replacing projector lamps, filters, etc.)",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to record data using a standard inventory recording database (e.g., Confluence, etc.)",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to troubleshoot and resolve minor hardware and software problems (i.e., microphone component issues, projector problems, computer upgrades)",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use a variety of hand tools (screwdrivers, pliers, etc.) to replace defective system components",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Good analytical reasoning and problem solving skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Good interpersonal and communication (oral and written) skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Good knowledge of computers and operating systems (i.e., PCs, Macs, Windows)",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Good knowledge of projection systems (i.e., data projectors and overhead projectors), audio systems (i.e., wired and wireless microphones, mixing boards, audio processors)",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to lift, move, or carry heavy equipment or materials up to 20 kg",
+     "kind": "ability",
+     "modifier": null
+    },
+    {
+     "text": "Ability to work flexible hours including evenings and weekends",
+     "kind": "ability",
+     "modifier": null
+    }
+   ],
+   "territorial_acknowledgement_present": false,
+   "employment_equity_present": false,
+   "additional_context": "LEVEL OF INDEPENDENCE\nCheck one box that best describes the level of independence that can be exercised within the position by a fully trained employee. Work is provided with specific instructions describing how and when it should be completed. Work is provided with general instructions. The employee makes choices about how the work will be completed within deadlines. Work is self-directed by the employee. The employee determines what work needs to be completed and when it should be completed to meet deadlines. Work is assigned on a project-by-project basis in the form of broad objectives. The employee evaluates what work needs to be completed within general time frames. Provide examples of project work:\n\nTRAINING EXERCISED\nIf the position provides training, check each description that applies. Not required to provide training to other individuals. Explains how work is performed in his/her own position to individuals in other positions performing the same or similar work (includes training replacement employees). Provides one-on-one specialized training to other individuals. Considered a specialist in a particular area or field of study. Positions at this level may be designated as the resident department expert. Provides one-on-one training to individuals in other positions. Must have a good understanding of the work of the other positions. Positions at this level may be designated as group leaders or work leaders. Conducts training seminars for groups. Training seminars are normally scheduled and follow a prescribed format. May also develop or assist in the development of training seminars.\n\nDIRECTION EXERCISED\nCheck each description that applies. Not required to provide direction to other individuals. Assigns and/or checks work of other individuals. Schedules, assigns, and checks work of other individuals. In addition to C, establishes work priorities for a unit. In addition to C and D, guides project teams.\n\nIMPACT OF ERRORS\nCommon Errors: Provide a few examples of the most common errors which normally occur in the performance of the work. Mis-configured workstation resulting in downtime for user. Mis-configured network printers causing printing delays. Uncommon Errors: Provide a few examples of most uncommon errors which infrequently occur in the performance of the work. Failure to backup data before reformatting users’ hard drives resulting in data loss. Feeding laser printer with the wrong type of transparencies causing damage to printer.\n\nEFFORT\nDescribe concentrated periods of auditory (hearing/listening); visual (seeing); perceptual (understanding / comprehending); and physical dexterity (finger/hand movements, eye/hand coordination, lifting, carrying, pushing, pulling, reaching etc.). For each example of effort, indicate the concentrated duration (less than 1 hour at a time, 1-2 hours at a time, more than 2 hours at a time) and frequency (occasional, frequent, continuous). Type of Effort Duration Frequency Auditory < 1 hour Frequent Non-confined sitting: working at a computer workstation < 1 hour Frequent Visual/Perceptual: inspecting/testing computing equipment; troubleshooting hardware and software issues; reading procedural manuals and analyzing computing malfunctions 1-2 hours Frequent Physical Dexterity: keyboarding, using hand tools (i.e., pliers) < 1 hour Frequent Standing/walking < 1 hour Frequent Lifting, carrying, and pushing computing hardware/equipment and supplies up to 20 kg < 1 hour Occasional Crouching, bending, kneeling: connecting hardware and peripherals, replacing defective system components < 1 hour Occasional\n\nWORKING CONDITIONS\nDescribe the place(s) where work is performed such as office environment, laboratory, outside work site, etc. Also identify the number of hours (of the total hours worked per week) spent in the place(s). Location Hours spent as a total of hours worked per week Other areas on campus and related facilities in Vancouver 30/35 Office 5/35 Describe any uncomfortable and/or distracting conditions in the work place(s) which an incumbent is exposed to on a regular basis and the frequency of the exposure. (e.g. interruptions, distracting noise, unpleasant odours, dust, drafts, inks, dyes, cleaning agents, toner for printers, temperature extremes, heavy dust conditions, wetness, fumes, vibrations, etc.) Uncomfortable Conditions Frequency of Exposure (Occasional, Frequent, or Continuous) Interruptions Frequent Distracting noise Occasional Dust Frequent Cleaning agents Occasional Looking at computer monitors: eye strain Occasional Describe any potential health or safety hazards etc. and the frequency of exposure of each hazard. (e.g. dealing with complaints and/or verbal/physical abuse; noise levels that interfere with normal speech/hearing; toxic gases or materials; dangerous chemicals, combustibles, radioactive material; repetitive arm, finger, wrist movements or other activities that may result in a physical injury; high speed, pressurized equipment; high voltage; heights above five feet; bio-hazardous wastes, body fluids, etc.) Potential Health or Safety Hazards Frequency of Exposure (Occasional, Frequent, or Continuous) Dealing with complaints and/or verbal abuse Occasional Electrical Occasional Repetitive arm, finger, wrist movements: use of hand tools, mouse, etc., keyboarding/data entry Frequent\n\nCONTINUING EDUCATION\nCheck each description that applies. Does not require any continuing education. Requires learning new university/department related procedures and/or methods. Requires learning new procedures and/or methods acquired through reading non-university/department publications. In addition to B and C, requires registration in formal seminars, training sessions, workshops, conferences, etc. In addition to B, C, and D, requires registration in post-secondary courses (one semester/equivalent)."
+  },
+  "provenance": {
+   "member_count": 3,
+   "skill_frequency": [
+    [
+     "accurately",
+     3
+    ],
+    [
+     "analytical",
+     3
+    ],
+    [
+     "and",
+     3
+    ],
+    [
+     "audio",
+     3
+    ],
+    [
+     "boards",
+     3
+    ],
+    [
+     "carry",
+     3
+    ],
+    [
+     "communication",
+     3
+    ],
+    [
+     "component",
+     3
+    ],
+    [
+     "components",
+     3
+    ],
+    [
+     "computer",
+     3
+    ],
+    [
+     "computers",
+     3
+    ],
+    [
+     "confluence",
+     3
+    ],
+    [
+     "data",
+     3
+    ],
+    [
+     "database",
+     3
+    ],
+    [
+     "defective",
+     3
+    ],
+    [
+     "equipment",
+     3
+    ],
+    [
+     "evenings",
+     3
+    ],
+    [
+     "exercise",
+     3
+    ],
+    [
+     "filters",
+     3
+    ],
+    [
+     "flexible",
+     3
+    ],
+    [
+     "follow",
+     3
+    ],
+    [
+     "hand",
+     3
+    ],
+    [
+     "hardware",
+     3
+    ],
+    [
+     "heavy",
+     3
+    ],
+    [
+     "hours",
+     3
+    ],
+    [
+     "including",
+     3
+    ],
+    [
+     "independently",
+     3
+    ],
+    [
+     "instructions",
+     3
+    ],
+    [
+     "interpersonal",
+     3
+    ],
+    [
+     "inventory",
+     3
+    ],
+    [
+     "issues",
+     3
+    ],
+    [
+     "judgment",
+     3
+    ],
+    [
+     "lamps",
+     3
+    ],
+    [
+     "lift",
+     3
+    ],
+    [
+     "macs",
+     3
+    ],
+    [
+     "maintenance",
+     3
+    ],
+    [
+     "materials",
+     3
+    ],
+    [
+     "mature",
+     3
+    ],
+    [
+     "microphone",
+     3
+    ],
+    [
+     "microphones",
+     3
+    ],
+    [
+     "minor",
+     3
+    ],
+    [
+     "mixing",
+     3
+    ],
+    [
+     "move",
+     3
+    ],
+    [
+     "operating",
+     3
+    ],
+    [
+     "oral",
+     3
+    ],
+    [
+     "overhead",
+     3
+    ],
+    [
+     "pcs",
+     3
+    ],
+    [
+     "perform",
+     3
+    ],
+    [
+     "pliers",
+     3
+    ],
+    [
+     "problem",
+     3
+    ],
+    [
+     "problems",
+     3
+    ],
+    [
+     "processors",
+     3
+    ],
+    [
+     "projection",
+     3
+    ],
+    [
+     "projector",
+     3
+    ],
+    [
+     "projectors",
+     3
+    ],
+    [
+     "reasoning",
+     3
+    ],
+    [
+     "record",
+     3
+    ],
+    [
+     "recording",
+     3
+    ],
+    [
+     "repairs",
+     3
+    ],
+    [
+     "replace",
+     3
+    ],
+    [
+     "replacing",
+     3
+    ],
+    [
+     "resolve",
+     3
+    ],
+    [
+     "screwdrivers",
+     3
+    ],
+    [
+     "software",
+     3
+    ],
+    [
+     "solving",
+     3
+    ],
+    [
+     "standard",
+     3
+    ],
+    [
+     "system",
+     3
+    ],
+    [
+     "systems",
+     3
+    ],
+    [
+     "tools",
+     3
+    ],
+    [
+     "troubleshoot",
+     3
+    ],
+    [
+     "upgrades",
+     3
+    ],
+    [
+     "use",
+     3
+    ],
+    [
+     "using",
+     3
+    ],
+    [
+     "variety",
+     3
+    ],
+    [
+     "visual",
+     3
+    ],
+    [
+     "weekends",
+     3
+    ],
+    [
+     "windows",
+     3
+    ],
+    [
+     "wired",
+     3
+    ],
+    [
+     "wireless",
+     3
+    ],
+    [
+     "written",
+     3
+    ],
+    [
+     "etc",
+     2
+    ]
+   ],
+   "duty_coverage": [
+    [
+     "Ensures that all facilities, equipment, software, documentation, and signage are maintained in proper order. Detects existing or potential problems and failures and reports them to senior technicians. Performs data entry by entering details of errors/problems into the departmental trouble reporting database (i.e., Confluence). Removes equipment for repair and records items into the inventory system (i.e., Confluence)",
+     3
+    ],
+    [
+     "Inspects and tests AV Services computing equipment using diagnostic software and electronic test equipment (i.e., digital multimeters); analyzes information provided by the manufacturer and/or procedure manual; and identifies system faults or maintenance required (i.e., component replacement or repair). Analyzes and corrects computing equipment malfunctions by ensuring that standardized configuration is maintained on all lab computers as required",
+     3
+    ],
+    [
+     "Keeps work areas clean and tidy by storing equipment, materials, and supplies in their assigned areas, and by using various cleaning tools and products to ensure an organized and clean working environment",
+     3
+    ],
+    [
+     "Maintains AV equipment (i.e., data projectors, overhead projectors, etc.) by replacing lamps, cleaning filters and upgrading settings. Replaces defective system components with upgraded AV equipment (i.e., projector lamps and filters, wireless microphone components, batteries, etc.) using basic hand tools (i.e., screwdrivers, pliers)",
+     3
+    ],
+    [
+     "Performs maintenance and cleaning of computing hardware and accessories by replacing defective mice, keyboards, and monitors and cleaning computer monitors, keyboards, mice, etc., using standard cleaning tools",
+     3
+    ],
+    [
+     "Performs other duties and responsibilities consistent with the job description and classification on request",
+     3
+    ],
+    [
+     "Resolves minor hardware and software problems (i.e., broken lavalier cords or filters, damaged projector components, updating & reimaging computers, etc.) ﻿by referring to the appropriate resources (i.e., service desk knowledge database). Refers complex problems to senior technicians",
+     3
+    ]
+   ],
+   "section_contributors": [
+    [
+     "additional_context",
+     [
+      2
+     ]
+    ],
+    [
+     "department",
+     [
+      0,
+      1
+     ]
+    ],
+    [
+     "employee_group",
+     [
+      0,
+      1,
+      2
+     ]
+    ],
+    [
+     "position_summary",
+     [
+      0
+     ]
+    ],
+    [
+     "relationships",
+     [
+      0
+     ]
+    ],
+    [
+     "title",
+     [
+      0,
+      1,
+      2
+     ]
+    ]
+   ],
+   "flags": [
+    "sections_not_merged"
+   ],
+   "seniority_bars": [
+    {
+     "kind": "education",
+     "policy": "max",
+     "chosen": 0,
+     "member_bars": [
+      0,
+      0,
+      0
+     ]
+    }
+   ]
+  }
+ },
+ "model": {
+  "title": "Audio/Visual Technician",
+  "position_number": null,
+  "department": "IT Client Services – AV Services",
+  "grade": null,
+  "classification": null,
+  "employee_group": "cupe",
+  "supervisor_title": null,
+  "supervisor_position_number": null,
+  "about_sfu_present": false,
+  "position_summary": "Provides technical assistance to IT Services staff in the maintenance, upgrade, and operation of campus audio/visual (AV) systems and associated computing equipment. The role ensures that AV facilities, equipment, software, documentation and signage are kept in proper order, conducts inspections and testing, performs minor repairs, and resolves hardware and software issues. By maintaining clean work environments and accurate inventory records, the technician supports instructional spaces, meeting rooms, and other university facilities while delivering reliable AV services during flexible hours, including evenings and weekends.",
+  "duties": [
+   {
+    "action_verb": "Ensure",
+    "statement": "Facilities, equipment, software, documentation, and signage are maintained in proper order, problems are detected and reported, and error details are entered into the departmental trouble reporting database.",
+    "how_why": [
+     "by reporting failures to senior technicians",
+     "by performing data entry of errors/problems into Confluence"
+    ],
+    "frequency": "daily"
+   },
+   {
+    "action_verb": "Inspect",
+    "statement": "AV Services computing equipment is inspected and tested using diagnostic software and electronic test equipment, with information analyzed to identify and correct system faults while maintaining standardized configurations.",
+    "how_why": [
+     "by using digital multimeters and manufacturer manuals to analyze information",
+     "by ensuring standardized configuration is maintained on all lab computers"
+    ],
+    "frequency": "daily"
+   },
+   {
+    "action_verb": "Maintain",
+    "statement": "Work areas are kept clean and tidy by storing equipment, materials, and supplies in assigned locations and using appropriate cleaning tools and products.",
+    "how_why": [
+     "by organizing equipment and supplies in their assigned areas",
+     "by using various cleaning tools and products to ensure an organized environment"
+    ],
+    "frequency": "daily"
+   },
+   {
+    "action_verb": "Service",
+    "statement": "AV equipment such as data and overhead projectors is serviced by replacing lamps, cleaning filters, upgrading settings, and replacing defective components using basic hand tools.",
+    "how_why": [
+     "by replacing lamps, filters, batteries and other components as needed",
+     "by using screwdrivers, pliers and other hand tools"
+    ],
+    "frequency": "daily"
+   },
+   {
+    "action_verb": "Maintain",
+    "statement": "Computing hardware and accessories are maintained and cleaned by replacing defective mice, keyboards, and monitors and cleaning components with standard tools.",
+    "how_why": [
+     "by using standard cleaning tools",
+     "by replacing defective peripherals"
+    ],
+    "frequency": "daily"
+   },
+   {
+    "action_verb": "Perform",
+    "statement": "Other duties and responsibilities consistent with the job description and classification are performed as requested.",
+    "how_why": [],
+    "frequency": null
+   },
+   {
+    "action_verb": "Resolve",
+    "statement": "Minor hardware and software problems such as broken lavalier cords, filter issues, projector component damage, and computer upgrades are resolved by consulting appropriate resources, with complex issues escalated to senior technicians.",
+    "how_why": [
+     "by referring to the service desk knowledge database",
+     "by escalating complex problems to senior technicians"
+    ],
+    "frequency": "daily"
+   }
+  ],
+  "decision_making": [],
+  "problem_solving": [],
+  "relationships": {
+   "supervisory": null,
+   "internal": [
+    "Students (less than 1 hour, frequent)",
+    "IT Services technical staff (less than 1 hour, frequent)",
+    "University staff (less than 1 hour, frequent)",
+    "Faculty (less than 1 hour, occasional)",
+    "Information Technology Professional III, IT Services (less than 1 hour, occasional)"
+   ],
+   "external": []
+  },
+  "qualifications": [
+   {
+    "text": "Ability to exercise mature judgment and to work independently",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to follow oral and written instructions accurately",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to perform minor repairs and maintenance on audio visual equipment (i.e., replacing projector lamps, filters, etc.)",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to record data using a standard inventory recording database (e.g., Confluence, etc.)",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to troubleshoot and resolve minor hardware and software problems (i.e., microphone component issues, projector problems, computer upgrades)",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use a variety of hand tools (screwdrivers, pliers, etc.) to replace defective system components",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Good analytical reasoning and problem solving skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Good interpersonal and communication (oral and written) skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Good knowledge of computers and operating systems (i.e., PCs, Macs, Windows)",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Good knowledge of projection systems (i.e., data projectors and overhead projectors), audio systems (i.e., wired and wireless microphones, mixing boards, audio processors)",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Ability to lift, move, or carry heavy equipment or materials up to 20 kg",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to work flexible hours including evenings and weekends",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "High school graduation and general courses or training of moderate duration (one semester equivalent) in computing technology or a related field",
+    "kind": "education",
+    "modifier": null
+   }
+  ],
+  "territorial_acknowledgement_present": false,
+  "employment_equity_present": false,
+  "additional_context": "LEVEL OF INDEPENDENCE\nCheck one box that best describes the level of independence that can be exercised within the position by a fully trained employee. Work is provided with specific instructions describing how and when it should be completed. Work is provided with general instructions. The employee makes choices about how the work will be completed within deadlines. Work is self-directed by the employee. The employee determines what work needs to be completed and when it should be completed to meet deadlines. Work is assigned on a project-by-project basis in the form of broad objectives. The employee evaluates what work needs to be completed within general time frames. Provide examples of project work:\n\nTRAINING EXERCISED\nIf the position provides training, check each description that applies. Not required to provide training to other individuals. Explains how work is performed in his/her own position to individuals in other positions performing the same or similar work (includes training replacement employees). Provides one-on-one specialized training to other individuals. Considered a specialist in a particular area or field of study. Positions at this level may be designated as the resident department expert. Provides one-on-one training to individuals in other positions. Must have a good understanding of the work of the other positions. Positions at this level may be designated as group leaders or work leaders. Conducts training seminars for groups. Training seminars are normally scheduled and follow a prescribed format. May also develop or assist in the development of training seminars.\n\nDIRECTION EXERCISED\nCheck each description that applies. Not required to provide direction to other individuals. Assigns and/or checks work of other individuals. Schedules, assigns, and checks work of other individuals. In addition to C, establishes work priorities for a unit. In addition to C and D, guides project teams.\n\nIMPACT OF ERRORS\nCommon Errors: Provide a few examples of the most common errors which normally occur in the performance of the work. Mis-configured workstation resulting in downtime for user. Mis-configured network printers causing printing delays. Uncommon Errors: Provide a few examples of most uncommon errors which infrequently occur in the performance of the work. Failure to backup data before reformatting users’ hard drives resulting in data loss. Feeding laser printer with the wrong type of transparencies causing damage to printer.\n\nEFFORT\nDescribe concentrated periods of auditory (hearing/listening); visual (seeing); perceptual (understanding / comprehending); and physical dexterity (finger/hand movements, eye/hand coordination, lifting, carrying, pushing, pulling, reaching etc.). For each example of effort, indicate the concentrated duration (less than 1 hour at a time, 1-2 hours at a time, more than 2 hours at a time) and frequency (occasional, frequent, continuous). Type of Effort Duration Frequency Auditory < 1 hour Frequent Non-confined sitting: working at a computer workstation < 1 hour Frequent Visual/Perceptual: inspecting/testing computing equipment; troubleshooting hardware and software issues; reading procedural manuals and analyzing computing malfunctions 1-2 hours Frequent Physical Dexterity: keyboarding, using hand tools (i.e., pliers) < 1 hour Frequent Standing/walking < 1 hour Frequent Lifting, carrying, and pushing computing hardware/equipment and supplies up to 20 kg < 1 hour Occasional Crouching, bending, kneeling: connecting hardware and peripherals, replacing defective system components < 1 hour Occasional\n\nWORKING CONDITIONS\nDescribe the place(s) where work is performed such as office environment, laboratory, outside work site, etc. Also identify the number of hours (of the total hours worked per week) spent in the place(s). Location Hours spent as a total of hours worked per week Other areas on campus and related facilities in Vancouver 30/35 Office 5/35 Describe any uncomfortable and/or distracting conditions in the work place(s) which an incumbent is exposed to on a regular basis and the frequency of the exposure. (e.g. interruptions, distracting noise, unpleasant odours, dust, drafts, inks, dyes, cleaning agents, toner for printers, temperature extremes, heavy dust conditions, wetness, fumes, vibrations, etc.) Uncomfortable Conditions Frequency of Exposure (Occasional, Frequent, or Continuous) Interruptions Frequent Distracting noise Occasional Dust Frequent Cleaning agents Occasional Looking at computer monitors: eye strain Occasional Describe any potential health or safety hazards etc. and the frequency of exposure of each hazard. (e.g. dealing with complaints and/or verbal/physical abuse; noise levels that interfere with normal speech/hearing; toxic gases or materials; dangerous chemicals, combustibles, radioactive material; repetitive arm, finger, wrist movements or other activities that may result in a physical injury; high speed, pressurized equipment; high voltage; heights above five feet; bio-hazardous wastes, body fluids, etc.) Potential Health or Safety Hazards Frequency of Exposure (Occasional, Frequent, or Continuous) Dealing with complaints and/or verbal abuse Occasional Electrical Occasional Repetitive arm, finger, wrist movements: use of hand tools, mouse, etc., keyboarding/data entry Frequent\n\nCONTINUING EDUCATION\nCheck each description that applies. Does not require any continuing education. Requires learning new university/department related procedures and/or methods. Requires learning new procedures and/or methods acquired through reading non-university/department publications. In addition to B and C, requires registration in formal seminars, training sessions, workshops, conferences, etc. In addition to B, C, and D, requires registration in post-secondary courses (one semester/equivalent)."
+ }
+}

@@ -33,11 +33,15 @@ from src.jd_core.models.parsed_jd import (
 from src.jd_core.rules import Rules, get_rules
 
 #: SFURelationships.supervisory's own max length, read from the model so the header
-#: overflow guard below can never drift from the schema it must not violate.
-_SUPERVISORY_MAX: int = next(
-    meta.max_length
-    for meta in SFURelationships.model_fields["supervisory"].metadata
-    if getattr(meta, "max_length", None) is not None
+#: overflow guard below can never drift from the schema it must not violate — ``None``
+#: since HR-324: the model declares no ceiling, so there is no overflow to guard.
+_SUPERVISORY_MAX: int | None = next(
+    (
+        int(meta.max_length)
+        for meta in SFURelationships.model_fields["supervisory"].metadata
+        if getattr(meta, "max_length", None) is not None
+    ),
+    None,
 )
 
 
@@ -134,7 +138,8 @@ def _relationships(
         # supervisory answer + the ~54-char header can't overflow the model (the
         # author's text is kept whole; only the theoretical overflow tail is trimmed).
         supervisory = f"{header} {supervisory}" if supervisory else header
-        supervisory = supervisory[:_SUPERVISORY_MAX]
+        if _SUPERVISORY_MAX is not None:
+            supervisory = supervisory[:_SUPERVISORY_MAX]
     if not (supervisory or internal or external):
         return None
     return SFURelationships(

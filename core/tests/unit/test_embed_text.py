@@ -6,7 +6,8 @@ Every hard rule from the spec gets its own failing-fixture test:
   pinned by MUTATION (`model_copy`);
 * SFU's mandated boilerplate is never embedded (it has no text field to leak from,
   and this test proves the presence booleans cannot smuggle any in);
-* `how_why` is never emitted, even when the parser one day populates it;
+* a duty's `how_why` clauses are part of its ONE unit (parser v9), and a duty without
+  any serializes byte-identically to before;
 * lists stay in file order;
 * truncation lands on a whole-unit boundary, never mid-word/mid-item;
 * a sub-`min_section_chars` section, and an all-empty JD, yield no unit at all.
@@ -125,26 +126,34 @@ def test_boilerplate_presence_booleans_never_change_the_serialized_text(
     assert without_result == with_result
 
 
-# --- how_why is never emitted ---------------------------------------------------
+# --- how_why travels with its duty (parser v9) ---------------------------------
 
 
-def test_how_why_is_never_emitted_even_when_populated(rules: Rules) -> None:
-    """HR-121: the segmenter never populates `how_why` today, but this serializer
-    must not depend on that — it simply never reads the field, so Phase 4
-    populating it changes nothing here."""
+def test_how_why_is_part_of_its_duty_unit(rules: Rules) -> None:
+    """Parser v9 fills `how_why` with the sub-bullets of SFU's "… by:" headline (owner
+    ruling 2026-10-20). The headline alone is not the duty, so the clauses must reach
+    the vector — in the SAME unit, so whole-unit truncation cannot split them off."""
     jd = _jd(
         duties=[
             SFUDuty(
                 action_verb="Manages",
-                statement="the annual project portfolio.",
-                how_why=["HOW: via quarterly reviews", "WHY: to hit the budget"],
+                statement="Manages the annual project portfolio by",
+                how_why=["running quarterly reviews", "tracking the budget"],
             )
         ]
     )
     result = serialize_document(jd, rules.embeddings)
-    assert "HOW: via quarterly reviews" not in result.text
-    assert "WHY: to hit the budget" not in result.text
-    assert "Manages the annual project portfolio." in result.text
+    assert (
+        "Manages Manages the annual project portfolio by "
+        "running quarterly reviews tracking the budget"
+    ) in result.text.splitlines()
+
+
+def test_a_duty_without_how_why_serializes_as_before(rules: Rules) -> None:
+    """Byte-identical to the v1 serializer, so the bump re-embeds nothing by itself."""
+    jd = _jd(duties=[SFUDuty(action_verb="Manages", statement="the portfolio.")])
+    lines = serialize_document(jd, rules.embeddings).text.splitlines()
+    assert "Manages the portfolio." in lines
 
 
 # --- lists stay in file order ---------------------------------------------------

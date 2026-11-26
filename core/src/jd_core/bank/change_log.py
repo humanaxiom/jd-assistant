@@ -98,7 +98,9 @@ def build_harmonization_diff(
     for why the difference mattered.
 
     Pure, deterministic and order-invariant. ``rules`` defaults to the loaded
-    rulebook; only the merge's already-registered ``harmonization`` knobs are read.
+    rulebook; only the merge's already-registered ``harmonization`` knobs are read, plus
+    ``rewrite.boilerplate_review_sections`` (HR-281), which picks only the reason a
+    rewrite-input strip is shown with.
     """
     active = rules if rules is not None else get_rules()
     harmon = active.harmonization
@@ -180,6 +182,33 @@ def build_harmonization_diff(
                 RemovedContent(content=content, reason=reason, member_index=None)
                 for content in contents
             )
+        # Rewrite fidelity (2026-10-20, HR-269…HR-276): everything else the guard took
+        # out, or the model lost and was NOT put back. Folded / restored content is in
+        # the draft itself, so it is not a removal; what is listed here is not on the
+        # page, and until now it was in the record only, which no reviewer opens.
+        restored = set(record.restored_items)
+        sectioned: tuple[tuple[Sequence[tuple[str, str]], RemovedReason], ...] = (
+            (record.scrubbed_items, "item_scrubbed_ungrounded"),
+            (
+                [i for i in record.uncovered_items if i not in restored],
+                "item_dropped_by_rewrite",
+            ),
+        )
+        for items, reason in sectioned:
+            removed.extend(
+                RemovedContent(content=text, reason=reason, section=section)
+                for section, text in items
+            )
+        plain: tuple[tuple[Sequence[str], RemovedReason], ...] = (
+            (record.scrubbed_how_why, "how_why_scrubbed_ungrounded"),
+            (record.dropped_duty_content, "duty_content_dropped_by_rewrite"),
+            (record.over_form_limit, "rewrite_over_form_limit"),
+        )
+        for contents, reason in plain:
+            removed.extend(
+                RemovedContent(content=content, reason=reason) for content in contents
+            )
+        removed.extend(_stripped(record, active))
         flagged_duties = tuple(record.flagged_duties)
 
     return HarmonizationDiff(
@@ -188,6 +217,42 @@ def build_harmonization_diff(
         removed=tuple(removed),
         flagged_duties=flagged_duties,
     )
+
+
+def _stripped(record: AntiFabricationRecord, rules: Rules) -> list[RemovedContent]:
+    """What the source view removed from the rewrite's input, each with its reason.
+
+    🔴 It was all ``form_text_stripped`` — "form text" — including a duty of an
+    Indigenous programs role about events that acknowledge the Coast Salish
+    territories, which matches SFU's acknowledgement wording (HR-273/274) and is set
+    aside. That label told the reviewer there was nothing to check. A record that says
+    where each piece came from (:attr:`AntiFabricationRecord.stripped_source_parts`)
+    now separates the questionnaire's instructions from boilerplate, and boilerplate
+    found in a section that is role content (``rewrite.boilerplate_review_sections``,
+    HR-281) from boilerplate anywhere else. A record written before that field keeps
+    the combined reason — it does not say which kind a piece was, so nothing here
+    guesses."""
+    if not record.stripped_source_parts:
+        return [
+            RemovedContent(content=text, reason="form_text_stripped")
+            for text in record.stripped_source_text
+        ]
+    review = set(rules.rewrite.boilerplate_review_sections)
+    out: list[RemovedContent] = []
+    for piece in record.stripped_source_parts:
+        reason: RemovedReason
+        if piece.kind == "form_instruction":
+            reason = "form_instruction_stripped"
+        elif piece.kind == "page_header":
+            reason = "page_header_stripped"
+        elif piece.section in review:
+            reason = "boilerplate_matched_in_role_content"
+        else:
+            reason = "boilerplate_stripped"
+        out.append(
+            RemovedContent(content=piece.text, reason=reason, section=piece.section)
+        )
+    return out
 
 
 def _rendered_draft(

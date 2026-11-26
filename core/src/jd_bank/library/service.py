@@ -242,6 +242,7 @@ async def get_source_jd(
         classification=jd.classification,
         rendered_text=render_sfu_jd_text(jd),
         role=role,
+        set_aside=tuple(jd.set_aside),
         reads_filename_positions=reads_positions,
         filename_positions=positions,
         title_from_filename=title_from_filename,

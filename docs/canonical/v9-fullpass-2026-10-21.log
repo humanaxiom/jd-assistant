@@ -1,0 +1,322 @@
+START 2026-10-21T08:27:13.1575769-07:00  T0=2026-10-21T15:27:12Z
+
+  Acting on JD Bank:
+    project  jd-bank-v9             (.env)
+    images   jd-bank-api:v9 / jd-bank-worker:v9  (.env)
+    ports    api 26800 · postgres 26432 · neo4j 26474/26687 · redis 26379
+    checkout C:\repos\JD-Assistant-v9  (linked git worktree)
+  [ok]   guard: ok: 'jd-bank-v9' is this checkout's to act on.
+
+docker compose run --rm -T canonical python -u -m src.jd_bank.canonical 
+ Container jd-bank-v9-postgres-1 Running 
+ Container jd-bank-v9-postgres-1 Waiting 
+ Container jd-bank-v9-postgres-1 Healthy 
+ Container jd-bank-v9-canonical-run-4c15e297b36d Creating 
+ Container jd-bank-v9-canonical-run-4c15e297b36d Created 
+[canonical-producer] 25/2446 clusters | persisted=0 refreshed=25 skipped=0 failures=0 | elapsed=2913.9s
+[canonical-producer] 50/2446 clusters | persisted=0 refreshed=50 skipped=0 failures=0 | elapsed=6310.3s
+[canonical-producer] 75/2446 clusters | persisted=0 refreshed=75 skipped=0 failures=0 | elapsed=9449.0s
+[canonical-producer] 100/2446 clusters | persisted=0 refreshed=100 skipped=0 failures=0 | elapsed=12444.5s
+[canonical-producer] 125/2446 clusters | persisted=0 refreshed=125 skipped=0 failures=0 | elapsed=15767.9s
+[canonical-producer] 150/2446 clusters | persisted=0 refreshed=150 skipped=0 failures=0 | elapsed=19519.7s
+[canonical-producer] 175/2446 clusters | persisted=0 refreshed=175 skipped=0 failures=0 | elapsed=22868.7s
+[canonical-producer] 200/2446 clusters | persisted=0 refreshed=200 skipped=0 failures=0 | elapsed=26431.8s
+[canonical-producer] 225/2446 clusters | persisted=0 refreshed=225 skipped=0 failures=0 | elapsed=29367.2s
+[canonical-producer] 250/2446 clusters | persisted=0 refreshed=250 skipped=0 failures=0 | elapsed=32710.6s
+[canonical-producer] 275/2446 clusters | persisted=0 refreshed=275 skipped=0 failures=0 | elapsed=35993.4s
+[canonical-producer] 300/2446 clusters | persisted=0 refreshed=300 skipped=0 failures=0 | elapsed=39403.2s
+[canonical-producer] 325/2446 clusters | persisted=0 refreshed=325 skipped=0 failures=0 | elapsed=42936.1s
+[canonical-producer] 350/2446 clusters | persisted=0 refreshed=350 skipped=0 failures=0 | elapsed=46417.5s
+[canonical-producer] 375/2446 clusters | persisted=0 refreshed=375 skipped=0 failures=0 | elapsed=49437.5s
+[canonical-producer] 400/2446 clusters | persisted=0 refreshed=400 skipped=0 failures=0 | elapsed=52589.8s
+[canonical-producer] 425/2446 clusters | persisted=0 refreshed=425 skipped=0 failures=0 | elapsed=55834.6s
+[canonical-producer] 450/2446 clusters | persisted=0 refreshed=450 skipped=0 failures=0 | elapsed=58964.1s
+[canonical-producer] 475/2446 clusters | persisted=0 refreshed=475 skipped=0 failures=0 | elapsed=62492.8s
+[canonical-producer] 500/2446 clusters | persisted=0 refreshed=500 skipped=0 failures=0 | elapsed=65658.5s
+[canonical-producer] 525/2446 clusters | persisted=0 refreshed=525 skipped=0 failures=0 | elapsed=68793.4s
+[canonical-producer] 550/2446 clusters | persisted=0 refreshed=550 skipped=0 failures=0 | elapsed=71878.3s
+[canonical-producer] 575/2446 clusters | persisted=0 refreshed=575 skipped=0 failures=0 | elapsed=75013.5s
+[canonical-producer] 600/2446 clusters | persisted=0 refreshed=600 skipped=0 failures=0 | elapsed=78506.0s
+[canonical-producer] 625/2446 clusters | persisted=0 refreshed=625 skipped=0 failures=0 | elapsed=81662.5s
+[canonical-producer] 650/2446 clusters | persisted=0 refreshed=650 skipped=0 failures=0 | elapsed=84922.5s
+[canonical-producer] 675/2446 clusters | persisted=0 refreshed=675 skipped=0 failures=0 | elapsed=88417.8s
+[canonical-producer] 700/2446 clusters | persisted=0 refreshed=700 skipped=0 failures=0 | elapsed=92044.6s
+[canonical-producer] 725/2446 clusters | persisted=0 refreshed=725 skipped=0 failures=0 | elapsed=95305.1s
+[canonical-producer] 750/2446 clusters | persisted=0 refreshed=750 skipped=0 failures=0 | elapsed=98666.6s
+[canonical-producer] 775/2446 clusters | persisted=0 refreshed=775 skipped=0 failures=0 | elapsed=101814.6s
+[canonical-producer] 800/2446 clusters | persisted=0 refreshed=800 skipped=0 failures=0 | elapsed=105216.7s
+[canonical-producer] 825/2446 clusters | persisted=0 refreshed=825 skipped=0 failures=0 | elapsed=108468.1s
+[canonical-producer] 850/2446 clusters | persisted=0 refreshed=850 skipped=0 failures=0 | elapsed=111674.2s
+[canonical-producer] 875/2446 clusters | persisted=0 refreshed=875 skipped=0 failures=0 | elapsed=115047.9s
+[canonical-producer] 900/2446 clusters | persisted=0 refreshed=900 skipped=0 failures=0 | elapsed=118312.5s
+[canonical-producer] 925/2446 clusters | persisted=0 refreshed=925 skipped=0 failures=0 | elapsed=121028.5s
+[canonical-producer] 950/2446 clusters | persisted=0 refreshed=950 skipped=0 failures=0 | elapsed=124106.5s
+[canonical-producer] 975/2446 clusters | persisted=0 refreshed=975 skipped=0 failures=0 | elapsed=127680.8s
+[canonical-producer] 1000/2446 clusters | persisted=0 refreshed=1000 skipped=0 failures=0 | elapsed=130885.9s
+[canonical-producer] 1025/2446 clusters | persisted=0 refreshed=1025 skipped=0 failures=0 | elapsed=134139.1s
+[canonical-producer] 1050/2446 clusters | persisted=0 refreshed=1050 skipped=0 failures=0 | elapsed=137606.0s
+[canonical-producer] 1075/2446 clusters | persisted=0 refreshed=1075 skipped=0 failures=0 | elapsed=141135.7s
+[canonical-producer] 1100/2446 clusters | persisted=0 refreshed=1100 skipped=0 failures=0 | elapsed=144507.2s
+[canonical-producer] 1125/2446 clusters | persisted=0 refreshed=1125 skipped=0 failures=0 | elapsed=147816.1s
+[canonical-producer] 1150/2446 clusters | persisted=0 refreshed=1150 skipped=0 failures=0 | elapsed=150939.3s
+[canonical-producer] 1175/2446 clusters | persisted=0 refreshed=1175 skipped=0 failures=0 | elapsed=154210.6s
+[canonical-producer] 1200/2446 clusters | persisted=0 refreshed=1200 skipped=0 failures=0 | elapsed=156705.9s
+[canonical-producer] 1225/2446 clusters | persisted=0 refreshed=1225 skipped=0 failures=0 | elapsed=159726.1s
+[canonical-producer] 1250/2446 clusters | persisted=0 refreshed=1250 skipped=0 failures=0 | elapsed=162965.6s
+[canonical-producer] 1275/2446 clusters | persisted=0 refreshed=1275 skipped=0 failures=0 | elapsed=166036.2s
+[canonical-producer] 1300/2446 clusters | persisted=0 refreshed=1300 skipped=0 failures=0 | elapsed=169322.0s
+[canonical-producer] 1325/2446 clusters | persisted=0 refreshed=1325 skipped=0 failures=0 | elapsed=172431.7s
+[canonical-producer] 1350/2446 clusters | persisted=0 refreshed=1350 skipped=0 failures=0 | elapsed=175498.4s
+[canonical-producer] 1375/2446 clusters | persisted=0 refreshed=1375 skipped=0 failures=0 | elapsed=178651.7s
+[canonical-producer] 1400/2446 clusters | persisted=0 refreshed=1400 skipped=0 failures=0 | elapsed=181782.2s
+[canonical-producer] 1425/2446 clusters | persisted=0 refreshed=1425 skipped=0 failures=0 | elapsed=184634.5s
+[canonical-producer] 1450/2446 clusters | persisted=0 refreshed=1450 skipped=0 failures=0 | elapsed=188225.3s
+[canonical-producer] 1475/2446 clusters | persisted=0 refreshed=1475 skipped=0 failures=0 | elapsed=191778.7s
+[canonical-producer] 1500/2446 clusters | persisted=0 refreshed=1500 skipped=0 failures=0 | elapsed=195206.3s
+[canonical-producer] 1525/2446 clusters | persisted=0 refreshed=1525 skipped=0 failures=0 | elapsed=198334.8s
+[canonical-producer] 1550/2446 clusters | persisted=0 refreshed=1550 skipped=0 failures=0 | elapsed=201518.6s
+[canonical-producer] 1575/2446 clusters | persisted=0 refreshed=1575 skipped=0 failures=0 | elapsed=204479.2s
+[canonical-producer] 1600/2446 clusters | persisted=0 refreshed=1600 skipped=0 failures=0 | elapsed=207978.1s
+[canonical-producer] 1625/2446 clusters | persisted=0 refreshed=1625 skipped=0 failures=0 | elapsed=210702.9s
+[canonical-producer] 1650/2446 clusters | persisted=0 refreshed=1650 skipped=0 failures=0 | elapsed=213534.3s
+[canonical-producer] 1675/2446 clusters | persisted=0 refreshed=1675 skipped=0 failures=0 | elapsed=216556.5s
+[canonical-producer] 1700/2446 clusters | persisted=0 refreshed=1700 skipped=0 failures=0 | elapsed=219776.3s
+[canonical-producer] 1725/2446 clusters | persisted=0 refreshed=1725 skipped=0 failures=0 | elapsed=223134.1s
+[canonical-producer] 1750/2446 clusters | persisted=0 refreshed=1750 skipped=0 failures=0 | elapsed=226523.1s
+[canonical-producer] 1775/2446 clusters | persisted=0 refreshed=1775 skipped=0 failures=0 | elapsed=230081.4s
+[canonical-producer] 1800/2446 clusters | persisted=0 refreshed=1800 skipped=0 failures=0 | elapsed=233325.3s
+[canonical-producer] 1825/2446 clusters | persisted=0 refreshed=1825 skipped=0 failures=0 | elapsed=236616.3s
+[canonical-producer] 1850/2446 clusters | persisted=0 refreshed=1850 skipped=0 failures=0 | elapsed=240179.5s
+[canonical-producer] 1875/2446 clusters | persisted=0 refreshed=1875 skipped=0 failures=0 | elapsed=243454.4s
+[canonical-producer] 1900/2446 clusters | persisted=0 refreshed=1900 skipped=0 failures=0 | elapsed=246822.3s
+[canonical-producer] 1925/2446 clusters | persisted=0 refreshed=1925 skipped=0 failures=0 | elapsed=250277.8s
+[canonical-producer] 1950/2446 clusters | persisted=0 refreshed=1950 skipped=0 failures=0 | elapsed=253725.5s
+[canonical-producer] 1975/2446 clusters | persisted=0 refreshed=1975 skipped=0 failures=0 | elapsed=257011.4s
+[canonical-producer] 2000/2446 clusters | persisted=0 refreshed=2000 skipped=0 failures=0 | elapsed=260626.1s
+[canonical-producer] 2025/2446 clusters | persisted=0 refreshed=2025 skipped=0 failures=0 | elapsed=263785.0s
+[canonical-producer] 2050/2446 clusters | persisted=0 refreshed=2050 skipped=0 failures=0 | elapsed=267442.4s
+[canonical-producer] 2075/2446 clusters | persisted=0 refreshed=2075 skipped=0 failures=0 | elapsed=270601.4s
+[canonical-producer] 2100/2446 clusters | persisted=0 refreshed=2100 skipped=0 failures=0 | elapsed=273730.3s
+[canonical-producer] 2125/2446 clusters | persisted=0 refreshed=2125 skipped=0 failures=0 | elapsed=277264.6s
+[canonical-producer] 2150/2446 clusters | persisted=0 refreshed=2150 skipped=0 failures=0 | elapsed=280458.2s
+[canonical-producer] 2175/2446 clusters | persisted=0 refreshed=2175 skipped=0 failures=0 | elapsed=283595.4s
+[canonical-producer] 2200/2446 clusters | persisted=0 refreshed=2200 skipped=0 failures=0 | elapsed=287275.2s
+[canonical-producer] 2225/2446 clusters | persisted=0 refreshed=2225 skipped=0 failures=0 | elapsed=290643.6s
+[canonical-producer] 2250/2446 clusters | persisted=0 refreshed=2250 skipped=0 failures=0 | elapsed=294025.6s
+[canonical-producer] 2275/2446 clusters | persisted=0 refreshed=2275 skipped=0 failures=0 | elapsed=297499.7s
+[canonical-producer] 2300/2446 clusters | persisted=0 refreshed=2300 skipped=0 failures=0 | elapsed=300656.3s
+[canonical-producer] 2325/2446 clusters | persisted=0 refreshed=2325 skipped=0 failures=0 | elapsed=303711.7s
+[canonical-producer] 2350/2446 clusters | persisted=0 refreshed=2350 skipped=0 failures=0 | elapsed=307266.7s
+[canonical-producer] 2375/2446 clusters | persisted=0 refreshed=2375 skipped=0 failures=0 | elapsed=310541.4s
+[canonical-producer] 2400/2446 clusters | persisted=0 refreshed=2400 skipped=0 failures=0 | elapsed=314437.6s
+[canonical-producer] 2425/2446 clusters | persisted=0 refreshed=2425 skipped=0 failures=0 | elapsed=318045.8s
+clusters: 2446 recomputed -> 2446 seen [jdfn=1810, wjq=636] (2445 multi, 1 single)
+drafts: 0 persisted, 2446 refreshed, 0 skipped (reviewer-touched), 0 skipped (would downgrade an LLM draft), 0 skipped (already LLM-written), 0 out of scope, 0 cluster failures
+LLM: enabled=True, 50 rewrite failures, 0 audit failures
+WJQ members: 3563 authored, 1 excluded (3221 frequency-confirmed), 0 clusters fully-WJQ with no draft, 1 mixed
+evaluation, PER FORM (never blended ΓÇö each is its own bar):
+  jdfn: 1810 drafts scored on the jdfn bar, mean 66.69, 462 approvable, grades {'A': 2, 'B': 677, 'C': 242, 'D': 878, 'F': 11}
+  wjq: 636 drafts scored on the wjq bar, mean 75.41, 0 approvable, grades {'B': 215, 'C': 410, 'D': 11}
+rules_version=jd_rules_sfu_v4+e59b1b5d62e3  llm_enabled=True
+wrote /committed/summary.json
+"Γ£à canonical-producer summary written to docs/canonical/summary.json"
+=== canonical-drafts exit 0  2026-10-25T01:33:25.5218682-07:00
+
+  Acting on JD Bank:
+    project  jd-bank-v9             (.env)
+    images   jd-bank-api:v9 / jd-bank-worker:v9  (.env)
+    ports    api 26800 · postgres 26432 · neo4j 26474/26687 · redis 26379
+    checkout C:\repos\JD-Assistant-v9  (linked git worktree)
+  [ok]   guard: ok: 'jd-bank-v9' is this checkout's to act on.
+
+docker compose run --rm -T embed-roles python scripts/embed_roles.py 
+ Container jd-bank-v9-neo4j-1 Running 
+ Container jd-bank-v9-postgres-1 Running 
+ Container jd-bank-v9-neo4j-1 Waiting 
+ Container jd-bank-v9-postgres-1 Waiting 
+ Container jd-bank-v9-neo4j-1 Healthy 
+ Container jd-bank-v9-postgres-1 Healthy 
+ Container jd-bank-v9-embed-roles-run-654f4bffb1c7 Creating 
+ Container jd-bank-v9-embed-roles-run-654f4bffb1c7 Created 
+roles: 2446 seen, 2390 embedded, 47 unchanged, 9 empty (skipped, never a zero vector)
+over-long: 2 embedded from a SHORTER re-cut (HR-193 ladder), 0 refused even at the shortest rung
+nodes pruned (no longer planned): 0
+model=nomic-embed-text dimensions=768 embed_stamp=jd_rules_sfu_v4+b760ce00210a
+"Γ£à role-embedding summary written to docs/embeddings/roles-summary.json"
+
+  Acting on JD Bank:
+    project  jd-bank-v9             (.env)
+    images   jd-bank-api:v9 / jd-bank-worker:v9  (.env)
+    ports    api 26800 · postgres 26432 · neo4j 26474/26687 · redis 26379
+    checkout C:\repos\JD-Assistant-v9  (linked git worktree)
+  [ok]   guard: ok: 'jd-bank-v9' is this checkout's to act on.
+
+docker compose run --rm -T bank-audit python -u -m src.jd_bank.bank_audit 
+ Container jd-bank-v9-postgres-1 Running 
+ Container jd-bank-v9-postgres-1 Waiting 
+ Container jd-bank-v9-postgres-1 Healthy 
+ Container jd-bank-v9-bank-audit-run-36fc809ad01a Creating 
+ Container jd-bank-v9-bank-audit-run-36fc809ad01a Created 
+JD BANK ΓÇö CONTENT AUDIT  (read-only; per form, never blended)
+14522 documents parsed ┬╖ 0 published
+
+ΓöÇΓöÇ JDFN ΓöÇΓöÇ 1810 drafts ┬╖ mean score 66.69 ┬╖ 462 approvable ┬╖ mean 4.5 duties
+   CARRY-THROUGH  (sources offered -> drafts keeping it)
+      additional_context         0 / 15    =   0.0%  (policy: drop ΓÇö expected)
+      relationships           1757 / 1757  = 100.0%
+   ≡ƒö┤ decision_making         1752 / 1755  =  99.8%
+      problem_solving          498 / 498   = 100.0%
+   REWRITE
+      duty frequency kept ΓÇö rewritten 0.0% (0/7917)
+      duty frequency kept ΓÇö merge-only (control) 0.0% (0/234)
+      duties flagged 24.0% (1955/8151) ┬╖ drafts with any flag 54.4%
+   TOP BLOCKING GATES
+      SFU-APPROVE-QUAL-EQUIVALENT        976
+      SFU-APPROVE-SEVERITY-FLOOR         890
+      SFU-APPROVE-MANDATORY-SECTIONS     890
+      SFU-APPROVE-SCORE-FLOOR            889
+      SFU-APPROVE-GRADE-FLOOR            889
+      SFU-APPROVE-KSA-ORDER              359
+
+ΓöÇΓöÇ WJQ ΓöÇΓöÇ 636 drafts ┬╖ mean score 75.41 ┬╖ 0 approvable ┬╖ mean 11.63 duties
+   CARRY-THROUGH  (sources offered -> drafts keeping it)
+      additional_context       633 / 633   = 100.0%
+      relationships            579 / 579   = 100.0%
+      decision_making            0 / 0     =      n/a  (no source states it)
+      problem_solving            0 / 0     =      n/a  (no source states it)
+   REWRITE
+      duty frequency kept ΓÇö rewritten 59.3% (4339/7311)
+      duty frequency kept ΓÇö merge-only (control) 59.5% (50/84)   ≡ƒö┤ the rewrite is destroying a field the merge preserves
+      duties flagged 9.7% (715/7395) ┬╖ drafts with any flag 42.9%
+   TOP BLOCKING GATES
+      SFU-APPROVE-KSA-ORDER              612
+      SFU-APPROVE-QUAL-EQUIVALENT        610
+      SFU-APPROVE-NO-PLACEHOLDERS        129
+      SFU-APPROVE-SUMMARY-CONDITIONS     49
+      SFU-APPROVE-MANDATORY-SECTIONS     15
+      SFU-APPROVE-SEVERITY-FLOOR         15
+
+
+wrote /committed/bank-audit.json
+≡ƒö┤ CARRY-THROUGH BELOW 100.0%: jdfn/decision_making at 99.8%
+
+make: *** [Makefile:311: bank-audit] Error 2
+
+  Acting on JD Bank:
+    project  jd-bank-v9             (.env)
+    images   jd-bank-api:v9 / jd-bank-worker:v9  (.env)
+    ports    api 26800 · postgres 26432 · neo4j 26474/26687 · redis 26379
+    checkout C:\repos\JD-Assistant-v9  (linked git worktree)
+
+docker compose run --rm gates pytest tests/live/test_smoke_live_bank.py -m live --timeout=300 -q
+ Container jd-bank-v9-gates-run-66c21d6115e9 Creating 
+ Container jd-bank-v9-gates-run-66c21d6115e9 Created 
+....................F...F......                                          [100%]
+=================================== FAILURES ===================================
+___________ test_every_live_apsa_role_exports_and_rereads_its_duties ___________
+
+session = <sqlalchemy.ext.asyncio.session.AsyncSession object at 0x7c770014ce50>
+
+    async def test_every_live_apsa_role_exports_and_rereads_its_duties(session) -> None:  # type: ignore[no-untyped-def]
+        """EVERY current non-CUPE role, not a sample: exported and re-read, each comes back
+        with the same number of duties ΓÇö and with nothing else lost either ΓÇö unless the
+        loss is one the JDFN PARSER cannot read whatever the export prints
+        (``tests/export_roundtrip.py :: jdfn_parser_limits``; each is a parser change).
+    
+        MEASURED 2026-10-19 (this branch): duty count survives for 1,874 of 1,876 roles
+        (99.9%; pre-J4: 78, 4.2%); the full oracle holds for 1,872. The rest are parser
+        limits: 2 roles have a duty over 200 characters with two semicolons (split by
+        ``_maybe_split_semicolons``), 1 a title holding "Department" (``NEXT_LABEL_RX``
+        cuts the label value there), 1 a position number that is a faculty name with
+        spaces (the parser reads one token). Any OTHER loss is an export defect.
+        """
+        from src.jd_core.models.parsed_jd import SFUJobDescription
+        from src.jd_core.models.quality import WJQ_TEMPLATE
+        from src.jd_core.quality.validators import template_of
+        from tests.export_roundtrip import jdfn_parser_limits, jdfn_unexplained_losses
+    
+        rows = (await session.execute(text(f"""
+                    WITH cur AS ({_CURRENT})
+                    SELECT cluster_id, content FROM cur c
+                """))).all()
+        total = duty_kept = 0
+        unexplained: list[str] = []
+        for cid, content in rows:
+            if template_of(SFUJobDescription.model_validate(content)) == WJQ_TEMPLATE:
+                continue
+            total += 1
+            jd, _, result = _export_and_reparse(content)
+            if len(jd.duties) == len(result.jd.duties):
+                duty_kept += 1
+            elif "duty" not in jdfn_parser_limits(jd):
+                unexplained.append(
+                    f"{cid}: {len(jd.duties)} duties exported, "
+                    f"{len(result.jd.duties)} re-read"
+                )
+            unexplained += [
+                f"{cid}: {loss}" for loss in jdfn_unexplained_losses(jd, result.jd)
+            ]
+        assert total, "no current non-CUPE role ΓÇö an empty Bank is not a pass"
+>       assert not unexplained, (
+            f"duty count survives for {duty_kept}/{total} roles; "
+            f"{len(unexplained)} losses no parser limit explains: {unexplained[:10]}"
+        )
+E       AssertionError: duty count survives for 1809/1810 roles; 6 losses no parser limit explains: ['23a58c9c-46f5-5ed8-8c7f-a9c202fbdeee: 5 duties exported, 6 re-read', "23a58c9c-46f5-5ed8-8c7f-a9c202fbdeee: position_number: None came back as '31160'", '23a58c9c-46f5-5ed8-8c7f-a9c202fbdeee: duty: 5 exported, 6 re-read', "6eade421-ff69-5170-91b3-d39ea04564b0: position_number: None came back as '2'", "af79f3c6-c747-5325-8c72-ef512fbf5440: position_number: None came back as '00117368'", "ecb07ab9-fc0e-5a82-925d-95ba2ca100d7: position_number: None came back as '103154'"]
+E       assert not ['23a58c9c-46f5-5ed8-8c7f-a9c202fbdeee: 5 duties exported, 6 re-read', "23a58c9c-46f5-5ed8-8c7f-a9c202fbdeee: position...er: None came back as '00117368'", "ecb07ab9-fc0e-5a82-925d-95ba2ca100d7: position_number: None came back as '103154'"]
+
+tests/live/test_smoke_live_bank.py:897: AssertionError
+____________ test_every_live_cupe_role_still_clones_and_reassembles ____________
+
+session = <sqlalchemy.ext.asyncio.session.AsyncSession object at 0x7c76f8b7bf90>
+
+    async def test_every_live_cupe_role_still_clones_and_reassembles(session) -> None:  # type: ignore[no-untyped-def]
+        """Every current CUPE role, not a sample: the J2 contract must still load it
+        (the answers model is stricter than the old one in places), keep every duty,
+        contact and K/S/A line, and reassemble ΓÇö or the Builder would refuse to clone it."""
+        from src.jd_bank.composer.wjq_assemble import assemble_wjq_jd, wjq_answers_from_jd
+        from src.jd_core.models.parsed_jd import SFUJobDescription
+    
+        rows = (await session.execute(text(f"""
+                    WITH cur AS ({_CURRENT})
+                    SELECT cluster_id, content FROM cur c
+                    WHERE c.content->>'employee_group' = 'cupe'
+                """))).all()
+        assert rows, "no current CUPE role ΓÇö an empty Bank is not a pass"
+        broken: list[str] = []
+        for cid, content in rows:
+            jd = SFUJobDescription.model_validate(content)
+            try:
+                answers = wjq_answers_from_jd(jd)
+                again = assemble_wjq_jd(answers)
+            except ValueError as exc:  # pydantic's ValidationError is a ValueError
+                broken.append(f"{cid}: {str(exc)[:120]}")
+                continue
+            ks = [q for q in jd.qualifications if q.kind in {"knowledge", "skill"}]
+            abilities = [q for q in jd.qualifications if q.kind == "ability"]
+            rel = jd.relationships
+            contacts = len(rel.internal) + len(rel.external) if rel else 0
+            if (
+                len(again.duties) != len(jd.duties)
+                or len(answers.occupational_skills) != len(ks)
+                or len(answers.occupational_requirements) != len(abilities)
+                or len(answers.contacts) != contacts
+            ):
+                broken.append(f"{cid}: content lost on clone")
+>       assert not broken, f"{len(broken)} of {len(rows)} CUPE roles: {broken[:5]}"
+E       AssertionError: 1 of 636 CUPE roles: ['0cd5db26-29ed-5f04-920c-8997d3d54a4e: CUPE form: 3 ┬╖ Major Functions lists 13 functions; the form takes at most 12 (cupe_form.function_limits, HR-246). Nothin']
+E       assert not ['0cd5db26-29ed-5f04-920c-8997d3d54a4e: CUPE form: 3 ┬╖ Major Functions lists 13 functions; the form takes at most 12 (cupe_form.function_limits, HR-246). Nothin']
+
+tests/live/test_smoke_live_bank.py:1319: AssertionError
+=============================== warnings summary ===============================
+tests/live/test_smoke_live_bank.py: 75 warnings
+  /app/src/jd_bank/library/service.py:485: SADeprecationWarning: Passing expression to ``distinct`` to generate a DISTINCT ON clause is deprecated. Use instead the ``postgresql.distinct_on`` function as an extension.
+    .distinct(CanonicalJD.cluster_id)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/live/test_smoke_live_bank.py::test_every_live_apsa_role_exports_and_rereads_its_duties
+FAILED tests/live/test_smoke_live_bank.py::test_every_live_cupe_role_still_clones_and_reassembles
+2 failed, 29 passed, 75 warnings in 177.47s (0:02:57)
+
+make: *** [Makefile:105: smoke] Error 1
+END 2026-10-25T01:38:12.8603830-07:00

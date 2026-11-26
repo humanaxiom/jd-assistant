@@ -3,7 +3,9 @@
   "jd": {
     "about_sfu_present": false,
     "additional_context": null,
+    "classification": null,
     "decision_making": [
+      "The Coordinator is responsible for making decisions regarding",
       "The completeness and compliance of submitted grant applications.",
       "The prioritization of competing application deadlines."
     ],
@@ -28,15 +30,13 @@
         "statement": "Maintains accurate records of grant activity and prepares periodic reports."
       }
     ],
-    "classification": null,
     "employee_group": null,
-    "supervisor_title": null,
-    "supervisor_position_number": null,
     "employment_equity_present": false,
     "grade": null,
     "position_number": "00456789",
     "position_summary": "The Research Grants Coordinator processes research grant applications to ensure that agency policies and guidelines have been met, and coordinates the flow of information between researchers and funding agencies.",
     "problem_solving": [
+      "Responsible for solving problems related to",
       "Discrepancies between application budgets and agency guidelines.",
       "Conflicting submission deadlines during peak funding periods."
     ],
@@ -71,6 +71,8 @@
       ],
       "supervisory": "Supervision Received: Works under the general direction of the Manager, Research Services."
     },
+    "supervisor_position_number": null,
+    "supervisor_title": null,
     "territorial_acknowledgement_present": false,
     "title": "Research Grants Coordinator"
   },

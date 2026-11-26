@@ -24,6 +24,7 @@ from typing import Any
 
 from sqlalchemy import (
     Boolean,
+    Computed,
     DateTime,
     Enum,
     Float,
@@ -166,6 +167,14 @@ class ParsedJDRow(Base):
     )
     # The serialized SFUJobDescription (jd_core.models.parsed_jd).
     parsed: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    #: ``parsed ->> 'title'``, STORED by Postgres (migration 0008) — never written by
+    #: the app. Search reads THIS, not the JSON: a title predicate on the JSON detoasts
+    #: the whole ``parsed`` document per row whenever the planner picks a sequential
+    #: scan, which it does on a one-parse-per-document Bank (measured on the v9 Bank:
+    #: 650 ms per query against 1.5 ms through the index).
+    title: Mapped[str | None] = mapped_column(
+        Text, Computed("parsed ->> 'title'", persisted=True)
+    )
     parser_version: Mapped[str] = mapped_column(String(64))
     parse_confidence: Mapped[float] = mapped_column(Float, default=0.0)
     created_at: Mapped[datetime] = mapped_column(

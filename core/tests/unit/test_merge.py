@@ -837,12 +837,20 @@ def test_decision_making_longest_takes_one_members_list_verbatim(
 
 
 def test_decision_making_union_respects_the_models_own_cap(rules: Rules) -> None:
-    """`SFUJobDescription.decision_making` is capped at 20 by the model. A union over
-    a large cluster must cut to the cap itself rather than raise a ValidationError in
-    the middle of a 44-hour producer pass."""
-    cluster = [_member(**_dm(f"Approves category {i} spending.")) for i in range(30)]
+    """`SFUJobDescription.decision_making` is capped by the model (20 until parser v9,
+    60 since — read off the model here, never restated). A union over a large cluster
+    must cut to the cap itself rather than raise a ValidationError in the middle of a
+    44-hour producer pass."""
+    ceiling = next(
+        int(m.max_length)
+        for m in SFUJobDescription.model_fields["decision_making"].metadata
+        if getattr(m, "max_length", None) is not None
+    )
+    cluster = [
+        _member(**_dm(f"Approves category {i} spending.")) for i in range(ceiling + 10)
+    ]
     merged = merge_cluster(cluster, rules=rules)
-    assert len(merged.draft.decision_making) == 20
+    assert len(merged.draft.decision_making) == ceiling
 
 
 def test_problem_solving_merges_only_the_members_that_state_it(rules: Rules) -> None:

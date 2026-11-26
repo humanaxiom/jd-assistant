@@ -42,7 +42,7 @@ from src.jd_bank.harmonize.models import (
     ClusterHarmonization,
     HarmonizationResult,
 )
-from src.jd_core.bank.merge import _jaccard, _tokens, merge_cluster
+from src.jd_core.bank.merge import _jaccard, _tokens, duty_text, merge_cluster
 from src.jd_core.bank.signals import build_job_signals
 from src.jd_core.models.parsed_jd import SFUJobDescription
 from src.jd_core.models.quality import WJQ_TEMPLATE
@@ -207,7 +207,8 @@ def measure_cluster(
     sigs = [build_job_signals(jd, rules=rules) for jd in jdfn_members]
 
     # --- duties (HR-171 / HR-172) ---
-    statements = [d.statement for jd in jdfn_members for d in jd.duties]
+    # The whole duty (statement + how/why), as the merge itself compares (parser v9).
+    statements = [duty_text(d) for jd in jdfn_members for d in jd.duties]
     deduped_07 = deduped_duty_count(statements, harmon.duty_dedup_jaccard_min)
 
     # --- title (HR-167) ---

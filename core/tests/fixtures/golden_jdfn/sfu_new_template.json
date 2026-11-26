@@ -3,7 +3,9 @@
   "jd": {
     "about_sfu_present": true,
     "additional_context": "This position may require occasional travel between the Burnaby, Surrey and Vancouver campuses to support on-site project delivery.",
+    "classification": null,
     "decision_making": [
+      "The Manager, Special Projects is responsible for making decisions regarding",
       "The development and implementation of new project management frameworks.",
       "The prioritization of projects within the designated portfolio."
     ],
@@ -46,15 +48,13 @@
         "statement": "Preparing reports and quantifying issues for senior leadership."
       }
     ],
-    "classification": null,
     "employee_group": "apsa",
-    "supervisor_title": null,
-    "supervisor_position_number": null,
     "employment_equity_present": true,
     "grade": null,
     "position_number": "90012345",
     "position_summary": "The Manager, Special Projects is a key resource, responsible for the identification, design and implementation of a designated portfolio of high-priority academic and co-curricular projects in support of the overall goals and objectives of the unit. The Manager provides leadership and support to advance organization-wide projects, ensuring the achievement of quality standards, timelines, deliverables and risk mitigation.",
     "problem_solving": [
+      "Responsible for solving problems related to",
       "Conflicting demands for limited project resources across the portfolio.",
       "Prioritization of workflow to meet inflexible reporting deadlines."
     ],
@@ -89,6 +89,8 @@
       ],
       "supervisory": "Establishes and maintains relationships and alliances. Maintains effective communication. Shares information and readily determines to whom to go for relevant information."
     },
+    "supervisor_position_number": null,
+    "supervisor_title": null,
     "territorial_acknowledgement_present": true,
     "title": "Manager, Special Projects"
   },

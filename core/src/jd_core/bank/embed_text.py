@@ -23,12 +23,11 @@ accident and hard to notice once shipped (a bad vector still LOOKS like a vector
   on :class:`~src.jd_core.models.parsed_jd.SFUJobDescription` as presence *booleans*
   (``about_sfu_present`` etc.), never as text — so serializing the PARSED JD (never
   the raw extracted text) keeps them out for free, with no exemption list to maintain.
-* **an unfalsifiable field re-appearing.** ``SFUDuty.how_why`` is never populated by
-  the deterministic segmenter (the 2.6 finding, HR-121) — so it is simply not read
-  here. A duty contributes only ``f"{action_verb} {statement}"``. The day Phase 4
-  populates ``how_why``, this serializer does not need to change to pick it up
-  correctly — it already doesn't reference the field, so there is nothing to get
-  wrong twice.
+* **a duty split from its own how/why.** Until parser v9 ``SFUDuty.how_why`` was
+  never populated (the 2.6 finding, HR-121) and was not read here. v9 fills it with
+  the sub-bullets of SFU's "ACTION VERB … WHAT by" headline, so a duty now contributes
+  ``action_verb + statement + how_why`` as ONE unit — byte-identical to before for a
+  duty with no clauses, so nothing is re-embedded for that alone.
 
 **Why not reuse ``jd_core.textnorm.fold``.** Folding (dropping zero-width characters,
 collapsing whitespace runs, normalizing typographic punctuation) is a *scanner*
@@ -66,7 +65,11 @@ from src.jd_core.rules import Embeddings
 #: output changes for the SAME rulebook knobs (a code change, not a data change; a
 #: data change already moves ``Embeddings.stamp``). A code constant, not a knob: it
 #: has no "value" HR could ratify, only an identity this module's output carries.
-SERIALIZER_VERSION: Final[str] = "embed_text_v1"
+#:
+#: v2 (parser v9): a duty's how/why clauses are part of its unit. NOT in the skip-first
+#: key (``(text_sha256, model, embed_stamp)``), so the bump forces nothing by itself —
+#: only a text whose serialization actually changed is re-embedded.
+SERIALIZER_VERSION: Final[str] = "embed_text_v2"
 
 
 class SerializedText(NamedTuple):
@@ -101,12 +104,20 @@ def _position_summary_units(jd: SFUJobDescription) -> list[str]:
 
 
 def _duties_units(jd: SFUJobDescription) -> list[str]:
-    # NEVER reads `how_why` — the segmenter never populates it (HR-121), and this
-    # serializer does not need to change when Phase 4 starts filling it in: it
-    # already only reads `action_verb` and `statement`.
+    # One unit per DUTY, how/why included. Until parser v9 this read only the statement,
+    # because `how_why` was never filled (HR-121) and reading an always-empty field was
+    # pointless. v9 fills it with the sub-bullets of SFU's "ACTION VERB … WHAT by"
+    # headline (owner ruling 2026-10-20, Q1) — on such a duty the statement is only the
+    # headline, and leaving the clauses out would drop most of the duty from the vector.
+    # One unit, not one per clause: `max_chars` truncates at whole-unit boundaries, and
+    # a duty cut from its own clauses would be a different duty.
     units = []
     for duty in jd.duties:
-        line = f"{duty.action_verb} {duty.statement}".strip()
+        line = " ".join(
+            part
+            for part in (duty.action_verb, duty.statement, *duty.how_why)
+            if part.strip()
+        ).strip()
         if line:
             units.append(line)
     return units

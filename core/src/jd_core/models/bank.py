@@ -270,6 +270,24 @@ RemovedReason = Literal[
     # change log reading `removed: []`.
     "duty_removed_by_rewrite",
     "qualification_bar_restored",
+    # Rewrite fidelity (2026-10-20, HR-269…HR-276): what the guard dropped or the model
+    # lost, and the form/boilerplate text removed from the rewrite's input — each one
+    # shown on the review page instead of vanishing from an artifact nobody reads.
+    "how_why_scrubbed_ungrounded",
+    "item_scrubbed_ungrounded",
+    "item_dropped_by_rewrite",
+    "duty_content_dropped_by_rewrite",
+    # `form_text_stripped` is every source-view strip of a record written before
+    # 2026-10-21, which did not say which kind it was. A newer record splits it into
+    # the three below (`AntiFabricationRecord.stripped_source_parts`).
+    "form_text_stripped",
+    "form_instruction_stripped",
+    "boilerplate_stripped",
+    "boilerplate_matched_in_role_content",
+    # 2026-10-27 (the v9 full pass): a source page header set aside (HR-291), and a
+    # rewritten clause the form's clause cap could not hold (HR-290).
+    "page_header_stripped",
+    "rewrite_over_form_limit",
 ]
 
 
@@ -286,6 +304,10 @@ class RemovedContent(BaseModel):
     #: The canonical member index it came from, or ``None`` for a rewrite-stage scrub
     #: not tied to any single member.
     member_index: int | None = None
+    #: The JD section it was in, when the reason alone does not say (a rewrite-stage
+    #: item scrub / loss: ``decision_making``, ``relationships``, …). Defaults ``None``
+    #: so a packet written before it existed still validates.
+    section: str | None = None
 
 
 class SourceContribution(BaseModel):
@@ -339,6 +361,32 @@ class HarmonizationDiff(BaseModel):
 
 # ---------- LLM rewrite pass (Phase 4.2a) — still a DRAFT ----------
 
+#: The merge-draft sections the rewrite's source view reads text from.
+StrippedSection = Literal[
+    "position_summary",
+    "duties",
+    "decision_making",
+    "problem_solving",
+    "relationships",
+    "qualifications",
+    "additional_context",
+]
+
+
+class StrippedSourcePiece(BaseModel):
+    """One piece of text the source view removed from the rewrite's input, with the
+    section it was in and why (``form_instruction``: the old questionnaire's own
+    instructions, HR-275/276; ``boilerplate``: a sentence matching SFU boilerplate,
+    HR-273/274). Frozen: evidence."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    section: StrippedSection
+    #: ``page_header`` (2026-10-27, HR-291): the source document's own page header or
+    #: footer — its position number, page number, "Continued" — read into role text.
+    kind: Literal["form_instruction", "boilerplate", "page_header"]
+    text: str
+
 
 class AntiFabricationRecord(BaseModel):
     """What the rewrite's anti-fabrication guard scrubbed / flagged (Phase 4.2a).
@@ -370,6 +418,10 @@ class AntiFabricationRecord(BaseModel):
     #: recovers no duties from 16.2% of CUPE documents and the rewrite filled the
     #: silence.
     invented_duties: tuple[str, ...] = ()
+    #: Every rewritten how/why CLAUSE dropped because its content was not grounded in
+    #: its source duty's own text (``rewrite.how_why_grounding_threshold``, HR-267 —
+    #: parser v9 review M2). Defaults empty, so a record written before it validates.
+    scrubbed_how_why: tuple[str, ...] = ()
     #: The name of every SECTION emptied because the grounded draft did not have one —
     #: ``decision_making`` / ``problem_solving`` / ``relationships`` (CUPE Phase D).
     #: A whole section is a coarser unit than a skill, and the coarsest fabrication:
@@ -406,6 +458,66 @@ class AntiFabricationRecord(BaseModel):
     #: came back without it — 25.6% — while ZERO sections were created.** The guard was
     #: working perfectly, on the one direction that was not losing content.
     restored_sections: tuple[str, ...] = ()
+
+    # --- rewrite fidelity (owner ruling 2026-10-20; HR-269…HR-276) -----------------
+    # Every field below defaults empty, so a record written before it still validates.
+    # MEASURED on the 22-cluster rewrite pilot (v9 Bank, replies replayed through the
+    # guard): the record above answered "what did the model ADD?" for duties and
+    # qualifications and "what did it DELETE?" only for whole empty sections. A twelve-
+    # duty merge cut to five, Decision Making cut 13 -> 5 and qualifications
+    # cut 40 -> 15 all left most of these lists empty.
+
+    #: Source DUTY text (one sentence of a statement or clause, verbatim) that no
+    #: rewritten duty covered and the guard FOLDED BACK as a how/why clause of the
+    #: closest rewritten duty (``rewrite.duty_coverage_policy = fold_back``, HR-271).
+    folded_duty_content: tuple[str, ...] = ()
+    #: ``(sentence, source duty statement)`` for every entry of
+    #: :attr:`folded_duty_content`: which duty of the merge draft it was restored from
+    #: (2026-10-21, NN #6 — the review page says where restored text came from). Since
+    #: HR-279 a folded sentence may also come back as its OWN duty, under that source
+    #: statement. Defaults empty, so a record written before it still validates.
+    folded_duty_origins: tuple[tuple[str, str], ...] = ()
+    #: Source duty text no rewritten duty covered that is NOT in the draft — the
+    #: ``record_only`` policy, or no room left under the how/why cap. Shown to the
+    #: reviewer as dropped from the merge.
+    dropped_duty_content: tuple[str, ...] = ()
+    #: ``(absorbed statement, statement it went under)`` for every rewritten duty MERGED
+    #: into another because the model returned more duties than the form holds
+    #: (``rewrite.duties_over_form_limit``, HR-290, 2026-10-27). Its headline and
+    #: clauses are clauses of that duty now — in the draft, not removed.
+    merged_duties: tuple[tuple[str, str], ...] = ()
+    #: Rewritten how/why clauses the form's clause cap could not hold (HR-290) — not
+    #: in the draft; any SOURCE sentence they carried is folded back or listed as usual.
+    over_form_limit: tuple[str, ...] = ()
+    #: ``(text, kind the model gave, kind of the source line it rewords)`` for each kept
+    #: qualification whose kind was put back to the source's (HR-294, 2026-10-27).
+    relabelled_qualifications: tuple[tuple[str, str, str], ...] = ()
+    #: ``(absorbed statement, frequency kept, absorbed duty's frequency)`` for every
+    #: HR-290 merge whose two duties stated different frequencies (review of 6000ba6).
+    merged_duty_frequency_conflicts: tuple[tuple[str, str, str], ...] = ()
+    #: ``(section, text)`` of every Decision Making / Problem Solving / Relationships
+    #: item the model returned that no item of the merge's SAME section grounds
+    #: (``rewrite.section_item_grounding_threshold``, HR-269) — dropped.
+    scrubbed_items: tuple[tuple[str, str], ...] = ()
+    #: ``(section, text)`` of every source item sentence (Decision Making, Problem
+    #: Solving, Relationships, Qualifications) that no item the rewrite KEPT covers —
+    #: what the model lost, whether or not it was put back.
+    uncovered_items: tuple[tuple[str, str], ...] = ()
+    #: The subset of :attr:`uncovered_items` put back verbatim
+    #: (``rewrite.restore_uncovered_items_in``, HR-270). The rest is not in the draft.
+    restored_items: tuple[tuple[str, str], ...] = ()
+    #: Text removed from the rewrite's INPUT before the model saw it: the old
+    #: questionnaire's own instructions (HR-275/276) and SFU boilerplate sentences
+    #: (HR-273/274). Neither is role content; recorded so the removal is evidence.
+    stripped_source_text: tuple[str, ...] = ()
+    #: Every entry of :attr:`stripped_source_text` with the section it was taken from
+    #: and WHY (2026-10-21): a questionnaire instruction, or a sentence matching SFU
+    #: boilerplate. The difference matters to a reviewer: a duty of an Indigenous
+    #: programs role that acknowledges the Coast Salish territories matches the
+    #: boilerplate and is set aside, and "form text" was the wrong thing to call it.
+    #: Defaults empty, so a record written before it still validates (its strips show
+    #: under the older, combined reason).
+    stripped_source_parts: tuple[StrippedSourcePiece, ...] = ()
 
 
 class RewrittenDraft(BaseModel):

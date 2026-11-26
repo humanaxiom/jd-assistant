@@ -1,0 +1,1200 @@
+{
+ "source": "v9 Bank cluster 0cd5db26-29ed-5f04-920c-8997d3d54a4e (full pass 2026-10-21..25); merge rebuilt in-process from its v9 parses; model = stored final draft minus the guard's own restores",
+ "merged": {
+  "draft": {
+   "title": "Untitled Position",
+   "position_number": null,
+   "department": "Telephone Services",
+   "grade": null,
+   "classification": null,
+   "employee_group": "cupe",
+   "supervisor_title": null,
+   "supervisor_position_number": null,
+   "about_sfu_present": false,
+   "position_summary": "Acts as the initial point of contact to support principal functional and technical support resource for all SFU telephone-related processes. Responds to inquiries from SFU telephone users, and provides direction and assistance on the use of telephones and features. Investigates telephone trouble reports. Consults with the phone user to provide an immediate resolution by resolving minor technical telephone system problems, or logs a trouble ticket through an SFU computer tracking system to generate a work order for an SFU phone technician or external contractor to resolve the problem. Prepares monthly billing reports for departmental telephone services. Investigates and resolves departmental enquiries related to telephone billing.",
+   "duties": [
+    {
+     "action_verb": "Orders",
+     "statement": "Orders, receives, distributes and re-bills for inventory and equipment to customers, as required",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "Prepares",
+     "statement": "Prepares/rotates files for new fiscal year and archival storage",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "Trains",
+     "statement": "Trains new/relief Switchboard Operators in all job functions, as required",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "D",
+     "statement": "D) Updates the appropriate fields in the telephone billing system and marks as “pending”. Upon return of work orders from phone technicians, tests/checks the new/revised configurations to ensure they have been correctly implemented. Liaises with phone technicians and clients to ensure successful completion of work, and the closure of trouble tickets. Notifies the Administrator, Network Services of any outstanding issues or concerns. Finalizes updates in various information systems and ensures changes are accurate to support monthly billing cycles, directories, and other applications that self- update (eg., 911 notification system used by Campus Security)",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "Develops",
+     "statement": "Develops and documents procedures as protocols change, in consultation with supervisor",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "Forwards",
+     "statement": "Forwards mapping of unique or large-scale telephone system configurations to the Administrator, Network Services for review and approval prior to inputting work orders. Ensures requests are made or approved by individuals with departmental signing authority. Ensures conformity with LD Telephone Charges policy (AD 1.05), Telephone Service policy (AD 1.15) and Telephone Services information contained in the SFU Campus Directory",
+     "how_why": [],
+     "frequency": "daily"
+    },
+    {
+     "action_verb": "Investigates",
+     "statement": "Investigates and resolves departmental enquiries related to telephone- related billing, and adjusts billing as required in the next reporting period",
+     "how_why": [],
+     "frequency": "daily"
+    },
+    {
+     "action_verb": "Performs",
+     "statement": "Performs other related duties and responsibilities consistent with position classification upon request",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "Performs",
+     "statement": "Performs routine office procedures, as required",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "Receives",
+     "statement": "Receives name change requests via phone or e-mail (e.g. ticket), and assigns the work to the Switchboard Operator to update the switchboard/call display, directories and information systems",
+     "how_why": [],
+     "frequency": "daily"
+    },
+    {
+     "action_verb": "Extrapolates",
+     "statement": "Extrapolates data from internal (change control software) and external sources (e.g., Telus invoices) using custom and “shrink wrapped” computer applications, to prepare monthly billing reports for departmental telephone services (e.g., calling cards, conference calls, connection charges, rental adjustments, etc.). Collates resulting reports and supporting documentation of charges and assigns responsibility to the Switchboard Operator for distribution to customers",
+     "how_why": [],
+     "frequency": "monthly"
+    },
+    {
+     "action_verb": "Logs",
+     "statement": "Logs a summary of the work to be performed through ITS’ change control software to create a work order number and provide tracking ability for the work’s progress. Creates additional change control documentation through custom software to produce individual work orders generated for SFU phone technicians or external contractors (e.g. Mitel) for completion, and updates information in various directories. Itemizes services required, and lists the service requests in priority order, notifying phone technicians of urgent or rush orders. Advises Supervisor of any concerns regarding communications with phone technicians",
+     "how_why": [],
+     "frequency": "daily"
+    }
+   ],
+   "decision_making": [],
+   "problem_solving": [],
+   "relationships": {
+    "supervisory": null,
+    "internal": [
+     "Less than 1 hour",
+     "Frequent",
+     "Faculty & Staff",
+     "Less than 1 hour",
+     "Frequent",
+     "Less than 1 hour",
+     "Frequent",
+     "Less than 1 hour",
+     "Frequent"
+    ],
+    "external": [
+     "List internal and external contacts (i.e., specific positions within own department, other departments, students, faculty, on/off campus vendors, etc.), the duration of each contact (i.e. less than 1 hour at a time, 1-2 hours at a time, more than 2 hours at a time), and the frequency of each contact (i.e. occasional, frequent, or continuous).",
+     "Technicians (Internal & External)",
+     "General Public",
+     "External Vendors, Clients & Suppliers"
+    ]
+   },
+   "qualifications": [
+    {
+     "text": "High school graduation and general courses or training of moderate duration (one semester or equivalent) in spreadsheet, database applications, bookkeeping and office procedures",
+     "kind": "education",
+     "modifier": null
+    },
+    {
+     "text": "4 Years",
+     "kind": "experience",
+     "modifier": null
+    },
+    {
+     "text": "(voIP) services)",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "50 wpm keyboarding skills with a high degree of accuracy",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to adapt to changes in technology and business processes;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to exercise mature judgment and initiative;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to handle confidential material with discretion;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to multi-task with constant interruptions;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to perform arithmetic calculations including addition, subtraction,",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to perform arithmetic calculations including addition, subtraction, multiplication and division with a high degree of accuracy;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to train and assign work to others;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to understand and communicate technical and detailed phone information/features to others;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use online accounting applications (e.g. Peoplesoft/FAST) at an intermediate level;",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Ability to use standard e-mail, word processing, spreadsheet database and",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use standard email, word processing, spreadsheet database and web applications (e.g., Outlook , MS Word, Excel, Filemaker & SharePoint) at an intermediate level;",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Basic knowledge of computer networks (for Voice over Internet Protocol",
+     "kind": "skill",
+     "modifier": "basic"
+    },
+    {
+     "text": "Excellent attention to detail;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent interpersonal and customer service skills;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent oral and written communication skills;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent organizational and detail-oriented skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent organizational skills;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "General understanding of inter-related business processes;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Good knowledge of bookkeeping principles;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "IPV4",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Intermediate knowledge of IP networking, including associated protocols and IPV4;",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Intermediate knowledge of computer",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Intermediate knowledge of computer networks (for Voice over Internet Protocol (VoIP) services)",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Intermediate knowledge of computer systems supporting emerging voice technologies (e.g., VoIP, SIP & UC);",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Intermediate knowledge of traditional (analog and digital) telephone",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Intermediate knowledge of traditional (analog and digital) telephone systems and phone features;",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "an intermediate level;",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "applications (e.g., Eudora, MS Word, Excel, Filemaker) at an intermediate",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "information/features to others;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "intermediate level;",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "multiplication and division with a high degree of accuracy;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "systems and phone features;",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "web applications (e.g., Zimbra , MS Word, Excel, Filemaker & SharePoint) at",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "None",
+     "kind": "ability",
+     "modifier": null
+    },
+    {
+     "text": "work such as ability to work shifts and/or be on-call; ability to travel",
+     "kind": "ability",
+     "modifier": null
+    }
+   ],
+   "territorial_acknowledgement_present": false,
+   "employment_equity_present": false,
+   "additional_context": "LEVEL OF INDEPENDENCE\nCheck one box that best describes the level of independence that can be exercised within the position by a fully trained employee. ☐ Work is provided with specific instructions describing how and when it should be completed. Work is provided with general instructions. The employee makes choices about how the work will be completed within deadlines. Work is self-directed by the employee. The employee determines what work needs to be completed and when it should be completed to meet deadlines. Work is assigned on a project-by-project basis in the form of broad objectives. The employee evaluates what work needs to be completed within general time frames. Provide examples of project work:\n\nTRAINING EXERCISED\nIf the position provides training, check each description that applies. ☐ Not required to provide training to other individuals. Explains how work is performed in his/her own position to individuals in other positions performing the same or similar work (includes training replacement employees). Provides one-on-one specialized training to other individuals. Considered a specialist in a particular area or field of study. Positions at this level may be designated as the resident department expert. Provides one-on-one training to individuals in other positions. Must have a good understanding of the work of the other positions. Positions at this level may be designated as group leaders or work leaders. ☐ Conducts training seminars for groups. Training seminars are normally scheduled and follow a prescribed format. May also develop or assist in the development of training seminars.\n\nDIRECTION EXERCISED\nCheck each description that applies. Not required to provide direction to other individuals. Assigns and/or checks work of other individuals. ☐ Schedules, assigns, and checks the work of other individuals. ☐ In addition to C, establishes work priorities for a unit. ☐ In addition to C and D, guides project teams.\n\nIMPACT OF ERRORS\nCommon Errors: Provide a few examples of the most common errors which normally occur in the performance of the work. Incorrect account codes create billing errors; Data entry errors create telephone-related problems (i.e. inverting numbers, wrong spelling for a name/department); Keying errors in data entry: coding incorrectly, balancing invoices incorrectly. Uncommon Errors: Provide a few examples of most uncommon errors which infrequently occur in the performance of the work. Assigning an incorrect local and or services to a user; Incorrectly diagnosing telephone trouble report(s); Invoices rejected from FINS, delay of purchase order processing.\n\nEFFORT\nDescribe concentrated periods of auditory (hearing/listening); visual (seeing); perceptual (understanding / comprehending); and physical dexterity (finger/hand movements, eye/hand coordination, lifting, carrying, pushing, pulling, reaching etc.). For each example of effort, indicate the concentrated duration (less than 1 hour at a time, 1-2 hours at a time, more than 2 hours at a time) and frequency (occasional, frequent, continuous). Type of Effort Duration Frequency Answering the phone/Directing calls 1 hour Continuous Data entry / emails 1-2 hours Frequent Preparing billing and financial reports 1-2 hours Frequent Maintaining IS maintenance contracts 1-2 hours Frequent Understanding written information < 1 hour Frequent Standing/walking (i.e. invoice signing) < 1 hour Occasional Confined Sitting 1 – 2 hours Continuous\n\nWORKING CONDITIONS\nDescribe the place(s) where work is performed such as office environment, laboratory, outside work site, etc. Also identify the number of hours (of the total hours worked per week) spent in the place(s). Location Hours spent as a total of hours worked per week Office 35/35 Describe any uncomfortable and/or distracting conditions in the work place(s) which an incumbent is exposed to on a regular basis and the frequency of the exposure. (e.g. interruptions, distracting noise, unpleasant odours, dust, drafts, inks, dyes, cleaning agents, toner for printers, temperature extremes, heavy dust conditions, wetness, fumes, vibrations, etc.) Uncomfortable Conditions Frequency of Exposure (Occasional, Frequent, or Continuous) Interruptions Frequent Keyboarding Frequent Distracting Noise (i.e. On-going construction, phones, printers, people traffic) Frequent Describe any potential health or safety hazards etc. and the frequency of exposure of each hazard. (e.g. dealing with complaints and/or verbal/physical abuse; noise levels that interfere with normal speech/hearing; toxic gases or materials; dangerous chemicals, combustibles, radioactive material; repetitive arm, finger, wrist movements or other activities that may result in a physical injury; high speed, pressurized equipment; high voltage; heights above five feet; bio-hazardous wastes, body fluids, etc.) Potential Health or Safety Hazards Frequency of Exposure (Occasional, Frequent, or Continuous) Dealing with complaints/verbal abuse Occasional Lifting boxes over 10 kg Occasional\n\nCONTINUING EDUCATION\nCheck each description that applies. ☐ Does not require any continuing education. Requires learning new university/department related procedures and/or methods. Requires learning new procedures and/or methods acquired through reading non-university/department publications. ☐ In addition to B and C, requires registration in formal seminars, training sessions, workshops, conferences, etc. ☐ In addition to B, C, and D, requires registration in post-secondary courses (one semester/equivalent)."
+  },
+  "provenance": {
+   "member_count": 8,
+   "skill_frequency": [
+    [
+     "accounting",
+     8
+    ],
+    [
+     "addition",
+     8
+    ],
+    [
+     "and",
+     8
+    ],
+    [
+     "arithmetic",
+     8
+    ],
+    [
+     "assign",
+     8
+    ],
+    [
+     "bookkeeping",
+     8
+    ],
+    [
+     "business",
+     8
+    ],
+    [
+     "calculations",
+     8
+    ],
+    [
+     "communicate",
+     8
+    ],
+    [
+     "communication",
+     8
+    ],
+    [
+     "computer",
+     8
+    ],
+    [
+     "confidential",
+     8
+    ],
+    [
+     "constant",
+     8
+    ],
+    [
+     "customer",
+     8
+    ],
+    [
+     "database",
+     8
+    ],
+    [
+     "detail",
+     8
+    ],
+    [
+     "detailed",
+     8
+    ],
+    [
+     "discretion",
+     8
+    ],
+    [
+     "division",
+     8
+    ],
+    [
+     "excel",
+     8
+    ],
+    [
+     "exercise",
+     8
+    ],
+    [
+     "fast",
+     8
+    ],
+    [
+     "features",
+     8
+    ],
+    [
+     "filemaker",
+     8
+    ],
+    [
+     "general",
+     8
+    ],
+    [
+     "handle",
+     8
+    ],
+    [
+     "including",
+     8
+    ],
+    [
+     "information",
+     8
+    ],
+    [
+     "initiative",
+     8
+    ],
+    [
+     "inter",
+     8
+    ],
+    [
+     "intermediate",
+     8
+    ],
+    [
+     "interpersonal",
+     8
+    ],
+    [
+     "interruptions",
+     8
+    ],
+    [
+     "judgment",
+     8
+    ],
+    [
+     "material",
+     8
+    ],
+    [
+     "mature",
+     8
+    ],
+    [
+     "multi",
+     8
+    ],
+    [
+     "multiplication",
+     8
+    ],
+    [
+     "online",
+     8
+    ],
+    [
+     "oral",
+     8
+    ],
+    [
+     "organizational",
+     8
+    ],
+    [
+     "others",
+     8
+    ],
+    [
+     "peoplesoft",
+     8
+    ],
+    [
+     "perform",
+     8
+    ],
+    [
+     "phone",
+     8
+    ],
+    [
+     "principles",
+     8
+    ],
+    [
+     "processes",
+     8
+    ],
+    [
+     "processing",
+     8
+    ],
+    [
+     "service",
+     8
+    ],
+    [
+     "spreadsheet",
+     8
+    ],
+    [
+     "standard",
+     8
+    ],
+    [
+     "subtraction",
+     8
+    ],
+    [
+     "systems",
+     8
+    ],
+    [
+     "task",
+     8
+    ],
+    [
+     "technical",
+     8
+    ],
+    [
+     "telephone",
+     8
+    ],
+    [
+     "train",
+     8
+    ],
+    [
+     "understand",
+     8
+    ],
+    [
+     "use",
+     8
+    ],
+    [
+     "voice",
+     8
+    ],
+    [
+     "voip",
+     8
+    ],
+    [
+     "written",
+     8
+    ],
+    [
+     "adapt",
+     7
+    ],
+    [
+     "changes",
+     7
+    ],
+    [
+     "keyboarding",
+     7
+    ],
+    [
+     "sharepoint",
+     7
+    ],
+    [
+     "technology",
+     7
+    ],
+    [
+     "wpm",
+     7
+    ],
+    [
+     "analog",
+     6
+    ],
+    [
+     "associated",
+     6
+    ],
+    [
+     "attention",
+     6
+    ],
+    [
+     "digital",
+     6
+    ],
+    [
+     "emerging",
+     6
+    ],
+    [
+     "ipv4",
+     6
+    ],
+    [
+     "networking",
+     6
+    ],
+    [
+     "protocols",
+     6
+    ],
+    [
+     "sip",
+     6
+    ],
+    [
+     "supporting",
+     6
+    ],
+    [
+     "technologies",
+     6
+    ],
+    [
+     "traditional",
+     6
+    ],
+    [
+     "understanding",
+     6
+    ],
+    [
+     "web",
+     6
+    ],
+    [
+     "zimbra",
+     6
+    ],
+    [
+     "mail",
+     5
+    ],
+    [
+     "none",
+     5
+    ],
+    [
+     "skill",
+     5
+    ],
+    [
+     "email",
+     3
+    ],
+    [
+     "position",
+     3
+    ],
+    [
+     "the",
+     3
+    ],
+    [
+     "for",
+     2
+    ],
+    [
+     "internet",
+     2
+    ],
+    [
+     "networks",
+     2
+    ],
+    [
+     "oriented",
+     2
+    ],
+    [
+     "over",
+     2
+    ],
+    [
+     "protocol",
+     2
+    ],
+    [
+     "services",
+     2
+    ],
+    [
+     "basic",
+     1
+    ],
+    [
+     "call",
+     1
+    ],
+    [
+     "carry",
+     1
+    ],
+    [
+     "driver",
+     1
+    ],
+    [
+     "equipment",
+     1
+    ],
+    [
+     "etc",
+     1
+    ],
+    [
+     "eudora",
+     1
+    ],
+    [
+     "have",
+     1
+    ],
+    [
+     "license",
+     1
+    ],
+    [
+     "lift",
+     1
+    ],
+    [
+     "lower",
+     1
+    ],
+    [
+     "mainland",
+     1
+    ],
+    [
+     "materials",
+     1
+    ],
+    [
+     "move",
+     1
+    ],
+    [
+     "outlook",
+     1
+    ],
+    [
+     "outside",
+     1
+    ],
+    [
+     "periodically",
+     1
+    ],
+    [
+     "shifts",
+     1
+    ],
+    [
+     "such",
+     1
+    ],
+    [
+     "travel",
+     1
+    ],
+    [
+     "valid",
+     1
+    ]
+   ],
+   "duty_coverage": [
+    [
+     "Orders, receives, distributes and re-bills for inventory and equipment to customers, as required",
+     8
+    ],
+    [
+     "Prepares/rotates files for new fiscal year and archival storage",
+     8
+    ],
+    [
+     "Trains new/relief Switchboard Operators in all job functions, as required",
+     8
+    ],
+    [
+     "D) Updates the appropriate fields in the telephone billing system and marks as “pending”. Upon return of work orders from phone technicians, tests/checks the new/revised configurations to ensure they have been correctly implemented. Liaises with phone technicians and clients to ensure successful completion of work, and the closure of trouble tickets. Notifies the Administrator, Network Services of any outstanding issues or concerns. Finalizes updates in various information systems and ensures changes are accurate to support monthly billing cycles, directories, and other applications that self- update (eg., 911 notification system used by Campus Security)",
+     7
+    ],
+    [
+     "Develops and documents procedures as protocols change, in consultation with supervisor",
+     7
+    ],
+    [
+     "Forwards mapping of unique or large-scale telephone system configurations to the Administrator, Network Services for review and approval prior to inputting work orders. Ensures requests are made or approved by individuals with departmental signing authority. Ensures conformity with LD Telephone Charges policy (AD 1.05), Telephone Service policy (AD 1.15) and Telephone Services information contained in the SFU Campus Directory",
+     7
+    ],
+    [
+     "Investigates and resolves departmental enquiries related to telephone- related billing, and adjusts billing as required in the next reporting period",
+     7
+    ],
+    [
+     "Performs other related duties and responsibilities consistent with position classification upon request",
+     7
+    ],
+    [
+     "Performs routine office procedures, as required",
+     7
+    ],
+    [
+     "Receives name change requests via phone or e-mail (e.g. ticket), and assigns the work to the Switchboard Operator to update the switchboard/call display, directories and information systems",
+     7
+    ],
+    [
+     "Extrapolates data from internal (change control software) and external sources (e.g., Telus invoices) using custom and “shrink wrapped” computer applications, to prepare monthly billing reports for departmental telephone services (e.g., calling cards, conference calls, connection charges, rental adjustments, etc.). Collates resulting reports and supporting documentation of charges and assigns responsibility to the Switchboard Operator for distribution to customers",
+     6
+    ],
+    [
+     "Logs a summary of the work to be performed through ITS’ change control software to create a work order number and provide tracking ability for the work’s progress. Creates additional change control documentation through custom software to produce individual work orders generated for SFU phone technicians or external contractors (e.g. Mitel) for completion, and updates information in various directories. Itemizes services required, and lists the service requests in priority order, notifying phone technicians of urgent or rush orders. Advises Supervisor of any concerns regarding communications with phone technicians",
+     6
+    ]
+   ],
+   "section_contributors": [
+    [
+     "additional_context",
+     [
+      4
+     ]
+    ],
+    [
+     "department",
+     [
+      1,
+      3
+     ]
+    ],
+    [
+     "employee_group",
+     [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+     ]
+    ],
+    [
+     "position_summary",
+     [
+      0
+     ]
+    ],
+    [
+     "relationships",
+     [
+      4
+     ]
+    ],
+    [
+     "title",
+     [
+      5,
+      6,
+      7
+     ]
+    ]
+   ],
+   "flags": [
+    "duties_over_max",
+    "sections_not_merged"
+   ],
+   "seniority_bars": [
+    {
+     "kind": "education",
+     "policy": "max",
+     "chosen": 0,
+     "member_bars": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    {
+     "kind": "experience",
+     "policy": "max",
+     "chosen": 4,
+     "member_bars": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      4,
+      3,
+      3
+     ]
+    }
+   ]
+  }
+ },
+ "model": {
+  "title": "Telephone Services Coordinator",
+  "position_number": null,
+  "department": "Telephone Services",
+  "grade": null,
+  "classification": null,
+  "employee_group": "cupe",
+  "supervisor_title": null,
+  "supervisor_position_number": null,
+  "about_sfu_present": false,
+  "position_summary": "The Telephone Services Coordinator serves as the primary point of contact for all SFU telephone users, delivering functional and technical support, managing inventory, billing, and system configurations. This role ensures accurate billing cycles, maintains telephone equipment and records, trains and assigns work to switchboard operators, and coordinates with internal and external technicians to resolve issues promptly. The coordinator also develops procedures, ensures policy compliance, and performs routine administrative tasks while handling confidential information with discretion and high accuracy.",
+  "duties": [
+   {
+    "action_verb": "Provide",
+    "statement": "telephone user support and troubleshoot issues",
+    "how_why": [
+     "investigate telephone trouble reports"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Manage",
+    "statement": "telephone inventory and equipment",
+    "how_why": [
+     "order inventory and equipment",
+     "receive inventory and equipment",
+     "distribute inventory and equipment to customers",
+     "re‑bill inventory and equipment as required"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Update",
+    "statement": "telephone billing system fields and test configurations",
+    "how_why": [
+     "update appropriate fields in the telephone billing system and mark as pending",
+     "test and check new or revised configurations to ensure correct implementation"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Finalize",
+    "statement": "information system updates and ensure billing accuracy",
+    "how_why": [
+     "liaise with phone technicians and clients to ensure successful completion and closure of trouble tickets",
+     "notify the Administrator, Network Services of outstanding issues or concerns",
+     "finalize updates in various information systems",
+     "ensure changes are accurate to support monthly billing cycles, directories, and self‑updating applications such as the 911 notification system"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Prepare",
+    "statement": "monthly telephone billing reports",
+    "how_why": [
+     "extrapolate data from internal change‑control software and external sources using custom applications",
+     "prepare monthly billing reports for departmental telephone services",
+     "collate reports and supporting documentation of charges",
+     "assign responsibility to the Switchboard Operator for distribution to customers"
+    ],
+    "frequency": "monthly"
+   },
+   {
+    "action_verb": "Investigate",
+    "statement": "departmental telephone‑billing enquiries and adjust billing",
+    "how_why": [
+     "investigate departmental enquiries related to telephone billing",
+     "resolve the enquiries",
+     "adjust billing as required in the next reporting period"
+    ],
+    "frequency": "daily"
+   },
+   {
+    "action_verb": "Train",
+    "statement": "new and relief Switchboard Operators",
+    "how_why": [
+     "train Switchboard Operators in all job functions as required"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Receive",
+    "statement": "name‑change requests and update displays and directories",
+    "how_why": [
+     "receive name‑change requests via phone or e‑mail",
+     "assign the work to the Switchboard Operator",
+     "update the switchboard/call display, directories and information systems"
+    ],
+    "frequency": "daily"
+   },
+   {
+    "action_verb": "Develop",
+    "statement": "and document procedures as protocols change",
+    "how_why": [
+     "develop and document procedures in consultation with the supervisor"
+    ],
+    "frequency": null
+   },
+   {
+    "action_verb": "Forward",
+    "statement": "telephone system configuration mappings for review and ensure policy compliance",
+    "how_why": [
+     "forward mapping of unique or large‑scale telephone system configurations to the Administrator, Network Services for review and approval",
+     "ensure requests are made or approved by individuals with departmental signing authority",
+     "ensure conformity with LD Telephone Charges policy, Telephone Service policy and Campus Directory information"
+    ],
+    "frequency": "daily"
+   },
+   {
+    "action_verb": "Log",
+    "statement": "work summaries and create detailed work orders",
+    "how_why": [
+     "log a summary of the work to be performed through change‑control software to create a work order number and provide tracking ability",
+     "create additional change‑control documentation through custom software",
+     "produce individual work orders for SFU phone technicians or external contractors",
+     "update information in various directories"
+    ],
+    "frequency": "daily"
+   },
+   {
+    "action_verb": "Itemize",
+    "statement": "service requirements and prioritize technician notifications",
+    "how_why": [
+     "itemize services required and list service requests in priority order",
+     "notify phone technicians of urgent or rush orders",
+     "advise the Supervisor of any concerns regarding communications with phone technicians"
+    ],
+    "frequency": "daily"
+   },
+   {
+    "action_verb": "Perform",
+    "statement": "routine office procedures and file management",
+    "how_why": [
+     "perform routine office procedures as required",
+     "prepare and rotate files for the new fiscal year",
+     "manage archival storage of files",
+     "perform other related duties and responsibilities consistent with position classification upon request"
+    ],
+    "frequency": null
+   }
+  ],
+  "decision_making": [],
+  "problem_solving": [],
+  "relationships": {
+   "supervisory": null,
+   "internal": [
+    "Faculty & Staff (Less than 1 hour, Frequent)",
+    "Technicians (Internal & External) (Less than 1 hour, Frequent)",
+    "General Public (Less than 1 hour, Frequent)"
+   ],
+   "external": [
+    "External Vendors, Clients & Suppliers"
+   ]
+  },
+  "qualifications": [
+   {
+    "text": "50 words per minute keyboarding skills with a high degree of accuracy",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to adapt to changes in technology and business processes",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to exercise mature judgment and initiative",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to handle confidential material with discretion",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to multi‑task with constant interruptions",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to perform arithmetic calculations including addition, subtraction, multiplication and division with a high degree of accuracy",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to train and assign work to others",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to understand and communicate technical and detailed phone information/features to others",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use online accounting applications (e.g., Peoplesoft/FAST) at an intermediate level",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use standard email, word processing, spreadsheet, database and web applications (e.g., Outlook, MS Word, Excel, Filemaker & SharePoint) at an intermediate level",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Basic knowledge of computer networks for Voice over Internet Protocol",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Excellent attention to detail",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Excellent interpersonal and customer service skills",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Excellent oral and written communication skills",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Excellent organizational and detail‑oriented skills",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "General understanding of inter‑related business processes",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Good knowledge of bookkeeping principles",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Knowledge of IPv4",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Intermediate knowledge of IP networking, including associated protocols and IPv4",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Intermediate knowledge of computer systems supporting emerging voice technologies (e.g., VoIP, SIP & UC)",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Intermediate knowledge of traditional (analog and digital) telephone systems and phone features",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Ability to work shifts and/or be on‑call; ability to travel",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "High school graduation and general courses or training of moderate duration (one semester or equivalent) in spreadsheet, database applications, bookkeeping and office procedures",
+    "kind": "education",
+    "modifier": null
+   },
+   {
+    "text": "4 Years",
+    "kind": "experience",
+    "modifier": null
+   }
+  ],
+  "territorial_acknowledgement_present": false,
+  "employment_equity_present": false,
+  "additional_context": "LEVEL OF INDEPENDENCE\nCheck one box that best describes the level of independence that can be exercised within the position by a fully trained employee. ☐ Work is provided with specific instructions describing how and when it should be completed. Work is provided with general instructions. The employee makes choices about how the work will be completed within deadlines. Work is self-directed by the employee. The employee determines what work needs to be completed and when it should be completed to meet deadlines. Work is assigned on a project-by-project basis in the form of broad objectives. The employee evaluates what work needs to be completed within general time frames. Provide examples of project work:\n\nTRAINING EXERCISED\nIf the position provides training, check each description that applies. ☐ Not required to provide training to other individuals. Explains how work is performed in his/her own position to individuals in other positions performing the same or similar work (includes training replacement employees). Provides one-on-one specialized training to other individuals. Considered a specialist in a particular area or field of study. Positions at this level may be designated as the resident department expert. Provides one-on-one training to individuals in other positions. Must have a good understanding of the work of the other positions. Positions at this level may be designated as group leaders or work leaders. ☐ Conducts training seminars for groups. Training seminars are normally scheduled and follow a prescribed format. May also develop or assist in the development of training seminars.\n\nDIRECTION EXERCISED\nCheck each description that applies. Not required to provide direction to other individuals. Assigns and/or checks work of other individuals. ☐ Schedules, assigns, and checks the work of other individuals. ☐ In addition to C, establishes work priorities for a unit. ☐ In addition to C and D, guides project teams.\n\nIMPACT OF ERRORS\nCommon Errors: Provide a few examples of the most common errors which normally occur in the performance of the work. Incorrect account codes create billing errors; Data entry errors create telephone-related problems (i.e. inverting numbers, wrong spelling for a name/department); Keying errors in data entry: coding incorrectly, balancing invoices incorrectly. Uncommon Errors: Provide a few examples of most uncommon errors which infrequently occur in the performance of the work. Assigning an incorrect local and or services to a user; Incorrectly diagnosing telephone trouble report(s); Invoices rejected from FINS, delay of purchase order processing.\n\nEFFORT\nDescribe concentrated periods of auditory (hearing/listening); visual (seeing); perceptual (understanding / comprehending); and physical dexterity (finger/hand movements, eye/hand coordination, lifting, carrying, pushing, pulling, reaching etc.). For each example of effort, indicate the concentrated duration (less than 1 hour at a time, 1-2 hours at a time, more than 2 hours at a time) and frequency (occasional, frequent, continuous). Type of Effort Duration Frequency Answering the phone/Directing calls 1 hour Continuous Data entry / emails 1-2 hours Frequent Preparing billing and financial reports 1-2 hours Frequent Maintaining IS maintenance contracts 1-2 hours Frequent Understanding written information < 1 hour Frequent Standing/walking (i.e. invoice signing) < 1 hour Occasional Confined Sitting 1 – 2 hours Continuous\n\nWORKING CONDITIONS\nDescribe the place(s) where work is performed such as office environment, laboratory, outside work site, etc. Also identify the number of hours (of the total hours worked per week) spent in the place(s). Location Hours spent as a total of hours worked per week Office 35/35 Describe any uncomfortable and/or distracting conditions in the work place(s) which an incumbent is exposed to on a regular basis and the frequency of the exposure. (e.g. interruptions, distracting noise, unpleasant odours, dust, drafts, inks, dyes, cleaning agents, toner for printers, temperature extremes, heavy dust conditions, wetness, fumes, vibrations, etc.) Uncomfortable Conditions Frequency of Exposure (Occasional, Frequent, or Continuous) Interruptions Frequent Keyboarding Frequent Distracting Noise (i.e. On-going construction, phones, printers, people traffic) Frequent Describe any potential health or safety hazards etc. and the frequency of exposure of each hazard. (e.g. dealing with complaints and/or verbal/physical abuse; noise levels that interfere with normal speech/hearing; toxic gases or materials; dangerous chemicals, combustibles, radioactive material; repetitive arm, finger, wrist movements or other activities that may result in a physical injury; high speed, pressurized equipment; high voltage; heights above five feet; bio-hazardous wastes, body fluids, etc.) Potential Health or Safety Hazards Frequency of Exposure (Occasional, Frequent, or Continuous) Dealing with complaints/verbal abuse Occasional Lifting boxes over 10 kg Occasional\n\nCONTINUING EDUCATION\nCheck each description that applies. ☐ Does not require any continuing education. Requires learning new university/department related procedures and/or methods. Requires learning new procedures and/or methods acquired through reading non-university/department publications. ☐ In addition to B and C, requires registration in formal seminars, training sessions, workshops, conferences, etc. ☐ In addition to B, C, and D, requires registration in post-secondary courses (one semester/equivalent)."
+ }
+}

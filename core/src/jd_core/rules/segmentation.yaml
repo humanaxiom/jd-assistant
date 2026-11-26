@@ -306,3 +306,143 @@ evidence_max_chars: 160
 # malformed document becomes a database problem — and must remain <= that ceiling (pinned
 # by test).
 additional_context_max_chars: 16000
+
+# --- duty caps (parser v9, HR-261 … HR-263) ------------------------------------
+# ⚠ NOT presentation: each decides how much of a source document the Bank keeps. All
+# three were code constants (400 chars, 12 duties for BOTH forms) until parser v9; at v8,
+# 25,095 of 96,784 stored duty statements sat at exactly 400 characters and every CUPE
+# minor function past the twelfth was dropped.
+#
+# Chosen against a WHOLE-CORPUS re-parse (all 14,522 documents, on a throwaway copy of the
+# Bank, caps lifted to the model ceilings first — HR-200's lesson: a sample understates
+# the tail, and a cap lives in the tail):
+#   statement chars  APSA/APEX form p50 130 · p90 245 · p99 618
+#                    CUPE form      p50 179 · p90 400 · p99 754
+#                    above ~1,200 it is ~one whole-section run-on per document, which no
+#                    cap repairs (docs/plans/PARSER-V9-LISTS-AND-CAPS.md)
+#   duties/document  APSA/APEX/POLY p50 20 · p99 46 · max 82 (ungrouped max 93)
+#                    CUPE           p50 24 · p99 63 · max 92
+# Counts: 120 is ~30% over the measured maximum and cuts no document today.
+# Each must stay <= its model ceiling (SFUDuty.statement 4,000; duties 150) — the loader
+# refuses a larger value. Changing any of them changes what a parsed JD CONTAINS: bump
+# PARSER_VERSION and re-parse the archive in the same change.
+duty_statement_max_chars: 1200
+duty_max_count: 120
+wjq_duty_max_count: 120
+
+# --- duty headline + how/why (parser v9, owner ruling 2026-10-20 Q1; HR-264 … 266) ----
+# Chosen against a whole-corpus re-parse of a Bank copy with the caps lifted:
+#   18,583 ":"-ending duty lines in 5,365 APSA/APEX/POLY documents, 92.6% ending "by:";
+#   how/why per duty p50 5 · p99 19 · max 36; characters per point p50 136 · p99 410.
+# Only "by:" is a headline — the rest are intro lines ("Duties include:"). HR-264.
+# Counts: 60 is ~30% over the max (cuts nothing). Chars: held at HR-261's 1,200.
+duty_headline_pattern:
+  pattern: '(?i)\bby\s*:\s*$'
+  ignore_case: false
+duty_how_why_max_count: 60
+duty_how_why_max_chars: 1200
+
+# --- Decision Making / Problem Solving item cap (parser v9 review, HR-268) -----------
+# Was the code constant 20 (`_MAX_BULLETS`). MEASURED over the whole archive with the
+# cap at the model ceiling (60): items per section p50 2 · p99 15 · max 25 (Decision
+# Making), p99 8 · max 14 (Problem Solving); 11 sections exceeded 20. 60 is well over
+# the max and cuts nothing. Held AT the model ceiling (60), not below it: a draft's list is
+# a union over its members that the merge cuts at that ceiling, and its export must
+# re-read whole (the v9 Bank smoke found 50-item drafts re-reading as 40).
+bullet_max_count: 60
+
+# --- One Decision Making / Problem Solving item or contact: character cap (parser v11,
+# HR-340) ------------------------------------------------------------------------------
+# Was the code constant `_MAX_BULLET` 400, unregistered, in BOTH readers (JDFN decision /
+# problem items and connections; the WJQ contacts table). Found by the v9 Bank smoke: a
+# CUPE role's contact, exported and read back, came back cut at 400. MEASURED on the v9
+# Bank (parser v10, 2026-11-20): 4,668 documents held 5,716 items at EXACTLY 400
+# characters (160 at 390–399) — Decision Making 4,226 items, internal contacts 1,106,
+# external 304, Problem Solving 80.
+# Owner ruling 2026-11-20: "remove the 400 cap" — the same ruling as HR-308 / HR-324.
+# `null` keeps every item whole; a number cuts at that length (the rewrite's fidelity
+# table and the export round-trip follow it). Changing it changes what a parsed JD
+# CONTAINS: bump PARSER_VERSION and re-parse.
+bullet_max_chars: null
+
+# --- A wrapped content line is not a heading (parser v10, HR-298 / HR-299) ------------
+# antiword hard-wraps legacy .doc files, so "… make in carrying out / duties" puts the
+# word "duties" alone on a line, and it fullmatched the DUTIES heading. MEASURED over all
+# 14,522 extracted archive files (2026-10-27): 38 heading matches in the JDFN/legacy
+# reader are all lower case — all 38 wraps, every one directly under a line ending in a
+# letter (21 the Decision Making prompt; 12 "relationships", 5 "education and
+# experience" mid-qualification), in 36 files. No real heading in that reader is lower
+# case. Whole-archive before/after: 27 documents change (plan §18). The
+# guard demotes only: all lower case + no "1." / "c)" enumeration + no blank line above
+# + the line above does not end in a closer below. Changing either changes what a
+# parsed JD contains: bump PARSER_VERSION and re-parse.
+wrapped_heading_guard: true
+wrapped_heading_line_closers: ".:;?!"
+
+# --- The old APSA form's lettered tail (parser v10; owner rulings 2026-10-27) ----------
+# HR-300, HR-301, HR-305 … HR-307. The pre-2024 form ends F. Supervision Received /
+# G. Unusual Working Conditions / H. Entrance Qualifications / I. Organizational
+# Relationships / J. Approvals; only F matched a heading, so G…J ran into Relationships
+# and were cut at its 600-character supervisory ceiling. Each pattern is fullmatched
+# against the NORMALISED line (its "H." prefix and trailing colon already gone). MEASURED
+# (files, of 10,213 JDFN-reader documents): ENTRANCE QUALIFICATIONS 4,666 lettered + 87
+# unlettered; UNUSUAL WORKING CONDITIONS 4,569 + 141; ORGANIZATIONAL RELATIONSHIPS 3,254
+# + 311; APPROVALS 2,791 + 341 (+ "APPROVAL" 19). The spelling variants are the
+# archive's own (counts in the register entries).
+legacy_qualifications_heading_pattern:
+  # Widened 2026-10-29 after the review found 16 files whose qualifications sank into
+  # the G block: QUALIFICATIONS REQUIRED 6, OCR O-for-Q 2+1, QUALIFIACTIONS 2,
+  # "…TO BE REVIEWED" 1. `[qo]ualif[a-z]*` reads every spelling the archive has; the
+  # bare JDFN heading QUALIFICATIONS is NOT claimed (it needs ENTRANCE or REQUIRED).
+  pattern: '(?i)(?:entrance\s+(?:[qo]ualif[a-z]*|qttatjftcattons)(?:\s+to\s+be\s+reviewed)?|qualifications\s+required)\.?'
+  ignore_case: false
+legacy_relationships_heading_pattern:
+  pattern: '(?i)organi[sz]ation(?:al)?\s*-?\s*relation(?:ships?|sips)\.?'
+  ignore_case: false
+# SET ASIDE, never content (owner ruling 2026-10-27): the 2024 template has no slot for
+# working conditions. Recorded on the parse (`set_aside`), so the drop is never silent.
+legacy_working_conditions_heading_pattern:
+  pattern: '(?i)unusu?al\s+working\s+cond(?:itions|tttons)\.?(?:\s*\(?continued\)?\.*)?'
+  ignore_case: false
+# The signature block: form scaffolding. Set aside the same way.
+form_approvals_heading_pattern:
+  pattern: '(?i)approvals?\.?'
+  ignore_case: false
+# The form's printed questions, removed from the Qualifications and Decision Making
+# sections and recorded as `form_prompt` set-aside blocks (HR-307) — never content.
+# Searched in the section's raw text, so a question wrapped over two lines matches.
+# MEASURED wordings (files):
+#  - under "H. Entrance Qualifications": "What combination of experience, training and/or
+#    formal education do you believe is the minimum required to perform the duties of
+#    this position?" 3,169 incl. its typos; "What are the minimum formal educational
+#    qualifications, years of experience and occupational skills and requirements
+#    required to satisfactorily perform the work of this position?" 104. Unbulleted
+#    answers fused onto it as ONE qualification.
+#  - under "D. Decision Making", a WHOLE line only: "i) Decisions the incumbent is
+#    expected to make in carrying out duties" 27, "… the duties and responsibilities" 3,
+#    bare 1. Anchored to the line, because the longer question ("Give some typical
+#    examples of the most important decisions the incumbent is expected to make …")
+#    CONTAINS it — that one is the rewrite's to strip (HR-275), not cut in half here.
+form_prompt_pattern:
+  pattern: '(?im)what\s+combinations?\s+o[fn]\s+experience[^?]{0,200}?perform\s+the\s+duties\s+(?:of|in)\s+\w+\s+position\s*\?|what\s+are\s+the\s+minimum\s+formal\s+educational\s+qualifications[^?]{0,200}?perform\s+the\s+work\s+of\s+this\s+position\s*\?|^[ \t]*(?:\(?[ivx]{1,4}[.)][ \t]*)?decisions\s+the\s+incumbent\s+is\s+expected\s+to\s+make(?:\s+in\s+carrying\s+out(?:\s+(?:the\s+)?duties(?:\s+and\s+responsibilities(?:\s+of\s+the\s+position)?)?)?)?[ \t]*[.:]?[ \t]*$'
+  ignore_case: false
+
+# --- One qualification's character cap (parser v10, HR-308) ---------------------------
+# Was the code constant `_MAX_QUAL` 400, unregistered, then 400 here with an over-cap
+# item split at its sentence breaks. MEASURED by the parser-v10 review over all 14,522
+# extracted archive files (docs/audit/2026-10-29-parser-v10-review.md §4): 1,112 items
+# still cut at 400, 308 of them the "or an equivalent combination…" clause. Owner
+# ruling 2026-10-29: "remove the 400 cap" — `null` means the parser keeps every item
+# whole (an unbulleted paragraph is ONE item; nothing is split). A number here splits
+# an over-long item at its sentence breaks and cuts a single sentence at that length
+# (the rewrite's fidelity table follows it, HR-287).
+qualification_max_chars: null
+
+# --- The supervisory text's character cap (parser v10, HR-324) ------------------------
+# Was the code constant `_MAX_SUPERVISORY` 600, unregistered. MEASURED by the parser-v10
+# review over all 14,522 extracted archive files (docs/audit/2026-10-29-parser-v10-review.md
+# §4): 5,772 documents (58.8%) were over 600, 2.48 M characters cut; prompt-stripped
+# p50 552 · p90 1,016 · p99 2,711. Owner ruling 2026-10-29: "remove the cap" — `null`
+# means the parser keeps the whole text. A number here cuts at that many characters
+# (the rewrite's fidelity table follows it, HR-287).
+supervisory_max_chars: null

@@ -21,7 +21,7 @@ no field. J2 gives the Builder those fields and the export fills them:
   the one list on load and on clone — in code, no data migration.
 
 The round trip through the Bank's OWN parser stays the oracle (``tests/export_roundtrip
-.py``). Where the parser cannot carry something (its twelve-duty ceiling; equivalency
+.py``). Where the parser cannot carry something (equivalency
 lines it drops as instructions), the test says so instead of weakening the oracle.
 """
 
@@ -54,7 +54,7 @@ from src.jd_core.models.parsed_jd import (
     SFURelationships,
     WJQForm,
 )
-from src.jd_core.parser.segmenter import _MAX_DUTIES, parse_jd
+from src.jd_core.parser.segmenter import parse_jd
 from src.jd_core.rules import CupeForm, Rules, get_rules
 from src.jd_core.rules.loader import check_cupe_frequencies_are_parser_readable
 from src.jd_export import render_sfu_docx
@@ -195,9 +195,19 @@ def test_over_the_limit_the_author_is_told_and_nothing_is_cut(rules: Rules) -> N
 
 
 def test_a_limit_above_the_models_own_ceiling_is_refused_at_load() -> None:
+    """The ceiling is read off the model, never restated: parser v9 widened
+    ``SFUJobDescription.duties`` 12 -> 150 (HR-262/263), so one past THAT is refused."""
+    ceiling = next(
+        int(m.max_length)
+        for m in SFUJobDescription.model_fields["duties"].metadata
+        if getattr(m, "max_length", None) is not None
+    )
     raw = raw_cupe_form()
-    raw["function_limits"] = {"major_functions": 13, "minor_functions": 12}
+    raw["function_limits"] = {"major_functions": ceiling + 1, "minor_functions": 12}
     with pytest.raises(ValidationError):
+        CupeForm.model_validate(raw)
+    raw["function_limits"] = {"major_functions": 12, "minor_functions": 21}
+    with pytest.raises(ValidationError):  # WJQForm.minor_functions holds 20
         CupeForm.model_validate(raw)
 
 
@@ -404,21 +414,18 @@ def test_a_structured_cupe_draft_round_trips_within_the_parsers_ceiling(
     assert cupe_round_trip_losses(jd, back, rules) == []
 
 
-def test_fourteen_functions_lose_exactly_the_parsers_ceiling_and_nothing_else(
-    rules: Rules,
-) -> None:
-    """🔴 PARSER BOUNDARY, stated rather than hidden. The Builder keeps and exports all
-    fourteen; the Bank's WJQ parser stops reading at its own twelve
-    (``segmenter._MAX_DUTIES``) — raising it is a parser change (PARSER_VERSION and a
-    re-parse), out of scope for J2. So the only loss on re-read is that count."""
+def test_fourteen_functions_survive_the_round_trip(rules: Rules) -> None:
+    """🔴 The PARSER BOUNDARY J2 stated is gone. The Builder keeps and exports all
+    fourteen, and the WJQ parser stopped at a hardcoded twelve — so the round trip lost
+    two. Parser v9 made that ceiling rulebook data (``segmentation.wjq_duty_max_count``,
+    HR-263, 120), so all fourteen come back and nothing is lost."""
     jd = assemble_wjq_jd(_structured())
     data = render_sfu_docx(jd)
     assert cupe_export_text_losses(jd, _lines(data), rules) == []
     back = _reparse(data)
-    assert len(back.duties) == _MAX_DUTIES
-    assert cupe_round_trip_losses(jd, back, rules) == [
-        f"duties: 14 exported, {_MAX_DUTIES} re-read"
-    ]
+    assert len(back.duties) == 14
+    assert rules.segmentation.wjq_duty_max_count >= 24  # the form's 12 + 12 slots
+    assert cupe_round_trip_losses(jd, back, rules) == []
 
 
 # ── clone: the split, the frequencies and the structure come back ─────────────────

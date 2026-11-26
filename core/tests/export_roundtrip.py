@@ -32,10 +32,9 @@ equality, it says why:
 Track J2 — an AUTHORED draft's CUPE form block (``wjq_form``):
 
 * minor functions come back AFTER the majors in the one duty list the parser builds
-  (it merges sections 3 and 4) — same count, order and words. ⚠ The parser stops at
-  twelve (``segmenter._MAX_DUTIES``), so more than twelve functions re-read short; this
-  oracle REPORTS that as a loss rather than excusing it, and a caller that knows it is
-  past the ceiling asserts the exact message;
+  (it merges sections 3 and 4) — same count, order and words. The parser's ceiling is
+  `segmentation.wjq_duty_max_count` (HR-263, 120 since parser v9; it was a hardcoded
+  twelve); a re-read short of it is REPORTED as a loss, never excused;
 * every ticked level comes back as ``<ticked glyph> <option>`` in its section's text;
 * every table row's words (item + duration / frequency / hours) come back in its
   section (contacts: the contact itself, as above);
@@ -51,23 +50,29 @@ instructions, ``wjq.instruction_markers``).
 from __future__ import annotations
 
 import re
+import sys
 from collections import Counter
 
 from src.jd_core.models.parsed_jd import SFUJobDescription, WJQRow
-from src.jd_core.parser.headings import NEXT_LABEL_RX
+from src.jd_core.parser.headings import NEXT_LABEL_RX, POSITION_NO_LABEL_RX
 from src.jd_core.parser.segmenter import _PERCENT_RE
-from src.jd_core.rules import Rules
+from src.jd_core.rules import Rules, get_rules
 
 _WORD = re.compile(r"[a-z0-9]+")
 
-#: The parser's own duty-statement ceiling (``segmenter._MAX_DUTY_STMT``) — a rendered
-#: duty longer than this is legitimately cut on re-read.
-_MAX_DUTY_STMT = 400
-#: The parser's ceiling for a decision / problem / qualification item
-#: (``segmenter._MAX_BULLET`` / ``_MAX_QUAL``).
-_MAX_LIST_ITEM = 400
-#: ``segmenter._MAX_SUPERVISORY``.
-_MAX_SUPERVISORY = 600
+#: The parser's own duty-statement ceiling — a rendered duty longer than this is
+#: legitimately cut on re-read. Rulebook data since parser v9 (HR-261); it was the
+#: code constant ``segmenter._MAX_DUTY_STMT = 400``.
+_MAX_DUTY_STMT = get_rules().segmentation.duty_statement_max_chars
+#: The parser's ceiling for a decision / problem item or a contact
+#: (``segmentation.bullet_max_chars``, HR-340; the code constant ``_MAX_BULLET`` 400
+#: until parser v11). Ships ``null`` = never cut: no ceiling tolerance applies.
+_MAX_LIST_ITEM = get_rules().segmentation.bullet_max_chars or sys.maxsize
+#: … and for a qualification (``segmentation.qualification_max_chars``, HR-308) and
+#: the supervisory text (``segmentation.supervisory_max_chars``, HR-324). Both ship
+#: ``null`` = never cut, so no ceiling tolerance applies: every word must come back.
+_MAX_QUAL = get_rules().segmentation.qualification_max_chars or sys.maxsize
+_MAX_SUPERVISORY = get_rules().segmentation.supervisory_max_chars or sys.maxsize
 
 #: Which kind each original qualification kind reads back as, through the CUPE form.
 _CUPE_KIND_BACK = {
@@ -414,10 +419,10 @@ def _item_survives(want: list[str], back_text: str, cap: int) -> bool:
 
 def _supervisory_survives(want: list[str], back_text: str) -> bool:
     """The supervisory prose came back — all its words, or, when the re-read reached
-    the parser's ceiling (``segmenter._MAX_SUPERVISORY``), every word up to the cut, in
-    order. The parser keeps the line's ``Supervisory:`` label in the prose (it files
-    every non-contact line there), so a 600-character original re-reads as label + 587
-    characters: a CEILING cut, not a loss the export can avoid."""
+    the parser's ceiling (``segmentation.supervisory_max_chars``, if set), every word
+    up to the cut, in order. The parser keeps the line's ``Supervisory:`` label in the
+    prose (it files every non-contact line there), so a 600-character original re-reads
+    as label + 587 characters: a CEILING cut, not a loss the export can avoid."""
     got = words(back_text)
     if _contained(want, got):
         return True
@@ -455,9 +460,11 @@ def jdfn_round_trip_losses(
 
     * title, position number, employee group (when the original has one) — **equal**;
     * position summary and additional context — **equal** word for word;
-    * duties — **same count, same order**, each re-read statement holding the original
-      verb + statement + how/why words in order (how/why print as sub-bullets of their
-      duty and the parser has no field for them, so they come back inside it);
+    * duties — **same count, same order**, each re-read duty (statement, then its
+      how/why) holding the original verb + statement + how/why words in order. How/why
+      print as sub-bullets of their duty; since parser v9 they come back AS how/why
+      (before v9 they fused into the statement — both readings satisfy this check, and
+      the v9 structure is pinned separately);
     * decision making, problem solving, qualifications — **same count, same order, same
       words** (qualifications as printed: modifier prefixed when absent). Kinds are NOT
       compared: the parser's kind is a keyword guess (``_classify_qual``);
@@ -491,7 +498,7 @@ def jdfn_round_trip_losses(
             _duty_words(d.action_verb, d.statement, list(d.how_why))
             for d in original.duties
         ],
-        [d.statement for d in reparsed.duties],
+        [" ".join((d.statement, *d.how_why)) for d in reparsed.duties],
         _MAX_DUTY_STMT,
     )
     for field in ("decision_making", "problem_solving"):
@@ -505,7 +512,7 @@ def jdfn_round_trip_losses(
         "qualification",
         [words(_qual_text(q.text, q.modifier)) for q in original.qualifications],
         [q.text for q in reparsed.qualifications],
-        _MAX_LIST_ITEM,
+        _MAX_QUAL,
     )
 
     rel_src, rel_back = original.relationships, reparsed.relationships
@@ -568,6 +575,31 @@ def jdfn_parser_limits(jd: SFUJobDescription) -> dict[str, str]:
         limits["title"] = (
             "the title holds a word the parser cuts a label value at "
             "(headings.NEXT_LABEL_RX: department, date, grade, ...)"
+        )
+        if not jd.position_number and POSITION_NO_LABEL_RX.search(
+            "\n"
+            + re.split(r"(?i)(?=position\s*(?:#|no\.?|number))", jd.title, maxsplit=1)[
+                -1
+            ]
+        ):
+            limits["position_number"] = (
+                "the draft's TITLE carries 'Position #: <id>' (a pre-v9 parse leaked "
+                "the label into the title); since v9 the parser cuts the title there "
+                "and reads the id as the position number"
+            )
+    if not jd.position_number and any(
+        POSITION_NO_LABEL_RX.search(text or "")
+        for text in (
+            jd.position_summary,
+            jd.additional_context,
+            *(d.statement for d in jd.duties),
+        )
+    ):
+        limits["position_number"] = (
+            "the draft has no position number, but its own TEXT carries a "
+            "'Position Number: …' label (copied from a member's summary), and the "
+            "parser's whole-document fallback reads it (pre-existing; found on the v9 "
+            "Bank, 1 role)"
         )
     if jd.position_number and not re.fullmatch(r"[A-Za-z0-9\-]+", jd.position_number):
         limits["position_number"] = (

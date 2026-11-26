@@ -32,8 +32,8 @@ pipeline** (`core/src/agents/` — application code, unrelated to Claude Code su
 
 | # | Use | Function | Entry point(s) | Model / mode | Prompt |
 |---|---|---|---|---|---|
-| 1 | **Harmonization rewrite** (4.2a) — reword the deterministic merge draft | `rewrite_merged_role` [rewrite/harmonize.py:421](../core/src/jd_bank/rewrite/harmonize.py#L421) | `make canonical-drafts` → `canonical/__main__._build_clients` → `runner._run_llm_passes`; also `make rewrite-golden` | `rules.rewrite.model` (`gpt-oss:120b`), **loose JSON mode**, `reasoning_effort: null` | `jd_harmonize_v2` |
-| 2 | **Quality audit** (4.2b) — advisory findings on the chosen draft | `audit_quality` [quality/audit.py:101](../core/src/jd_bank/quality/audit.py#L101) | same producer run, its **own** client (`rules.quality.*`); also the audit golden | `rules.quality.model` (`gpt-oss:120b`), **schema-constrained**, `reasoning_effort: low` | `jd_quality_v1` |
+| 1 | **Harmonization rewrite** (4.2a) — reword the deterministic merge draft | `rewrite_merged_role` [rewrite/harmonize.py](../core/src/jd_bank/rewrite/harmonize.py) | `make canonical-drafts` → `canonical/__main__._build_clients` → `runner._run_llm_passes`; also `make rewrite-golden` | `rules.rewrite.model` (`gpt-oss:120b`), **loose JSON mode**, `reasoning_effort: null`, **`max_tokens` 8192** (HR-178) | `jd_harmonize_v5` (HR-180) |
+| 2 | **Quality audit** (4.2b) — advisory findings on the chosen draft | `audit_quality` [quality/audit.py:101](../core/src/jd_bank/quality/audit.py#L101) | same producer run, its **own** client (`rules.quality.*`); also the audit golden | `rules.quality.model` (`gpt-oss:120b`), **schema-constrained**, `reasoning_effort: low`, **`max_tokens` 2048** (HR-187) | `jd_quality_v1` |
 | 3 | **Summary assist** (5.5) — suggest a Position Summary | `suggest_summary` [composer/assist.py:120](../core/src/jd_bank/composer/assist.py#L120) | `POST /jd-bank/compose/assist/summary`; `POST /jd-bank/ui/compose/assist` (with a timeout budget) | `rules.rewrite.model`, loose JSON | `jd_compose_summary_v1` |
 
 All three use `chat_json`: up to 3 transient retries with backoff, a 400 never retried,
@@ -41,6 +41,24 @@ then a bounded repair-nudge loop until the reply validates into the pydantic mod
 Rewrite and audit are **best-effort** — a failure falls back to the merge draft / omits
 the audit, never aborts the run. Every output is re-checked by the deterministic
 validator (NN #3).
+
+**Token budgets (measured 2026-10-20, rewrite pilot on the v9 Bank).** Ollama caps the
+reasoning stream and the content **separately** at `max_tokens`. At the old rewrite
+budget of 2048, 4 of 22 first calls stopped on `length` with an empty reply, saved only by
+the single repair retry; at 4096 all six re-run clusters finished first-call, the
+largest reply at 2,025 content tokens. The audit at 1024: 2 of 22 calls hit `length` and
+their retries used 1,003 / 965 of the 1,024. **Second pilot (2026-10-21, prompt v4):** at
+4096, 4 of 20 first calls stopped on `length` with an empty reply, all still in the
+reasoning phase (22.7k–25.1k reasoning characters), and one cluster failed both
+attempts. At 8192 all four finished on the first call: peak reasoning ~5,900 tokens
+(72%), peak content 3,742 (46%). The budgets are now **8192** (HR-178) and 2048
+(HR-187), both still `open`. `suggest_summary` reuses the rewrite's budget (finding 3),
+so the Builder's assist now asks for up to 8192 too.
+
+**The rewrite's input is not the raw merge draft** (2026-10-20): it is
+`rewrite/fidelity.source_view` — the draft minus the old questionnaire's instructions
+(HR-275/276) and SFU boilerplate sentences (HR-273/274). See
+[`plans/PARSER-V9-LISTS-AND-CAPS.md`](plans/PARSER-V9-LISTS-AND-CAPS.md) §15.
 
 ## JD Bank — embeddings (call site B, `nomic-embed-text`, 768-dim)
 
@@ -86,8 +104,8 @@ flowchart LR
     EMB_RUN["embeddings/runner.py<br/>serialize_document + max_chars ladder"]
     ROLE_RUN["embeddings/roles.py<br/>run_role_embedding"]
     PROD["canonical/runner.py<br/>deterministic merge draft"]
-    REWRITE["rewrite_merged_role<br/>jd_harmonize_v2 · loose JSON"]
-    AUDIT["audit_quality<br/>jd_quality_v1 · schema-constrained · effort low"]
+    REWRITE["rewrite_merged_role<br/>jd_harmonize_v5 · loose JSON · max_tokens 8192"]
+    AUDIT["audit_quality<br/>jd_quality_v1 · schema-constrained · effort low · max_tokens 2048"]
     VAL1["Validator (oracle)<br/>score · grade · gates"]
   end
 

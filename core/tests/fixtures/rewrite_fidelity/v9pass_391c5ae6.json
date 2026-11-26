@@ -1,0 +1,865 @@
+{
+ "source": "v9 Bank cluster 391c5ae6-9a17-5872-ac89-57453c3104bd (full pass 2026-10-21..25); merge rebuilt in-process from its v9 parses; model = stored final draft minus the guard's own restores",
+ "merged": {
+  "draft": {
+   "title": "Special Projects and Publications Coordinator",
+   "position_number": null,
+   "department": "SFU Art Gallery",
+   "grade": null,
+   "classification": null,
+   "employee_group": "cupe",
+   "supervisor_title": null,
+   "supervisor_position_number": null,
+   "about_sfu_present": false,
+   "position_summary": "Coordinates the realization of Special Projects (curatorial projects manifesting outside the exhibition spaces) and Publications. The Coordinator undertakes research as directed to support projects’ development; writes descriptions, works with other SFU units and community groups to support Special Projects partnerships and educational initiatives; coordinates procurement of external services as required; responds to enquiries and word processes correspondence; coordinates public events relating to Special Projects and Publications; maintains financial records, coordinates expenditures and reconciles expenditures to monthly commitment reports; coordinates publication production and oversees distribution; liaises with commissioned artists and writers. Additionally, the Coordinator welcomes visitors to gallery and as necessary sits the welcome desk and provides orientation and introduction to exhibitions; updates payroll; provides administrative support for the management of SFU’s Art Collection as required and requested by SFU Galleries Collection Manager; supports communications of special projects if necessary and as directed by Communications Manager; provides administrative support to the Director in the preparation of grant applications and reports.",
+   "duties": [
+    {
+     "action_verb": "Acts",
+     "statement": "Acts as in-house editor, checking for house-style and following grammatical guidelines according to The Chicago Manual of Style",
+     "how_why": [],
+     "frequency": "monthly"
+    },
+    {
+     "action_verb": "Assigns",
+     "statement": "Assigns and checks the work of work study students, summer students, and other contract staff",
+     "how_why": [],
+     "frequency": "monthly"
+    },
+    {
+     "action_verb": "Attends",
+     "statement": "Attends weekly and bi-weekly production and staff meetings, as well as occasional external meetings with collaborators of commissioned designers/artists as required",
+     "how_why": [],
+     "frequency": "weekly"
+    },
+    {
+     "action_verb": "Conducts",
+     "statement": "Conducts researches and develops recommendations as requested by the supervisor or Curator on software/hardware and other ancillary equipment and services as necessary, particularly as related to publication production, merchandising and distribution (including style guides and handbooks)",
+     "how_why": [],
+     "frequency": "monthly"
+    },
+    {
+     "action_verb": "Coordinates",
+     "statement": "Coordinates all phases of a number of programs running concurrently from start to finish including scheduling, research, writing, editing, liaising with artists, external service providers, collaborators and partners, processing payments, welcomes and orients gallery visitors when sitting welcome desk",
+     "how_why": [],
+     "frequency": "daily"
+    },
+    {
+     "action_verb": "Coordinates",
+     "statement": "Coordinates digital image photography by arranging photographers and/or documents, publications and editions and related materials and carries out some of the post-production; requests images from artists, and responds to media queries for images. Is able to re-size or otherwise work with images within the Adobe Creative Suite as required, and maintains the organization, storage, and backup of digital image files. Compiles and archives documentation, press, publicity and pertinent information on exhibitions and gallery programs",
+     "how_why": [],
+     "frequency": "monthly"
+    },
+    {
+     "action_verb": "Performs",
+     "statement": "Performs Special Projects research by using web-based search engines, archives, libraries, and organizing information and obtaining materials",
+     "how_why": [],
+     "frequency": "monthly"
+    },
+    {
+     "action_verb": "Performs",
+     "statement": "Performs other duties and responsibilities consistent with the job description and classification on request",
+     "how_why": [],
+     "frequency": null
+    },
+    {
+     "action_verb": "Performs",
+     "statement": "Performs routine installations of software and refers complex problems/installations to the Technical Support services",
+     "how_why": [],
+     "frequency": "monthly"
+    },
+    {
+     "action_verb": "Processes",
+     "statement": "Processes invoices, payment requisitions, prepares journal vouchers; monitors budgets, transaction details; completes payroll for all salaried staff; prepares cash summaries, records deposit amount; records audience and program statistics; examines supporting documents required to process transactions and determines if additional information is necessary",
+     "how_why": [],
+     "frequency": "weekly"
+    },
+    {
+     "action_verb": "Provides",
+     "statement": "Provides administrative support to the Director in the preparation of grant applications and reports by preparing reports on attendance and program statistics, registering reports in CADAC and the national visual arts statistics platform and analyzing statistics for grant narratives as requested by the supervisor",
+     "how_why": [],
+     "frequency": "monthly"
+    },
+    {
+     "action_verb": "Reviews",
+     "statement": "Reviews and reconciles expenditures to monthly commitment reports, liaising with Financial Services to resolve discrepancies. Maintains accounting records, and prepares periodic status reports. Monitors all administrative transactions within budget allocations and in accordance with university policies and procedures",
+     "how_why": [],
+     "frequency": "monthly"
+    }
+   ],
+   "decision_making": [],
+   "problem_solving": [],
+   "relationships": {
+    "supervisory": null,
+    "internal": [
+     "Director",
+     "< 1 hour",
+     "Frequent",
+     "President, Vice-Presidents, Deans, Faculty members",
+     "< 1 hour",
+     "Occasional",
+     "Staff",
+     "< 1 hour",
+     "Frequent",
+     "Students",
+     "< 1hour",
+     "Frequent",
+     "Artists",
+     "< 1 hour",
+     "Occasional",
+     "Community Organizations",
+     "< 1 hour",
+     "Occasional",
+     "< 1 hour",
+     "Occasional",
+     "Ancillary Services",
+     "< 1 hour",
+     "Occasional"
+    ],
+    "external": [
+     "Media and Public Relations"
+    ]
+   },
+   "qualifications": [
+    {
+     "text": "High school graduation and one year of post-secondary education or formal program equivalent, including courses or training in visual arts; accounting/bookkeeping procedures; editing; website, spreadsheet, database, Adobe Creative Suite, and desktop publishing applications",
+     "kind": "education",
+     "modifier": null
+    },
+    {
+     "text": "50 words per minute keyboarding with accuracy",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to exercise mature judgment and initiative",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to handle confidential material with discretion",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to track and reconcile accounts with accuracy",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to use graphic design and desktop publishing applications (e.g., Adobe In-Design, Photoshop, and Illustrator) at an advanced level",
+     "kind": "skill",
+     "modifier": "advanced"
+    },
+    {
+     "text": "Ability to use word processing, art cataloguing/database, spreadsheet, e-mail, and web development applications (e.g., Word, FileMaker Pro, Excel, Dreamweaver, HTML) at an intermediate level",
+     "kind": "skill",
+     "modifier": "intermediate"
+    },
+    {
+     "text": "Ability to work independently",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Advanced communication skills (oral and written)",
+     "kind": "skill",
+     "modifier": "advanced"
+    },
+    {
+     "text": "Advanced editing and proofreading skills, including up-to-date knowledge of style guides and procedures",
+     "kind": "skill",
+     "modifier": "advanced"
+    },
+    {
+     "text": "Advanced research and writing skills",
+     "kind": "skill",
+     "modifier": "advanced"
+    },
+    {
+     "text": "Excellent analytical reasoning and problem-solving skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent interpersonal skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent knowledge of art gallery protocols and presentation techniques",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent knowledge of contemporary museum or gallery administration practices",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Excellent organizational skills",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Good knowledge of proper art handling techniques",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Mathematical skill up to and including calculating percentages",
+     "kind": "skill",
+     "modifier": null
+    },
+    {
+     "text": "Ability to work at on campus and off-campus locations",
+     "kind": "ability",
+     "modifier": null
+    },
+    {
+     "text": "Ability to work flexible hours, including occasional evenings and Saturdays; and",
+     "kind": "ability",
+     "modifier": null
+    }
+   ],
+   "territorial_acknowledgement_present": false,
+   "employment_equity_present": false,
+   "additional_context": "LEVEL OF INDEPENDENCE\nWork is provided with specific instructions describing how and when it should be completed. Work is provided with general instructions. The employee makes choices about how the work will be completed within deadlines. Work is self-directed by the employee. The employee determines what work needs to be completed and when it should be completed to meet deadlines. Work is assigned on a project-by-project basis in the form of broad objectives. The employee evaluates what work needs to be completed within general time frames. Provide examples of project work:\n\nTRAINING EXERCISED\nNot required to provide training to other individuals. Explains how work is performed in his/her own position to individuals in other positions performing the same or similar work (includes training replacement employees). Provides one-on-one specialized training to other individuals. Considered a specialist in a particular area or field of study. Positions at this level may be designated as the resident department expert. Provides one-on-one training to individuals in other positions. Must have a good understanding of the work of the other positions. Positions at this level may be designated as group leaders or work leaders. Conducts training seminars for groups. Training seminars are normally scheduled and follow a prescribed format. May also develop or assist in the development of training seminars.\n\nDIRECTION EXERCISED\nNot required to provide direction to other individuals. Assigns and/or checks work of other individuals. Schedules, assigns, and checks work of other individuals. In addition to C, establishes work priorities for a unit. In addition to C and D, guides project teams.\n\nIMPACT OF ERRORS\nCommon Errors: Delay in the processing of invoices due to misinformation Data entry error Copy editing error Uncommon Errors: Errors relating to the where and when of the exhibition graphics materials, resulting in either costly re-printing or the public having incorrect information. Mishandling and damaging artwork resulting in the gallery having to pay insurance claim.\n\nEFFORT\nType of Effort Duration Frequency Climbing, reaching – putting up exhibits, hanging art (physical) < 1 hour Occasional Non-confined sitting < 1 hour Occasional Standing Transporting equipment, publications and ephemera < 1 hour < 1 hour Occasional Occasional Walking for deliveries < 1 hour Occasional Web and Promotional Designing Working on the computer (visual) 1-2 hours 1-2 hours Frequent Frequent Research, writing and editing (perceptual) 1-2 hours Frequent Keyboarding - Typing letters, data entry and other correspondence 1-2 hours Frequent Lifting/carrying of art < 1 hour Occasional Auditory: answering telephones, answering queries from the public < 1 hour Frequent Perceptual – reading information on artists to include in brochures, doing research on other websites for ideas to promote events, editing written texts; reviewing financial records. 1-2 hours Occasional\n\nWORKING CONDITIONS\nLocation Hours spent as a total of hours worked per week Office Environment/Galleries (Burnaby campus and Vancouver campus) 28 Home 7 Uncomfortable Conditions Frequency of Exposure (Occasional, Frequent, or Continuous) Interruptions Frequent Distracting noise Occasional Potential Health or Safety Hazards Frequency of Exposure (Occasional, Frequent, or Continuous) Repetitive movements Dealing with complaints / verbal abuse Continuous Occasional Keyboarding Frequent\n\nCONTINUING EDUCATION\nDoes not require any continuing education. Requires learning new university/department related procedures and/or methods. Requires learning new procedures and/or methods acquired through reading non-university/department publications. In addition to B and C, requires registration in formal seminars, training sessions, workshops, conferences, etc. In addition to B, C, and D, requires registration in post-secondary courses (one semester/equivalent)."
+  },
+  "provenance": {
+   "member_count": 2,
+   "skill_frequency": [
+    [
+     "accounts",
+     2
+    ],
+    [
+     "administration",
+     2
+    ],
+    [
+     "adobe",
+     2
+    ],
+    [
+     "advanced",
+     2
+    ],
+    [
+     "analytical",
+     2
+    ],
+    [
+     "and",
+     2
+    ],
+    [
+     "art",
+     2
+    ],
+    [
+     "calculating",
+     2
+    ],
+    [
+     "campus",
+     2
+    ],
+    [
+     "cataloguing",
+     2
+    ],
+    [
+     "communication",
+     2
+    ],
+    [
+     "confidential",
+     2
+    ],
+    [
+     "contemporary",
+     2
+    ],
+    [
+     "database",
+     2
+    ],
+    [
+     "date",
+     2
+    ],
+    [
+     "design",
+     2
+    ],
+    [
+     "desktop",
+     2
+    ],
+    [
+     "development",
+     2
+    ],
+    [
+     "discretion",
+     2
+    ],
+    [
+     "dreamweaver",
+     2
+    ],
+    [
+     "editing",
+     2
+    ],
+    [
+     "evenings",
+     2
+    ],
+    [
+     "excel",
+     2
+    ],
+    [
+     "exercise",
+     2
+    ],
+    [
+     "filemaker",
+     2
+    ],
+    [
+     "flexible",
+     2
+    ],
+    [
+     "gallery",
+     2
+    ],
+    [
+     "graphic",
+     2
+    ],
+    [
+     "guides",
+     2
+    ],
+    [
+     "handle",
+     2
+    ],
+    [
+     "handling",
+     2
+    ],
+    [
+     "hours",
+     2
+    ],
+    [
+     "html",
+     2
+    ],
+    [
+     "illustrator",
+     2
+    ],
+    [
+     "including",
+     2
+    ],
+    [
+     "independently",
+     2
+    ],
+    [
+     "initiative",
+     2
+    ],
+    [
+     "intermediate",
+     2
+    ],
+    [
+     "interpersonal",
+     2
+    ],
+    [
+     "judgment",
+     2
+    ],
+    [
+     "keyboarding",
+     2
+    ],
+    [
+     "locations",
+     2
+    ],
+    [
+     "mail",
+     2
+    ],
+    [
+     "material",
+     2
+    ],
+    [
+     "mathematical",
+     2
+    ],
+    [
+     "mature",
+     2
+    ],
+    [
+     "minute",
+     2
+    ],
+    [
+     "museum",
+     2
+    ],
+    [
+     "occasional",
+     2
+    ],
+    [
+     "off",
+     2
+    ],
+    [
+     "oral",
+     2
+    ],
+    [
+     "organizational",
+     2
+    ],
+    [
+     "per",
+     2
+    ],
+    [
+     "percentages",
+     2
+    ],
+    [
+     "photoshop",
+     2
+    ],
+    [
+     "practices",
+     2
+    ],
+    [
+     "presentation",
+     2
+    ],
+    [
+     "pro",
+     2
+    ],
+    [
+     "problem",
+     2
+    ],
+    [
+     "procedures",
+     2
+    ],
+    [
+     "processing",
+     2
+    ],
+    [
+     "proofreading",
+     2
+    ],
+    [
+     "proper",
+     2
+    ],
+    [
+     "protocols",
+     2
+    ],
+    [
+     "publishing",
+     2
+    ],
+    [
+     "reasoning",
+     2
+    ],
+    [
+     "reconcile",
+     2
+    ],
+    [
+     "research",
+     2
+    ],
+    [
+     "saturdays",
+     2
+    ],
+    [
+     "skill",
+     2
+    ],
+    [
+     "solving",
+     2
+    ],
+    [
+     "spreadsheet",
+     2
+    ],
+    [
+     "style",
+     2
+    ],
+    [
+     "techniques",
+     2
+    ],
+    [
+     "track",
+     2
+    ],
+    [
+     "use",
+     2
+    ],
+    [
+     "web",
+     2
+    ],
+    [
+     "words",
+     2
+    ],
+    [
+     "writing",
+     2
+    ],
+    [
+     "written",
+     2
+    ]
+   ],
+   "duty_coverage": [
+    [
+     "Acts as in-house editor, checking for house-style and following grammatical guidelines according to The Chicago Manual of Style",
+     2
+    ],
+    [
+     "Assigns and checks the work of work study students, summer students, and other contract staff",
+     2
+    ],
+    [
+     "Attends weekly and bi-weekly production and staff meetings, as well as occasional external meetings with collaborators of commissioned designers/artists as required",
+     2
+    ],
+    [
+     "Conducts researches and develops recommendations as requested by the supervisor or Curator on software/hardware and other ancillary equipment and services as necessary, particularly as related to publication production, merchandising and distribution (including style guides and handbooks)",
+     2
+    ],
+    [
+     "Coordinates all phases of a number of programs running concurrently from start to finish including scheduling, research, writing, editing, liaising with artists, external service providers, collaborators and partners, processing payments, welcomes and orients gallery visitors when sitting welcome desk",
+     2
+    ],
+    [
+     "Coordinates digital image photography by arranging photographers and/or documents, publications and editions and related materials and carries out some of the post-production; requests images from artists, and responds to media queries for images. Is able to re-size or otherwise work with images within the Adobe Creative Suite as required, and maintains the organization, storage, and backup of digital image files. Compiles and archives documentation, press, publicity and pertinent information on exhibitions and gallery programs",
+     2
+    ],
+    [
+     "Performs Special Projects research by using web-based search engines, archives, libraries, and organizing information and obtaining materials",
+     2
+    ],
+    [
+     "Performs other duties and responsibilities consistent with the job description and classification on request",
+     2
+    ],
+    [
+     "Performs routine installations of software and refers complex problems/installations to the Technical Support services",
+     2
+    ],
+    [
+     "Processes invoices, payment requisitions, prepares journal vouchers; monitors budgets, transaction details; completes payroll for all salaried staff; prepares cash summaries, records deposit amount; records audience and program statistics; examines supporting documents required to process transactions and determines if additional information is necessary",
+     2
+    ],
+    [
+     "Provides administrative support to the Director in the preparation of grant applications and reports by preparing reports on attendance and program statistics, registering reports in CADAC and the national visual arts statistics platform and analyzing statistics for grant narratives as requested by the supervisor",
+     2
+    ],
+    [
+     "Reviews and reconciles expenditures to monthly commitment reports, liaising with Financial Services to resolve discrepancies. Maintains accounting records, and prepares periodic status reports. Monitors all administrative transactions within budget allocations and in accordance with university policies and procedures",
+     2
+    ]
+   ],
+   "section_contributors": [
+    [
+     "additional_context",
+     [
+      1
+     ]
+    ],
+    [
+     "department",
+     [
+      0
+     ]
+    ],
+    [
+     "employee_group",
+     [
+      0,
+      1
+     ]
+    ],
+    [
+     "position_summary",
+     [
+      0
+     ]
+    ],
+    [
+     "relationships",
+     [
+      0
+     ]
+    ],
+    [
+     "title",
+     [
+      0,
+      1
+     ]
+    ]
+   ],
+   "flags": [
+    "duties_over_max",
+    "sections_not_merged"
+   ],
+   "seniority_bars": [
+    {
+     "kind": "education",
+     "policy": "max",
+     "chosen": 0,
+     "member_bars": [
+      0,
+      0
+     ]
+    }
+   ]
+  }
+ },
+ "model": {
+  "title": "Special Projects and Publications Coordinator",
+  "position_number": null,
+  "department": "SFU Art Gallery",
+  "grade": null,
+  "classification": null,
+  "employee_group": "cupe",
+  "supervisor_title": null,
+  "supervisor_position_number": null,
+  "about_sfu_present": false,
+  "position_summary": "The Special Projects and Publications Coordinator supports the development, execution, and promotion of curatorial initiatives and related publications. This role conducts research, writes and edits content, coordinates collaborations with artists, writers, and external service providers, and manages the logistical and financial aspects of projects. The coordinator also provides administrative assistance for grant applications, maintains collection records, and ensures accurate financial tracking while delivering high‑quality communication and visitor services across on‑ and off‑campus locations.",
+  "duties": [
+   {
+    "action_verb": "Edit",
+    "statement": "internal publications, ensuring adherence to house style and Chicago Manual guidelines",
+    "how_why": [],
+    "frequency": "monthly"
+   },
+   {
+    "action_verb": "Supervise",
+    "statement": "and review the work of work‑study students, summer students, and contract staff",
+    "how_why": [],
+    "frequency": "monthly"
+   },
+   {
+    "action_verb": "Participate",
+    "statement": "in weekly and bi‑weekly production and staff meetings and attend occasional external collaborator meetings as required",
+    "how_why": [],
+    "frequency": "weekly"
+   },
+   {
+    "action_verb": "Research",
+    "statement": "and develop recommendations on software, hardware, and ancillary services for publication production, merchandising and distribution",
+    "how_why": [],
+    "frequency": "monthly"
+   },
+   {
+    "action_verb": "Manage",
+    "statement": "all phases of multiple concurrent programs, including scheduling, research, writing, editing, liaison with artists and external providers, payment processing, and visitor orientation at the welcome desk",
+    "how_why": [],
+    "frequency": "daily"
+   },
+   {
+    "action_verb": "Oversee",
+    "statement": "digital image acquisition and post‑production, arrange photographers, request artist images, resize files in Adobe Creative Suite, and maintain organized storage and archives",
+    "how_why": [],
+    "frequency": "monthly"
+   },
+   {
+    "action_verb": "Conduct",
+    "statement": "special‑project research using web‑based search engines, archives, and libraries, organizing information and obtaining materials",
+    "how_why": [],
+    "frequency": "monthly"
+   },
+   {
+    "action_verb": "Perform",
+    "statement": "routine software installations and refer complex problems to Technical Support services",
+    "how_why": [],
+    "frequency": "monthly"
+   },
+   {
+    "action_verb": "Process",
+    "statement": "invoices and payment requisitions, prepare journal vouchers, monitor budgets, record cash summaries, and compile audience and program statistics",
+    "how_why": [],
+    "frequency": "weekly"
+   },
+   {
+    "action_verb": "Provide",
+    "statement": "administrative assistance to the Director for grant applications and reports, preparing attendance data and statistical analyses",
+    "how_why": [],
+    "frequency": "monthly"
+   },
+   {
+    "action_verb": "Review",
+    "statement": "and reconcile expenditures against monthly commitment reports, liaise with Financial Services, and prepare periodic accounting status reports",
+    "how_why": [],
+    "frequency": "monthly"
+   },
+   {
+    "action_verb": "Execute",
+    "statement": "other duties consistent with the classification as assigned",
+    "how_why": [],
+    "frequency": null
+   }
+  ],
+  "decision_making": [],
+  "problem_solving": [],
+  "relationships": {
+   "supervisory": null,
+   "internal": [
+    "President, Vice-Presidents, Deans, Faculty members – < 1 hour, Occasional",
+    "Staff – < 1 hour, Frequent",
+    "Students – < 1 hour, Frequent",
+    "Artists – < 1 hour, Occasional",
+    "Community Organizations – < 1 hour, Occasional",
+    "Ancillary Services – < 1 hour, Occasional",
+    "Media and Public Relations – < 1 hour, Occasional"
+   ],
+   "external": []
+  },
+  "qualifications": [
+   {
+    "text": "50 words per minute keyboarding with accuracy",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to exercise mature judgment and initiative",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to handle confidential material with discretion",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to track and reconcile accounts with accuracy",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use graphic design and desktop publishing applications (e.g., Adobe In‑Design, Photoshop, and Illustrator) at an advanced level",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to use word processing, art cataloguing/database, spreadsheet, e‑mail, and web development applications (e.g., Word, FileMaker Pro, Excel, Dreamweaver, HTML) at an intermediate level",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to work independently",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Advanced communication skills (oral and written)",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Advanced editing and proofreading skills, including up‑to‑date knowledge of style guides and procedures",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Advanced research and writing skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Excellent analytical reasoning and problem‑solving skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Excellent interpersonal skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Excellent knowledge of art gallery protocols and presentation techniques",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Excellent knowledge of contemporary museum or gallery administration practices",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Excellent organizational skills",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Good knowledge of proper art handling techniques",
+    "kind": "knowledge",
+    "modifier": null
+   },
+   {
+    "text": "Mathematical skill up to and including calculating percentages",
+    "kind": "skill",
+    "modifier": null
+   },
+   {
+    "text": "Ability to work at on‑campus and off‑campus locations",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "Ability to work flexible hours, including occasional evenings and Saturdays",
+    "kind": "ability",
+    "modifier": null
+   },
+   {
+    "text": "High school graduation and one year of post-secondary education or formal program equivalent, including courses or training in visual arts; accounting/bookkeeping procedures; editing; website, spreadsheet, database, Adobe Creative Suite, and desktop publishing applications",
+    "kind": "education",
+    "modifier": null
+   }
+  ],
+  "territorial_acknowledgement_present": false,
+  "employment_equity_present": false,
+  "additional_context": "LEVEL OF INDEPENDENCE\nWork is provided with specific instructions describing how and when it should be completed. Work is provided with general instructions. The employee makes choices about how the work will be completed within deadlines. Work is self-directed by the employee. The employee determines what work needs to be completed and when it should be completed to meet deadlines. Work is assigned on a project-by-project basis in the form of broad objectives. The employee evaluates what work needs to be completed within general time frames. Provide examples of project work:\n\nTRAINING EXERCISED\nNot required to provide training to other individuals. Explains how work is performed in his/her own position to individuals in other positions performing the same or similar work (includes training replacement employees). Provides one-on-one specialized training to other individuals. Considered a specialist in a particular area or field of study. Positions at this level may be designated as the resident department expert. Provides one-on-one training to individuals in other positions. Must have a good understanding of the work of the other positions. Positions at this level may be designated as group leaders or work leaders. Conducts training seminars for groups. Training seminars are normally scheduled and follow a prescribed format. May also develop or assist in the development of training seminars.\n\nDIRECTION EXERCISED\nNot required to provide direction to other individuals. Assigns and/or checks work of other individuals. Schedules, assigns, and checks work of other individuals. In addition to C, establishes work priorities for a unit. In addition to C and D, guides project teams.\n\nIMPACT OF ERRORS\nCommon Errors: Delay in the processing of invoices due to misinformation Data entry error Copy editing error Uncommon Errors: Errors relating to the where and when of the exhibition graphics materials, resulting in either costly re-printing or the public having incorrect information. Mishandling and damaging artwork resulting in the gallery having to pay insurance claim.\n\nEFFORT\nType of Effort Duration Frequency Climbing, reaching – putting up exhibits, hanging art (physical) < 1 hour Occasional Non-confined sitting < 1 hour Occasional Standing Transporting equipment, publications and ephemera < 1 hour < 1 hour Occasional Occasional Walking for deliveries < 1 hour Occasional Web and Promotional Designing Working on the computer (visual) 1-2 hours 1-2 hours Frequent Frequent Research, writing and editing (perceptual) 1-2 hours Frequent Keyboarding - Typing letters, data entry and other correspondence 1-2 hours Frequent Lifting/carrying of art < 1 hour Occasional Auditory: answering telephones, answering queries from the public < 1 hour Frequent Perceptual – reading information on artists to include in brochures, doing research on other websites for ideas to promote events, editing written texts; reviewing financial records. 1-2 hours Occasional\n\nWORKING CONDITIONS\nLocation Hours spent as a total of hours worked per week Office Environment/Galleries (Burnaby campus and Vancouver campus) 28 Home 7 Uncomfortable Conditions Frequency of Exposure (Occasional, Frequent, or Continuous) Interruptions Frequent Distracting noise Occasional Potential Health or Safety Hazards Frequency of Exposure (Occasional, Frequent, or Continuous) Repetitive movements Dealing with complaints / verbal abuse Continuous Occasional Keyboarding Frequent\n\nCONTINUING EDUCATION\nDoes not require any continuing education. Requires learning new university/department related procedures and/or methods. Requires learning new procedures and/or methods acquired through reading non-university/department publications. In addition to B and C, requires registration in formal seminars, training sessions, workshops, conferences, etc. In addition to B, C, and D, requires registration in post-secondary courses (one semester/equivalent)."
+ }
+}

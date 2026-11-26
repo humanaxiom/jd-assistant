@@ -1,0 +1,5 @@
+START T0=2026-11-21T04:41:34Z head=c6b55e2 (full LLM pass, all clusters, parser v11 + prompt v5, after the 2026-11-20 rebuild)
+RESTART T0=2026-11-21T16:07:06Z (after #228 merge f0b207c; first attempt 04:41Z stopped at host ctx 4096)
+STOPPED 17:28:25Z: 0 drafts after 80 min; every LLM request ended at the SDK's 600 s read timeout (expires_at stepping exactly 600 s) — host too slow at 32k ctx (size_vram 0)
+RESTART T0=2026-11-21T19:08:21Z — host fixed: gpt-oss:120b 100% GPU (size_vram=size), ~930 tok/s prefill, ~44 tok/s gen
+INTERRUPTED 2026-11-22T10:02:42Z at 375/2260 (dev box rebooted 10:01:20Z; exit 255; 375 drafts, 0 failed). RESUME T0=2026-11-22T14:16:35Z with --resume
